@@ -43,7 +43,6 @@ def build_reason_node(llm):
     """Return a reason node function ready to be added to a LangGraph StateGraph."""
 
     def reason_node(state):
-        print("\nReasoning with LLM...")
         result = call_llm(llm, SYSTEM_PROMPT, state["messages"], state["tool_catalog"])
 
         # If the LLM decided no more actions are needed (action is final), set the final response in the state and clear pending tool calls
