@@ -1,0 +1,41 @@
+{
+  "tool_name": "site_boundary_reader",
+  "site_id": "SITE_001",
+  "input": {
+    "boundary_coordinates": [
+      [0.0, 0.0],
+      [42.0, 0.0],
+      [58.0, 18.0],
+      [47.0, 42.0],
+      [20.0, 55.0],
+      [0.0, 32.0],
+      [0.0, 0.0]
+    ],
+    "units": "meters"
+  },
+  "output": {
+    "is_closed_curve": true,
+    "closed_site_boundary_curve": {
+      "type": "polyline",
+      "coordinates": [
+        [0.0, 0.0],
+        [42.0, 0.0],
+        [58.0, 18.0],
+        [47.0, 42.0],
+        [20.0, 55.0],
+        [0.0, 32.0],
+        [0.0, 0.0]
+      ]
+    },
+    "site_area": {
+      "value": 2346.5,
+      "units": "square_meters"
+    },
+    "site_perimeter": {
+      "value": 192.4,
+      "units": "meters"
+    },
+    "corner_points": 6,
+    "centroid": [28.4, 24.7]
+  }
+}

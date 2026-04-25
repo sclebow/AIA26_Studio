@@ -1,0 +1,32 @@
+{
+  "tool_name": "area_requirement_checker",
+  "check_id": "AREA_001",
+  "input": {
+    "site_boundary_reader_output": {
+      "site_id": "SITE_001",
+      "site_area": 2400.0,
+      "units": "square_meters"
+    },
+    "setback_checker_output": {
+      "total_buildable_envelope": {
+        "estimated_area": 2128.0,
+        "units": "square_meters"
+      }
+    },
+    "legal_constraints_reader_output": {
+      "maximum_permitted_footprint_area": {
+        "value": 1440.0,
+        "units": "square_meters"
+      },
+      "site_coverage_ratio_limit_percent": 60.0
+    },
+    "required_building_area": {
+      "value": 1300.0,
+      "units": "square_meters"
+    }
+  },
+  "output": {
+    "area_requirement_met": true,
+    "status": "Required building area can be accommodated within setback and legal footprint limits."
+  }
+}
