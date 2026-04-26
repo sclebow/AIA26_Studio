@@ -1,0 +1,85 @@
+{
+    "layoutId": "Layout-101",
+    
+    "outline": [[0.0, 0.0], [9.0, 0.0], [9.0, 5.0], [0.0, 5.0], [0.0, 0.0]],
+  
+    "rooms": [
+      {
+        "id": "room-1",
+        "name": "Living Room",
+        "geometry": [[0.0, 0.0], [5.0, 0.0], [5.0, 5.0], [0.0, 5.0], [0.0, 0.0]],
+        "attributes": {
+          "area": 25.0
+        }
+      },
+      {
+        "id": "room-2",
+        "name": "Bedroom 1",
+        "geometry": [[5.0, 0.0], [9.0, 0.0], [9.0, 5.0], [5.0, 5.0], [5.0, 0.0]],
+        "attributes": {
+          "area": 20.0
+        }
+      }
+    ],
+  
+    "doors": [
+      {
+        "id": "door-1",
+        "name": "Bedroom Door",
+        "geometry": [[5.0, 2.0], [5.0, 2.9]],
+        "attributes": {
+          "connectsRooms": ["room-1", "room-2"]
+        }
+      }
+    ],
+  
+    "windows": [
+      {
+        "id": "window-1",
+        "name": "Living Room Window",
+        "geometry": [[0.0, 2.0], [0.0, 3.5]],
+        "attributes": {
+          "roomId": "room-1"
+        }
+      }
+    ],
+  
+    "furniture": [
+      {
+        "id": "furn-1",
+        "name": "Main Couch",
+        "geometry": [[2.0, 3.0], [4.0, 3.0], [4.0, 4.0], [2.0, 4.0], [2.0, 3.0]],
+        "attributes": {
+          "roomId": "room-1"
+        }
+      }
+    ],
+  
+    "mep": [
+      {
+        "id": "mep-1",
+        "name": "Living Room AC",
+        "geometry": [[2.5, 4.5], [3.5, 4.5], [3.5, 4.8], [2.5, 4.8], [2.5, 4.5]],
+        "attributes": {
+          "system": "hvac"
+        }
+      },
+      {
+        "id": "mep-2",
+        "name": "Main Breaker Box",
+        "geometry": [[0.2, 0.2], [0.8, 0.2], [0.8, 0.5], [0.2, 0.5], [0.2, 0.2]],
+        "attributes": {
+          "system": "electrical"
+        }
+      }
+    ],
+  
+    "structure": [
+      {
+        "id": "wall-1",
+        "name": "North Interior Wall",
+        "geometry": [[5.0, 0.0], [5.0, 5.0]],
+        "attributes": {}
+      }
+    ]
+  }
