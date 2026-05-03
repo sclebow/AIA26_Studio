@@ -1,0 +1,10 @@
+{
+  "wooden_door":   350,
+  "metal_door":    520,
+  "window":        280,
+  "concrete_wall": 120,
+  "brick_wall":     95,
+  "glass_facade":  450,
+  "floor_tiles":    65,
+  "ceiling":        40
+}

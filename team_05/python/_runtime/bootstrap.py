@@ -17,6 +17,7 @@ class Context:
     layout_data: dict[str, Any]
     max_iterations: int
     edited_layout_path: Path
+    cost_db: dict[str, Any]
 
 
 def bootstrap() -> Context:
@@ -37,13 +38,37 @@ def bootstrap() -> Context:
     tools = mcp_client.list_tools()
     print(f"Discovered MCP tools: {[t.get('name') for t in tools]}")
 
+    # Load cost database and register it as a local tool
+    cost_db_path = Path(__file__).resolve().parents[1] / "cost_database.json"
+    cost_db: dict[str, Any] = json.loads(cost_db_path.read_text(encoding="utf-8"))
+    tools.append({
+        "name": "get_unit_cost_by_type",
+        "description": (
+            "Look up the unit cost for a building element type. "
+            f"Known types: {', '.join(cost_db.keys())}. "
+            "Returns cost per unit (doors/windows) or per m² (walls/floors/ceilings)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "element_type": {
+                    "type": "string",
+                    "description": "The element type to look up, e.g. 'wooden_door' or 'window'.",
+                }
+            },
+            "required": ["element_type"],
+            "additionalProperties": False,
+        },
+    })
+    print(f"Registered local tool: get_unit_cost_by_type ({len(cost_db)} types)")
+
     # Build the LLM with a structured-output schema tailored to the available tools
     llm = create_chat_llm(
         api_key=settings.api_key,
         base_url=settings.base_url,
         llm_model=settings.llm_model,
         timeout_seconds=settings.request_timeout_seconds,
-        model_kwargs=get_llm_response_format(tools),
+        #model_kwargs=get_llm_response_format(tools),
     )
 
     team_dir = Path(__file__).resolve().parents[2]
@@ -57,4 +82,5 @@ def bootstrap() -> Context:
         layout_data=layout_data,
         max_iterations=settings.max_iterations,
         edited_layout_path=edited_layout_path,
+        cost_db=cost_db,
     )

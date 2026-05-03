@@ -1,0 +1,52 @@
+{
+  "id": "room_001",
+  "name": "Master Bedroom",
+  "geometry": { ...
+  },
+  "attributes": {
+    "area": 48.0,
+    "height": 2.8,
+    "room_category": 0.82,
+    "privacy_category": 0.42,
+    "comfort_thermal": 0.30,
+    "comfort_visual": 0.55,
+    "sensorial_conflicts": [
+      {
+        "conflict_id": "conflict_001",
+        "dimensions": [
+          "thermal",
+          "acoustic"
+        ],
+        "severity": "medium",
+        "note": "Cold stone exterior + kitchen noise"
+      }
+    ],
+    "sensorial_suggestions": [
+      {
+        "suggestion_id": "sugg_001",
+        "type": "material_intervention",
+        "target_element_id": "wall_east",
+        "proposal": "Add wood paneling",
+        "impact_estimates": {
+          "thermal": "+0.15",
+          "acoustic": "+0.08"
+        }
+      }
+    ]
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

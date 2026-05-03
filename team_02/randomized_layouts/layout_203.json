@@ -1,0 +1,342 @@
+{
+  "layoutId": "Layout-203",
+  "name": "Family 3-Bedroom House",
+  "outline": [[0.0, 0.0], [14.0, 0.0], [14.0, 9.0], [0.0, 9.0], [0.0, 0.0]],
+  "rooms": [
+    {
+      "id": "room-1",
+      "name": "Foyer",
+      "geometry": [[0.0, 6.0], [2.0, 6.0], [2.0, 9.0], [0.0, 9.0], [0.0, 6.0]],
+      "attributes": {
+        "area": 6.0,
+        "roomType": "circulation"
+      }
+    },
+    {
+      "id": "room-2",
+      "name": "Living Room",
+      "geometry": [[2.0, 5.0], [7.0, 5.0], [7.0, 9.0], [2.0, 9.0], [2.0, 5.0]],
+      "attributes": {
+        "area": 20.0,
+        "roomType": "living"
+      }
+    },
+    {
+      "id": "room-3",
+      "name": "Dining Room",
+      "geometry": [[7.0, 6.0], [11.0, 6.0], [11.0, 9.0], [7.0, 9.0], [7.0, 6.0]],
+      "attributes": {
+        "area": 12.0,
+        "roomType": "dining"
+      }
+    },
+    {
+      "id": "room-4",
+      "name": "Kitchen",
+      "geometry": [[7.0, 2.5], [14.0, 2.5], [14.0, 6.0], [7.0, 6.0], [7.0, 2.5]],
+      "attributes": {
+        "area": 21.0,
+        "roomType": "kitchen"
+      }
+    },
+    {
+      "id": "room-5",
+      "name": "Master Bedroom",
+      "geometry": [[0.0, 0.0], [6.0, 0.0], [6.0, 5.0], [0.0, 5.0], [0.0, 0.0]],
+      "attributes": {
+        "area": 30.0,
+        "roomType": "bedroom"
+      }
+    },
+    {
+      "id": "room-6",
+      "name": "Master Bath",
+      "geometry": [[6.0, 0.0], [8.0, 0.0], [8.0, 2.5], [6.0, 2.5], [6.0, 0.0]],
+      "attributes": {
+        "area": 5.0,
+        "roomType": "bathroom"
+      }
+    },
+    {
+      "id": "room-7",
+      "name": "Bedroom 2",
+      "geometry": [[8.0, 0.0], [11.0, 0.0], [11.0, 2.5], [8.0, 2.5], [8.0, 0.0]],
+      "attributes": {
+        "area": 7.5,
+        "roomType": "bedroom"
+      }
+    },
+    {
+      "id": "room-8",
+      "name": "Bedroom 3",
+      "geometry": [[11.0, 0.0], [14.0, 0.0], [14.0, 2.5], [11.0, 2.5], [11.0, 0.0]],
+      "attributes": {
+        "area": 7.5,
+        "roomType": "bedroom"
+      }
+    },
+    {
+      "id": "room-9",
+      "name": "Guest Bath",
+      "geometry": [[11.0, 2.5], [14.0, 2.5], [14.0, 4.0], [11.0, 4.0], [11.0, 2.5]],
+      "attributes": {
+        "area": 4.5,
+        "roomType": "bathroom"
+      }
+    },
+    {
+      "id": "room-10",
+      "name": "Laundry Room",
+      "geometry": [[11.0, 4.0], [14.0, 4.0], [14.0, 5.5], [11.0, 5.5], [11.0, 4.0]],
+      "attributes": {
+        "area": 4.5,
+        "roomType": "utility"
+      }
+    }
+  ],
+  "doors": [
+    {
+      "id": "door-1",
+      "name": "Master Bedroom Door",
+      "geometry": [[6.0, 2.5], [6.5, 2.5]],
+      "attributes": {
+        "connectsRooms": ["room-1", "room-5"]
+      }
+    },
+    {
+      "id": "door-2",
+      "name": "Master Bath Door",
+      "geometry": [[7.0, 2.5], [7.5, 2.5]],
+      "attributes": {
+        "connectsRooms": ["room-5", "room-6"]
+      }
+    },
+    {
+      "id": "door-3",
+      "name": "Bedroom 2 Door",
+      "geometry": [[8.0, 1.2], [8.3, 1.2]],
+      "attributes": {
+        "connectsRooms": ["room-1", "room-7"]
+      }
+    },
+    {
+      "id": "door-4",
+      "name": "Bedroom 3 Door",
+      "geometry": [[11.0, 1.2], [11.3, 1.2]],
+      "attributes": {
+        "connectsRooms": ["room-1", "room-8"]
+      }
+    },
+    {
+      "id": "door-5",
+      "name": "Guest Bath Door",
+      "geometry": [[13.5, 4.0], [14.0, 4.0]],
+      "attributes": {
+        "connectsRooms": ["room-1", "room-9"]
+      }
+    },
+    {
+      "id": "door-6",
+      "name": "Living to Kitchen",
+      "geometry": [[7.0, 5.5], [7.3, 5.5]],
+      "attributes": {
+        "connectsRooms": ["room-2", "room-4"]
+      }
+    }
+  ],
+  "windows": [
+    {
+      "id": "window-1",
+      "name": "Master Bedroom Window",
+      "geometry": [[0.0, 1.5], [0.0, 3.5]],
+      "attributes": {
+        "roomId": "room-5"
+      }
+    },
+    {
+      "id": "window-2",
+      "name": "Master Bedroom Back Window",
+      "geometry": [[3.0, 5.0], [4.0, 5.0]],
+      "attributes": {
+        "roomId": "room-5"
+      }
+    },
+    {
+      "id": "window-3",
+      "name": "Living Room Window",
+      "geometry": [[2.0, 9.0], [4.0, 9.0]],
+      "attributes": {
+        "roomId": "room-2"
+      }
+    },
+    {
+      "id": "window-4",
+      "name": "Dining Room Window",
+      "geometry": [[9.0, 9.0], [10.5, 9.0]],
+      "attributes": {
+        "roomId": "room-3"
+      }
+    },
+    {
+      "id": "window-5",
+      "name": "Bedroom 2 Window",
+      "geometry": [[8.0, 0.0], [9.0, 0.0]],
+      "attributes": {
+        "roomId": "room-7"
+      }
+    },
+    {
+      "id": "window-6",
+      "name": "Bedroom 3 Window",
+      "geometry": [[12.0, 0.0], [13.0, 0.0]],
+      "attributes": {
+        "roomId": "room-8"
+      }
+    },
+    {
+      "id": "window-7",
+      "name": "Kitchen Window",
+      "geometry": [[14.0, 4.0], [14.0, 5.0]],
+      "attributes": {
+        "roomId": "room-4"
+      }
+    }
+  ],
+  "furniture": [
+    {
+      "id": "furn-1",
+      "name": "Master Bed",
+      "geometry": [[1.0, 1.0], [4.5, 1.0], [4.5, 3.0], [1.0, 3.0], [1.0, 1.0]],
+      "attributes": {
+        "roomId": "room-5",
+        "type": "bed"
+      }
+    },
+    {
+      "id": "furn-2",
+      "name": "Sitting Area Sofa",
+      "geometry": [[4.8, 3.5], [5.8, 3.5], [5.8, 4.8], [4.8, 4.8], [4.8, 3.5]],
+      "attributes": {
+        "roomId": "room-5",
+        "type": "sofa"
+      }
+    },
+    {
+      "id": "furn-3",
+      "name": "Living Room Sofa",
+      "geometry": [[3.0, 6.5], [6.0, 6.5], [6.0, 8.0], [3.0, 8.0], [3.0, 6.5]],
+      "attributes": {
+        "roomId": "room-2",
+        "type": "sofa"
+      }
+    },
+    {
+      "id": "furn-4",
+      "name": "Living Room Armchair",
+      "geometry": [[2.5, 5.5], [3.5, 5.5], [3.5, 6.5], [2.5, 6.5], [2.5, 5.5]],
+      "attributes": {
+        "roomId": "room-2",
+        "type": "chair"
+      }
+    },
+    {
+      "id": "furn-5",
+      "name": "Dining Table",
+      "geometry": [[8.0, 7.0], [10.5, 7.0], [10.5, 8.5], [8.0, 8.5], [8.0, 7.0]],
+      "attributes": {
+        "roomId": "room-3",
+        "type": "table"
+      }
+    },
+    {
+      "id": "furn-6",
+      "name": "Kitchen Island",
+      "geometry": [[9.0, 3.5], [11.0, 3.5], [11.0, 4.8], [9.0, 4.8], [9.0, 3.5]],
+      "attributes": {
+        "roomId": "room-4",
+        "type": "island"
+      }
+    },
+    {
+      "id": "furn-7",
+      "name": "Kitchen Cabinetry",
+      "geometry": [[8.0, 2.8], [13.5, 2.8], [13.5, 3.3], [8.0, 3.3], [8.0, 2.8]],
+      "attributes": {
+        "roomId": "room-4",
+        "type": "storage"
+      }
+    },
+    {
+      "id": "furn-8",
+      "name": "Bedroom 2 Twin Bed",
+      "geometry": [[8.5, 0.5], [10.0, 0.5], [10.0, 1.8], [8.5, 1.8], [8.5, 0.5]],
+      "attributes": {
+        "roomId": "room-7",
+        "type": "bed"
+      }
+    },
+    {
+      "id": "furn-9",
+      "name": "Bedroom 3 Twin Bed",
+      "geometry": [[11.5, 0.5], [13.0, 0.5], [13.0, 1.8], [11.5, 1.8], [11.5, 0.5]],
+      "attributes": {
+        "roomId": "room-8",
+        "type": "bed"
+      }
+    }
+  ],
+  "mep": [
+    {
+      "id": "mep-1",
+      "name": "HVAC Central Unit",
+      "geometry": [[7.5, 4.5], [8.5, 4.5], [8.5, 5.2], [7.5, 5.2], [7.5, 4.5]],
+      "attributes": {
+        "system": "hvac"
+      }
+    },
+    {
+      "id": "mep-2",
+      "name": "Water Heater",
+      "geometry": [[12.5, 5.3], [13.5, 5.3], [13.5, 6.5], [12.5, 6.5], [12.5, 5.3]],
+      "attributes": {
+        "system": "plumbing"
+      }
+    },
+    {
+      "id": "mep-3",
+      "name": "Electrical Panel",
+      "geometry": [[0.3, 0.3], [1.0, 0.3], [1.0, 1.0], [0.3, 1.0], [0.3, 0.3]],
+      "attributes": {
+        "system": "electrical"
+      }
+    },
+    {
+      "id": "mep-4",
+      "name": "Kitchen Range Hood",
+      "geometry": [[10.0, 6.0], [11.5, 6.0], [11.5, 6.3], [10.0, 6.3], [10.0, 6.0]],
+      "attributes": {
+        "system": "ventilation"
+      }
+    }
+  ],
+  "structure": [
+    {
+      "id": "wall-1",
+      "name": "Vertical Main Wall",
+      "geometry": [[7.0, 0.0], [7.0, 9.0]],
+      "attributes": {}
+    },
+    {
+      "id": "wall-2",
+      "name": "Kitchen Upper Wall",
+      "geometry": [[7.0, 2.5], [14.0, 2.5]],
+      "attributes": {}
+    },
+    {
+      "id": "wall-3",
+      "name": "Living Room Divider",
+      "geometry": [[7.0, 5.0], [11.0, 5.0]],
+      "attributes": {}
+    }
+  ]
+}
