@@ -9,7 +9,7 @@ from _runtime.llm import write_tool_result
 # Tool node — executes MCP tool calls requested by the reason node.
 # ---------------------------------------------------------------------------
 
-def build_tool_node(mcp_client, allowed_tools, edited_layout_path):
+def build_tool_node(mcp_client, allowed_tools, edited_layout_path, cost_db: dict | None = None):
     """Return a tool node function ready to be added to a LangGraph StateGraph."""
 
     allowed_names = {t["name"] for t in allowed_tools if t.get("name")}
@@ -39,8 +39,17 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path):
             if "layout_json" in tool_args:
                 tool_args["layout_json"] = state["layout_json_string"]
 
-            # Call the tool
-            tool_output = mcp_client.call_tool(tool_name, tool_args)
+            # Call the tool (local cost DB lookup or MCP)
+            if tool_name == "get_unit_cost_by_type" and cost_db is not None:
+                element_type = str(tool_args.get("element_type", "")).lower().replace(" ", "_")
+                cost = cost_db.get(element_type)
+                tool_output = json.dumps(
+                    {"element_type": element_type, "unit_cost": cost, "currency": "EUR"}
+                    if cost is not None
+                    else {"error": f"No cost data for '{element_type}'", "known_types": list(cost_db.keys())}
+                )
+            else:
+                tool_output = mcp_client.call_tool(tool_name, tool_args)
 
             # Store the updated layout returned by the MCP tool to a json file
             write_tool_result(tool_output, edited_layout_path)
