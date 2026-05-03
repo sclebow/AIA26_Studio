@@ -68,7 +68,7 @@ def bootstrap() -> Context:
         base_url=settings.base_url,
         llm_model=settings.llm_model,
         timeout_seconds=settings.request_timeout_seconds,
-        model_kwargs=get_llm_response_format(tools),
+        #model_kwargs=get_llm_response_format(tools),
     )
 
     team_dir = Path(__file__).resolve().parents[2]

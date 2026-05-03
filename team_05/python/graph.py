@@ -1,18 +1,32 @@
 from __future__ import annotations
 import json
-from typing import Any, TypedDict
+from typing import Any
 from langgraph.graph import END, START, StateGraph
-from nodes.reason import build_reason_node
+from _runtime.llm import call_llm
 from nodes.tools import build_tool_node
 
 
 # =============================================================================
-# graph.py — Define the agent graph: state, nodes, and edges.
+# graph.py — Agent graph implementing the cost-calculation & trade-off workflow.
 #
-# This is the main file you edit to change how the agent works.
-# - AgentState  : the data that flows through the graph
-# - build_graph : wires nodes and edges together
-# - run_agent   : called from main.py; builds and runs the graph once
+# Graph structure follows flowchart_sketch.json:
+#   user_prompt → reasoning (hub)
+#     → clarify_with_user (if data missing) → reasoning
+#     → extract_intend → trade_off_advice → extract_advice_intent
+#                          → define_baseline/alternative_scenario
+#                          → price_calculation_request
+#                      → price_calculation_request (direct)
+#     → extract_input_data → layout_processing ↔ tool
+#                           → price_calculation_request
+#   price_calculation_request → element_identification ↔ tool
+#     → price_gathering_by_type ↔ tool
+#     → construct_model → reasoning (if incomplete) | cost_calculation
+#   cost_calculation → generate_heatmap ↔ tool → present_heatmap
+#                                                   → modify_price_request → reasoning
+#                                                   → END
+#                   → calculate_delta → generate_recommendation → present_comparison
+#                                                   → modify_price_request → reasoning
+#                                                   → END
 # =============================================================================
 
 
@@ -21,23 +35,142 @@ from nodes.tools import build_tool_node
 # ---------------------------------------------------------------------------
 
 class AgentState():
-    messages: list[dict[str, Any]]       # full conversation history
-    pending_tool_calls: list[dict[str, Any]] | None  # tool calls queued by the reason node
-    final_response: str | None           # set when the agent is done
-    iteration: int                       # current tool-call count
-    max_iterations: int                  # safety cap to stop the process (set from .env)
-    tool_catalog: str                    # formatted list of available MCP tools
-    layout_json_string: str              # current layout as a JSON string, injected into tool calls
+    # Original fields
+    messages: list[dict[str, Any]]
+    pending_tool_calls: list[dict[str, Any]] | None
+    final_response: str | None
+    iteration: int
+    max_iterations: int
+    tool_catalog: str
+    layout_json_string: str
+
+    # Workflow tracking fields
+    workflow_step: str            # last active step name (for post-tool routing)
+    user_intent: str | None       # "trade_off_advice" | "price_calculation"
+    clarification_needed: bool    # whether to stop and ask the user
+    input_data_ready: bool        # layout/input data validated
+    has_layout: bool              # layout JSON is present in state
+    scenario_type: str | None     # "baseline" | "alternative"
+    measurements_ready: bool      # element measurements have been gathered
+    costs_ready: bool             # unit costs retrieved from database
+    is_baseline_cost: bool | None # True = baseline pass, False = alternative pass
+    heatmap_generated: bool       # heatmap tool has completed
+    delta: float | None           # cost delta between scenarios
+    recommendation: str | None    # generated trade-off recommendation text
+    modification_requested: bool  # loop flag: continue to alternative or re-run
+    model_complete: bool          # cost model has all required data
 
 
 # ---------------------------------------------------------------------------
-# Routing — decides which node runs next after "reason".
+# Helpers
 # ---------------------------------------------------------------------------
 
-def _route(state: AgentState) -> str:
-    if state["final_response"] is not None:
-        return "finish"
-    return "run_tool"
+def _classify_intent(messages: list[dict]) -> str:
+    """Keyword-based intent classification from conversation text."""
+    text = " ".join(m.get("content", "") for m in messages).lower()
+    trade_off_kws = [
+        "compare", "trade-off", "tradeoff", "trade off", "alternative",
+        "which is better", "baseline vs", "scenario", "versus", " vs ",
+        "comparison", "better option",
+    ]
+    return "trade_off_advice" if any(kw in text for kw in trade_off_kws) else "price_calculation"
+
+
+def _classify_scenario(messages: list[dict]) -> str:
+    """Keyword-based scenario type classification from conversation text."""
+    text = " ".join(m.get("content", "") for m in messages).lower()
+    alt_kws = ["alternative", "modified", "new design", "what if", "instead", "option b", "variant"]
+    return "alternative" if any(kw in text for kw in alt_kws) else "baseline"
+
+
+# ---------------------------------------------------------------------------
+# Routing functions — decide which node runs next after each step.
+# ---------------------------------------------------------------------------
+
+def _route_reasoning(state) -> str:
+    if state.get("clarification_needed"):
+        return "clarify_with_user"
+    if not state.get("user_intent"):
+        return "extract_intend"
+    return "extract_input_data"
+
+
+def _route_extract_intend(state) -> str:
+    if state.get("user_intent") == "trade_off_advice":
+        return "trade_off_advice"
+    return "price_calculation_request"
+
+
+def _route_extract_input_data(state) -> str:
+    if state.get("clarification_needed"):
+        return "clarify_with_user"
+    if not state.get("has_layout"):
+        return "layout_processing"
+    return "price_calculation_request"
+
+
+def _route_layout_processing(state) -> str:
+    if state.get("pending_tool_calls"):
+        return "tool"
+    return "price_calculation_request"
+
+
+def _route_extract_advice_intent(state) -> str:
+    if state.get("scenario_type") == "alternative":
+        return "define_alternative_scenario"
+    return "define_baseline_scenario"
+
+
+def _route_element_identification(state) -> str:
+    if state.get("pending_tool_calls"):
+        return "tool"
+    return "price_gathering_by_type"
+
+
+def _route_price_gathering(state) -> str:
+    if state.get("pending_tool_calls"):
+        return "tool"
+    return "construct_model"
+
+
+def _route_construct_model(state) -> str:
+    if not state.get("model_complete", True):
+        return "reasoning"
+    return "cost_calculation"
+
+
+def _route_cost_calculation(state) -> str:
+    if state.get("is_baseline_cost") is False:
+        return "calculate_delta"
+    return "generate_heatmap"
+
+
+def _route_generate_heatmap(state) -> str:
+    if state.get("pending_tool_calls"):
+        return "tool"
+    return "present_heatmap"
+
+
+def _route_present_heatmap(state) -> str:
+    if state.get("modification_requested"):
+        return "modify_price_request"
+    return "finish"
+
+
+def _route_present_comparison(state) -> str:
+    if state.get("modification_requested"):
+        return "modify_price_request"
+    return "finish"
+
+
+def _route_tool(state) -> str:
+    """After a tool executes, return to the node that requested it."""
+    return {
+        "layout_processing":      "layout_processing",
+        "element_identification": "element_identification",
+        "price_gathering_by_type": "price_gathering_by_type",
+        "generate_heatmap":       "generate_heatmap",
+    }.get(state.get("workflow_step", ""), "reasoning")
 
 
 # ---------------------------------------------------------------------------
@@ -474,7 +607,7 @@ def _build_modify_request_node():
 
 
 # ---------------------------------------------------------------------------
-# Graph wiring
+# Graph wiring — add nodes and edges here.
 # ---------------------------------------------------------------------------
 
 def build_graph(ctx: Any) -> Any:
@@ -503,14 +636,121 @@ def build_graph(ctx: Any) -> Any:
 
     graph = StateGraph(AgentState)
 
-    # Add the nodes
-    graph.add_node("reason", reason)
-    graph.add_node("tool", tool)
+    # Register nodes
+    graph.add_node("reasoning",                 reasoning)
+    graph.add_node("clarify_with_user",         clarify)
+    graph.add_node("extract_intend",            extract_intend)
+    graph.add_node("extract_input_data",        extract_input_data)
+    graph.add_node("layout_processing",         layout_processing)
+    graph.add_node("trade_off_advice",          trade_off_advice)
+    graph.add_node("extract_advice_intent",     extract_advice_intent)
+    graph.add_node("define_baseline_scenario",  define_baseline)
+    graph.add_node("define_alternative_scenario", define_alternative)
+    graph.add_node("price_calculation_request", price_calc_request)
+    graph.add_node("element_identification",    element_id)
+    graph.add_node("price_gathering_by_type",   price_gathering)
+    graph.add_node("construct_model",           construct_model)
+    graph.add_node("cost_calculation",          cost_calculation)
+    graph.add_node("generate_heatmap",          generate_heatmap)
+    graph.add_node("present_heatmap",           present_heatmap)
+    graph.add_node("calculate_delta",           calculate_delta)
+    graph.add_node("generate_recommendation",   gen_recommendation)
+    graph.add_node("present_comparison",        present_comparison)
+    graph.add_node("modify_price_request",      modify_request)
+    graph.add_node("tool",                      tool)
 
-    # Add the edges
-    graph.add_edge(START, "reason")
-    graph.add_conditional_edges("reason", _route, {"run_tool": "tool", "finish": END})
-    graph.add_edge("tool", "reason")
+    # ── Entry point ────────────────────────────────────────────────────────────
+    graph.add_edge(START, "reasoning")
+
+    # ── Reasoning hub (central router) ────────────────────────────────────────
+    graph.add_conditional_edges("reasoning", _route_reasoning, {
+        "clarify_with_user":  "clarify_with_user",
+        "extract_intend":     "extract_intend",
+        "extract_input_data": "extract_input_data",
+    })
+
+    # ── Clarification terminal ─────────────────────────────────────────────────
+    graph.add_edge("clarify_with_user", END)
+
+    # ── Intent extraction path ─────────────────────────────────────────────────
+    graph.add_conditional_edges("extract_intend", _route_extract_intend, {
+        "trade_off_advice":         "trade_off_advice",
+        "price_calculation_request": "price_calculation_request",
+    })
+
+    # ── Input data validation path ─────────────────────────────────────────────
+    graph.add_conditional_edges("extract_input_data", _route_extract_input_data, {
+        "clarify_with_user":         "clarify_with_user",
+        "layout_processing":         "layout_processing",
+        "price_calculation_request": "price_calculation_request",
+    })
+
+    # ── Layout processing (bidirectional tool call) ────────────────────────────
+    graph.add_conditional_edges("layout_processing", _route_layout_processing, {
+        "tool":                      "tool",
+        "price_calculation_request": "price_calculation_request",
+    })
+
+    # ── Trade-off advice path ──────────────────────────────────────────────────
+    graph.add_edge("trade_off_advice",  "extract_advice_intent")
+    graph.add_conditional_edges("extract_advice_intent", _route_extract_advice_intent, {
+        "define_baseline_scenario":    "define_baseline_scenario",
+        "define_alternative_scenario": "define_alternative_scenario",
+    })
+    graph.add_edge("define_baseline_scenario",    "price_calculation_request")
+    graph.add_edge("define_alternative_scenario", "price_calculation_request")
+
+    # ── Price calculation pipeline ─────────────────────────────────────────────
+    graph.add_edge("price_calculation_request", "element_identification")
+
+    graph.add_conditional_edges("element_identification", _route_element_identification, {
+        "tool":                    "tool",
+        "price_gathering_by_type": "price_gathering_by_type",
+    })
+    graph.add_conditional_edges("price_gathering_by_type", _route_price_gathering, {
+        "tool":            "tool",
+        "construct_model": "construct_model",
+    })
+    graph.add_conditional_edges("construct_model", _route_construct_model, {
+        "reasoning":        "reasoning",
+        "cost_calculation": "cost_calculation",
+    })
+
+    # ── Cost calculation branches ──────────────────────────────────────────────
+    graph.add_conditional_edges("cost_calculation", _route_cost_calculation, {
+        "generate_heatmap": "generate_heatmap",
+        "calculate_delta":  "calculate_delta",
+    })
+
+    # ── Baseline path: heatmap + presentation ─────────────────────────────────
+    graph.add_conditional_edges("generate_heatmap", _route_generate_heatmap, {
+        "tool":           "tool",
+        "present_heatmap": "present_heatmap",
+    })
+    graph.add_conditional_edges("present_heatmap", _route_present_heatmap, {
+        "modify_price_request": "modify_price_request",
+        "finish":               END,
+    })
+
+    # ── Alternative path: delta + recommendation + comparison ─────────────────
+    graph.add_edge("calculate_delta",          "generate_recommendation")
+    graph.add_edge("generate_recommendation",  "present_comparison")
+    graph.add_conditional_edges("present_comparison", _route_present_comparison, {
+        "modify_price_request": "modify_price_request",
+        "finish":               END,
+    })
+
+    # ── Modification loop back to reasoning hub ────────────────────────────────
+    graph.add_edge("modify_price_request", "reasoning")
+
+    # ── Tool return routing ────────────────────────────────────────────────────
+    graph.add_conditional_edges("tool", _route_tool, {
+        "reasoning":               "reasoning",
+        "layout_processing":       "layout_processing",
+        "element_identification":  "element_identification",
+        "price_gathering_by_type": "price_gathering_by_type",
+        "generate_heatmap":        "generate_heatmap",
+    })
 
     return graph.compile()
 
@@ -525,7 +765,6 @@ def run_agent(prompt: str, ctx: Any) -> str:
     initial_state = _build_initial_state(prompt, ctx)
     final_state = app.invoke(initial_state)
 
-    # Uncomment these two lines to see the graph structure in the terminal
     print("\nWorkflow graph:")
     app.get_graph().print_ascii()
 
@@ -540,19 +779,17 @@ def run_agent(prompt: str, ctx: Any) -> str:
 # ---------------------------------------------------------------------------
 
 def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
-
-    # Convert the layout data to a JSON string
     layout_text = json.dumps(ctx.layout_data, indent=2)
 
-    # Engineer the user message
     user_message = (
-        "Context: the current layout is JSON below. "
+        "Context: the current layout is the JSON below. "
         "Valid room names are rooms[].name.\n\n"
         f"User request:\n{prompt}\n\n"
         f"Current layout JSON:\n{layout_text}"
     )
 
     return {
+        # Original fields
         "messages": [{"role": "user", "content": user_message}],
         "pending_tool_calls": None,
         "final_response": None,

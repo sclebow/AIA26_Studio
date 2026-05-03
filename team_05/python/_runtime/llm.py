@@ -3,7 +3,7 @@ from copy import deepcopy
 import json
 from pathlib import Path
 from typing import Any
-from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 
 
 # ---------------------------------------------------------------------------
@@ -16,15 +16,25 @@ def create_chat_llm(
     llm_model: str,
     timeout_seconds: float,
     model_kwargs: dict[str, Any] | None = None,
-) -> ChatOpenAI:
-    return ChatOpenAI(
+) -> ChatAnthropic:
+    return ChatAnthropic(
         api_key=api_key,
         base_url=base_url,
         model=llm_model,
         timeout=timeout_seconds,
         temperature=0,
         model_kwargs=model_kwargs or {},
+        max_tokens=2000
     )
+# ) -> ChatOpenAI:
+#     return ChatOpenAI(
+#         api_key=api_key,
+#         base_url=base_url,
+#         model=llm_model,
+#         timeout=timeout_seconds,
+#         temperature=0,
+#         model_kwargs=model_kwargs or {},
+#     )
 
 
 # ---------------------------------------------------------------------------
@@ -133,8 +143,25 @@ def _strip_markdown_code_fence(content: str) -> str:
     return "\n".join(lines[1:-1]).strip()
 
 
+def _extract_json_object(content: str) -> str:
+    """Find and return the first complete {...} block in content."""
+    start = content.find("{")
+    if start == -1:
+        return content
+    depth = 0
+    for i, ch in enumerate(content[start:], start):
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return content[start : i + 1]
+    return content[start:]
+
+
 def _parse_llm_json(content: str) -> dict[str, Any]:
     content = _strip_markdown_code_fence(content)
+    content = _extract_json_object(content)
     try:
         parsed = json.loads(content)
         if not isinstance(parsed, dict):
@@ -200,6 +227,20 @@ def _normalize_llm_decision(parsed: dict[str, Any]) -> dict[str, Any]:
 # Public convenience function used by reason nodes
 # ---------------------------------------------------------------------------
 
+_JSON_INSTRUCTION = """
+IMPORTANT: You must respond with ONLY a valid JSON object — no prose, no markdown, no XML.
+Use exactly this schema:
+
+To call a tool:
+{"action": "tool", "final_response": "", "tool_calls": [{"name": "<tool_name>", "arguments": {<key>: <value>}}]}
+
+To give a final answer:
+{"action": "final", "final_response": "<your answer here>", "tool_calls": []}
+
+Do not include any text outside the JSON object.
+"""
+
+
 def call_llm(
     llm: Any,
     system_prompt: str,
@@ -212,13 +253,24 @@ def call_llm(
       {"action": "final", "final_response": "<text>"}
       {"action": "tool",  "tool_calls": [{"name": "<tool>", "arguments": {...}}]}
     """
-    formatted_prompt = system_prompt.format(tool_catalog=tool_catalog)
+    formatted_prompt = system_prompt.format(tool_catalog=tool_catalog) + _JSON_INSTRUCTION
     llm_messages = [{"role": "system", "content": formatted_prompt}] + messages
 
-    result = llm.invoke(llm_messages)
+    try:
+      result = llm.invoke(llm_messages)
+    except Exception as e:
+       print(f"[llm] Error: {e}")
+       print(f"[llm] Last response object: {getattr(e, 'completion', None)}")
+       raise
     content = result.content
+    if isinstance(content, list):
+        # ChatAnthropic returns a list of content blocks; extract text parts
+        content = " ".join(
+            block["text"] for block in content
+            if isinstance(block, dict) and block.get("type") == "text" and block.get("text")
+        )
     if not isinstance(content, str):
-        raise RuntimeError("LLM response content must be a string")
+        raise RuntimeError(f"LLM response content must be a string, got: {type(content)}")
 
     try:
         return _normalize_llm_decision(_parse_llm_json(content))
