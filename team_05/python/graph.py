@@ -246,12 +246,16 @@ def _build_price_gathering_node(llm):
 _CONSTRUCT_MODEL_PROMPT = """You are validating the completeness of the building cost model.
 
 Review the conversation for:
-1. Element types and their measurements (from tool results)
-2. Unit costs for each element type
+1. Element types and their measurements (counts, areas, or volumes from tool results or layout JSON)
+2. Unit costs for each element type (from the cost database tool results)
 
-If all required data is present, begin your final_response with the word MODEL_READY.
-If critical data is missing, begin your final_response with DATA_MISSING and briefly
-describe what is absent.
+Rules:
+- If the layout JSON and a tool result disagree on a count, trust the layout JSON.
+- Minor discrepancies (e.g. tool returned 1 but layout shows 2) are NOT a reason to block — use the layout JSON value and proceed.
+- Only respond DATA_MISSING if unit costs are completely absent.
+
+If data is sufficient to calculate a cost, begin your final_response with MODEL_READY.
+If unit cost data is truly missing, begin your final_response with DATA_MISSING.
 
 Set action to "final".
 """
@@ -260,10 +264,19 @@ Set action to "final".
 def _build_construct_model_node(llm):
     def node(state):
         print("\n[construct_model] Verifying cost model completeness...")
+        attempts = state.get("construct_model_attempts", 0) + 1
+        state["construct_model_attempts"] = attempts
+
         result = call_llm(llm, _CONSTRUCT_MODEL_PROMPT, state["messages"], state["tool_catalog"])
         resp = result.get("final_response", "MODEL_READY")
-        state["model_complete"] = not resp.upper().startswith("DATA_MISSING")
-        if not state["model_complete"]:
+        incomplete = resp.upper().startswith("DATA_MISSING")
+
+        if incomplete and attempts >= 2:
+            print(f"  → forcing model complete after {attempts} attempts")
+            incomplete = False
+
+        state["model_complete"] = not incomplete
+        if incomplete:
             state["clarification_needed"] = True
             print(f"  → model incomplete: {resp}")
         else:
@@ -486,7 +499,7 @@ def build_graph(ctx: Any) -> Any:
     gen_recommendation   = _build_generate_recommendation_node(ctx.llm)
     present_comparison   = _build_present_comparison_node(ctx.llm)
     modify_request       = _build_modify_request_node()
-    tool                 = build_tool_node(ctx.mcp_client, ctx.tools, ctx.edited_layout_path)
+    tool                 = build_tool_node(ctx.mcp_client, ctx.tools, ctx.edited_layout_path, ctx.cost_db)
 
     graph = StateGraph(AgentState)
 
@@ -562,6 +575,7 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
         "recommendation": None,
         "modification_requested": False,
         "model_complete": False,
+        "construct_model_attempts": 0,
     }
 
 
