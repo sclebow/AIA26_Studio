@@ -23,7 +23,6 @@ def create_chat_llm(
         model=llm_model,
         timeout=timeout_seconds,
         temperature=0,
-        max_tokens=8192,
         model_kwargs=model_kwargs or {},
     )
 
@@ -94,16 +93,28 @@ def _build_arguments_schema(tools: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "type": "object",
         "properties": merged_properties,
-        "required": [],
+        "required": list(merged_properties.keys()),
         "additionalProperties": False,
     }
 
 
 def get_llm_response_format(tools: list[dict[str, Any]]) -> dict[str, Any]:
-    # Return empty — no response_format overhead.
-    # The system prompt already instructs the model to output strict JSON,
-    # and _parse_llm_json handles parsing the free-text response.
-    return {}
+    schema = deepcopy(LLM_DECISION_SCHEMA)
+    tool_names = [str(tool.get("name")) for tool in tools if tool.get("name")]
+    tool_call_schema = schema["properties"]["tool_calls"]["items"]
+    tool_call_schema["properties"]["name"]["enum"] = tool_names
+    tool_call_schema["properties"]["arguments"] = _build_arguments_schema(tools)
+
+    return {
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "agent_decision",
+                "strict": True,
+                "schema": schema,
+            },
+        }
+    }
 
 
 # ---------------------------------------------------------------------------
