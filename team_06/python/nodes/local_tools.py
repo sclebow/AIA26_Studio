@@ -11,6 +11,7 @@ from typing import Any
 
 from tools.embedding_matcher import match_layouts
 from tools.layout_filter import select_layout
+from tools.boundary_analyzer import boundary_analyzer, get_boundary_analyzer_schema
 
 
 
@@ -21,6 +22,7 @@ from tools.layout_filter import select_layout
 def get_local_tools() -> list[dict[str, Any]]:
     """Return definitions of all local (non-MCP) tools."""
     return [
+        get_boundary_analyzer_schema(),
         {
             "name": "layout_filter",
             "description": "Search and filter layouts by ID",
@@ -79,7 +81,7 @@ def build_local_tool_node():
             tool_name = call["name"]
             
             # Skip non-local tools
-            if tool_name not in ["layout_filter", "layout_matcher"]:
+            if tool_name not in ["layout_filter", "layout_matcher", "boundary_analyzer"]:
                 remaining_calls.append(call)
                 continue
             
@@ -89,7 +91,13 @@ def build_local_tool_node():
             tool_args = {k: v for k, v in call["arguments"].items() if v is not None}
 
             # Execute the appropriate local tool
-            if tool_name == "layout_filter":
+            if tool_name == "boundary_analyzer":
+                tool_output = boundary_analyzer(
+                    input_boundary=tool_args.get("input_boundary"),
+                    dataset_path=tool_args.get("dataset_path"),
+                    top_n_results=tool_args.get("top_n_results", 5)
+                )
+            elif tool_name == "layout_filter":
                 tool_output = select_layout(
                     all_layouts=state["all_layouts"],
                     layout_id=tool_args.get("layout_id")
