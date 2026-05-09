@@ -10,6 +10,31 @@ from datetime import datetime
 from typing import List, Tuple, Dict, Any
 import numpy as np
 
+from utils.svg_utils import generate_boundary_comparison_svg
+
+
+# ============================================================================
+# CONSTANTS
+# ============================================================================
+
+# Scoring weights (must sum to 1.0)
+WEIGHT_AREA = 0.2
+WEIGHT_IOU = 0.5
+WEIGHT_TOPOLOGY = 0.3
+
+# Grid-based IoU sampling resolution
+GRID_RESOLUTION = 100
+
+# Rotation angles to test (degrees)
+ROTATION_ANGLES = [0, 90, 180, 270]
+
+# Default number of top matches to return
+DEFAULT_TOP_N = 5
+
+
+# ============================================================================
+# TOOL SCHEMA
+# ============================================================================
 
 def get_boundary_analyzer_schema() -> Dict[str, Any]:
     """Return the MCP tool schema for boundary_analyzer."""
@@ -37,7 +62,7 @@ def get_boundary_analyzer_schema() -> Dict[str, Any]:
                 "top_n_results": {
                     "type": "integer",
                     "description": "Number of top matches to return",
-                    "default": 5
+                    "default": DEFAULT_TOP_N
                 }
             },
             "required": ["input_boundary"]
@@ -72,84 +97,128 @@ def polygon_compactness(area: float, perimeter: float) -> float:
     return (4 * math.pi * area) / (perimeter ** 2)
 
 
-def clip_polygon_component(polygon: List[List[float]], edge_start: List[float], edge_end: List[float]) -> List[List[float]]:
-    """Sutherland-Hodgman: Clip polygon against a single edge."""
-    def inside(point: List[float]) -> bool:
-        """Check if point is on the left side of the edge."""
-        return (edge_end[0] - edge_start[0]) * (point[1] - edge_start[1]) - \
-               (edge_end[1] - edge_start[1]) * (point[0] - edge_start[0]) >= 0
-    
-    def intersection(p1: List[float], p2: List[float]) -> List[float]:
-        """Find intersection point of line segment with edge."""
-        x1, y1 = p1
-        x2, y2 = p2
-        x3, y3 = edge_start
-        x4, y4 = edge_end
-        
-        denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
-        if abs(denom) < 1e-10:
-            return p1
-        
-        t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
-        return [x1 + t * (x2 - x1), y1 + t * (y2 - y1)]
-    
-    if not polygon:
-        return []
-    
-    output = []
-    prev_point = polygon[-1]
-    prev_inside = inside(prev_point)
-    
-    for curr_point in polygon:
-        curr_inside = inside(curr_point)
-        
-        if curr_inside:
-            if not prev_inside:
-                output.append(intersection(prev_point, curr_point))
-            output.append(curr_point)
-        elif prev_inside:
-            output.append(intersection(prev_point, curr_point))
-        
-        prev_point = curr_point
-        prev_inside = curr_inside
-    
-    return output
+def get_bounding_box(coords: List[List[float]]) -> Tuple[float, float, float, float]:
+    """Get bounding box (min_x, max_x, min_y, max_y) of polygon."""
+    coords_array = np.array(coords)
+    min_x = coords_array[:, 0].min()
+    max_x = coords_array[:, 0].max()
+    min_y = coords_array[:, 1].min()
+    max_y = coords_array[:, 1].max()
+    return min_x, max_x, min_y, max_y
 
 
-def polygon_intersection(poly1: List[List[float]], poly2: List[List[float]]) -> List[List[float]]:
-    """Calculate polygon intersection using Sutherland-Hodgman algorithm."""
-    output = list(poly1)
-    
-    for i in range(len(poly2)):
-        if not output:
-            break
-        edge_start = poly2[i]
-        edge_end = poly2[(i + 1) % len(poly2)]
-        output = clip_polygon_component(output, edge_start, edge_end)
-    
-    return output
+def normalize_to_origin(coords: List[List[float]]) -> List[List[float]]:
+    """Translate polygon so its bounding box starts at (0, 0)."""
+    min_x, _, min_y, _ = get_bounding_box(coords)
+    return [[x - min_x, y - min_y] for x, y in coords]
 
 
-def calculate_iou(coords1: List[List[float]], coords2: List[List[float]]) -> float:
-    """Calculate Intersection over Union (IoU) for two polygons."""
-    area1 = polygon_area(coords1)
-    area2 = polygon_area(coords2)
+def rotate_polygon(coords: List[List[float]], angle_degrees: float) -> List[List[float]]:
+    """Rotate polygon around its centroid."""
+    coords_array = np.array(coords)
     
-    if area1 == 0 or area2 == 0:
+    # Calculate centroid
+    cx = coords_array[:, 0].mean()
+    cy = coords_array[:, 1].mean()
+    
+    # Translate to origin
+    translated = coords_array - [cx, cy]
+    
+    # Rotate
+    angle_rad = np.radians(angle_degrees)
+    cos_a = np.cos(angle_rad)
+    sin_a = np.sin(angle_rad)
+    rotation_matrix = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
+    rotated = translated @ rotation_matrix.T
+    
+    # Translate back
+    result = rotated + [cx, cy]
+    
+    return result.tolist()
+
+
+def point_in_polygon(point: Tuple[float, float], polygon: List[List[float]]) -> bool:
+    """Check if a point is inside a polygon using ray casting algorithm."""
+    x, y = point
+    n = len(polygon)
+    inside = False
+    
+    p1x, p1y = polygon[0]
+    for i in range(1, n + 1):
+        p2x, p2y = polygon[i % n]
+        if y > min(p1y, p2y):
+            if y <= max(p1y, p2y):
+                if x <= max(p1x, p2x):
+                    if p1y != p2y:
+                        xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                    if p1x == p2x or x <= xinters:
+                        inside = not inside
+        p1x, p1y = p2x, p2y
+    
+    return inside
+
+
+def calculate_iou_grid(coords1: List[List[float]], coords2: List[List[float]], 
+                       grid_resolution: int = GRID_RESOLUTION) -> float:
+    """
+    Calculate IoU using grid-based sampling (works for concave polygons).
+    More accurate for complex shapes than polygon intersection algorithms.
+    """
+    # Get combined bounding box
+    all_coords = coords1 + coords2
+    min_x, max_x, min_y, max_y = get_bounding_box(all_coords)
+    
+    if max_x == min_x or max_y == min_y:
         return 0.0
     
-    intersection_poly = polygon_intersection(coords1, coords2)
+    # Create grid
+    dx = (max_x - min_x) / grid_resolution
+    dy = (max_y - min_y) / grid_resolution
     
-    if not intersection_poly or len(intersection_poly) < 3:
+    intersection_count = 0
+    union_count = 0
+    
+    # Sample grid points
+    for i in range(grid_resolution):
+        for j in range(grid_resolution):
+            x = min_x + (i + 0.5) * dx
+            y = min_y + (j + 0.5) * dy
+            
+            in_poly1 = point_in_polygon((x, y), coords1)
+            in_poly2 = point_in_polygon((x, y), coords2)
+            
+            if in_poly1 and in_poly2:
+                intersection_count += 1
+            if in_poly1 or in_poly2:
+                union_count += 1
+    
+    if union_count == 0:
         return 0.0
     
-    intersection_area = polygon_area(intersection_poly)
-    union_area = area1 + area2 - intersection_area
+    return intersection_count / union_count
+
+
+def calculate_iou_with_rotation(coords1: List[List[float]], coords2: List[List[float]]) -> float:
+    """
+    Calculate best IoU across 4 rotations (0°, 90°, 180°, 270°).
+    Also normalizes both polygons to start at origin.
+    Uses grid-based sampling for accurate concave polygon handling.
+    """
+    # Normalize both polygons to origin
+    coords1_norm = normalize_to_origin(coords1)
+    coords2_norm = normalize_to_origin(coords2)
     
-    if union_area == 0:
-        return 0.0
+    best_iou = 0.0
     
-    return intersection_area / union_area
+    # Try all rotation angles
+    for angle in ROTATION_ANGLES:
+        coords2_rotated = rotate_polygon(coords2_norm, angle)
+        # Re-normalize after rotation to ensure alignment
+        coords2_rotated_norm = normalize_to_origin(coords2_rotated)
+        iou = calculate_iou_grid(coords1_norm, coords2_rotated_norm)
+        best_iou = max(best_iou, iou)
+    
+    return best_iou
 
 
 # ============================================================================
@@ -176,10 +245,11 @@ def calculate_topology_score(stats1: Dict, stats2: Dict) -> float:
     return (vertex_sim + perimeter_sim + compactness_sim) / 3.0
 
 
-def calculate_composite_score(area_score: float, iou_score: float, topology_score: float,
-                              w1: float = 0.2, w2: float = 0.5, w3: float = 0.3) -> float:
-    """Calculate weighted composite score."""
-    return w1 * area_score + w2 * iou_score + w3 * topology_score
+def calculate_composite_score(area_score: float, iou_score: float, topology_score: float) -> float:
+    """Calculate weighted composite score using predefined weights."""
+    return (WEIGHT_AREA * area_score + 
+            WEIGHT_IOU * iou_score + 
+            WEIGHT_TOPOLOGY * topology_score)
 
 
 def compute_boundary_stats(coords: List[List[float]]) -> Dict[str, float]:
@@ -196,94 +266,7 @@ def compute_boundary_stats(coords: List[List[float]]) -> Dict[str, float]:
     }
 
 
-# ============================================================================
-# SVG GENERATION
-# ============================================================================
-
-def generate_svg(input_coords: List[List[float]], match_coords: List[List[float]],
-                input_stats: Dict, match_stats: Dict, scores: Dict, match_info: Dict) -> str:
-    """Generate SVG visualization with overlay and analysis panel."""
-    
-    all_coords = input_coords + match_coords
-    all_x = [p[0] for p in all_coords]
-    all_y = [p[1] for p in all_coords]
-    
-    min_x, max_x = min(all_x), max(all_x)
-    min_y, max_y = min(all_y), max(all_y)
-    
-    margin = 20
-    width_geom = max_x - min_x
-    height_geom = max_y - min_y
-    scale = min(400 / max(width_geom, 1), 400 / max(height_geom, 1))
-    
-    def transform(coords):
-        return [(margin + (x - min_x) * scale, margin + (y - min_y) * scale) for x, y in coords]
-    
-    input_transformed = transform(input_coords)
-    match_transformed = transform(match_coords)
-    
-    input_path = "M " + " L ".join([f"{x},{y}" for x, y in input_transformed]) + " Z"
-    match_path = "M " + " L ".join([f"{x},{y}" for x, y in match_transformed]) + " Z"
-    
-    svg_width = 800
-    svg_height = 500
-    
-    svg = f'''<svg width="{svg_width}" height="{svg_height}" xmlns="http://www.w3.org/2000/svg">
-    <rect width="{svg_width}" height="{svg_height}" fill="#f8f9fa"/>
-    
-    <!-- Geometry Panel -->
-    <rect x="10" y="10" width="450" height="480" fill="white" stroke="#dee2e6" stroke-width="2"/>
-    
-    <!-- Match boundary (red) -->
-    <path d="{match_path}" fill="rgba(220, 53, 69, 0.1)" stroke="#dc3545" stroke-width="2"/>
-    
-    <!-- Input boundary (blue) -->
-    <path d="{input_path}" fill="rgba(13, 110, 253, 0.1)" stroke="#0d6efd" stroke-width="2"/>
-    
-    <!-- Analysis Panel -->
-    <rect x="470" y="10" width="320" height="480" fill="white" stroke="#dee2e6" stroke-width="2"/>
-    
-    <text x="490" y="40" font-family="Arial" font-size="18" font-weight="bold" fill="#212529">ANALYSIS RESULTS</text>
-    
-    <text x="490" y="75" font-family="Arial" font-size="14" font-weight="bold" fill="#495057">Best Match: {match_info['name']}</text>
-    <text x="490" y="95" font-family="Arial" font-size="12" fill="#6c757d">ID: {match_info['id']}</text>
-    
-    <text x="490" y="130" font-family="Arial" font-size="14" font-weight="bold" fill="#198754">Composite Score: {scores['composite']:.3f}</text>
-    
-    <text x="490" y="160" font-family="Arial" font-size="12" fill="#495057">Area Score:</text>
-    <text x="650" y="160" font-family="Arial" font-size="12" fill="#495057">{scores['area']:.3f}</text>
-    
-    <text x="490" y="180" font-family="Arial" font-size="12" fill="#495057">IoU Score:</text>
-    <text x="650" y="180" font-family="Arial" font-size="12" fill="#495057">{scores['iou']:.3f}</text>
-    
-    <text x="490" y="200" font-family="Arial" font-size="12" fill="#495057">Topology Score:</text>
-    <text x="650" y="200" font-family="Arial" font-size="12" fill="#495057">{scores['topology']:.3f}</text>
-    
-    <line x1="490" y1="220" x2="770" y2="220" stroke="#dee2e6" stroke-width="1"/>
-    
-    <text x="490" y="245" font-family="Arial" font-size="13" font-weight="bold" fill="#495057">Input Boundary Stats:</text>
-    <text x="490" y="265" font-family="Arial" font-size="11" fill="#6c757d">Area: {input_stats['area']}</text>
-    <text x="490" y="280" font-family="Arial" font-size="11" fill="#6c757d">Perimeter: {input_stats['perimeter']}</text>
-    <text x="490" y="295" font-family="Arial" font-size="11" fill="#6c757d">Vertices: {input_stats['vertex_count']}</text>
-    <text x="490" y="310" font-family="Arial" font-size="11" fill="#6c757d">Compactness: {input_stats['compactness']}</text>
-    
-    <line x1="490" y1="325" x2="770" y2="325" stroke="#dee2e6" stroke-width="1"/>
-    
-    <text x="490" y="350" font-family="Arial" font-size="13" font-weight="bold" fill="#495057">Match Boundary Stats:</text>
-    <text x="490" y="370" font-family="Arial" font-size="11" fill="#6c757d">Area: {match_stats['area']}</text>
-    <text x="490" y="385" font-family="Arial" font-size="11" fill="#6c757d">Perimeter: {match_stats['perimeter']}</text>
-    <text x="490" y="400" font-family="Arial" font-size="11" fill="#6c757d">Vertices: {match_stats['vertex_count']}</text>
-    <text x="490" y="415" font-family="Arial" font-size="11" fill="#6c757d">Compactness: {match_stats['compactness']}</text>
-    
-    <!-- Legend -->
-    <line x1="30" y1="460" x2="60" y2="460" stroke="#0d6efd" stroke-width="2"/>
-    <text x="70" y="465" font-family="Arial" font-size="11" fill="#495057">Input Boundary</text>
-    
-    <line x1="200" y1="460" x2="230" y2="460" stroke="#dc3545" stroke-width="2"/>
-    <text x="240" y="465" font-family="Arial" font-size="11" fill="#495057">Match Boundary</text>
-</svg>'''
-    
-    return svg
+# SVG generation delegated to utils.svg_utils.generate_boundary_comparison_svg
 
 
 # ============================================================================
@@ -336,7 +319,7 @@ def boundary_analyzer(input_boundary: List[List[float]],
         candidate_stats = compute_boundary_stats(candidate_coords)
         
         area_score = calculate_area_score(input_stats['area'], candidate_stats['area'])
-        iou_score = calculate_iou(input_boundary, candidate_coords)
+        iou_score = calculate_iou_with_rotation(input_boundary, candidate_coords)
         topology_score = calculate_topology_score(input_stats, candidate_stats)
         composite_score = calculate_composite_score(area_score, iou_score, topology_score)
         
@@ -357,7 +340,7 @@ def boundary_analyzer(input_boundary: List[List[float]],
     
     if top_matches:
         best_match = top_matches[0]
-        svg_output = generate_svg(
+        svg_output = generate_boundary_comparison_svg(
             input_boundary,
             best_match['coordinates'],
             input_stats,
