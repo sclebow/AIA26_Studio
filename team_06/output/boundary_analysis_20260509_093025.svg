@@ -1,0 +1,54 @@
+<svg width="800" height="500" xmlns="http://www.w3.org/2000/svg">
+    <rect width="800" height="500" fill="#f8f9fa"/>
+    
+    <!-- Geometry Panel -->
+    <rect x="10" y="10" width="450" height="480" fill="white" stroke="#dee2e6" stroke-width="2"/>
+    
+    <!-- Match boundary (red) -->
+    <path d="M 20.0,20.0 L 375.55555555555554,20.0 L 375.55555555555554,220.0 L 20.0,220.0 L 20.0,20.0 Z" fill="rgba(220, 53, 69, 0.1)" stroke="#dc3545" stroke-width="2"/>
+    
+    <!-- Input boundary (blue) -->
+    <path d="M 20.0,20.0 L 420.0,20.0 L 420.0,131.11111111111111 L 264.44444444444446,131.11111111111111 L 264.44444444444446,308.88888888888886 L 175.55555555555554,308.88888888888886 L 175.55555555555554,131.11111111111111 L 20.0,131.11111111111111 L 20.0,20.0 Z" fill="rgba(13, 110, 253, 0.1)" stroke="#0d6efd" stroke-width="2"/>
+    
+    <!-- Analysis Panel -->
+    <rect x="470" y="10" width="320" height="480" fill="white" stroke="#dee2e6" stroke-width="2"/>
+    
+    <text x="490" y="40" font-family="Arial" font-size="18" font-weight="bold" fill="#212529">ANALYSIS RESULTS</text>
+    
+    <text x="490" y="75" font-family="Arial" font-size="14" font-weight="bold" fill="#495057">Best Match: Wide 2BR</text>
+    <text x="490" y="95" font-family="Arial" font-size="12" fill="#6c757d">ID: apt_010</text>
+    
+    <text x="490" y="130" font-family="Arial" font-size="14" font-weight="bold" fill="#198754">Composite Score: 0.650</text>
+    
+    <text x="490" y="160" font-family="Arial" font-size="12" fill="#495057">Area Score:</text>
+    <text x="650" y="160" font-family="Arial" font-size="12" fill="#495057">0.847</text>
+    
+    <text x="490" y="180" font-family="Arial" font-size="12" fill="#495057">IoU Score:</text>
+    <text x="650" y="180" font-family="Arial" font-size="12" fill="#495057">0.565</text>
+    
+    <text x="490" y="200" font-family="Arial" font-size="12" fill="#495057">Topology Score:</text>
+    <text x="650" y="200" font-family="Arial" font-size="12" fill="#495057">0.660</text>
+    
+    <line x1="490" y1="220" x2="770" y2="220" stroke="#dee2e6" stroke-width="1"/>
+    
+    <text x="490" y="245" font-family="Arial" font-size="13" font-weight="bold" fill="#495057">Input Boundary Stats:</text>
+    <text x="490" y="265" font-family="Arial" font-size="11" fill="#6c757d">Area: 122.0</text>
+    <text x="490" y="280" font-family="Arial" font-size="11" fill="#6c757d">Perimeter: 62.0</text>
+    <text x="490" y="295" font-family="Arial" font-size="11" fill="#6c757d">Vertices: 8</text>
+    <text x="490" y="310" font-family="Arial" font-size="11" fill="#6c757d">Compactness: 0.399</text>
+    
+    <line x1="490" y1="325" x2="770" y2="325" stroke="#dee2e6" stroke-width="1"/>
+    
+    <text x="490" y="350" font-family="Arial" font-size="13" font-weight="bold" fill="#495057">Match Boundary Stats:</text>
+    <text x="490" y="370" font-family="Arial" font-size="11" fill="#6c757d">Area: 144.0</text>
+    <text x="490" y="385" font-family="Arial" font-size="11" fill="#6c757d">Perimeter: 50.0</text>
+    <text x="490" y="400" font-family="Arial" font-size="11" fill="#6c757d">Vertices: 4</text>
+    <text x="490" y="415" font-family="Arial" font-size="11" fill="#6c757d">Compactness: 0.724</text>
+    
+    <!-- Legend -->
+    <line x1="30" y1="460" x2="60" y2="460" stroke="#0d6efd" stroke-width="2"/>
+    <text x="70" y="465" font-family="Arial" font-size="11" fill="#495057">Input Boundary</text>
+    
+    <line x1="200" y1="460" x2="230" y2="460" stroke="#dc3545" stroke-width="2"/>
+    <text x="240" y="465" font-family="Arial" font-size="11" fill="#495057">Match Boundary</text>
+</svg>

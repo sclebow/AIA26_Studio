@@ -310,7 +310,13 @@ def boundary_analyzer(input_boundary: List[List[float]],
     else:
         dataset_path = Path(dataset_path)
         if not dataset_path.is_absolute():
-            dataset_path = Path(__file__).parent.parent.parent / dataset_path
+            # If path starts with team_06, it's already relative to repo root
+            if str(dataset_path).startswith("team_06"):
+                # Go up to repo root (team_06/python/tools -> AIA26_Studio)
+                dataset_path = Path(__file__).parent.parent.parent.parent / dataset_path
+            else:
+                # Otherwise, it's relative to team_06 folder
+                dataset_path = Path(__file__).parent.parent.parent / dataset_path
     
     if not dataset_path.exists():
         return {
