@@ -38,6 +38,38 @@ def create_chat_llm(
 
 
 # ---------------------------------------------------------------------------
+# Schema sanitization (for Anthropic strict mode compatibility)
+# ---------------------------------------------------------------------------
+
+def _sanitize_schema_for_anthropic(schema: dict[str, Any]) -> dict[str, Any]:
+    """
+    Convert schema to be compatible with Anthropic's strict JSON schema mode.
+    Converts union types like ['number', 'null'] to single types.
+    """
+    if not isinstance(schema, dict):
+        return schema
+    
+    schema = deepcopy(schema)
+    
+    # Convert type arrays to single types (Anthropic doesn't support unions)
+    if "type" in schema and isinstance(schema["type"], list):
+        # Take the first non-null type, or keep first type
+        types = [t for t in schema["type"] if t != "null"]
+        schema["type"] = types[0] if types else schema["type"][0]
+    
+    # Recursively sanitize nested schemas
+    if "properties" in schema and isinstance(schema["properties"], dict):
+        for key, prop_schema in schema["properties"].items():
+            if isinstance(prop_schema, dict):
+                schema["properties"][key] = _sanitize_schema_for_anthropic(prop_schema)
+    
+    if "items" in schema and isinstance(schema["items"], dict):
+        schema["items"] = _sanitize_schema_for_anthropic(schema["items"])
+    
+    return schema
+
+
+# ---------------------------------------------------------------------------
 # Structured-output schema builders
 #
 # get_llm_response_format() generates a provider-compatible JSON schema that
@@ -94,11 +126,9 @@ def _build_arguments_schema(tools: list[dict[str, Any]]) -> dict[str, Any]:
                 continue
             if not isinstance(property_schema, dict):
                 continue
-            nullable_schema = dict(property_schema)
-            property_type = nullable_schema.get("type")
-            if isinstance(property_type, str):
-                nullable_schema["type"] = [property_type, "null"]
-            merged_properties[property_name] = nullable_schema
+            
+            # Sanitize schema for Anthropic strict mode compatibility
+            merged_properties[property_name] = _sanitize_schema_for_anthropic(property_schema)
 
     return {
         "type": "object",
@@ -114,6 +144,9 @@ def get_llm_response_format(tools: list[dict[str, Any]]) -> dict[str, Any]:
     tool_call_schema = schema["properties"]["tool_calls"]["items"]
     tool_call_schema["properties"]["name"]["enum"] = tool_names
     tool_call_schema["properties"]["arguments"] = _build_arguments_schema(tools)
+    
+    # Sanitize entire schema for Anthropic strict mode
+    schema = _sanitize_schema_for_anthropic(schema)
 
     return {
         "response_format": {

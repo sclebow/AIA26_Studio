@@ -40,7 +40,14 @@ def bootstrap() -> Context:
 
     # Load cost database and register it as a local tool
     cost_db_path = Path(__file__).resolve().parents[1] / "cost_database.json"
-    cost_db: dict[str, Any] = json.loads(cost_db_path.read_text(encoding="utf-8"))
+    try:
+        cost_db: dict[str, Any] = json.loads(cost_db_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        print("[bootstrap] Using OpenCost - cost_database.json not required")
+        cost_db: dict[str, Any] = {}
+    except Exception as e:
+        print(f"[bootstrap] Warning: {e}")
+        cost_db: dict[str, Any] = {}
     tools.append({
         "name": "get_unit_cost_by_type",
         "description": (
@@ -68,7 +75,7 @@ def bootstrap() -> Context:
         base_url=settings.base_url,
         llm_model=settings.llm_model,
         timeout_seconds=settings.request_timeout_seconds,
-        #model_kwargs=get_llm_response_format(tools),
+        model_kwargs=get_llm_response_format(tools),
     )
 
     team_dir = Path(__file__).resolve().parents[2]

@@ -6,23 +6,30 @@ from _runtime.llm import write_tool_result
 
 import os
 from dotenv import load_dotenv
-from google_sheets_db import get_sheets_db
 
-# Load environment variables
 load_dotenv()
 
-# Get Sheet ID from .env file
+# Import database modules
+from opencost_database import get_opencost_db
+from google_sheets_db import get_sheets_db as get_google_sheets_db
+
+# Initialize databases
+USE_OPENCOST = os.getenv("USE_OPENCOST", "true").lower() == "true"
 SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
 
-if SHEET_ID:
-    print(f"[Google Sheets] Sheet ID loaded: {SHEET_ID}")
+# Choose database: OpenCost (auto-updated) or Google Sheets
+if USE_OPENCOST:
+    print("[Database] Using OpenCost - Auto-updated market prices")
+    sheets_db = get_opencost_db()
 else:
-    print("[Google Sheets] Warning: GOOGLE_SHEET_ID not found in .env")
+    print("[Database] Using Google Sheets")
+    sheets_db = get_google_sheets_db(SHEET_ID) if SHEET_ID else None
 
-# Initialize the Google Sheets database
-sheets_db = get_sheets_db(SHEET_ID) if SHEET_ID else None
+print("[Setup] Database initialized successfully")
+
 
 def build_tool_node(mcp_client, allowed_tools, edited_layout_path, erp_config: dict = None):
+    """Build tool node for LangGraph workflow"""
     allowed_names = {t["name"] for t in allowed_tools if t.get("name")}
 
     def tool_node(state):
@@ -41,7 +48,7 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path, erp_config: d
             if "layout_json" in tool_args:
                 tool_args["layout_json"] = state["layout_json_string"]
 
-            # ========== GOOGLE SHEETS COST TOOLS ==========
+            # ========== GOOGLE SHEETS / OPENCOST COST TOOLS ==========
 
             # Tool: get_door_cost_05
             if tool_name == "get_door_cost_05" and sheets_db:
@@ -55,7 +62,7 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path, erp_config: d
                         all_items = sheets_db.get_all_data()
                         tool_output = json.dumps({
                             "error": f"'{door_type}' not found in database",
-                            "available_items": list(all_items.keys())
+                            "available_items": list(all_items.keys()) if all_items else []
                         })
                     else:
                         total = quantity * unit_cost
@@ -65,7 +72,7 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path, erp_config: d
                             "unit_cost": unit_cost,
                             "total_cost": total,
                             "currency": "EUR",
-                            "source": "google_sheets"
+                            "source": "opencost" if USE_OPENCOST else "google_sheets"
                         })
                 except Exception as e:
                     tool_output = json.dumps({"error": str(e)})
@@ -78,7 +85,7 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path, erp_config: d
                     unit_cost = sheets_db.get_cost("Window")
                     
                     if unit_cost is None:
-                        tool_output = json.dumps({"error": "Window cost not found in database"})
+                        tool_output = json.dumps({"error": "Window cost not found"})
                     else:
                         total = quantity * unit_cost
                         tool_output = json.dumps({
@@ -86,7 +93,7 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path, erp_config: d
                             "unit_cost": unit_cost,
                             "total_cost": total,
                             "currency": "EUR",
-                            "source": "google_sheets"
+                            "source": "opencost" if USE_OPENCOST else "google_sheets"
                         })
                 except Exception as e:
                     tool_output = json.dumps({"error": str(e)})
@@ -100,10 +107,8 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path, erp_config: d
                     cost_per_m2 = sheets_db.get_cost(wall_type)
                     
                     if cost_per_m2 is None:
-                        all_items = sheets_db.get_all_data()
                         tool_output = json.dumps({
-                            "error": f"'{wall_type}' not found",
-                            "available_walls": [k for k in all_items.keys() if "wall" in k]
+                            "error": f"'{wall_type}' not found"
                         })
                     else:
                         total = area * cost_per_m2
@@ -113,7 +118,7 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path, erp_config: d
                             "cost_per_m2": cost_per_m2,
                             "total_cost": total,
                             "currency": "EUR",
-                            "source": "google_sheets"
+                            "source": "opencost" if USE_OPENCOST else "google_sheets"
                         })
                 except Exception as e:
                     tool_output = json.dumps({"error": str(e)})
@@ -127,10 +132,8 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path, erp_config: d
                     cost_per_m2 = sheets_db.get_cost(material)
                     
                     if cost_per_m2 is None:
-                        all_items = sheets_db.get_all_data()
                         tool_output = json.dumps({
-                            "error": f"'{material}' not found",
-                            "available_flooring": [k for k in all_items.keys() if "floor" in k or "tile" in k or "carpet" in k]
+                            "error": f"'{material}' not found"
                         })
                     else:
                         total = area * cost_per_m2
@@ -140,7 +143,7 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path, erp_config: d
                             "cost_per_m2": cost_per_m2,
                             "total_cost": total,
                             "currency": "EUR",
-                            "source": "google_sheets"
+                            "source": "opencost" if USE_OPENCOST else "google_sheets"
                         })
                 except Exception as e:
                     tool_output = json.dumps({"error": str(e)})
@@ -163,7 +166,7 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path, erp_config: d
                             "cost_per_m2": cost_per_m2,
                             "total_cost": total,
                             "currency": "EUR",
-                            "source": "google_sheets"
+                            "source": "opencost" if USE_OPENCOST else "google_sheets"
                         })
                 except Exception as e:
                     tool_output = json.dumps({"error": str(e)})
@@ -184,7 +187,7 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path, erp_config: d
                             "cost_per_m2": cost_per_m2,
                             "total_cost": total,
                             "currency": "EUR",
-                            "source": "google_sheets"
+                            "source": "opencost" if USE_OPENCOST else "google_sheets"
                         })
                 except Exception as e:
                     tool_output = json.dumps({"error": str(e)})
@@ -213,7 +216,7 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path, erp_config: d
                         "total_cost": total_cost,
                         "item_count": len(breakdown),
                         "currency": "EUR",
-                        "source": "google_sheets"
+                        "source": "opencost" if USE_OPENCOST else "google_sheets"
                     })
                 except Exception as e:
                     tool_output = json.dumps({"error": str(e)})
@@ -245,37 +248,12 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path, erp_config: d
                             "cheaper_option": cheaper,
                             "cost_difference": difference,
                             "currency": "EUR",
-                            "source": "google_sheets"
+                            "source": "opencost" if USE_OPENCOST else "google_sheets"
                         })
                     else:
                         tool_output = json.dumps({"error": "Wall costs not found"})
                 except Exception as e:
                     tool_output = json.dumps({"error": str(e)})
-
-            # --- ERP INTEGRATION LOGIC (ORIGINAL) ---
-            elif tool_name == "get_unit_cost_by_type" and erp_config is not None:
-                element_type = str(tool_args.get("element_type", "")).lower()
-                
-                try:
-                    response = requests.get(
-                        f"{erp_config['base_url']}/api/v1/costs/{element_type}",
-                        headers={"Authorization": f"Bearer {erp_config['api_key']}"},
-                        timeout=5
-                    )
-                    
-                    if response.status_code == 200:
-                        data = response.json()
-                        tool_output = json.dumps({
-                            "element_type": element_type,
-                            "unit_cost": data.get("price") or data.get("unit_cost"),
-                            "currency": data.get("currency", "EUR"),
-                            "source": "ERP_Live"
-                        })
-                    else:
-                        tool_output = json.dumps({"error": f"ERP lookup failed: {response.status_code}"})
-                
-                except Exception as e:
-                    tool_output = json.dumps({"error": f"Connection to ERP failed: {str(e)}"})
 
             # --- DEFAULT: Call MCP Tools ---
             else:
