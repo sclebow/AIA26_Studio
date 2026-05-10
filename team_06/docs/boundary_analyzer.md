@@ -7,7 +7,7 @@
 | **Tool Name** | `boundary_analyzer` |
 | **Type** | Local Python tool (not MCP) |
 | **Lines of Code** | 393 (refactored from 529) |
-| **Dataset Size** | 25 residential apartments |
+| **Dataset Size** | 30+ residential layouts |
 | **Processing Time** | 0.5-10 seconds (depends on complexity) |
 | **Scoring Weights** | Area: 20%, IoU: 50%, Topology: 30% |
 | **Rotation Testing** | 0°, 90°, 180°, 270° |
@@ -23,7 +23,7 @@ python main.py "analyze boundary: [[0,0], [12,0], [12,8], [0,8], [0,0]]"
 ---
 
 ## Overview
-The **Boundary Analyzer** is a local Python tool that analyzes apartment boundary geometries by comparing them against a reference dataset of 25 residential apartment layouts. It provides quantitative scoring and visual SVG output to help identify the best matching apartment types.
+The **Boundary Analyzer** is a local Python tool that analyzes apartment boundary geometries by comparing them against a reference dataset of 30+ residential apartment layouts from `sample_layouts.json`. It provides quantitative scoring and visual SVG output to help identify the best matching apartment types.
 
 ### **Key Features**
 - ✅ Multi-metric scoring (Area, IoU, Topology)
@@ -43,7 +43,7 @@ The **Boundary Analyzer** is a local Python tool that analyzes apartment boundar
 `boundary_analyzer`
 
 ### **Purpose**
-Analyzes input boundary geometries against a dataset of 25 residential apartment layouts using three scoring metrics:
+Analyzes input boundary geometries against a dataset of 30+ residential apartment layouts using three scoring metrics:
 1. **Area Similarity** - Compares total floor area
 2. **IoU (Intersection over Union)** - Measures geometric overlap
 3. **Topology Score** - Evaluates shape characteristics (vertices, perimeter, compactness)
@@ -63,7 +63,10 @@ python main.py "analyze this apartment boundary: [[0,0], [12,0], [12,8], [0,8], 
 ### **Natural Language Examples**
 
 ```bash
-# Rectangle
+# Using input layout file (recommended)
+python main.py "analyze the boundary from team_06_input_layout.json"
+
+# Using direct coordinates - Rectangle
 python main.py "find matching apartments for boundary: [[0,0], [10,0], [10,7], [0,7], [0,0]]"
 
 # L-shaped
@@ -80,13 +83,31 @@ python main.py "analyze boundary: [[0,0], [15,0], [15,4], [10,4], [10,8], [18,8]
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `input_boundary` | Array of [x,y] coordinates | ✅ Yes | - | Closed-loop boundary coordinates |
-| `dataset_path` | String | ❌ No | `assets/boundary_dataset.json` | Path to dataset (relative or absolute) |
+| `input_boundary` | Array of [x,y] coordinates | ⚠️ Optional* | - | Closed-loop boundary coordinates |
+| `input_layout_path` | String | ⚠️ Optional* | `team_06_input_layout.json` | Path to input layout JSON (uses `outline` field) |
+| `dataset_path` | String | ❌ No | `layout_inputs/sample_layouts.json` | Path to dataset (relative or absolute) |
 | `top_n_results` | Integer | ❌ No | 5 | Number of top matches to return |
+
+**\*Note:** Either `input_boundary` OR `input_layout_path` must be provided.
 
 **Coordinate Format:**
 ```python
 [[x1, y1], [x2, y2], ..., [xn, yn], [x1, y1]]  # Must close the loop
+```
+
+**Input Layout File Format:**
+```json
+{
+  "layoutId": "Layout-001",
+  "apartment": {...},
+  "outline": [
+    [-3.86, -3.36],
+    [-3.86, 3.36],
+    [3.86, 3.36],
+    [3.86, -3.36],
+    [-3.86, -3.36]
+  ]
+}
 ```
 
 ---
@@ -206,8 +227,8 @@ team_06/
 │   ├── nodes/
 │   │   └── local_tools.py                # Tool registration
 │   └── graph.py                          # Routing logic
-├── assets/
-│   └── boundary_dataset.json             # 25 apartment boundaries
+├── layout_inputs/
+│   └── sample_layouts.json               # 30+ residential layouts
 ├── output/
 │   └── boundary_analysis_*.svg           # Generated visualizations
 └── docs/
@@ -286,31 +307,39 @@ team_06/
 
 ## Dataset
 
-### **Apartment Inventory** (`assets/boundary_dataset.json`)
+### **Layout Inventory** (`layout_inputs/sample_layouts.json`)
 
-The dataset contains **25 residential apartment layouts** organized by type:
-
-| Type | Count | IDs | Description |
-|------|-------|-----|-------------|
-| **Studio** | 3 | apt_001 - apt_003 | Compact, Standard, Large |
-| **1-Bedroom** | 4 | apt_004 - apt_007 | Rectangular, L-shaped, Compact, Alcove |
-| **2-Bedroom** | 5 | apt_008 - apt_012 | Standard, L-shaped, Wide, T-shaped, Corner |
-| **3-Bedroom** | 7 | apt_013 - apt_019 | Compact, Standard, L-shaped, U-shaped, Wide, Stepped, Penthouse |
-| **4-Bedroom** | 4 | apt_020 - apt_023 | Compact, Standard, L-shaped, Luxury |
-| **Special** | 2 | apt_024 - apt_025 | Split-level 2BR, Duplex 3BR |
+The dataset contains **30+ residential apartment layouts** with detailed geometry information.
 
 ### **Dataset Entry Format**
 ```json
 {
-  "id": "apt_001",
-  "name": "Compact Studio",
-  "category": "residential",
-  "type": "studio",
-  "coordinates": [[0, 0], [7, 0], [7, 6], [0, 6], [0, 0]]
+  "layoutId": "layout-1",
+  "apartment": {
+    "id": "layout-1",
+    "name": "Sample A",
+    "geometry": [...],
+    "attributes": {
+      "area": 32.47
+    }
+  },
+  "outline": [
+    [-3.088, -2.628],
+    [-3.088, 2.628],
+    [3.088, 2.628],
+    [3.088, -2.628],
+    [-3.088, -2.628]
+  ]
 }
 ```
 
-**Note:** All apartments are purely residential. Coordinates are in meters.
+**Key Fields:**
+- `layoutId`: Unique identifier for the layout
+- `apartment.name`: Descriptive name (e.g., "Sample A", "Sample B")
+- `apartment.attributes.area`: Pre-calculated area
+- `outline`: **Boundary coordinates used for matching** (closed-loop polygon)
+
+**Note:** The tool uses the `outline` field for boundary comparison. All coordinates are in meters.
 
 ---
 
@@ -359,7 +388,7 @@ if tool_name == "boundary_analyzer":
 ┌─────────────────────────────────────────────────────────────┐
 │ 1. INPUT VALIDATION                                         │
 │    - Verify closed-loop coordinates                         │
-│    - Load dataset from assets/boundary_dataset.json         │
+│    - Load dataset from layout_inputs/sample_layouts.json         │
 └─────────────────────────────────────────────────────────────┘
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -371,7 +400,7 @@ if tool_name == "boundary_analyzer":
 └─────────────────────────────────────────────────────────────┘
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ 3. SCORE ALL 25 CANDIDATES                                  │
+│ 3. SCORE ALL CANDIDATES                                     │
 │    For each apartment in dataset:                           │
 │    ├─ Area Score: 1 - |area_diff| / max_area               │
 │    ├─ IoU Score: Rotation-invariant grid-based sampling    │
@@ -486,7 +515,7 @@ if tool_name == "boundary_analyzer":
 
 **1. Dataset Not Found**
 ```
-Error: Dataset not found at team_06/assets/boundary_dataset.json
+Error: Dataset not found at team_06/layout_inputs/sample_layouts.json
 ```
 **Solution:** Ensure you're running from `team_06/python` directory or use absolute path.
 
@@ -500,7 +529,7 @@ Error: Boundary must be a closed loop
 ```
 status: "error", message: "No matches found in dataset"
 ```
-**Solution:** Verify dataset file is valid JSON and contains `boundaries` array.
+**Solution:** Verify dataset file is valid JSON array with layouts containing `outline` field.
 
 ### **Debug Mode**
 
@@ -568,7 +597,7 @@ compactness = 4π × area / perimeter²
 **Per Boundary Comparison:**
 - **Grid-based IoU**: 100×100 = 10,000 point-in-polygon checks
 - **Rotation testing**: 4 orientations × 10,000 samples = 40,000 checks
-- **Total for 25 boundaries**: ~1 million point-in-polygon operations
+- **Total for 30+ layouts**: ~1.2 million point-in-polygon operations
 
 **Processing Time:**
 - Simple shapes (4-6 vertices): ~0.5-1 second
@@ -642,7 +671,7 @@ DEFAULT_TOP_N = 5       # Increase to see more candidates
 - **Modular design**: SVG utilities extracted to `utils/svg_utils.py`
 - Zero external dependencies (uses existing numpy)
 - Integrated with team_06 agent workflow
-- 25 residential apartment boundaries in dataset
+- 30+ residential apartment layouts in dataset (`sample_layouts.json`)
 
 **Key Features:**
 - ✅ **Rotation-invariant IoU** (tests 4 orientations)
