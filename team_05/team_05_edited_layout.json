@@ -1,5 +1,3 @@
 {
-  "element_type": "wooden_door",
-  "unit_cost": 350,
-  "currency": "EUR"
+  "error": "Connection to ERP failed: HTTPSConnectionPool(host='your-erp-instance.com', port=443): Max retries exceeded with url: /api/v1/costs/window (Caused by NameResolutionError(\"HTTPSConnection(host='your-erp-instance.com', port=443): Failed to resolve 'your-erp-instance.com' ([Errno 11001] getaddrinfo failed)\"))"
 }
