@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
 
 
 # ---------------------------------------------------------------------------
@@ -11,30 +12,33 @@ from langchain_anthropic import ChatAnthropic
 # ---------------------------------------------------------------------------
 
 def create_chat_llm(
+    llm_provider: str,
     api_key: str,
-    base_url: str,
+    base_url: str | None,
     llm_model: str,
     timeout_seconds: float,
     model_kwargs: dict[str, Any] | None = None,
-) -> ChatAnthropic:
-    return ChatAnthropic(
+) -> Any:
+    if llm_provider == "anthropic":
+        return ChatAnthropic(
+            api_key=api_key,
+            base_url=base_url,
+            model=llm_model,
+            timeout=timeout_seconds,
+            temperature=0,
+            model_kwargs=model_kwargs or {},
+            max_tokens=2000,
+        )
+
+    return ChatOpenAI(
         api_key=api_key,
         base_url=base_url,
         model=llm_model,
         timeout=timeout_seconds,
         temperature=0,
         model_kwargs=model_kwargs or {},
-        max_tokens=2000
+        max_tokens=2000,
     )
-# ) -> ChatOpenAI:
-#     return ChatOpenAI(
-#         api_key=api_key,
-#         base_url=base_url,
-#         model=llm_model,
-#         timeout=timeout_seconds,
-#         temperature=0,
-#         model_kwargs=model_kwargs or {},
-#     )
 
 
 # ---------------------------------------------------------------------------

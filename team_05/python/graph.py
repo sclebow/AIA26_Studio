@@ -607,7 +607,7 @@ def _build_modify_request_node():
 
 
 # ---------------------------------------------------------------------------
-# Graph wiring
+# Graph wiring — add nodes and edges here.
 # ---------------------------------------------------------------------------
 
 def build_graph(ctx: Any) -> Any:

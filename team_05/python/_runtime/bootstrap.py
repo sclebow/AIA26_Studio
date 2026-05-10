@@ -71,6 +71,7 @@ def bootstrap() -> Context:
 
     # Build the LLM with a structured-output schema tailored to the available tools
     llm = create_chat_llm(
+        llm_provider=settings.llm_provider,
         api_key=settings.api_key,
         base_url=settings.base_url,
         llm_model=settings.llm_model,
