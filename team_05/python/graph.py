@@ -632,7 +632,18 @@ def build_graph(ctx: Any) -> Any:
     gen_recommendation   = _build_generate_recommendation_node(ctx.llm)
     present_comparison   = _build_present_comparison_node(ctx.llm)
     modify_request       = _build_modify_request_node()
-    tool                 = build_tool_node(ctx.mcp_client, ctx.tools, ctx.edited_layout_path, ctx.cost_db)
+   # Inside build_graph(ctx)
+    erp_settings = {
+        "base_url": "https://your-erp-instance.com",
+        "api_key": "your_secret_token_here"  }
+          
+
+    tool = build_tool_node(
+    ctx.mcp_client, 
+    ctx.tools, 
+    ctx.edited_layout_path, 
+    erp_config=erp_settings  # Pass ERP settings here
+)
 
     graph = StateGraph(AgentState)
 
