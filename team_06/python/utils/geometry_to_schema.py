@@ -6,10 +6,15 @@ from pathlib import Path
 def polyline_to_coords(polyline) -> List[Tuple[float, float]]:
     """Convert Rhino Polyline to list of [x, y] coordinates"""
     coords = []
-    for i in range(polyline.Count):
-        pt = polyline[i]
+    for i in range(polyline.PointCount):
+        pt = polyline.Point(i)
         coords.append([pt.X, pt.Y])
     return coords
+
+
+def point3d_to_coords(point) -> Tuple[float, float]:
+    """Convert Rhino Point3d to [x, y]"""
+    return [point.X, point.Y]
 
 
 def point3d_to_coords(point) -> Tuple[float, float]:
@@ -83,7 +88,7 @@ def schema_to_desc(schema):
         schema: dict or JSON string representation of layout schema
     
     Returns format:
-        "Name (ID). 1 bed, 1 bath, 1 living. Area: 600 sqft."
+        "Name (ID). 1 bedroom, 1 bathroom, 1 living room. Area: 600 sqft."
     """
     try:
         # If schema is a string, parse it as JSON first
@@ -99,10 +104,10 @@ def schema_to_desc(schema):
         rooms = schema.get("rooms", [])
         room_counts = {}
         for room in rooms:
-            prog = room.get("program", "?")
+            prog = room.get("attributes", {}).get("program", "?")
             room_counts[prog] = room_counts.get(prog, 0) + 1
         
-        # Format room counts: "1 bed, 2 bath, 1 living"
+        # Format room counts: "1 bedroom, 2 bathrooms, 1 living room"
         room_str = ", ".join([f"{count} {prog}" for prog, count in sorted(room_counts.items())])
         
         # Simple format
@@ -129,7 +134,7 @@ def geometry_to_layout_schema(
     Args:
         crvBounds: Single polyline for building outline
         crv: List of polylines for room boundaries
-        u: List of room program names (e.g., ["living", "bed", "kitchen"])
+        u: List of room program names (e.g., ["living room", "bedroom", "kitchen"])
         crvFacade: List of polylines for facade elements
         crvCirc: List of polylines for circulation
         ptCirc: List of Point3d for door locations
@@ -170,10 +175,11 @@ def geometry_to_layout_schema(
         room = {
             "id": room_id,
             "name": f"{room_program.capitalize()}",
-            "program": room_program,
+
             "geometry": room_coords,
             "attributes": {
-                "area": round(room_area, 2)
+                "area": round(room_area, 2),
+                "program": room_program
             }
         }
         rooms.append(room)

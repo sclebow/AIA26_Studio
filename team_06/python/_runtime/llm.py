@@ -23,6 +23,7 @@ def create_chat_llm(
         model=llm_model,
         timeout=timeout_seconds,
         temperature=0,
+        max_tokens=8000,
         model_kwargs=model_kwargs or {},
     )
 
@@ -200,30 +201,6 @@ def _normalize_llm_decision(parsed: dict[str, Any]) -> dict[str, Any]:
 # Public convenience function used by reason nodes
 # ---------------------------------------------------------------------------
 
-def _keep_recent_messages(messages: list[dict[str, str]], max_chars: int = 50000) -> list[dict[str, str]]:
-    """If messages exceed max_chars, keep first message (layout context) + last recent messages."""
-    total = sum(len(msg.get("content", "")) for msg in messages)
-    if total <= max_chars:
-        return messages
-    
-    print(f"[llm] Messages too large ({total:,} > {max_chars:,}). Trimming old context...")
-    if len(messages) <= 1:
-        return messages
-    
-    # Always keep first message (has layout context)
-    # Then keep as many recent messages as fit in budget
-    kept = [messages[0]]
-    remaining_budget = max_chars - len(messages[0].get("content", ""))
-    
-    for msg in reversed(messages[1:]):
-        msg_size = len(msg.get("content", ""))
-        if msg_size <= remaining_budget:
-            kept.insert(1, msg)
-            remaining_budget -= msg_size
-    
-    return kept
-
-
 def call_llm(
     llm: Any,
     system_prompt: str,
@@ -236,9 +213,6 @@ def call_llm(
       {"action": "final", "final_response": "<text>"}
       {"action": "tool",  "tool_calls": [{"name": "<tool>", "arguments": {...}}]}
     """
-    # Trim messages aggressively to stay under token limit
-    messages = _keep_recent_messages(messages, max_chars=30000)
-    
     formatted_prompt = system_prompt.format(tool_catalog=tool_catalog)
     llm_messages = [{"role": "system", "content": formatted_prompt}] + messages
 
