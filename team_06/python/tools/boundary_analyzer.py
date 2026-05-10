@@ -56,8 +56,8 @@ def get_boundary_analyzer_schema() -> Dict[str, Any]:
                 },
                 "dataset_path": {
                     "type": "string",
-                    "description": "Path to boundary dataset JSON file (optional)",
-                    "default": "team_06/assets/boundary_dataset.json"
+                    "description": "Path to layout dataset JSON file (optional)",
+                    "default": "team_06/layout_inputs/sample_layouts.json"
                 },
                 "top_n_results": {
                     "type": "integer",
@@ -281,7 +281,7 @@ def boundary_analyzer(input_boundary: List[List[float]],
     
     Args:
         input_boundary: Closed loop coordinates [[x1,y1], [x2,y2], ..., [xn,yn]]
-        dataset_path: Path to boundary dataset JSON (optional)
+        dataset_path: Path to layout dataset JSON (optional)
         top_n_results: Number of top matches to return
     
     Returns:
@@ -289,7 +289,7 @@ def boundary_analyzer(input_boundary: List[List[float]],
     """
     
     if dataset_path is None:
-        dataset_path = Path(__file__).parent.parent.parent / "assets" / "boundary_dataset.json"
+        dataset_path = Path(__file__).parent.parent.parent / "layout_inputs" / "sample_layouts.json"
     else:
         dataset_path = Path(dataset_path)
         if not dataset_path.is_absolute():
@@ -314,8 +314,14 @@ def boundary_analyzer(input_boundary: List[List[float]],
     
     results = []
     
-    for boundary in dataset['boundaries']:
-        candidate_coords = boundary['coordinates']
+    # Parse sample_layouts.json structure (array of layouts with 'outline' field)
+    for layout in dataset:
+        # Use 'outline' field for boundary coordinates
+        candidate_coords = layout.get('outline', [])
+        
+        if not candidate_coords:
+            continue
+            
         candidate_stats = compute_boundary_stats(candidate_coords)
         
         area_score = calculate_area_score(input_stats['area'], candidate_stats['area'])
@@ -323,10 +329,14 @@ def boundary_analyzer(input_boundary: List[List[float]],
         topology_score = calculate_topology_score(input_stats, candidate_stats)
         composite_score = calculate_composite_score(area_score, iou_score, topology_score)
         
+        # Extract layout info
+        layout_id = layout.get('layoutId', 'unknown')
+        layout_name = layout.get('apartment', {}).get('name', 'Unknown Layout')
+        
         results.append({
-            "boundary_id": boundary['id'],
-            "name": boundary['name'],
-            "category": boundary.get('category', 'unknown'),
+            "boundary_id": layout_id,
+            "name": layout_name,
+            "category": "residential",
             "composite_score": round(composite_score, 3),
             "area_score": round(area_score, 3),
             "iou_score": round(iou_score, 3),
