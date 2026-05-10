@@ -6,8 +6,9 @@
 |----------|-------|
 | **Tool Name** | `boundary_analyzer` |
 | **Type** | Local Python tool (not MCP) |
-| **Lines of Code** | 393 (refactored from 529) |
+| **Lines of Code** | 403 (refactored from 529) |
 | **Dataset Size** | 30+ residential layouts |
+| **MCP Required** | ❌ No - Runs independently |
 | **Processing Time** | 0.5-10 seconds (depends on complexity) |
 | **Scoring Weights** | Area: 20%, IoU: 50%, Topology: 30% |
 | **Rotation Testing** | 0°, 90°, 180°, 270° |
@@ -25,15 +26,19 @@ python main.py "analyze boundary: [[0,0], [12,0], [12,8], [0,8], [0,0]]"
 ## Overview
 The **Boundary Analyzer** is a local Python tool that analyzes apartment boundary geometries by comparing them against a reference dataset of 30+ residential apartment layouts from `sample_layouts.json`. It provides quantitative scoring and visual SVG output to help identify the best matching apartment types.
 
+**⚡ Runs independently without MCP server** - The tool works as a standalone Python application and does not require Rhino/Grasshopper to be running.
+
 ### **Key Features**
 - ✅ Multi-metric scoring (Area, IoU, Topology)
 - ✅ **Rotation-invariant IoU** - Tests 0°, 90°, 180°, 270° orientations
 - ✅ **Grid-based sampling** - Accurate IoU for concave polygons (L, T, U shapes)
+- ✅ **Dual input modes** - Direct coordinates or load from layout JSON file
 - ✅ SVG visualization with overlay comparison
 - ✅ Self-contained implementation (no external dependencies)
 - ✅ Support for complex shapes (L-shaped, T-shaped, irregular stepped boundaries)
 - ✅ Integrated with team_06 agent workflow
 - ✅ Modular SVG utilities (reusable by other tools)
+- ✅ **MCP-optional bootstrap** - Works with or without MCP server connection
 
 ---
 
@@ -239,7 +244,7 @@ team_06/
 
 ### **Code Components**
 
-**`boundary_analyzer.py`** (393 lines) contains:
+**`boundary_analyzer.py`** (403 lines) contains:
 
 **Constants Section:**
 - `WEIGHT_AREA`, `WEIGHT_IOU`, `WEIGHT_TOPOLOGY` - Scoring weights
@@ -340,6 +345,40 @@ The dataset contains **30+ residential apartment layouts** with detailed geometr
 - `outline`: **Boundary coordinates used for matching** (closed-loop polygon)
 
 **Note:** The tool uses the `outline` field for boundary comparison. All coordinates are in meters.
+
+---
+
+## Running Without MCP Server
+
+### **MCP-Optional Bootstrap**
+
+The boundary analyzer runs as a **local Python tool** and does not require the MCP server (Rhino/Grasshopper) to be running. The bootstrap process gracefully handles MCP unavailability:
+
+```python
+# _runtime/bootstrap.py
+try:
+    mcp_client.initialize()
+    tools = mcp_client.list_tools()
+    print(f"[bootstrap] Discovered MCP tools: {mcp_tool_names}")
+except Exception as e:
+    print(f"[bootstrap] Warning: Could not connect to MCP server: {type(e).__name__}")
+    print(f"[bootstrap] Continuing with local tools only...")
+```
+
+**Expected Output:**
+```
+[bootstrap] Loaded layout: input_layout (team_06_input_layout.json)
+[bootstrap] Warning: Could not connect to MCP server: ConnectError
+[bootstrap] Continuing with local tools only...
+[bootstrap] Discovered local tools: ['boundary_analyzer', 'layout_filter', 'layout_graph_search']
+[bootstrap] Total tools available: 3
+```
+
+**Benefits:**
+- ✅ Faster development and testing
+- ✅ No dependency on Rhino/Grasshopper for boundary analysis
+- ✅ Graceful degradation when MCP unavailable
+- ✅ Full functionality for local tools
 
 ---
 
@@ -513,23 +552,39 @@ if tool_name == "boundary_analyzer":
 
 ### **Common Issues**
 
-**1. Dataset Not Found**
+**1. MCP Server Connection Warning (Normal)**
+```
+[bootstrap] Warning: Could not connect to MCP server: ConnectError
+[bootstrap] Continuing with local tools only...
+```
+**Solution:** This is **normal** if Rhino/Grasshopper is not running. The boundary analyzer will work fine with local tools only.
+
+**2. Dataset Not Found**
 ```
 Error: Dataset not found at team_06/layout_inputs/sample_layouts.json
 ```
 **Solution:** Ensure you're running from `team_06/python` directory or use absolute path.
 
-**2. Invalid Boundary Format**
+**3. Invalid Boundary Format**
 ```
 Error: Boundary must be a closed loop
 ```
 **Solution:** Ensure first and last coordinates are identical: `[[0,0], ..., [0,0]]`
 
-**3. No Matches Returned**
+**4. No Matches Returned**
 ```
 status: "error", message: "No matches found in dataset"
 ```
 **Solution:** Verify dataset file is valid JSON array with layouts containing `outline` field.
+
+**5. ModuleNotFoundError: No module named 'dotenv'**
+```
+ModuleNotFoundError: No module named 'dotenv'
+```
+**Solution:** Activate the virtual environment before running:
+```powershell
+& E:\softwares-4\AIA26_Studio\.venv\Scripts\Activate.ps1
+```
 
 ### **Debug Mode**
 
@@ -669,6 +724,8 @@ DEFAULT_TOP_N = 5       # Increase to see more candidates
 
 **Implementation:**
 - **Modular design**: SVG utilities extracted to `utils/svg_utils.py`
+- **MCP-optional**: Runs independently without Rhino/Grasshopper
+- **Dual input modes**: Direct coordinates or load from layout JSON file
 - Zero external dependencies (uses existing numpy)
 - Integrated with team_06 agent workflow
 - 30+ residential apartment layouts in dataset (`sample_layouts.json`)
@@ -678,6 +735,7 @@ DEFAULT_TOP_N = 5       # Increase to see more candidates
 - ✅ **Grid-based sampling** (handles concave polygons)
 - ✅ **Configurable constants** (easy tuning)
 - ✅ **Reusable SVG utilities** (for other tools)
+- ✅ **Standalone operation** (no MCP server required)
 
 **Tested Shapes:**
 - ✅ Rectangles (perfect match: 1.000)
