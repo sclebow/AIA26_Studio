@@ -48,16 +48,24 @@ def bootstrap() -> Context:
         print(f"[bootstrap] Loaded layout: input_layout ({team_name}_input_layout.json)")
 
     # Connect to the Grasshopper MCP server and list available tools
+    # Make this optional - if MCP server is not available, only local tools will work
     mcp_client = McpClient(settings.mcp_endpoint, settings.request_timeout_seconds)
-    mcp_client.initialize()
-    tools = mcp_client.list_tools()
+    tools = []
+    mcp_tool_names = []
+    
+    try:
+        mcp_client.initialize()
+        tools = mcp_client.list_tools()
+        mcp_tool_names = [t.get('name') for t in tools]
+        print(f"[bootstrap] Discovered MCP tools: {mcp_tool_names}")
+    except Exception as e:
+        print(f"[bootstrap] Warning: Could not connect to MCP server: {type(e).__name__}")
+        print(f"[bootstrap] Continuing with local tools only...")
     
     # Log all available tools (both MCP and local)
-    mcp_tool_names = [t.get('name') for t in tools]
     local_tool_names = [t.get('name') for t in get_local_tools()]
-    print(f"Discovered MCP tools: {mcp_tool_names}")
-    print(f"Discovered local tools: {local_tool_names}")
-    print(f"Total tools available: {len(tools) + len(get_local_tools())}")
+    print(f"[bootstrap] Discovered local tools: {local_tool_names}")
+    print(f"[bootstrap] Total tools available: {len(tools) + len(get_local_tools())}")
 
     # Build the LLM with a structured-output schema tailored to the available tools
     llm = create_chat_llm(
