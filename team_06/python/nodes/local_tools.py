@@ -158,6 +158,7 @@ def build_local_tool_node(reference_layout_path):
             elif tool_name == "boundary_analyzer":
                 tool_output = boundary_analyzer(
                     input_boundary=tool_args.get("input_boundary"),
+                    input_layout_path=tool_args.get("input_layout_path"),
                     dataset_path=tool_args.get("dataset_path"),
                     top_n_results=tool_args.get("top_n_results", 5)
                 )

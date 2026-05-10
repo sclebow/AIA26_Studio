@@ -46,13 +46,18 @@ def get_boundary_analyzer_schema() -> Dict[str, Any]:
             "properties": {
                 "input_boundary": {
                     "type": "array",
-                    "description": "Closed loop coordinates [[x1,y1], [x2,y2], ..., [xn,yn]]",
+                    "description": "Closed loop coordinates [[x1,y1], [x2,y2], ..., [xn,yn]] (optional if input_layout_path is provided)",
                     "items": {
                         "type": "array",
                         "items": {"type": "number"},
                         "minItems": 2,
                         "maxItems": 2
                     }
+                },
+                "input_layout_path": {
+                    "type": "string",
+                    "description": "Path to input layout JSON file (will use 'outline' field as boundary)",
+                    "default": "team_06/team_06_input_layout.json"
                 },
                 "dataset_path": {
                     "type": "string",
@@ -65,7 +70,7 @@ def get_boundary_analyzer_schema() -> Dict[str, Any]:
                     "default": DEFAULT_TOP_N
                 }
             },
-            "required": ["input_boundary"]
+            "required": []
         }
     }
 
@@ -273,20 +278,54 @@ def compute_boundary_stats(coords: List[List[float]]) -> Dict[str, float]:
 # MAIN TOOL FUNCTION
 # ============================================================================
 
-def boundary_analyzer(input_boundary: List[List[float]], 
+def boundary_analyzer(input_boundary: List[List[float]] = None,
+                     input_layout_path: str = None,
                      dataset_path: str = None,
                      top_n_results: int = 5) -> Dict[str, Any]:
     """
     Analyze input boundary against dataset and return top matches with visualization.
     
     Args:
-        input_boundary: Closed loop coordinates [[x1,y1], [x2,y2], ..., [xn,yn]]
+        input_boundary: Closed loop coordinates [[x1,y1], [x2,y2], ..., [xn,yn]] (optional if input_layout_path provided)
+        input_layout_path: Path to input layout JSON file (will use 'outline' field)
         dataset_path: Path to layout dataset JSON (optional)
         top_n_results: Number of top matches to return
     
     Returns:
         Dictionary with analysis results, scores, and SVG visualization
     """
+    
+    # Load input boundary from file if path provided
+    if input_layout_path is not None:
+        input_layout_path = Path(input_layout_path)
+        if not input_layout_path.is_absolute():
+            if str(input_layout_path).startswith("team_06"):
+                input_layout_path = Path(__file__).parent.parent.parent.parent / input_layout_path
+            else:
+                input_layout_path = Path(__file__).parent.parent.parent / input_layout_path
+        
+        if not input_layout_path.exists():
+            return {
+                "status": "error",
+                "message": f"Input layout file not found at {input_layout_path}"
+            }
+        
+        with open(input_layout_path, 'r') as f:
+            input_layout = json.load(f)
+        
+        input_boundary = input_layout.get('outline', [])
+        if not input_boundary:
+            return {
+                "status": "error",
+                "message": "Input layout file does not contain 'outline' field"
+            }
+    
+    # Validate that we have an input boundary
+    if input_boundary is None or len(input_boundary) == 0:
+        return {
+            "status": "error",
+            "message": "Either input_boundary or input_layout_path must be provided"
+        }
     
     if dataset_path is None:
         dataset_path = Path(__file__).parent.parent.parent / "layout_inputs" / "sample_layouts.json"
