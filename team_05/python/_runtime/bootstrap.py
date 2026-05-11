@@ -38,29 +38,9 @@ def bootstrap() -> Context:
     tools = mcp_client.list_tools()
     print(f"Discovered MCP tools: {[t.get('name') for t in tools]}")
 
-    # Load cost database and register it as a local tool
-    cost_db_path = Path(__file__).resolve().parents[1] / "cost_database.json"
-    cost_db: dict[str, Any] = json.loads(cost_db_path.read_text(encoding="utf-8"))
-    tools.append({
-        "name": "get_unit_cost_by_type",
-        "description": (
-            "Look up the unit cost for a building element type. "
-            f"Known types: {', '.join(cost_db.keys())}. "
-            "Returns cost per unit (doors/windows) or per m² (walls/floors/ceilings)."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "element_type": {
-                    "type": "string",
-                    "description": "The element type to look up, e.g. 'wooden_door' or 'window'.",
-                }
-            },
-            "required": ["element_type"],
-            "additionalProperties": False,
-        },
-    })
-    print(f"Registered local tool: get_unit_cost_by_type ({len(cost_db)} types)")
+    # Using OpenCost for cost database - no JSON file needed
+    cost_db: dict[str, Any] = {}
+    print("[bootstrap] ✓ Using OpenCost - auto-updated market database")
 
     # Build the LLM with a structured-output schema tailored to the available tools
     llm = create_chat_llm(
