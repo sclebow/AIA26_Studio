@@ -1,61 +1,58 @@
 from __future__ import annotations
 from typing import Any
 from _runtime.llm import call_llm
-
-
-# ---------------------------------------------------------------------------
-# System prompt — edit this to change how the agent thinks and behaves.
-# ---------------------------------------------------------------------------
+import time
 
 SYSTEM_PROMPT = """You are a structural memory assistant helping an architect make early design decisions without a structural engineer.
 
-Your job is to make the consequences of infrastructure decisions legible before they become irreversible.You do not design. You do not calculate loads. 
+Your job is to make the consequences of infrastructure decisions legible before they become irreversible. You do not design. You do not calculate loads.
 
-You classify all elements, score them according to the cost of the refurbishment, flag conflicts, and explain consequences in plain language. Ground all reasoning in the layout JSON in the user message.Use element IDs and attributes exactly as given.
+You classify elements, score refurbishment cost, flag conflicts, and explain consequences in plain language. Use element IDs and attributes exactly as given. Do not invent elements, dimensions, or structural assumptions.
 
-Do not invent elements, dimensions, or structural assumptions.
+When multiple layouts exist, call the tool once per layout, passing each layout's JSON individually. Do not skip any layout.
 
-Always ground your reasoning in the current layout JSON shown in the user message. That payload is loaded from the repository's folder team_01/example_layouts (this folder could have multiple layout files) and defines the structure, attribute names, ids, and nested objects you should use for context (for example which keys exist, how entities reference each other, and what values are valid to mention or pass through).
+If information is missing, respond with action "final" and ask one clarifying question.
+After a tool result, decide if another tool call is needed or respond with action "final" to summarize.
 
-If the user's goal cannot be satisfied without information that is missing from their message or from that layout JSON, respond with action "final" and ask a concise clarifying question.
-
-After a tool result appears in the conversation, decide whether another tool call is needed or whether to respond with action "final" (for example to confirm completion or summarize what happened, including any output path or details echoed from the tool result when relevant).
-
-Toolbox (name, description, and inputSchema for each tool):
+Tools:
 {tool_catalog}
 
-Return strictly valid JSON with exactly this shape:
+Response format:
 {{
   "action": "final" | "tool",
   "final_response": "...",
-  "tool_calls": [{{"name": "<tool-name>", "arguments": {{...}}}}, ...]
+  "tool_calls": [{{"name": "<tool>", "arguments": {{...}}}}]
 }}
 
-Output rules:
-- Return JSON only, with no prose or explanation.
-- Do not use markdown code fences.
-- If action is "final", set tool_calls to [] and put the answer in final_response.
-- If action is "tool", set final_response to "" and put one or more tool calls in tool_calls.
+Return JSON only. No markdown. No prose.
+If final: tool_calls=[]. If tool: final_response="".
 """
 
-
-# ---------------------------------------------------------------------------
-# Reason node — the LLM decision step in the graph.
-# ---------------------------------------------------------------------------
-
 def build_reason_node(llm):
-    """Return a reason node function ready to be added to a LangGraph StateGraph."""
 
     def reason_node(state):
         print("\nReasoning with LLM...")
-        result = call_llm(llm, SYSTEM_PROMPT, state["messages"], state["tool_catalog"])
 
-        # If the LLM decided no more actions are needed (action is final), set the final response in the state and clear pending tool calls
+        result = None
+        last_error = None
+
+        for attempt in range(3):
+            try:
+                result = call_llm(llm, SYSTEM_PROMPT, state["messages"], state["tool_catalog"])
+                break
+            except Exception as e:
+                last_error = e
+                if attempt < 2:
+                    wait = 5 * (attempt + 1)
+                    print(f"LLM call failed (attempt {attempt+1}/3), retrying in {wait}s... {e}")
+                    time.sleep(wait)
+
+        if result is None:
+            raise RuntimeError(f"LLM failed after 3 attempts: {last_error}")
+
         if result["action"] == "final":
             state["final_response"] = result["final_response"]
             state["pending_tool_calls"] = None
-
-        # If the LLM decided the action is to use a tool, set the pending tool calls
         else:
             state["pending_tool_calls"] = result["tool_calls"]
 

@@ -1,3 +1,22 @@
 {
-  "permanence classification": "unknown"
+  "structure": [
+    {
+      "id": "COL_A",
+      "name": "Structural Column COL_A",
+      "geometry": [
+        [
+          0.0,
+          0.0
+        ]
+      ],
+      "attributes": {
+        "wall_type": "column",
+        "permanence_tag": "permanent",
+        "permanence_score": 1,
+        "intervention_tier": "prohibitive",
+        "reason": "Structural column. Cannot be moved or removed.",
+        "reuse_warning": "All layouts must accommodate this column."
+      }
+    }
+  ]
 }

@@ -1,51 +1,197 @@
 {
   "layoutId": "Layout-202",
   "name": "Cozy 1-Bedroom Home",
-  "outline": [[0.0, 0.0], [10.0, 0.0], [10.0, 7.0], [0.0, 7.0], [0.0, 0.0]],
+  "outline": [
+    [
+      0.0,
+      0.0
+    ],
+    [
+      10.0,
+      0.0
+    ],
+    [
+      10.0,
+      7.0
+    ],
+    [
+      0.0,
+      7.0
+    ],
+    [
+      0.0,
+      0.0
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
       "name": "Open Plan Living-Dining",
-      "geometry": [[0.0, 0.0], [7.0, 0.0], [7.0, 4.5], [0.0, 4.5], [0.0, 0.0]],
+      "geometry": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          7.0,
+          0.0
+        ],
+        [
+          7.0,
+          4.5
+        ],
+        [
+          0.0,
+          4.5
+        ],
+        [
+          0.0,
+          0.0
+        ]
+      ],
       "attributes": {
         "area": 31.5,
-        "roomType": "living"
+        "roomType": "living",
+        "height": 2.5,
+        "orientation": "W",
+        "glazingRatio": 0.15,
+        "ventilationType": "natural"
       }
     },
     {
       "id": "room-2",
       "name": "Kitchen",
-      "geometry": [[7.0, 0.0], [10.0, 0.0], [10.0, 4.5], [7.0, 4.5], [7.0, 0.0]],
+      "geometry": [
+        [
+          7.0,
+          0.0
+        ],
+        [
+          10.0,
+          0.0
+        ],
+        [
+          10.0,
+          4.5
+        ],
+        [
+          7.0,
+          4.5
+        ],
+        [
+          7.0,
+          0.0
+        ]
+      ],
       "attributes": {
         "area": 10.5,
-        "roomType": "kitchen"
+        "roomType": "kitchen",
+        "height": 2.5,
+        "orientation": "E",
+        "glazingRatio": 0.1,
+        "ventilationType": "natural"
       }
     },
     {
       "id": "room-3",
       "name": "Bedroom",
-      "geometry": [[0.0, 4.5], [5.0, 4.5], [5.0, 7.0], [0.0, 7.0], [0.0, 4.5]],
+      "geometry": [
+        [
+          0.0,
+          4.5
+        ],
+        [
+          5.0,
+          4.5
+        ],
+        [
+          5.0,
+          7.0
+        ],
+        [
+          0.0,
+          7.0
+        ],
+        [
+          0.0,
+          4.5
+        ]
+      ],
       "attributes": {
         "area": 12.5,
-        "roomType": "bedroom"
+        "roomType": "bedroom",
+        "height": 2.5,
+        "orientation": "W",
+        "glazingRatio": 0.18,
+        "ventilationType": "natural"
       }
     },
     {
       "id": "room-4",
       "name": "Bathroom",
-      "geometry": [[5.0, 4.5], [7.0, 4.5], [7.0, 6.0], [5.0, 6.0], [5.0, 4.5]],
+      "geometry": [
+        [
+          5.0,
+          4.5
+        ],
+        [
+          7.0,
+          4.5
+        ],
+        [
+          7.0,
+          6.0
+        ],
+        [
+          5.0,
+          6.0
+        ],
+        [
+          5.0,
+          4.5
+        ]
+      ],
       "attributes": {
         "area": 3.0,
-        "roomType": "bathroom"
+        "roomType": "bathroom",
+        "height": 2.5,
+        "orientation": "N",
+        "glazingRatio": 0.0,
+        "ventilationType": "mechanical"
       }
     },
     {
       "id": "room-5",
       "name": "Laundry/Pantry",
-      "geometry": [[7.0, 4.5], [10.0, 4.5], [10.0, 6.0], [7.0, 6.0], [7.0, 4.5]],
+      "geometry": [
+        [
+          7.0,
+          4.5
+        ],
+        [
+          10.0,
+          4.5
+        ],
+        [
+          10.0,
+          6.0
+        ],
+        [
+          7.0,
+          6.0
+        ],
+        [
+          7.0,
+          4.5
+        ]
+      ],
       "attributes": {
         "area": 3.0,
-        "roomType": "utility"
+        "roomType": "utility",
+        "height": 2.5,
+        "orientation": "E",
+        "glazingRatio": 0.0,
+        "ventilationType": "mechanical"
       }
     }
   ],
@@ -53,25 +199,64 @@
     {
       "id": "door-1",
       "name": "Bedroom Door",
-      "geometry": [[5.0, 5.5], [5.5, 5.5]],
+      "geometry": [
+        [
+          5.0,
+          5.5
+        ],
+        [
+          5.5,
+          5.5
+        ]
+      ],
       "attributes": {
-        "connectsRooms": ["room-1", "room-3"]
+        "connectsRooms": [
+          "room-1",
+          "room-3"
+        ],
+        "width": 0.9
       }
     },
     {
       "id": "door-2",
       "name": "Bathroom Door",
-      "geometry": [[6.0, 4.5], [6.5, 4.5]],
+      "geometry": [
+        [
+          6.0,
+          4.5
+        ],
+        [
+          6.5,
+          4.5
+        ]
+      ],
       "attributes": {
-        "connectsRooms": ["room-1", "room-4"]
+        "connectsRooms": [
+          "room-1",
+          "room-4"
+        ],
+        "width": 0.8
       }
     },
     {
       "id": "door-3",
       "name": "Laundry Door",
-      "geometry": [[8.5, 4.5], [9.0, 4.5]],
+      "geometry": [
+        [
+          8.5,
+          4.5
+        ],
+        [
+          9.0,
+          4.5
+        ]
+      ],
       "attributes": {
-        "connectsRooms": ["room-2", "room-5"]
+        "connectsRooms": [
+          "room-2",
+          "room-5"
+        ],
+        "width": 0.8
       }
     }
   ],
@@ -79,25 +264,61 @@
     {
       "id": "window-1",
       "name": "Living Room Window",
-      "geometry": [[0.0, 1.5], [0.0, 3.0]],
+      "geometry": [
+        [
+          0.0,
+          1.5
+        ],
+        [
+          0.0,
+          3.0
+        ]
+      ],
       "attributes": {
-        "roomId": "room-1"
+        "roomId": "room-1",
+        "area": 2.25,
+        "orientation": "W",
+        "glazingType": "single"
       }
     },
     {
       "id": "window-2",
       "name": "Kitchen Window",
-      "geometry": [[10.0, 1.5], [10.0, 3.0]],
+      "geometry": [
+        [
+          10.0,
+          1.5
+        ],
+        [
+          10.0,
+          3.0
+        ]
+      ],
       "attributes": {
-        "roomId": "room-2"
+        "roomId": "room-2",
+        "area": 2.25,
+        "orientation": "E",
+        "glazingType": "single"
       }
     },
     {
       "id": "window-3",
       "name": "Bedroom Window",
-      "geometry": [[0.0, 5.5], [0.0, 7.0]],
+      "geometry": [
+        [
+          0.0,
+          5.5
+        ],
+        [
+          0.0,
+          7.0
+        ]
+      ],
       "attributes": {
-        "roomId": "room-3"
+        "roomId": "room-3",
+        "area": 2.25,
+        "orientation": "W",
+        "glazingType": "single"
       }
     }
   ],
@@ -105,46 +326,156 @@
     {
       "id": "furn-1",
       "name": "L-Shaped Sofa",
-      "geometry": [[1.0, 0.8], [3.5, 0.8], [3.5, 2.5], [1.0, 2.5], [1.0, 0.8]],
+      "geometry": [
+        [
+          1.0,
+          0.8
+        ],
+        [
+          3.5,
+          0.8
+        ],
+        [
+          3.5,
+          2.5
+        ],
+        [
+          1.0,
+          2.5
+        ],
+        [
+          1.0,
+          0.8
+        ]
+      ],
       "attributes": {
         "roomId": "room-1",
-        "type": "sofa"
+        "type": "sofa",
+        "material": "fabric"
       }
     },
     {
       "id": "furn-2",
       "name": "Dining Table",
-      "geometry": [[4.5, 1.0], [6.5, 1.0], [6.5, 3.0], [4.5, 3.0], [4.5, 1.0]],
+      "geometry": [
+        [
+          4.5,
+          1.0
+        ],
+        [
+          6.5,
+          1.0
+        ],
+        [
+          6.5,
+          3.0
+        ],
+        [
+          4.5,
+          3.0
+        ],
+        [
+          4.5,
+          1.0
+        ]
+      ],
       "attributes": {
         "roomId": "room-1",
-        "type": "table"
+        "type": "table",
+        "material": "wood"
       }
     },
     {
       "id": "furn-3",
       "name": "Kitchen Cabinetry",
-      "geometry": [[7.5, 0.5], [9.5, 0.5], [9.5, 1.5], [7.5, 1.5], [7.5, 0.5]],
+      "geometry": [
+        [
+          7.5,
+          0.5
+        ],
+        [
+          9.5,
+          0.5
+        ],
+        [
+          9.5,
+          1.5
+        ],
+        [
+          7.5,
+          1.5
+        ],
+        [
+          7.5,
+          0.5
+        ]
+      ],
       "attributes": {
         "roomId": "room-2",
-        "type": "storage"
+        "type": "storage",
+        "material": "wood"
       }
     },
     {
       "id": "furn-4",
       "name": "Queen Bed",
-      "geometry": [[1.0, 5.0], [4.0, 5.0], [4.0, 6.5], [1.0, 6.5], [1.0, 5.0]],
+      "geometry": [
+        [
+          1.0,
+          5.0
+        ],
+        [
+          4.0,
+          5.0
+        ],
+        [
+          4.0,
+          6.5
+        ],
+        [
+          1.0,
+          6.5
+        ],
+        [
+          1.0,
+          5.0
+        ]
+      ],
       "attributes": {
         "roomId": "room-3",
-        "type": "bed"
+        "type": "bed",
+        "material": "fabric"
       }
     },
     {
       "id": "furn-5",
       "name": "Bedroom Dresser",
-      "geometry": [[0.8, 4.7], [2.0, 4.7], [2.0, 5.0], [0.8, 5.0], [0.8, 4.7]],
+      "geometry": [
+        [
+          0.8,
+          4.7
+        ],
+        [
+          2.0,
+          4.7
+        ],
+        [
+          2.0,
+          5.0
+        ],
+        [
+          0.8,
+          5.0
+        ],
+        [
+          0.8,
+          4.7
+        ]
+      ],
       "attributes": {
         "roomId": "room-3",
-        "type": "dresser"
+        "type": "dresser",
+        "material": "wood"
       }
     }
   ],
@@ -152,7 +483,28 @@
     {
       "id": "mep-1",
       "name": "Kitchen Range Hood",
-      "geometry": [[8.5, 3.5], [9.5, 3.5], [9.5, 3.8], [8.5, 3.8], [8.5, 3.5]],
+      "geometry": [
+        [
+          8.5,
+          3.5
+        ],
+        [
+          9.5,
+          3.5
+        ],
+        [
+          9.5,
+          3.8
+        ],
+        [
+          8.5,
+          3.8
+        ],
+        [
+          8.5,
+          3.5
+        ]
+      ],
       "attributes": {
         "system": "ventilation"
       }
@@ -160,7 +512,28 @@
     {
       "id": "mep-2",
       "name": "Wall AC Unit",
-      "geometry": [[5.5, 4.2], [6.5, 4.2], [6.5, 4.5], [5.5, 4.5], [5.5, 4.2]],
+      "geometry": [
+        [
+          5.5,
+          4.2
+        ],
+        [
+          6.5,
+          4.2
+        ],
+        [
+          6.5,
+          4.5
+        ],
+        [
+          5.5,
+          4.5
+        ],
+        [
+          5.5,
+          4.2
+        ]
+      ],
       "attributes": {
         "system": "hvac"
       }
@@ -168,7 +541,28 @@
     {
       "id": "mep-3",
       "name": "Breaker Box",
-      "geometry": [[0.2, 0.2], [0.7, 0.2], [0.7, 0.7], [0.2, 0.7], [0.2, 0.2]],
+      "geometry": [
+        [
+          0.2,
+          0.2
+        ],
+        [
+          0.7,
+          0.2
+        ],
+        [
+          0.7,
+          0.7
+        ],
+        [
+          0.2,
+          0.7
+        ],
+        [
+          0.2,
+          0.2
+        ]
+      ],
       "attributes": {
         "system": "electrical"
       }
@@ -178,14 +572,36 @@
     {
       "id": "wall-1",
       "name": "Kitchen Divider",
-      "geometry": [[7.0, 0.0], [7.0, 4.5]],
-      "attributes": {}
+      "geometry": [
+        [
+          7.0,
+          0.0
+        ],
+        [
+          7.0,
+          4.5
+        ]
+      ],
+      "attributes": {
+        "material": "plaster"
+      }
     },
     {
       "id": "wall-2",
       "name": "Bedroom Divider",
-      "geometry": [[5.0, 4.5], [5.0, 7.0]],
-      "attributes": {}
+      "geometry": [
+        [
+          5.0,
+          4.5
+        ],
+        [
+          5.0,
+          7.0
+        ]
+      ],
+      "attributes": {
+        "material": "plaster"
+      }
     }
   ]
 }

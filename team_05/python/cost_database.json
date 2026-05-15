@@ -6,5 +6,6 @@
   "brick_wall":     95,
   "glass_facade":  450,
   "floor_tiles":    65,
+  "floor_wood":     85,
   "ceiling":        40
 }

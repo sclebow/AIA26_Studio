@@ -1,0 +1,86 @@
+{
+  "tool_name": "setback_checker",
+  "check_id": "SETBACK_001",
+  "input": {
+    "site_boundary_reader_output": {
+      "site_id": "SITE_001",
+      "site_area": 2400.0,
+      "closed_site_boundary_curve": [
+        [0.0, 0.0],
+        [48.0, 0.0],
+        [62.0, 18.0],
+        [55.0, 44.0],
+        [20.0, 58.0],
+        [0.0, 34.0],
+        [0.0, 0.0]
+      ]
+    },
+    "context_reader_output": {
+      "roads": [
+        {
+          "road_id": "ROAD_001",
+          "type": "primary",
+          "adjacent_site_edge": "south"
+        },
+        {
+          "road_id": "ROAD_002",
+          "type": "secondary",
+          "adjacent_site_edge": "east"
+        }
+      ],
+      "neighboring_buildings": [
+        {
+          "building_id": "NB_001",
+          "adjacent_site_edge": "north"
+        },
+        {
+          "building_id": "NB_002",
+          "adjacent_site_edge": "west"
+        }
+      ]
+    },
+    "shape_library_loader_output": {
+      "selected_shape": "L_shape",
+      "footprint_area": 1320.0
+    },
+    "legal_constraints_reader_output": {
+      "site_coverage_compliant": true,
+      "site_coverage_ratio_percent": 55.0,
+      "site_coverage_ratio_limit_percent": 60.0
+    }
+  },
+  "output": {
+    "setback_requirements_meters": {
+      "front_setback": 6.0,
+      "rear_setback": 4.0,
+      "side_setback_left": 3.0,
+      "side_setback_right": 3.0
+    },
+    "available_buildable_depth_meters": {
+      "north_south_depth": 48.0,
+      "usable_after_front_and_rear_setback": 38.0
+    },
+    "available_buildable_width_meters": {
+      "east_west_width": 62.0,
+      "usable_after_side_setbacks": 56.0
+    },
+    "total_buildable_envelope": {
+      "max_length": 56.0,
+      "max_depth": 38.0,
+      "estimated_area": 2128.0
+    },
+    "compliance_status": {
+      "setback_compliant": true,
+      "shape_can_fit_within_setbacks": true
+    },
+    "design_guidance": {
+      "recommended_placement_zone": "southwest_to_center",
+      "notes": [
+        "Maintain 6m setback along primary road edge",
+        "North edge should buffer neighboring building",
+        "L_shape can fit if rotated 90 degrees or aligned southwest"
+      ]
+    },
+    "status": "setback_analysis_complete"
+  }
+}

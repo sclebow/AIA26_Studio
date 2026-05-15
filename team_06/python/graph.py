@@ -1,6 +1,5 @@
 from __future__ import annotations
 import json
-from pathlib import Path
 from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 from nodes.reason import build_reason_node
@@ -30,10 +29,7 @@ class AgentState():
     max_iterations: int                  # safety cap to stop the process (set from .env)
     tool_catalog: str                    # formatted list of available MCP tools
     layout_json_string: str              # current layout as a JSON string, injected into tool calls
-    all_layouts: list[dict[str, Any]]    # all available layouts, injected into local tool calls
-    all_descriptions: list[dict[str, Any]]  #layout descriptions for embedding search
-    layout_id: str | None                # current selected layout ID
-    layout_schema: dict[str, Any] | None # current selected layout schema dict
+
 
 # ---------------------------------------------------------------------------
 # Routing — decides which node runs next after "reason".
@@ -46,7 +42,7 @@ def _route(state: AgentState) -> str:
     # Check if any pending tool calls are local tools
     if state["pending_tool_calls"]:
         for call in state["pending_tool_calls"]:
-            if call["name"] in ["layout_filter", "layout_matcher"]:
+            if call["name"] in ["layout_filter", "layout_graph_search", "boundary_analyzer"]:
                 return "local_tool"
     
     return "run_tool"
@@ -60,8 +56,8 @@ def build_graph(ctx: Any) -> Any:
     # Create the state graph
     # Use the reason and tool nodes
     reason = build_reason_node(ctx.llm)
-    tool = build_tool_node(ctx.mcp_client, ctx.tools, ctx.edited_layout_path)
-    local_tool = build_local_tool_node()
+    tool = build_tool_node(ctx.mcp_client, ctx.tools, ctx.edited_layout_path, ctx.input_layout_path)
+    local_tool = build_local_tool_node(ctx.reference_layout_path)
 
     # Initialize the graph
     graph = StateGraph(AgentState)
@@ -105,15 +101,9 @@ def run_agent(prompt: str, ctx: Any) -> str:
 # ---------------------------------------------------------------------------
 
 def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
-    repo_root = Path(__file__).resolve().parent.parent
-    # Load all available layouts
-    layouts_path = repo_root / "layout_inputs" / "sample_layouts.json"
-    all_layouts = json.loads(layouts_path.read_text(encoding="utf-8"))
-    
-    # Load layout descriptions
-    descriptions_path = repo_root / "layout_inputs" / "sample_descriptions.json"
-    all_descriptions = json.loads(descriptions_path.read_text(encoding="utf-8"))
-    
+    # Start with fresh messages for each run (no persistence)
+    messages = []
+        
     # Convert the layout data to a JSON string
     layout_text = json.dumps(ctx.layout_data, indent=2)
     
@@ -139,11 +129,7 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
         "iteration": 0,
         "max_iterations": ctx.max_iterations,
         "tool_catalog": tool_catalog,
-        "layout_json_string": layout_text,
-        "all_layouts": all_layouts,
-        "all_descriptions": all_descriptions,
-        "layout_id": None,
-        "layout_schema": None,
+        "layout_json_string": json.dumps(ctx.layout_data),
     }
 
 # Helper funtion to prepare the tool catalog for the LLM
@@ -155,4 +141,3 @@ def _format_tool_catalog(tools: list[dict[str, Any]]) -> str:
         schema = json.dumps(tool.get("inputSchema", {}))
         lines.append(f"- {name}: {description} | inputSchema={schema}")
     return "\n".join(lines)
-

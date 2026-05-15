@@ -229,6 +229,29 @@ def call_llm(
 
 
 # ---------------------------------------------------------------------------
+# Simple LLM call — no tool catalog, just system + user message → string
+# Used by chitchat, respond, and route_intent nodes.
+# ---------------------------------------------------------------------------
+
+def call_llm_simple(llm: Any, system_prompt: str, user_message: str) -> str:
+    """Invoke the LLM with a plain system + user message and return the response string.
+
+    Pass a plain LLM instance (no response_format / JSON schema) so the model
+    can respond freely without token budget wasted on JSON wrapper.
+    Use ctx.llm_simple, not ctx.llm, when calling this function.
+    """
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_message},
+    ]
+    result = llm.invoke(messages)
+    content = result.content
+    if not isinstance(content, str):
+        raise RuntimeError("LLM response content must be a string")
+    return content.strip()
+
+
+# ---------------------------------------------------------------------------
 # Tool output persistence helper used by tool nodes
 # ---------------------------------------------------------------------------
 

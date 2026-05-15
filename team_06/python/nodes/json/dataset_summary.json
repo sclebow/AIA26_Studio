@@ -1,0 +1,43 @@
+{
+  "layout_count": 6,
+  "available_programs": [
+    "bedroom",
+    "bathroom",
+    "kitchen",
+    "living",
+    "foyer",
+    "extra"
+  ],
+  "program_descriptions": {
+    "bedroom": "A private sleeping room.",
+    "bathroom": "A full bathroom with toilet, sink, and shower or tub.",
+    "kitchen": "A kitchen for food preparation; sometimes open to living.",
+    "living": "A shared living area for relaxation, entertaining, or shared activities.",
+    "foyer": "An entry vestibule or small hallway near the front door.",
+    "extra": "A small storage or utility room (closet-sized, typically 0.4–2 m²)."
+  },
+  "unsupported_concepts": [
+    "dedicated studio or office program (no separate workspace)",
+    "dedicated music room",
+    "dedicated gym",
+    "walk-in wardrobe",
+    "more than 2 bedrooms",
+    "more than 2 bathrooms",
+    "dining room (kitchen and living are typically open-plan)"
+  ],
+  "size_range_m2": {
+    "min": 18,
+    "max": 37,
+    "typical": "22–35"
+  },
+  "bedroom_count_range": {
+    "min": 0,
+    "max": 2
+  },
+  "dataset_notes": [
+    "Targeted at young singles, couples, students sharing, and young professionals",
+    "Studios are open-plan; the bedroom is part of the living area",
+    "Storage is represented by the 'extra' program when present",
+    "The 'foyer' program represents both entry vestibules and short circulation hallways"
+  ]
+}
