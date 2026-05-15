@@ -288,7 +288,7 @@ Before you start coding, we recommend that you plan out your GUI on a sketch or 
 
 ### Suggested libraries for the GUI
 
-Below is a table of some libraries you could use to create a GUI for your agent.  
+Below is a table of some libraries you could use to create a GUI for your agent, but not an exhaustive list, if you have other libraries in mind, that's great!
 
 First, consider whether you want a **local** application that runs on the user's machine, like Rhino or Revit would, or a **web-based** application that runs in the browser, such as Miro or Google Docs.  Local applications can be more responsive and have access to the file system, but web-based applications can be more accessible and run on more platforms.
 
