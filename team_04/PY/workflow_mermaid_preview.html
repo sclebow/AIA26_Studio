@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body {
+      margin: 0;
+            padding: 8px;
+      background: #ffffff;
+      font-family: Segoe UI, Arial, sans-serif;
+            width: max-content;
+            height: max-content;
+            overflow: hidden;
+    }
+        body {
+            display: inline-block;
+        }
+    .mermaid {
+            display: inline-block;
+            text-align: left;
+        }
+        .mermaid svg {
+            max-width: none;
+            height: auto;
+    }
+  </style>
+</head>
+<body>
+  <pre class="mermaid">
+%%{init: {
+  &quot;theme&quot;: &quot;base&quot;,
+  &quot;flowchart&quot;: {
+    &quot;curve&quot;: &quot;bumpX&quot;,
+    &quot;nodeSpacing&quot;: 120,
+    &quot;rankSpacing&quot;: 135,
+    &quot;padding&quot;: 34
+  },
+  &quot;themeVariables&quot;: {
+    &quot;background&quot;: &quot;#ffffff&quot;,
+    &quot;primaryTextColor&quot;: &quot;#111111&quot;,
+    &quot;lineColor&quot;: &quot;#6c757d&quot;,
+    &quot;fontSize&quot;: &quot;16px&quot;,
+    &quot;fontFamily&quot;: &quot;Segoe UI, Arial, sans-serif&quot;
+  }
+}}%%
+
+flowchart LR
+
+    STATE[(DesignWorkflowState&lt;br/&gt;shared state&lt;br/&gt;design_state.py)]
+    FACTORY[[central_reasoning_node factory&lt;br/&gt;central_reasoning_node.py]]
+    HELPERS[[support helpers&lt;br/&gt;_load_layout_schema&lt;br/&gt;_resolve_schema_tool_calls&lt;br/&gt;_extract_generated_options&lt;br/&gt;_strip_markdown_code_fence&lt;br/&gt;_normalize_content_text&lt;br/&gt;_parse_llm_json]]
+
+    START([Enter&lt;br/&gt;central_reasoning_node])
+    END([Return&lt;br/&gt;updated state])
+
+    subgraph B1[&quot;1. Inputs / State Reading&quot;]
+        direction TB
+        I1[state.user_prompt]
+        I2[state.feedback_history]
+        I3[tool_names&lt;br/&gt;available tools]
+        I4[state.design_state]
+    end
+
+    subgraph B2[&quot;2. Prompt + LLM Call&quot;]
+        direction TB
+        P1[Build tool_names_text]
+        P2[Format system prompt&lt;br/&gt;with design_state + tool_names]
+        P3[Build llm_messages&lt;br/&gt;system + user + feedback]
+        L1[llm.invoke]
+        L2[Normalize LLM content]
+    end
+
+    subgraph B3[&quot;3. Parse + Decision&quot;]
+        direction TB
+        D1{Content empty?}
+        D2[Parse LLM JSON]
+        D3{Parse error?}
+        D4[Read action&lt;br/&gt;tool_calls&lt;br/&gt;reasoning]
+        D5{Action type?}
+    end
+
+    subgraph B4[&quot;4. State Update / Return&quot;]
+        direction TB
+        O1[Fallback&lt;br/&gt;pending_action = ask_user&lt;br/&gt;pending_tool_calls = empty]
+        O2[Tool/action path&lt;br/&gt;pending_action&lt;br/&gt;pending_tool_calls&lt;br/&gt;last_reasoning&lt;br/&gt;next_step]
+        O3[Final path&lt;br/&gt;final_response]
+    end
+
+    STATE -. shared data .-&gt; I1
+    STATE -. shared data .-&gt; I2
+    STATE -. shared data .-&gt; I4
+    FACTORY -. creates .-&gt; START
+    HELPERS -. support .-&gt; L2
+    HELPERS -. support .-&gt; D2
+
+    START ==&gt; I3
+    I1 --&gt; P3
+    I2 --&gt; P3
+    I3 --&gt; P1
+    I4 --&gt; P2
+
+    P1 --&gt; P2
+    P2 --&gt; P3
+    P3 ==&gt; L1
+    L1 --&gt; L2
+    L2 ==&gt; D1
+
+    D1 ==&gt;|yes| O1
+    D1 ==&gt;|no| D2
+    D2 --&gt; D3
+    D3 ==&gt;|yes| O1
+    D3 ==&gt;|no| D4
+    D4 --&gt; D5
+
+    D5 ==&gt;|final| O3
+    D5 ==&gt;|tool or ask_user| O2
+
+    O1 ==&gt; END
+    O2 ==&gt; END
+    O3 ==&gt; END
+
+    classDef state fill:#f1f3f5,stroke:#868e96,stroke-width:2px,color:#111111;
+    classDef factory fill:#fff9db,stroke:#adb5bd,stroke-width:2px,stroke-dasharray:5 5,color:#111111;
+    classDef startEnd fill:#ffe3e3,stroke:#c92a2a,stroke-width:3px,color:#111111;
+    classDef input fill:#e7f5ff,stroke:#1c7ed6,stroke-width:2px,color:#111111;
+    classDef prompt fill:#fff3bf,stroke:#f08c00,stroke-width:2px,color:#111111;
+    classDef decision fill:#efe1ff,stroke:#7048e8,stroke-width:2px,color:#111111;
+    classDef output fill:#ffe8cc,stroke:#e67700,stroke-width:2px,color:#111111;
+
+    class STATE state;
+    class FACTORY,HELPERS factory;
+    class START,END startEnd;
+    class I1,I2,I3,I4 input;
+    class P1,P2,P3,L1,L2 prompt;
+    class D1,D2,D3,D4,D5 decision;
+    class O1,O2,O3 output;
+
+    style B1 fill:#f8fbff,stroke:#bfd7ff,stroke-width:1.5px,color:#111111
+    style B2 fill:#fffdf4,stroke:#f1d8a8,stroke-width:1.5px,color:#111111
+    style B3 fill:#faf5ff,stroke:#d0bfff,stroke-width:1.5px,color:#111111
+    style B4 fill:#fff8f0,stroke:#ffd8a8,stroke-width:1.5px,color:#111111
+
+  </pre>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({
+            startOnLoad: false,
+            securityLevel: 'loose',
+            flowchart: { useMaxWidth: false },
+        });
+
+        const diagramNodes = document.querySelectorAll('.mermaid');
+        try {
+            await mermaid.run({ nodes: diagramNodes });
+            const svg = document.querySelector('.mermaid svg');
+            if (svg) {
+                const rect = svg.getBoundingClientRect();
+                const bbox = typeof svg.getBBox === 'function' ? svg.getBBox() : null;
+                const viewBox = svg.viewBox && svg.viewBox.baseVal ? svg.viewBox.baseVal : null;
+                const measuredWidth = Math.ceil(Math.max(
+                    rect.width || 0,
+                    bbox ? bbox.width : 0,
+                    viewBox ? viewBox.width : 0,
+                ));
+                const measuredHeight = Math.ceil(Math.max(
+                    rect.height || 0,
+                    bbox ? bbox.height : 0,
+                    viewBox ? viewBox.height : 0,
+                ));
+                document.body.setAttribute('data-diagram-width', String(measuredWidth));
+                document.body.setAttribute('data-diagram-height', String(measuredHeight));
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            document.body.setAttribute('data-render-error', message);
+        }
+  </script>
+</body>
+</html>
