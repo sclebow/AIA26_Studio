@@ -13,6 +13,7 @@ from networkx.algorithms import isomorphism
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.schema_to_graph import create_graph_from_layout
+from tools.rule_based_embedder import normalize_program
 
 # ============================================================================
 # Helper: parse an edge endpoint — plain program name OR indexed "program:N"
@@ -112,10 +113,14 @@ class GraphSearcher:
     def _load_graphs(self) -> dict:
         with open(self.graphs_path, "r") as f:
             graphs_data = json.load(f)
-        return {
-            layout_id: nx.node_link_graph(data)
-            for layout_id, data in graphs_data.items()
-        }
+        graphs = {}
+        for layout_id, data in graphs_data.items():
+            G = nx.node_link_graph(data)
+            for node in G.nodes():
+                raw = G.nodes[node].get("program", "")
+                G.nodes[node]["program"] = normalize_program(raw)
+            graphs[layout_id] = G
+        return graphs
 
     # -------------------------------------------------------------------------
     def search_by_graph_similarity(

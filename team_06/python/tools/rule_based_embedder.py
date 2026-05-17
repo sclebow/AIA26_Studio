@@ -92,6 +92,21 @@ PROGRAM_PAIRS = [
 # Total vector length = len(PROGRAMS) + len(PROGRAM_PAIRS) + 2 global stats
 # = 6 + 7 + 2 = 15 dimensions
 
+# Maps short dataset program names (RPLAN and similar) to the canonical long names
+# used throughout this codebase. Apply at graph-load time via normalize_program()
+# so all downstream code works with one consistent vocabulary.
+PROGRAM_NORMALIZE: dict[str, str] = {
+    "bed":    "bedroom",
+    "bath":   "bathroom",
+    "living": "living room",
+    "dining": "dining room",
+}
+
+
+def normalize_program(program: str) -> str:
+    """Return the canonical program name, mapping dataset short names to long names."""
+    return PROGRAM_NORMALIZE.get(program.lower(), program.lower())
+
 
 # ============================================================================
 # STEP 2 — Feature extraction: graph → vector
@@ -166,9 +181,12 @@ def build_query_vector(programs: list[str], connected: bool = False) -> list[flo
     features = []
 
     # --- A: Count how many of each program the user wants
+    # Normalize short names (e.g. 'bed' → 'bedroom') so the query aligns
+    # with the canonical names used in PROGRAMS and the stored index.
     query_counts = {}
     for p in programs:
-        query_counts[p] = query_counts.get(p, 0) + 1
+        canonical = normalize_program(p)
+        query_counts[canonical] = query_counts.get(canonical, 0) + 1
 
     for program in PROGRAMS:
         features.append(float(query_counts.get(program, 0)))
@@ -236,31 +254,62 @@ class RuleBasedEmbedder:
         self,
         programs: list[str],
         connected: bool = False,
-        top_k: int = 3
-    ) -> list[tuple[str, float]]:
+        top_k: int = 3,
+        exact_counts: bool = True,
+        fallback: bool = True,
+    ) -> tuple[list[tuple[str, float]], bool]:
         """Find the top-k layouts most similar to the user's program request.
 
-        This replaces GraphSearcher.search_by_graph_similarity().
-        Key difference: no graph traversal happens here — only dot products
-        against the pre-built index.
-
         Args:
-            programs:  e.g. ['bedroom', 'kitchen', 'living room']
-            connected: whether the programs must be directly connected by doors
-            top_k:     how many results to return
+            programs:     e.g. ['bedroom', 'bedroom', 'kitchen', 'bathroom']
+            connected:    whether the programs must be directly connected by doors
+            top_k:        how many results to return
+            exact_counts: True  → layout must have EXACTLY the requested count
+                                  per program type (default). Prevents 4-bedroom
+                                  layouts outscoring 2-bedroom ones.
+                          False → layout must have AT LEAST the requested counts.
+            fallback:     When exact_counts=True and no results are found, retry
+                          automatically with exact_counts=False (default True).
 
         Returns:
-            List of (layout_id, similarity_score) sorted best-first.
+            (results, was_fallback) where:
+              results      — list of (layout_id, score) sorted best-first
+              was_fallback — True if exact search found nothing and at-least was used
         """
+        # Normalise and count what the query requires
+        required: dict[str, int] = {}
+        for p in programs:
+            canonical = normalize_program(p)
+            required[canonical] = required.get(canonical, 0) + 1
+
+        # Map each required program to its index in the PROGRAMS list
+        required_indices = {
+            PROGRAMS.index(p): count
+            for p, count in required.items()
+            if p in PROGRAMS
+        }
+
         query_vec = build_query_vector(programs, connected=connected)
 
-        scores = [
-            (layout_id, cosine_similarity(query_vec, layout_vec))
-            for layout_id, layout_vec in self.index.items()
-        ]
+        def _filter(use_exact: bool) -> list[tuple[str, float]]:
+            scores = []
+            for layout_id, layout_vec in self.index.items():
+                if use_exact:
+                    if any(layout_vec[idx] != count for idx, count in required_indices.items()):
+                        continue
+                else:
+                    if any(layout_vec[idx] < count for idx, count in required_indices.items()):
+                        continue
+                scores.append((layout_id, cosine_similarity(query_vec, layout_vec)))
+            scores.sort(key=lambda x: x[1], reverse=True)
+            return scores[:top_k]
 
-        scores.sort(key=lambda x: x[1], reverse=True)
-        return scores[:top_k]
+        results = _filter(use_exact=exact_counts)
+
+        if not results and exact_counts and fallback:
+            return _filter(use_exact=False), True
+
+        return results, False
 
 
 # ============================================================================

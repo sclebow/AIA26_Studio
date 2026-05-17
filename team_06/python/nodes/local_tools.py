@@ -17,7 +17,7 @@ from tools.embedding_matcher import match_layouts
 from tools.layout_filter import select_layout
 from tools.graph_searcher import GraphSearcher, build_topology_graph
 from tools.boundary_analyzer import boundary_analyzer, get_boundary_analyzer_schema
-from tools.rule_based_embedder import RuleBasedEmbedder
+from tools.rule_based_embedder import RuleBasedEmbedder, normalize_program
 
 
 # ---------------------------------------------------------------------------
@@ -44,7 +44,7 @@ def _load_all_descriptions() -> list[dict[str, Any]]:
 def _get_graph_searcher() -> GraphSearcher:
     """Initialize and cache GraphSearcher instance."""
     repo_root = Path(__file__).resolve().parent.parent.parent
-    graphs_path = repo_root / "layout_inputs" / "sample_graphs.json"
+    graphs_path = repo_root / "layout_inputs" / "RPLAN_Dataset_R-NB" / "graphs.json"
     return GraphSearcher(str(graphs_path))
 
 
@@ -52,9 +52,15 @@ def _get_graph_searcher() -> GraphSearcher:
 def _get_rule_based_embedder() -> RuleBasedEmbedder:
     """Build and cache the rule-based embedding index (runs once at startup)."""
     repo_root = Path(__file__).resolve().parent.parent.parent
-    graphs_path = repo_root / "layout_inputs" / "sample_graphs.json"
+    graphs_path = repo_root / "layout_inputs" / "RPLAN_Dataset_R-NB" / "graphs.json"
     graphs_data = json.loads(graphs_path.read_text(encoding="utf-8"))
-    layout_graphs = {lid: nx.node_link_graph(data) for lid, data in graphs_data.items()}
+    layout_graphs = {}
+    for lid, data in graphs_data.items():
+        G = nx.node_link_graph(data)
+        for node in G.nodes():
+            raw = G.nodes[node].get("program", "")
+            G.nodes[node]["program"] = normalize_program(raw)
+        layout_graphs[lid] = G
     return RuleBasedEmbedder(layout_graphs)
 
 
@@ -144,6 +150,14 @@ def get_local_tools() -> list[dict[str, Any]]:
                             "'embedding' = pre-built cosine similarity index; fastest for room-count + connectivity queries; use connection_type='connected' to require adjacency. Does not support explicit edges. "
                             "'pipeline' = embedding → jaccard → subgraph in sequence; best for specific queries against large layout sets (100+) — embedding pre-filters before expensive steps run."
                         )
+                    },
+                    "exact_counts": {
+                        "type": "boolean",
+                        "description": (
+                            "Only applies to 'embedding' and 'pipeline' search methods. "
+                            "true (default) = layout must have EXACTLY the requested number of each room type — '2 bedrooms' returns only 2-bedroom layouts, not 3 or 4. "
+                            "false = layout must have AT LEAST the requested counts — useful when counts are a minimum requirement."
+                        )
                     }
                 },
                 "required": ["programs"]
@@ -203,6 +217,7 @@ def build_local_tool_node(reference_layout_path):
                 connection_type = tool_args.get("connection_type", "any")
                 edges = tool_args.get("edges", None)
                 search_method = tool_args.get("search_method", "jaccard")
+                exact_counts = tool_args.get("exact_counts", True)
 
                 # Build topology graph from user intent
                 topology_graph = build_topology_graph(programs, connection_type, edges=edges)
@@ -223,8 +238,9 @@ def build_local_tool_node(reference_layout_path):
                 if search_method == "embedding":
                     embedder = _get_rule_based_embedder()
                     want_connected = (connection_type == "connected")
-                    results = embedder.search(
-                        programs, connected=want_connected, top_k=len(embedder.index)
+                    results, was_fallback = embedder.search(
+                        programs, connected=want_connected,
+                        top_k=len(embedder.index), exact_counts=exact_counts
                     )
                     candidates = [
                         {"layoutId": lid, "score": round(s, 3)} for lid, s in results
@@ -232,19 +248,26 @@ def build_local_tool_node(reference_layout_path):
                     if results:
                         best_layout_id, best_score = results[0]
                         load_result = _load_layout_to_state(state, reference_layout_path, best_layout_id)
+                        fallback_note = (
+                            " Note: no layouts had the exact requested room counts — "
+                            "results show closest matches (at-least filter)."
+                            if was_fallback else ""
+                        )
                         tool_output = {
                             "pattern": pattern_desc,
                             "search_method": "embedding",
+                            "exact_count_match": not was_fallback,
                             "best_match": best_layout_id,
                             "best_score": round(best_score, 3),
                             "all_candidates": candidates,
                             "total": len(candidates),
                             "message": (
-                                f"Embedding search ranked {len(candidates)} layouts. "
+                                f"Embedding search ranked {len(candidates)} layouts.{fallback_note} "
                                 f"Auto-loaded best: {best_layout_id} (cosine score: {round(best_score, 3)})."
                             ),
                         }
-                        print(f"[local_tool] Embedding search: loaded {best_layout_id} (score={round(best_score, 3)})")
+                        print(f"[local_tool] Embedding search: loaded {best_layout_id} (score={round(best_score, 3)})"
+                              + (" [fallback to at-least]" if was_fallback else ""))
                     else:
                         tool_output = {
                             "pattern": pattern_desc,
@@ -262,8 +285,13 @@ def build_local_tool_node(reference_layout_path):
                     searcher = _get_graph_searcher()
                     want_connected = (connection_type == "connected")
 
-                    # Stage 1: embedding — dot products only, no graph traversal
-                    stage1 = embedder.search(programs, connected=want_connected, top_k=STAGE1_K)
+                    # Stage 1: embedding — broad pre-filter, always at-least counts.
+                    # exact_counts only applies to standalone 'embedding' searches;
+                    # in the pipeline, precision comes from jaccard and subgraph stages.
+                    stage1, _ = embedder.search(
+                        programs, connected=want_connected,
+                        top_k=STAGE1_K, exact_counts=False
+                    )
                     stage1_ids = {lid for lid, _ in stage1}
                     print(f"[pipeline] Stage 1 (embedding): {len(stage1_ids)} candidates from {len(embedder.index)} layouts")
 
