@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python team_06/python/tests/test_graph_searcher.py)"
+      "Bash(python team_06/python/tests/test_graph_searcher.py)",
+      "Bash(python main.py \"Create a layout where there are 4 bedrooms, a kitchen and a dining. The corridor connects to the bedrooms, kitchen and the living room. The bedrooms must have a bathroom each\")"
     ]
   }
 }
