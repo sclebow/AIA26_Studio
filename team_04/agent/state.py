@@ -6,8 +6,10 @@ from typing import Any, TypedDict
 
 class AgentState(TypedDict, total=False):
     user_prompt: str
+    workflow_mode: str
     layout_json: str
     site_boundary: list[list[float]]
+    building_intents: list[str]
     messages: list[str]
     plan: list[dict[str, str]]
     active_step_id: str | None
@@ -42,7 +44,11 @@ def build_initial_state(
     max_optimization_cycles: int,
 ) -> AgentState:
     layout_payload = layout_payload or {}
+    workflow_mode = str(layout_payload.get("workflow_mode", "full") or "full").strip().lower()
+    if workflow_mode not in {"full", "boundary_only"}:
+        workflow_mode = "full"
     requested_positions = layout_payload.get("requested_positions", [])
+    building_intents = layout_payload.get("building_intents", [])
     site_boundary = layout_payload.get("site_boundary", [])
     normalized_site_boundary = [
         [float(point[0]), float(point[1]), float(point[2]) if len(point) > 2 else 0.0]
@@ -54,14 +60,21 @@ def build_initial_state(
         for point in requested_positions
         if isinstance(point, (list, tuple)) and len(point) >= 2
     ]
+    normalized_building_intents = [
+        str(intent).strip()
+        for intent in building_intents
+        if str(intent).strip()
+    ]
     target_building_count = layout_payload.get("target_building_count")
     if not isinstance(target_building_count, int) or target_building_count < 1:
         prompt_lower = user_prompt.lower()
         target_building_count = 2 if ("two building" in prompt_lower or "2 building" in prompt_lower) else 1
     return {
         "user_prompt": user_prompt,
+        "workflow_mode": workflow_mode,
         "layout_json": json.dumps(layout_payload),
         "site_boundary": normalized_site_boundary,
+        "building_intents": normalized_building_intents,
         "messages": [f"User prompt: {user_prompt}"],
         "plan": [],
         "active_step_id": None,

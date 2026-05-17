@@ -5,30 +5,40 @@ import uuid
 from typing import Any
 
 
+DEFAULT_SITE_COVERAGE_RATIO = 0.35
+
+
 TOOL_DEFINITION: dict[str, Any] = {
     "name": "generate_building_boundary",
-    "description": "Generate a 2D building footprint boundary from area and optional shape parameters.",
+    "description": (
+        "Generate a 2D building footprint boundary from area and optional shape parameters. "
+        "Planning-time default assumptions for omitted optional parameters are defined in this tool schema."
+    ),
     "inputSchema": {
         "type": "object",
         "properties": {
             "area": {
                 "type": "number",
-                "description": "Requested building footprint area in square meters.",
+                "description": (
+                    "Requested building footprint area in square meters. This parameter is required by the "
+                    "runtime tool. In notebook planning flows, if the user does not specify a footprint area, "
+                    f"the fallback assumption is {DEFAULT_SITE_COVERAGE_RATIO:.0%} of site area before calling this tool."
+                ),
             },
             "building_type": {
                 "type": "string",
                 "enum": ["I", "L", "T"],
-                "description": "Footprint typology based on the provided C# reference.",
+                "description": "Footprint typology based on the provided C# reference. Default: I.",
                 "default": "I",
             },
             "building_depth": {
                 "type": "number",
-                "description": "Nominal building depth in meters.",
+                "description": "Nominal building depth in meters. Default: 15.0.",
                 "default": 15.0,
             },
             "shape_ratio": {
                 "type": "number",
-                "description": "Controls the split between horizontal and vertical arms for L/T shapes.",
+                "description": "Controls the split between horizontal and vertical arms for L/T shapes. Default: 0.66.",
                 "default": 0.66,
             },
             "location_xy": {
@@ -37,32 +47,69 @@ TOOL_DEFINITION: dict[str, Any] = {
                 "minItems": 2,
                 "maxItems": 2,
                 "default": [0, 0],
-                "description": "Translation applied after all local shape construction.",
+                "description": "Translation applied after all local shape construction. Default: [0, 0].",
             },
             "is_mirrored": {
                 "type": "boolean",
-                "description": "Mirror the footprint across the Y axis before rotation and translation.",
+                "description": "Mirror the footprint across the Y axis before rotation and translation. Default: false.",
                 "default": False,
             },
             "max_rotation_angle": {
                 "type": "number",
-                "description": "Maximum rotation range used with rotation_step and max_rotation_step.",
+                "description": (
+                    "Maximum rotation range in degrees used with rotation_step and max_rotation_step. "
+                    "Applied angle = (max_rotation_angle / max_rotation_step) * rotation_step when max_rotation_step > 1, "
+                    "or exactly max_rotation_angle when max_rotation_step=1 and rotation_step=1. "
+                    "Example: to request a 45 degree rotation in one step, set max_rotation_angle=45, "
+                    "max_rotation_step=1, rotation_step=1. Default: 180."
+                ),
                 "default": 180,
             },
             "max_rotation_step": {
                 "type": "integer",
-                "description": "Number of discrete rotation steps.",
+                "description": (
+                    "Number of discrete rotation steps spanning max_rotation_angle. "
+                    "Agents should choose this from the requested angle resolution. "
+                    "Example: for a single 45 degree turn, use max_rotation_step=1 with max_rotation_angle=45. Default: 4."
+                ),
                 "default": 4,
             },
             "rotation_step": {
                 "type": "integer",
-                "description": "Current discrete rotation step.",
+                "description": (
+                    "Selected discrete rotation step index. Use 0 for no rotation. "
+                    "Example: for a single requested 45 degree rotation, use rotation_step=1 with max_rotation_angle=45 and max_rotation_step=1. Default: 0."
+                ),
                 "default": 0,
             },
         },
         "required": ["area"],
     },
 }
+
+
+def get_default_tool_arguments() -> dict[str, Any]:
+    properties = TOOL_DEFINITION["inputSchema"]["properties"]
+    return {
+        name: properties[name]["default"]
+        for name in (
+            "building_type",
+            "building_depth",
+            "shape_ratio",
+            "location_xy",
+            "is_mirrored",
+            "max_rotation_angle",
+            "max_rotation_step",
+            "rotation_step",
+        )
+    }
+
+
+def get_boundary_planning_defaults() -> dict[str, Any]:
+    return {
+        "default_site_coverage_ratio": DEFAULT_SITE_COVERAGE_RATIO,
+        "tool_argument_defaults": get_default_tool_arguments(),
+    }
 
 
 def generate_building_boundary(
@@ -100,7 +147,7 @@ def generate_building_boundary(
     if is_mirrored:
         transformed = [(-x, y) for x, y in transformed]
 
-    if max_rotation_angle > 0 and max_rotation_step > 1 and rotation_step <= max_rotation_step:
+    if max_rotation_angle > 0 and max_rotation_step >= 1 and 0 < rotation_step <= max_rotation_step:
         angle = (max_rotation_angle / max_rotation_step) * rotation_step
         transformed = [_rotate_point(point, math.radians(angle)) for point in transformed]
     else:

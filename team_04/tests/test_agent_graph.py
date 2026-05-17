@@ -9,7 +9,7 @@ TEAM_ROOT = Path(__file__).resolve().parents[1]
 if str(TEAM_ROOT) not in sys.path:
     sys.path.insert(0, str(TEAM_ROOT))
 
-from agent.decision_engine import RuleBasedPlanner
+from agent.decision_engine import RuleBasedPlanner, _repair_generate_shape_decision
 from agent.graph import run_agent
 from agent.mcp_client import CompositeToolClient, LocalToolClient
 from agent.models import PlanStep, RoutingDecision, ToolCall
@@ -224,6 +224,10 @@ class AgentGraphTests(unittest.TestCase):
                 "evaluation_results": {"performance_evaluator_04": {"data": {"score": 0.9}}},
                 "placed_buildings": [],
                 "requested_positions": [[90.0, 30.0], [110.0, 50.0]],
+                "building_intents": [
+                    "Keep a quiet western frontage.",
+                    "Open toward the shared courtyard.",
+                ],
                 "requested_position_assessment": {},
                 "target_building_count": 2,
             },
@@ -231,9 +235,127 @@ class AgentGraphTests(unittest.TestCase):
         )
 
         status_by_step = {step.step_id: step.status for step in plan}
+        goal_by_step = {step.step_id: step.goal for step in plan}
         self.assertEqual(status_by_step["check_requested_position"], "pending")
         self.assertEqual(status_by_step["place_building"], "skipped")
         self.assertEqual(status_by_step["analyze_remaining_positions"], "skipped")
+        self.assertIn("Keep a quiet western frontage.", goal_by_step["generate_shape"])
+
+    def test_single_building_report_does_not_advance_label_past_target(self) -> None:
+        planner = RuleBasedPlanner()
+        catalog = ToolCatalog.from_discovered_tools(self._build_tool_client().list_tools())
+
+        plan = planner.build_plan(
+            {
+                "site_context": {"site_boundary_reader_04": {"data": {"site": "loaded"}}},
+                "geometry_id": "shape-001",
+                "checked_geometry_id": "shape-001",
+                "constraint_results": {"setback_checker_04": {"data": {"compliant": True}}},
+                "violations": [],
+                "evaluation_results": {"performance_evaluator_04": {"data": {"score": 0.9}}},
+                "placed_buildings": [{"geometry_id": "shape-001"}],
+                "target_building_count": 1,
+            },
+            catalog,
+        )
+
+        goal_by_step = {step.step_id: step.goal for step in plan}
+        self.assertIn("building 1", goal_by_step["generate_shape"].lower())
+        self.assertIn("building 1", goal_by_step["evaluate"].lower())
+        self.assertIn("building 1", goal_by_step["place_building"].lower())
+
+    def test_boundary_only_workflow_skips_non_generation_steps(self) -> None:
+        planner = RuleBasedPlanner()
+        catalog = ToolCatalog.from_discovered_tools(self._build_tool_client().list_tools())
+
+        plan = planner.build_plan(
+            {
+                "workflow_mode": "boundary_only",
+                "site_context": {"site_boundary_reader_04": {"data": {"site": "loaded"}}},
+                "geometry_id": "shape-001",
+            },
+            catalog,
+        )
+
+        status_by_step = {step.step_id: step.status for step in plan}
+        self.assertEqual(status_by_step["read_site"], "completed")
+        self.assertEqual(status_by_step["generate_shape"], "completed")
+        self.assertEqual(status_by_step["check_constraints"], "skipped")
+        self.assertEqual(status_by_step["evaluate"], "skipped")
+        self.assertEqual(status_by_step["place_building"], "skipped")
+        self.assertEqual(status_by_step["report"], "pending")
+
+    def test_generate_shape_repair_adds_boundary_tool_arguments(self) -> None:
+        client = self._build_tool_client()
+        catalog = ToolCatalog.from_discovered_tools(client.list_tools())
+        active_step = PlanStep(
+            step_id="generate_shape",
+            action="generate_shape",
+            goal="Create the next geometry candidate for building 1.",
+            status="pending",
+        )
+
+        repaired = _repair_generate_shape_decision(
+            RoutingDecision(action="generate_shape", reasoning="Generate the requested shape."),
+            {
+                "user_prompt": "Generate an L-shaped building boundary for a site area of 5000 square meters.",
+                "site_context": {"site_boundary_reader_04": {"data": {"site_area_sqm": 5000.0}}},
+            },
+            catalog,
+            active_step,
+        )
+
+        self.assertEqual(repaired.tool_calls[0].name, "generate_building_boundary")
+        self.assertEqual(repaired.tool_calls[0].arguments["building_type"], "L")
+        self.assertEqual(repaired.tool_calls[0].arguments["area"], 1750.0)
+
+    def test_generate_shape_repair_prefers_explicit_building_area(self) -> None:
+        client = self._build_tool_client()
+        catalog = ToolCatalog.from_discovered_tools(client.list_tools())
+        active_step = PlanStep(
+            step_id="generate_shape",
+            action="generate_shape",
+            goal="Create the next geometry candidate for building 1.",
+            status="pending",
+        )
+
+        repaired = _repair_generate_shape_decision(
+            RoutingDecision(action="generate_shape", reasoning="Generate the requested shape."),
+            {
+                "user_prompt": "Generate an L-shaped building boundary with a building area of 3000 square meters.",
+                "site_context": {"site_boundary_reader_04": {"data": {"site_area_sqm": 5000.0}}},
+            },
+            catalog,
+            active_step,
+        )
+
+        self.assertEqual(repaired.tool_calls[0].name, "generate_building_boundary")
+        self.assertEqual(repaired.tool_calls[0].arguments["building_type"], "L")
+        self.assertEqual(repaired.tool_calls[0].arguments["area"], 3000.0)
+
+    def test_generate_shape_repair_maps_requested_rotation_to_single_step(self) -> None:
+        client = self._build_tool_client()
+        catalog = ToolCatalog.from_discovered_tools(client.list_tools())
+        active_step = PlanStep(
+            step_id="generate_shape",
+            action="generate_shape",
+            goal="Create the next geometry candidate for building 1.",
+            status="pending",
+        )
+
+        repaired = _repair_generate_shape_decision(
+            RoutingDecision(action="generate_shape", reasoning="Generate the requested shape."),
+            {
+                "user_prompt": "Generate an L-shaped building boundary with a building area of 3000 square meters and rotate the building by 45 degrees.",
+                "site_context": {"site_boundary_reader_04": {"data": {"site_area_sqm": 5000.0}}},
+            },
+            catalog,
+            active_step,
+        )
+
+        self.assertEqual(repaired.tool_calls[0].arguments["max_rotation_angle"], 45.0)
+        self.assertEqual(repaired.tool_calls[0].arguments["max_rotation_step"], 1)
+        self.assertEqual(repaired.tool_calls[0].arguments["rotation_step"], 1)
 
     def test_multi_building_runtime_places_first_building_and_analyzes_remaining_positions(self) -> None:
         client = self._build_tool_client()
@@ -255,6 +377,10 @@ class AgentGraphTests(unittest.TestCase):
                 ],
                 "target_building_count": 2,
                 "requested_positions": [[35.0, 45.0], [95.0, 45.0]],
+                "building_intents": [
+                    "Keep the first building calm on the west edge.",
+                    "Place the second building to reinforce the shared courtyard edge.",
+                ],
             },
             max_optimization_cycles=1,
             planner=RuleBasedPlanner(),
@@ -264,6 +390,7 @@ class AgentGraphTests(unittest.TestCase):
         self.assertIsNotNone(final_state.get("final_response"))
         self.assertEqual(final_state.get("active_step_id"), "report")
         self.assertIn("remaining_buildable_positions_04", client.calls)
+        self.assertEqual(len(final_state.get("building_intents", [])), 2)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from typing import Any
 
 
@@ -110,11 +111,41 @@ class ToolCatalog:
                 continue
             lines.append(f"[{group_name}]")
             for tool_name in available_names:
-                description = str(by_name[tool_name].get("description", "")).strip()
+                tool_definition = by_name[tool_name]
+                description = str(tool_definition.get("description", "")).strip()
                 if description:
                     lines.append(f"- {tool_name}: {description}")
                 else:
                     lines.append(f"- {tool_name}")
+                lines.extend(self._render_input_schema(tool_definition))
         if not lines:
             return "No MCP tools discovered."
         return "\n".join(lines)
+
+    @staticmethod
+    def _render_input_schema(tool_definition: dict[str, Any]) -> list[str]:
+        input_schema = tool_definition.get("inputSchema")
+        if not isinstance(input_schema, dict):
+            return []
+
+        properties = input_schema.get("properties")
+        if not isinstance(properties, dict) or not properties:
+            return []
+
+        required = set(input_schema.get("required", [])) if isinstance(input_schema.get("required"), list) else set()
+        lines = ["  parameters:"]
+        for property_name, property_schema in properties.items():
+            if not isinstance(property_schema, dict):
+                continue
+            description = str(property_schema.get("description", "")).strip()
+            suffix: list[str] = []
+            if property_name in required:
+                suffix.append("required")
+            if "default" in property_schema:
+                suffix.append(f"default={json.dumps(property_schema['default'])}")
+            qualifier = f" ({', '.join(suffix)})" if suffix else ""
+            if description:
+                lines.append(f"  - {property_name}{qualifier}: {description}")
+            else:
+                lines.append(f"  - {property_name}{qualifier}")
+        return lines

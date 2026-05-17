@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 from langchain_openai import ChatOpenAI
 
 from .models import PlanStep, RoutingDecision
+from .models import ToolCall
+from .tools.generate_building_boundary import get_boundary_planning_defaults
 from .tool_catalog import ToolCatalog
 
 
@@ -19,6 +22,10 @@ Active step:
 Supervisor rules:
 - Only act on the active step.
 - If the active step is `generate_shape`, return `generate_shape` with one or more valid shape-generation tool calls.
+- For `generate_shape`, never return an empty `tool_calls` array.
+- For `generate_shape`, include all required arguments for the selected tool.
+- If you choose `generate_building_boundary`, you must provide `area`.
+- If tool parameter defaults are shown in the catalog, use them for omitted optional arguments rather than inventing new values.
 - If the active step is `optimize`, return `optimize` with one or more valid manipulation tool calls.
 - If the active step is `check_requested_position`, `place_building`, or `analyze_remaining_positions`, do not invent a different phase.
 - Use `await_human` only if the active step cannot proceed without clarification.
@@ -73,15 +80,24 @@ class RuleBasedPlanner:
     def build_plan(self, state: dict[str, Any], catalog: ToolCatalog) -> tuple[PlanStep, ...]:
         del catalog
 
+        workflow_mode = str(state.get("workflow_mode", "full") or "full").strip().lower()
         placed_buildings = list(state.get("placed_buildings", []))
         target_building_count = max(1, int(state.get("target_building_count", 1) or 1))
-        current_building_index = len(placed_buildings) + 1
+        current_building_index = min(len(placed_buildings) + 1, target_building_count)
+        current_building_label = _format_building_label(current_building_index)
         requested_positions = list(state.get("requested_positions", []))
+        building_intents = list(state.get("building_intents", []))
         active_requested_position = (
             requested_positions[current_building_index - 1]
             if 0 <= current_building_index - 1 < len(requested_positions)
             else None
         )
+        active_building_intent = (
+            str(building_intents[current_building_index - 1]).strip()
+            if 0 <= current_building_index - 1 < len(building_intents)
+            else ""
+        )
+        intent_suffix = f" Intent: {active_building_intent}" if active_building_intent else ""
         geometry_id = state.get("geometry_id")
         checked_geometry_id = state.get("checked_geometry_id")
         current_geometry_checked = bool(
@@ -113,6 +129,74 @@ class RuleBasedPlanner:
         )
         report_ready = bool(state.get("evaluation_results")) and (not more_buildings_needed or not geometry_id)
 
+        if workflow_mode == "boundary_only":
+            return (
+                PlanStep(
+                    step_id="read_site",
+                    action="read_site",
+                    goal="Load site boundary, context, and legal constraints.",
+                    status="completed" if state.get("site_context") else "pending",
+                ),
+                PlanStep(
+                    step_id="generate_shape",
+                    action="generate_shape",
+                    goal=f"Create the boundary candidate for {current_building_label}.{intent_suffix}",
+                    status="completed" if geometry_id else ("pending" if state.get("site_context") else "skipped"),
+                ),
+                PlanStep(
+                    step_id="check_requested_position",
+                    action="check_requested_position",
+                    goal=f"Check whether the user's requested position works for {current_building_label}.{intent_suffix}",
+                    status="skipped",
+                ),
+                PlanStep(
+                    step_id="check_constraints",
+                    action="check_constraints",
+                    goal=f"Validate the current geometry for {current_building_label} against all constraints.{intent_suffix}",
+                    status="skipped",
+                ),
+                PlanStep(
+                    step_id="optimize",
+                    action="optimize",
+                    goal=f"Repair the highest-priority violations on {current_building_label}.{intent_suffix}",
+                    status="skipped",
+                ),
+                PlanStep(
+                    step_id="evaluate",
+                    action="evaluate",
+                    goal=f"Evaluate {current_building_label} for design quality and performance.{intent_suffix}",
+                    status="skipped",
+                ),
+                PlanStep(
+                    step_id="place_building",
+                    action="place_building",
+                    goal=f"Place {current_building_label} into Rhino/Grasshopper.{intent_suffix}",
+                    status="skipped",
+                ),
+                PlanStep(
+                    step_id="analyze_remaining_positions",
+                    action="analyze_remaining_positions",
+                    goal=f"Analyze the remaining site area after placing {current_building_label}.{intent_suffix}",
+                    status="skipped",
+                ),
+                PlanStep(
+                    step_id="await_human",
+                    action="await_human",
+                    goal=await_question or "Ask the user for missing clarification.",
+                    status="completed" if await_question and report_complete else ("pending" if await_question else "skipped"),
+                ),
+                PlanStep(
+                    step_id="report",
+                    action="report",
+                    goal="Write the design report for the current best state.",
+                    status=(
+                        "completed"
+                        if report_complete and not await_question
+                        else ("pending" if geometry_id or state.get("error") else "skipped")
+                    ),
+                ),
+            )
+
         return (
             PlanStep(
                 step_id="read_site",
@@ -123,7 +207,7 @@ class RuleBasedPlanner:
             PlanStep(
                 step_id="generate_shape",
                 action="generate_shape",
-                goal="Create the next geometry candidate for the site.",
+                goal=f"Create the next geometry candidate for {current_building_label}.{intent_suffix}",
                 status=(
                     "completed"
                     if geometry_id
@@ -139,7 +223,7 @@ class RuleBasedPlanner:
             PlanStep(
                 step_id="check_requested_position",
                 action="check_requested_position",
-                goal="Check whether the user's requested position works for the current building.",
+                goal=f"Check whether the user's requested position works for {current_building_label}.{intent_suffix}",
                 status=(
                     "completed"
                     if requested_position_checked or not active_requested_position
@@ -149,19 +233,19 @@ class RuleBasedPlanner:
             PlanStep(
                 step_id="check_constraints",
                 action="check_constraints",
-                goal="Validate the current geometry against all constraints.",
+                goal=f"Validate the current geometry for {current_building_label} against all constraints.{intent_suffix}",
                 status="completed" if current_geometry_checked else ("pending" if geometry_id else "skipped"),
             ),
             PlanStep(
                 step_id="optimize",
                 action="optimize",
-                goal="Repair the highest-priority violations on the current geometry.",
+                goal=f"Repair the highest-priority violations on {current_building_label}.{intent_suffix}",
                 status="pending" if violations and not maxed_out else "skipped",
             ),
             PlanStep(
                 step_id="evaluate",
                 action="evaluate",
-                goal="Evaluate the valid geometry for design quality and performance.",
+                goal=f"Evaluate {current_building_label} for design quality and performance.{intent_suffix}",
                 status=(
                     "completed"
                     if state.get("evaluation_results")
@@ -171,7 +255,7 @@ class RuleBasedPlanner:
             PlanStep(
                 step_id="place_building",
                 action="place_building",
-                goal="Place the current validated building into Rhino/Grasshopper.",
+                goal=f"Place {current_building_label} into Rhino/Grasshopper.{intent_suffix}",
                 status=(
                     "completed"
                     if current_geometry_already_placed
@@ -181,7 +265,7 @@ class RuleBasedPlanner:
             PlanStep(
                 step_id="analyze_remaining_positions",
                 action="analyze_remaining_positions",
-                goal="Analyze the remaining site area for the next building candidate positions.",
+                goal=f"Analyze the remaining site area after placing {current_building_label}.{intent_suffix}",
                 status=(
                     "completed"
                     if remaining_positions_ready
@@ -230,7 +314,8 @@ class OpenAIDecisionEngine:
             ),
             user_prompt=state.get("user_prompt", ""),
         )
-        return RoutingDecision.from_payload(content)
+        decision = RoutingDecision.from_payload(content)
+        return _repair_generate_shape_decision(decision, state, catalog, active_step)
 
     def build_report(self, state: dict[str, Any]) -> str:
         snapshot = _build_state_snapshot(state)
@@ -270,6 +355,7 @@ def _build_state_snapshot(state: dict[str, Any]) -> dict[str, Any]:
         "replan_reason": state.get("replan_reason"),
         "site_context": state.get("site_context", {}),
         "site_boundary": state.get("site_boundary", []),
+        "building_intents": state.get("building_intents", []),
         "shape_context": state.get("shape_context", {}),
         "violations": state.get("violations", []),
         "constraint_results": state.get("constraint_results", {}),
@@ -309,3 +395,176 @@ def _parse_json_object(text: str) -> dict[str, Any]:
     if not isinstance(parsed, dict):
         raise RuntimeError("LLM response must be a JSON object")
     return parsed
+
+
+def _format_building_label(index: int) -> str:
+    return f"building {index}"
+
+
+def _repair_generate_shape_decision(
+    decision: RoutingDecision,
+    state: dict[str, Any],
+    catalog: ToolCatalog,
+    active_step: PlanStep,
+) -> RoutingDecision:
+    if active_step.action != "generate_shape":
+        return decision
+
+    available_names = set(catalog.names_for_action("generate_shape"))
+    if "generate_building_boundary" not in available_names:
+        return decision
+
+    defaults = get_boundary_planning_defaults()
+    tool_defaults = dict(defaults["tool_argument_defaults"])
+    user_prompt = str(state.get("user_prompt", ""))
+    site_area_sqm = _extract_site_area_sqm(state)
+    explicit_building_area_sqm = _extract_explicit_building_area_sqm(user_prompt)
+    inferred_building_type = _infer_requested_building_type(user_prompt)
+    requested_rotation = _extract_requested_rotation(user_prompt)
+    has_explicit_building_area = _mentions_explicit_building_area(user_prompt)
+    fallback_arguments = {
+        "area": explicit_building_area_sqm or _default_boundary_area(site_area_sqm, defaults["default_site_coverage_ratio"]),
+        "building_type": inferred_building_type or tool_defaults["building_type"],
+        "building_depth": tool_defaults["building_depth"],
+        "shape_ratio": tool_defaults["shape_ratio"],
+        "location_xy": tool_defaults["location_xy"],
+        "is_mirrored": tool_defaults["is_mirrored"],
+        "max_rotation_angle": tool_defaults["max_rotation_angle"],
+        "max_rotation_step": tool_defaults["max_rotation_step"],
+        "rotation_step": tool_defaults["rotation_step"],
+    }
+    if requested_rotation is not None:
+        fallback_arguments.update(_rotation_arguments_for_requested_angle(requested_rotation))
+
+    patched_calls: list[ToolCall] = []
+    for tool_call in decision.tool_calls:
+        if tool_call.name not in available_names:
+            continue
+        if tool_call.name != "generate_building_boundary":
+            patched_calls.append(tool_call)
+            continue
+        arguments = dict(tool_call.arguments)
+        if inferred_building_type is not None:
+            arguments["building_type"] = inferred_building_type
+        if not has_explicit_building_area:
+            arguments["area"] = fallback_arguments["area"]
+        if requested_rotation is not None:
+            arguments.update(_rotation_arguments_for_requested_angle(requested_rotation))
+        for key, value in fallback_arguments.items():
+            if arguments.get(key) is None:
+                arguments[key] = value
+        patched_calls.append(ToolCall(name=tool_call.name, arguments=arguments))
+
+    if any(tool_call.name == "generate_building_boundary" for tool_call in patched_calls):
+        return RoutingDecision(
+            action=decision.action,
+            reasoning=decision.reasoning,
+            tool_calls=tuple(patched_calls),
+            user_question=decision.user_question,
+        )
+
+    return RoutingDecision(
+        action="generate_shape",
+        reasoning=(decision.reasoning or active_step.goal),
+        tool_calls=(ToolCall(name="generate_building_boundary", arguments=fallback_arguments),),
+        user_question=decision.user_question,
+    )
+
+
+def _extract_site_area_sqm(state: dict[str, Any]) -> float | None:
+    site_context = state.get("site_context", {})
+    if isinstance(site_context, dict):
+        found = _find_numeric_value(site_context, "site_area_sqm")
+        if found is not None:
+            return found
+    user_prompt = str(state.get("user_prompt", ""))
+    match = re.search(r"site area of\s*(\d+(?:\.\d+)?)", user_prompt, flags=re.IGNORECASE)
+    if match:
+        return float(match.group(1))
+    return None
+
+
+def _find_numeric_value(payload: Any, key: str) -> float | None:
+    if isinstance(payload, dict):
+        if key in payload and isinstance(payload[key], (int, float)):
+            return float(payload[key])
+        for value in payload.values():
+            found = _find_numeric_value(value, key)
+            if found is not None:
+                return found
+    if isinstance(payload, list):
+        for item in payload:
+            found = _find_numeric_value(item, key)
+            if found is not None:
+                return found
+    return None
+
+
+def _default_boundary_area(site_area_sqm: float | None, default_site_coverage_ratio: float) -> float:
+    if site_area_sqm is None or site_area_sqm <= 0:
+        return 1000.0
+    return round(site_area_sqm * default_site_coverage_ratio, 2)
+
+
+def _infer_requested_building_type(user_prompt: str) -> str | None:
+    prompt_lower = user_prompt.lower()
+    if "l-shaped" in prompt_lower or "l shaped" in prompt_lower:
+        return "L"
+    if "t-shaped" in prompt_lower or "t shaped" in prompt_lower:
+        return "T"
+    if "i-shaped" in prompt_lower or "i shaped" in prompt_lower or "bar building" in prompt_lower:
+        return "I"
+    return None
+
+
+def _mentions_explicit_building_area(user_prompt: str) -> bool:
+    prompt_lower = user_prompt.lower()
+    return any(
+        phrase in prompt_lower
+        for phrase in ("building area", "footprint area", "requested area", "target area", "gfa")
+    )
+
+
+def _extract_explicit_building_area_sqm(user_prompt: str) -> float | None:
+    prompt_lower = user_prompt.lower()
+    patterns = (
+        r"building area of\s*(\d+(?:\.\d+)?)",
+        r"building area\s*(?:=|is)?\s*(\d+(?:\.\d+)?)",
+        r"footprint area of\s*(\d+(?:\.\d+)?)",
+        r"footprint area\s*(?:=|is)?\s*(\d+(?:\.\d+)?)",
+        r"gfa of\s*(\d+(?:\.\d+)?)",
+        r"gfa\s*(?:=|is)?\s*(\d+(?:\.\d+)?)",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, prompt_lower, flags=re.IGNORECASE)
+        if match:
+            return float(match.group(1))
+    return None
+
+
+def _extract_requested_rotation(user_prompt: str) -> float | None:
+    prompt_lower = user_prompt.lower()
+    patterns = (
+        r"rotate(?: the)? building by\s*(\d+(?:\.\d+)?)\s*degrees?",
+        r"rotate(?: the)? footprint by\s*(\d+(?:\.\d+)?)\s*degrees?",
+        r"rotated by\s*(\d+(?:\.\d+)?)\s*degrees?",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, prompt_lower, flags=re.IGNORECASE)
+        if match:
+            return float(match.group(1))
+    return None
+
+
+def _rotation_arguments_for_requested_angle(requested_rotation: float) -> dict[str, float | int]:
+    if requested_rotation <= 0:
+        return {
+            "max_rotation_angle": 0.0,
+            "max_rotation_step": 0,
+            "rotation_step": 0,
+        }
+    return {
+        "max_rotation_angle": requested_rotation,
+        "max_rotation_step": 1,
+        "rotation_step": 1,
+    }
