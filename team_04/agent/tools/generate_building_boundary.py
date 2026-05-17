@@ -1,0 +1,250 @@
+from __future__ import annotations
+
+import math
+import uuid
+from typing import Any
+
+
+TOOL_DEFINITION: dict[str, Any] = {
+    "name": "generate_building_boundary",
+    "description": "Generate a 2D building footprint boundary from area and optional shape parameters.",
+    "inputSchema": {
+        "type": "object",
+        "properties": {
+            "area": {
+                "type": "number",
+                "description": "Requested building footprint area in square meters.",
+            },
+            "building_type": {
+                "type": "string",
+                "enum": ["I", "L", "T"],
+                "description": "Footprint typology based on the provided C# reference.",
+                "default": "I",
+            },
+            "building_depth": {
+                "type": "number",
+                "description": "Nominal building depth in meters.",
+                "default": 15.0,
+            },
+            "shape_ratio": {
+                "type": "number",
+                "description": "Controls the split between horizontal and vertical arms for L/T shapes.",
+                "default": 0.66,
+            },
+            "location_xy": {
+                "type": "array",
+                "items": {"type": "number"},
+                "minItems": 2,
+                "maxItems": 2,
+                "default": [0, 0],
+                "description": "Translation applied after all local shape construction.",
+            },
+            "is_mirrored": {
+                "type": "boolean",
+                "description": "Mirror the footprint across the Y axis before rotation and translation.",
+                "default": False,
+            },
+            "max_rotation_angle": {
+                "type": "number",
+                "description": "Maximum rotation range used with rotation_step and max_rotation_step.",
+                "default": 180,
+            },
+            "max_rotation_step": {
+                "type": "integer",
+                "description": "Number of discrete rotation steps.",
+                "default": 4,
+            },
+            "rotation_step": {
+                "type": "integer",
+                "description": "Current discrete rotation step.",
+                "default": 0,
+            },
+        },
+        "required": ["area"],
+    },
+}
+
+
+def generate_building_boundary(
+    area: float,
+    building_type: str = "I",
+    building_depth: float = 15.0,
+    shape_ratio: float = 0.66,
+    location_xy: tuple[float, float] | list[float] = (0.0, 0.0),
+    is_mirrored: bool = False,
+    max_rotation_angle: float = 180.0,
+    max_rotation_step: int = 4,
+    rotation_step: int = 0,
+) -> dict[str, Any]:
+    if area <= 0:
+        raise ValueError("area must be greater than 0")
+    if building_depth <= 0:
+        raise ValueError("building_depth must be greater than 0")
+    if building_type not in {"I", "L", "T"}:
+        raise ValueError("building_type must be one of: I, L, T")
+    if not 0 < shape_ratio < 1:
+        raise ValueError("shape_ratio must be between 0 and 1")
+    if max_rotation_step < 0:
+        raise ValueError("max_rotation_step cannot be negative")
+    if rotation_step < 0:
+        raise ValueError("rotation_step cannot be negative")
+
+    local_boundary = _build_local_boundary(
+        area=area,
+        building_type=building_type,
+        building_depth=building_depth,
+        shape_ratio=shape_ratio,
+    )
+
+    transformed = list(local_boundary)
+    if is_mirrored:
+        transformed = [(-x, y) for x, y in transformed]
+
+    if max_rotation_angle > 0 and max_rotation_step > 1 and rotation_step <= max_rotation_step:
+        angle = (max_rotation_angle / max_rotation_step) * rotation_step
+        transformed = [_rotate_point(point, math.radians(angle)) for point in transformed]
+    else:
+        angle = 0.0
+
+    if len(location_xy) != 2:
+        raise ValueError("location_xy must contain exactly two numbers")
+    translated = [(x + float(location_xy[0]), y + float(location_xy[1])) for x, y in transformed]
+
+    metrics = _polygon_metrics(translated)
+    return {
+        "success": True,
+        "data": {
+            "geometry_id": f"generate_building_boundary_{uuid.uuid4().hex[:12]}",
+            "shape_type": building_type,
+            "boundary": [[round(x, 6), round(y, 6), 0.0] for x, y in translated],
+            "boundary_area_sqm": round(metrics["area"], 6),
+            "perimeter_m": round(metrics["perimeter"], 6),
+            "centroid": [round(metrics["centroid"][0], 6), round(metrics["centroid"][1], 6), 0.0],
+            "bounding_box": {
+                "min": [round(metrics["bbox_min"][0], 6), round(metrics["bbox_min"][1], 6), 0.0],
+                "max": [round(metrics["bbox_max"][0], 6), round(metrics["bbox_max"][1], 6), 0.0],
+            },
+            "parameters": {
+                "area": area,
+                "building_type": building_type,
+                "building_depth": building_depth,
+                "shape_ratio": shape_ratio,
+                "location_xy": [float(location_xy[0]), float(location_xy[1])],
+                "is_mirrored": is_mirrored,
+                "max_rotation_angle": max_rotation_angle,
+                "max_rotation_step": max_rotation_step,
+                "rotation_step": rotation_step,
+                "applied_rotation_angle": angle,
+            },
+        },
+        "metadata": {
+            "tool_name": TOOL_DEFINITION["name"],
+            "source": "python",
+        },
+    }
+
+
+def _build_local_boundary(
+    area: float,
+    building_type: str,
+    building_depth: float,
+    shape_ratio: float,
+) -> list[tuple[float, float]]:
+    baseline_length = area / building_depth
+    half_depth = building_depth / 2.0
+
+    if building_type == "I":
+        half_length = baseline_length / 2.0
+        return _close_polygon(
+            [
+                (-half_length, -half_depth),
+                (half_length, -half_depth),
+                (half_length, half_depth),
+                (-half_length, half_depth),
+            ]
+        )
+
+    horizontal_length = baseline_length * shape_ratio
+    vertical_length = baseline_length - horizontal_length
+    if horizontal_length <= 0 or vertical_length <= 0:
+        raise ValueError("area, building_depth, and shape_ratio produce an invalid footprint")
+
+    if building_type == "T":
+        horizontal_half = horizontal_length / 2.0
+        return _close_polygon(
+            [
+                (-horizontal_half, -half_depth),
+                (horizontal_half, -half_depth),
+                (horizontal_half, half_depth),
+                (half_depth, half_depth),
+                (half_depth, vertical_length + half_depth),
+                (-half_depth, vertical_length + half_depth),
+                (-half_depth, half_depth),
+                (-horizontal_half, half_depth),
+            ]
+        )
+
+    horizontal_end = horizontal_length
+    local_boundary = _close_polygon(
+        [
+            (0.0, -half_depth),
+            (horizontal_end, -half_depth),
+            (horizontal_end, half_depth),
+            (building_depth, half_depth),
+            (building_depth, vertical_length + building_depth),
+            (0.0, vertical_length + building_depth),
+        ]
+    )
+    return [(x - half_depth, y) for x, y in local_boundary]
+
+
+def _close_polygon(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    if not points:
+        raise ValueError("polygon requires at least one point")
+    if points[0] == points[-1]:
+        return points
+    return points + [points[0]]
+
+
+def _rotate_point(point: tuple[float, float], angle_radians: float) -> tuple[float, float]:
+    x, y = point
+    cos_a = math.cos(angle_radians)
+    sin_a = math.sin(angle_radians)
+    return (x * cos_a - y * sin_a, x * sin_a + y * cos_a)
+
+
+def _polygon_metrics(points: list[tuple[float, float]]) -> dict[str, Any]:
+    if len(points) < 4:
+        raise ValueError("closed polygon must contain at least three vertices")
+
+    signed_area = 0.0
+    centroid_x = 0.0
+    centroid_y = 0.0
+    perimeter = 0.0
+    xs = [point[0] for point in points]
+    ys = [point[1] for point in points]
+
+    for index in range(len(points) - 1):
+        x1, y1 = points[index]
+        x2, y2 = points[index + 1]
+        cross = x1 * y2 - x2 * y1
+        signed_area += cross
+        centroid_x += (x1 + x2) * cross
+        centroid_y += (y1 + y2) * cross
+        perimeter += math.dist((x1, y1), (x2, y2))
+
+    signed_area *= 0.5
+    area = abs(signed_area)
+    if area == 0:
+        raise ValueError("polygon area cannot be zero")
+
+    centroid_factor = 1.0 / (6.0 * signed_area)
+    centroid = (centroid_x * centroid_factor, centroid_y * centroid_factor)
+
+    return {
+        "area": area,
+        "perimeter": perimeter,
+        "centroid": centroid,
+        "bbox_min": (min(xs), min(ys)),
+        "bbox_max": (max(xs), max(ys)),
+    }
