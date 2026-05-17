@@ -118,7 +118,12 @@ class GraphSearcher:
         }
 
     # -------------------------------------------------------------------------
-    def search_by_graph_similarity(self, topology_graph: nx.Graph, method: str = "jaccard") -> list:
+    def search_by_graph_similarity(
+        self,
+        topology_graph: nx.Graph,
+        method: str = "jaccard",
+        candidate_ids: set | None = None,
+    ) -> list:
         """Rank layouts against a topology pattern at PROGRAM level.
 
         ALGORITHM:
@@ -127,6 +132,10 @@ class GraphSearcher:
         3. Extract program-level edges from each layout (only between searched programs).
         4. Score by Jaccard (or overlap) similarity of edge sets.
         5. Tiebreak by connectivity density among the required rooms.
+
+        Args:
+            candidate_ids: optional set of layout IDs to restrict the search pool.
+                           Pass the output of a prior embedding pre-filter here.
 
         Returns: [(layout_id, similarity_score), ...] sorted best-first.
         """
@@ -145,7 +154,11 @@ class GraphSearcher:
             prog_v = topology_graph.nodes[v].get("program", "")
             pattern_edges.add(tuple(sorted([prog_u, prog_v])))
 
-        for layout_id, G in self.layout_graphs.items():
+        pool = (
+            {k: v for k, v in self.layout_graphs.items() if k in candidate_ids}
+            if candidate_ids is not None else self.layout_graphs
+        )
+        for layout_id, G in pool.items():
             # Count rooms by program in this layout.
             available = {}
             for node in G.nodes():
@@ -184,7 +197,11 @@ class GraphSearcher:
         return [(lid, sim) for lid, sim, _ in results]
 
     # -------------------------------------------------------------------------
-    def search_by_subgraph_isomorphism(self, pattern_graph: nx.Graph) -> list:
+    def search_by_subgraph_isomorphism(
+        self,
+        pattern_graph: nx.Graph,
+        candidate_ids: set | None = None,
+    ) -> list:
         """Find layouts that contain the EXACT pattern as a subgraph.
 
         Uses NetworkX VF2 subgraph isomorphism with categorical node matching
@@ -192,19 +209,30 @@ class GraphSearcher:
         instance-level structural constraints — e.g. that bedroom_1 connects
         to office_1 AND bedroom_2 connects to office_2 as separate pairs.
 
+        Args:
+            candidate_ids: optional set of layout IDs to restrict the search pool.
+
         Returns: [layout_id, ...] for every layout where the pattern fits exactly.
                  Empty list if no layout contains the full pattern.
         """
         node_match = isomorphism.categorical_node_match("program", "")
         matched = []
-        for layout_id, G in self.layout_graphs.items():
+        pool = (
+            {k: v for k, v in self.layout_graphs.items() if k in candidate_ids}
+            if candidate_ids is not None else self.layout_graphs
+        )
+        for layout_id, G in pool.items():
             gm = isomorphism.GraphMatcher(G, pattern_graph, node_match=node_match)
             if gm.subgraph_is_isomorphic():
                 matched.append(layout_id)
         return matched
 
     # -------------------------------------------------------------------------
-    def search_hybrid(self, pattern_graph: nx.Graph) -> dict:
+    def search_hybrid(
+        self,
+        pattern_graph: nx.Graph,
+        candidate_ids: set | None = None,
+    ) -> dict:
         """Two-phase search: exact isomorphism first, Jaccard ranking as fallback.
 
         Phase 1 — Subgraph isomorphism (exact):
@@ -215,14 +243,17 @@ class GraphSearcher:
           Remaining layouts ranked by how close they come to the program-level
           pattern.  These are returned with match_type='approximate'.
 
+        Args:
+            candidate_ids: optional set of layout IDs to restrict both phases.
+
         Returns:
           {
             "exact":       [(layout_id, 1.0), ...],
             "approximate": [(layout_id, score), ...],
           }
         """
-        exact_ids = set(self.search_by_subgraph_isomorphism(pattern_graph))
-        jaccard_all = self.search_by_graph_similarity(pattern_graph, method="jaccard")
+        exact_ids = set(self.search_by_subgraph_isomorphism(pattern_graph, candidate_ids=candidate_ids))
+        jaccard_all = self.search_by_graph_similarity(pattern_graph, method="jaccard", candidate_ids=candidate_ids)
 
         exact = [(lid, 1.0) for lid in exact_ids]
         approximate = [(lid, score) for lid, score in jaccard_all if lid not in exact_ids]
