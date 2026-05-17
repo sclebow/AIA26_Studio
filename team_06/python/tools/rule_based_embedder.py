@@ -255,34 +255,22 @@ class RuleBasedEmbedder:
         programs: list[str],
         connected: bool = False,
         top_k: int = 3,
-        exact_counts: bool = True,
-        fallback: bool = True,
-    ) -> tuple[list[tuple[str, float]], bool]:
-        """Find the top-k layouts most similar to the user's program request.
+    ) -> list[tuple[str, float]]:
+        """Find the top-k layouts with EXACTLY the requested room counts.
 
         Args:
-            programs:     e.g. ['bedroom', 'bedroom', 'kitchen', 'bathroom']
-            connected:    whether the programs must be directly connected by doors
-            top_k:        how many results to return
-            exact_counts: True  → layout must have EXACTLY the requested count
-                                  per program type (default). Prevents 4-bedroom
-                                  layouts outscoring 2-bedroom ones.
-                          False → layout must have AT LEAST the requested counts.
-            fallback:     When exact_counts=True and no results are found, retry
-                          automatically with exact_counts=False (default True).
+            programs:  e.g. ['bedroom', 'bedroom', 'kitchen', 'bathroom']
+            connected: whether the programs must be directly connected by doors
+            top_k:     how many results to return
 
         Returns:
-            (results, was_fallback) where:
-              results      — list of (layout_id, score) sorted best-first
-              was_fallback — True if exact search found nothing and at-least was used
+            list of (layout_id, score) sorted best-first; empty if no exact match.
         """
-        # Normalise and count what the query requires
         required: dict[str, int] = {}
         for p in programs:
             canonical = normalize_program(p)
             required[canonical] = required.get(canonical, 0) + 1
 
-        # Map each required program to its index in the PROGRAMS list
         required_indices = {
             PROGRAMS.index(p): count
             for p, count in required.items()
@@ -291,25 +279,13 @@ class RuleBasedEmbedder:
 
         query_vec = build_query_vector(programs, connected=connected)
 
-        def _filter(use_exact: bool) -> list[tuple[str, float]]:
-            scores = []
-            for layout_id, layout_vec in self.index.items():
-                if use_exact:
-                    if any(layout_vec[idx] != count for idx, count in required_indices.items()):
-                        continue
-                else:
-                    if any(layout_vec[idx] < count for idx, count in required_indices.items()):
-                        continue
-                scores.append((layout_id, cosine_similarity(query_vec, layout_vec)))
-            scores.sort(key=lambda x: x[1], reverse=True)
-            return scores[:top_k]
-
-        results = _filter(use_exact=exact_counts)
-
-        if not results and exact_counts and fallback:
-            return _filter(use_exact=False), True
-
-        return results, False
+        scores = []
+        for layout_id, layout_vec in self.index.items():
+            if any(layout_vec[idx] != count for idx, count in required_indices.items()):
+                continue
+            scores.append((layout_id, cosine_similarity(query_vec, layout_vec)))
+        scores.sort(key=lambda x: x[1], reverse=True)
+        return scores[:top_k]
 
 
 # ============================================================================

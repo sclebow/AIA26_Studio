@@ -148,17 +148,9 @@ def get_local_tools() -> list[dict[str, Any]]:
                             "'jaccard' (default) = program-level Jaccard ranking, always returns results. "
                             "'subgraph' = exact structural match via graph isomorphism — use with instance-level edges for symmetric patterns like 'each bedroom has its own private bathroom'. Falls back to jaccard when no exact match. "
                             "'embedding' = pre-built cosine similarity index; fastest for room-count + connectivity queries; use connection_type='connected' to require adjacency. Does not support explicit edges. "
-                            "'pipeline' = embedding → jaccard → subgraph in sequence; best for specific queries against large layout sets (100+) — embedding pre-filters before expensive steps run."
+                            "'pipeline' = embedding -> jaccard -> subgraph in sequence; best for specific queries against large layout sets (100+) — embedding pre-filters before expensive steps run."
                         )
                     },
-                    "exact_counts": {
-                        "type": "boolean",
-                        "description": (
-                            "Only applies to 'embedding' and 'pipeline' search methods. "
-                            "true (default) = layout must have EXACTLY the requested number of each room type — '2 bedrooms' returns only 2-bedroom layouts, not 3 or 4. "
-                            "false = layout must have AT LEAST the requested counts — useful when counts are a minimum requirement."
-                        )
-                    }
                 },
                 "required": ["programs"]
             }
@@ -217,7 +209,6 @@ def build_local_tool_node(reference_layout_path):
                 connection_type = tool_args.get("connection_type", "any")
                 edges = tool_args.get("edges", None)
                 search_method = tool_args.get("search_method", "jaccard")
-                exact_counts = tool_args.get("exact_counts", True)
 
                 # Build topology graph from user intent
                 topology_graph = build_topology_graph(programs, connection_type, edges=edges)
@@ -238,9 +229,9 @@ def build_local_tool_node(reference_layout_path):
                 if search_method == "embedding":
                     embedder = _get_rule_based_embedder()
                     want_connected = (connection_type == "connected")
-                    results, was_fallback = embedder.search(
+                    results = embedder.search(
                         programs, connected=want_connected,
-                        top_k=len(embedder.index), exact_counts=exact_counts
+                        top_k=len(embedder.index),
                     )
                     candidates = [
                         {"layoutId": lid, "score": round(s, 3)} for lid, s in results
@@ -248,33 +239,26 @@ def build_local_tool_node(reference_layout_path):
                     if results:
                         best_layout_id, best_score = results[0]
                         load_result = _load_layout_to_state(state, reference_layout_path, best_layout_id)
-                        fallback_note = (
-                            " Note: no layouts had the exact requested room counts — "
-                            "results show closest matches (at-least filter)."
-                            if was_fallback else ""
-                        )
                         tool_output = {
                             "pattern": pattern_desc,
                             "search_method": "embedding",
-                            "exact_count_match": not was_fallback,
                             "best_match": best_layout_id,
                             "best_score": round(best_score, 3),
                             "all_candidates": candidates,
                             "total": len(candidates),
                             "message": (
-                                f"Embedding search ranked {len(candidates)} layouts.{fallback_note} "
+                                f"Embedding search ranked {len(candidates)} exact-match layouts. "
                                 f"Auto-loaded best: {best_layout_id} (cosine score: {round(best_score, 3)})."
                             ),
                         }
-                        print(f"[local_tool] Embedding search: loaded {best_layout_id} (score={round(best_score, 3)})"
-                              + (" [fallback to at-least]" if was_fallback else ""))
+                        print(f"[local_tool] Embedding search: loaded {best_layout_id} (score={round(best_score, 3)})")
                     else:
                         tool_output = {
                             "pattern": pattern_desc,
                             "search_method": "embedding",
                             "all_candidates": [],
                             "total": 0,
-                            "message": "No layouts found (empty index?).",
+                            "message": "No layouts found with exactly the requested room counts.",
                         }
 
                 elif search_method == "pipeline":
@@ -285,12 +269,10 @@ def build_local_tool_node(reference_layout_path):
                     searcher = _get_graph_searcher()
                     want_connected = (connection_type == "connected")
 
-                    # Stage 1: embedding — broad pre-filter, always at-least counts.
-                    # exact_counts only applies to standalone 'embedding' searches;
-                    # in the pipeline, precision comes from jaccard and subgraph stages.
-                    stage1, _ = embedder.search(
+                    # Stage 1: embedding — exact-count pre-filter.
+                    stage1 = embedder.search(
                         programs, connected=want_connected,
-                        top_k=STAGE1_K, exact_counts=False
+                        top_k=STAGE1_K,
                     )
                     stage1_ids = {lid for lid, _ in stage1}
                     print(f"[pipeline] Stage 1 (embedding): {len(stage1_ids)} candidates from {len(embedder.index)} layouts")
@@ -312,7 +294,7 @@ def build_local_tool_node(reference_layout_path):
                             [{"layoutId": lid, "score": 1.0,         "match_type": "exact"}       for lid, _ in exact] +
                             [{"layoutId": lid, "score": round(s, 2), "match_type": "approximate"} for lid, s in approximate]
                         )
-                        stage3_label = f"subgraph → {len(all_candidates)} final"
+                        stage3_label = f"subgraph -> {len(all_candidates)} final"
                     else:
                         best_list = stage2[:STAGE2_K]
                         all_candidates = [{"layoutId": lid, "score": round(s, 2)} for lid, s in best_list]
@@ -333,8 +315,8 @@ def build_local_tool_node(reference_layout_path):
                             "best_score": round(best_score, 2),
                             "all_candidates": all_candidates,
                             "message": (
-                                f"Pipeline: {len(embedder.index)} layouts → embedding → {len(stage1_ids)} "
-                                f"→ jaccard → {len(stage2_ids)} → {stage3_label}. "
+                                f"Pipeline: {len(embedder.index)} layouts -> embedding -> {len(stage1_ids)} "
+                                f"-> jaccard -> {len(stage2_ids)} -> {stage3_label}. "
                                 f"Auto-loaded {best_layout_id} (score: {round(best_score, 2)})."
                             ),
                         }

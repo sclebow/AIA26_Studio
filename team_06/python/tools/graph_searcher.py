@@ -67,9 +67,12 @@ def build_topology_graph(programs: list, connection_type: str = "any", edges: li
 
     # Create unique node IDs for each program instance (preserves count).
     # ['bedroom', 'bedroom', 'kitchen'] → bedroom_1, bedroom_2, kitchen_1
+    # Normalize short names ('living' → 'living room') so the pattern graph
+    # uses the same vocabulary as the loaded layout graphs.
     program_count = {}
     node_ids = {}
     for idx, program in enumerate(programs):
+        program = normalize_program(program)
         count = program_count.get(program, 0) + 1
         program_count[program] = count
         node_id = f"{program}_{count}"
@@ -83,6 +86,8 @@ def build_topology_graph(programs: list, connection_type: str = "any", edges: li
             if len(edge_pair) == 2:
                 prog_a, idx_a = _parse_edge_endpoint(edge_pair[0])
                 prog_b, idx_b = _parse_edge_endpoint(edge_pair[1])
+                prog_a = normalize_program(prog_a)
+                prog_b = normalize_program(prog_b)
                 node_a = f"{prog_a}_{idx_a}"
                 node_b = f"{prog_b}_{idx_b}"
                 if G.has_node(node_a) and G.has_node(node_b) and node_a != node_b:
