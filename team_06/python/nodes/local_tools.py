@@ -11,10 +11,13 @@ from pathlib import Path
 from typing import Any
 from functools import lru_cache
 
+import networkx as nx
+
 from tools.embedding_matcher import match_layouts
 from tools.layout_filter import select_layout
 from tools.graph_searcher import GraphSearcher, build_topology_graph
 from tools.boundary_analyzer import boundary_analyzer, get_boundary_analyzer_schema
+from tools.rule_based_embedder import RuleBasedEmbedder
 
 
 # ---------------------------------------------------------------------------
@@ -43,6 +46,16 @@ def _get_graph_searcher() -> GraphSearcher:
     repo_root = Path(__file__).resolve().parent.parent.parent
     graphs_path = repo_root / "layout_inputs" / "sample_graphs.json"
     return GraphSearcher(str(graphs_path))
+
+
+@lru_cache(maxsize=1)
+def _get_rule_based_embedder() -> RuleBasedEmbedder:
+    """Build and cache the rule-based embedding index (runs once at startup)."""
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    graphs_path = repo_root / "layout_inputs" / "sample_graphs.json"
+    graphs_data = json.loads(graphs_path.read_text(encoding="utf-8"))
+    layout_graphs = {lid: nx.node_link_graph(data) for lid, data in graphs_data.items()}
+    return RuleBasedEmbedder(layout_graphs)
 
 
 # ---------------------------------------------------------------------------
@@ -124,8 +137,13 @@ def get_local_tools() -> list[dict[str, Any]]:
                     },
                     "search_method": {
                         "type": "string",
-                        "enum": ["jaccard", "subgraph"],
-                        "description": "'jaccard' (default) = program-level ranking, always returns results. 'subgraph' = exact structural match using graph isomorphism — use with instance-level edges for complex symmetric patterns like 'each bedroom has its own private bathroom'. Falls back to jaccard approximate results when no exact match exists."
+                        "enum": ["jaccard", "subgraph", "embedding", "pipeline"],
+                        "description": (
+                            "'jaccard' (default) = program-level Jaccard ranking, always returns results. "
+                            "'subgraph' = exact structural match via graph isomorphism — use with instance-level edges for symmetric patterns like 'each bedroom has its own private bathroom'. Falls back to jaccard when no exact match. "
+                            "'embedding' = pre-built cosine similarity index; fastest for room-count + connectivity queries; use connection_type='connected' to require adjacency. Does not support explicit edges. "
+                            "'pipeline' = embedding → jaccard → subgraph in sequence; best for specific queries against large layout sets (100+) — embedding pre-filters before expensive steps run."
+                        )
                     }
                 },
                 "required": ["programs"]
@@ -196,11 +214,116 @@ def build_local_tool_node(reference_layout_path):
                 else:
                     pattern_desc = f"Rooms: {', '.join(programs)}, connection: {connection_type}"
 
-                if search_method == "subgraph":
-                    # --- Phase 1: exact structural match (instance-level) ---
+                # embedding does not support explicit edges — demote to jaccard early
+                # so the elif chain below routes correctly.
+                if search_method == "embedding" and edges is not None:
+                    print("[local_tool] WARNING: 'embedding' does not support explicit edges — falling back to jaccard")
+                    search_method = "jaccard"
+
+                if search_method == "embedding":
+                    embedder = _get_rule_based_embedder()
+                    want_connected = (connection_type == "connected")
+                    results = embedder.search(
+                        programs, connected=want_connected, top_k=len(embedder.index)
+                    )
+                    candidates = [
+                        {"layoutId": lid, "score": round(s, 3)} for lid, s in results
+                    ]
+                    if results:
+                        best_layout_id, best_score = results[0]
+                        load_result = _load_layout_to_state(state, reference_layout_path, best_layout_id)
+                        tool_output = {
+                            "pattern": pattern_desc,
+                            "search_method": "embedding",
+                            "best_match": best_layout_id,
+                            "best_score": round(best_score, 3),
+                            "all_candidates": candidates,
+                            "total": len(candidates),
+                            "message": (
+                                f"Embedding search ranked {len(candidates)} layouts. "
+                                f"Auto-loaded best: {best_layout_id} (cosine score: {round(best_score, 3)})."
+                            ),
+                        }
+                        print(f"[local_tool] Embedding search: loaded {best_layout_id} (score={round(best_score, 3)})")
+                    else:
+                        tool_output = {
+                            "pattern": pattern_desc,
+                            "search_method": "embedding",
+                            "all_candidates": [],
+                            "total": 0,
+                            "message": "No layouts found (empty index?).",
+                        }
+
+                elif search_method == "pipeline":
+                    STAGE1_K = 50
+                    STAGE2_K = 10
+
+                    embedder = _get_rule_based_embedder()
+                    searcher = _get_graph_searcher()
+                    want_connected = (connection_type == "connected")
+
+                    # Stage 1: embedding — dot products only, no graph traversal
+                    stage1 = embedder.search(programs, connected=want_connected, top_k=STAGE1_K)
+                    stage1_ids = {lid for lid, _ in stage1}
+                    print(f"[pipeline] Stage 1 (embedding): {len(stage1_ids)} candidates from {len(embedder.index)} layouts")
+
+                    # Stage 2: jaccard — graph traversal on survivors only
+                    stage2 = searcher.search_by_graph_similarity(
+                        topology_graph, method="jaccard", candidate_ids=stage1_ids
+                    )
+                    stage2_ids = {lid for lid, _ in stage2[:STAGE2_K]}
+                    print(f"[pipeline] Stage 2 (jaccard): {len(stage2_ids)} candidates")
+
+                    # Stage 3: subgraph isomorphism — VF2 on ≤STAGE2_K, not all layouts
+                    if edges is not None:
+                        hybrid = searcher.search_hybrid(topology_graph, candidate_ids=stage2_ids)
+                        exact = hybrid["exact"]
+                        approximate = hybrid["approximate"]
+                        best_list = exact if exact else approximate
+                        all_candidates = (
+                            [{"layoutId": lid, "score": 1.0,         "match_type": "exact"}       for lid, _ in exact] +
+                            [{"layoutId": lid, "score": round(s, 2), "match_type": "approximate"} for lid, s in approximate]
+                        )
+                        stage3_label = f"subgraph → {len(all_candidates)} final"
+                    else:
+                        best_list = stage2[:STAGE2_K]
+                        all_candidates = [{"layoutId": lid, "score": round(s, 2)} for lid, s in best_list]
+                        stage3_label = f"jaccard top-{STAGE2_K} (no edges specified)"
+
+                    if best_list:
+                        best_layout_id, best_score = best_list[0]
+                        load_result = _load_layout_to_state(state, reference_layout_path, best_layout_id)
+                        tool_output = {
+                            "pattern": pattern_desc,
+                            "search_method": "pipeline",
+                            "pipeline_stages": {
+                                "embedding_candidates": len(stage1_ids),
+                                "jaccard_candidates":   len(stage2_ids),
+                                "final_candidates":     len(all_candidates),
+                            },
+                            "best_match": best_layout_id,
+                            "best_score": round(best_score, 2),
+                            "all_candidates": all_candidates,
+                            "message": (
+                                f"Pipeline: {len(embedder.index)} layouts → embedding → {len(stage1_ids)} "
+                                f"→ jaccard → {len(stage2_ids)} → {stage3_label}. "
+                                f"Auto-loaded {best_layout_id} (score: {round(best_score, 2)})."
+                            ),
+                        }
+                        print(f"[pipeline] Best: {best_layout_id} (score={round(best_score, 2)})")
+                    else:
+                        tool_output = {
+                            "pattern": pattern_desc,
+                            "search_method": "pipeline",
+                            "all_candidates": [],
+                            "message": "No layouts found matching this pattern.",
+                        }
+                        print(f"[pipeline] No matches found for {programs}")
+
+                elif search_method == "subgraph":
                     hybrid = graph_searcher.search_hybrid(topology_graph)
-                    exact = hybrid["exact"]        # [(layout_id, 1.0), ...]
-                    approximate = hybrid["approximate"]  # [(layout_id, score), ...]
+                    exact = hybrid["exact"]
+                    approximate = hybrid["approximate"]
 
                     exact_candidates = [
                         {"layoutId": lid, "score": 1.0, "match_type": "exact"} for lid, _ in exact
@@ -242,7 +365,7 @@ def build_local_tool_node(reference_layout_path):
                         print(f"[local_tool] No matches found for {programs}")
 
                 else:
-                    # --- Default: Jaccard program-level ranking ---
+                    # Default: jaccard program-level ranking
                     results = graph_searcher.search_by_graph_similarity(topology_graph, method="jaccard")
                     candidates = [
                         {"layoutId": lid, "score": round(s, 2)} for lid, s in results
