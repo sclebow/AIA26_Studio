@@ -98,19 +98,34 @@ def get_local_tools() -> list[dict[str, Any]]:
         },
         {
             "name": "layout_graph_search",
-            "description": "This tool searches layouts by topology. Auto-loads the best match into state and returns all candidates so you can select a different one if needed.",
+            "description": "Search layouts by room topology. Auto-loads the best match and returns all candidates. Supports three search modes: (1) presence only, (2) specific connections via edges, (3) exact structural matching via search_method='subgraph' for symmetric patterns like 'each bedroom has its own bathroom'.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "programs": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of room types (e.g., ['bedroom', 'kitchen', 'living']). INCLUDE DUPLICATES for counts! For '2-bedroom': ['bedroom', 'bedroom', 'kitchen']. For '3 bathrooms': ['bathroom', 'bathroom', 'bathroom']. Count matters!"
+                        "description": "List of room types. INCLUDE DUPLICATES for counts! '2 bedrooms + kitchen' -> ['bedroom','bedroom','kitchen']. Count matters!"
                     },
                     "connection_type": {
                         "type": "string",
                         "enum": ["any", "connected"],
-                        "description": "'any' = rooms exist (any edges), 'connected' = rooms must all be interconnected via doors"
+                        "description": "'any' = rooms just need to exist. 'connected' = ALL rooms fully interconnected. Ignored when 'edges' is provided."
+                    },
+                    "edges": {
+                        "type": "array",
+                        "items": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "minItems": 2,
+                            "maxItems": 2
+                        },
+                        "description": "Specific connections as pairs. Two formats: (1) Program-level: [['bathroom','bedroom']] = any bathroom connects to any bedroom. (2) Instance-level: [['bedroom:1','office:1'],['bedroom:2','office:2']] = bedroom 1 connects to office 1 AND bedroom 2 connects to office 2 as separate pairs. Use instance-level + search_method='subgraph' for symmetric patterns."
+                    },
+                    "search_method": {
+                        "type": "string",
+                        "enum": ["jaccard", "subgraph"],
+                        "description": "'jaccard' (default) = program-level ranking, always returns results. 'subgraph' = exact structural match using graph isomorphism — use with instance-level edges for complex symmetric patterns like 'each bedroom has its own private bathroom'. Falls back to jaccard approximate results when no exact match exists."
                     }
                 },
                 "required": ["programs"]
@@ -168,40 +183,91 @@ def build_local_tool_node(reference_layout_path):
                 graph_searcher = _get_graph_searcher()
                 programs = tool_args.get("programs", [])
                 connection_type = tool_args.get("connection_type", "any")
-                
+                edges = tool_args.get("edges", None)
+                search_method = tool_args.get("search_method", "jaccard")
+
                 # Build topology graph from user intent
-                topology_graph = build_topology_graph(programs, connection_type)
-                
-                # Search using graph similarity
-                results = graph_searcher.search_by_graph_similarity(topology_graph, method="jaccard")
-                
-                # Format all candidates
-                candidates = [
-                    {"layoutId": layout_id, "score": similarity}
-                    for layout_id, similarity in results
-                ]
-                
-                # Load best match into state (if found)
-                if results:
-                    best_layout_id, best_similarity = results[0]
-                    load_result = _load_layout_to_state(state, reference_layout_path, best_layout_id)
-                    tool_output = {
-                        "pattern": f"Rooms: {', '.join(programs)}, connection: {connection_type}",
-                        "best_match": best_layout_id,
-                        "best_score": round(best_similarity, 2),
-                        "all_candidates": candidates,
-                        "total": len(candidates),
-                        "message": f"Found {len(candidates)} matches. Auto-loaded best: {best_layout_id} (score: {round(best_similarity, 2)}). Ask me to switch to a different one if preferred."
-                    }
-                    print(f"[local_tool] Found {len(candidates)} matches, auto-loaded {best_layout_id}")
+                topology_graph = build_topology_graph(programs, connection_type, edges=edges)
+
+                # Human-readable description of the requested pattern
+                if edges is not None:
+                    edges_str = ", ".join(f"{a}<->{b}" for a, b in edges)
+                    pattern_desc = f"Rooms: {', '.join(programs)}, edges: {edges_str}"
                 else:
-                    tool_output = {
-                        "pattern": f"Rooms: {', '.join(programs)}, connection: {connection_type}",
-                        "all_candidates": [],
-                        "total": 0,
-                        "message": "No layouts found matching this pattern."
-                    }
-                    print(f"[local_tool] No matches found for {programs}")
+                    pattern_desc = f"Rooms: {', '.join(programs)}, connection: {connection_type}"
+
+                if search_method == "subgraph":
+                    # --- Phase 1: exact structural match (instance-level) ---
+                    hybrid = graph_searcher.search_hybrid(topology_graph)
+                    exact = hybrid["exact"]        # [(layout_id, 1.0), ...]
+                    approximate = hybrid["approximate"]  # [(layout_id, score), ...]
+
+                    exact_candidates = [
+                        {"layoutId": lid, "score": 1.0, "match_type": "exact"} for lid, _ in exact
+                    ]
+                    approx_candidates = [
+                        {"layoutId": lid, "score": round(s, 2), "match_type": "approximate"}
+                        for lid, s in approximate
+                    ]
+                    all_candidates = exact_candidates + approx_candidates
+                    best_list = exact if exact else approximate
+
+                    if best_list:
+                        best_layout_id, best_score = best_list[0]
+                        load_result = _load_layout_to_state(state, reference_layout_path, best_layout_id)
+                        match_note = "exact structural match" if exact else "no exact match — best approximate"
+                        tool_output = {
+                            "pattern": pattern_desc,
+                            "search_method": "subgraph",
+                            "exact_matches": len(exact),
+                            "approximate_matches": len(approximate),
+                            "best_match": best_layout_id,
+                            "best_score": round(best_score, 2),
+                            "all_candidates": all_candidates,
+                            "message": (
+                                f"Found {len(exact)} exact and {len(approximate)} approximate matches. "
+                                f"Auto-loaded {best_layout_id} ({match_note})."
+                            ),
+                        }
+                        print(f"[local_tool] Subgraph search: {len(exact)} exact, {len(approximate)} approx. Loaded {best_layout_id}")
+                    else:
+                        tool_output = {
+                            "pattern": pattern_desc,
+                            "search_method": "subgraph",
+                            "exact_matches": 0,
+                            "approximate_matches": 0,
+                            "all_candidates": [],
+                            "message": "No layouts found matching this pattern.",
+                        }
+                        print(f"[local_tool] No matches found for {programs}")
+
+                else:
+                    # --- Default: Jaccard program-level ranking ---
+                    results = graph_searcher.search_by_graph_similarity(topology_graph, method="jaccard")
+                    candidates = [
+                        {"layoutId": lid, "score": round(s, 2)} for lid, s in results
+                    ]
+
+                    if results:
+                        best_layout_id, best_similarity = results[0]
+                        load_result = _load_layout_to_state(state, reference_layout_path, best_layout_id)
+                        tool_output = {
+                            "pattern": pattern_desc,
+                            "best_match": best_layout_id,
+                            "best_score": round(best_similarity, 2),
+                            "all_candidates": candidates,
+                            "total": len(candidates),
+                            "message": f"Found {len(candidates)} matches. Auto-loaded best: {best_layout_id} (score: {round(best_similarity, 2)}). Ask me to switch to a different one if preferred.",
+                        }
+                        print(f"[local_tool] Found {len(candidates)} matches, auto-loaded {best_layout_id}")
+                    else:
+                        tool_output = {
+                            "pattern": pattern_desc,
+                            "all_candidates": [],
+                            "total": 0,
+                            "message": "No layouts found matching this pattern.",
+                        }
+                        print(f"[local_tool] No matches found for {programs}")
             else:
                 tool_output = {"error": f"Unknown tool: {tool_name}"}
 

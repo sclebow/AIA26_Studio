@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python team_06/python/tests/test_graph_searcher.py)"
+    ]
+  }
+}
