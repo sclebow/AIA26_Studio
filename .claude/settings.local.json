@@ -1,8 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python team_06/python/tests/test_graph_searcher.py)",
-      "Bash(python main.py \"Create a layout where there are 4 bedrooms, a kitchen and a dining. The corridor connects to the bedrooms, kitchen and the living room. The bedrooms must have a bathroom each\")"
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(list\\(d.keys\\(\\)\\)\\)\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(type\\(d\\), len\\(d\\) if isinstance\\(d, list\\) else list\\(d.keys\\(\\)\\)[:5]\\)\")",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 python/utils/schema_to_graph.py --dir \"E:\\\\softwares-4\\\\AIA26_Studio\\\\team_06\\\\layout_inputs\\\\RPLAN_Dataset_R-NB\" --output \"E:\\\\softwares-4\\\\AIA26_Studio\\\\team_06\\\\layout_inputs\\\\RPLAN_Dataset_R-NB\\\\graphs.json\")",
+      "Bash(python python/utils/schema_to_graph.py --dir \"E:/softwares-4/AIA26_Studio/team_06/layout_inputs/RPLAN_Dataset_R-NB\" --output \"E:/softwares-4/AIA26_Studio/team_06/layout_inputs/RPLAN_Dataset_R-NB/graphs.json\")",
+      "Bash(python -c ' *)",
+      "Bash(git checkout *)"
     ]
   }
 }
