@@ -8,11 +8,12 @@ from typing import Any, Protocol
 import httpx
 
 from .tools import IMPORT_BUILDING_BOUNDARY_TOOL_DEFINITION
+from .tools import MODIFY_BUILDING_BOUNDARY_TOOL_DEFINITION
 from .tools import REMAINING_BUILDABLE_POSITIONS_TOOL_DEFINITION
 from .tools import REQUESTED_POSITION_CHECKER_TOOL_DEFINITION
 from .tools import TOOL_DEFINITION as GENERATE_BUILDING_BOUNDARY_TOOL_DEFINITION
 from .tools import generate_building_boundary
-from .tools import mock_check_requested_position, mock_import_building_boundary, mock_remaining_buildable_positions
+from .tools import mock_check_requested_position, mock_import_building_boundary, mock_remaining_buildable_positions, modify_building_boundary
 
 
 class ToolClient(Protocol):
@@ -176,6 +177,10 @@ def build_default_local_tool_client() -> LocalToolClient:
             GENERATE_BUILDING_BOUNDARY_TOOL_DEFINITION["name"]: (
                 GENERATE_BUILDING_BOUNDARY_TOOL_DEFINITION,
                 generate_building_boundary,
+            ),
+            MODIFY_BUILDING_BOUNDARY_TOOL_DEFINITION["name"]: (
+                MODIFY_BUILDING_BOUNDARY_TOOL_DEFINITION,
+                modify_building_boundary,
             ),
             IMPORT_BUILDING_BOUNDARY_TOOL_DEFINITION["name"]: (
                 IMPORT_BUILDING_BOUNDARY_TOOL_DEFINITION,

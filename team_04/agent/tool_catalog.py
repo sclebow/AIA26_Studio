@@ -33,6 +33,7 @@ TOOL_GROUPS: dict[str, tuple[str, ...]] = {
         "tree_constraint_checker_04",
     ),
     MANIPULATION_GROUP: (
+        "modify_building_boundary_04",
         "scale_shape_tool_04",
         "stretch_arm_tool_04",
         "width_modifier_tool_04",

@@ -6,6 +6,7 @@ from typing import Any
 
 
 DEFAULT_SITE_COVERAGE_RATIO = 0.35
+SUPPORTED_BUILDING_TYPES = ("I", "L", "T", "Y", "H", "X", "O")
 
 
 TOOL_DEFINITION: dict[str, Any] = {
@@ -27,8 +28,8 @@ TOOL_DEFINITION: dict[str, Any] = {
             },
             "building_type": {
                 "type": "string",
-                "enum": ["I", "L", "T"],
-                "description": "Footprint typology based on the provided C# reference. Default: I.",
+                "enum": list(SUPPORTED_BUILDING_TYPES),
+                "description": "Footprint typology for local boundary generation. Default: I.",
                 "default": "I",
             },
             "building_depth": {
@@ -38,7 +39,7 @@ TOOL_DEFINITION: dict[str, Any] = {
             },
             "shape_ratio": {
                 "type": "number",
-                "description": "Controls the split between horizontal and vertical arms for L/T shapes. Default: 0.66.",
+                "description": "Controls the split between major and secondary arms for non-rectangular shapes. Default: 0.66.",
                 "default": 0.66,
             },
             "location_xy": {
@@ -47,12 +48,28 @@ TOOL_DEFINITION: dict[str, Any] = {
                 "minItems": 2,
                 "maxItems": 2,
                 "default": [0, 0],
-                "description": "Translation applied after all local shape construction. Default: [0, 0].",
+                "description": "Translation applied after local shape construction. Default: [0, 0].",
             },
             "is_mirrored": {
                 "type": "boolean",
-                "description": "Mirror the footprint across the Y axis before rotation and translation. Default: false.",
+                "description": "Mirror the footprint before rotation and translation. Uses mirror_axis when provided. Default: false.",
                 "default": False,
+            },
+            "mirror_axis": {
+                "type": "string",
+                "enum": ["x", "y"],
+                "description": "Axis used when is_mirrored=true. Default: y.",
+                "default": "y",
+            },
+            "rotation_degrees": {
+                "type": "number",
+                "description": "Direct rotation in degrees applied before translation. Takes precedence over rotation step fields.",
+                "default": 0.0,
+            },
+            "orientation_degrees": {
+                "type": "number",
+                "description": "Alias for rotation_degrees for prompts that use orientation language. Default: 0.",
+                "default": 0.0,
             },
             "max_rotation_angle": {
                 "type": "number",
@@ -98,6 +115,9 @@ def get_default_tool_arguments() -> dict[str, Any]:
             "shape_ratio",
             "location_xy",
             "is_mirrored",
+            "mirror_axis",
+            "rotation_degrees",
+            "orientation_degrees",
             "max_rotation_angle",
             "max_rotation_step",
             "rotation_step",
@@ -119,6 +139,9 @@ def generate_building_boundary(
     shape_ratio: float = 0.66,
     location_xy: tuple[float, float] | list[float] = (0.0, 0.0),
     is_mirrored: bool = False,
+    mirror_axis: str = "y",
+    rotation_degrees: float = 0.0,
+    orientation_degrees: float = 0.0,
     max_rotation_angle: float = 180.0,
     max_rotation_step: int = 4,
     rotation_step: int = 0,
@@ -127,10 +150,12 @@ def generate_building_boundary(
         raise ValueError("area must be greater than 0")
     if building_depth <= 0:
         raise ValueError("building_depth must be greater than 0")
-    if building_type not in {"I", "L", "T"}:
-        raise ValueError("building_type must be one of: I, L, T")
+    if building_type not in SUPPORTED_BUILDING_TYPES:
+        raise ValueError(f"building_type must be one of: {', '.join(SUPPORTED_BUILDING_TYPES)}")
     if not 0 < shape_ratio < 1:
         raise ValueError("shape_ratio must be between 0 and 1")
+    if mirror_axis not in {"x", "y"}:
+        raise ValueError("mirror_axis must be either 'x' or 'y'")
     if max_rotation_step < 0:
         raise ValueError("max_rotation_step cannot be negative")
     if rotation_step < 0:
@@ -145,9 +170,13 @@ def generate_building_boundary(
 
     transformed = list(local_boundary)
     if is_mirrored:
-        transformed = [(-x, y) for x, y in transformed]
+        transformed = [_mirror_point(point, mirror_axis) for point in transformed]
 
-    if max_rotation_angle > 0 and max_rotation_step >= 1 and 0 < rotation_step <= max_rotation_step:
+    direct_angle = orientation_degrees if not math.isclose(orientation_degrees, 0.0, abs_tol=1e-9) else rotation_degrees
+    if not math.isclose(direct_angle, 0.0, abs_tol=1e-9):
+        angle = direct_angle
+        transformed = [_rotate_point(point, math.radians(angle)) for point in transformed]
+    elif max_rotation_angle > 0 and max_rotation_step >= 1 and 0 < rotation_step <= max_rotation_step:
         angle = (max_rotation_angle / max_rotation_step) * rotation_step
         transformed = [_rotate_point(point, math.radians(angle)) for point in transformed]
     else:
@@ -178,6 +207,9 @@ def generate_building_boundary(
                 "shape_ratio": shape_ratio,
                 "location_xy": [float(location_xy[0]), float(location_xy[1])],
                 "is_mirrored": is_mirrored,
+                "mirror_axis": mirror_axis,
+                "rotation_degrees": rotation_degrees,
+                "orientation_degrees": orientation_degrees,
                 "max_rotation_angle": max_rotation_angle,
                 "max_rotation_step": max_rotation_step,
                 "rotation_step": rotation_step,
@@ -211,6 +243,19 @@ def _build_local_boundary(
             ]
         )
 
+    if building_type == "L":
+        return _scaled_template_polygon(
+            area,
+            [
+                (-3.0, -1.0),
+                (3.0, -1.0),
+                (3.0, 1.0),
+                (-1.0, 1.0),
+                (-1.0, 3.0),
+                (-3.0, 3.0),
+            ],
+        )
+
     horizontal_length = baseline_length * shape_ratio
     vertical_length = baseline_length - horizontal_length
     if horizontal_length <= 0 or vertical_length <= 0:
@@ -231,18 +276,77 @@ def _build_local_boundary(
             ]
         )
 
-    horizontal_end = horizontal_length
-    local_boundary = _close_polygon(
-        [
-            (0.0, -half_depth),
-            (horizontal_end, -half_depth),
-            (horizontal_end, half_depth),
-            (building_depth, half_depth),
-            (building_depth, vertical_length + building_depth),
-            (0.0, vertical_length + building_depth),
-        ]
-    )
-    return [(x - half_depth, y) for x, y in local_boundary]
+    if building_type == "H":
+        return _scaled_template_polygon(
+            area,
+            [
+                (-3.0, -3.0),
+                (-1.6, -3.0),
+                (-1.6, -0.8),
+                (1.6, -0.8),
+                (1.6, -3.0),
+                (3.0, -3.0),
+                (3.0, 3.0),
+                (1.6, 3.0),
+                (1.6, 0.8),
+                (-1.6, 0.8),
+                (-1.6, 3.0),
+                (-3.0, 3.0),
+            ],
+        )
+
+    if building_type == "O":
+        return _scaled_template_polygon(
+            area,
+            [
+                (-2.0, -1.0),
+                (-1.0, -2.0),
+                (1.0, -2.0),
+                (2.0, -1.0),
+                (2.0, 1.0),
+                (1.0, 2.0),
+                (-1.0, 2.0),
+                (-2.0, 1.0),
+            ],
+        )
+
+    if building_type == "X":
+        return _scaled_template_polygon(
+            area,
+            [
+                (-3.0, -1.4),
+                (-1.4, -1.4),
+                (0.0, -3.0),
+                (1.4, -1.4),
+                (3.0, -1.4),
+                (1.4, 0.0),
+                (3.0, 1.4),
+                (1.4, 1.4),
+                (0.0, 3.0),
+                (-1.4, 1.4),
+                (-3.0, 1.4),
+                (-1.4, 0.0),
+            ],
+        )
+
+    if building_type == "Y":
+        return _scaled_template_polygon(
+            area,
+            [
+                (-1.0, -3.0),
+                (1.0, -3.0),
+                (1.0, -0.8),
+                (3.0, -0.8),
+                (3.0, 1.0),
+                (1.2, 1.0),
+                (0.0, 3.0),
+                (-1.2, 1.0),
+                (-3.0, 1.0),
+                (-3.0, -0.8),
+                (-1.0, -0.8),
+            ],
+        )
+    raise ValueError(f"unsupported building_type: {building_type}")
 
 
 def _close_polygon(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
@@ -251,6 +355,20 @@ def _close_polygon(points: list[tuple[float, float]]) -> list[tuple[float, float
     if points[0] == points[-1]:
         return points
     return points + [points[0]]
+
+
+def _scaled_template_polygon(area: float, points: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    closed = _close_polygon(points)
+    metrics = _polygon_metrics(closed)
+    scale = math.sqrt(area / metrics["area"])
+    return [(x * scale, y * scale) for x, y in closed]
+
+
+def _mirror_point(point: tuple[float, float], axis: str) -> tuple[float, float]:
+    x, y = point
+    if axis == "x":
+        return (x, -y)
+    return (-x, y)
 
 
 def _rotate_point(point: tuple[float, float], angle_radians: float) -> tuple[float, float]:

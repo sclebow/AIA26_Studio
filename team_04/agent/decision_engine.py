@@ -508,6 +508,14 @@ def _default_boundary_area(site_area_sqm: float | None, default_site_coverage_ra
 
 def _infer_requested_building_type(user_prompt: str) -> str | None:
     prompt_lower = user_prompt.lower()
+    if "y-shaped" in prompt_lower or "y shaped" in prompt_lower:
+        return "Y"
+    if "h-shaped" in prompt_lower or "h shaped" in prompt_lower:
+        return "H"
+    if "x-shaped" in prompt_lower or "x shaped" in prompt_lower:
+        return "X"
+    if "o-shaped" in prompt_lower or "o shaped" in prompt_lower or "ring building" in prompt_lower:
+        return "O"
     if "l-shaped" in prompt_lower or "l shaped" in prompt_lower:
         return "L"
     if "t-shaped" in prompt_lower or "t shaped" in prompt_lower:
@@ -548,6 +556,8 @@ def _extract_requested_rotation(user_prompt: str) -> float | None:
         r"rotate(?: the)? building by\s*(\d+(?:\.\d+)?)\s*degrees?",
         r"rotate(?: the)? footprint by\s*(\d+(?:\.\d+)?)\s*degrees?",
         r"rotated by\s*(\d+(?:\.\d+)?)\s*degrees?",
+        r"orient(?: the)? building to\s*(\d+(?:\.\d+)?)\s*degrees?",
+        r"orientation(?: of the)? building\s*(?:=|is|to)?\s*(\d+(?:\.\d+)?)\s*degrees?",
     )
     for pattern in patterns:
         match = re.search(pattern, prompt_lower, flags=re.IGNORECASE)

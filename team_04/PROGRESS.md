@@ -22,14 +22,20 @@ The codebase was cleaned up and reset around one canonical LangGraph implementat
 - [x] Added a two-building mock workflow with local placement-analysis tools and a notebook test harness.
 - [x] Extended the canonical planner/runtime with multi-building steps for requested-position checks, placement, and remaining-site analysis.
 - [x] Added per-building intent state so planner goals can carry different architectural narratives for building 1 and building 2.
+- [x] Expanded the local boundary generator to support `I`, `L`, `T`, `Y`, `H`, `X`, and `O` building footprints.
+- [x] Added direct local boundary manipulation for move, orientation, rotation, and mirroring with site-boundary fit checks.
+- [x] Added a many-building notebook harness to stress-test multiple shapes and transformations on one site.
+- [x] Added a Grasshopper tool-definition spec for `modify_building_boundary_04`.
 
 ### In Progress
 
 - [ ] Grasshopper-side `import_building_boundary_04` implementation in Swiftlet/Grasshopper.
 - [ ] Grasshopper-side `remaining_buildable_positions_04` implementation in Swiftlet/Grasshopper.
 - [ ] Grasshopper-side `requested_position_checker_04` implementation in Swiftlet/Grasshopper.
+- [ ] Grasshopper-side `modify_building_boundary_04` implementation in Swiftlet/Grasshopper.
 - [ ] Live Rhino/Swiftlet validation of the one-building JSON handoff from the local Python tool into Grasshopper.
 - [ ] Live Rhino/Swiftlet validation of the two-building workflow: place building A, analyze remaining positions, check a requested point for building B, then place building B.
+- [ ] Live Rhino/Swiftlet validation of multi-building shape transforms and site-boundary checks through `modify_building_boundary_04`.
 - [ ] Wire per-building intent into the production supervisor prompts once the live Swiftlet tools are connected.
 
 ### Grasshopper Test Plan
@@ -43,6 +49,9 @@ The codebase was cleaned up and reset around one canonical LangGraph implementat
 - [ ] Verify `requested_position_checker_04` reports geometric reasons for rejection and nearby feasible alternatives.
 - [ ] Run `test_generate_building_boundary.ipynb` against live Grasshopper import behavior.
 - [ ] Run `test_two_building_workflow.ipynb` against live Grasshopper placement-analysis behavior.
+- [ ] Implement `modify_building_boundary_04` and verify move, orientation, rotation, and mirroring preserve closed boundaries.
+- [ ] Verify `modify_building_boundary_04` reports whether transformed buildings leave or intersect the site boundary.
+- [ ] Run `test_multi_building_shape_transformations.ipynb` against the live Grasshopper manipulation tool.
 - [ ] Capture one successful end-to-end two-building MCP session and record the expected input/output payloads.
 
 ### Current Active Components
@@ -56,10 +65,12 @@ The codebase was cleaned up and reset around one canonical LangGraph implementat
 - [x] `agent/mcp_client.py`: HTTP MCP adapter plus local/composite tool support.
 - [x] `agent/config.py`: runtime settings and layout loading.
 - [x] `agent/tools/generate_building_boundary.py`: local footprint generation tool.
+- [x] `agent/tools/modify_building_boundary.py`: local footprint transformation and site-fit classification tool.
 - [x] `agent/tools/multi_building_mock.py`: local mock tools for placement import, requested-position checks, and remaining-site analysis.
 - [x] `main.py`: top-level entry point.
 - [x] `test_generate_building_boundary.ipynb`: notebook-based local tool test and Grasshopper payload prep.
 - [x] `test_two_building_workflow.ipynb`: notebook-based two-building workflow and user-requested position test.
+- [x] `test_multi_building_shape_transformations.ipynb`: notebook-based multi-building shape, transform, and site-fit stress test.
 
 ### Explicitly Archived
 
@@ -74,4 +85,5 @@ The codebase was cleaned up and reset around one canonical LangGraph implementat
 - [ ] Reconcile or refresh the remaining handoff documents that still describe the pre-rewrite system.
 - [ ] Add a production Grasshopper import tool for local Python-generated footprint coordinates.
 - [ ] Add production Grasshopper versions of `remaining_buildable_positions_04` and `requested_position_checker_04`.
+- [ ] Add a production Grasshopper version of `modify_building_boundary_04` for boundary transforms and site-boundary checks.
 - [ ] Replace the local mock placement-analysis tools with live Swiftlet tool calls in the canonical runtime.

@@ -71,10 +71,10 @@ All tool spokes return to planner, which rebuilds the remaining task sequence.
 - `planner`: builds a typed task sequence from current state and selects the active plan step.
 - `central_reason`: now acts as a step-scoped supervisor. It only reasons over the active step, and only calls the LLM for `generate_shape` and `optimize`.
 - `read_site`: runs the site/context/legal-reader tool group automatically.
-- `generate_shape`: executes only allowed shape-generation tool calls.
+- `generate_shape`: executes only allowed shape-generation tool calls. The local boundary generator now supports `I`, `L`, `T`, `Y`, `H`, `X`, and `O` footprints plus direct translation, mirroring, and orientation or rotation parameters.
 - `check_requested_position`: evaluates a user-requested placement point for the current building and records geometric feasibility facts.
 - `check_constraints`: runs the full constraint suite automatically and derives violation categories.
-- `optimize`: executes only allowed manipulation tool calls and increments the optimization cycle counter.
+- `optimize`: executes only allowed manipulation tool calls and increments the optimization cycle counter. The local manipulation fallback now includes `modify_building_boundary_04` for move, orientation, rotation, mirroring, and site-fit checks before the Grasshopper tool is live.
 - `evaluate`: runs the full evaluation suite automatically.
 - `place_building`: sends the validated building footprint into Rhino/Grasshopper placement tools.
 - `analyze_remaining_positions`: queries the remaining site area for candidate locations before the next building cycle begins.
@@ -116,7 +116,28 @@ The graph enforces several invariants even if the LLM chooses poorly:
 
 The rewrite includes a deterministic smoke test in `team_04/tests/test_agent_graph.py`.
 
+Focused geometry regression coverage also lives in `team_04/tests/test_boundary_tools.py`.
+
 It validates:
 - planner plus supervisor completion through shape generation, constraint repair, evaluation, and reporting;
 - non-blocking `await_human` behavior;
 - multi-building sequencing through requested-position checks, placement, and remaining-site analysis.
+- all requested local shape families (`I`, `L`, `T`, `Y`, `H`, `X`, `O`) keep the requested footprint area;
+- the new boundary-transformation tool can move, orient, rotate, and mirror a building, then classify whether the transformed footprint still fits inside the site boundary.
+
+## Local Geometry Tooling
+
+The active local geometry tool surface now includes two complementary Python tools before the Grasshopper equivalents are complete:
+
+- `agent/tools/generate_building_boundary.py`: generates one closed footprint boundary at the origin, with optional direct rotation, orientation, mirroring, and translation parameters.
+- `agent/tools/modify_building_boundary.py`: transforms an existing boundary by centroid move, relative translation, rotation, orientation, and mirroring, then reports whether the transformed polygon leaves or intersects the site boundary.
+
+These tools are exposed through the canonical local tool client in `agent/mcp_client.py`, so notebooks and planner flows can exercise generation and transformation logic without waiting for the Swiftlet bridge.
+
+## Notebook Coverage
+
+Team 04 now has three active notebook harnesses for geometry workflows:
+
+- `test_generate_building_boundary.ipynb`: single-building boundary generation and Grasshopper handoff.
+- `test_two_building_workflow.ipynb`: two-building placement sequencing with requested-point checks and remaining-position analysis.
+- `test_multi_building_shape_transformations.ipynb`: many-building stress test across `L`, `I`, `Y`, `T`, `H`, `X`, and `O`, including move, orientation, rotation, mirroring, and site-fit checks.
