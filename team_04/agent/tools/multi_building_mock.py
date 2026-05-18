@@ -5,7 +5,7 @@ import uuid
 from typing import Any
 
 IMPORT_BUILDING_BOUNDARY_TOOL_DEFINITION: dict[str, Any] = {
-    "name": "import_building_boundary_04",
+    "name": "import_building_boundary",
     "description": "Create Rhino/Grasshopper geometry from a Python-generated closed building boundary.",
     "inputSchema": {
         "type": "object",
@@ -27,7 +27,7 @@ IMPORT_BUILDING_BOUNDARY_TOOL_DEFINITION: dict[str, Any] = {
 }
 
 REMAINING_BUILDABLE_POSITIONS_TOOL_DEFINITION: dict[str, Any] = {
-    "name": "remaining_buildable_positions_04",
+    "name": "remaining_buildable_positions",
     "description": "Pixelize the remaining site and return feasible centroid candidates for the next building.",
     "inputSchema": {
         "type": "object",
@@ -53,7 +53,7 @@ REMAINING_BUILDABLE_POSITIONS_TOOL_DEFINITION: dict[str, Any] = {
 }
 
 REQUESTED_POSITION_CHECKER_TOOL_DEFINITION: dict[str, Any] = {
-    "name": "requested_position_checker_04",
+    "name": "requested_position_checker",
     "description": "Check whether a user-requested point can host the proposed building and suggest nearby feasible positions.",
     "inputSchema": {
         "type": "object",

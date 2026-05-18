@@ -17,6 +17,8 @@ from agent.tools import IMPORT_BUILDING_BOUNDARY_TOOL_DEFINITION
 from agent.tools import REMAINING_BUILDABLE_POSITIONS_TOOL_DEFINITION
 from agent.tools import REQUESTED_POSITION_CHECKER_TOOL_DEFINITION
 from agent.tools import TOOL_DEFINITION as GENERATE_BUILDING_BOUNDARY_TOOL_DEFINITION
+from agent.tools import direction_to_site_centroid, modify_building_boundary
+from agent.tools import DIRECTION_TO_SITE_CENTROID_TOOL_DEFINITION, MODIFY_BUILDING_BOUNDARY_TOOL_DEFINITION
 from agent.tools import generate_building_boundary, mock_check_requested_position, mock_import_building_boundary, mock_remaining_buildable_positions
 from agent.tool_catalog import ToolCatalog
 
@@ -26,18 +28,19 @@ class FakeToolClient:
         self.constraint_checks = 0
         self.calls: list[str] = []
         self._tools = [
-            {"name": "site_boundary_reader_04"},
-            {"name": "context_reader_04"},
-            {"name": "legal_constraints_reader_04"},
-            {"name": "rotate_mirror_tool_04"},
-            {"name": "site_fit_checker_04"},
-            {"name": "setback_checker_04"},
-            {"name": "area_requirement_checker_04"},
-            {"name": "adjacency_access_checker_04"},
-            {"name": "tree_constraint_checker_04"},
-            {"name": "spatial_intention_evaluator_04"},
-            {"name": "performance_evaluator_04"},
-            {"name": "shape_integrity_evaluator_04"},
+            {"name": "site_boundary_reader"},
+            {"name": "context_reader"},
+            {"name": "legal_constraints_reader"},
+            {"name": "rotate_mirror_tool"},
+            {"name": "site_fit_checker"},
+            {"name": "setback_checker"},
+            {"name": "area_requirement_checker"},
+            {"name": "adjacency_access_checker"},
+            {"name": "tree_constraint_checker"},
+            {"name": "spatial_intention_evaluator"},
+            {"name": "performance_evaluator"},
+            {"name": "shape_integrity_evaluator"},
+            {"name": "test_fit"},
         ]
 
     def list_tools(self) -> list[dict[str, object]]:
@@ -45,31 +48,49 @@ class FakeToolClient:
 
     def call_tool(self, name: str, arguments: dict[str, object]) -> str:
         self.calls.append(name)
-        if name == "site_boundary_reader_04":
+        if name == "site_boundary_reader":
             return json.dumps({"data": {"site": "loaded"}})
-        if name == "context_reader_04":
+        if name == "context_reader":
             return json.dumps({"data": {"context": {"roads": 1, "trees": 2}}})
-        if name == "legal_constraints_reader_04":
+        if name == "legal_constraints_reader":
             return json.dumps({"data": {"constraints": {"setback": 5}}})
-        if name == "rotate_mirror_tool_04":
+        if name == "rotate_mirror_tool":
             return json.dumps({"data": {"geometry_id": "shape-002", "operation": "rotate"}})
-        if name == "site_fit_checker_04":
+        if name == "site_fit_checker":
             return json.dumps({"data": {"fits": True}})
-        if name == "setback_checker_04":
+        if name == "setback_checker":
             self.constraint_checks += 1
             return json.dumps({"data": {"compliant": self.constraint_checks > 1}})
-        if name == "area_requirement_checker_04":
+        if name == "area_requirement_checker":
             return json.dumps({"data": {"gfa_compliant": True}})
-        if name == "adjacency_access_checker_04":
+        if name == "adjacency_access_checker":
             return json.dumps({"data": {"road_access_ok": True}})
-        if name == "tree_constraint_checker_04":
+        if name == "tree_constraint_checker":
             return json.dumps({"data": {"no_conflicts": True}})
-        if name == "spatial_intention_evaluator_04":
+        if name == "spatial_intention_evaluator":
             return json.dumps({"data": {"score": 0.91}})
-        if name == "performance_evaluator_04":
+        if name == "performance_evaluator":
             return json.dumps({"data": {"score": 0.88}})
-        if name == "shape_integrity_evaluator_04":
+        if name == "shape_integrity_evaluator":
             return json.dumps({"data": {"score": 0.94}})
+        if name == "test_fit":
+            site_boundary = arguments.get("site_boundary") or []
+            building_boundary = arguments.get("building_boundary") or []
+            site_x = [point[0] for point in site_boundary[:-1]]
+            site_y = [point[1] for point in site_boundary[:-1]]
+            building_x = [point[0] for point in building_boundary[:-1]]
+            building_y = [point[1] for point in building_boundary[:-1]]
+            fits = (
+                bool(site_x)
+                and bool(site_y)
+                and bool(building_x)
+                and bool(building_y)
+                and min(building_x) >= min(site_x)
+                and max(building_x) <= max(site_x)
+                and min(building_y) >= min(site_y)
+                and max(building_y) <= max(site_y)
+            )
+            return json.dumps({"data": {"IsFit": fits}})
         raise AssertionError(f"Unexpected tool call: {name}")
 
     def close(self) -> None:
@@ -90,7 +111,7 @@ class ScriptedDecisionEngine:
             return RoutingDecision(
                 action="optimize",
                 reasoning="Fix the setback violation.",
-                tool_calls=(ToolCall(name="rotate_mirror_tool_04", arguments={"angle": 15}),),
+                tool_calls=(ToolCall(name="rotate_mirror_tool", arguments={"angle": 15}),),
             )
         return RoutingDecision(action=active_step.action, reasoning=active_step.goal)
 
@@ -126,6 +147,14 @@ class AgentGraphTests(unittest.TestCase):
                     REQUESTED_POSITION_CHECKER_TOOL_DEFINITION,
                     mock_check_requested_position,
                 ),
+                MODIFY_BUILDING_BOUNDARY_TOOL_DEFINITION["name"]: (
+                    MODIFY_BUILDING_BOUNDARY_TOOL_DEFINITION,
+                    modify_building_boundary,
+                ),
+                DIRECTION_TO_SITE_CENTROID_TOOL_DEFINITION["name"]: (
+                    DIRECTION_TO_SITE_CENTROID_TOOL_DEFINITION,
+                    direction_to_site_centroid,
+                ),
             }
         )
         return CompositeToolClient([local_client, FakeToolClient()])
@@ -148,8 +177,8 @@ class AgentGraphTests(unittest.TestCase):
         self.assertEqual(final_state.get("geometry_id"), "shape-002")
         self.assertEqual(final_state.get("violations"), [])
         self.assertIn("Final geometry: shape-002.", final_state.get("final_response", ""))
-        self.assertIn("rotate_mirror_tool_04", client.calls)
-        self.assertGreaterEqual(client.calls.count("setback_checker_04"), 2)
+        self.assertIn("rotate_mirror_tool", client.calls)
+        self.assertGreaterEqual(client.calls.count("setback_checker"), 2)
         self.assertEqual(final_state.get("active_step_id"), "report")
 
     def test_await_human_finishes_without_blocking(self) -> None:
@@ -210,18 +239,58 @@ class AgentGraphTests(unittest.TestCase):
         tool_names = {tool["name"] for tool in client.list_tools()}
         self.assertIn("generate_building_boundary", tool_names)
 
+    def test_place_building_node_fits_boundary_before_import(self) -> None:
+        client = self._build_tool_client()
+        catalog = ToolCatalog.from_discovered_tools(client.list_tools())
+        engine = ScriptedDecisionEngine()
+
+        final_state = run_agent(
+            user_prompt="Generate one building and place it inside the site.",
+            decision_engine=engine,
+            tool_client=client,
+            catalog=catalog,
+            initial_layout={
+                "site_boundary": [
+                    [0.0, 0.0, 0.0],
+                    [100.0, 0.0, 0.0],
+                    [100.0, 100.0, 0.0],
+                    [0.0, 100.0, 0.0],
+                    [0.0, 0.0, 0.0],
+                ],
+                "target_building_count": 1,
+            },
+            max_optimization_cycles=2,
+            planner=RuleBasedPlanner(),
+        )
+
+        placed_building = final_state.get("placed_buildings", [])[0]
+        placement_payload = placed_building["placement"]
+        placement_fit_summary = final_state.get("placement_fit_summary", {})
+        self.assertEqual(placement_payload.get("geometry_id"), placed_building.get("geometry_id"))
+        self.assertEqual(placement_payload.get("boundary"), placed_building.get("boundary"))
+        self.assertIn("fits_within_site_boundary", placement_fit_summary)
+        self.assertIn("placement_suggested_move", placement_fit_summary)
+        self.assertIn("test_fit_passed", placement_fit_summary)
+        self.assertIn("test_fit", client.calls)
+        xs = [point[0] for point in placed_building["boundary"][:-1]]
+        ys = [point[1] for point in placed_building["boundary"][:-1]]
+        self.assertGreaterEqual(min(xs), 0.0)
+        self.assertGreaterEqual(min(ys), 0.0)
+        self.assertLessEqual(max(xs), 100.0)
+        self.assertLessEqual(max(ys), 100.0)
+
     def test_planner_adds_multi_building_steps(self) -> None:
         planner = RuleBasedPlanner()
         catalog = ToolCatalog.from_discovered_tools(self._build_tool_client().list_tools())
 
         plan = planner.build_plan(
             {
-                "site_context": {"site_boundary_reader_04": {"data": {"site": "loaded"}}},
+                "site_context": {"site_boundary_reader": {"data": {"site": "loaded"}}},
                 "geometry_id": "shape-001",
                 "checked_geometry_id": "shape-001",
-                "constraint_results": {"setback_checker_04": {"data": {"compliant": True}}},
+                "constraint_results": {"setback_checker": {"data": {"compliant": True}}},
                 "violations": [],
-                "evaluation_results": {"performance_evaluator_04": {"data": {"score": 0.9}}},
+                "evaluation_results": {"performance_evaluator": {"data": {"score": 0.9}}},
                 "placed_buildings": [],
                 "requested_positions": [[90.0, 30.0], [110.0, 50.0]],
                 "building_intents": [
@@ -247,12 +316,12 @@ class AgentGraphTests(unittest.TestCase):
 
         plan = planner.build_plan(
             {
-                "site_context": {"site_boundary_reader_04": {"data": {"site": "loaded"}}},
+                "site_context": {"site_boundary_reader": {"data": {"site": "loaded"}}},
                 "geometry_id": "shape-001",
                 "checked_geometry_id": "shape-001",
-                "constraint_results": {"setback_checker_04": {"data": {"compliant": True}}},
+                "constraint_results": {"setback_checker": {"data": {"compliant": True}}},
                 "violations": [],
-                "evaluation_results": {"performance_evaluator_04": {"data": {"score": 0.9}}},
+                "evaluation_results": {"performance_evaluator": {"data": {"score": 0.9}}},
                 "placed_buildings": [{"geometry_id": "shape-001"}],
                 "target_building_count": 1,
             },
@@ -271,7 +340,7 @@ class AgentGraphTests(unittest.TestCase):
         plan = planner.build_plan(
             {
                 "workflow_mode": "boundary_only",
-                "site_context": {"site_boundary_reader_04": {"data": {"site": "loaded"}}},
+                "site_context": {"site_boundary_reader": {"data": {"site": "loaded"}}},
                 "geometry_id": "shape-001",
             },
             catalog,
@@ -299,7 +368,7 @@ class AgentGraphTests(unittest.TestCase):
             RoutingDecision(action="generate_shape", reasoning="Generate the requested shape."),
             {
                 "user_prompt": "Generate an L-shaped building boundary for a site area of 5000 square meters.",
-                "site_context": {"site_boundary_reader_04": {"data": {"site_area_sqm": 5000.0}}},
+                "site_context": {"site_boundary_reader": {"data": {"site_area_sqm": 5000.0}}},
             },
             catalog,
             active_step,
@@ -323,7 +392,7 @@ class AgentGraphTests(unittest.TestCase):
             RoutingDecision(action="generate_shape", reasoning="Generate the requested shape."),
             {
                 "user_prompt": "Generate an L-shaped building boundary with a building area of 3000 square meters.",
-                "site_context": {"site_boundary_reader_04": {"data": {"site_area_sqm": 5000.0}}},
+                "site_context": {"site_boundary_reader": {"data": {"site_area_sqm": 5000.0}}},
             },
             catalog,
             active_step,
@@ -347,7 +416,7 @@ class AgentGraphTests(unittest.TestCase):
             RoutingDecision(action="generate_shape", reasoning="Generate the requested shape."),
             {
                 "user_prompt": "Generate an L-shaped building boundary with a building area of 3000 square meters and rotate the building by 45 degrees.",
-                "site_context": {"site_boundary_reader_04": {"data": {"site_area_sqm": 5000.0}}},
+                "site_context": {"site_boundary_reader": {"data": {"site_area_sqm": 5000.0}}},
             },
             catalog,
             active_step,
@@ -389,7 +458,7 @@ class AgentGraphTests(unittest.TestCase):
         self.assertEqual(len(final_state.get("placed_buildings", [])), 2)
         self.assertIsNotNone(final_state.get("final_response"))
         self.assertEqual(final_state.get("active_step_id"), "report")
-        self.assertIn("remaining_buildable_positions_04", client.calls)
+        self.assertIn("remaining_buildable_positions", client.calls)
         self.assertEqual(len(final_state.get("building_intents", [])), 2)
 
 

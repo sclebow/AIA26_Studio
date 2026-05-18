@@ -28,6 +28,7 @@ class AgentState(TypedDict, total=False):
     constraint_results: dict[str, Any]
     violations: list[str]
     evaluation_results: dict[str, Any]
+    placement_fit_summary: dict[str, Any]
     tool_history: list[dict[str, Any]]
     human_request: str | None
     final_response: str | None
@@ -93,6 +94,7 @@ def build_initial_state(
         "constraint_results": {},
         "violations": [],
         "evaluation_results": {},
+        "placement_fit_summary": {},
         "tool_history": [],
         "human_request": None,
         "final_response": None,

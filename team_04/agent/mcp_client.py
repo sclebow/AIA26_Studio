@@ -11,7 +11,9 @@ from .tools import IMPORT_BUILDING_BOUNDARY_TOOL_DEFINITION
 from .tools import MODIFY_BUILDING_BOUNDARY_TOOL_DEFINITION
 from .tools import REMAINING_BUILDABLE_POSITIONS_TOOL_DEFINITION
 from .tools import REQUESTED_POSITION_CHECKER_TOOL_DEFINITION
+from .tools import DIRECTION_TO_SITE_CENTROID_TOOL_DEFINITION
 from .tools import TOOL_DEFINITION as GENERATE_BUILDING_BOUNDARY_TOOL_DEFINITION
+from .tools import direction_to_site_centroid
 from .tools import generate_building_boundary
 from .tools import mock_check_requested_position, mock_import_building_boundary, mock_remaining_buildable_positions, modify_building_boundary
 
@@ -181,6 +183,10 @@ def build_default_local_tool_client() -> LocalToolClient:
             MODIFY_BUILDING_BOUNDARY_TOOL_DEFINITION["name"]: (
                 MODIFY_BUILDING_BOUNDARY_TOOL_DEFINITION,
                 modify_building_boundary,
+            ),
+            DIRECTION_TO_SITE_CENTROID_TOOL_DEFINITION["name"]: (
+                DIRECTION_TO_SITE_CENTROID_TOOL_DEFINITION,
+                direction_to_site_centroid,
             ),
             IMPORT_BUILDING_BOUNDARY_TOOL_DEFINITION["name"]: (
                 IMPORT_BUILDING_BOUNDARY_TOOL_DEFINITION,

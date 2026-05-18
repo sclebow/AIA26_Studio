@@ -10,6 +10,7 @@ if str(TEAM_ROOT) not in sys.path:
 
 from agent.decision_engine import _infer_requested_building_type
 from agent.mcp_client import build_default_local_tool_client
+from agent.tools.direction_to_site_centroid import direction_to_site_centroid
 from agent.tools.generate_building_boundary import generate_building_boundary
 from agent.tools.modify_building_boundary import modify_building_boundary
 
@@ -63,7 +64,39 @@ class BoundaryToolTests(unittest.TestCase):
 
     def test_local_tool_client_exposes_modify_building_boundary(self) -> None:
         tool_names = {tool["name"] for tool in build_default_local_tool_client().list_tools()}
-        self.assertIn("modify_building_boundary_04", tool_names)
+        self.assertIn("modify_building_boundary", tool_names)
+
+    def test_local_tool_client_exposes_direction_to_site_centroid(self) -> None:
+        tool_names = {tool["name"] for tool in build_default_local_tool_client().list_tools()}
+        self.assertIn("direction_to_site_centroid", tool_names)
+
+    def test_direction_to_site_centroid_points_toward_site(self) -> None:
+        site_boundary = [
+            [0.0, 0.0, 0.0],
+            [100.0, 0.0, 0.0],
+            [100.0, 100.0, 0.0],
+            [0.0, 100.0, 0.0],
+            [0.0, 0.0, 0.0],
+        ]
+        building_boundary = [
+            [120.0, 40.0, 0.0],
+            [140.0, 40.0, 0.0],
+            [140.0, 60.0, 0.0],
+            [120.0, 60.0, 0.0],
+            [120.0, 40.0, 0.0],
+        ]
+
+        result = direction_to_site_centroid(
+            building_boundary=building_boundary,
+            site_boundary=site_boundary,
+            step_distance=10.0,
+        )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["data"]["site_centroid"], [50.0, 50.0, 0.0])
+        self.assertEqual(result["data"]["building_centroid"], [130.0, 50.0, 0.0])
+        self.assertEqual(result["data"]["unit_direction"], [-1.0, 0.0])
+        self.assertEqual(result["data"]["suggested_translate_by_xy"], [-10.0, 0.0])
 
     def test_requested_shape_inference_supports_new_shapes(self) -> None:
         self.assertEqual(_infer_requested_building_type("Generate a Y-shaped building."), "Y")

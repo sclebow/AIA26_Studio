@@ -8,7 +8,7 @@ from .multi_building_mock import _normalize_polygon, _point_in_polygon, _polygon
 
 
 MODIFY_BUILDING_BOUNDARY_TOOL_DEFINITION: dict[str, Any] = {
-    "name": "modify_building_boundary_04",
+    "name": "modify_building_boundary",
     "description": (
         "Move, orient, rotate, or mirror an existing building boundary and optionally "
         "check whether the transformed footprint still fits inside the site boundary."

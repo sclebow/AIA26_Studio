@@ -88,6 +88,7 @@ def run_agent(
     initial_layout: dict[str, Any] | None = None,
     max_optimization_cycles: int = 4,
     planner: Planner | None = None,
+    recursion_limit: int = 64,
 ) -> AgentState:
     app = build_agent_graph(decision_engine, tool_client, catalog, planner=planner)
     initial_state = build_initial_state(
@@ -95,7 +96,7 @@ def run_agent(
         layout_payload=initial_layout,
         max_optimization_cycles=max_optimization_cycles,
     )
-    return app.invoke(initial_state)
+    return app.invoke(initial_state, config={"recursion_limit": recursion_limit})
 
 
 def _build_planner_node(planner: Planner, catalog: ToolCatalog):
@@ -334,7 +335,7 @@ def _build_requested_position_node(
 ):
     def check_requested_position(state: AgentState) -> AgentState:
         allowed_names = set(catalog.names_for_action("check_requested_position"))
-        tool_name = "requested_position_checker_04"
+        tool_name = "requested_position_checker"
         if tool_name not in allowed_names:
             return {
                 "requested_position_assessment": {},
@@ -398,7 +399,7 @@ def _build_place_building_node(
 ):
     def place_building(state: AgentState) -> AgentState:
         allowed_names = set(catalog.names_for_action("place_building"))
-        tool_name = "import_building_boundary_04"
+        tool_name = "import_building_boundary"
         boundary = _extract_placed_boundary(state)
         geometry_id = state.get("geometry_id")
         if tool_name not in allowed_names or not boundary or not geometry_id:
@@ -407,11 +408,40 @@ def _build_place_building_node(
                 "replan_reason": "Placement inputs unavailable; skipping building placement.",
             }
 
+        messages = list(state.get("messages", []))
+        tool_history = list(state.get("tool_history", []))
+        placed_boundary = boundary
+        site_boundary = _extract_site_boundary(state)
+        available_tool_names = set(catalog.by_name())
+
+        if site_boundary and {
+            "direction_to_site_centroid",
+            "modify_building_boundary",
+        }.issubset(available_tool_names):
+            fit_result = _fit_boundary_for_placement(
+                tool_client=tool_client,
+                geometry_id=geometry_id,
+                boundary=boundary,
+                site_boundary=site_boundary,
+                available_tool_names=available_tool_names,
+            )
+            placed_boundary = fit_result["boundary"]
+            tool_history.extend(fit_result["records"])
+            messages.extend(record["message"] for record in fit_result["records"])
+            fit_summary = fit_result.get("fit_summary")
+            if isinstance(fit_summary, dict):
+                if fit_summary.get("fits_within_site_boundary"):
+                    messages.append("Placement loop fit the boundary within the site before import.")
+                else:
+                    messages.append("Placement loop could not fully fit the boundary before import; importing best candidate.")
+        else:
+            fit_summary = {}
+
         raw_output = tool_client.call_tool(
             tool_name,
             {
                 "geometry_id": geometry_id,
-                "boundary": boundary,
+                "boundary": placed_boundary,
             },
         )
         parsed_output = _parse_tool_output(raw_output)
@@ -420,17 +450,15 @@ def _build_place_building_node(
         placed_buildings.append(
             {
                 "geometry_id": geometry_id,
-                "boundary": boundary,
+                "boundary": placed_boundary,
                 "placement": placement_data,
             }
         )
-        messages = list(state.get("messages", []))
         messages.append(f"Tool {tool_name} executed.")
-        tool_history = list(state.get("tool_history", []))
         tool_history.append(
             {
                 "tool": tool_name,
-                "arguments": {"geometry_id": geometry_id},
+                "arguments": {"geometry_id": geometry_id, "boundary": placed_boundary},
                 "output": parsed_output,
                 "message": f"Tool {tool_name} executed.",
             }
@@ -442,6 +470,7 @@ def _build_place_building_node(
             "messages": messages,
             "tool_history": tool_history,
             "placed_buildings": placed_buildings,
+            "placement_fit_summary": fit_summary if isinstance(fit_summary, dict) else {},
             "replan_required": True,
             "replan_reason": "Building placement completed.",
             "error": None,
@@ -455,6 +484,7 @@ def _build_place_building_node(
                     "constraint_results": {},
                     "violations": [],
                     "evaluation_results": {},
+                    "placement_fit_summary": {},
                     "requested_position_assessment": {},
                 }
             )
@@ -463,13 +493,213 @@ def _build_place_building_node(
     return place_building
 
 
+def _fit_boundary_for_placement(
+    tool_client: ToolClient,
+    geometry_id: str,
+    boundary: list[list[float]],
+    site_boundary: list[list[float]],
+    available_tool_names: set[str] | None = None,
+    max_iterations: int = 20,
+    step_distance: float = 12.0,
+    max_step_distance: float = 96.0,
+    rotation_candidates: tuple[float, ...] = (0.0, 15.0, -15.0, 30.0, -30.0, 45.0, -45.0),
+) -> dict[str, Any]:
+    working_boundary = boundary
+    records: list[dict[str, Any]] = []
+    latest_fit_summary: dict[str, Any] | None = None
+    active_tool_names = available_tool_names or set()
+    use_test_fit = "test_fit" in active_tool_names
+
+    for iteration in range(1, max_iterations + 1):
+        direction_arguments = {
+            "building_boundary": working_boundary,
+            "site_boundary": site_boundary,
+            "step_distance": step_distance,
+        }
+        raw_direction = tool_client.call_tool("direction_to_site_centroid", direction_arguments)
+        parsed_direction = _parse_tool_output(raw_direction)
+        direction_data = parsed_direction.get("data", {}) if isinstance(parsed_direction, dict) else {}
+        records.append(
+            {
+                "tool": "direction_to_site_centroid",
+                "arguments": direction_arguments,
+                "output": parsed_direction,
+                "message": f"Tool direction_to_site_centroid executed for placement iteration {iteration}.",
+            }
+        )
+        suggested_move = direction_data.get("suggested_translate_by_xy") if isinstance(direction_data, dict) else None
+        unit_direction = direction_data.get("unit_direction") if isinstance(direction_data, dict) else None
+        distance_to_site = direction_data.get("distance_to_site_centroid") if isinstance(direction_data, dict) else None
+        if (
+            isinstance(unit_direction, list)
+            and len(unit_direction) == 2
+            and all(isinstance(value, (int, float)) for value in unit_direction)
+            and isinstance(distance_to_site, (int, float))
+            and float(distance_to_site) > step_distance
+        ):
+            scaled_step_distance = min(max_step_distance, max(step_distance, float(distance_to_site) * 0.5))
+            applied_step_distance = min(float(distance_to_site), scaled_step_distance)
+            suggested_move = [
+                round(float(unit_direction[0]) * applied_step_distance, 6),
+                round(float(unit_direction[1]) * applied_step_distance, 6),
+            ]
+        if not (isinstance(suggested_move, list) and len(suggested_move) == 2):
+            break
+
+        best_boundary = working_boundary
+        best_distance = None
+        best_fit_summary = latest_fit_summary
+
+        for rotation in rotation_candidates:
+            modify_arguments = {
+                "geometry_id": geometry_id,
+                "boundary": working_boundary,
+                "translate_by_xy": suggested_move,
+                "rotation_degrees": rotation,
+                "site_boundary": site_boundary,
+            }
+            raw_candidate = tool_client.call_tool("modify_building_boundary", modify_arguments)
+            parsed_candidate = _parse_tool_output(raw_candidate)
+            candidate_data = parsed_candidate.get("data", {}) if isinstance(parsed_candidate, dict) else {}
+            records.append(
+                {
+                    "tool": "modify_building_boundary",
+                    "arguments": modify_arguments,
+                    "output": parsed_candidate,
+                    "message": (
+                        "Tool modify_building_boundary executed during placement "
+                        f"iteration {iteration} with rotation {rotation}."
+                    ),
+                }
+            )
+            transformed_boundary = candidate_data.get("transformed_boundary") if isinstance(candidate_data, dict) else None
+            if not isinstance(transformed_boundary, list):
+                continue
+
+            follow_up_arguments = {
+                "building_boundary": transformed_boundary,
+                "site_boundary": site_boundary,
+                "step_distance": step_distance,
+            }
+            raw_follow_up = tool_client.call_tool("direction_to_site_centroid", follow_up_arguments)
+            parsed_follow_up = _parse_tool_output(raw_follow_up)
+            follow_up_data = parsed_follow_up.get("data", {}) if isinstance(parsed_follow_up, dict) else {}
+            records.append(
+                {
+                    "tool": "direction_to_site_centroid",
+                    "arguments": follow_up_arguments,
+                    "output": parsed_follow_up,
+                    "message": (
+                        "Tool direction_to_site_centroid evaluated the placement candidate "
+                        f"from iteration {iteration} with rotation {rotation}."
+                    ),
+                }
+            )
+            distance_to_site = follow_up_data.get("distance_to_site_centroid") if isinstance(follow_up_data, dict) else None
+            fit_summary = candidate_data if isinstance(candidate_data, dict) else {}
+            if use_test_fit:
+                test_fit_summary = _evaluate_test_fit_candidate(
+                    tool_client=tool_client,
+                    site_boundary=site_boundary,
+                    building_boundary=transformed_boundary,
+                )
+                records.append(test_fit_summary["record"])
+                fit_summary = {
+                    **fit_summary,
+                    **test_fit_summary["summary"],
+                }
+
+            if _candidate_satisfies_fit(fit_summary):
+                return {
+                    "boundary": transformed_boundary,
+                    "records": records,
+                    "fit_summary": _build_fit_summary(iteration, rotation, suggested_move, fit_summary),
+                }
+
+            if isinstance(distance_to_site, (int, float)) and (best_distance is None or float(distance_to_site) < best_distance):
+                best_distance = float(distance_to_site)
+                best_boundary = transformed_boundary
+                best_fit_summary = fit_summary
+
+        if best_boundary == working_boundary:
+            break
+        working_boundary = best_boundary
+        latest_fit_summary = best_fit_summary
+
+    return {
+        "boundary": working_boundary,
+        "records": records,
+        "fit_summary": _build_fit_summary(None, None, None, latest_fit_summary or {}),
+    }
+
+
+def _build_fit_summary(
+    iteration: int | None,
+    rotation_degrees: float | None,
+    suggested_move: list[float] | None,
+    fit_summary: dict[str, Any],
+) -> dict[str, Any]:
+    summary = dict(fit_summary)
+    summary["placement_iteration"] = iteration
+    summary["placement_rotation_degrees"] = rotation_degrees
+    summary["placement_suggested_move"] = suggested_move or []
+    return summary
+
+
+def _evaluate_test_fit_candidate(
+    tool_client: ToolClient,
+    site_boundary: list[list[float]],
+    building_boundary: list[list[float]],
+) -> dict[str, Any]:
+    arguments = {
+        "site_boundary": site_boundary,
+        "building_boundary": building_boundary,
+    }
+    raw_output = tool_client.call_tool("test_fit", arguments)
+    parsed_output = _parse_tool_output(raw_output)
+    data = parsed_output.get("data", {}) if isinstance(parsed_output, dict) else {}
+    summary = {
+        "test_fit_passed": _extract_test_fit_result(data),
+        "test_fit_result": data,
+    }
+    return {
+        "summary": summary,
+        "record": {
+            "tool": "test_fit",
+            "arguments": arguments,
+            "output": parsed_output,
+            "message": "Tool test_fit evaluated the placement candidate.",
+        },
+    }
+
+
+def _extract_test_fit_result(data: Any) -> bool | None:
+    if not isinstance(data, dict):
+        return None
+    for key in ("IsFit", "is_fit", "fits", "fits_within_site_boundary", "fit"):
+        value = data.get(key)
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"true", "false"}:
+                return normalized == "true"
+    return None
+
+
+def _candidate_satisfies_fit(fit_summary: dict[str, Any]) -> bool:
+    if "test_fit_passed" in fit_summary:
+        return fit_summary.get("test_fit_passed") is True
+    return bool(fit_summary.get("fits_within_site_boundary"))
+
+
 def _build_remaining_positions_node(
     tool_client: ToolClient,
     catalog: ToolCatalog,
 ):
     def analyze_remaining_positions(state: AgentState) -> AgentState:
         allowed_names = set(catalog.names_for_action("analyze_remaining_positions"))
-        tool_name = "remaining_buildable_positions_04"
+        tool_name = "remaining_buildable_positions"
         site_boundary = _extract_site_boundary(state)
         if tool_name not in allowed_names or not site_boundary:
             return {
@@ -752,14 +982,14 @@ def _extract_violations(results: dict[str, Any]) -> list[str]:
         data = payload.get("data", payload) if isinstance(payload, dict) else {}
         if not isinstance(data, dict):
             continue
-        if tool_name == "site_fit_checker_04" and not data.get("fits", data.get("fits_within_site", True)):
+        if tool_name == "site_fit_checker" and not data.get("fits", data.get("fits_within_site", True)):
             violations.append("fit")
-        elif tool_name == "setback_checker_04" and not data.get("compliant", True):
+        elif tool_name == "setback_checker" and not data.get("compliant", True):
             violations.append("setback")
-        elif tool_name == "area_requirement_checker_04" and not data.get("gfa_compliant", data.get("meets_requirement", True)):
+        elif tool_name == "area_requirement_checker" and not data.get("gfa_compliant", data.get("meets_requirement", True)):
             violations.append("area")
-        elif tool_name == "adjacency_access_checker_04" and not data.get("road_access_ok", data.get("access_adequate", True)):
+        elif tool_name == "adjacency_access_checker" and not data.get("road_access_ok", data.get("access_adequate", True)):
             violations.append("access")
-        elif tool_name == "tree_constraint_checker_04" and not data.get("no_conflicts", True):
+        elif tool_name == "tree_constraint_checker" and not data.get("no_conflicts", True):
             violations.append("trees")
     return violations

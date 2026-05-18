@@ -51,6 +51,7 @@ REPORT_PROMPT = """
 You are writing the final report for a site design agent.
 Summarize the chosen geometry, remaining constraint state, evaluation results, and next recommendation.
 Keep it concise and concrete.
+Mention the placement-fit loop summary when it is available.
 
 State snapshot:
 {state_snapshot}
@@ -360,6 +361,7 @@ def _build_state_snapshot(state: dict[str, Any]) -> dict[str, Any]:
         "violations": state.get("violations", []),
         "constraint_results": state.get("constraint_results", {}),
         "evaluation_results": state.get("evaluation_results", {}),
+        "placement_fit_summary": state.get("placement_fit_summary", {}),
         "human_request": state.get("human_request"),
         "error": state.get("error"),
     }
