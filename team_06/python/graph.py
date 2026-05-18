@@ -4,6 +4,7 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 from nodes.reason import build_reason_node
 from nodes.tools import build_tool_node
+from nodes.local_tools import get_local_tools, build_local_tool_node
 
 
 # =============================================================================
@@ -37,6 +38,13 @@ class AgentState():
 def _route(state: AgentState) -> str:
     if state["final_response"] is not None:
         return "finish"
+    
+    # Check if any pending tool calls are local tools
+    if state["pending_tool_calls"]:
+        for call in state["pending_tool_calls"]:
+            if call["name"] in ["layout_filter", "layout_graph_search", "boundary_analyzer"]:
+                return "local_tool"
+    
     return "run_tool"
 
 
@@ -48,7 +56,8 @@ def build_graph(ctx: Any) -> Any:
     # Create the state graph
     # Use the reason and tool nodes
     reason = build_reason_node(ctx.llm)
-    tool = build_tool_node(ctx.mcp_client, ctx.tools, ctx.edited_layout_path)
+    tool = build_tool_node(ctx.mcp_client, ctx.tools, ctx.edited_layout_path, ctx.input_layout_path)
+    local_tool = build_local_tool_node(ctx.reference_layout_path)
 
     # Initialize the graph
     graph = StateGraph(AgentState)
@@ -56,11 +65,13 @@ def build_graph(ctx: Any) -> Any:
     # Add the nodes
     graph.add_node("reason", reason)
     graph.add_node("tool", tool)
+    graph.add_node("local_tool", local_tool)
 
     # Add the edges
     graph.add_edge(START, "reason")
-    graph.add_conditional_edges("reason", _route, {"run_tool": "tool", "finish": END})
+    graph.add_conditional_edges("reason", _route, {"run_tool": "tool", "local_tool": "local_tool", "finish": END})
     graph.add_edge("tool", "reason")
+    graph.add_edge("local_tool", "reason")
 
     return graph.compile()
 
@@ -90,9 +101,18 @@ def run_agent(prompt: str, ctx: Any) -> str:
 # ---------------------------------------------------------------------------
 
 def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
-
+    # Start with fresh messages for each run (no persistence)
+    messages = []
+        
     # Convert the layout data to a JSON string
     layout_text = json.dumps(ctx.layout_data, indent=2)
+    
+    # Get local tools
+    local_tools = get_local_tools()
+    
+    # Combine local tools with MCP tools for the tool catalog
+    combined_tools = local_tools + ctx.tools
+    tool_catalog = _format_tool_catalog(combined_tools)
 
     # Engineer the user message
     user_message = (
@@ -108,7 +128,7 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
         "final_response": None,
         "iteration": 0,
         "max_iterations": ctx.max_iterations,
-        "tool_catalog": _format_tool_catalog(ctx.tools),
+        "tool_catalog": tool_catalog,
         "layout_json_string": json.dumps(ctx.layout_data),
     }
 

@@ -9,7 +9,7 @@ from _runtime.llm import write_tool_result
 # Tool node — executes MCP tool calls requested by the reason node.
 # ---------------------------------------------------------------------------
 
-def build_tool_node(mcp_client, allowed_tools, edited_layout_path):
+def build_tool_node(mcp_client, allowed_tools, edited_layout_path = "E:\IAAC Local GIT Repositories\AIA26_Studio\team_03\python\layout.json"):
     """Return a tool node function ready to be added to a LangGraph StateGraph."""
 
     allowed_names = {t["name"] for t in allowed_tools if t.get("name")}

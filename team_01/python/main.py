@@ -6,6 +6,7 @@ from graph import run_agent
 def main():
 
     # Process the command line arguments (the user instruction)
+    # Receive the argunment with a prompt for the agent, e.g. "delete the kitchen"
     parser = argparse.ArgumentParser(description="Run the Grasshopper MCP agent.")
     parser.add_argument("prompt", help="Your instruction for the agent (e.g. 'delete the kitchen')")
     args = parser.parse_args()

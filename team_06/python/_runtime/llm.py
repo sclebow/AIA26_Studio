@@ -23,6 +23,7 @@ def create_chat_llm(
         model=llm_model,
         timeout=timeout_seconds,
         temperature=0,
+        max_tokens=8000,
         model_kwargs=model_kwargs or {},
     )
 

@@ -5,3 +5,5 @@ langchain-anthropic
 httpx
 python-dotenv
 grandalf
+sentence-transformers
+torch

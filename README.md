@@ -272,4 +272,34 @@ The Python client sends these over **HTTP POST** to the endpoint in `mcp.json`.
 
 LangGraph quickstart: https://docs.langchain.com/oss/python/langgraph/quickstart
 
-TEST2
+---
+
+## User Interfaces
+
+The agent you develop will need to work with a CLI (command-line interface) where the user can type instructions and pass in files, such as the layout JSON. We *need* a CLI to create an orchestrator agent that can call your agent and the other teams' agents as sub-agents and allow them to work together. The CLI is also a simple way to test your agent without needing to set up a more complex interface.
+
+In addition to the CLI, you should create a Graphical User Interface (GUI) that allows interaction with your agent.  The GUI will allow your agent to display information, and receive user input.  This is an opportunity to be creative and think about the human-computer interaction aspect of your agent.  As we've discussed in the course, a big challenge is that LLMs are not good at understanding geometric information, and require written information to be able to reason about the geometry.  A well-designed GUI can translate between the geometric and written information, and allow the user to interact with the agent in a more semantic way.  
+
+For example, the GUI could display the current layout, and allow the user to click on the south wall of the kitchen to add a window.  Or the user the could write in a text box "add a window to the south wall of kitchen".  Both examples convey the same information to the agent, but you may prefer one to the other.
+
+### Planning
+
+Before you start coding, we recommend that you plan out your GUI on a sketch or paper.  Think about the window(s) you may need, and what they will show.  Think about the porportion of the window each element will need, and how large the total window should be.  Think about the user flow: what will the user see when they first open the GUI, and what will they do next?  You can consider the interface in a series of states, and how the user transitions between those states.  
+
+### Suggested libraries for the GUI
+
+Below is a table of some libraries you could use to create a GUI for your agent, but not an exhaustive list, if you have other libraries in mind, that's great!
+
+First, consider whether you want a **local** application that runs on the user's machine, like Rhino or Revit would, or a **web-based** application that runs in the browser, such as Miro or Google Docs.  Local applications can be more responsive and have access to the file system, but web-based applications can be more accessible and run on more platforms.
+
+Also consider the **complexity** of the interface you want to create.  A simple library may be easier to learn and develop with, but may limit design options.  
+
+It's always a good idea to read documentation and tutorials and prototype before committing.  
+
+| Library | Description | Pros | Cons | Runtime | Complexity |
+|---------|-------------|------|------|---------|------|
+| Tkinter | Built-in Python library for creating GUIs. | No additional dependencies, simple to use for basic interfaces. | Limited in design and functionality, may not look modern. | Local | Low |
+| PyQt | A set of Python bindings for the Qt application framework. | More powerful and flexible than Tkinter, supports complex interfaces. | Requires installation of PyQt, can be more complex to learn. | Local | Medium |
+| Streamlit | A library for creating web apps for machine learning and data science. | Easy to use, great for data visualization, runs in the browser. | Not designed for complex GUIs, often refreshes the whole page on interaction which is slow. | Web-based | Medium |
+| Gradio | A library for creating web-based interfaces for machine learning models. | Very easy to use, great for quick demos, runs in the browser. | Limited customization, not ideal for complex interfaces. | Web-based | Low |
+| Holoviz Panel | A library for creating interactive web apps and dashboards. | Highly customizable, supports complex interfaces, runs in the browser. | Steeper learning curve, requires installation of Panel and its dependencies. | Web-based | High |
