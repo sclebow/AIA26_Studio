@@ -26,10 +26,12 @@ The codebase was cleaned up and reset around one canonical LangGraph implementat
 - [x] Added direct local boundary manipulation for move, orientation, rotation, and mirroring with site-boundary fit checks.
 - [x] Added a many-building notebook harness to stress-test multiple shapes and transformations on one site.
 - [x] Added a Grasshopper tool-definition spec for `modify_building_boundary_04`.
+- [x] Added a live notebook harness at `tests/test_context_reader_live.ipynb` to validate OpenAI settings, MCP reachability, Rhino or Grasshopper tool discovery, and direct `context_reader` execution.
 
 ### In Progress
 
 - [ ] Grasshopper-side `import_building_boundary_04` implementation in Swiftlet/Grasshopper.
+- [ ] Live Rhino or Swiftlet validation of `context_reader_04` against the updated `test_gh/test.gh` Grasshopper definition.
 - [ ] Grasshopper-side `remaining_buildable_positions_04` implementation in Swiftlet/Grasshopper.
 - [ ] Grasshopper-side `requested_position_checker_04` implementation in Swiftlet/Grasshopper.
 - [ ] Grasshopper-side `modify_building_boundary_04` implementation in Swiftlet/Grasshopper.
@@ -41,6 +43,7 @@ The codebase was cleaned up and reset around one canonical LangGraph implementat
 ### Grasshopper Test Plan
 
 - [ ] Confirm Rhino 8 + Swiftlet bridge are running and the MCP endpoint is reachable.
+- [ ] Run `tests/test_context_reader_live.ipynb` and verify the notebook reaches OpenAI, discovers the live context-reader tool, and receives a structured response.
 - [ ] Implement `import_building_boundary_04` and verify it creates a closed curve from Python boundary coordinates.
 - [ ] Verify `import_building_boundary_04` returns stable Rhino GUIDs and target layer information.
 - [ ] Implement `remaining_buildable_positions_04` and verify site pixelization excludes occupied building footprints.
@@ -71,6 +74,7 @@ The codebase was cleaned up and reset around one canonical LangGraph implementat
 - [x] `test_generate_building_boundary.ipynb`: notebook-based local tool test and Grasshopper payload prep.
 - [x] `test_two_building_workflow.ipynb`: notebook-based two-building workflow and user-requested position test.
 - [x] `test_multi_building_shape_transformations.ipynb`: notebook-based multi-building shape, transform, and site-fit stress test.
+- [x] `tests/test_context_reader_live.ipynb`: notebook-based live OpenAI plus MCP connectivity check and direct `context_reader` tool invocation.
 
 ### Explicitly Archived
 
