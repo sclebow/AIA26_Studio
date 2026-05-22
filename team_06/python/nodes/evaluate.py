@@ -3,6 +3,7 @@ import json
 import logging
 from pathlib import Path
 from tools.layout_utils import save_layout
+from tools.layout_evaluator import LayoutEvaluator
 
 logger = logging.getLogger(__name__)
 
@@ -68,9 +69,21 @@ def build_evaluate_node(mcp_client: Any) -> Any:
             layout_data = result
             logger.info(f"✅ Using MCP result as layout_data")
             
+            # --- EVLUATION TOOL CHECKS ---
+            topology_json = state.get("topology_graph_json_string")
+            evaluator = LayoutEvaluator(expected_topology_json=topology_json)
+            eval_result = evaluator.evaluate(layout_data)
+            
+            if not eval_result["passed"]:
+                logger.warning(f"⚠️ Layout Evaluation Found Issues: {len(eval_result['issues'])} issues detected.")
+            # -----------------------------
+            
             # Extract daylight summary for feedback
             rooms = layout_data.get('rooms', [])
             daylight_summary = {}
+            
+            # We inject the evaluation issues into the summary so the feedback node's LLM sees them.
+            daylight_summary["evaluation_issues"] = eval_result["issues"]
             
             for room in rooms:
                 room_id = room.get('id')
