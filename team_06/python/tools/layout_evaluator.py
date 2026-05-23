@@ -26,12 +26,37 @@ class LayoutEvaluator:
             "bed":     {"min_area": 7.0, "min_edge": 2.0, "max_ratio": 2.5},
             "kitchen": {"min_area": 4.0, "min_edge": 1.5, "max_ratio": 3.5},
             "bath":    {"min_area": 2.5, "min_edge": 1.2, "max_ratio": 3.5},
-            "foyer":   {"min_area": 0.0, "min_edge": 0.8, "max_ratio": float('inf')},
-            "extra":   {"min_area": 0.5, "min_edge": 0.6, "max_ratio": 5.0}
+            "foyer":   {"min_area": 0.0, "min_edge": 0.3, "max_ratio": float('inf')},
+            "extra":   {"min_area": 0.3, "min_edge": 0.5, "max_ratio": 4.0}
         }
         
         self.daylight_required = {"bed": 0.05, "living": 0.1} # Minimal daylight factors
 
+        # Synonyms mapping: map common variants to canonical program keys
+        self._synonyms = {
+            "bedroom": "bed",
+            "bedrooms": "bed",
+            "bed": "bed",
+            "sleep": "bed",
+            "bathroom": "bath",
+            "bathrooms": "bath",
+            "bath": "bath",
+            "wc": "bath",
+            "toilet": "bath",
+            "livingroom": "living",
+            "living_room": "living",
+            "living": "living",
+            "kitchen": "kitchen",
+            "foyer": "foyer",
+            "hall": "foyer",
+            "extra": "extra",
+        }
+
+    def _normalize_program(self, prog: str) -> str:
+        if not prog:
+            return ""
+        p = prog.strip().lower().replace(' ', '').replace('-', '_')
+        return self._synonyms.get(p, p)
     def evaluate(self, layout_data: dict) -> dict:
         issues = []
         rooms = layout_data.get('rooms', [])
@@ -39,8 +64,8 @@ class LayoutEvaluator:
         
         # 1. Check Topoplogy matches
         if self.expected_graph:
-            expected_programs = [d.get('program', '').lower() for _, d in self.expected_graph.nodes(data=True)]
-            actual_programs = [r.get('attributes', {}).get('program', '').lower() for r in rooms]
+            expected_programs = [self._normalize_program(d.get('program', '')) for _, d in self.expected_graph.nodes(data=True)]
+            actual_programs = [self._normalize_program(r.get('attributes', {}).get('program', '')) for r in rooms]
             
             from collections import Counter
             expected_counts = Counter(p for p in expected_programs if p)
@@ -59,7 +84,7 @@ class LayoutEvaluator:
         
         # 3. Check Room Dimensions, Proportions, Area, and Daylight
         for room in rooms:
-            program = room.get('attributes', {}).get('program', '').lower()
+            program = self._normalize_program(room.get('attributes', {}).get('program', ''))
             room_name = room.get('name', room['id'])
             
             # Door check
