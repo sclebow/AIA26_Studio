@@ -34,6 +34,7 @@ def build_feedback_node(llm: Any) -> Any:
         best_daylight = []    # > 3.0
         good_daylight = []    # 1.0-3.0
         poor_daylight = []    # 0.0-0.99
+        evaluation_issues = []
         
         try:
             if isinstance(eval_results, str):
@@ -42,7 +43,10 @@ def build_feedback_node(llm: Any) -> Any:
                 eval_data = eval_results
             
             if isinstance(eval_data, dict):
+                evaluation_issues = eval_data.get("evaluation_issues", [])
+                
                 for room_id, room_eval in eval_data.items():
+                    if room_id == "evaluation_issues": continue
                     if isinstance(room_eval, dict):
                         dl = room_eval.get('daylight')
                         name = room_eval.get('name', room_id)
@@ -62,6 +66,15 @@ def build_feedback_node(llm: Any) -> Any:
         # Format room list
         room_list = ", ".join([f"{count} {prog}" for prog, count in room_programs.items()]) or "no rooms"
         
+        # Build issues string
+        issues_desc = ""
+        if evaluation_issues:
+            issues_desc = f"\n⚠️ **Layout Constraints Issues ({len(evaluation_issues)}):**\n"
+            for issue in evaluation_issues[:5]: # Show max 5 issues to keep prompt clean
+                issues_desc += f"- {issue}\n"
+            if len(evaluation_issues) > 5:
+                issues_desc += f"- ... and {len(evaluation_issues) - 5} more.\n"
+        
         # Build daylight description
         daylight_desc = ""
         if best_daylight:
@@ -75,7 +88,7 @@ def build_feedback_node(llm: Any) -> Any:
         
         feedback_message = f"""✨ **Layout Summary:**
 {room_list} | Area: {area} m²
-
+{issues_desc}
 📊 **Daylight:**
 {daylight_desc}
 **Feedback?**
