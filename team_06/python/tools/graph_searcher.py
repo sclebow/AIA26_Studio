@@ -13,7 +13,7 @@ from networkx.algorithms import isomorphism
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.parser.schema_to_graph import create_graph_from_layout
-from tools.rule_based_embedder import normalize_program
+from utils.search.rule_based_embedder import RuleBasedEmbedder, normalize_program
 
 # ============================================================================
 # Helper: parse an edge endpoint — plain program name OR indexed "program:N"
@@ -113,6 +113,7 @@ class GraphSearcher:
     def __init__(self, graphs_path: str):
         self.graphs_path = graphs_path
         self.layout_graphs = self._load_graphs()
+        self._embedder = RuleBasedEmbedder(self.layout_graphs)
 
     # -------------------------------------------------------------------------
     def _load_graphs(self) -> dict:
@@ -269,6 +270,121 @@ class GraphSearcher:
         approximate = [(lid, score) for lid, score in jaccard_all if lid not in exact_ids]
 
         return {"exact": exact, "approximate": approximate}
+
+    # -------------------------------------------------------------------------
+    def search_by_embedding(
+        self,
+        programs: list,
+        connected: bool = False,
+        top_k: int | None = None,
+        candidate_ids: set | None = None,
+    ) -> list:
+        """Rank layouts by rule-based cosine similarity on pre-built feature vectors.
+
+        Fastest search path — no graph traversal at query time.  The feature
+        index is built once in __init__ and reused across all calls.
+
+        Args:
+            programs:      room types; duplicates = multiple instances.
+            connected:     True → require all programs to share direct edges.
+            top_k:         max results to return; None = return all that pass.
+            candidate_ids: restrict to this subset (for pipeline chaining).
+
+        Returns: [(layout_id, cosine_score), ...] sorted best-first.
+        """
+        k = top_k if top_k is not None else len(self.layout_graphs)
+        results = self._embedder.search(programs, connected=connected, top_k=k)
+        if candidate_ids is not None:
+            results = [(lid, s) for lid, s in results if lid in candidate_ids]
+        return results
+
+    # -------------------------------------------------------------------------
+    def search_by_pipeline(
+        self,
+        pattern_graph: nx.Graph,
+        programs: list | None = None,
+        connected: bool = False,
+        embedding_top_k: int = 50,
+        similarity_top_k: int = 10,
+        candidate_ids: set | None = None,
+    ) -> dict:
+        """Three-stage pipeline: embedding → similarity → isomorphism.
+
+        Stage 1 — Embedding (fast, approximate):
+            Cosine similarity on pre-built feature vectors.
+            Narrows the full set to at most `embedding_top_k` candidates.
+
+        Stage 2 — Graph similarity (medium, structural):
+            Jaccard ranking applied only to Stage-1 survivors.
+            Narrows to at most `similarity_top_k` candidates.
+
+        Stage 3 — Subgraph isomorphism (exact):
+            VF2 exact matching applied only to Stage-2 finalists.
+
+        Args:
+            pattern_graph:   topology pattern built by build_topology_graph().
+            programs:        flat program list passed to the embedding stage.
+                             If None, derived automatically from pattern_graph nodes.
+            connected:       passed to the embedding stage.
+            embedding_top_k: max candidates kept after Stage 1.
+            similarity_top_k: max candidates passed into Stage 3.
+            candidate_ids:   optional outer pre-filter applied before Stage 1.
+
+        Returns:
+            {
+              "exact":       [(layout_id, 1.0), ...],
+              "approximate": [(layout_id, jaccard_score), ...],
+              "pipeline_stages": {
+                  "total_layouts":         int,
+                  "embedding_candidates":  int,
+                  "similarity_candidates": int,
+                  "exact_matches":         int,
+              },
+            }
+        """
+        # Derive programs list from graph when caller omits it.
+        if programs is None:
+            programs = [
+                pattern_graph.nodes[n].get("program", "")
+                for n in pattern_graph.nodes()
+            ]
+
+        # Stage 1: embedding pre-filter.
+        stage1 = self.search_by_embedding(
+            programs,
+            connected=connected,
+            top_k=embedding_top_k,
+            candidate_ids=candidate_ids,
+        )
+        stage1_ids = {lid for lid, _ in stage1}
+
+        # Stage 2: jaccard ranking on Stage-1 survivors only.
+        stage2 = self.search_by_graph_similarity(
+            pattern_graph, method="jaccard", candidate_ids=stage1_ids
+        )
+        stage2_top = stage2[:similarity_top_k]
+        stage2_ids = {lid for lid, _ in stage2_top}
+
+        # Stage 3: exact isomorphism on Stage-2 finalists only.
+        exact_ids = set(
+            self.search_by_subgraph_isomorphism(pattern_graph, candidate_ids=stage2_ids)
+        )
+
+        exact = [(lid, 1.0) for lid in exact_ids]
+        approximate = [
+            (lid, score) for lid, score in stage2 if lid not in exact_ids
+        ]
+
+        return {
+            "exact": exact,
+            "approximate": approximate,
+            "pipeline_stages": {
+                "total_layouts":         len(self.layout_graphs),
+                "embedding_candidates":  len(stage1_ids),
+                "similarity_candidates": len(stage2_ids),
+                "exact_matches":         len(exact_ids),
+            },
+        }
 
     # -------------------------------------------------------------------------
     def get_layout_info(self, layout_id: str) -> nx.Graph:

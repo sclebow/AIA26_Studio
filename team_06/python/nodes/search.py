@@ -23,28 +23,32 @@ def build_search_node() -> Any:
         
         try:
             repo_root = Path(__file__).resolve().parent.parent.parent
-            graphs_path = repo_root / "layout_inputs" / "sample_graphs.json"
+            graphs_path = repo_root / "layout_inputs" / "RPLAN_Dataset_R-NB" / "graphs.json"
             
             topology = nx.node_link_graph(json.loads(topology_json))
             logger.info(f"📊 Topology graph nodes: {list(topology.nodes(data=True))}")
             logger.info(f"📊 Topology graph edges: {list(topology.edges())}")
             
             searcher = GraphSearcher(str(graphs_path))
-            results = searcher.search_by_graph_similarity(topology, method="jaccard")
+            pipeline_result = searcher.search_by_pipeline(topology)
+            stages = pipeline_result["pipeline_stages"]
+            logger.info(
+                f"🔍 Pipeline: {stages['total_layouts']} layouts → "
+                f"embedding {stages['embedding_candidates']} → "
+                f"similarity {stages['similarity_candidates']} → "
+                f"exact {stages['exact_matches']}"
+            )
 
-            # Also search Planfinder graphs if available
-            planfinder_graphs_path = repo_root / "layout_inputs" / "planfinder_graphs.json"
-            if planfinder_graphs_path.exists():
-                pf_searcher = GraphSearcher(str(planfinder_graphs_path))
-                pf_results = pf_searcher.search_by_graph_similarity(topology, method="jaccard")
-                results = sorted(results + pf_results, key=lambda x: x[1], reverse=True)
-                logger.info(f"🔍 Combined search results (sample + planfinder): {results}")
-            else:
-                logger.info(f"🔍 Search results: {results}")
-
+            best_list = pipeline_result["exact"] or pipeline_result["approximate"]
+            exact_ids = {lid for lid, _ in pipeline_result["exact"]}
             candidates = [
-                {"id": lid, "score": round(s, 2), "description": f"Layout {lid}"}
-                for lid, s in results[:3]
+                {
+                    "id": lid,
+                    "score": round(s, 2),
+                    "match_type": "exact" if lid in exact_ids else "approximate",
+                    "description": f"Layout {lid}",
+                }
+                for lid, s in best_list[:3]
             ]
             logger.info(f"📌 Candidates: {candidates}")
             
