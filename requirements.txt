@@ -8,3 +8,4 @@ grandalf
 sentence-transformers
 torch
 networkx
+streamlit

@@ -8,6 +8,7 @@ This directory contains the complete state graph implementation for the architec
 - Grasshopper/MCP tool calls now return a clean workflow response when a tool exceeds the configured timeout instead of crashing the notebook.
 - The default request timeout is now higher so slower GH computations have more time to finish.
 - Human feedback is only prompted when the workflow produces multiple generated options.
+- A minimalist Streamlit interface is available in [gui_app.py](./gui_app.py) for TerraPilot site-agent experiments, including a sketch viewport and file uploads.
 
 ## 📋 Files Generated
 
@@ -210,6 +211,11 @@ Standard metrics calculated during evaluation:
 ### Basic Execution
 ```bash
 python main.py "Your design instruction"
+```
+
+### Streamlit Interface
+```bash
+streamlit run gui_app.py
 ```
 
 ### Example Instructions
