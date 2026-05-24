@@ -104,7 +104,7 @@ def build_graph(ctx: Any) -> Any:
     reason = build_reason_node(ctx.llm)
     preprocess = build_preprocess_node()
     topology = build_topology_node(ctx.llm)
-    search = build_search_node()
+    search = build_search_node("subgraph")
     select = build_select_node()
     adapt = build_adapt_node(ctx.mcp_client)
     evaluate = build_evaluate_node(ctx.mcp_client)
