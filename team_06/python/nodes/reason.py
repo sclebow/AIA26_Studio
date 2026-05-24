@@ -28,9 +28,10 @@ def build_reason_node(llm):
 
         # Combine feedback history for context
         history_str = "\n".join(f"Feedback {i+1}: {fb}" for i, fb in enumerate(feedback_history)) if feedback_history else ""
+        feedback_section = f"Previous feedback:\n{history_str}" if history_str else ""
         llm_prompt = (
             f"{REASON_SYSTEM_PROMPT}\n"
-            f"{'Previous feedback:\n' + history_str if history_str else ''}\n"
+            f"{feedback_section}\n"
             f"User input: {user_prompt}\n"
             "Output:"
         )

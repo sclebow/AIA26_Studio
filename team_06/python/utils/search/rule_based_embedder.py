@@ -75,7 +75,7 @@ import networkx as nx
 # ============================================================================
 
 # All program types we care about (determines vector dimensions for room counts)
-PROGRAMS = ["bedroom", "kitchen", "living room", "bathroom", "dining room", "study"]
+PROGRAMS = ["bedroom", "kitchen", "living room", "bathroom", "dining room", "study", "foyer"]
 
 # All program-pair edges we care about
 # These are the connectivity features: is bedroom directly connected to kitchen?
@@ -87,10 +87,13 @@ PROGRAM_PAIRS = [
     ("kitchen",     "dining room"),
     ("living room", "bathroom"),
     ("living room", "dining room"),
+    ("foyer",       "living room"),
+    ("foyer",       "bedroom"),
+    ("foyer",       "bathroom"),
 ]
 
 # Total vector length = len(PROGRAMS) + len(PROGRAM_PAIRS) + 2 global stats
-# = 6 + 7 + 2 = 15 dimensions
+# = 7 + 10 + 2 = 19 dimensions
 
 # Maps short dataset program names (RPLAN and similar) to the canonical long names
 # used throughout this codebase. Apply at graph-load time via normalize_program()

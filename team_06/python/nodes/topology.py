@@ -2,6 +2,10 @@ import json
 import re
 import networkx as nx
 from typing import Any, List, Tuple
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils.search.rule_based_embedder import normalize_program
 
 TOPOLOGY_SYSTEM_PROMPT = (
     "You are an assistant that extracts room nodes and their adjacencies from apartment descriptions. "
@@ -10,17 +14,34 @@ TOPOLOGY_SYSTEM_PROMPT = (
     "{\"programs\": [\"bedroom\", \"kitchen\", \"living\"], \"edges\": [[\"bedroom\", \"kitchen\"]]}"
 )
 
-def parse_apartment_description(description: str) -> Tuple[List[str], List[Tuple[str, str]]]:
-    room_pattern = r"\b(bedroom|bathroom|kitchen|living|foyer|extra)s?\b"
-    programs = re.findall(room_pattern, description, re.IGNORECASE)
-    programs = [prog.lower() for prog in programs]
+_ROOM_TYPES = ["bedroom", "bathroom", "kitchen", "living", "foyer", "extra", "dining", "study"]
+_WORD_TO_NUM = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
 
-    edge_pattern = r"(\w+)\s+next to\s+(\w+)"
-    edges = []
-    for a, b in re.findall(edge_pattern, description, re.IGNORECASE):
-        a, b = a.lower(), b.lower()
-        if a in programs and b in programs:
-            edges.append((a, b))
+
+def parse_apartment_description(description: str) -> Tuple[List[str], List[Tuple[str, str]]]:
+    desc = description.lower()
+    programs: List[str] = []
+    counted: set = set()
+
+    # Step 1: "N room_type(s)" — explicit count wins.
+    count_pat = r"\b(\d+|one|two|three|four|five)\s+(bedroom|bathroom|kitchen|living|foyer|extra|dining|study)s?\b"
+    for m in re.finditer(count_pat, desc):
+        num_str, room = m.group(1), m.group(2)
+        n = int(num_str) if num_str.isdigit() else _WORD_TO_NUM.get(num_str, 1)
+        programs.extend([room] * n)
+        counted.add(room)
+
+    # Step 2: any room type not already handled by a count → add once.
+    for room in _ROOM_TYPES:
+        if room not in counted and re.search(rf"\b{room}s?\b", desc):
+            programs.append(room)
+
+    # Step 3: adjacency edges — "X connected to Y", "X next to Y", "X adjacent to Y".
+    edge_pat = r"\b(bedroom|bathroom|kitchen|living|foyer|extra|dining|study)\b\s+(?:is\s+)?(?:connected\s+to|next\s+to|adjacent\s+to)\s+(?:the\s+)?\b(bedroom|bathroom|kitchen|living|foyer|extra|dining|study)\b"
+    edges: List[Tuple[str, str]] = [
+        (m.group(1), m.group(2))
+        for m in re.finditer(edge_pat, desc)
+    ]
 
     if programs:
         return programs, edges
@@ -31,12 +52,15 @@ def build_graph_from_programs_and_edges(programs: List[str], edges: List[Tuple[s
     node_ids = []
     G = nx.Graph()
     for prog in programs:
+        prog = normalize_program(prog)
         count = program_count.get(prog, 0) + 1
         program_count[prog] = count
         node_id = f"{prog}_{count}"
         node_ids.append(node_id)
         G.add_node(node_id, program=prog)
     for a, b in edges:
+        a = normalize_program(a)
+        b = normalize_program(b)
         a_id = next((nid for nid in node_ids if nid.startswith(a)), None)
         b_id = next((nid for nid in node_ids if nid.startswith(b) and nid != a_id), None)
         if a_id and b_id:
