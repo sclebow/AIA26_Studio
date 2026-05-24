@@ -22,6 +22,7 @@ team_04/
 │       ├── README.md                         ← Template for all tools
 │       ├── 01_site_boundary_reader.md        ← Full spec with examples
 │       └── 05_parametric_shape_generator.md  ← Full spec with examples
+├── gui_app.py                                ← Site-agent draft UI (Streamlit)
 └── python/
     ├── main.py
     ├── graph.py
@@ -33,6 +34,16 @@ team_04/
 ---
 
 ## 🚀 Implementation Steps
+
+### Optional: Run the Site-Agent Draft UI
+
+From repository root:
+
+```bash
+streamlit run team_04/gui_app.py
+```
+
+This starts a minimal TerraPilot site-agent draft interface so you can iterate on layout/interaction details before wiring full MCP workflow integration.
 
 ### Week 1: Foundation (Days 1-7)
 
