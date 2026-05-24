@@ -7,7 +7,11 @@
       "Bash(python3 python/utils/schema_to_graph.py --dir \"E:\\\\softwares-4\\\\AIA26_Studio\\\\team_06\\\\layout_inputs\\\\RPLAN_Dataset_R-NB\" --output \"E:\\\\softwares-4\\\\AIA26_Studio\\\\team_06\\\\layout_inputs\\\\RPLAN_Dataset_R-NB\\\\graphs.json\")",
       "Bash(python python/utils/schema_to_graph.py --dir \"E:/softwares-4/AIA26_Studio/team_06/layout_inputs/RPLAN_Dataset_R-NB\" --output \"E:/softwares-4/AIA26_Studio/team_06/layout_inputs/RPLAN_Dataset_R-NB/graphs.json\")",
       "Bash(python -c ' *)",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "Bash(python -c \"import networkx as nx; import json; data=json.load\\(open\\('layout_inputs/RPLAN_Dataset_R-NB/graphs.json'\\)\\); lid,g=list\\(data.items\\(\\)\\)[0]; G=nx.node_link_graph\\(g\\); print\\('nodes:', G.number_of_nodes\\(\\), 'edges:', G.number_of_edges\\(\\)\\); print\\('programs:', [G.nodes[n].get\\('program'\\) for n in G.nodes\\(\\)]\\)\")",
+      "Bash(python main.py \"Find me a layout with exactly 2 bedrooms, a kitchen and a bathroom. Use the embedding search method.\")",
+      "Bash(..\\\\..\\\\.venv\\\\Scripts\\\\python.exe main.py \"Find a layout with at least 2 bedrooms 1 bathroom and bedroom is connected to living room. Use the pipeline search method\")",
+      "Bash(python -c \"import json; d=json.load\\(open\\('team_06/layout_inputs/RPLAN_Dataset_R-NB/graphs.json'\\)\\); print\\(f'RPLAN graphs.json: {len\\(d\\)} layouts'\\)\")"
     ]
   }
 }
