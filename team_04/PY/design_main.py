@@ -1,8 +1,17 @@
 import argparse
+import json
+from pathlib import Path
 
 from design_workflow_graph import run_design_workflow
 from design_config import load_design_settings
 from mcp_client import McpClient
+import plan_agent as pa
+from plan_agent import (
+    format_plan_agent_response,
+    generate_plan_agent_payload,
+    should_request_clarification,
+)
+from tool_node import create_chat_llm
 
 
 def parse_args() -> argparse.Namespace:
@@ -21,6 +30,12 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     settings = load_design_settings()
+
+    layout_schema_path = Path(__file__).with_name("layout_schema.json")
+    try:
+        layout_schema = json.loads(layout_schema_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        layout_schema = {}
 
     print("=" * 60)
     print("SITE DESIGN OPTIMIZATION WORKFLOW")
@@ -45,6 +60,42 @@ def main() -> None:
         print(f"  - {tool.get('name', 'unknown')}")
     print()
 
+    # Plan Agent: prepare the strategy before the existing workflow starts
+    # Use a shorter timeout for the planning LLM call so the script fails fast
+    planning_timeout = min(settings.request_timeout_seconds, 15.0)
+    planning_llm = create_chat_llm(
+        api_key=settings.api_key,
+        base_url=settings.base_url,
+        llm_model=settings.llm_model,
+        timeout_seconds=planning_timeout,
+    )
+
+    try:
+        planning_context = generate_plan_agent_payload(
+            llm=planning_llm,
+            user_prompt=args.prompt,
+            tools=tools,
+            layout_schema=layout_schema,
+            dbg=lambda message: print(message) if settings.debug_graph else None,
+        )
+    except Exception as e:
+        print(f"[warning] Plan agent LLM failed or timed out: {e}")
+        print("Falling back to deterministic planning logic.")
+        planning_context = pa._fallback_plan(args.prompt, {})
+
+    print("\n" + "=" * 60)
+    print("PLAN AGENT")
+    print("=" * 60)
+    print(format_plan_agent_response(planning_context))
+    print("=" * 60)
+
+    if should_request_clarification(planning_context):
+        clarification = str(planning_context.get("clarification_question", "")).strip()
+        if clarification:
+            print(f"\nClarification needed: {clarification}")
+        mcp_client.close()
+        return
+
     # Run the workflow
     response = run_design_workflow(
         user_prompt=args.prompt,
@@ -56,6 +107,7 @@ def main() -> None:
         debug_graph=settings.debug_graph,
         timeout_seconds=settings.request_timeout_seconds,
         max_iterations=settings.max_iterations,
+        planning_context=planning_context,
     )
 
     print("\n" + "=" * 60)

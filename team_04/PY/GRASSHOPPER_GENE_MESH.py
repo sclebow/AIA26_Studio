@@ -8,6 +8,8 @@ Inputs to create in Grasshopper:
 - locked_shape_type: optional override for typology lock
 - site_boundary: optional site boundary polygon or boundary payload
 - tree_points: optional list of tree positions for overlap penalties
+- tree_sizes: optional list of tree size values aligned with tree_points
+- tree_count: optional tree count used when points/sizes are provided as strings or omitted
 
 Example genes:
 {
@@ -86,58 +88,68 @@ def _coerce_list_payload(value: Any) -> list[Any]:
         return []
     if value.startswith("["):
         parsed = json.loads(value)
-        # Helper: coerce possible GUIDs or Grasshopper references to Rhino geometry
-    def _coerce_geom(obj):
-        try:
-            if obj is None:
-                return None
-            g = rs.coercegeometry(obj)
-            if g is not None:
-                return g
-        except Exception:
-            pass
-        try:
-            c = rs.coercecurve(obj)
-            if c is not None:
-                return c
-        except Exception:
-            pass
-        try:
-            b = rs.coercebrep(obj)
-            if b is not None:
-                return b
-        except Exception:
-            pass
-        try:
-            s = rs.coercesurface(obj)
-            if s is not None:
-                return s
-        except Exception:
-            pass
-        return obj
         return parsed if isinstance(parsed, list) else []
     return []
 
 
+def _coerce_int_payload(value: Any, default: int = 0) -> int:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if hasattr(value, "ToString"):
+        value = value.ToString()
+    if not isinstance(value, str):
+        value = str(value)
+    text = value.strip()
+    if not text:
+        return default
+    try:
+        return int(float(text))
+    except Exception:
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, (int, float)):
+                return int(parsed)
+        except Exception:
+            pass
+    return default
+
+
+def _coerce_float_payload(value: Any, default: float = 0.0) -> float:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return float(int(value))
+    if isinstance(value, (int, float)):
+        return float(value)
+    if hasattr(value, "ToString"):
+        value = value.ToString()
+    if not isinstance(value, str):
+        value = str(value)
+    text = value.strip()
+    if not text:
+        return default
+    try:
+        return float(text)
+    except Exception:
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, (int, float)):
+                return float(parsed)
+        except Exception:
+            pass
+    return default
+
+
 def _point_in_polygon(point: list[float], polygon: list[list[float]]) -> bool:
-        geo = _coerce_geom(site_crv)
-        # If geometry supports Contains (brep/surface), use it
-        try:
-            if hasattr(geo, "Contains"):
-                r = geo.Contains(test, rg.Plane.WorldXY, tol)
-                return r != rg.PointContainment.Outside
-        except Exception:
-            pass
-
-        # If it's a closed planar curve, use rhinoscriptsyntax helper
-        try:
-            inside = rs.PointInPlanarClosedCurve([test.X, test.Y, test.Z], geo)
-            # rs.PointInPlanarClosedCurve returns 1 for inside, 0 on curve, -1 outside
-            return inside == 1 or inside == 0
-        except Exception:
-            pass
-
-        return False
+    x = float(point[0])
+    y = float(point[1])
+    inside = False
     count = len(polygon)
     for index in range(count):
         x1, y1 = polygon[index][0], polygon[index][1]
@@ -174,16 +186,92 @@ def _extract_tree_points(raw_trees: Any) -> list[list[float]]:
             if key in trees:
                 trees = trees[key]
                 break
+    if isinstance(trees, str):
+        parsed = _coerce_list_payload(trees)
+        trees = parsed if parsed else trees
     if isinstance(trees, list):
         points: list[list[float]] = []
         for item in trees:
+            if hasattr(item, "ToString"):
+                item = item.ToString()
+            if isinstance(item, str):
+                item_text = item.strip()
+                if not item_text:
+                    continue
+                try:
+                    parsed_item = json.loads(item_text)
+                    item = parsed_item
+                except Exception:
+                    continue
             if isinstance(item, (list, tuple)) and len(item) >= 2:
                 points.append([float(item[0]), float(item[1])])
         return points
     return []
 
 
-def _evaluate_candidate(shape: Any, site_boundary: list[list[float]], tree_points: list[list[float]]) -> tuple[float, dict[str, float]]:
+def _extract_tree_sizes(raw_sizes: Any, tree_count: int) -> list[float]:
+    if raw_sizes is None:
+        return []
+    sizes = raw_sizes
+    if isinstance(sizes, dict):
+        for key in ("sizes", "tree_sizes", "radii", "canopy_sizes"):
+            if key in sizes:
+                sizes = sizes[key]
+                break
+    if isinstance(sizes, str):
+        parsed = _coerce_list_payload(sizes)
+        sizes = parsed if parsed else sizes
+    if isinstance(sizes, list):
+        result: list[float] = []
+        for item in sizes:
+            if hasattr(item, "ToString"):
+                item = item.ToString()
+            try:
+                result.append(float(item))
+            except Exception:
+                continue
+        return result[:tree_count] if tree_count else result
+    if isinstance(sizes, (int, float)):
+        return [float(sizes)] * max(0, tree_count)
+    return []
+
+
+def _infer_tree_sizes_from_points(tree_points: list[list[float]]) -> list[float]:
+    if not tree_points:
+        return []
+
+    y_values = [point[1] for point in tree_points if len(point) >= 2]
+    if not y_values:
+        return [5.0 for _ in tree_points]
+
+    min_y = min(y_values)
+    max_y = max(y_values)
+    y_span = max(max_y - min_y, 1e-9)
+
+    inferred_sizes: list[float] = []
+    for point in tree_points:
+        y_value = point[1] if len(point) >= 2 else min_y
+        normalized = (y_value - min_y) / y_span
+        inferred_sizes.append(round(4.5 + (normalized * 2.0), 2))
+    return inferred_sizes
+
+
+def _infer_tree_points_from_count(tree_count: int) -> list[list[float]]:
+    if tree_count <= 0:
+        return []
+    if tree_count == 1:
+        return [[0.5, 0.92]]
+    if tree_count == 2:
+        return [[0.333, 0.92], [0.667, 0.92]]
+    return [[round((index + 1) / (tree_count + 1), 3), 0.92] for index in range(tree_count)]
+
+
+def _evaluate_candidate(
+    shape: Any,
+    site_boundary: list[list[float]],
+    tree_points: list[list[float]],
+    tree_sizes: list[float],
+) -> tuple[float, dict[str, float]]:
     area = float(shape.metadata.get("area", 0.0) or 0.0)
     volume = float(shape.metadata.get("volume", 0.0) or 0.0)
     perimeter = float(shape.metadata.get("perimeter", 0.0) or 0.0)
@@ -204,9 +292,15 @@ def _evaluate_candidate(shape: Any, site_boundary: list[list[float]], tree_point
 
     if tree_points:
         overlap_penalty = 0.0
-        for tree_x, tree_y in tree_points:
+        for index, (tree_x, tree_y) in enumerate(tree_points):
             if min_pt[0] <= tree_x <= max_pt[0] and min_pt[1] <= tree_y <= max_pt[1]:
-                overlap_penalty += 200.0
+                size_factor = 1.0
+                if index < len(tree_sizes):
+                    try:
+                        size_factor = max(0.5, float(tree_sizes[index]) / 5.0)
+                    except Exception:
+                        size_factor = 1.0
+                overlap_penalty += 200.0 * size_factor
         penalties += overlap_penalty
 
     score -= penalties
@@ -282,6 +376,7 @@ def run_generative_loop(
     locked_shape_type: str | None,
     site_boundary: list[list[float]],
     tree_points: list[list[float]],
+    tree_sizes: list[float],
     rng: random.Random,
 ) -> tuple[Any, Any, int, dict[str, Any], Any, dict[str, float]]:
     """Run the optimization loop and return the best mesh and metadata."""
@@ -302,7 +397,7 @@ def run_generative_loop(
 
         shape = generator.generate_from_genes(candidate_genes)
         shape = apply_site_transform(shape, candidate_genes)
-        score, metrics = _evaluate_candidate(shape, site_boundary, tree_points)
+        score, metrics = _evaluate_candidate(shape, site_boundary, tree_points, tree_sizes)
 
         if best_candidate is None or score > best_score:
             best_candidate = candidate_genes
@@ -358,7 +453,22 @@ try:
         shape_lock = seed_genes.get("shape_type")
 
     site_boundary = _extract_site_boundary(globals().get("site_boundary"))
+    tree_count = _coerce_int_payload(globals().get("tree_count"), 0)
+    if tree_count <= 0:
+        tree_count = _coerce_int_payload(globals().get("number_of_trees"), 0)
+
     tree_points = _extract_tree_points(globals().get("tree_points"))
+    if not tree_points:
+        tree_points = _extract_tree_points(globals().get("tree_locations"))
+    if not tree_points and tree_count > 0:
+        tree_points = _infer_tree_points_from_count(tree_count)
+    tree_sizes = _extract_tree_sizes(globals().get("tree_sizes"), len(tree_points))
+    if not tree_sizes and tree_points:
+        tree_sizes = _infer_tree_sizes_from_points(tree_points)
+    if tree_sizes and len(tree_sizes) < len(tree_points):
+        tree_sizes.extend([tree_sizes[-1]] * (len(tree_points) - len(tree_sizes)))
+    elif len(tree_sizes) > len(tree_points):
+        tree_sizes = tree_sizes[:len(tree_points)]
 
     generator = ShapeGenerator(shape_id_prefix="GH")
     best_mesh, best_shape, best_face_count, best_candidate, best_metrics, fitness_info = run_generative_loop(
@@ -370,6 +480,7 @@ try:
         locked_shape_type=shape_lock,
         site_boundary=site_boundary,
         tree_points=tree_points,
+        tree_sizes=tree_sizes,
         rng=rng,
     )
 

@@ -41,11 +41,11 @@ import random
 class ShapeType(Enum):
     """Enumeration of supported shape types."""
     RECTANGLE = "rectangle"
-    L_SHAPE = "L_shape"
-    I_SHAPE = "I_shape"
-    H_SHAPE = "H_shape"
-    T_SHAPE = "T_shape"
-    U_SHAPE = "U_shape"
+    L_SHAPE = "l_shape"
+    I_SHAPE = "i_shape"
+    H_SHAPE = "h_shape"
+    T_SHAPE = "t_shape"
+    U_SHAPE = "u_shape"
     PLUS_SHAPE = "plus_shape"
     CUSTOM = "custom"
 
@@ -132,7 +132,16 @@ class ShapeGenes:
     def from_dict(cls, data: dict[str, Any]) -> ShapeGenes:
         """Create a ShapeGenes object from a raw dictionary."""
         payload = dict(data or {})
-        payload["shape_type"] = str(payload.get("shape_type", "rectangle")).lower().strip().replace(" ", "_")
+
+        raw_shape_type = payload.get("shape_type")
+        if raw_shape_type is None:
+            normalized_shape_type = "rectangle"
+        else:
+            normalized_shape_type = str(raw_shape_type).lower().strip().replace(" ", "_")
+            if normalized_shape_type in {"", "none", "null", "nan", "undefined"}:
+                normalized_shape_type = "rectangle"
+
+        payload["shape_type"] = normalized_shape_type
         payload.setdefault("length", 30.0)
         payload.setdefault("width", 10.0)
         payload.setdefault("height", 15.0)
@@ -233,7 +242,12 @@ class ShapeGenerator:
 
     def _normalize_shape_type(self, shape_type: Any) -> str:
         """Normalize a shape label into the internal naming convention."""
-        return str(shape_type or "rectangle").lower().strip().replace(" ", "_")
+        if shape_type is None:
+            return "rectangle"
+        normalized = str(shape_type).lower().strip().replace(" ", "_")
+        if normalized in {"", "none", "null", "nan", "undefined"}:
+            return "rectangle"
+        return normalized
 
     def build_gene_template(self, shape_type: Any, overrides: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         """Build a default genes payload for a given shape type."""
@@ -396,6 +410,8 @@ class ShapeGenerator:
         if overrides:
             for key, value in overrides.items():
                 if value is not None:
+                    if key == "shape_type" and locked_shape_type:
+                        continue
                     genes[key] = value
 
         return genes

@@ -41,6 +41,7 @@ def run_design_workflow(
     debug_graph: bool,
     timeout_seconds: float,
     max_iterations: int,
+    planning_context: dict[str, Any] | None = None,
 ) -> str:
     """
     Run the complete site design optimization workflow.
@@ -216,6 +217,26 @@ def run_design_workflow(
         debug_graph=debug_graph,
         max_iterations=max_iterations,
     )
+
+    if isinstance(planning_context, dict) and planning_context:
+        initial_state["design_state"]["planning"] = planning_context
+        initial_state["design_state"]["planning_human_summary"] = planning_context.get(
+            "human_friendly_explanation", ""
+        )
+        initial_state["design_state"]["planning_json"] = planning_context
+
+        selected_shape_type = planning_context.get("selected_shape_type")
+        if isinstance(selected_shape_type, str) and selected_shape_type.strip():
+            resolved_shape_type = selected_shape_type.strip().lower().replace(" ", "_")
+            if not initial_state["shape_generation"].get("locked_shape_type"):
+                initial_state["shape_generation"]["locked_shape_type"] = resolved_shape_type
+                initial_state["shape_generation"]["selected_shape_type"] = resolved_shape_type
+                initial_state["shape_generation"]["allow_shape_exploration"] = False
+                initial_state["shape_generation"]["allowed_shape_types"] = [resolved_shape_type]
+            initial_state["design_state"]["shape_request"] = {
+                "shape_type": resolved_shape_type,
+                "source": "plan_agent",
+            }
 
     final_state = app.invoke(initial_state)
     dbg("[workflow] Workflow complete")

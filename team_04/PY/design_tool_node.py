@@ -8,6 +8,51 @@ import httpx
 from mcp_client import McpClient
 
 
+def _extract_tree_payload(state: dict[str, Any]) -> dict[str, Any]:
+    planning_state = state.get("design_state", {})
+    if not isinstance(planning_state, dict):
+        planning_state = {}
+
+    planning_context = planning_state.get("planning_json")
+    if not isinstance(planning_context, dict):
+        planning_context = planning_state.get("planning")
+    if not isinstance(planning_context, dict):
+        planning_context = {}
+
+    tree_policy = planning_context.get("tree_policy")
+    if not isinstance(tree_policy, dict):
+        tree_policy = {}
+
+    tree_count = planning_context.get("tree_count", tree_policy.get("tree_count", 0))
+    tree_points = planning_context.get("tree_points", tree_policy.get("inferred_tree_points", []))
+    tree_sizes = planning_context.get("tree_sizes", tree_policy.get("inferred_tree_sizes", []))
+
+    if not isinstance(tree_points, list):
+        tree_points = []
+    if not isinstance(tree_sizes, list):
+        tree_sizes = []
+
+    if not isinstance(tree_count, int):
+        try:
+            tree_count = int(tree_count)
+        except (TypeError, ValueError):
+            tree_count = 0
+
+    return {
+        "tree_count": max(0, tree_count),
+        "tree_points": tree_points,
+        "tree_sizes": tree_sizes,
+    }
+
+
+def _should_inject_tree_payload(tool_name: str, tool_arguments: dict[str, Any]) -> bool:
+    if any(key in tool_arguments for key in ("tree_count", "tree_points", "tree_sizes")):
+        return True
+
+    lowered = tool_name.lower()
+    return any(keyword in lowered for keyword in ("shape", "site", "boundary", "generator", "mesh", "grasshopper", "tree"))
+
+
 def create_design_tool_node(
     mcp_client: McpClient,
     allowed_tools: list[dict[str, Any]],
@@ -28,6 +73,8 @@ def create_design_tool_node(
 
     def design_tool_node(state: dict[str, Any], /) -> dict[str, Any]:
         dbg("[workflow][tool] Enter node")
+
+        tree_payload = _extract_tree_payload(state)
 
         pending_tools = state.get("pending_tool_calls", [])
         if not pending_tools:
@@ -63,6 +110,34 @@ def create_design_tool_node(
             filtered_args = {
                 key: value for key, value in tool_arguments.items() if value is not None
             }
+
+            if _should_inject_tree_payload(tool_name, filtered_args):
+                filtered_args.setdefault("tree_count", tree_payload["tree_count"])
+                filtered_args.setdefault("number_of_trees", tree_payload["tree_count"])
+                filtered_args.setdefault("tree_points", tree_payload["tree_points"])
+                filtered_args.setdefault("tree_locations", tree_payload["tree_points"])
+                filtered_args.setdefault("tree_sizes", tree_payload["tree_sizes"])
+
+                for payload_key in ("genes_json", "genes", "design_request"):
+                    payload_value = filtered_args.get(payload_key)
+                    if isinstance(payload_value, dict):
+                        payload_value.setdefault("tree_count", tree_payload["tree_count"])
+                        payload_value.setdefault("number_of_trees", tree_payload["tree_count"])
+                        payload_value.setdefault("tree_points", tree_payload["tree_points"])
+                        payload_value.setdefault("tree_locations", tree_payload["tree_points"])
+                        payload_value.setdefault("tree_sizes", tree_payload["tree_sizes"])
+                    elif isinstance(payload_value, str):
+                        try:
+                            payload_data = json.loads(payload_value)
+                        except json.JSONDecodeError:
+                            payload_data = None
+                        if isinstance(payload_data, dict):
+                            payload_data.setdefault("tree_count", tree_payload["tree_count"])
+                            payload_data.setdefault("number_of_trees", tree_payload["tree_count"])
+                            payload_data.setdefault("tree_points", tree_payload["tree_points"])
+                            payload_data.setdefault("tree_locations", tree_payload["tree_points"])
+                            payload_data.setdefault("tree_sizes", tree_payload["tree_sizes"])
+                            filtered_args[payload_key] = json.dumps(payload_data)
 
             dbg(
                 f"[workflow][tool] Executing | name={tool_name} | "
