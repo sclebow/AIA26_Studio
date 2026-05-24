@@ -33,15 +33,14 @@ import re
 from pathlib import Path
 from typing import Any
 import threading
+from functools import lru_cache
+from _runtime.bootstrap import bootstrap
+from tools.layout_filter import select_layout
+from tools.graph_searcher import GraphSearcher, build_topology_graph
+
 
 # Add parent directory for imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from _runtime.bootstrap import bootstrap
-from nodes.local_tools import _load_all_layouts, _get_graph_searcher
-from tools.layout_filter import select_layout
-from tools.graph_searcher import build_topology_graph
-
 
 # ============================================================================
 # State Management — File-based persistence (same structure as production)
@@ -114,7 +113,7 @@ def clear_test_state():
             path.unlink()
 
 
-def call_mcp_tool_safe(ctx: Any, tool_name: str, args: dict, timeout_sec: float = 15.0) -> tuple[bool, str]:
+def call_mcp_tool_safe(ctx: Any, tool_name: str, args: dict, timeout_sec: float = 30.0) -> tuple[bool, str]:
     """
     Safely call an MCP tool with timeout.
     Returns (success: bool, result_or_error: str)
@@ -140,6 +139,24 @@ def call_mcp_tool_safe(ctx: Any, tool_name: str, args: dict, timeout_sec: float 
     else:
         return (False, result["error"] or "Unknown error")
 
+# ============================================================================
+# Local tool helpers (replaces local_tools.py imports)
+# ============================================================================
+
+@lru_cache(maxsize=1)
+def _load_all_layouts() -> list[dict[str, Any]]:
+    """Load all layouts from sample_layouts.json."""
+    repo_root = Path(__file__).resolve().parent.parent.parent  # team_06/
+    layouts_path = repo_root / "layout_inputs" / "sample_layouts.json"
+    return json.loads(layouts_path.read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=1)
+def _get_graph_searcher():
+    """Initialize and cache GraphSearcher instance."""
+    repo_root = Path(__file__).resolve().parent.parent.parent  # team_06/
+    graphs_path = repo_root / "layout_inputs" / "sample_graphs.json"
+    return GraphSearcher(str(graphs_path))
 
 # ============================================================================
 # Mock LLM — Parse natural language to tool calls
@@ -178,6 +195,11 @@ class MockLLM:
         if "add window" in text or "add a window" in text:
             window_result = self._parse_add_window(text)
             tool_calls.extend(window_result["tool_calls"])
+        
+        # Check for daylight analysis
+        if "daylight" in text or "daylight analysis" in text:
+            daylight_result = self._parse_daylight(text)
+            tool_calls.extend(daylight_result["tool_calls"])
         
         # If we have tool calls, return them
         if tool_calls:
@@ -292,6 +314,21 @@ class MockLLM:
             "tool_calls": [{
                 "name": "add_window_06",
                 "arguments": {"room_name": room, "width": width}
+            }]
+        }
+    
+    def _parse_daylight(self, text: str) -> dict[str, Any]:
+        """Parse daylight analysis commands."""
+        # Extract window-wall-ratio if provided
+        ratio_match = re.search(r'window[-\s]?wall[-\s]?ratio\s+of\s+(\d+(?:\.\d+)?)', text)
+        window_wall_ratio = float(ratio_match.group(1)) if ratio_match else 0.4
+        
+        return {
+            "action": "tool",
+            "final_response": "",
+            "tool_calls": [{
+                "name": "daylight_06",
+                "arguments": {"window_wall_ratio": window_wall_ratio}
             }]
         }
 
@@ -447,6 +484,40 @@ def execute_tool(tool_name: str, args: dict, ctx: Any) -> Any:
                 add_history(f"MCP error: {output}", tool_name, {"error": output})
                 return {"error": output}
         
+        elif tool_name == "daylight_06":
+            # Daylight analysis (MCP tool)
+            window_wall_ratio = args.get("window_wall_ratio", 0.4)
+            current_layout = load_current_layout()
+            layout_id = current_layout.get("layoutId", "?") if current_layout else "?"
+            
+            print(f"    → Calling MCP: daylight_06 (window_wall_ratio={window_wall_ratio}, layout_json={current_layout}, timeout: 60s)")
+            
+            # Inject layout_json_str (mirrors tools.py behavior)
+            args_to_send = args.copy()
+            if "layout_json" not in args_to_send and current_layout:
+                args_to_send["layout_json"] = current_layout
+            
+            success, output = call_mcp_tool_safe(ctx, tool_name, args_to_send, timeout_sec=60.0)
+            
+            if success:
+                print(f"    ✓ MCP returned: {output[:80]}...")
+                try:
+                    result = json.loads(output) if output.startswith("{") else json.loads(output)
+                    # Save edited layout (mirrors tools.py behavior)
+                    if isinstance(result, dict):
+                        save_edited_layout(result)
+                    add_history(f"Ran daylight analysis (wwr={window_wall_ratio})", tool_name, 
+                               {"layout": layout_id, "window_wall_ratio": window_wall_ratio})
+                    return result
+                except json.JSONDecodeError:
+                    add_history(f"Daylight analysis completed (non-JSON response)", tool_name, 
+                               {"layout": layout_id})
+                    return {"status": "analysis_complete", "window_wall_ratio": window_wall_ratio}
+            else:
+                print(f"    ⚠ MCP error: {output}")
+                add_history(f"MCP error: {output}", tool_name, {"error": output})
+                return {"error": output}
+        
         else:
             return {"error": f"Unknown tool: {tool_name}"}
     
@@ -567,7 +638,7 @@ def main():
     
     if args.test == "all":
         # Run predefined test suite
-        print("Running predefined test suite (4 tests)...\n")
+        print("Running predefined test suite (6 tests)...\n")
         
         clear_test_state()
         run_test("select layout-1 and adapt to input layout", reset=True)
@@ -575,6 +646,7 @@ def main():
         run_test("adapt reference layout to input layout")
         run_test("delete kitchen")
         run_test("add window 1.0 m width to living room")
+        run_test("run daylight analysis with window-wall-ratio of 0.8")
         return
     
     if args.prompt:

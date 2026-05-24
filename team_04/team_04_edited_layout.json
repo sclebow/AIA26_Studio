@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "data": {
+    "gfa_compliant": true,
+    "gfa_surplus_deficit_sqm": 450,
+    "footprint_compliant": true
+  },
+  "metadata": {
+    "tool_name": "area_requirement_checker_04",
+    "placeholder": true
+  }
+}

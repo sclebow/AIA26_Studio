@@ -122,11 +122,13 @@ def load_settings() -> Settings:
 
     elif llm_provider == "anthropic":
         api_key = _required_env("ANTHROPIC_API_KEY")
-        base_url = "https://api.anthropic.com/v1/"
+        base_url = None
         llm_model = _required_env("ANTHROPIC_MODEL")
 
     else:
         raise ValueError(f"Unsupported LLM_PROVIDER: {llm_provider}")
+
+    print(f"[settings] provider={llm_provider} model={llm_model} base_url={base_url} key={api_key[:12]}...")
 
     return Settings(
         llm_provider=llm_provider,

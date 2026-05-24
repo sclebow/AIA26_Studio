@@ -1,0 +1,356 @@
+{
+  "diagram": {
+    "title": "Cost Calculation & Trade-off Advice Workflow",
+    "description": "Flowchart for processing user prompts related to layout cost calculation, heatmap generation, and trade-off analysis",
+    "node_roles": {
+      "start": "Entry point — has outgoing edges but no incoming edges",
+      "end": "Terminal node — has incoming edges but no outgoing edges",
+      "process": "Action node — exactly one outgoing edge (incoming edges may be many)",
+      "decision": "Branching node — two or more outgoing edges with conditions",
+      "merge": "Convergence node — multiple incoming edges merge into a single outgoing edge",
+      "tool_call": "External tool integration (Grasshopper, Python, Heatmap) — bidirectional in the diagram"
+    },
+    "edge_direction_note": "A node's role considers BOTH directions. 'incoming' = arrows pointing INTO the node. 'outgoing' = arrows pointing OUT of the node. Tool calls are shown as bidirectional (the workflow node calls the tool and receives data back).",
+    "nodes": [
+      {
+        "id": "user_prompt",
+        "label": "User prompt",
+        "role": "start",
+        "incoming_edges": 0,
+        "outgoing_edges": 1,
+        "incoming_from": [],
+        "outgoing_to": ["reasoning"]
+      },
+      {
+        "id": "reasoning",
+        "label": "reasoning",
+        "role": "decision",
+        "incoming_edges": 3,
+        "outgoing_edges": 3,
+        "incoming_from": ["user_prompt", "clarify_with_user (loop)", "construct_model (loop)", "modify_price_request"],
+        "outgoing_to": ["clarify_with_user", "extract_intend", "extract_input_data"],
+        "branches": [
+          "Input data/task missing? → clarify_with_user",
+          "Task is known? → extract_intend",
+          "Input data are known?→ extract_input_data"
+        ],
+        "note": "Central hub — receives 3 incoming edges (1 from start, 2 feedback loops) and fans out to 3 paths"
+      },
+      {
+        "id": "clarify_with_user",
+        "label": "Clarify with the user",
+        "role": "decision",
+        "incoming_edges": 2,
+        "outgoing_edges": 1,
+        "incoming_from": ["reasoning","extract_input_data"],
+        "outgoing_to": ["reasoning"],
+        "branches": [
+          "Input data missing? → reasoning (loop back)"
+          
+        ]
+      },
+      {
+        "id": "extract_intend",
+        "label": "Extract intend",
+        "role": "decision",
+        "incoming_edges": 1,
+        "outgoing_edges": 2,
+        "incoming_from": ["reasoning"],
+        "outgoing_to": ["trade_off_advice", "price_calculation_request"],
+        "branches": [
+          "Intend is trade off advice → trade_off_advice",
+          "Intend is price calculation → price_calculation_request"
+        ]
+      },
+      {
+        "id": "extract_input_data",
+        "label": "Extract input data",
+        "role": "process",
+        "incoming_edges": 1,
+        "outgoing_edges": 3,
+        "incoming_from": ["reasoning"],
+        "outgoing_to": ["layout_processing","clarify_with_the_user","price_calcualtion_request"],
+        "branches": [
+          "Input data missing? → clarify_with_the_user",
+          "Is there a layout → layout_processing",
+	  "Input data and a layout are present → price_calcualtion_request"
+        ]
+
+      },
+      {
+        "id": "layout_processing",
+        "label": "Layout processing",
+        "role": "decision",
+        "incoming_edges": 1,
+        "outgoing_edges": 1,
+        "incoming_from": ["extract_input_data"],
+        "outgoing_to": ["getting_layout_json (tool)"],
+        "tool_used": "Grasshopper tool"
+      },
+      {
+        "id": "getting_layout_json",
+        "label": "Getting the layout json file",
+        "role": "tool_call",
+        "incoming_edges": 1,
+        "outgoing_edges": 1,
+        "incoming_from": ["layout_processing"],
+        "outgoing_to": ["layout_processing"],
+        "tool": "Grasshopper tool",
+        "note": "Bidirectional — called by layout_processing and returns data to it"
+      },
+      {
+        "id": "trade_off_advice",
+        "label": "Trade off advice",
+        "role": "process",
+        "incoming_edges": 1,
+        "outgoing_edges": 1,
+        "incoming_from": ["extract_intend"],
+        "outgoing_to": ["extract_advice_intent"]
+        
+      },
+      {
+        "id": "extract_advice_intent",
+        "label": "Extract advice intent",
+        "role": "decision",
+        "incoming_edges": 1,
+        "outgoing_edges": 2,
+        "incoming_from": ["trade_off_advice"],
+        "outgoing_to": ["define_baseline_scenario", "define_alternative_scenario"],
+        "branches": [
+          "Initial state? → define_baseline_scenario",
+          "Alternative considering? → define_alternative_scenario"
+        ]
+      },
+      {
+        "id": "define_baseline_scenario",
+        "label": "Define baseline scenario",
+        "role": "process",
+        "incoming_edges": 1,
+        "outgoing_edges": 1,
+        "incoming_from": ["extract_advice_intent"],
+        "outgoing_to": ["price_calculation_request"]
+      },
+      {
+        "id": "define_alternative_scenario",
+        "label": "Define alternative scenario",
+        "role": "process",
+        "incoming_edges": 1,
+        "outgoing_edges": 1,
+        "incoming_from": ["extract_advice_intent"],
+        "outgoing_to": ["price_calculation_request"]
+      },
+      {
+        "id": "price_calculation_request",
+        "label": "Price calculation request",
+        "role": "merge",
+        "incoming_edges": 4,
+        "outgoing_edges": 1,
+        "incoming_from": ["extract_intend", "extract_input_data", "define_baseline_scenario", "define_alternative_scenario"],
+        "outgoing_to": ["element_identification"],
+        "note": "Major convergence point — 4 different paths feed into this node"
+      },
+      {
+        "id": "element_identification",
+        "label": "Element identification & type-based cost formula",
+        "role": "decision",
+        "incoming_edges": 5,
+        "outgoing_edges": 5,
+        "incoming_from": ["price_calculation_request","get_meters_by_type (tool)", "get_area_by_type (tool)", "get_volume_by_type (tool)", "get_count_by_type (tool)"],
+        "outgoing_to": ["get_meters_by_type (tool)", "get_area_by_type (tool)", "get_volume_by_type (tool)", "get_count_by_type (tool)", "price_gathering_by_type"],
+        "branches": [
+          "Is meter needed? → get_meters_by_type (tool call)",
+          "Is area needed? → get_area_by_type (tool call)",
+          "Is volume needed? → get_volume_by_type (tool call)",
+          "Is count needed? → get_count_by_type (tool call)",
+          "Are element, type & quantity known? → price_gathering_by_type"
+        ],
+        "note": "Highest fan-out node — calls up to 4 Grasshopper tools in parallel"
+      },
+      {
+        "id": "get_meters_by_type",
+        "label": "Get the meters by type",
+        "role": "tool_call",
+        "incoming_edges": 1,
+        "outgoing_edges": 1,
+        "incoming_from": ["element_identification"],
+        "outgoing_to": ["element_identification"],
+        "tool": "Grasshopper tool",
+        "note": "Bidirectional tool call"
+      },
+      {
+        "id": "get_area_by_type",
+        "label": "Get the area by type",
+        "role": "tool_call",
+        "incoming_edges": 1,
+        "outgoing_edges": 1,
+        "incoming_from": ["element_identification"],
+        "outgoing_to": ["element_identification"],
+        "tool": "Grasshopper tool",
+        "note": "Bidirectional tool call"
+      },
+      {
+        "id": "get_volume_by_type",
+        "label": "Get the volume by type",
+        "role": "tool_call",
+        "incoming_edges": 1,
+        "outgoing_edges": 1,
+        "incoming_from": ["element_identification"],
+        "outgoing_to": ["element_identification"],
+        "tool": "Grasshopper tool",
+        "note": "Bidirectional tool call"
+      },
+      {
+        "id": "get_count_by_type",
+        "label": "Get the count by type",
+        "role": "tool_call",
+        "incoming_edges": 1,
+        "outgoing_edges": 1,
+        "incoming_from": ["element_identification"],
+        "outgoing_to": ["element_identification"],
+        "tool": "Grasshopper tool",
+        "note": "Bidirectional tool call"
+      },
+      {
+        "id": "price_gathering_by_type",
+        "label": "Price gathering by type",
+        "role": "decision",
+        "incoming_edges": 2,
+        "outgoing_edges": 2,
+        "incoming_from": ["element_identification","read_cost_database (tool)"],
+        "outgoing_to": ["read_cost_database (tool)", "construct_model"],
+        "branches": [
+          "→ read_cost_database (Python tool call)",
+          "Are element, type, quantity & price known? → construct_model"
+        ],
+        "tool_used": "Python tool"
+      },
+      {
+        "id": "read_cost_database",
+        "label": "Read the cost database",
+        "role": "tool_call",
+        "incoming_edges": 1,
+        "outgoing_edges": 1,
+        "incoming_from": ["price_gathering_by_type"],
+        "outgoing_to": ["price_gathering_by_type"],
+        "tool": "Python tool",
+        "note": "Bidirectional tool call"
+      },
+      {
+        "id": "construct_model",
+        "label": "Construct a model",
+        "role": "decision",
+        "incoming_edges": 2,
+        "outgoing_edges": 2,
+        "incoming_from": ["price_gathering_by_type","reasoning (loop)"],
+        "outgoing_to": ["reasoning (loop)", "cost_calculation"],
+        "branches": [
+          "Element, type, quantity or price data missing → reasoning (loop back)",
+          "Are Element, type, quantity or price data known? → cost_calculation"
+        ]
+      },
+      {
+        "id": "cost_calculation",
+        "label": "Cost Calculation",
+        "role": "decision",
+        "incoming_edges": 1,
+        "outgoing_edges": 2,
+        "incoming_from": ["construct_model"],
+        "outgoing_to": ["generate_heatmap", "calculate_delta"],
+        "branches": [
+          "Is it a baseline cost → generate_heatmap",
+          "Is it an alternative cost → calculate_delta"
+        ]
+      },
+      {
+        "id": "generate_heatmap",
+        "label": "Generate heatmap",
+        "role": "decision",
+        "incoming_edges": 2,
+        "outgoing_edges": 2,
+        "incoming_from": ["cost_calculation","heatmap_tool (tool)"],
+        "outgoing_to": ["heatmap_tool (tool)", "present_heatmap"],
+        "branches": [
+          "→ heatmap_tool (Heatmap tool call)",
+          "Is Heat Map generated? → present_heatmap"
+        ],
+        "tool_used": "Heatmap tool"
+      },
+      {
+        "id": "heatmap_tool",
+        "label": "Heatmap tool",
+        "role": "tool_call",
+        "incoming_edges": 1,
+        "outgoing_edges": 1,
+        "incoming_from": ["generate_heatmap"],
+        "outgoing_to": ["generate_heatmap"],
+        "tool": "Heatmap tool",
+        "note": "Bidirectional tool call"
+      },
+      {
+        "id": "present_heatmap",
+        "label": "Present heatmap to the user",
+        "role": "decision",
+        "incoming_edges": 1,
+        "outgoing_edges": 2,
+        "incoming_from": ["generate_heatmap"],
+        "outgoing_to": ["modify_price_request", "finish"],
+        "branches": [
+          "Request to modify the calculation received → modify_price_request",
+          "No new question → finish"
+        ]
+      },
+      {
+        "id": "calculate_delta",
+        "label": "Calculate delta",
+        "role": "process",
+        "incoming_edges": 1,
+        "outgoing_edges": 1,
+        "incoming_from": ["cost_calculation"],
+        "outgoing_to": ["generate_recommendation"]
+      },
+      {
+        "id": "generate_recommendation",
+        "label": "Generate recommendation",
+        "role": "process",
+        "incoming_edges": 1,
+        "outgoing_edges": 1,
+        "incoming_from": ["calculate_delta"],
+        "outgoing_to": ["present_comparison"]
+      },
+      {
+        "id": "present_comparison",
+        "label": "Present comparison to user",
+        "role": "decision",
+        "incoming_edges": 1,
+        "outgoing_edges": 2,
+        "incoming_from": ["generate_recommendation"],
+        "outgoing_to": ["modify_price_request", "finish"],
+        "branches": [
+          "Request to modify the calculation received → modify_price_request",
+          "No new question → finish"
+        ]
+      },
+      {
+        "id": "modify_price_request",
+        "label": "Modify the price request",
+        "role": "merge",
+        "incoming_edges": 2,
+        "outgoing_edges": 1,
+        "incoming_from": ["present_heatmap", "present_comparison"],
+        "outgoing_to": ["reasoning"],
+        "note": "Two paths converge here, then loop back to reasoning"
+      },
+      {
+        "id": "finish",
+        "label": "finish",
+        "role": "end",
+        "incoming_edges": 2,
+        "outgoing_edges": 0,
+        "incoming_from": ["present_heatmap", "present_comparison"],
+        "outgoing_to": [],
+        "note": "Two paths converge here as the final endpoint"
+      }
+    ]
+  }
+}
+    
