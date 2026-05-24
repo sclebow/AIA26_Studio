@@ -35,7 +35,7 @@ from typing import Any
 import threading
 from functools import lru_cache
 from _runtime.bootstrap import bootstrap
-from tools.layout_filter import select_layout
+from tools.layout_utils import select_layout
 from tools.graph_searcher import GraphSearcher, build_topology_graph
 
 

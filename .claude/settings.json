@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest team_06/python/tests/ -v --tb=short)",
+      "Bash(pip list *)",
+      "Bash(findstr -i \"pytest networkx\")",
+      "Bash(pip install *)",
+      "Bash(python -m pytest team_06/python/tests/ -v --tb=short --rootdir=team_06/python -p no:cacheprovider)",
+      "PowerShell($env:PYTHONPATH = \"e:\\\\softwares-4\\\\AIA26_Studio\\\\team_06\\\\python\"; cd \"e:\\\\softwares-4\\\\AIA26_Studio\"; python -m pytest team_06/python/tests/ -v --tb=short 2>&1)",
+      "PowerShell($env:PYTHONPATH = \"e:\\\\softwares-4\\\\AIA26_Studio\\\\team_06\\\\python\"; cd \"e:\\\\softwares-4\\\\AIA26_Studio\"; python -m pytest team_06/python/tests/ -v --tb=short --no-header 2>&1)",
+      "PowerShell($env:PYTHONPATH = \"e:\\\\softwares-4\\\\AIA26_Studio\\\\team_06\\\\python\"; cd \"e:\\\\softwares-4\\\\AIA26_Studio\"; python -c \"from tools.graph_searcher import GraphSearcher, build_topology_graph; from tools.layout_utils import select_layout; print\\('All imports OK'\\)\" 2>&1)"
+    ]
+  }
+}

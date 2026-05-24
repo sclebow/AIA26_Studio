@@ -35,6 +35,23 @@ def load_and_save_layout(layout_id: str, state: dict, save_path: Path) -> dict:
     save_path.write_text(json.dumps(layout, indent=2), encoding="utf-8")
     return {"status": "loaded", "saved_to": str(save_path)}
 
+def select_layout(all_layouts, layout_id: str) -> dict:
+    """Find a layout by ID from a list. Returns the layout dict or an error dict."""
+    if isinstance(all_layouts, str):
+        import json as _json
+        all_layouts = _json.loads(all_layouts)
+    for layout in all_layouts:
+        if isinstance(layout, str):
+            try:
+                import json as _json
+                layout = _json.loads(layout)
+            except Exception:
+                continue
+        if layout.get("layoutId") == layout_id:
+            return layout
+    return {"error": f"Layout {layout_id} not found"}
+
+
 def save_layout(layout_data: dict, state: dict, save_path: Path) -> dict:
     """Save layout data to file and update state."""
     state["layout_json_string"] = json.dumps(layout_data)

@@ -12,7 +12,7 @@ from networkx.algorithms import isomorphism
 # Import graph builders
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils.schema_to_graph import create_graph_from_layout
+from utils.parser.schema_to_graph import create_graph_from_layout
 from tools.rule_based_embedder import normalize_program
 
 # ============================================================================
