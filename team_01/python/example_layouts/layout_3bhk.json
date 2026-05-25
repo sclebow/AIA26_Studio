@@ -1,0 +1,245 @@
+{
+    "layoutId": "Layout-3BHK-01",
+    "outline": [[0.45,6.5],[1,6.5],[1,4.5],[1.45,4.5],[1.45,0],[5.25,0],[5.25,2.1],[7.85,2.1],[7.85,2.85],[15.6,2.85],[15.6,8.25],[14.25,8.25],[14.25,10.0],[5.25,10.0],[5.25,8.25],[3.95,8.25],[3.95,10.0],[0.45,10.0],[0.45,6.5]],
+    "rooms": [
+        {
+            "id": "Room-1",
+            "name": "Bedroom-1",
+            "geometry": [[0.45,6.5],[3.95,6.5],[3.95,10.0],[0.45,10.0],[0.45,6.5]],
+            "attributes": {
+                "area": 12.25
+            }
+        },
+        {
+            "id": "Room-2",
+            "name": "Washroom-1",
+            "geometry": [[1,4.5],[3.95,4.5],[3.95,6.5],[1,6.5],[1,4.5]],
+            "attributes": {
+                "area": 5.9
+            }
+        },
+        {
+            "id": "Room-3",
+            "name": "Bedroom-2",
+            "geometry": [[1.45,0],[5.25,0],[5.25,4.5],[1.45,4.5],[1.45,0]],
+            "attributes": {
+                "area": 17.1
+            }
+        },
+        {
+            "id": "Room-4",
+            "name": "Circulation-1",
+            "geometry": [[3.95,4.5],[5.25,4.5],[5.25,7.0],[3.95,7.0],[3.95,4.5]],
+            "attributes": {
+                "area": 3.25
+            }
+        },
+        {
+            "id": "Room-5",
+            "name": "Circulation-2",
+            "geometry": [[3.95,7.0],[7.85,7.0],[7.85,8.25],[3.95,8.25],[3.95,7.0]],
+            "attributes": {
+                "area": 4.87
+            }
+        },
+        {
+            "id": "Room-6",
+            "name": "Utility",
+            "geometry": [[5.25,2.1],[7.85,2.1],[7.85,3.6],[5.25,3.6],[5.25,2.1]],
+            "attributes": {
+                "area": 3.9
+            }
+        },
+        {
+            "id": "Room-7",
+            "name": "Kitchen",
+            "geometry": [[5.25,3.6],[7.85,3.6],[7.85,7.0],[5.25,7.0],[5.25,3.6]],
+            "attributes": {
+                "area": 8.84
+            }
+        },
+        {
+            "id": "Room-8",
+            "name": "Washrom-2",
+            "geometry": [[5.25,8.25],[7.85,8.25],[7.85,10.0],[5.25,10.0],[5.25,8.25]],
+            "attributes": {
+                "area": 4.55
+            }
+        },
+        {
+            "id": "Room-9",
+            "name": "Living Room",
+            "geometry": [[7.85,2.85],[11.7,2.85],[11.7,10.0],[7.85,10.0],[7.85,2.85]],
+            "attributes": {
+                "area": 27.53
+            }
+        },
+        {
+            "id": "Room-10",
+            "name": "Bedroom-3",
+            "geometry": [[11.7,2.85],[15.6,2.85],[15.6,6.5],[11.7,6.5],[11.7,2.85]],
+            "attributes": {
+                "area": 14.23
+            }
+        },
+        {
+            "id": "Room-11",
+            "name": "Circulation-3",
+            "geometry": [[11.7,6.5],[12.95,6.5],[12.95,8.25],[11.7,8.25],[11.7,6.5]],
+            "attributes": {
+                "area": 2.19
+            }
+        },
+        {
+            "id": "Room-12",
+            "name": "Washroom-3",
+            "geometry": [[12.95,6.5],[15.6,6.5],[15.6,8.25],[12.95,8.25],[12.95,6.5]],
+            "attributes": {
+                "area": 4.64
+            }
+        },
+        {
+            "id": "Room-13",
+            "name": "Foyer-1",
+            "geometry": [[11.7,8.25],[14.25,8.25],[14.25,10.0],[11.7,10.0],[11.7,8.25]],
+            "attributes": {
+                "area": 4.46
+            }
+        }
+    ],
+    "doors": [
+        {
+            "id": "Door-1",
+            "name": "Door-750",
+            "geometry": [[3.95,5.5],[3.95,4.75]],
+            "attributes": {
+                "connectsRooms": ["Washroom-1","Circulation-1"]
+            }
+        },
+        {
+            "id": "Door-2",
+            "name": "Door-900",
+            "geometry": [[3.95,8.05],[3.95,7.15]],
+            "attributes": {
+                "connectsRooms": ["Bedroom-1","Circulation-2"]
+            }
+        },
+        {
+            "id": "Door-3",
+            "name": "Door-900",
+            "geometry": [[4.15,7.0],[5.05,7.0]],
+            "attributes": {
+                "connectsRooms": ["Circulation-1","Circulation-2"]
+            }
+        },
+        {
+            "id": "Door-4",
+            "name": "Door-900",
+            "geometry": [[6.1,3.6],[7,3.6]],
+            "attributes": {
+                "connectsRooms": ["Utility","Kitchen"]
+            }
+        },
+        {
+            "id": "Door-5",
+            "name": "Door-900",
+            "geometry": [[6.1,7.0],[7,7.0]],
+            "attributes": {
+                "connectsRooms": ["Circulation-2","Kitchen"]
+            }
+        },
+        {
+            "id": "Door-6",
+            "name": "Door-750",
+            "geometry": [[6.85,8.25],[7.6,8.25]],
+            "attributes": {
+                "connectsRooms": ["Circulation-2","Washrom-2"]
+            }
+        },
+        {
+            "id": "Door-7",
+            "name": "Door-750",
+            "geometry": [[12.95,7.5],[12.95,6.75]],
+            "attributes": {
+                "connectsRooms": ["Circulation-3","Washroom-3"]
+            }
+        },
+        {
+            "id": "Door-8",
+            "name": "Door-900",
+            "geometry": [[11.7,8.15],[11.7,7.25]],
+            "attributes": {
+                "connectsRooms": ["LivingRoom","Circulation-3"]
+            }
+        },
+        {
+            "id": "Door-9",
+            "name": "Door-1000",
+            "geometry": [[13.05,10.0],[14.05,10.0]],
+            "attributes": {
+                "connectsRooms": ["Foyer-1"]
+            }
+        }
+    ],
+    "windows": [
+        {
+            "id": "Window-1",
+            "name": "Window-750",
+            "geometry": [[1,4.65],[1,5.4]],
+            "attributes": {
+                "roomID": "Washroom-1"
+            }
+        },
+        {
+            "id": "Window-2",
+            "name": "Window-2000",
+            "geometry": [[1.2,10.0],[3.2,10.0]],
+            "attributes": {
+                "roomID": "Bedroom-1"
+            }
+        },
+        {
+            "id": "Window-3",
+            "name": "Window-2000",
+            "geometry": [[2.85,0],[4.85,0]],
+            "attributes": {
+                "roomID": "Bedroom-2"
+            }
+        },
+        {
+            "id": "Window-4",
+            "name": "Window-750",
+            "geometry": [[5.25,8.4],[5.25,9.15]],
+            "attributes": {
+                "roomID": "Washrom-2"
+            }
+        },
+        {
+            "id": "Window-5",
+            "name": "Window-2750",
+            "geometry": [[8.4,2.85],[11.15,2.85]],
+            "attributes": {
+                "roomID": "Living Room"
+            }
+        },
+        {
+            "id": "Window-6",
+            "name": "Window-2000",
+            "geometry": [[12.1,2.85],[14.1,2.85]],
+            "attributes": {
+                "roomID": "Bedroom-3"
+            }
+        },
+        {
+            "id": "Window-7",
+            "name": "Window-750",
+            "geometry": [[15.6,6.75],[15.6,7.5]],
+            "attributes": {
+                "roomID": "Washroom-3"
+            }
+        }
+    ],
+    "furniture": [],
+    "mep": [],
+    "structure": []
+}

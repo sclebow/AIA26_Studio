@@ -10,6 +10,7 @@ from nodes.evaluate import build_evaluate_node, evaluate_structure, SETTINGS_PAT
 from nodes.comparison import build_comparison_node
 
 EXAMPLE_LAYOUTS_DIR = Path(__file__).parent / "example_layouts"
+OTHER_LAYOUTS_DIR   = Path(__file__).parent.parent / "gh" / "other layouts"
 
 
 def _dist(a: list, b: list) -> float:
@@ -292,14 +293,20 @@ def _format_evaluation(eval_json: str | None) -> str:
 
 
 def _load_all_layouts() -> list[dict[str, Any]]:
-    """Load all layouts from example_layouts folder."""
+    """Load all layouts from example_layouts/ and gh/other layouts/."""
     all_layouts = []
-    for json_file in sorted(EXAMPLE_LAYOUTS_DIR.glob("*.json")):
-        content = json.loads(json_file.read_text(encoding="utf-8"))
-        if isinstance(content, list):
-            all_layouts.extend(content)
-        else:
-            all_layouts.append(content)
+    for layouts_dir in (EXAMPLE_LAYOUTS_DIR, OTHER_LAYOUTS_DIR):
+        if not layouts_dir.exists():
+            continue
+        for json_file in sorted(layouts_dir.glob("*.json")):
+            try:
+                content = json.loads(json_file.read_text(encoding="utf-8"))
+                entries = content if isinstance(content, list) else [content]
+                for entry in entries:
+                    if isinstance(entry, dict) and "rooms" in entry and "outline" in entry:
+                        all_layouts.append(entry)
+            except Exception:
+                pass
     return all_layouts
 
 
@@ -310,6 +317,24 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
         layouts = [edited]
     else:
         layouts = _load_all_layouts()
+        if len(layouts) > 1:
+            print(f"\n{len(layouts)} layouts available:")
+            for i, l in enumerate(layouts):
+                lid     = l.get("layoutId", f"layout-{i+1}")
+                n_rooms = len(l.get("rooms", []))
+                has_structure = len(l.get("structure", [])) > 0
+                tag = " [has structure]" if has_structure else ""
+                print(f"  {i+1}. {lid}  ({n_rooms} rooms){tag}")
+            while True:
+                raw = input(f"Choose layout [1-{len(layouts)}, Enter=1]: ").strip()
+                if not raw:
+                    layouts = [layouts[0]]
+                    print(f"[layout] Using {layouts[0].get('layoutId', 'layout-1')}")
+                    break
+                if raw.isdigit() and 1 <= int(raw) <= len(layouts):
+                    layouts = [layouts[int(raw) - 1]]
+                    print(f"[layout] Using {layouts[0].get('layoutId', '?')}")
+                    break
 
     layout_ids = [l.get("layoutId", "?") for l in layouts]
 
@@ -350,7 +375,8 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
         })
 
     user_message = (
-        f"Context: {len(layouts)} layouts loaded from team_01/python/example_layouts/: {layout_ids}.\n"
+        f"Context: {len(layouts)} layouts loaded from team_01/python/example_layouts/ "
+        f"and team_01/gh/other layouts/: {layout_ids}.\n"
         f"Valid room names are rooms[].name.\n\n"
         f"User request:\n{prompt}\n\n"
         f"Layout summaries:\n{json.dumps(slim, indent=2)}"
