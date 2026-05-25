@@ -1,0 +1,69 @@
+{
+  "layoutId": 38,
+  "programType": [
+    "bed",
+    "bath",
+    "kitchen",
+    "living",
+    "circulation"
+  ],
+  "connectivityType": "connected",
+  "outline": [
+    [
+      0.0,
+      0.0
+    ],
+    [
+      15.0,
+      0.0
+    ],
+    [
+      15.0,
+      12.0
+    ],
+    [
+      0.0,
+      12.0
+    ]
+  ],
+  "boundary": [
+    [
+      0.0,
+      0.0
+    ],
+    [
+      15.0,
+      0.0
+    ],
+    [
+      15.0,
+      12.0
+    ],
+    [
+      0.0,
+      12.0
+    ]
+  ],
+  "door_point": [
+    4.5,
+    12.0
+  ],
+  "door_points": [],
+  "facades": [],
+  "circulation": [
+    {
+      "geometry": [
+        [
+          0.0,
+          12.0
+        ],
+        [
+          15.0,
+          12.0
+        ]
+      ]
+    }
+  ],
+  "rooms": [],
+  "doors": []
+}
