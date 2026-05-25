@@ -28,7 +28,9 @@ def build_graph(layout: dict) -> nx.Graph:
     G = nx.Graph()
     for room in layout["rooms"]:
         room_id  = room["id"]
-        raw_prog = room.get("attributes", {}).get("program", "") or room.get("program", "")
+        raw_prog = (room.get("attributes", {}).get("program", "")
+                    or room.get("program", "")
+                    or room.get("type", ""))
         program  = PROGRAM_MAP.get(raw_prog.lower(), raw_prog.lower())
         name     = room.get("name", "")
         G.add_node(room_id, name=name, program=program)
