@@ -51,7 +51,7 @@ def main():
 
     for json_file in sorted(PLANFINDER_DIR.glob("*.json")):
         layout    = json.loads(json_file.read_text(encoding="utf-8"))
-        layout_id = layout.get("layoutId", json_file.stem)
+        layout_id = json_file.stem
 
         if not layout.get("rooms") or not layout.get("doors"):
             print(f"  skip (empty): {layout_id}")
