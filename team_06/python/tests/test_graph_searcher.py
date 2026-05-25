@@ -91,7 +91,7 @@ results = gs.search_by_graph_similarity(pattern)
 print(f"  -> Found {len(results)} layouts: {[r[0] for r in results]}")
 
 print("\nExample 2: 'Find layout with open kitchen-living area'")
-pattern = build_topology_graph(['kitchen', 'living'], connection_type="connected")
+pattern = build_topology_graph(['kitchen', 'bathroom'], connection_type="connected")
 results = gs.search_by_graph_similarity(pattern)
 print(f"  -> Found {len(results)} layouts: {[r[0] for r in results]}")
 

@@ -1,0 +1,169 @@
+{
+  "layoutId": "Residential-Claude-01",
+
+  "outline": [[0.0, 0.0], [10.0, 0.0], [10.0, 6.0], [0.0, 6.0], [0.0, 0.0]],
+
+  "rooms": [
+    {
+      "id": "room-1",
+      "name": "Entrance Hall",
+      "geometry": [[0.0, 0.0], [2.5, 0.0], [2.5, 2.0], [0.0, 2.0], [0.0, 0.0]],
+      "attributes": { "area": 5.0 }
+    },
+    {
+      "id": "room-2",
+      "name": "Living Room",
+      "geometry": [[0.0, 2.0], [5.0, 2.0], [5.0, 6.0], [0.0, 6.0], [0.0, 2.0]],
+      "attributes": { "area": 20.0 }
+    },
+    {
+      "id": "room-3",
+      "name": "Kitchen",
+      "geometry": [[2.5, 0.0], [6.5, 0.0], [6.5, 2.0], [2.5, 2.0], [2.5, 0.0]],
+      "attributes": { "area": 8.0 }
+    },
+    {
+      "id": "room-4",
+      "name": "Bedroom 1",
+      "geometry": [[5.0, 2.0], [10.0, 2.0], [10.0, 6.0], [5.0, 6.0], [5.0, 2.0]],
+      "attributes": { "area": 20.0 }
+    },
+    {
+      "id": "room-5",
+      "name": "Bathroom",
+      "geometry": [[6.5, 0.0], [10.0, 0.0], [10.0, 2.0], [6.5, 2.0], [6.5, 0.0]],
+      "attributes": { "area": 7.0 }
+    }
+  ],
+
+  "doors": [
+    {
+      "id": "door-1",
+      "type": "wooden",
+      "name": "Front Door",
+      "geometry": [[0.0, 0.5], [0.0, 1.4]],
+      "attributes": { "connectsRooms": ["room-1", "exterior"] }
+    },
+    {
+      "id": "door-2",
+      "type": "wooden",
+      "name": "Entrance to Living",
+      "geometry": [[1.0, 2.0], [1.85, 2.0]],
+      "attributes": { "connectsRooms": ["room-1", "room-2"] }
+    },
+    {
+      "id": "door-3",
+      "type": "wooden",
+      "name": "Entrance to Kitchen",
+      "geometry": [[2.5, 0.5], [2.5, 1.35]],
+      "attributes": { "connectsRooms": ["room-1", "room-3"] }
+    },
+    {
+      "id": "door-4",
+      "type": "wooden",
+      "name": "Living to Bedroom",
+      "geometry": [[5.0, 3.5], [5.0, 4.35]],
+      "attributes": { "connectsRooms": ["room-2", "room-4"] }
+    },
+    {
+      "id": "door-5",
+      "type": "wooden",
+      "name": "Kitchen to Bathroom",
+      "geometry": [[6.5, 0.5], [6.5, 1.35]],
+      "attributes": { "connectsRooms": ["room-3", "room-5"] }
+    }
+  ],
+
+  "windows": [
+    {
+      "id": "window-1",
+      "type": "sliding",
+      "name": "Living Room North Window",
+      "geometry": [[1.5, 6.0], [3.5, 6.0]],
+      "attributes": { "roomId": "room-2" }
+    },
+    {
+      "id": "window-2",
+      "type": "casement",
+      "name": "Bedroom North Window",
+      "geometry": [[6.5, 6.0], [8.5, 6.0]],
+      "attributes": { "roomId": "room-4" }
+    },
+    {
+      "id": "window-3",
+      "type": "casement",
+      "name": "Kitchen South Window",
+      "geometry": [[3.5, 0.0], [5.0, 0.0]],
+      "attributes": { "roomId": "room-3" }
+    },
+    {
+      "id": "window-4",
+      "type": "awning",
+      "name": "Bathroom East Window",
+      "geometry": [[10.0, 0.5], [10.0, 1.5]],
+      "attributes": { "roomId": "room-5" }
+    },
+    {
+      "id": "window-5",
+      "type": "casement",
+      "name": "Bedroom East Window",
+      "geometry": [[10.0, 3.5], [10.0, 5.0]],
+      "attributes": { "roomId": "room-4" }
+    }
+  ],
+
+  "furniture": [],
+
+  "mep": [],
+
+  "structure": [
+    {
+      "id": "wall-1",
+      "name": "South Exterior Wall",
+      "geometry": [[0.0, 0.0], [10.0, 0.0]],
+      "attributes": { "type": "load-bearing", "material": "brick" }
+    },
+    {
+      "id": "wall-2",
+      "name": "East Exterior Wall",
+      "geometry": [[10.0, 0.0], [10.0, 6.0]],
+      "attributes": { "type": "load-bearing", "material": "brick" }
+    },
+    {
+      "id": "wall-3",
+      "name": "North Exterior Wall",
+      "geometry": [[0.0, 6.0], [10.0, 6.0]],
+      "attributes": { "type": "load-bearing", "material": "brick" }
+    },
+    {
+      "id": "wall-4",
+      "name": "West Exterior Wall",
+      "geometry": [[0.0, 0.0], [0.0, 6.0]],
+      "attributes": { "type": "load-bearing", "material": "brick" }
+    },
+    {
+      "id": "wall-5",
+      "name": "South Horizontal Divider",
+      "geometry": [[0.0, 2.0], [10.0, 2.0]],
+      "attributes": { "type": "partition", "material": "drywall" }
+    },
+    {
+      "id": "wall-6",
+      "name": "Entrance-Kitchen Divider",
+      "geometry": [[2.5, 0.0], [2.5, 2.0]],
+      "attributes": { "type": "partition", "material": "drywall" }
+    },
+    {
+      "id": "wall-7",
+      "name": "Kitchen-Bathroom Divider",
+      "geometry": [[6.5, 0.0], [6.5, 2.0]],
+      "attributes": { "type": "partition", "material": "drywall" }
+    },
+    {
+      "id": "wall-8",
+      "name": "Living-Bedroom Divider",
+      "geometry": [[5.0, 2.0], [5.0, 6.0]],
+      "attributes": { "type": "partition", "material": "drywall" }
+    }
+  ]
+}

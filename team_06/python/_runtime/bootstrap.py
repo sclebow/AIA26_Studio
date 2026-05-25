@@ -6,7 +6,6 @@ from typing import Any
 from _runtime.config import load_settings
 from _runtime.mcp_client import McpClient
 from _runtime.llm import create_chat_llm, get_llm_response_format
-from nodes.local_tools import get_local_tools
 
 @dataclass
 class Context:
@@ -61,11 +60,6 @@ def bootstrap() -> Context:
     except Exception as e:
         print(f"[bootstrap] Warning: Could not connect to MCP server: {type(e).__name__}")
         print(f"[bootstrap] Continuing with local tools only...")
-    
-    # Log all available tools (both MCP and local)
-    local_tool_names = [t.get('name') for t in get_local_tools()]
-    print(f"[bootstrap] Discovered local tools: {local_tool_names}")
-    print(f"[bootstrap] Total tools available: {len(tools) + len(get_local_tools())}")
 
     # Build the LLM with a structured-output schema tailored to the available tools
     llm = create_chat_llm(

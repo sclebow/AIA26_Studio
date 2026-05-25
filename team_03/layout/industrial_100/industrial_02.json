@@ -1,0 +1,269 @@
+{
+  "layoutId": "Industrial-Claude-02",
+
+  "outline": [[0.0, 0.0], [30.0, 0.0], [30.0, 15.0], [12.0, 15.0], [12.0, 25.0], [0.0, 25.0], [0.0, 0.0]],
+
+  "rooms": [
+    {
+      "id": "room-1",
+      "name": "Assembly Hall",
+      "geometry": [[0.0, 0.0], [30.0, 0.0], [30.0, 9.0], [0.0, 9.0], [0.0, 0.0]],
+      "attributes": { "area": 270.0 }
+    },
+    {
+      "id": "room-2",
+      "name": "Quality Control Room",
+      "geometry": [[0.0, 9.0], [6.0, 9.0], [6.0, 15.0], [0.0, 15.0], [0.0, 9.0]],
+      "attributes": { "area": 36.0 }
+    },
+    {
+      "id": "room-3",
+      "name": "Office 1",
+      "geometry": [[6.0, 9.0], [12.0, 9.0], [12.0, 15.0], [6.0, 15.0], [6.0, 9.0]],
+      "attributes": { "area": 36.0 }
+    },
+    {
+      "id": "room-4",
+      "name": "Loading Bay",
+      "geometry": [[0.0, 15.0], [12.0, 15.0], [12.0, 25.0], [0.0, 25.0], [0.0, 15.0]],
+      "attributes": { "area": 120.0 }
+    },
+    {
+      "id": "room-5",
+      "name": "Restroom",
+      "geometry": [[12.0, 9.0], [18.0, 9.0], [18.0, 15.0], [12.0, 15.0], [12.0, 9.0]],
+      "attributes": { "area": 36.0 }
+    },
+    {
+      "id": "room-6",
+      "name": "Break Room",
+      "geometry": [[18.0, 9.0], [24.0, 9.0], [24.0, 15.0], [18.0, 15.0], [18.0, 9.0]],
+      "attributes": { "area": 36.0 }
+    },
+    {
+      "id": "room-7",
+      "name": "Office 2",
+      "geometry": [[24.0, 9.0], [30.0, 9.0], [30.0, 15.0], [24.0, 15.0], [24.0, 9.0]],
+      "attributes": { "area": 36.0 }
+    }
+  ],
+
+  "doors": [
+    {
+      "id": "door-1",
+      "type": "sliding",
+      "name": "Main Entrance",
+      "geometry": [[0.0, 3.5], [0.0, 5.5]],
+      "attributes": { "connectsRooms": ["room-1", "exterior"] }
+    },
+    {
+      "id": "door-2",
+      "type": "sliding",
+      "name": "Loading Bay Entrance",
+      "geometry": [[0.0, 18.0], [0.0, 21.0]],
+      "attributes": { "connectsRooms": ["room-4", "exterior"] }
+    },
+    {
+      "id": "door-3",
+      "type": "wooden",
+      "name": "Assembly to QC Door",
+      "geometry": [[2.5, 9.0], [3.35, 9.0]],
+      "attributes": { "connectsRooms": ["room-1", "room-2"] }
+    },
+    {
+      "id": "door-4",
+      "type": "wooden",
+      "name": "Assembly to Office 1 Door",
+      "geometry": [[8.5, 9.0], [9.35, 9.0]],
+      "attributes": { "connectsRooms": ["room-1", "room-3"] }
+    },
+    {
+      "id": "door-5",
+      "type": "wooden",
+      "name": "QC to Loading Bay Door",
+      "geometry": [[2.5, 15.0], [3.35, 15.0]],
+      "attributes": { "connectsRooms": ["room-2", "room-4"] }
+    },
+    {
+      "id": "door-6",
+      "type": "wooden",
+      "name": "Assembly to Restroom Door",
+      "geometry": [[14.5, 9.0], [15.35, 9.0]],
+      "attributes": { "connectsRooms": ["room-1", "room-5"] }
+    },
+    {
+      "id": "door-7",
+      "type": "wooden",
+      "name": "Assembly to Break Room Door",
+      "geometry": [[20.5, 9.0], [21.35, 9.0]],
+      "attributes": { "connectsRooms": ["room-1", "room-6"] }
+    },
+    {
+      "id": "door-8",
+      "type": "wooden",
+      "name": "Assembly to Office 2 Door",
+      "geometry": [[26.5, 9.0], [27.35, 9.0]],
+      "attributes": { "connectsRooms": ["room-1", "room-7"] }
+    }
+  ],
+
+  "windows": [
+    {
+      "id": "window-1",
+      "type": "fixed",
+      "name": "Assembly South Window 1",
+      "geometry": [[5.0, 0.0], [7.0, 0.0]],
+      "attributes": { "roomId": "room-1" }
+    },
+    {
+      "id": "window-2",
+      "type": "fixed",
+      "name": "Assembly South Window 2",
+      "geometry": [[13.0, 0.0], [15.0, 0.0]],
+      "attributes": { "roomId": "room-1" }
+    },
+    {
+      "id": "window-3",
+      "type": "fixed",
+      "name": "Assembly South Window 3",
+      "geometry": [[21.0, 0.0], [23.0, 0.0]],
+      "attributes": { "roomId": "room-1" }
+    },
+    {
+      "id": "window-4",
+      "type": "fixed",
+      "name": "Assembly East Window 1",
+      "geometry": [[30.0, 2.0], [30.0, 4.0]],
+      "attributes": { "roomId": "room-1" }
+    },
+    {
+      "id": "window-5",
+      "type": "fixed",
+      "name": "Assembly East Window 2",
+      "geometry": [[30.0, 5.5], [30.0, 7.5]],
+      "attributes": { "roomId": "room-1" }
+    },
+    {
+      "id": "window-6",
+      "type": "casement",
+      "name": "QC West Window",
+      "geometry": [[0.0, 10.5], [0.0, 12.5]],
+      "attributes": { "roomId": "room-2" }
+    },
+    {
+      "id": "window-7",
+      "type": "casement",
+      "name": "Office 1 North Window",
+      "geometry": [[8.0, 15.0], [10.0, 15.0]],
+      "attributes": { "roomId": "room-3" }
+    },
+    {
+      "id": "window-8",
+      "type": "fixed",
+      "name": "Loading Bay North Window",
+      "geometry": [[4.0, 25.0], [6.0, 25.0]],
+      "attributes": { "roomId": "room-4" }
+    },
+    {
+      "id": "window-9",
+      "type": "fixed",
+      "name": "Loading Bay East Window",
+      "geometry": [[12.0, 18.0], [12.0, 20.0]],
+      "attributes": { "roomId": "room-4" }
+    },
+    {
+      "id": "window-10",
+      "type": "casement",
+      "name": "Office 2 East Window",
+      "geometry": [[30.0, 11.0], [30.0, 13.0]],
+      "attributes": { "roomId": "room-7" }
+    },
+    {
+      "id": "window-11",
+      "type": "casement",
+      "name": "Office 2 North Window",
+      "geometry": [[26.0, 15.0], [28.0, 15.0]],
+      "attributes": { "roomId": "room-7" }
+    },
+    {
+      "id": "window-12",
+      "type": "casement",
+      "name": "Break Room North Window",
+      "geometry": [[20.0, 15.0], [22.0, 15.0]],
+      "attributes": { "roomId": "room-6" }
+    }
+  ],
+
+  "furniture": [],
+
+  "mep": [],
+
+  "structure": [
+    {
+      "id": "wall-1",
+      "name": "South Exterior Wall",
+      "geometry": [[0.0, 0.0], [30.0, 0.0]],
+      "attributes": { "type": "load-bearing", "material": "concrete" }
+    },
+    {
+      "id": "wall-2",
+      "name": "East Exterior Wall",
+      "geometry": [[30.0, 0.0], [30.0, 15.0]],
+      "attributes": { "type": "load-bearing", "material": "concrete" }
+    },
+    {
+      "id": "wall-3",
+      "name": "North Exterior Wall East",
+      "geometry": [[12.0, 15.0], [30.0, 15.0]],
+      "attributes": { "type": "load-bearing", "material": "concrete" }
+    },
+    {
+      "id": "wall-4",
+      "name": "L-step East Wall",
+      "geometry": [[12.0, 15.0], [12.0, 25.0]],
+      "attributes": { "type": "load-bearing", "material": "concrete" }
+    },
+    {
+      "id": "wall-5",
+      "name": "North Exterior Wall West",
+      "geometry": [[0.0, 25.0], [12.0, 25.0]],
+      "attributes": { "type": "load-bearing", "material": "concrete" }
+    },
+    {
+      "id": "wall-6",
+      "name": "West Exterior Wall",
+      "geometry": [[0.0, 0.0], [0.0, 25.0]],
+      "attributes": { "type": "load-bearing", "material": "concrete" }
+    },
+    {
+      "id": "wall-7",
+      "name": "Assembly-North Rooms Divider",
+      "geometry": [[0.0, 9.0], [30.0, 9.0]],
+      "attributes": { "type": "partition", "material": "drywall" }
+    },
+    {
+      "id": "wall-8",
+      "name": "QC-Office 1 Divider",
+      "geometry": [[6.0, 9.0], [6.0, 15.0]],
+      "attributes": { "type": "partition", "material": "drywall" }
+    },
+    {
+      "id": "wall-9",
+      "name": "Left Rooms-Loading Bay Divider",
+      "geometry": [[0.0, 15.0], [12.0, 15.0]],
+      "attributes": { "type": "partition", "material": "drywall" }
+    },
+    {
+      "id": "wall-10",
+      "name": "Restroom-Break Room Divider",
+      "geometry": [[18.0, 9.0], [18.0, 15.0]],
+      "attributes": { "type": "partition", "material": "drywall" }
+    },
+    {
+      "id": "wall-11",
+      "name": "Break Room-Office 2 Divider",
+      "geometry": [[24.0, 9.0], [24.0, 15.0]],
+      "attributes": { "type": "partition", "material": "drywall" }
+    }
+  ]
+}

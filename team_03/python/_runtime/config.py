@@ -19,7 +19,8 @@ class Settings:
 
 
 def _repo_root() -> Path:
-    # _runtime/config.py is three levels deep: python/_runtime/config.py → repo root is parents[3]
+    # team_03/python/_runtime/config.py → parents[3] is AIA26_Studio/ (repo root)
+    # .env and mcp.json live at the repo root, not inside team_03/
     return Path(__file__).resolve().parents[3]
 
 
@@ -90,12 +91,12 @@ def _load_mcp_server_from_json(config_path: Path) -> tuple[str, str]:
 
 
 def load_settings() -> Settings:
-    load_dotenv(dotenv_path=_repo_root() / ".env", override=False)
+    load_dotenv(dotenv_path=_repo_root() / ".env", override=True)
 
     mcp_json_path = _repo_root() / "mcp.json"
     mcp_server_key, mcp_endpoint = _load_mcp_server_from_json(mcp_json_path)
 
-    timeout_value = os.environ.get("REQUEST_TIMEOUT_SECONDS", "30")
+    timeout_value = os.environ.get("REQUEST_TIMEOUT_SECONDS", "30").strip()
     max_iterations_value = os.environ.get("MAX_ITERATIONS", "4")
 
     llm_provider = _required_env("LLM_PROVIDER").strip().lower()
@@ -122,7 +123,7 @@ def load_settings() -> Settings:
 
     elif llm_provider == "anthropic":
         api_key = _required_env("ANTHROPIC_API_KEY")
-        base_url = "https://api.anthropic.com/v1/"
+        base_url = ""
         llm_model = _required_env("ANTHROPIC_MODEL")
 
     else:

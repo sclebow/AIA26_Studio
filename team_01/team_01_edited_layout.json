@@ -1,21 +1,1221 @@
 {
-  "structure": [
+  "layoutId": "Layout-2BHK-01",
+  "outline": [
+    [
+      0,
+      1.75
+    ],
+    [
+      3.2,
+      1.75
+    ],
+    [
+      3.2,
+      0
+    ],
+    [
+      9.3,
+      0
+    ],
+    [
+      9.3,
+      1.5
+    ],
+    [
+      13.1,
+      1.5
+    ],
+    [
+      13.1,
+      3.2
+    ],
+    [
+      12.8,
+      3.2
+    ],
+    [
+      12.8,
+      7.3
+    ],
+    [
+      9.3,
+      7.3
+    ],
+    [
+      9.3,
+      6.25
+    ],
+    [
+      5.8,
+      6.25
+    ],
+    [
+      5.8,
+      7.3
+    ],
+    [
+      3.5,
+      7.3
+    ],
+    [
+      3.5,
+      5.5
+    ],
+    [
+      0,
+      5.5
+    ],
+    [
+      0,
+      1.75
+    ]
+  ],
+  "rooms": [
     {
-      "id": "COL_A",
-      "name": "Structural Column COL_A",
+      "id": "Room-1",
+      "name": "Bedroom-1",
       "geometry": [
         [
-          0.0,
-          0.0
+          0,
+          1.75
+        ],
+        [
+          3.5,
+          1.75
+        ],
+        [
+          3.5,
+          5.5
+        ],
+        [
+          0,
+          5.5
+        ],
+        [
+          0,
+          1.75
         ]
       ],
       "attributes": {
-        "wall_type": "column",
-        "permanence_tag": "permanent",
-        "permanence_score": 1,
-        "intervention_tier": "prohibitive",
-        "reason": "Structural column. Cannot be moved or removed.",
-        "reuse_warning": "All layouts must accommodate this column."
+        "area": 13.12
+      }
+    },
+    {
+      "id": "Room-2",
+      "name": "Washroom-1",
+      "geometry": [
+        [
+          3.2,
+          0
+        ],
+        [
+          5.8,
+          0
+        ],
+        [
+          5.8,
+          1.75
+        ],
+        [
+          3.2,
+          1.75
+        ],
+        [
+          3.2,
+          0
+        ]
+      ],
+      "attributes": {
+        "area": 4.55
+      }
+    },
+    {
+      "id": "Room-3",
+      "name": "Circulation-1",
+      "geometry": [
+        [
+          3.5,
+          1.75
+        ],
+        [
+          5.8,
+          1.75
+        ],
+        [
+          5.8,
+          2.85
+        ],
+        [
+          3.5,
+          2.85
+        ],
+        [
+          3.5,
+          1.75
+        ]
+      ],
+      "attributes": {
+        "area": 2.53
+      }
+    },
+    {
+      "id": "Room-4",
+      "name": "Kitchen",
+      "geometry": [
+        [
+          3.5,
+          2.85
+        ],
+        [
+          5.8,
+          2.85
+        ],
+        [
+          5.8,
+          5.8
+        ],
+        [
+          3.5,
+          5.8
+        ],
+        [
+          3.5,
+          2.85
+        ]
+      ],
+      "attributes": {
+        "area": 6.78
+      }
+    },
+    {
+      "id": "Room-5",
+      "name": "Utility",
+      "geometry": [
+        [
+          3.5,
+          5.8
+        ],
+        [
+          5.8,
+          5.8
+        ],
+        [
+          5.8,
+          7.3
+        ],
+        [
+          3.5,
+          7.3
+        ],
+        [
+          3.5,
+          5.8
+        ]
+      ],
+      "attributes": {
+        "area": 3.45
+      }
+    },
+    {
+      "id": "Room-6",
+      "name": "Living Room",
+      "geometry": [
+        [
+          5.8,
+          0
+        ],
+        [
+          9.3,
+          0
+        ],
+        [
+          9.3,
+          6.25
+        ],
+        [
+          5.8,
+          6.25
+        ],
+        [
+          5.8,
+          0
+        ]
+      ],
+      "attributes": {
+        "area": 21.88
+      }
+    },
+    {
+      "id": "Room-7",
+      "name": "Circulation-2",
+      "geometry": [
+        [
+          9.3,
+          1.5
+        ],
+        [
+          10.5,
+          1.5
+        ],
+        [
+          10.5,
+          3.2
+        ],
+        [
+          9.3,
+          3.2
+        ],
+        [
+          9.3,
+          1.5
+        ]
+      ],
+      "attributes": {
+        "area": 2.04
+      }
+    },
+    {
+      "id": "Room-8",
+      "name": "Washroom-2",
+      "geometry": [
+        [
+          10.5,
+          1.5
+        ],
+        [
+          13.1,
+          1.5
+        ],
+        [
+          13.1,
+          3.2
+        ],
+        [
+          10.5,
+          3.2
+        ],
+        [
+          10.5,
+          1.5
+        ]
+      ],
+      "attributes": {
+        "area": 4.42
+      }
+    },
+    {
+      "id": "Room-9",
+      "name": "Bedroom-2",
+      "geometry": [
+        [
+          9.3,
+          3.2
+        ],
+        [
+          12.8,
+          3.2
+        ],
+        [
+          12.8,
+          7.3
+        ],
+        [
+          9.3,
+          7.3
+        ],
+        [
+          9.3,
+          3.2
+        ]
+      ],
+      "attributes": {
+        "area": 14.35
+      }
+    }
+  ],
+  "doors": [
+    {
+      "id": "Door-1",
+      "name": "Door-900",
+      "geometry": [
+        [
+          3.5,
+          2.75
+        ],
+        [
+          3.5,
+          1.85
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "Bedroom-1",
+          "Circulation-1"
+        ]
+      }
+    },
+    {
+      "id": "Door-2",
+      "name": "Door-750",
+      "geometry": [
+        [
+          4.85,
+          1.75
+        ],
+        [
+          5.6,
+          1.75
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "Washroom-1",
+          "Circulation-1"
+        ]
+      }
+    },
+    {
+      "id": "Door-3",
+      "name": "Door-800",
+      "geometry": [
+        [
+          4.25,
+          2.85
+        ],
+        [
+          5.05,
+          2.85
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "Circulation-1",
+          "Kitchen"
+        ]
+      }
+    },
+    {
+      "id": "Door-4",
+      "name": "Door-800",
+      "geometry": [
+        [
+          4.25,
+          5.8
+        ],
+        [
+          5.05,
+          5.8
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "Kitchen",
+          "Utility"
+        ]
+      }
+    },
+    {
+      "id": "Door-5",
+      "name": "Door-1000",
+      "geometry": [
+        [
+          9.3,
+          1.25
+        ],
+        [
+          9.3,
+          0.25
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "Living Room",
+          "Circulation-2"
+        ]
+      }
+    },
+    {
+      "id": "Door-6",
+      "name": "Door-900",
+      "geometry": [
+        [
+          9.3,
+          2.75
+        ],
+        [
+          9.3,
+          1.85
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "Living Room",
+          "Circulation-2"
+        ]
+      }
+    },
+    {
+      "id": "Door-7",
+      "name": "Door-750",
+      "geometry": [
+        [
+          10.5,
+          2.25
+        ],
+        [
+          10.5,
+          3.0
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "Circulation-2",
+          "Washroom-2"
+        ]
+      }
+    }
+  ],
+  "windows": [
+    {
+      "id": "Window-1",
+      "name": "Window-750",
+      "geometry": [
+        [
+          3.2,
+          1.5
+        ],
+        [
+          3.2,
+          0.75
+        ]
+      ],
+      "attributes": {
+        "roomId": "Washroom-1"
+      }
+    },
+    {
+      "id": "Window-2",
+      "name": "Window-2000",
+      "geometry": [
+        [
+          0.75,
+          5.5
+        ],
+        [
+          2.75,
+          5.5
+        ]
+      ],
+      "attributes": {
+        "roomId": "Bedroom-1"
+      }
+    },
+    {
+      "id": "Window-3",
+      "name": "Window-1750",
+      "geometry": [
+        [
+          3.775,
+          7.3
+        ],
+        [
+          5.525,
+          7.3
+        ]
+      ],
+      "attributes": {
+        "roomId": "Utility"
+      }
+    },
+    {
+      "id": "Window-4",
+      "name": "Window-2500",
+      "geometry": [
+        [
+          6.3,
+          6.25
+        ],
+        [
+          8.8,
+          6.25
+        ]
+      ],
+      "attributes": {
+        "roomId": "Living Room"
+      }
+    },
+    {
+      "id": "Window-5",
+      "name": "Window-2000",
+      "geometry": [
+        [
+          10.05,
+          7.3
+        ],
+        [
+          12.05,
+          7.3
+        ]
+      ],
+      "attributes": {
+        "roomId": "Bedroom-2"
+      }
+    },
+    {
+      "id": "Window-6",
+      "name": "Window-750",
+      "geometry": [
+        [
+          13.1,
+          2.95
+        ],
+        [
+          13.1,
+          2.2
+        ]
+      ],
+      "attributes": {
+        "roomId": "Washroom-2"
+      }
+    }
+  ],
+  "furniture": [],
+  "mep": [],
+  "structure": [
+    {
+      "id": "A_1",
+      "name": "Column_A_1",
+      "geometry": [
+        [
+          0,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "120x120",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "A_2",
+      "name": "Column_A_2",
+      "geometry": [
+        [
+          0,
+          4.0
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "120x120",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "A_3",
+      "name": "Column_A_3",
+      "geometry": [
+        [
+          0,
+          7.3
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "120x120",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "B_1",
+      "name": "Column_B_1",
+      "geometry": [
+        [
+          4.0,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "120x120",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "B_2",
+      "name": "Column_B_2",
+      "geometry": [
+        [
+          4.0,
+          4.0
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "dimensions": "120x120",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "B_3",
+      "name": "Column_B_3",
+      "geometry": [
+        [
+          4.0,
+          7.3
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "120x120",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "C_1",
+      "name": "Column_C_1",
+      "geometry": [
+        [
+          8.0,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "120x120",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "C_2",
+      "name": "Column_C_2",
+      "geometry": [
+        [
+          8.0,
+          4.0
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "dimensions": "120x120",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "C_3",
+      "name": "Column_C_3",
+      "geometry": [
+        [
+          8.0,
+          7.3
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "120x120",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "D_1",
+      "name": "Column_D_1",
+      "geometry": [
+        [
+          13.1,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "120x120",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "D_2",
+      "name": "Column_D_2",
+      "geometry": [
+        [
+          13.1,
+          4.0
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "120x120",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "D_3",
+      "name": "Column_D_3",
+      "geometry": [
+        [
+          13.1,
+          7.3
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "120x120",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "AB_1",
+      "name": "Beam_AB_1",
+      "geometry": [
+        [
+          0,
+          0
+        ],
+        [
+          4.0,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "4.0",
+        "depth": "300",
+        "width": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "BC_1",
+      "name": "Beam_BC_1",
+      "geometry": [
+        [
+          4.0,
+          0
+        ],
+        [
+          8.0,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "4.0",
+        "depth": "300",
+        "width": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "CD_1",
+      "name": "Beam_CD_1",
+      "geometry": [
+        [
+          8.0,
+          0
+        ],
+        [
+          13.1,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "5.1",
+        "depth": "300",
+        "width": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "AB_2",
+      "name": "Beam_AB_2",
+      "geometry": [
+        [
+          0,
+          4.0
+        ],
+        [
+          4.0,
+          4.0
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "4.0",
+        "depth": "300",
+        "width": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "BC_2",
+      "name": "Beam_BC_2",
+      "geometry": [
+        [
+          4.0,
+          4.0
+        ],
+        [
+          8.0,
+          4.0
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "4.0",
+        "depth": "300",
+        "width": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "CD_2",
+      "name": "Beam_CD_2",
+      "geometry": [
+        [
+          8.0,
+          4.0
+        ],
+        [
+          13.1,
+          4.0
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "5.1",
+        "depth": "300",
+        "width": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "AB_3",
+      "name": "Beam_AB_3",
+      "geometry": [
+        [
+          0,
+          7.3
+        ],
+        [
+          4.0,
+          7.3
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "4.0",
+        "depth": "300",
+        "width": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "BC_3",
+      "name": "Beam_BC_3",
+      "geometry": [
+        [
+          4.0,
+          7.3
+        ],
+        [
+          8.0,
+          7.3
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "4.0",
+        "depth": "300",
+        "width": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "CD_3",
+      "name": "Beam_CD_3",
+      "geometry": [
+        [
+          8.0,
+          7.3
+        ],
+        [
+          13.1,
+          7.3
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "5.1",
+        "depth": "300",
+        "width": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "A_12",
+      "name": "Beam_A_12",
+      "geometry": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          4.0
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "4.0",
+        "depth": "300",
+        "width": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "A_23",
+      "name": "Beam_A_23",
+      "geometry": [
+        [
+          0,
+          4.0
+        ],
+        [
+          0,
+          7.3
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "3.3",
+        "depth": "300",
+        "width": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "B_12",
+      "name": "Beam_B_12",
+      "geometry": [
+        [
+          4.0,
+          0
+        ],
+        [
+          4.0,
+          4.0
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "4.0",
+        "depth": "300",
+        "width": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "B_23",
+      "name": "Beam_B_23",
+      "geometry": [
+        [
+          4.0,
+          4.0
+        ],
+        [
+          4.0,
+          7.3
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "3.3",
+        "depth": "300",
+        "width": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "C_12",
+      "name": "Beam_C_12",
+      "geometry": [
+        [
+          8.0,
+          0
+        ],
+        [
+          8.0,
+          4.0
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "4.0",
+        "depth": "300",
+        "width": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "C_23",
+      "name": "Beam_C_23",
+      "geometry": [
+        [
+          8.0,
+          4.0
+        ],
+        [
+          8.0,
+          7.3
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "3.3",
+        "depth": "300",
+        "width": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "D_12",
+      "name": "Beam_D_12",
+      "geometry": [
+        [
+          13.1,
+          0
+        ],
+        [
+          13.1,
+          4.0
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "4.0",
+        "depth": "300",
+        "width": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
+      }
+    },
+    {
+      "id": "D_23",
+      "name": "Beam_D_23",
+      "geometry": [
+        [
+          13.1,
+          4.0
+        ],
+        [
+          13.1,
+          7.3
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "3.3",
+        "depth": "300",
+        "width": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "TIMBER_M",
+        "conflict": "None"
       }
     }
   ]

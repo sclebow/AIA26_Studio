@@ -1,0 +1,76 @@
+{
+  "source": "OSHA 29 CFR 1910.37 + 1910.176 + NFPA 101 Life Safety Code",
+  "topic": "Industrial egress, aisle widths, and safety clearances",
+  "facts": [
+    {
+      "rule": "min_exit_route_width",
+      "value_m": 0.710,
+      "context": "OSHA 1910.37(b) — exit routes must be at least 28 in wide"
+    },
+    {
+      "rule": "min_exit_route_width_50plus_occupants",
+      "value_m": 1.120,
+      "context": "NFPA 101 — 44 in for corridors serving 50+ occupants"
+    },
+    {
+      "rule": "min_aisle_width_general",
+      "value_m": 1.220,
+      "context": "OSHA 1910.176(a) — aisles and passageways kept clear, min 48 in recommended"
+    },
+    {
+      "rule": "min_aisle_width_forklift_one_way",
+      "value_m": 3.050,
+      "context": "Forklift aisle — vehicle width (1.2m) + load + 0.6m each side clearance"
+    },
+    {
+      "rule": "min_aisle_width_forklift_two_way",
+      "value_m": 3.660,
+      "context": "Two-way forklift traffic — OSHA best practice (12 ft)"
+    },
+    {
+      "rule": "min_clearance_around_machinery",
+      "value_m": 0.915,
+      "context": "OSHA general industry — 36 in clearance for operator access around machines"
+    },
+    {
+      "rule": "electrical_panel_clearance_front",
+      "value_m": 0.915,
+      "context": "OSHA / NEC 110.26 — 36 in minimum clear space in front of electrical panels"
+    },
+    {
+      "rule": "electrical_panel_clearance_width",
+      "value_m": 0.760,
+      "context": "NEC 110.26 — 30 in minimum width of clear space at panels"
+    },
+    {
+      "rule": "emergency_exit_door_width",
+      "value_m": 0.815,
+      "context": "NFPA 101 — 32 in clear opening minimum for emergency exit doors"
+    },
+    {
+      "rule": "fire_extinguisher_clearance",
+      "value_m": 0.915,
+      "context": "OSHA 1910.157 — maintain 36 in clear access to fire extinguishers"
+    },
+    {
+      "rule": "max_dead_end_corridor_length",
+      "value_m": 6.100,
+      "context": "NFPA 101 — dead-end corridors max 20 ft in industrial occupancy"
+    },
+    {
+      "rule": "pallet_rack_aisle_width",
+      "value_m": 2.440,
+      "context": "ANSI/RMI MH16.1 — min aisle width for pallet racks (8 ft nominal)"
+    },
+    {
+      "rule": "loading_dock_min_depth",
+      "value_m": 3.660,
+      "context": "Standard loading dock operational depth (12 ft)"
+    },
+    {
+      "rule": "overhead_crane_clearance",
+      "value_m": 0.610,
+      "context": "OSHA 1910.179 — 24 in minimum clearance between crane and obstruction"
+    }
+  ]
+}

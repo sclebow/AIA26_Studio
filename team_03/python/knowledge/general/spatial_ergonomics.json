@@ -1,0 +1,101 @@
+{
+  "source": "Neufert Architects' Data (4th Ed.) + Human Factors references",
+  "topic": "Spatial ergonomics and anthropometric clearances",
+  "facts": [
+    {
+      "rule": "standing_person_width",
+      "value_m": 0.600,
+      "context": "Average adult shoulder width including slight sway"
+    },
+    {
+      "rule": "standing_person_depth",
+      "value_m": 0.350,
+      "context": "Average adult body depth (front to back)"
+    },
+    {
+      "rule": "wheelchair_overall_width",
+      "value_m": 0.700,
+      "context": "Standard manual wheelchair including armrests"
+    },
+    {
+      "rule": "wheelchair_overall_length",
+      "value_m": 1.100,
+      "context": "Standard manual wheelchair including footrests"
+    },
+    {
+      "rule": "electric_wheelchair_width",
+      "value_m": 0.750,
+      "context": "Powered wheelchair — slightly wider than manual"
+    },
+    {
+      "rule": "walker_frame_width",
+      "value_m": 0.650,
+      "context": "Standard rollator or walker frame width"
+    },
+    {
+      "rule": "stroller_width",
+      "value_m": 0.650,
+      "context": "Standard baby stroller width"
+    },
+    {
+      "rule": "stroller_length",
+      "value_m": 1.050,
+      "context": "Standard baby stroller length"
+    },
+    {
+      "rule": "cane_user_sway_width",
+      "value_m": 0.900,
+      "context": "Person using a cane — additional lateral sway allowance"
+    },
+    {
+      "rule": "eye_height_seated_wheelchair",
+      "value_m": 1.100,
+      "context": "Average eye height of a seated wheelchair user"
+    },
+    {
+      "rule": "eye_height_standing",
+      "value_m": 1.550,
+      "context": "Average standing eye height (5th percentile female to 95th male: 1.40–1.70 m)"
+    },
+    {
+      "rule": "comfortable_forward_reach",
+      "value_m": 0.600,
+      "context": "Comfortable forward reach from seated wheelchair position"
+    },
+    {
+      "rule": "max_forward_reach_over_obstruction",
+      "value_m": 0.510,
+      "context": "Max reach over a 0.51m-deep obstruction at counter height"
+    },
+    {
+      "rule": "min_knee_clearance_depth",
+      "value_m": 0.280,
+      "context": "Neufert — minimum knee clearance depth under a table/counter"
+    },
+    {
+      "rule": "min_knee_clearance_height",
+      "value_m": 0.685,
+      "context": "ADA 306.3.1 — 27 in minimum knee clearance height"
+    },
+    {
+      "rule": "min_toe_clearance_depth",
+      "value_m": 0.430,
+      "context": "ADA 306.2 — 17 in minimum toe clearance depth"
+    },
+    {
+      "rule": "corridor_one_person",
+      "value_m": 0.900,
+      "context": "Neufert — minimum corridor for one person walking"
+    },
+    {
+      "rule": "corridor_two_persons",
+      "value_m": 1.350,
+      "context": "Neufert — minimum corridor for two people passing"
+    },
+    {
+      "rule": "corridor_wheelchair_plus_person",
+      "value_m": 1.500,
+      "context": "Neufert — wheelchair and one person passing comfortably"
+    }
+  ]
+}

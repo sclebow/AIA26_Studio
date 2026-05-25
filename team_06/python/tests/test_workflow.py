@@ -33,15 +33,14 @@ import re
 from pathlib import Path
 from typing import Any
 import threading
+from functools import lru_cache
+from _runtime.bootstrap import bootstrap
+from tools.layout_filter import select_layout
+from tools.graph_searcher import GraphSearcher, build_topology_graph
+
 
 # Add parent directory for imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from _runtime.bootstrap import bootstrap
-from nodes.local_tools import _load_all_layouts, _get_graph_searcher
-from tools.layout_filter import select_layout
-from tools.graph_searcher import build_topology_graph
-
 
 # ============================================================================
 # State Management — File-based persistence (same structure as production)
@@ -140,6 +139,24 @@ def call_mcp_tool_safe(ctx: Any, tool_name: str, args: dict, timeout_sec: float 
     else:
         return (False, result["error"] or "Unknown error")
 
+# ============================================================================
+# Local tool helpers (replaces local_tools.py imports)
+# ============================================================================
+
+@lru_cache(maxsize=1)
+def _load_all_layouts() -> list[dict[str, Any]]:
+    """Load all layouts from sample_layouts.json."""
+    repo_root = Path(__file__).resolve().parent.parent.parent  # team_06/
+    layouts_path = repo_root / "layout_inputs" / "sample_layouts.json"
+    return json.loads(layouts_path.read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=1)
+def _get_graph_searcher():
+    """Initialize and cache GraphSearcher instance."""
+    repo_root = Path(__file__).resolve().parent.parent.parent  # team_06/
+    graphs_path = repo_root / "layout_inputs" / "sample_graphs.json"
+    return GraphSearcher(str(graphs_path))
 
 # ============================================================================
 # Mock LLM — Parse natural language to tool calls

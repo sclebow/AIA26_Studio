@@ -118,12 +118,15 @@ The rewrite includes a deterministic smoke test in `team_04/tests/test_agent_gra
 
 Focused geometry regression coverage also lives in `team_04/tests/test_boundary_tools.py`.
 
+Live Rhino or Grasshopper connectivity for the context-reader surface can now be checked with `team_04/tests/test_context_reader_live.ipynb`.
+
 It validates:
 - planner plus supervisor completion through shape generation, constraint repair, evaluation, and reporting;
 - non-blocking `await_human` behavior;
 - multi-building sequencing through requested-position checks, placement, and remaining-site analysis.
 - all requested local shape families (`I`, `L`, `T`, `Y`, `H`, `X`, `O`) keep the requested footprint area;
 - the new boundary-transformation tool can move, orient, rotate, and mirror a building, then classify whether the transformed footprint still fits inside the site boundary.
+- notebook-level OpenAI credential loading, MCP reachability, live `context_reader` tool discovery, and direct tool execution against Rhino or Grasshopper.
 
 ## Local Geometry Tooling
 
@@ -141,3 +144,7 @@ Team 04 now has three active notebook harnesses for geometry workflows:
 - `test_generate_building_boundary.ipynb`: single-building boundary generation and Grasshopper handoff.
 - `test_two_building_workflow.ipynb`: two-building placement sequencing with requested-point checks and remaining-position analysis.
 - `test_multi_building_shape_transformations.ipynb`: many-building stress test across `L`, `I`, `Y`, `T`, `H`, `X`, and `O`, including move, orientation, rotation, mirroring, and site-fit checks.
+
+There is also one live notebook harness under `team_04/tests/` for direct MCP verification:
+
+- `tests/test_context_reader_live.ipynb`: validates Team 04 environment loading, OpenAI connectivity, Swiftlet MCP discovery, and a direct live call to the `context_reader` Grasshopper tool.
