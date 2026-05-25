@@ -1,45 +1,35 @@
 from typing import Any
-import json
 
-def build_preprocessing_node() -> Any:
-    """Check: do we have a layout with rooms AND keywords in prompt?"""
-    def preprocessing(state: dict) -> dict:
+# ---------------------------------------------------------------------------
+# Check user prompt and determine the next action.
+# ---------------------------------------------------------------------------
+
+end_keywords = ["end", "finish", "done"]
+topology_keywords = ["layout", "apartment", "house", "floor plan", "topology"]
+modify_keywords = ["change", "modify", "adjust", "move", "relocate", "add", "remove"]
+evaluate_keywords = ["evaluate", "feedback", "daylight", "privacy", "flow", "functionality"]
+
+def build_preprocess_node() -> Any:
+    def preprocess(state: dict) -> dict:
         user_prompt = state.get("user_prompt", "").lower()
-        layout_json = state.get("layout_json_string", "")
-        
-        # === PRIORITY 1: END SIGNAL ===
-        if "end" in user_prompt or "finish" in user_prompt or "done" in user_prompt:
+        if any(keyword in user_prompt for keyword in end_keywords):
             return {
-                "preprocessing_result": "end",
+                "preprocess_result": "end",
                 "final_response": "Layout finalized."
             }
         
-        # === PRIORITY 2: USER FEEDBACK/COMMANDS ===
-        if "change rooms" in user_prompt or "new rooms" in user_prompt:
-            return {"preprocessing_result": "research"}
-        
-        if "change boundary" in user_prompt or "change outline" in user_prompt:
-            return {"preprocessing_result": "modify_boundary"}
+        if any(keyword in user_prompt for keyword in topology_keywords):
+            return {"preprocess_result": "topology"}
         
         if "layout-" in user_prompt:
-            return {"preprocessing_result": "select_layout"}
+            return {"preprocess_result": "select"}
+
+        if any(keyword in user_prompt for keyword in modify_keywords):
+            return {"preprocess_result": "modify"}
         
-        # === PRIORITY 3: NORMAL FLOW ===
-        if not layout_json:
-            return {"preprocessing_result": "parse"}
+        if any(keyword in user_prompt for keyword in evaluate_keywords):
+            return {"preprocess_result": "evaluate"}
         
-        try:
-            layout = json.loads(layout_json)
-            has_rooms = len(layout.get("rooms", [])) > 0
-        except:
-            return {"preprocessing_result": "parse"}
-        
-        # Check if layout has rooms AND prompt has keywords
-        has_keywords = any(keyword in user_prompt for keyword in ["evaluate", "feedback", "daylight"])
-        
-        if has_rooms and has_keywords:
-            return {"preprocessing_result": "evaluate"}
-        else:
-            return {"preprocessing_result": "parse"}
-    
-    return preprocessing
+        return {"preprocess_result": "reason"}
+
+    return preprocess

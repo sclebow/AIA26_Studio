@@ -21,82 +21,34 @@ from typing import Any
 
 
 # ---------------------------------------------------------------------------
-# Default profiles — used when no profile_config in state
+# Grid resolution in metres — balances accuracy vs speed
 # ---------------------------------------------------------------------------
 
-DEFAULT_PROFILES: dict[str, dict[str, Any]] = {
-    "wheelchair": {
-        "min_door_width_m": 0.85,
-        "min_corridor_width_m": 0.90,
-        "turning_radius_m": 1.50,
-        "body_width_m": 0.70,
-    },
-    "elderly": {
-        "min_door_width_m": 0.80,
-        "min_corridor_width_m": 0.85,
-        "turning_radius_m": 1.20,
-        "body_width_m": 0.60,
-    },
-    "stroller": {
-        "min_door_width_m": 0.80,
-        "min_corridor_width_m": 0.90,
-        "turning_radius_m": 1.30,
-        "body_width_m": 0.65,
-    },
-    "autistic": {
-        "min_door_width_m": 0.75,
-        "min_corridor_width_m": 0.80,
-        "turning_radius_m": 1.00,
-        "body_width_m": 0.55,
-    },
-    "visually_impaired": {
-        "min_door_width_m": 0.80,
-        "min_corridor_width_m": 0.90,
-        "turning_radius_m": 1.20,
-        "body_width_m": 0.60,
-    },
-    "forklift": {
-        "min_door_width_m": 2.50,
-        "min_corridor_width_m": 3.00,
-        "turning_radius_m": 3.50,
-        "body_width_m": 1.20,
-    },
-    "crane": {
-        "min_door_width_m": 4.00,
-        "min_corridor_width_m": 5.00,
-        "turning_radius_m": 5.00,
-        "body_width_m": 2.00,
-    },
-}
-
-# Grid resolution in metres — balances accuracy vs speed
 GRID_RESOLUTION = 0.10
 
 
 # ---------------------------------------------------------------------------
-# Profile helpers
+# Profile resolver
+# All values injected by the Python agent via state["profile_config"].
+# No hardcoded residential/wheelchair profiles — industrial only.
+# Falls back to standard_worker if nothing is provided.
 # ---------------------------------------------------------------------------
 
 def _resolve_profile(profile_config: dict | None) -> dict:
     """
     Resolve the active profile from state["profile_config"].
-    Falls back to wheelchair defaults if nothing provided.
-    Always ensures user_type key is present in the result.
+    Reads whatever the profile_agent injected — no hardcoded defaults dict.
+    Always ensures all required keys are present in the result.
     """
-    if not profile_config:
-        # No profile provided — use wheelchair defaults
-        base = dict(DEFAULT_PROFILES["wheelchair"])
-        base["user_type"] = "wheelchair"
-        return base
-    user_type = profile_config.get("profile_type", "wheelchair")
-    base = dict(DEFAULT_PROFILES.get(user_type, DEFAULT_PROFILES["wheelchair"]))
-    base["user_type"] = user_type
-    # Map profile_agent keys to collision keys
-    if "min_path_width" in profile_config:
-        base["min_corridor_width_m"] = profile_config["min_path_width"]
-    if "turning_radius" in profile_config:
-        base["turning_radius_m"] = profile_config["turning_radius"]
-    return base
+    pc = profile_config or {}
+    user_type = pc.get("profile_type", "standard_worker")
+    return {
+        "user_type":            user_type,
+        "body_width_m":         float(pc.get("body_width",     0.70)),
+        "min_corridor_width_m": float(pc.get("min_path_width", 0.915)),
+        "min_door_width_m":     float(pc.get("min_door_width", 0.85)),
+        "turning_radius_m":     float(pc.get("turning_radius", 0.30)),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -138,7 +90,6 @@ def _split_wall_at_doors(wp1, wp2, door_segments, half_thickness):
     if not door_intervals:
         return [(wp1, wp2)]
 
-    # Merge overlapping door intervals
     door_intervals.sort()
     merged = [door_intervals[0]]
     for start, end in door_intervals[1:]:
@@ -242,7 +193,7 @@ def _compute_distance_field(grid, cols, rows):
             dist[idx] = 0
             queue.append(idx)
         elif grid[idx] == -1:
-            dist[idx] = -1  # outside boundary
+            dist[idx] = -1
         else:
             dist[idx] = 999999
 
@@ -349,7 +300,6 @@ def _check_use_point_clearance(use_point, dist, attrib_grid,
     idx = gy * cols + gx
     d = dist[idx]
 
-    # If use_point lands on own object, search outward for real clearance
     if d <= 0 and attrib_grid[idx] == self_obj_index:
         best_d = 999999
         search_r = body_half_cells + 3
@@ -367,11 +317,11 @@ def _check_use_point_clearance(use_point, dist, attrib_grid,
                 "deficit_m": round(body_half_cells * cs, 3)}
 
     clearance_m = d * cs
-    required_m = body_half_cells * cs
+    required_m  = body_half_cells * cs
     return {
         "clearance_m": round(clearance_m, 3),
-        "sufficient": d >= body_half_cells,
-        "deficit_m": round(max(0, required_m - clearance_m), 3),
+        "sufficient":  d >= body_half_cells,
+        "deficit_m":   round(max(0, required_m - clearance_m), 3),
     }
 
 
@@ -383,8 +333,8 @@ def _check_functional_line(use_point, functional_point, grid,
     Uses Bresenham rasterization to check each cell along the line.
     Ignores self as blocker.
     """
-    x0 = max(0, min(cols-1, int(round((use_point[0] - ox) / cs))))
-    y0 = max(0, min(rows-1, int(round((use_point[1] - oy) / cs))))
+    x0 = max(0, min(cols-1, int(round((use_point[0]       - ox) / cs))))
+    y0 = max(0, min(rows-1, int(round((use_point[1]       - oy) / cs))))
     x1 = max(0, min(cols-1, int(round((functional_point[0] - ox) / cs))))
     y1 = max(0, min(rows-1, int(round((functional_point[1] - oy) / cs))))
 
@@ -400,11 +350,11 @@ def _check_functional_line(use_point, functional_point, grid,
                        if 0 <= obj_i < len(obj_registry)
                        else {"id": "unknown", "name": "unknown", "type": "unknown"})
             return {
-                "blocked": True,
-                "blocking_object_id": blocking["id"],
-                "blocking_object_name": blocking["name"],
-                "blocking_object_type": blocking["type"],
-                "block_point": [round(ox + cx * cs, 3), round(oy + cy * cs, 3)],
+                "blocked":               True,
+                "blocking_object_id":    blocking["id"],
+                "blocking_object_name":  blocking["name"],
+                "blocking_object_type":  blocking["type"],
+                "block_point":           [round(ox + cx * cs, 3), round(oy + cy * cs, 3)],
             }
     return {"blocked": False}
 
@@ -414,7 +364,6 @@ def _compute_reachable_from_doors(doors, dist, cols, rows,
     """
     BFS from door midpoints through all cells with sufficient clearance.
     Returns set of reachable cell indices.
-    Used to check connectivity — can you physically reach every object?
     """
     if not doors:
         return set()
@@ -425,11 +374,11 @@ def _compute_reachable_from_doors(doors, dist, cols, rows,
     if not first_door:
         return set()
 
-    geom = first_door["geometry"]
+    geom  = first_door["geometry"]
     mid_x = (geom[0][0] + geom[1][0]) / 2.0
     mid_y = (geom[0][1] + geom[1][1]) / 2.0
-    dcx = int((mid_x - ox) / cs)
-    dcy = int((mid_y - oy) / cs)
+    dcx   = int((mid_x - ox) / cs)
+    dcy   = int((mid_y - oy) / cs)
 
     search_r = body_half_cells + 4
     seeds = {
@@ -447,7 +396,7 @@ def _compute_reachable_from_doors(doors, dist, cols, rows,
     reachable = set(seeds)
     bfs_q = deque(seeds)
     while bfs_q:
-        ci = bfs_q.popleft()
+        ci     = bfs_q.popleft()
         cx_pos = ci % cols
         cy_pos = ci // cols
         for nidx in [ci-1, ci+1, ci-cols, ci+cols]:
@@ -502,11 +451,10 @@ def _compute_move_suggestion(use_point, dist, nearest, obj_registry,
         return None
 
     idx = gy * cols + gx
-    d = dist[idx]
+    d   = dist[idx]
     if d < 0 or d >= body_half_cells:
-        return None  # no violation — no suggestion needed
+        return None
 
-    # Central difference gradient of distance field
     d_right = max(0, dist[idx + 1])
     d_left  = max(0, dist[idx - 1])
     d_up    = max(0, dist[idx + cols])
@@ -514,13 +462,13 @@ def _compute_move_suggestion(use_point, dist, nearest, obj_registry,
 
     grad_x = (d_right - d_left) / 2.0
     grad_y = (d_up - d_down) / 2.0
-    mag = math.sqrt(grad_x**2 + grad_y**2)
+    mag    = math.sqrt(grad_x**2 + grad_y**2)
 
     if mag < 0.01:
         return None
 
-    dx_norm = grad_x / mag
-    dy_norm = grad_y / mag
+    dx_norm   = grad_x / mag
+    dy_norm   = grad_y / mag
     deficit_m = (body_half_cells - d) * cs
     move_dist = deficit_m / min(mag, 1.0)
 
@@ -530,9 +478,9 @@ def _compute_move_suggestion(use_point, dist, nearest, obj_registry,
         nearest_id = obj_registry[ni]["id"]
 
     return {
-        "direction": [round(dx_norm, 3), round(dy_norm, 3)],
-        "distance_m": round(move_dist, 3),
-        "deficit_m": round(deficit_m, 3),
+        "direction":           [round(dx_norm, 3), round(dy_norm, 3)],
+        "distance_m":          round(move_dist, 3),
+        "deficit_m":           round(deficit_m, 3),
         "nearest_obstacle_id": nearest_id,
     }
 
@@ -542,10 +490,10 @@ def _compute_move_suggestion(use_point, dist, nearest, obj_registry,
 # ---------------------------------------------------------------------------
 
 def check_collision(
-    layout: dict[str, Any],
-    profile_config: dict[str, Any] | None = None,
-    wall_thickness: float = 0.20,
-    compare_layout: dict[str, Any] | None = None,
+    layout:          dict[str, Any],
+    profile_config:  dict[str, Any] | None = None,
+    wall_thickness:  float = 0.20,
+    compare_layout:  dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Run full grid-based collision and accessibility analysis.
@@ -555,38 +503,39 @@ def check_collision(
     checking, functional_point line checking, and move suggestions.
 
     Args:
-        layout: the current layout dict
+        layout:         the current layout dict
         profile_config: from state["profile_config"] — Profile Agent output
         wall_thickness: wall thickness in metres (default 0.20m)
         compare_layout: optional previous layout for before/after diff
+                        (pass original_layout from state to separate
+                        pre-existing violations from new ones)
 
     Returns:
-        dict with pass, violations, objects, doors, summary, grid_meta
+        dict with pass, violations, objects, doors, summary, comparison
     """
-    cs = GRID_RESOLUTION
+    cs      = GRID_RESOLUTION
     profile = _resolve_profile(profile_config)
 
     outline = layout.get("outline", [])
     if not outline or len(outline) < 3:
         return {
-            "pass": False,
+            "pass":       False,
             "violations": ["No valid outline found in layout"],
-            "summary": {"total_violations": 1},
-            "objects": [],
-            "doors": [],
+            "summary":    {"total_violations": 1, "hard_violations": 1},
+            "objects":    [],
+            "doors":      [],
         }
 
     # ── Build bounding box and initialize grids ──────────────────────────
     all_x = [p[0] for p in outline]
     all_y = [p[1] for p in outline]
-    ox = min(all_x)
-    oy = min(all_y)
-    cols = int(math.ceil((max(all_x) - ox) / cs)) + 1
-    rows = int(math.ceil((max(all_y) - oy) / cs)) + 1
+    ox    = min(all_x)
+    oy    = min(all_y)
+    cols  = int(math.ceil((max(all_x) - ox) / cs)) + 1
+    rows  = int(math.ceil((max(all_y) - oy) / cs)) + 1
     total = cols * rows
 
-    # grid: -1=outside, 0=free inside, -2=obstacle
-    grid = [-1] * total
+    grid        = [-1] * total
     attrib_grid = [-1] * total
     obj_registry: list[dict] = []
 
@@ -609,10 +558,10 @@ def check_collision(
             continue
         obj_i = len(obj_registry)
         obj_registry.append({
-            "id": wall.get("id", "unknown"),
-            "name": wall.get("name", "wall"),
-            "type": "structure",
-            "use_point": None,
+            "id":               wall.get("id", "unknown"),
+            "name":             wall.get("name", "wall"),
+            "type":             "structure",
+            "use_point":        None,
             "functional_point": None,
         })
         for seg_p1, seg_p2 in _split_wall_at_doors(
@@ -629,10 +578,10 @@ def check_collision(
         if len(geom) >= 3:
             obj_i = len(obj_registry)
             obj_registry.append({
-                "id": furn.get("id", "unknown"),
-                "name": furn.get("name", "furniture"),
-                "type": "furniture",
-                "use_point": furn.get("use_point"),
+                "id":               furn.get("id", "unknown"),
+                "name":             furn.get("name", "furniture"),
+                "type":             "furniture",
+                "use_point":        furn.get("use_point"),
                 "functional_point": furn.get("functional_point"),
             })
             _rasterize_polygon(geom, grid, attrib_grid,
@@ -644,10 +593,10 @@ def check_collision(
         if len(geom) >= 3:
             obj_i = len(obj_registry)
             obj_registry.append({
-                "id": mep.get("id", "unknown"),
-                "name": mep.get("name", "mep"),
-                "type": "mep",
-                "use_point": None,
+                "id":               mep.get("id", "unknown"),
+                "name":             mep.get("name", "mep"),
+                "type":             "mep",
+                "use_point":        None,
                 "functional_point": None,
             })
             _rasterize_polygon(geom, grid, attrib_grid,
@@ -661,49 +610,116 @@ def check_collision(
     corridor_half_cells = int(math.ceil(
         (profile["min_corridor_width_m"] / 2.0) / cs))
 
-    violations: list[str] = []
+    violations:         list[str]       = []
     obj_violation_data: dict[int, dict] = {}
 
-    # ── Find violation and warning cells ─────────────────────────────────
+    # ── Find violation and warning cells — separated by object type ───────
     violation_cells: list[int] = []
-    warning_cells: list[int] = []
+    warning_cells:   list[int] = []
+
+    # Separate counters: structure (walls/boundaries) vs equipment (furniture/mep)
+    structure_blocked  = 0
+    equipment_blocked  = 0
+    structure_warning  = 0
+    equipment_warning  = 0
 
     for idx in range(total):
         d = dist[idx]
         if d <= 0 or d == -1:
             continue
-        obj_i = nearest[idx]
+        obj_i    = nearest[idx]
+        obj_type = (obj_registry[obj_i]["type"]
+                    if 0 <= obj_i < len(obj_registry) else "unknown")
+
         if d < body_half_cells:
             violation_cells.append(idx)
             if obj_i >= 0:
                 e = obj_violation_data.setdefault(
                     obj_i, {"blocked_cells": 0, "warning_cells": 0,
                             "min_clearance_m": 999.0})
-                e["blocked_cells"] += 1
+                e["blocked_cells"]  += 1
                 e["min_clearance_m"] = min(e["min_clearance_m"], d * cs)
+            if obj_type == "structure":
+                structure_blocked += 1
+            else:
+                equipment_blocked += 1
+
         elif d < corridor_half_cells:
             warning_cells.append(idx)
             if obj_i >= 0:
                 e = obj_violation_data.setdefault(
                     obj_i, {"blocked_cells": 0, "warning_cells": 0,
                             "min_clearance_m": 999.0})
-                e["warning_cells"] += 1
+                e["warning_cells"]  += 1
                 e["min_clearance_m"] = min(e["min_clearance_m"], d * cs)
+            if obj_type == "structure":
+                structure_warning += 1
+            else:
+                equipment_warning += 1
 
+    # ── Compute real clearance per object (Voronoi boundary method) ──
+    # The min_clearance_m from the loop above tracks the distance from
+    # free cells to their nearest obstacle surface, which bottoms out at
+    # 1 cell (0.1m) for every object.  What we actually need is the gap
+    # between each object and its nearest OTHER obstacle (wall, furniture,
+    # mep).  We detect this at Voronoi boundaries — adjacent free cells
+    # whose nearest-obstacle attribution differs.  At such a boundary the
+    # gap ≈ dist[a] + dist[b] (cells from each obstacle surface).
+    _obj_real_clearance: dict[int, float] = {}
+    for _idx in range(total):
+        _d = dist[_idx]
+        if _d <= 0:
+            continue
+        _oi = nearest[_idx]
+        if _oi < 0:
+            continue
+        _ix = _idx % cols
+        _iy = _idx // cols
+        for _dx, _dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            _nx = _ix + _dx
+            _ny = _iy + _dy
+            if 0 <= _nx < cols and 0 <= _ny < rows:
+                _nidx = _ny * cols + _nx
+                _dn = dist[_nidx]
+                if _dn <= 0:
+                    continue
+                _oj = nearest[_nidx]
+                if _oj >= 0 and _oj != _oi:
+                    _gap = (_d + _dn) * cs
+                    if _oi not in _obj_real_clearance or _gap < _obj_real_clearance[_oi]:
+                        _obj_real_clearance[_oi] = _gap
+                    if _oj not in _obj_real_clearance or _gap < _obj_real_clearance[_oj]:
+                        _obj_real_clearance[_oj] = _gap
+
+    for _oi_key, _vdata in obj_violation_data.items():
+        if _oi_key in _obj_real_clearance:
+            _vdata["min_clearance_m"] = _obj_real_clearance[_oi_key]
+        else:
+            # Object has violations but no Voronoi boundary — touching
+            # another obstacle directly (gap ≈ 0).
+            _vdata["min_clearance_m"] = 0.0
+
+    # Violation messages now include structure vs equipment breakdown
     if violation_cells:
         violations.append(
-            "BLOCKED: {} cells ({:.2f}m²) clearance < {:.2f}m".format(
+            "BLOCKED: {} cells ({:.2f}m²) clearance < {:.2f}m "
+            "[walls: {:.2f}m² | equipment: {:.2f}m²]".format(
                 len(violation_cells),
                 len(violation_cells) * cs * cs,
                 profile["body_width_m"] / 2.0,
+                structure_blocked * cs * cs,
+                equipment_blocked * cs * cs,
             )
         )
     if warning_cells:
         violations.append(
-            "WARNING: {} cells ({:.2f}m²) below corridor spec {:.2f}m".format(
+            "WARNING: {} cells ({:.2f}m²) below corridor spec {:.2f}m "
+            "[walls: {:.2f}m² | equipment: {:.2f}m²]".format(
                 len(warning_cells),
                 len(warning_cells) * cs * cs,
                 profile["min_corridor_width_m"] / 2.0,
+                structure_warning * cs * cs,
+                equipment_warning * cs * cs,
             )
         )
 
@@ -712,9 +728,9 @@ def check_collision(
     for door in layout.get("doors", []):
         geom = door.get("geometry", [])
         if len(geom) == 2:
-            dx = geom[1][0] - geom[0][0]
-            dy = geom[1][1] - geom[0][1]
-            width = math.sqrt(dx*dx + dy*dy)
+            dx     = geom[1][0] - geom[0][0]
+            dy     = geom[1][1] - geom[0][1]
+            width  = math.sqrt(dx*dx + dy*dy)
             if width < profile["min_door_width_m"] - 0.01:
                 deficit = profile["min_door_width_m"] - width
                 violations.append(
@@ -724,27 +740,27 @@ def check_collision(
                     )
                 )
                 door_violations.append({
-                    "id": door.get("id", "unknown"),
-                    "name": door.get("name", "door"),
-                    "type": "width",
-                    "actual_m": round(width, 3),
+                    "id":         door.get("id", "unknown"),
+                    "name":       door.get("name", "door"),
+                    "type":       "width",
+                    "actual_m":   round(width, 3),
                     "required_m": profile["min_door_width_m"],
-                    "deficit_m": round(deficit, 3),
+                    "deficit_m":  round(deficit, 3),
                 })
 
     # ── Turning radius check ──────────────────────────────────────────────
-    turning_cells = int(math.ceil(profile["turning_radius_m"] / cs))
+    turning_cells      = int(math.ceil(profile["turning_radius_m"] / cs))
     turning_violations: list[dict] = []
     for door in layout.get("doors", []):
         geom = door.get("geometry", [])
         if len(geom) != 2:
             continue
-        mid_x = (geom[0][0] + geom[1][0]) / 2.0
-        mid_y = (geom[0][1] + geom[1][1]) / 2.0
-        cx = int((mid_x - ox) / cs)
-        cy = int((mid_y - oy) / cs)
+        mid_x    = (geom[0][0] + geom[1][0]) / 2.0
+        mid_y    = (geom[0][1] + geom[1][1]) / 2.0
+        cx       = int((mid_x - ox) / cs)
+        cy       = int((mid_y - oy) / cs)
         search_r = min(turning_cells * 2, 60)
-        found = False
+        found    = False
         max_found = 0
         for dy_s in range(-search_r, search_r + 1, 2):
             for dx_s in range(-search_r, search_r + 1, 2):
@@ -766,12 +782,12 @@ def check_collision(
                 )
             )
             turning_violations.append({
-                "id": door.get("id", "unknown"),
-                "name": door.get("name", "door"),
-                "type": "turning_radius",
-                "required_m": profile["turning_radius_m"],
+                "id":          door.get("id", "unknown"),
+                "name":        door.get("name", "door"),
+                "type":        "turning_radius",
+                "required_m":  profile["turning_radius_m"],
                 "available_m": round(available, 3),
-                "deficit_m": round(profile["turning_radius_m"] - available, 3),
+                "deficit_m":   round(profile["turning_radius_m"] - available, 3),
             })
 
     # ── Reachability from doors ───────────────────────────────────────────
@@ -779,7 +795,7 @@ def check_collision(
         layout.get("doors", []), dist, cols, rows,
         ox, oy, cs, body_half_cells)
 
-    # ── Connectivity check (all doors reachable from first door) ──────────
+    # ── Connectivity check ────────────────────────────────────────────────
     doors = layout.get("doors", [])
     if len(doors) > 1 and reachable_set:
         search_r = body_half_cells + 4
@@ -789,8 +805,8 @@ def check_collision(
                 continue
             mid_x = (geom[0][0] + geom[1][0]) / 2.0
             mid_y = (geom[0][1] + geom[1][1]) / 2.0
-            dcx = int((mid_x - ox) / cs)
-            dcy = int((mid_y - oy) / cs)
+            dcx   = int((mid_x - ox) / cs)
+            dcy   = int((mid_y - oy) / cs)
             seeds = {
                 ny * cols + nx
                 for ddy in range(-search_r, search_r + 1)
@@ -815,10 +831,9 @@ def check_collision(
         if up is None:
             continue
 
-        clearance = _check_use_point_clearance(
+        clearance    = _check_use_point_clearance(
             up, dist, attrib_grid, obj_i,
             cols, rows, ox, oy, cs, body_half_cells)
-
         reachability = _check_use_point_reachability(
             up, reachable_set, dist,
             cols, rows, ox, oy, cs, body_half_cells)
@@ -829,7 +844,7 @@ def check_collision(
                 up, dist, nearest, obj_registry,
                 cols, rows, ox, oy, cs, body_half_cells)
 
-        fp = obj_info.get("functional_point")
+        fp        = obj_info.get("functional_point")
         func_line = None
         if fp is not None:
             func_line = _check_functional_line(
@@ -837,15 +852,15 @@ def check_collision(
                 obj_i, cols, rows, ox, oy, cs)
 
         use_point_results[obj_i] = {
-            "use_point": up,
-            "clearance_m": clearance["clearance_m"],
+            "use_point":            up,
+            "clearance_m":          clearance["clearance_m"],
             "clearance_sufficient": clearance["sufficient"],
-            "deficit_m": clearance["deficit_m"],
-            "reachable": reachability["reachable"],
-            "reachability_reason": reachability.get("reason"),
-            "move_suggestion": move_sug,
-            "functional_point": fp,
-            "functional_line": func_line,
+            "deficit_m":            clearance["deficit_m"],
+            "reachable":            reachability["reachable"],
+            "reachability_reason":  reachability.get("reason"),
+            "move_suggestion":      move_sug,
+            "functional_point":     fp,
+            "functional_line":      func_line,
         }
 
         if not clearance["sufficient"]:
@@ -877,63 +892,64 @@ def check_collision(
         if not has_cv and not has_up:
             continue
         entry: dict = {
-            "id": obj_info["id"],
-            "name": obj_info["name"],
-            "type": obj_info["type"],
-            "clearance_violation": None,
-            "use_point_analysis": None,
+            "id":                       obj_info["id"],
+            "name":                     obj_info["name"],
+            "object_type":              obj_info["type"],
+            "clearance_violation":      None,
+            "use_point_analysis":       None,
             "functional_line_analysis": None,
         }
         if has_cv:
             data = obj_violation_data[obj_i]
             entry["clearance_violation"] = {
-                "blocked_cells": data["blocked_cells"],
+                "blocked_cells":  data["blocked_cells"],
                 "blocked_area_m2": round(data["blocked_cells"] * cs * cs, 3),
-                "warning_cells": data["warning_cells"],
+                "warning_cells":  data["warning_cells"],
                 "min_clearance_m": round(data["min_clearance_m"], 3),
-                "required_m": round(body_half_cells * cs, 3),
-                "deficit_m": round(
+                "required_m":     round(body_half_cells * cs, 3),
+                "deficit_m":      round(
                     max(0, body_half_cells * cs - data["min_clearance_m"]), 3),
             }
         if has_up:
             upr = use_point_results[obj_i]
             entry["use_point_analysis"] = {
-                "clearance_m": upr["clearance_m"],
-                "sufficient": upr["clearance_sufficient"],
-                "deficit_m": upr["deficit_m"],
-                "reachable": upr["reachable"],
+                "clearance_m":  upr["clearance_m"],
+                "sufficient":   upr["clearance_sufficient"],
+                "deficit_m":    upr["deficit_m"],
+                "reachable":    upr["reachable"],
                 "move_suggestion": upr["move_suggestion"],
             }
             if upr["functional_line"] is not None:
                 fl = upr["functional_line"]
                 entry["functional_line_analysis"] = {
                     "functional_point": upr["functional_point"],
-                    "blocked": fl["blocked"],
+                    "blocked":          fl["blocked"],
                 }
                 if fl["blocked"]:
                     entry["functional_line_analysis"].update({
-                        "blocking_object_id": fl["blocking_object_id"],
+                        "blocking_object_id":   fl["blocking_object_id"],
                         "blocking_object_name": fl["blocking_object_name"],
-                        "block_point": fl["block_point"],
+                        "block_point":          fl["block_point"],
                     })
         objects_out.append(entry)
 
-    # Sort by severity (most blocked first)
     objects_out.sort(key=lambda o: (
         -(o["clearance_violation"] or {}).get("blocked_cells", 0)
     ))
 
     # ── Before/after comparison ───────────────────────────────────────────
+    # Compares current violations against original layout violations.
+    # new_violations = violations caused by newly placed objects only.
     comparison = None
     if compare_layout is not None:
         prev_result = check_collision(compare_layout, profile_config,
                                       wall_thickness)
-        prev_set = set(prev_result.get("violations", []))
+        prev_set       = set(prev_result.get("violations", []))
         new_violations = [v for v in violations if v not in prev_set]
         comparison = {
-            "has_previous": True,
+            "has_previous":        True,
             "new_violation_count": len(new_violations),
-            "new_violations": new_violations,
+            "new_violations":      new_violations,
         }
 
     # ── Door violations grouped ───────────────────────────────────────────
@@ -941,37 +957,40 @@ def check_collision(
     for dv in door_violations + turning_violations:
         did = dv["id"]
         if did not in doors_grouped:
-            doors_grouped[did] = {
-                "id": did, "name": dv["name"], "violations": []}
+            doors_grouped[did] = {"id": did, "name": dv["name"], "violations": []}
         doors_grouped[did]["violations"].append({
             k: v for k, v in dv.items() if k not in ("id", "name")
         })
 
     # ── Assemble final report ─────────────────────────────────────────────
-    hard_violations = [v for v in violations
-                       if not v.startswith("WARNING:")]
-    pass_fail = len(hard_violations) == 0
+    hard_violations = [v for v in violations if not v.startswith("WARNING:")]
+    pass_fail       = len(hard_violations) == 0
 
     report = {
-        "pass": pass_fail,
+        "pass":    pass_fail,
         "profile": {
-            "user_type": profile["user_type"],
-            "body_width_m": profile["body_width_m"],
+            "user_type":            profile["user_type"],
+            "body_width_m":         profile["body_width_m"],
             "min_corridor_width_m": profile["min_corridor_width_m"],
-            "min_door_width_m": profile["min_door_width_m"],
-            "turning_radius_m": profile["turning_radius_m"],
+            "min_door_width_m":     profile["min_door_width_m"],
+            "turning_radius_m":     profile["turning_radius_m"],
         },
         "grid_meta": {
             "resolution_m": cs,
-            "cols": cols,
-            "rows": rows,
+            "cols":         cols,
+            "rows":         rows,
         },
         "summary": {
-            "total_violations": len(violations),
-            "hard_violations": len(hard_violations),
-            "blocked_area_m2": round(len(violation_cells) * cs * cs, 3),
-            "warning_area_m2": round(len(warning_cells) * cs * cs, 3),
-            "use_point_violations": sum(
+            "total_violations":      len(violations),
+            "hard_violations":       len(hard_violations),
+            "blocked_area_m2":       round(len(violation_cells) * cs * cs, 3),
+            "warning_area_m2":       round(len(warning_cells)   * cs * cs, 3),
+            # Separated by source — structure cannot be fixed by moving objects
+            "walls_blocked_m2":      round(structure_blocked * cs * cs, 3),
+            "equipment_blocked_m2":  round(equipment_blocked * cs * cs, 3),
+            "walls_warning_m2":      round(structure_warning * cs * cs, 3),
+            "equipment_warning_m2":  round(equipment_warning * cs * cs, 3),
+            "use_point_violations":  sum(
                 1 for r in use_point_results.values()
                 if not r["clearance_sufficient"]),
             "unreachable_use_points": sum(
@@ -982,16 +1001,15 @@ def check_collision(
                 if r["functional_line"] and r["functional_line"].get("blocked")),
         },
         "violations": violations,
-        "objects": objects_out,
-        "doors": list(doors_grouped.values()),
+        "objects":    objects_out,
+        "doors":      list(doors_grouped.values()),
         "comparison": comparison,
-        # Pass violation_cells to GH for visualization
         "_grid_meta": {
             "violation_cells": violation_cells,
-            "warning_cells": warning_cells,
-            "ox": ox, "oy": oy,
+            "warning_cells":   warning_cells,
+            "ox":   ox,   "oy":   oy,
             "cols": cols, "rows": rows,
-            "cs": cs,
+            "cs":   cs,
         },
     }
 
@@ -999,54 +1017,70 @@ def check_collision(
 
 
 # ---------------------------------------------------------------------------
-# LangGraph node — same pattern as visibility.py
+# LangGraph node
 # ---------------------------------------------------------------------------
 
 def build_collision_node(mcp_client, workspace_path):
     """Return a collision node ready to be added to a LangGraph StateGraph."""
 
     def collision_node(state):
-        # Parallel-safe: returns an update dict instead of mutating state.
-        # Do NOT increment iteration — parallel nodes share the counter and
-        # the _keep_last reducer would silently drop increments from siblings.
-
         print("Running collision analysis...")
         try:
-            layout = json.loads(state["layout_json_string"])
+            layout         = json.loads(state["layout_json_string"])
             profile_config = state.get("profile_config")
-            result = check_collision(layout, profile_config)
+            original       = state.get("original_layout")
+            result         = check_collision(
+                layout,
+                profile_config,
+                compare_layout=original,
+            )
         except Exception as exc:
             print(f"[collision] Analysis failed: {exc}")
             result = {
-                "pass": True, "violations": [],
-                "summary": {"total_violations": 0, "hard_violations": 0,
-                             "blocked_area_m2": 0, "warning_area_m2": 0},
+                "pass":       True,
+                "violations": [],
+                "summary":    {
+                    "total_violations": 0, "hard_violations": 0,
+                    "blocked_area_m2":  0, "warning_area_m2": 0,
+                    "walls_blocked_m2": 0, "equipment_blocked_m2": 0,
+                },
                 "objects": [], "doors": [],
             }
 
-        passed = result.get("pass", True)
-        status = "PASS" if passed else "FAIL"
-        n_hard = result.get("summary", {}).get("hard_violations", 0)
+        passed  = result.get("pass", True)
+        status  = "PASS" if passed else "FAIL"
+        n_hard  = result.get("summary", {}).get("hard_violations", 0)
         n_total = result.get("summary", {}).get("total_violations", 0)
         print(f"Collision: {status} — {n_hard} hard violations, {n_total} total")
 
-        # Push visualization to GH — map profile_config to GH script format.
-        # GH script expects {"user_type": "wheelchair", "body_width_m": ..., "min_corridor_width_m": ..., "turning_radius_m": ...}
-        # Profile agent outputs {"profile_type": "wheelchair_user", "min_path_width": ..., "turning_radius": ...}
+        # Show separation in terminal so it's visible during runs
+        summary = result.get("summary", {})
+        s_blocked = summary.get("walls_blocked_m2", 0)
+        e_blocked = summary.get("equipment_blocked_m2", 0)
+        if s_blocked > 0 or e_blocked > 0:
+            print(f"  walls: {s_blocked:.2f}m² | equipment: {e_blocked:.2f}m²")
+
+        # Show new violations from comparison
+        comparison = result.get("comparison")
+        if comparison and comparison.get("new_violation_count", 0) > 0:
+            print(f"  NEW violations from placed objects: {comparison['new_violation_count']}")
+            for nv in comparison.get("new_violations", [])[:3]:
+                print(f"    - {nv}")
+
+        # Push visualization to GH
         try:
-            profile_type = (profile_config or {}).get("profile_type", "wheelchair_user")
-            # Map profile_type names: "wheelchair_user" → "wheelchair", "visually_impaired" → "visually_impaired"
-            gh_user_type = profile_type.replace("_user", "") if profile_type else "wheelchair"
+            profile_config = state.get("profile_config") or {}
+            gh_user_type   = profile_config.get("profile_type", "standard_worker")
             gh_profile = {
-                "user_type": gh_user_type,
-                "body_width_m": (profile_config or {}).get("body_width", 0.70),
-                "min_corridor_width_m": (profile_config or {}).get("min_path_width", 0.90),
-                "min_door_width_m": (profile_config or {}).get("min_door_width", 0.85),
-                "turning_radius_m": (profile_config or {}).get("turning_radius", 1.50),
+                "user_type":            gh_user_type,
+                "body_width_m":         profile_config.get("body_width",     0.70),
+                "min_corridor_width_m": profile_config.get("min_path_width", 0.915),
+                "min_door_width_m":     profile_config.get("min_door_width", 0.85),
+                "turning_radius_m":     profile_config.get("turning_radius", 0.30),
             }
             viz_args = {
-                "layout_json": state["layout_json_string"],
-                "user_profile": json.dumps(gh_profile),
+                "layout_json":   state["layout_json_string"],
+                "user_profile":  json.dumps(gh_profile),
                 "wall_thickness": 0.20,
             }
             print(f"[collision] Sending to GH: user_profile={json.dumps(gh_profile)}")
@@ -1056,23 +1090,22 @@ def build_collision_node(mcp_client, workspace_path):
             tool_output = f"collision-detector-grid error: {e}"
             print(tool_output)
 
-        # Return partial update — LangGraph merges via add_messages / _keep_last.
         return {
             "collision_results": result,
             "messages": [
                 {
                     "role": "assistant",
                     "content": json.dumps({
-                        "action": "tool",
+                        "action":         "tool",
                         "final_response": "",
                         "tool_calls": [{"name": "collision-detector-grid", "arguments": {
-                            "pass": result["pass"],
+                            "pass":           result["pass"],
                             "hard_violations": n_hard,
                         }}],
                     }),
                 },
                 {
-                    "role": "user",
+                    "role":    "user",
                     "content": f"Tool result: {str(tool_output)[:500]}",
                 },
             ],

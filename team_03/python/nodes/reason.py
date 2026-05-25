@@ -13,120 +13,7 @@ No Rhino. No MCP calls. Pure LLM inference.
 from __future__ import annotations
 from typing import Any
 from _runtime.llm import call_llm
-
-
-# ---------------------------------------------------------------------------
-# System prompt — edit this to change how the agent thinks and behaves.
-# All {{ and }} are escaped literal braces in the formatted string;
-# {tool_catalog} is the only real placeholder, filled in by call_llm().
-# ---------------------------------------------------------------------------
-
-SYSTEM_PROMPT = """You are a Spatial Flow Copilot — an AI agent \
-that optimizes floor plan layouts by placing objects and \
-analyzing spatial quality.
-
-## YOUR ROLE
-You place furniture and equipment into rooms, then the system \
-automatically analyzes collision, visibility, path efficiency, \
-reachability, and orientation. Your job is to reason about \
-WHERE to place objects and WHEN the layout is good enough.
-
-## ACTIVE CONTEXT
-Read these from the conversation — they are injected automatically:
-
-Space configuration (from Space Type Agent):
-- space_type: what kind of space this is
-- priorities: which analysis tools matter most
-- clearance: minimum clearance in metres
-- use_clearance: whether strict clearance applies
-- orientation_required: whether facing direction matters
-
-Profile configuration (from Profile Agent):
-- profile_type: who is using this space
-- min_path_width: minimum corridor width in metres
-- turning_radius: space needed to turn
-- reach_height_min/max: vertical reach range
-
-## AVAILABLE ACTIONS
-
-### 1. Place an object (use when user asks to ADD, PLACE, or POSITION):
-{{
-  "action": "tool",
-  "final_response": "",
-  "tool_calls": [{{
-    "name": "place_object",
-    "arguments": {{
-      "room_name": "exact room name from layout",
-      "objects_list": "name:WxDxH:x=X,y=Y",
-      "user_profile": "profile type from profile_config",
-      "clear_room": false
-    }}
-  }}]
-}}
-
-objects_list format: "item_name:widthxdepthxheight:x=?,y=?"
-Example: "cnc_machine:2.0x1.5x1.2:x=5.0,y=3.0"
-
-To calculate position:
-- Read room geometry from rooms[].geometry
-- Calculate bounding box: min_x, max_x, min_y, max_y
-- Respect clearance value from space_config
-- Keep objects away from doors (check doors[].geometry)
-- Don't overlap with existing furniture
-
-### 2. Call a specific analysis tool (only when user explicitly asks):
-{{
-  "action": "tool",
-  "final_response": "",
-  "tool_calls": [{{
-    "name": "tool_name",
-    "arguments": {{...}}
-  }}]
-}}
-
-Available tools: {tool_catalog}
-
-### 3. Finish (use when placement is complete or question answered):
-{{
-  "action": "final",
-  "final_response": "Your explanation here",
-  "tool_calls": []
-}}
-
-## WORKFLOW RULES
-
-PLACEMENT WORKFLOW:
-1. Calculate exact x,y coordinates from room geometry
-2. Call place_object with precise coordinates
-3. Analysis runs AUTOMATICALLY after placement — do NOT call \
-collision/visibility/path tools manually after placing
-4. Wait for analysis results in the next message
-5. If analysis shows violations → adjust position and place again
-6. If analysis passes → say final or place next object
-
-ANALYSIS WORKFLOW (when user asks to analyze):
-- Call the specific tool the user mentions
-- Summarize results clearly in final_response
-- Reference actual object names and distances
-
-WHEN TO SAY FINAL:
-- All requested objects are placed
-- Analysis passes (or user accepts warnings)
-- A question has been answered
-- No more actions needed
-
-CRITICAL RULES:
-- NEVER place objects outside room boundaries
-- NEVER block doors (check doors[].geometry)
-- ALWAYS use exact room names from rooms[].name
-- NEVER call analysis tools after place_object — \
-analysis runs automatically
-- Use space_config clearance value for all placements
-- Use profile_config min_path_width for corridor checks
-
-OUTPUT — strict JSON only, no markdown:
-{{"action":"final"|"tool","final_response":"...","tool_calls":[...]}}
-"""
+from prompts import SYSTEM_PROMPT, SPACE_CONTEXT_TEMPLATE, PROFILE_CONTEXT_TEMPLATE
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +24,20 @@ def build_reason_node(llm: Any):
     """Return a reason node ready to be added to a LangGraph StateGraph."""
 
     def reason_node(state: dict) -> dict:
+        # If populate_agent filled the queue, skip the LLM entirely.
+        # Just signal _route_after_reason to drain the queue via add_objects.
+        queue = state.get("object_queue") or []
+        object_to_place = state.get("object_to_place")
+        if queue and not object_to_place:
+            print(f"[reason] Queue has {len(queue)} objects — skipping LLM, draining queue.")
+            return {
+                "object_to_place":    queue[0],
+                "object_queue":       queue[1:],
+                "final_response":     "",
+                "pending_tool_calls": [],
+                "adjustment_count":   0,
+            }
+
         print("\nReasoning with LLM...")
 
         # Pull space and profile config set by the pre-agents.
@@ -151,23 +52,27 @@ def build_reason_node(llm: Any):
         # turns — system prompts are not always echoed back in multi-turn calls.
         context_injection = ""
         if space_config:
-            context_injection += (
-                f"\nACTIVE SPACE CONFIG:\n"
-                f"  Space type: {space_config.get('space_type', 'unknown')}\n"
-                f"  Clearance: {space_config.get('clearance', 0.9)}m\n"
-                f"  Priorities: {space_config.get('priorities', [])}\n"
-                f"  Use clearance: {space_config.get('use_clearance', True)}\n"
-                f"  Orientation required: {space_config.get('orientation_required', False)}\n"
+            context_injection += SPACE_CONTEXT_TEMPLATE.format(
+                space_type           = space_config.get("space_type", "unknown"),
+                clearance            = space_config.get("clearance", 0.9),
+                priorities           = space_config.get("priorities", []),
+                use_clearance        = space_config.get("use_clearance", True),
+                orientation_required = space_config.get("orientation_required", False),
             )
         if profile_config:
-            context_injection += (
-                f"\nACTIVE PROFILE CONFIG:\n"
-                f"  Profile: {profile_config.get('profile_type', 'standard')}\n"
-                f"  Min path width: {profile_config.get('min_path_width', 0.9)}m\n"
-                f"  Turning radius: {profile_config.get('turning_radius', 0.75)}m\n"
-                f"  Reach height: {profile_config.get('reach_height_min', 0.4)}m"
-                f" - {profile_config.get('reach_height_max', 1.8)}m\n"
+            context_injection += PROFILE_CONTEXT_TEMPLATE.format(
+                profile_type      = profile_config.get("profile_type", "standard"),
+                min_path_width    = profile_config.get("min_path_width", 0.9),
+                turning_radius    = profile_config.get("turning_radius", 0.75),
+                reach_height_min  = profile_config.get("reach_height_min", 0.4),
+                reach_height_max  = profile_config.get("reach_height_max", 1.8),
             )
+
+        # Inject spatial graph text so the LLM sees current relationships,
+        # violations, and move vectors on every reasoning turn.
+        graph_text = state.get("spatial_graph_text")
+        if graph_text:
+            context_injection += f"\nSPATIAL RELATIONSHIP GRAPH:\n{graph_text}\n"
 
         # Build a local message list — never mutate state["messages"] here.
         # The context block prepends so it appears before the user's request
@@ -199,13 +104,20 @@ def build_reason_node(llm: Any):
         # Build an update dict — never mutate state directly.
         updates: dict = {}
 
-        if result["action"] == "final":
+        if result["action"] == "query":
+            updates["_query_mode"] = True
+            updates["object_to_place"] = {}
+            updates["pending_tool_calls"] = []
+            updates["final_response"] = ""
+
+        elif result["action"] == "final":
             # LLM is done — store the response and clear any queued tool calls.
             # Use empty containers ({} / []) instead of None to clear fields:
             # _keep_last treats None as "no update" and preserves the old value.
             updates["final_response"] = result["final_response"]
             updates["pending_tool_calls"] = []
             updates["object_to_place"] = {}
+            updates["_query_mode"] = False
 
         else:
             # LLM wants to call tools — split place_object from everything else.
@@ -230,14 +142,21 @@ def build_reason_node(llm: Any):
                 # can review analysis results before placing the next object.
                 updates["object_to_place"] = place_calls[0]["arguments"]
                 print(f"Placing object: {place_calls[0]['arguments'].get('objects_list', '')}")
+                if len(place_calls) > 1:
+                    updates["object_queue"] = [c["arguments"] for c in place_calls[1:]]
+                    print(f"[reason] Queued {len(place_calls) - 1} additional object(s)")
+                # Do NOT clear object_queue here — populate_agent may have filled it.
+                # Only overwrite if the LLM explicitly queued more objects.
             else:
                 # Clear with {} — _keep_last treats None as "no update" and
                 # would preserve the stale value from a previous placement.
                 updates["object_to_place"] = {}
+                # Do NOT clear object_queue — preserve populate_agent queue.
 
             # Pass any non-placement tool calls to tools.py as normal.
             # Use [] instead of None so _keep_last actually clears the field.
             updates["pending_tool_calls"] = other_calls if other_calls else []
+            updates["_query_mode"] = False
 
             # Clear stale final_response so the routing function doesn't
             # mistake a value from a previous turn as "finish".

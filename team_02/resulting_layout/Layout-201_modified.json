@@ -57,21 +57,29 @@
         "glazingRatio": 0.18,
         "ventilationType": "mixed",
         "analysis": {
-          "_source": "Comfort Copilot",
-          "persona": "Child under 12",
-          "depth": "analyze",
-          "timestamp": "2026-05-10T15:22:30",
-          "overallScore": 0.75,
+          "_source": "Sensi",
+          "persona": "Neutral",
+          "depth": "full",
+          "timestamp": "2026-05-24T21:57:06",
+          "overallScore": 0.73,
           "comfortScores": {
             "thermal": 0.72,
             "visual": 0.85,
-            "acoustic": 0.44,
+            "acoustic": 0.4,
             "spatial": 1.0,
-            "olfactory": 0.7,
-            "tactile": 0.79
+            "olfactory": 0.78,
+            "tactile": 0.66
           },
-          "conflicts": [],
-          "suggestions": []
+          "conflicts": [
+            "acoustic score 0.40 below threshold 0.45"
+          ],
+          "suggestions": [
+            {
+              "sense": "acoustic",
+              "priority": 1,
+              "suggestion": "Add rugs and curtains to absorb sound"
+            }
+          ]
         }
       }
     },
@@ -108,21 +116,35 @@
         "glazingRatio": 0.12,
         "ventilationType": "mechanical",
         "analysis": {
-          "_source": "Comfort Copilot",
-          "persona": "Child under 12",
-          "depth": "analyze",
-          "timestamp": "2026-05-10T15:22:30",
-          "overallScore": 0.58,
+          "_source": "Sensi",
+          "persona": "Neutral",
+          "depth": "full",
+          "timestamp": "2026-05-24T21:57:06",
+          "overallScore": 0.56,
           "comfortScores": {
             "thermal": 0.52,
             "visual": 0.7,
-            "acoustic": 0.33,
+            "acoustic": 0.3,
             "spatial": 1.0,
-            "olfactory": 0.27,
-            "tactile": 0.68
+            "olfactory": 0.3,
+            "tactile": 0.57
           },
-          "conflicts": [],
-          "suggestions": []
+          "conflicts": [
+            "acoustic score 0.30 below threshold 0.45",
+            "olfactory score 0.30 below threshold 0.45"
+          ],
+          "suggestions": [
+            {
+              "sense": "acoustic",
+              "priority": 1,
+              "suggestion": "Add rugs and curtains to absorb sound"
+            },
+            {
+              "sense": "olfactory",
+              "priority": 2,
+              "suggestion": "Upgrade to mixed or mechanical ventilation for active air exchange"
+            }
+          ]
         }
       }
     },
@@ -159,18 +181,18 @@
         "glazingRatio": 0.15,
         "ventilationType": "natural",
         "analysis": {
-          "_source": "Comfort Copilot",
-          "persona": "Child under 12",
-          "depth": "analyze",
-          "timestamp": "2026-05-10T15:22:30",
-          "overallScore": 0.77,
+          "_source": "Sensi",
+          "persona": "Neutral",
+          "depth": "full",
+          "timestamp": "2026-05-24T21:57:06",
+          "overallScore": 0.74,
           "comfortScores": {
             "thermal": 0.72,
             "visual": 0.65,
-            "acoustic": 0.61,
+            "acoustic": 0.55,
             "spatial": 1.0,
-            "olfactory": 0.77,
-            "tactile": 0.84
+            "olfactory": 0.85,
+            "tactile": 0.7
           },
           "conflicts": [],
           "suggestions": []
@@ -210,18 +232,18 @@
         "glazingRatio": 0.12,
         "ventilationType": "natural",
         "analysis": {
-          "_source": "Comfort Copilot",
-          "persona": "Child under 12",
-          "depth": "analyze",
-          "timestamp": "2026-05-10T15:22:30",
-          "overallScore": 0.73,
+          "_source": "Sensi",
+          "persona": "Neutral",
+          "depth": "full",
+          "timestamp": "2026-05-24T21:57:06",
+          "overallScore": 0.69,
           "comfortScores": {
             "thermal": 0.72,
             "visual": 0.65,
-            "acoustic": 0.61,
-            "spatial": 0.8,
-            "olfactory": 0.77,
-            "tactile": 0.84
+            "acoustic": 0.55,
+            "spatial": 0.67,
+            "olfactory": 0.85,
+            "tactile": 0.7
           },
           "conflicts": [],
           "suggestions": []
@@ -261,21 +283,35 @@
         "glazingRatio": 0.0,
         "ventilationType": "mechanical",
         "analysis": {
-          "_source": "Comfort Copilot",
-          "persona": "Child under 12",
-          "depth": "analyze",
-          "timestamp": "2026-05-10T15:22:30",
-          "overallScore": 0.6,
+          "_source": "Sensi",
+          "persona": "Neutral",
+          "depth": "full",
+          "timestamp": "2026-05-24T21:57:06",
+          "overallScore": 0.56,
           "comfortScores": {
             "thermal": 0.62,
             "visual": 0.4,
-            "acoustic": 0.77,
-            "spatial": 0.72,
-            "olfactory": 0.36,
-            "tactile": 0.76
+            "acoustic": 0.7,
+            "spatial": 0.6,
+            "olfactory": 0.4,
+            "tactile": 0.63
           },
-          "conflicts": [],
-          "suggestions": []
+          "conflicts": [
+            "visual score 0.40 below threshold 0.45",
+            "olfactory score 0.40 below threshold 0.45"
+          ],
+          "suggestions": [
+            {
+              "sense": "visual",
+              "priority": 1,
+              "suggestion": "Add larger windows or skylights"
+            },
+            {
+              "sense": "olfactory",
+              "priority": 2,
+              "suggestion": "Upgrade to mixed or mechanical ventilation for active air exchange"
+            }
+          ]
         }
       }
     },
@@ -312,21 +348,29 @@
         "glazingRatio": 0.0,
         "ventilationType": "mechanical",
         "analysis": {
-          "_source": "Comfort Copilot",
-          "persona": "Child under 12",
-          "depth": "analyze",
-          "timestamp": "2026-05-10T15:22:30",
-          "overallScore": 0.6,
+          "_source": "Sensi",
+          "persona": "Neutral",
+          "depth": "full",
+          "timestamp": "2026-05-24T21:57:06",
+          "overallScore": 0.56,
           "comfortScores": {
             "thermal": 0.62,
             "visual": 0.4,
-            "acoustic": 0.72,
-            "spatial": 0.6,
-            "olfactory": 0.59,
-            "tactile": 0.66
+            "acoustic": 0.65,
+            "spatial": 0.5,
+            "olfactory": 0.65,
+            "tactile": 0.55
           },
-          "conflicts": [],
-          "suggestions": []
+          "conflicts": [
+            "visual score 0.40 below threshold 0.45"
+          ],
+          "suggestions": [
+            {
+              "sense": "visual",
+              "priority": 1,
+              "suggestion": "Add larger windows or skylights"
+            }
+          ]
         }
       }
     }
@@ -878,11 +922,11 @@
     }
   ],
   "analysis": {
-    "_source": "Comfort Copilot",
-    "persona": "Child under 12",
-    "depth": "analyze",
-    "timestamp": "2026-05-10T15:22:30",
-    "overallScore": 0.6717,
+    "_source": "Sensi",
+    "persona": "Neutral",
+    "depth": "full",
+    "timestamp": "2026-05-24T21:57:06",
+    "overallScore": 0.64,
     "bestRoom": "room-3",
     "worstRoom": "room-2"
   }

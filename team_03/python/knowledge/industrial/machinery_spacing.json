@@ -82,5 +82,20 @@
       "value_m": 3.000,
       "context": "Arc welding — recommended clear zone around station for hot work safety"
     }
+  ],
+  "object_dimensions": [
+    {"name": "workstation",       "width_m": 1.8, "depth_m": 0.9, "height_m": 0.9,  "context": "Standard industrial workstation",    "source": "Neufert Industrial"},
+    {"name": "assembly_station",  "width_m": 2.0, "depth_m": 1.0, "height_m": 0.9,  "context": "Assembly line workstation",          "source": "ISO 14122"},
+    {"name": "conveyor",          "width_m": 3.0, "depth_m": 0.6, "height_m": 0.9,  "context": "Standard belt conveyor",             "source": "Neufert Industrial"},
+    {"name": "storage_rack",      "width_m": 1.2, "depth_m": 0.4, "height_m": 2.0,  "context": "Pallet storage rack",               "source": "Neufert Industrial"},
+    {"name": "cnc_machine",       "width_m": 2.0, "depth_m": 1.5, "height_m": 1.8,  "context": "CNC machining center",               "source": "ISO 14122"},
+    {"name": "qc_station",        "width_m": 1.5, "depth_m": 0.8, "height_m": 0.9,  "context": "Quality control inspection station", "source": "Neufert Industrial"},
+    {"name": "packaging_station", "width_m": 1.5, "depth_m": 0.8, "height_m": 0.9,  "context": "Packaging workstation",             "source": "Neufert Industrial"},
+    {"name": "welding_station",   "width_m": 2.0, "depth_m": 1.5, "height_m": 1.2,  "context": "Welding workstation with screen",    "source": "ISO 13857"},
+    {"name": "forklift_parking",  "width_m": 1.5, "depth_m": 3.5, "height_m": 2.0,  "context": "Forklift parking bay",              "source": "Neufert Industrial"},
+    {"name": "electrical_panel",  "width_m": 0.6, "depth_m": 0.2, "height_m": 1.8,  "context": "Electrical control panel",          "source": "OSHA 1910.303"},
+    {"name": "compressor",        "width_m": 1.0, "depth_m": 0.6, "height_m": 1.2,  "context": "Air compressor unit",               "source": "Neufert Industrial"},
+    {"name": "parts_bin",         "width_m": 0.6, "depth_m": 0.4, "height_m": 1.5,  "context": "Parts bin rack",                    "source": "Neufert Industrial"},
+    {"name": "inspection_table",  "width_m": 1.8, "depth_m": 0.9, "height_m": 0.9,  "context": "Quality inspection table",          "source": "Neufert Industrial"}
   ]
 }

@@ -1,0 +1,39 @@
+{
+  "name": "Emilie",
+  "role": "architect",
+  "description": "Emilie is a architect whose primary sensory concerns are thermal, olfactory, tactile.",
+  "age_group": "young_adult",
+  "household_type": "dual",
+  "sensory_priorities": [
+    "thermal",
+    "olfactory",
+    "tactile",
+    "visual",
+    "acoustic",
+    "spatial"
+  ],
+  "sensory_sensitivities": [
+    "thermal",
+    "olfactory",
+    "tactile"
+  ],
+  "comfort_weights": {
+    "thermal": 0.9,
+    "visual": 0.8,
+    "acoustic": 0.8,
+    "spatial": 0.8,
+    "olfactory": 0.9,
+    "tactile": 0.9
+  },
+  "aesthetic_preferences": "You gravitate toward warm, earthy interiors defined by honeyed oak, weathered walnut, and soft amber tones that ground spaces in natural warmth. Sunlight filters through open layouts, casting gentle shadows over rough-hewn wood beams, smooth stone, and aged metal, blending raw textures with refined craftsmanship. Layers of tactile richness—woven textiles, polished concrete, and rough plaster—create a balance between intimacy and openness, while diffuse light softens deep wood tones to evoke a timeless, cocooning calm. Your aesthetic thrives on organic forms, unpretentious details, and the quiet grandeur of materials that age gracefully.",
+  "lifestyle": "The streets of Paris, and open spaces in cafe",
+  "key_requirements": [
+    "Natural light and plants"
+  ],
+  "preference_vs_baseline": {
+    "spatial": "Stated weight 0.80 is above research baseline 0.50 (delta +0.30). User rates this highly -- aligns well with research.",
+    "olfactory": "Stated weight 0.90 is above research baseline 0.40 (delta +0.50). User rates this highly -- aligns well with research.",
+    "tactile": "Stated weight 0.90 is above research baseline 0.35 (delta +0.55). User rates this highly -- aligns well with research."
+  },
+  "notes": "Profile built from direct quiz answers (LLM synthesis unavailable)."
+}
