@@ -130,6 +130,7 @@ for _k, _v in {
     "show_plan_comparison": False,
     "messages": [],
     "selected_room": None,
+    "selected_element": None,
     "pending_prompt": "",
     "arch_advice_text": None,
     "arch_advice_rows": [],
@@ -377,16 +378,17 @@ def build_floor_plan(
             x=xs, y=ys, fill="toself", fillcolor=fill,
             line=dict(color="#60a5fa" if is_sel else "#555", width=3 if is_sel else 1),
             mode="lines", name=room.get("name", ""),
+            hoveron="fills+points",
             customdata=[[
-                room.get("id", ""), room.get("name", ""),
-                room.get("area_m2", 0), room.get("total_cost", 0),
+                room.get("id", ""), "room", room.get("name", ""),
+                room.get("total_cost", 0), room.get("area_m2", 0),
                 room.get("rate_per_m2", 0), room.get("category", ""),
             ]],
             hovertemplate=(
-                "<b>%{customdata[1]}</b><br>"
-                f"Area: %{{customdata[2]:.1f}} m²<br>"
-                f"Rate: %{{customdata[4]:,.0f}} {currency}/m²<br>"
-                f"<b>Cost: %{{customdata[3]:,.0f}} {currency}</b>"
+                f"<b>{room.get('name', '')}</b><br>"
+                f"Area: {room.get('area_m2', 0):.1f} m²<br>"
+                f"Rate: {room.get('rate_per_m2', 0):,.0f} {currency}/m²<br>"
+                f"<b>Cost: {room.get('total_cost', 0):,.0f} {currency}</b>"
                 "<extra></extra>"
             ),
         ))
@@ -408,13 +410,20 @@ def build_floor_plan(
                                           "rgba(130,130,130,0.7)")
         border = op.get("color_hex") or ("#3d1a00" if "door" in op_type else
                                           "#0050b3" if "window" in op_type else "#444")
+        _op_subtype = op.get("subtype") or op_type.capitalize()
+        _op_cost    = op.get("cost", 0) or 0
         fig.add_trace(go.Scatter(
             x=ox, y=oy, fill="toself", fillcolor=fill,
             line=dict(color=border, width=1), mode="lines",
             name=op_type.capitalize(), showlegend=False,
+            hoveron="fills+points",
+            customdata=[[
+                op.get("id", ""), op_type, _op_subtype,
+                _op_cost, 0, 0, "",
+            ]],
             hovertemplate=(
-                f"<b>{op_type.capitalize()}</b> ({op.get('subtype','')})<br>"
-                f"Cost: {op.get('cost',0):,.0f} {currency}<extra></extra>"
+                f"<b>{op_type.capitalize()}</b> ({_op_subtype})<br>"
+                f"Cost: {_op_cost:,.0f} {currency}<extra></extra>"
             ),
         ))
 
@@ -495,6 +504,50 @@ def render_room_card(room: dict, currency: str) -> None:
             + kv("Total cost", f'{room.get("total_cost",0):,.0f} {currency}')
             + "</div>")
     st.markdown(html, unsafe_allow_html=True)
+
+
+# ── element detail panel ──────────────────────────────────────────────────────
+def _render_element_panel() -> None:
+    """Inline info panel that appears below the floor plan when an element is clicked."""
+    el = st.session_state.get("selected_element") or {}
+    if not el:
+        return
+    etype    = el.get("type", "element")
+    name     = el.get("name", "—")
+    cost     = float(el.get("cost") or 0)
+    currency = el.get("currency", "")
+
+    hdr, close_btn = st.columns([8, 1])
+    hdr.markdown(
+        f'<div style="background:#f0f4ff;border:1.5px solid #4a90d9;border-radius:10px;'
+        f'padding:0.7rem 1rem 0.2rem 1rem;margin-bottom:0">'
+        f'<span style="font-size:0.78rem;color:#4a90d9;font-weight:600;text-transform:uppercase;'
+        f'letter-spacing:0.05em">{etype.capitalize()}</span>'
+        f'<h4 style="margin:0 0 0.6rem 0;color:#1a1a2e">{name}</h4>',
+        unsafe_allow_html=True,
+    )
+    if close_btn.button("✕", key="close_el_panel"):
+        st.session_state.selected_element = None
+        st.rerun()
+
+    if etype == "room":
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Cost", f"{cost:,.0f} {currency}")
+        c2.metric("Area", f"{el.get('area', 0):.1f} m²")
+        c3.metric("Rate", f"{el.get('rate', 0):,.0f} {currency}/m²")
+        if el.get("category"):
+            st.caption(f"Category · {el['category'].capitalize()}")
+        if st.button("Ask agent about this room", key="ask_agent_panel", use_container_width=True):
+            st.session_state.pending_prompt = (
+                f"Analyse the cost of the {name} "
+                f"({el.get('area', 0):.1f} m² at "
+                f"{el.get('rate', 0):,.0f} {currency}/m²). "
+                "How does it compare to similar rooms and how could it be reduced?"
+            )
+            st.session_state.selected_element = None
+            st.rerun()
+    else:
+        st.metric("Cost", f"{cost:,.0f} {currency}")
 
 
 # ── chat ──────────────────────────────────────────────────────────────────────
@@ -658,6 +711,42 @@ with tab_floor:
             sel_id = (st.session_state.selected_room or {}).get("id")
             fig    = build_floor_plan(st.session_state.layout, sel_id)
 
+            # On-chart callout annotation for the selected element
+            _sel_el = st.session_state.get("selected_element")
+            if _sel_el and _sel_el.get("cx") is not None:
+                _ann_cost = float(_sel_el.get("cost") or 0)
+                _ann_cur  = _sel_el.get("currency", "")
+                _ann_type = _sel_el.get("type", "")
+                _ann_name = _sel_el.get("name", "")
+                if _ann_type == "room":
+                    _ann_text = (
+                        f"<b>{_ann_name}</b><br>"
+                        f"Cost: {_ann_cost:,.0f} {_ann_cur}<br>"
+                        f"Area: {_sel_el.get('area', 0):.1f} m²<br>"
+                        f"Rate: {_sel_el.get('rate', 0):,.0f} {_ann_cur}/m²"
+                    )
+                else:
+                    _ann_text = (
+                        f"<b>{_ann_type.capitalize()}</b> · {_ann_name}<br>"
+                        f"Cost: {_ann_cost:,.0f} {_ann_cur}"
+                    )
+                fig.add_annotation(
+                    x=_sel_el["cx"], y=_sel_el["cy"],
+                    text=_ann_text,
+                    showarrow=True,
+                    arrowhead=2,
+                    arrowcolor="#4a90d9",
+                    arrowwidth=1.5,
+                    bgcolor="white",
+                    bordercolor="#4a90d9",
+                    borderwidth=1.5,
+                    borderpad=6,
+                    font=dict(size=10, color="#1a1a2e"),
+                    align="left",
+                    ax=60, ay=-60,
+                    xanchor="left",
+                )
+
             plan_col, legend_col = st.columns([5, 1], gap="small")
 
             with legend_col:
@@ -678,32 +767,63 @@ with tab_floor:
                         pts = (event.get("selection") or {}).get("points", [])
                         if pts:
                             cd = pts[0].get("customdata", [])
-                            if cd:
-                                room_id   = cd[0]
-                                all_rooms = st.session_state.layout.get("rooms", [])
-                                match     = next((r for r in all_rooms if r.get("id") == room_id), None)
-                                if match:
-                                    st.session_state.selected_room = match
+                            if cd and len(cd) >= 4:
+                                el_id    = cd[0]
+                                el_type  = cd[1]
+                                el_name  = cd[2]
+                                el_cost  = float(cd[3] or 0)
+                                currency = (st.session_state.layout or {}).get("project", {}).get("currency", "")
+
+                                def _centroid(poly: list) -> tuple:
+                                    if not poly:
+                                        return (0, 0)
+                                    return (
+                                        sum(p[0] for p in poly) / len(poly),
+                                        sum(p[1] for p in poly) / len(poly),
+                                    )
+
+                                if el_type == "room":
+                                    all_rooms = st.session_state.layout.get("rooms", [])
+                                    room = next((r for r in all_rooms if r.get("id") == el_id), None)
+                                    if room:
+                                        cx, cy = _centroid(room.get("polygon", []))
+                                        st.session_state.selected_room = room
+                                        st.session_state.selected_element = {
+                                            "type": "room",
+                                            "id": el_id,
+                                            "name": room.get("name", el_name),
+                                            "cost": room.get("total_cost", el_cost),
+                                            "area": room.get("area_m2", 0),
+                                            "rate": room.get("rate_per_m2", 0),
+                                            "category": room.get("category", ""),
+                                            "currency": currency,
+                                            "cx": cx, "cy": cy,
+                                        }
+                                else:
+                                    all_ops = (
+                                        st.session_state.layout.get("openings", [])
+                                        + st.session_state.layout.get("columns", [])
+                                    )
+                                    el_obj = next((o for o in all_ops if o.get("id") == el_id), None)
+                                    cx, cy = _centroid((el_obj or {}).get("polygon", []))
+                                    st.session_state.selected_room = None
+                                    st.session_state.selected_element = {
+                                        "type": el_type,
+                                        "id": el_id,
+                                        "name": el_name or el_type.capitalize(),
+                                        "cost": el_cost,
+                                        "area": 0.0,
+                                        "rate": 0.0,
+                                        "category": "",
+                                        "currency": currency,
+                                        "cx": cx, "cy": cy,
+                                    }
+                                st.rerun()
                 except TypeError:
                     st.plotly_chart(fig, use_container_width=True)
 
-            # selected room card
-            if st.session_state.selected_room:
-                room     = st.session_state.selected_room
-                currency = st.session_state.layout.get("project", {}).get("currency", "")
-                render_room_card(room, currency)
-                ask_col, clr_col = st.columns([3, 1])
-                if ask_col.button("Ask agent about this room", use_container_width=True):
-                    st.session_state.pending_prompt = (
-                        f"Analyse the cost of the {room.get('name')} "
-                        f"({room.get('area_m2',0):.1f} m² at "
-                        f"{room.get('rate_per_m2',0):,.0f} {currency}/m²). "
-                        "How does it compare to similar rooms and how could it be reduced?"
-                    )
-                    st.rerun()
-                if clr_col.button("Deselect", use_container_width=True):
-                    st.session_state.selected_room = None
-                    st.rerun()
+            # element info panel — appears below chart when any element is clicked
+            _render_element_panel()
 
             # cost table
             with st.expander("Cost Breakdown Table", expanded=False):
