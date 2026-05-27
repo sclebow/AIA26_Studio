@@ -55,7 +55,12 @@ def _lookup_static(material_key: str) -> dict:
 # Material extraction from layout JSON
 # ---------------------------------------------------------------------------
 
-_ROOM_FINISH_KEYS = ["floor_finish", "wall_finish", "ceiling_material", "slab_material"]
+_ROOM_FINISH_KEYS = [
+    "floor_finish", "floor-finish",
+    "wall_finish", "wall-finish",
+    "ceiling_material", "ceiling-material", "ceiling-finish",
+    "slab_material", "slab-material",
+]
 _OPENING_KEYS = ["leaf_material", "frame_material", "glazing", "window_material"]
 
 # Element-type labels that are NOT materials — skip these from tool arg extraction
@@ -175,6 +180,95 @@ def _format_material_advice(material_key: str, live_gwp: float | None) -> str:
 
 # Cap materials per call to avoid overloading context and EC3 rate limits
 _MAX_MATERIALS = 8
+
+
+# Materials recognisable in free-text prompts
+_DETECTABLE_FINISH_MATERIALS = [
+    "marble", "granite", "porcelain", "ceramic tile", "ceramic",
+    "natural stone", "engineered wood", "solid wood", "laminate",
+    "vinyl", "epoxy", "polished concrete", "carpet", "terrazzo",
+    "paint", "wallpaper", "wood panel", "veneer", "stucco",
+    "gypsum board", "acoustic tile", "metal panel", "wood slat",
+    "plaster", "glass", "aluminium", "aluminum", "timber",
+    "rc solid", "rc waffle", "hollow core", "precast",
+]
+
+
+def extract_materials_from_messages(messages: list[dict]) -> list[str]:
+    """Scan chat message history for material keyword mentions."""
+    materials: list[str] = []
+    for msg in messages:
+        content = (msg.get("content") or "").lower()
+        for mat in _DETECTABLE_FINISH_MATERIALS:
+            if mat in content:
+                key = mat.lower().replace(" ", "_").replace("-", "_")
+                key = _MATERIAL_ALIASES.get(key, key)
+                materials.append(key)
+    seen: set[str] = set()
+    return [m for m in materials if not (m in seen or seen.add(m))]  # type: ignore[func-returns-value]
+
+
+def extract_materials_from_layout(layout: dict) -> list[str]:
+    """Return a deduplicated list of material keys found in room/opening finish fields."""
+    materials: list[str] = []
+    for room in layout.get("rooms", []):
+        for k in _ROOM_FINISH_KEYS:
+            val = room.get(k)
+            if val:
+                key = str(val).lower().replace(" ", "_").replace("-", "_")
+                key = _MATERIAL_ALIASES.get(key, key)
+                materials.append(key)
+    for opening in layout.get("openings", []):
+        for k in _OPENING_KEYS:
+            val = opening.get(k)
+            if val:
+                key = str(val).lower().replace(" ", "_").replace("-", "_")
+                key = _MATERIAL_ALIASES.get(key, key)
+                materials.append(key)
+    seen: set[str] = set()
+    return [m for m in materials if not (m in seen or seen.add(m))]  # type: ignore[func-returns-value]
+
+
+def generate_advice_for_materials(materials: list[str]) -> str:
+    """Generate formatted advice markdown for an explicit list of material keys."""
+    if not materials:
+        return ""
+    capped = materials[:_MAX_MATERIALS]
+    sections: list[str] = ["## Architectural Material Advice\n"]
+    for mat in capped:
+        live_gwp = get_gwp(mat)
+        sections.append(_format_material_advice(mat, live_gwp))
+    return "\n".join(sections)
+
+
+def generate_advice_table_data(materials: list[str]) -> list[dict]:
+    """Return a list of property dicts suitable for table display."""
+    rows: list[dict] = []
+    for mat in materials[:_MAX_MATERIALS]:
+        live_gwp = get_gwp(mat)
+        static = _lookup_static(mat)
+        label = mat.replace("_", " ").title()
+
+        if live_gwp is not None:
+            gwp_display = live_gwp
+            gwp_source = "Okobaudat live"
+        elif static.get("gwp_fallback_kgco2e") is not None:
+            gwp_display = static["gwp_fallback_kgco2e"]
+            gwp_source = "reference"
+        else:
+            gwp_display = None
+            gwp_source = "—"
+
+        rows.append({
+            "Material": label,
+            "Carbon Footprint": gwp_display,
+            "Unit": static.get("gwp_unit", "kgCO2e/m²") if static else "—",
+            "GWP Source": gwp_source,
+            "Fire Rating": static.get("fire_rating", "—") if static else "—",
+            "Lifespan (yrs)": static.get("life_cycle_years", "—") if static else "—",
+            "In DB": "yes" if static else "no",
+        })
+    return rows
 
 
 def build_architectural_advice_node():

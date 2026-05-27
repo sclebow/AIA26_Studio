@@ -131,6 +131,9 @@ for _k, _v in {
     "messages": [],
     "selected_room": None,
     "pending_prompt": "",
+    "arch_advice_text": None,
+    "arch_advice_rows": [],
+    "_advice_mat_sig": "",
     "agent": LangGraphAgent(),
 }.items():
     if _k not in st.session_state:
@@ -641,146 +644,229 @@ st.markdown("## AIA Studio · Cost Advisor · Team 05")
 st.caption("Upload plans in the sidebar · choose an active plan · compare up to 5 plans")
 st.divider()
 
-col_plan, col_chat = st.columns([3, 2], gap="large")
+tab_floor, tab_advice = st.tabs(["Floor Plan & Chat", "Architectural Advice"])
 
 # ─────────────────────────── FLOOR PLAN ──────────────────────────────────────
-with col_plan:
-    if st.session_state.layout:
-        st.markdown("#### Floor Plan — Cost Heatmap")
-        st.caption("Colors from Grasshopper. Click a room to select it.")
+with tab_floor:
+    col_plan, col_chat = st.columns([3, 2], gap="large")
 
-        sel_id = (st.session_state.selected_room or {}).get("id")
-        fig    = build_floor_plan(st.session_state.layout, sel_id)
+    with col_plan:
+        if st.session_state.layout:
+            st.markdown("#### Floor Plan — Cost Heatmap")
+            st.caption("Colors from Grasshopper. Click a room to select it.")
 
-        plan_col, legend_col = st.columns([5, 1], gap="small")
+            sel_id = (st.session_state.selected_room or {}).get("id")
+            fig    = build_floor_plan(st.session_state.layout, sel_id)
 
-        with legend_col:
-            st.markdown(
-                '<div style="padding-top:2.5rem">'
-                + build_gh_legend(st.session_state.layout)
-                + "</div>",
-                unsafe_allow_html=True,
-            )
+            plan_col, legend_col = st.columns([5, 1], gap="small")
 
-        with plan_col:
-            try:
-                event = st.plotly_chart(
-                    fig, use_container_width=True,
-                    on_select="rerun", key="floor_plan_chart",
+            with legend_col:
+                st.markdown(
+                    '<div style="padding-top:2.5rem">'
+                    + build_gh_legend(st.session_state.layout)
+                    + "</div>",
+                    unsafe_allow_html=True,
                 )
-                if event:
-                    pts = (event.get("selection") or {}).get("points", [])
-                    if pts:
-                        cd = pts[0].get("customdata", [])
-                        if cd:
-                            room_id   = cd[0]
-                            all_rooms = st.session_state.layout.get("rooms", [])
-                            match     = next((r for r in all_rooms if r.get("id") == room_id), None)
-                            if match:
-                                st.session_state.selected_room = match
-            except TypeError:
-                st.plotly_chart(fig, use_container_width=True)
 
-        # selected room card
-        if st.session_state.selected_room:
-            room     = st.session_state.selected_room
-            currency = st.session_state.layout.get("project", {}).get("currency", "")
-            render_room_card(room, currency)
-            ask_col, clr_col = st.columns([3, 1])
-            if ask_col.button("Ask agent about this room", use_container_width=True):
-                st.session_state.pending_prompt = (
-                    f"Analyse the cost of the {room.get('name')} "
-                    f"({room.get('area_m2',0):.1f} m² at "
-                    f"{room.get('rate_per_m2',0):,.0f} {currency}/m²). "
-                    "How does it compare to similar rooms and how could it be reduced?"
-                )
-                st.rerun()
-            if clr_col.button("Deselect", use_container_width=True):
-                st.session_state.selected_room = None
-                st.rerun()
+            with plan_col:
+                try:
+                    event = st.plotly_chart(
+                        fig, use_container_width=True,
+                        on_select="rerun", key="floor_plan_chart",
+                    )
+                    if event:
+                        pts = (event.get("selection") or {}).get("points", [])
+                        if pts:
+                            cd = pts[0].get("customdata", [])
+                            if cd:
+                                room_id   = cd[0]
+                                all_rooms = st.session_state.layout.get("rooms", [])
+                                match     = next((r for r in all_rooms if r.get("id") == room_id), None)
+                                if match:
+                                    st.session_state.selected_room = match
+                except TypeError:
+                    st.plotly_chart(fig, use_container_width=True)
 
-        # cost table
-        with st.expander("Cost Breakdown Table", expanded=False):
-            df       = build_cost_df(st.session_state.layout)
-            currency = st.session_state.layout.get("project", {}).get("currency", "")
-            fmt      = {f"Rate ({currency}/m²)": "{:,.0f}",
-                        f"Cost ({currency})": "{:,.0f}", "Area (m²)": "{:.1f}"}
+            # selected room card
+            if st.session_state.selected_room:
+                room     = st.session_state.selected_room
+                currency = st.session_state.layout.get("project", {}).get("currency", "")
+                render_room_card(room, currency)
+                ask_col, clr_col = st.columns([3, 1])
+                if ask_col.button("Ask agent about this room", use_container_width=True):
+                    st.session_state.pending_prompt = (
+                        f"Analyse the cost of the {room.get('name')} "
+                        f"({room.get('area_m2',0):.1f} m² at "
+                        f"{room.get('rate_per_m2',0):,.0f} {currency}/m²). "
+                        "How does it compare to similar rooms and how could it be reduced?"
+                    )
+                    st.rerun()
+                if clr_col.button("Deselect", use_container_width=True):
+                    st.session_state.selected_room = None
+                    st.rerun()
 
-            def _hl(row):
-                return (["font-weight:bold;background:#f3f4f6;color:#111111"] * len(row)
-                        if row["Room"] == "TOTAL" else [""] * len(row))
+            # cost table
+            with st.expander("Cost Breakdown Table", expanded=False):
+                df       = build_cost_df(st.session_state.layout)
+                currency = st.session_state.layout.get("project", {}).get("currency", "")
+                fmt      = {f"Rate ({currency}/m²)": "{:,.0f}",
+                            f"Cost ({currency})": "{:,.0f}", "Area (m²)": "{:.1f}"}
 
-            st.dataframe(df.style.apply(_hl, axis=1).format(fmt),
-                         use_container_width=True, hide_index=True)
-    else:
-        st.markdown("#### Floor Plan")
-        st.info("Upload a **layout JSON** in the sidebar to see the interactive floor plan.")
+                def _hl(row):
+                    return (["font-weight:bold;background:#f3f4f6;color:#111111"] * len(row)
+                            if row["Room"] == "TOTAL" else [""] * len(row))
 
-# ────────────────────────────── CHAT ─────────────────────────────────────────
-with col_chat:
-    st.markdown("#### Agent Chat")
-    if st.session_state.selected_plan_key:
-        st.caption(f"Analyzing: {st.session_state.selected_plan_key}")
-
-    chat_area = st.container(height=400)
-    with chat_area:
-        if st.session_state.messages:
-            render_chat()
+                st.dataframe(df.style.apply(_hl, axis=1).format(fmt),
+                             use_container_width=True, hide_index=True)
         else:
-            st.caption("Ask a question or click a room to start.")
+            st.markdown("#### Floor Plan")
+            st.info("Upload a **layout JSON** in the sidebar to see the interactive floor plan.")
 
-    pending = st.session_state.pop("pending_prompt", "") \
-              if "pending_prompt" in st.session_state else ""
+    # ────────────────────────────── CHAT ─────────────────────────────────────────
+    with col_chat:
+        st.markdown("#### Agent Chat")
+        if st.session_state.selected_plan_key:
+            st.caption(f"Analyzing: {st.session_state.selected_plan_key}")
 
-    user_text = st.chat_input(
-        placeholder='e.g. "bedroom 3 floor finish marble" or "total cost?"',
-        key="chat_input",
+        chat_area = st.container(height=400)
+        with chat_area:
+            if st.session_state.messages:
+                render_chat()
+            else:
+                st.caption("Ask a question or click a room to start.")
+
+        pending = st.session_state.pop("pending_prompt", "") \
+                  if "pending_prompt" in st.session_state else ""
+
+        user_text = st.chat_input(
+            placeholder='e.g. "bedroom 3 floor finish marble" or "total cost?"',
+            key="chat_input",
+        )
+
+        if pending and not user_text:
+            user_text = pending
+
+        if user_text and user_text.strip():
+            st.session_state.messages.append({"role": "user", "content": user_text.strip()})
+            with chat_area:
+                with st.chat_message("user"):
+                    st.markdown(user_text.strip())
+                with st.chat_message("assistant"):
+                    placeholder = st.empty()
+                    placeholder.markdown("_Thinking..._")
+            reply = None
+            gh_synced = False
+            try:
+                reply = st.session_state.agent.process(
+                    user_text.strip(),
+                    layout=st.session_state.layout,
+                    plans=st.session_state.layouts,
+                    active_plan_key=st.session_state.selected_plan_key,
+                    history=st.session_state.messages[:-1],
+                )
+                updated = st.session_state.agent.get_updated_layout()
+                if updated is not None and st.session_state.layout is not None:
+                    st.session_state.layout = _merge_gh_colors(
+                        st.session_state.layout, updated
+                    )
+                    if st.session_state.selected_plan_key in st.session_state.layouts:
+                        st.session_state.layouts[st.session_state.selected_plan_key] = st.session_state.layout
+                    st.session_state.selected_room = None
+                    _write_gh_file(st.session_state.layout)
+                    gh_synced = True
+            except Exception as exc:
+                reply = f"Agent error: {exc}"
+            finally:
+                if reply is not None:
+                    placeholder.markdown(reply)
+                    st.session_state.messages.append({"role": "assistant", "content": reply})
+            if gh_synced:
+                st.toast("Heatmap & Grasshopper synced", icon="✅")
+            st.rerun()
+
+        if st.button("Clear conversation", use_container_width=True):
+            st.session_state.messages = []
+            st.rerun()
+
+# ────────────────────────────── ARCHITECTURAL ADVICE ─────────────────────────
+with tab_advice:
+    from nodes.arch_advice import (
+        extract_materials_from_layout as _extract_layout_mats,
+        extract_materials_from_messages as _extract_msg_mats,
+        generate_advice_table_data as _gen_table,
     )
 
-    if pending and not user_text:
-        user_text = pending
+    st.markdown("#### Architectural Material Advice")
+    st.caption("Automatically read from chat history and active plan — fire rating, carbon footprint, and lifespan per material.")
 
-    if user_text and user_text.strip():
-        st.session_state.messages.append({"role": "user", "content": user_text.strip()})
-        with chat_area:
-            with st.chat_message("user"):
-                st.markdown(user_text.strip())
-            with st.chat_message("assistant"):
-                placeholder = st.empty()
-                placeholder.markdown("_Thinking..._")
-        reply = None
-        gh_synced = False
-        try:
-            reply = st.session_state.agent.process(
-                user_text.strip(),
-                layout=st.session_state.layout,
-                plans=st.session_state.layouts,
-                active_plan_key=st.session_state.selected_plan_key,
-                history=st.session_state.messages[:-1],
+    # ── collect materials ─────────────────────────────────────────────────────
+    _layout_mats: list[str] = (
+        _extract_layout_mats(st.session_state.layout)
+        if st.session_state.layout else []
+    )
+    _msg_mats: list[str] = _extract_msg_mats(st.session_state.messages)
+    _combined: list[str] = list(dict.fromkeys(_msg_mats + _layout_mats))
+
+    # ── source summary ────────────────────────────────────────────────────────
+    _src_parts: list[str] = []
+    if _msg_mats:
+        _src_parts.append(f"chat: {', '.join(m.replace('_', ' ') for m in _msg_mats)}")
+    if _layout_mats:
+        _src_parts.append(f"plan: {', '.join(m.replace('_', ' ') for m in _layout_mats)}")
+    if _src_parts:
+        st.caption("Detected — " + " | ".join(_src_parts))
+    else:
+        st.info("No materials detected yet. Mention materials in the chat (e.g. 'bedroom floor finish marble') to populate this table.")
+
+    # ── auto-generate when material list changes (no spinner — avoids state race) ──
+    if _combined:
+        _mat_sig = ",".join(_combined)
+        if st.session_state.get("_advice_mat_sig") != _mat_sig:
+            try:
+                st.session_state.arch_advice_rows = _gen_table(_combined)
+                st.session_state["_advice_mat_sig"] = _mat_sig
+            except Exception as _exc:
+                st.error(f"Advice generation failed: {_exc}")
+                st.session_state.arch_advice_rows = []
+
+    # ── render HTML table (avoids st.dataframe rendering issues) ─────────────
+    _adv_rows: list[dict] = st.session_state.get("arch_advice_rows") or []
+    if _adv_rows:
+        _FIRE_COLOR = {
+            "A1": "#27ae60", "A2": "#27ae60",
+            "B": "#f39c12", "C": "#e67e22",
+            "D": "#c0392b", "E": "#c0392b", "F": "#c0392b",
+        }
+        _th = (
+            "text-align:left;padding:8px 14px;"
+            "border-bottom:2px solid #ddd;color:#555;font-size:0.82rem;font-weight:600"
+        )
+        _td = "padding:8px 14px;border-bottom:1px solid #eee;font-size:0.88rem;color:#111"
+        _headers = ["Material", "Carbon Footprint", "Unit", "GWP Source", "Fire Rating", "Lifespan (yrs)"]
+        _head_html = "".join(f'<th style="{_th}">{h}</th>' for h in _headers)
+        _body_html = ""
+        for _r in _adv_rows:
+            _fire = str(_r.get("Fire Rating", "—"))
+            _fc   = _FIRE_COLOR.get(_fire, "#111")
+            _gwp  = _r.get("Carbon Footprint")
+            _gwp_s = f"{_gwp:,.2f}" if isinstance(_gwp, (int, float)) else "—"
+            _body_html += (
+                f'<tr>'
+                f'<td style="{_td};font-weight:600">{_r.get("Material","")}</td>'
+                f'<td style="{_td}">{_gwp_s}</td>'
+                f'<td style="{_td};color:#666">{_r.get("Unit","—")}</td>'
+                f'<td style="{_td};color:#666">{_r.get("GWP Source","—")}</td>'
+                f'<td style="{_td};color:{_fc};font-weight:600">{_fire}</td>'
+                f'<td style="{_td}">{_r.get("Lifespan (yrs)","—")}</td>'
+                f'</tr>'
             )
-            updated = st.session_state.agent.get_updated_layout()
-            if updated is not None and st.session_state.layout is not None:
-                st.session_state.layout = _merge_gh_colors(
-                    st.session_state.layout, updated
-                )
-                if st.session_state.selected_plan_key in st.session_state.layouts:
-                    st.session_state.layouts[st.session_state.selected_plan_key] = st.session_state.layout
-                st.session_state.selected_room = None
-                _write_gh_file(st.session_state.layout)
-                gh_synced = True
-        except Exception as exc:
-            reply = f"Agent error: {exc}"
-        finally:
-            if reply is not None:
-                placeholder.markdown(reply)
-                st.session_state.messages.append({"role": "assistant", "content": reply})
-        if gh_synced:
-            st.toast("Heatmap & Grasshopper synced", icon="✅")
-        st.rerun()
-
-    if st.button("Clear conversation", use_container_width=True):
-        st.session_state.messages = []
-        st.rerun()
+        st.markdown(
+            f'<table style="width:100%;border-collapse:collapse">'
+            f'<thead><tr>{_head_html}</tr></thead>'
+            f'<tbody>{_body_html}</tbody>'
+            f'</table>',
+            unsafe_allow_html=True,
+        )
 
 # ── cost pie charts (full-width row below both columns) ───────────────────────
 if st.session_state.layout:
