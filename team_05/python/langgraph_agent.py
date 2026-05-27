@@ -89,84 +89,93 @@ class LangGraphAgent:
 
     def _should_compare_plans(self, user_input: str, plans: dict[str, dict] | None = None) -> bool:
         lower = user_input.lower()
-        comparison_keywords = (
-            "compare plans",
-            "plan comparison",
-            "comparison",
-            "total-cost comparison",
-            "total cost comparison",
-            "all plans",
-            "each plan",
-            "five plans",
-            "plans total",
-            "plan totals",
-            "cost for each plan",
-            "which plan is cheapest",
-            "which plan is most expensive",
-            "cheapest plan",
-            "most expensive plan",
+        # hard keywords that always mean multi-plan regardless of how many are loaded
+        hard_keywords = (
+            "compare plans", "plan comparison", "comparison",
+            "total-cost comparison", "total cost comparison",
+            "all plans", "each plan", "five plans", "plans total",
+            "plan totals", "cost for each plan",
+            "which plan is cheapest", "which plan is most expensive",
+            "cheapest plan", "most expensive plan",
         )
-        if any(k in lower for k in comparison_keywords):
+        if any(k in lower for k in hard_keywords):
             return True
 
-        # If multiple plans are available, treat plan-ranking language as a plan comparison.
+        # When multiple plans are actually loaded: "plan(s)" + action word triggers comparison
         if plans and len(plans) > 1:
-            if any(k in lower for k in ("cheapest", "most expensive", "highest cost", "lowest cost")):
-                if "plan" in lower or "plans" in lower:
-                    return True
+            import re
+            has_plan_word = bool(re.search(r'\bplans?\b', lower))
+            action_words = ("compare", "rank", "best", "cheapest", "expensive",
+                            "which", "cost", "choose", "recommend", "value")
+            if has_plan_word and any(k in lower for k in action_words):
+                return True
+            # also catch "X plans" where X is a digit
+            if re.search(r'\d+\s+plans?\b', lower):
+                return True
 
         return False
 
     def _compare_plans(self, user_input: str, plans: dict[str, dict], active_plan_key: str | None) -> str:
-        rows: list[tuple[str, float, str, int]] = []
+        _MAINT_PCT = {"wet": 0.020, "bedroom": 0.012, "common": 0.010,
+                      "circulation": 0.008, "service": 0.015}
+
+        rows = []
         for plan_name, layout in plans.items():
-            proj = layout.get("project", {})
-            rooms = layout.get("rooms", [])
+            proj   = layout.get("project", {})
+            rooms  = layout.get("rooms", [])
             currency = proj.get("currency", "")
             totals = layout.get("totals", {})
             room_total = totals.get("rooms", sum((r.get("total_cost", 0) or 0) for r in rooms))
-            grand = totals.get("grand", room_total)
-            rows.append((plan_name, float(grand), currency, len(rooms)))
+            grand  = totals.get("grand", room_total)
+            area   = sum(r.get("area_m2", 0) for r in rooms)
+            avg_rate = (grand / area) if area else 0
+            maint_yr = sum(
+                (r.get("total_cost", 0) or 0) * _MAINT_PCT.get(r.get("category", "").lower(), 0.012)
+                for r in rooms
+            )
+            rows.append({
+                "name": plan_name, "grand": float(grand), "currency": currency,
+                "rooms": len(rooms), "area": area, "avg_rate": avg_rate, "maint_yr": maint_yr,
+                "active": plan_name == active_plan_key,
+            })
 
         if not rows:
             return "No saved plans are available for comparison yet."
 
-        rows.sort(key=lambda item: item[1])
-        cheapest_name, cheapest_total, currency, _ = rows[0]
-        active_label = f"Active plan: {active_plan_key}\n\n" if active_plan_key else ""
+        rows.sort(key=lambda r: r["grand"])
+        cheapest_total = rows[0]["grand"]
+        currency = rows[0]["currency"]
 
-        lines = [active_label + "**Total cost comparison for saved plans:**", ""]
-        for plan_name, grand, plan_currency, room_count in rows:
-            delta = grand - cheapest_total
+        active_label = f"Active plan: **{active_plan_key}**\n\n" if active_plan_key else ""
+        lines = [
+            active_label + "**Plan comparison — ranked by total cost:**\n",
+            f"| # | Plan | Rooms | Total area m2 | Avg rate /m2 | Grand total | vs cheapest | Est. annual maintenance |",
+            "|---|------|-------|--------------|-------------|-------------|------------|------------------------|",
+        ]
+        for i, r in enumerate(rows, 1):
+            delta = r["grand"] - cheapest_total
             delta_pct = 0.0 if cheapest_total == 0 else (delta / cheapest_total) * 100.0
+            marker = " *" if r["active"] else ""
             lines.append(
-                f"- {plan_name}: {grand:,.0f} {plan_currency} "
-                f"({delta:,.0f} above cheapest, {delta_pct:.1f}% diff, {room_count} rooms)"
+                f"| {i} | {r['name']}{marker} | {r['rooms']} "
+                f"| {r['area']:,.1f} | {r['avg_rate']:,.0f} {currency} "
+                f"| **{r['grand']:,.0f} {currency}** "
+                f"| +{delta:,.0f} ({delta_pct:.1f}%) "
+                f"| ~{r['maint_yr']:,.0f} {currency}/yr |"
             )
 
-        if len(rows) > 1:
-            most_expensive_name, most_expensive_total, _, _ = rows[-1]
-            spread = most_expensive_total - cheapest_total
-            spread_pct = 0.0 if cheapest_total == 0 else (spread / cheapest_total) * 100.0
-            lines.extend([
-                "",
-                f"Cheapest: {cheapest_name} at {cheapest_total:,.0f} {currency}",
-                f"Most expensive: {most_expensive_name} at {most_expensive_total:,.0f} {currency}",
-                f"Spread: {spread:,.0f} {currency} ({spread_pct:.1f}%)",
-            ])
-
-        if active_plan_key and active_plan_key in plans:
-            active_layout = plans[active_plan_key]
-            active_total = active_layout.get("totals", {}).get(
-                "grand",
-                sum((r.get("total_cost", 0) or 0) for r in active_layout.get("rooms", [])),
-            )
-            lines.extend([
-                "",
-                f"I can also compare the active plan ({active_plan_key}) against any other plan if you ask.",
-                f"Active plan total: {active_total:,.0f} {active_layout.get('project', {}).get('currency', currency)}",
-            ])
-
+        most_exp = rows[-1]
+        spread = most_exp["grand"] - cheapest_total
+        spread_pct = 0.0 if cheapest_total == 0 else (spread / cheapest_total) * 100.0
+        lines += [
+            "",
+            f"**Cheapest:** {rows[0]['name']} at {rows[0]['grand']:,.0f} {currency}",
+            f"**Most expensive:** {most_exp['name']} at {most_exp['grand']:,.0f} {currency}",
+            f"**Cost spread:** {spread:,.0f} {currency} ({spread_pct:.1f}%)",
+            "",
+            "_* = active plan | Maintenance: wet 2%/yr | bedrooms 1.2%/yr | common 1%/yr | "
+            "circulation 0.8%/yr (rule-of-thumb)._",
+        ]
         return "\n".join(lines)
 
     def _build_context(

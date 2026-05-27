@@ -117,9 +117,18 @@ def _route(user_input: str, layout: dict) -> str:
     if any(k in lower for k in ("reduce", "save", "cut", "lower", "cheaper", "how to")):
         return _cost_reduction_advice(user_input, rooms, currency)
 
-    # 3. room comparison
+    # 3. room comparison / ranking
     if any(k in lower for k in ("compare", " vs ", "versus")):
         return _compare_rooms(user_input, rooms, currency)
+
+    if any(k in lower for k in ("rank", "ranking", "ranked")):
+        return _rank_all_rooms(rooms, currency)
+
+    # 3b. best value / recommendation
+    if any(k in lower for k in ("best value", "best plan", "best option",
+                                 "choose", "recommend", "which plan",
+                                 "which is best", "which option")):
+        return _best_value_recommendation(rooms, currency)
 
     # 4. rate-per-m² table
     if any(k in lower for k in ("rate", "per m", "per square", "cost per")):
@@ -413,12 +422,19 @@ def _rate_comparison(rooms: list, currency: str) -> str:
 
 def _compare_rooms(user_input: str, rooms: list, currency: str) -> str:
     lower = user_input.lower()
+    # show all rooms when "all", "rank", or a count like "5" appears
+    show_all = "all" in lower or "rank" in lower or any(str(n) in lower for n in range(3, len(rooms) + 1))
+
     matched = [r for r in rooms if
                r.get("name", "").lower() in lower
                or _normalise(r.get("name", "")) in _normalise(lower)
                or r.get("id", "").lower() in lower]
     if len(matched) < 2:
-        matched = sorted(rooms, key=lambda x: x.get("total_cost", 0), reverse=True)[:2]
+        all_sorted = sorted(rooms, key=lambda x: x.get("total_cost", 0), reverse=True)
+        matched = all_sorted if show_all else all_sorted[:2]
+
+    if show_all or len(matched) > 2:
+        return _rank_all_rooms(rooms, currency)
 
     lines = ["**Room cost comparison:**"]
     for r in matched:
@@ -436,6 +452,100 @@ def _compare_rooms(user_input: str, rooms: list, currency: str) -> str:
             f"{delta:,.0f} {currency} ({pct:.0f}%) more than "
             f"**{matched[1].get('name')}**."
         )
+    return "\n".join(lines)
+
+
+def _rank_all_rooms(rooms: list, currency: str) -> str:
+    """Rank all rooms by total cost with cost/m² and estimated maintenance."""
+    _MAINT_PCT = {"wet": 0.020, "bedroom": 0.012, "common": 0.010,
+                  "circulation": 0.008, "service": 0.015}
+    sorted_rooms = sorted(rooms, key=lambda x: x.get("total_cost", 0), reverse=True)
+    cur = currency or "USD"
+
+    lines = [f"**All rooms ranked by total cost** ({cur}):\n",
+             f"| # | Room | Area m² | Rate {cur}/m² | Total {cur} | Est. annual maintenance |",
+             "|---|------|---------|-------------|------------|------------------------|"]
+
+    for i, r in enumerate(sorted_rooms, 1):
+        area  = r.get("area_m2", 0)
+        rate  = r.get("rate_per_m2", 0)
+        total = r.get("total_cost", 0)
+        cat   = r.get("category", "").lower()
+        maint_pct = _MAINT_PCT.get(cat, 0.012)
+        maint_yr  = total * maint_pct
+        lines.append(
+            f"| {i} | {r.get('name','')} | {area:.1f} | {rate:,.0f} "
+            f"| **{total:,.0f}** | ~{maint_yr:,.0f} ({maint_pct*100:.1f}%/yr) |"
+        )
+
+    grand = sum(r.get("total_cost", 0) for r in rooms)
+    total_maint = sum(r.get("total_cost", 0) *
+                      _MAINT_PCT.get(r.get("category", "").lower(), 0.012)
+                      for r in rooms)
+    lines += [
+        "",
+        f"**Grand total construction: {grand:,.0f} {cur}**  "
+        f"| Est. annual maintenance: ~{total_maint:,.0f} {cur}",
+        "",
+        "_Maintenance rates: wet areas 2%/yr | bedrooms 1.2%/yr | common 1%/yr | "
+        "circulation 0.8%/yr | service 1.5%/yr (rule-of-thumb; adjust per BoQ)._",
+    ]
+    return "\n".join(lines)
+
+
+def _best_value_recommendation(rooms: list, currency: str) -> str:
+    """Recommend the best-value room/plan based on cost efficiency and flexibility."""
+    cur = currency or "USD"
+    sorted_by_rate = sorted(rooms, key=lambda x: x.get("rate_per_m2", 0))
+    sorted_by_total = sorted(rooms, key=lambda x: x.get("total_cost", 0))
+
+    # score: lower rate is better (value), larger area is more flexible
+    max_area  = max(r.get("area_m2", 1) for r in rooms)
+    max_total = max(r.get("total_cost", 1) for r in rooms)
+
+    def value_score(r: dict) -> float:
+        rate_norm  = 1 - r.get("rate_per_m2", 0) / max(r.get("rate_per_m2", 1) for r in rooms)
+        area_norm  = r.get("area_m2", 0) / max_area
+        cost_norm  = 1 - r.get("total_cost", 0) / max_total
+        return rate_norm * 0.5 + area_norm * 0.3 + cost_norm * 0.2
+
+    scored = sorted(rooms, key=value_score, reverse=True)
+    best   = scored[0]
+    runner = scored[1] if len(scored) > 1 else None
+
+    cheapest_rate = sorted_by_rate[0]
+    smallest_cost = sorted_by_total[0]
+
+    lines = [
+        "**Best-value recommendation:**\n",
+        f"Based on cost per m2, usable area, and total budget:\n",
+        f"**Top pick: {best.get('name')}**",
+        f"  Area: {best.get('area_m2', 0):.1f} m2  |  "
+        f"Rate: {best.get('rate_per_m2', 0):,.0f} {cur}/m2  |  "
+        f"Total: {best.get('total_cost', 0):,.0f} {cur}",
+        f"  Category: {best.get('category', '-')}  |  "
+        f"Flexibility: {'high (large area)' if best.get('area_m2', 0) >= 0.6 * max_area else 'moderate'}",
+    ]
+    if runner:
+        lines += [
+            "",
+            f"**Runner-up: {runner.get('name')}**",
+            f"  Area: {runner.get('area_m2', 0):.1f} m2  |  "
+            f"Rate: {runner.get('rate_per_m2', 0):,.0f} {cur}/m2  |  "
+            f"Total: {runner.get('total_cost', 0):,.0f} {cur}",
+        ]
+    lines += [
+        "",
+        f"**Lowest rate/m2:** {cheapest_rate.get('name')} "
+        f"@ {cheapest_rate.get('rate_per_m2', 0):,.0f} {cur}/m2 "
+        f"(best finish economy)",
+        f"**Lowest total cost:** {smallest_cost.get('name')} "
+        f"@ {smallest_cost.get('total_cost', 0):,.0f} {cur} "
+        f"(smallest budget impact)",
+        "",
+        "_Scoring weights: rate/m2 50% + area 30% + absolute cost 20%._",
+        "_For long-term flexibility, prefer larger-area spaces -- easier to subdivide or repurpose._",
+    ]
     return "\n".join(lines)
 
 

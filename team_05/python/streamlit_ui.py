@@ -108,6 +108,16 @@ button[kind="primary"],
 .kv-val { color: #111; font-weight: 600; }
 /* caption / small text */
 .stCaption, small { color: #666 !important; }
+/* selectbox — active plan dropdown */
+[data-baseweb="select"] > div,
+[data-baseweb="select"] [data-testid="stSelectboxVirtualDropdown"],
+[data-baseweb="popover"] ul,
+[data-baseweb="popover"] li {
+    background: #e8e8e8 !important;
+    color: #111111 !important;
+    border-color: #cccccc !important;
+}
+[data-baseweb="select"] svg { fill: #555555 !important; }
 </style>
 """, unsafe_allow_html=True)
 
