@@ -796,9 +796,12 @@ with tab_advice:
         generate_advice_table_data as _gen_table,
         FIRE_STANDARDS,
         DEFAULT_STANDARD,
+        GWP_REGIONS,
+        DEFAULT_REGION,
     )
+    from nodes.bt_client import has_api_key as _bt_has_key
 
-    _hdr_col, _std_col = st.columns([3, 1])
+    _hdr_col, _std_col, _reg_col = st.columns([2, 1, 1])
     _hdr_col.markdown("#### Architectural Material Advice")
     _hdr_col.caption("Automatically read from chat history and active plan — fire rating, carbon footprint, and lifespan per material.")
     _selected_standard = _std_col.selectbox(
@@ -807,6 +810,15 @@ with tab_advice:
         index=list(FIRE_STANDARDS.keys()).index(DEFAULT_STANDARD),
         key="fire_standard",
     )
+    _selected_region = _reg_col.selectbox(
+        "Carbon data source",
+        options=list(GWP_REGIONS.keys()),
+        index=list(GWP_REGIONS.keys()).index(DEFAULT_REGION),
+        key="gwp_region",
+    )
+    _needs_bt = GWP_REGIONS.get(_selected_region, {}).get("source") == "ec3"
+    if _needs_bt and not _bt_has_key():
+        _reg_col.caption("Set BT_API_KEY env var to enable EC3 live data — using static fallback for now.")
 
     # ── collect materials ─────────────────────────────────────────────────────
     _layout_mats: list[str] = (
@@ -829,10 +841,10 @@ with tab_advice:
 
     # ── auto-generate when material list changes (no spinner — avoids state race) ──
     if _combined:
-        _mat_sig = ",".join(_combined) + "|" + _selected_standard
+        _mat_sig = ",".join(_combined) + "|" + _selected_standard + "|" + _selected_region
         if st.session_state.get("_advice_mat_sig") != _mat_sig:
             try:
-                st.session_state.arch_advice_rows = _gen_table(_combined, _selected_standard)
+                st.session_state.arch_advice_rows = _gen_table(_combined, _selected_standard, _selected_region)
                 st.session_state["_advice_mat_sig"] = _mat_sig
             except Exception as _exc:
                 st.error(f"Advice generation failed: {_exc}")

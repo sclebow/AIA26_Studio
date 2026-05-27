@@ -158,6 +158,39 @@ FIRE_STANDARDS = {
 }
 DEFAULT_STANDARD = "EN 13501-1"
 
+# Region → GWP data source configuration.
+# "source" is either "oekobaudat" (existing client) or "ec3" (Building Transparency).
+# "jurisdiction" is an ISO 3166-1 alpha-2 code passed to the EC3 API.
+GWP_REGIONS: dict[str, dict] = {
+    "Europe (Ökobaudat)":        {"source": "oekobaudat"},
+    "USA (EC3)":                 {"source": "ec3", "jurisdiction": "US"},
+    "Canada (EC3)":              {"source": "ec3", "jurisdiction": "CA"},
+    "Australia (EC3)":           {"source": "ec3", "jurisdiction": "AU"},
+    "New Zealand (EC3)":         {"source": "ec3", "jurisdiction": "NZ"},
+    "China (static only)":       {"source": "static"},
+    "Global (static only)":      {"source": "static"},
+}
+DEFAULT_REGION = "Europe (Ökobaudat)"
+
+
+def get_gwp_regional(material_key: str, region: str = DEFAULT_REGION) -> float | None:
+    """Return GWP A1-A3 for a material using the appropriate regional database.
+
+    Falls back to static value (None) if the chosen source is unavailable.
+    """
+    cfg = GWP_REGIONS.get(region, {"source": "oekobaudat"})
+    source = cfg.get("source", "oekobaudat")
+
+    if source == "oekobaudat":
+        return get_gwp(material_key)
+
+    if source == "ec3":
+        from nodes.bt_client import get_gwp as bt_get_gwp
+        return bt_get_gwp(material_key, cfg.get("jurisdiction"))
+
+    # "static" — caller will use the fallback value from material_properties.json
+    return None
+
 
 def _resolve_fire_rating(static: dict, standard_key: str) -> str:
     """Return the fire rating string for the given standard key."""
@@ -271,12 +304,16 @@ def generate_advice_for_materials(materials: list[str]) -> str:
     return "\n".join(sections)
 
 
-def generate_advice_table_data(materials: list[str], standard: str = DEFAULT_STANDARD) -> list[dict]:
+def generate_advice_table_data(
+    materials: list[str],
+    standard: str = DEFAULT_STANDARD,
+    region: str = DEFAULT_REGION,
+) -> list[dict]:
     """Return a list of property dicts suitable for table display."""
     standard_key = FIRE_STANDARDS.get(standard, "EN_13501")
     rows: list[dict] = []
     for mat in materials[:_MAX_MATERIALS]:
-        live_gwp = get_gwp(mat)
+        live_gwp = get_gwp_regional(mat, region)
         static = _lookup_static(mat)
         label = mat.replace("_", " ").title()
 
