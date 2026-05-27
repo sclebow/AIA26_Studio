@@ -1,0 +1,69 @@
+---
+config:
+  flowchart:
+    curve: basis
+---
+flowchart TB
+
+    %% ── NODE TYPE STYLES ────────────────────────────────────────────────
+    classDef terminal  fill:#2C3E50,stroke:#2C3E50,color:#fff
+    classDef onboard   fill:#EAD5F5,stroke:#9B59B6,stroke-width:2.5px,color:#1a1a1a
+    classDef convo     fill:#D6EEF5,stroke:#4A8FA8,stroke-width:2px,color:#1a1a1a
+    classDef decision  fill:#FDDCBC,stroke:#C4622D,stroke-width:2px,color:#1a1a1a
+    classDef process   fill:#EDE0D8,stroke:#2B1408,stroke-width:2px,color:#1a1a1a
+    classDef tool      fill:#D5EFDC,stroke:#5E9B6A,stroke-width:1.5px,stroke-dasharray:5 3,color:#333
+    classDef bg        fill:#EEEEEE,stroke:#999999,stroke-width:1px,stroke-dasharray:3 2,color:#555
+
+    START([START]):::terminal
+
+    %% ── ONBOARDING SPINE ────────────────────────────────────────────────
+    G0(["① ONBOARDING\nGreet · Quiz  (6 turns)  · Inspire  (2 graph turns · PyQt5 GUI pipeline)  · Persona Compiler\nInspire pipeline: image upload → VLM analysis → Unsplash → 3 selection rounds → moodboard approval → LLM synthesis\nRuns once — skipped for returning users"]):::onboard
+
+    %% ── LAYOUT MODE SPINE ───────────────────────────────────────────────
+    G2{{"② ROUTING\nIntent Classification\ncomfort · overview · tools · follow_up · inspire · chitchat"}}:::decision
+    G3(["③ LAYOUT\nLoad Layout"]):::convo
+    G4{{"④ ROUTE INTENT\nAnalyze · Detect · Full · What-if · Compare"}}:::decision
+    G5["⑤ MAIN ANALYSIS CHAIN\nAnalyze → Score → Detect → Suggest"]:::process
+    G6["⑥ QUALITY LOOP\nRespond · Evaluate  (max 1 revision)"]:::process
+    G7(["⑦ FEEDBACK LOOP\nWhat next?"]):::convo
+    END_F([END]):::terminal
+
+    %% ── SIDE NODES ──────────────────────────────────────────────────────
+    CHITCHAT(["CHITCHAT\nGeneral questions · Layout mode only"]):::convo
+    DETAIL(["DETAIL_RESPOND\nFollow-up answers · cached session data\nno MCP re-run"]):::convo
+    OVERVIEW(["OVERVIEW_RESPOND\nQuick room list · No analysis"]):::convo
+    OUTPUT[("OUTPUT_WRITER\nWrites layout JSON · background")]:::bg
+
+    %% ── TOOL BRANCHES ───────────────────────────────────────────────────
+    G5a["⑤a MODIFICATION TOOLS\nChange Material · Glazing · Furniture"]:::tool
+    G5b["⑤b SPATIAL TOOL\nTopologic Adjacency"]:::tool
+    G5c["⑤c PERSONA COMPARISON\nTwo Personas · Same Layout"]:::tool
+    G5d["⑤d BIOPHILIC TOOL\nTalk Green To Me"]:::tool
+
+    %% ── MAIN FLOW ───────────────────────────────────────────────────────
+    START --> G0
+    G0 -->|"onboarding_complete"| G2
+    G2 -->|"analysis · overview · tools"| G3
+    G2 -->|"inspire"| G0
+    G2 -->|"chitchat"| CHITCHAT
+    G2 -->|"follow_up"| DETAIL
+    G3 -->|"overview"| OVERVIEW --> G7
+    G3 -->|"analysis"| G4
+    G4 --> G5
+    G5 --> G6
+    G6 --> G7
+    G7 --> END_F
+
+    %% ── SIDE FLOWS ──────────────────────────────────────────────────────
+    CHITCHAT -->|"analysis intent"| G2
+    CHITCHAT --> G7
+    DETAIL --> G7
+    G7 -.->|"post-graph"| OUTPUT
+
+    %% ── TOOL BRANCHES ───────────────────────────────────────────────────
+    G4 --> G5a & G5b & G5c & G5d
+    G5a -->|"re-score"| G5
+    G5b -->|"adjacency"| G5
+    G5c -->|"score delta"| G5
+    G5d -->|"add plants"| G5a
+    G5d -->|"direct"| G5

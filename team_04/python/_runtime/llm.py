@@ -23,6 +23,7 @@ def create_chat_llm(
         model=llm_model,
         timeout=timeout_seconds,
         temperature=0,
+        max_tokens=8192,
         model_kwargs=model_kwargs or {},
     )
 
@@ -93,28 +94,16 @@ def _build_arguments_schema(tools: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "type": "object",
         "properties": merged_properties,
-        "required": list(merged_properties.keys()),
+        "required": [],
         "additionalProperties": False,
     }
 
 
 def get_llm_response_format(tools: list[dict[str, Any]]) -> dict[str, Any]:
-    schema = deepcopy(LLM_DECISION_SCHEMA)
-    tool_names = [str(tool.get("name")) for tool in tools if tool.get("name")]
-    tool_call_schema = schema["properties"]["tool_calls"]["items"]
-    tool_call_schema["properties"]["name"]["enum"] = tool_names
-    tool_call_schema["properties"]["arguments"] = _build_arguments_schema(tools)
-
-    return {
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": {
-                "name": "agent_decision",
-                "strict": True,
-                "schema": schema,
-            },
-        }
-    }
+    # Return empty — no response_format overhead.
+    # The system prompt already instructs the model to output strict JSON,
+    # and _parse_llm_json handles parsing the free-text response.
+    return {}
 
 
 # ---------------------------------------------------------------------------
@@ -200,11 +189,52 @@ def _normalize_llm_decision(parsed: dict[str, Any]) -> dict[str, Any]:
 # Public convenience function used by reason nodes
 # ---------------------------------------------------------------------------
 
+def _call_api_direct(llm: Any, messages: list[dict]) -> Any:
+    """Fallback: direct httpx call to the OpenAI-compatible endpoint.
+
+    Some providers (Cloudflare Workers AI) return `content` as a parsed dict
+    rather than a JSON string, which langchain-openai rejects with a
+    ValidationError inside llm.invoke().  This bypasses LangChain entirely
+    and returns the raw content value (str or dict).
+    """
+    import httpx
+
+    api_key_obj = getattr(llm, "openai_api_key", None)
+    api_key = (
+        api_key_obj.get_secret_value()
+        if hasattr(api_key_obj, "get_secret_value")
+        else str(api_key_obj or "")
+    )
+    base_url = str(getattr(llm, "openai_api_base", None) or "").rstrip("/")
+    model    = str(getattr(llm, "model_name", None) or getattr(llm, "model", ""))
+    # ChatOpenAI stores timeout as `request_timeout` internally (alias "timeout")
+    timeout  = float(
+        getattr(llm, "request_timeout", None)
+        or getattr(llm, "timeout", None)
+        or 60
+    )
+    max_tok  = int(getattr(llm, "max_tokens", None) or 8192)
+
+    resp = httpx.post(
+        f"{base_url}/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={
+            "model":       model,
+            "messages":    messages,
+            "temperature": 0,
+            "max_tokens":  max_tok,
+        },
+        timeout=timeout,
+    )
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"]
+
+
 def call_llm(
     llm: Any,
     system_prompt: str,
     messages: list[dict[str, str]],
-    tool_catalog: str,
+    tool_catalog: str | None = None,
 ) -> dict[str, Any]:
     """Invoke the LLM and return a parsed decision dict.
 
@@ -212,19 +242,54 @@ def call_llm(
       {"action": "final", "final_response": "<text>"}
       {"action": "tool",  "tool_calls": [{"name": "<tool>", "arguments": {...}}]}
     """
-    formatted_prompt = system_prompt.format(tool_catalog=tool_catalog)
+    formatted_prompt = (
+        system_prompt.format(tool_catalog=tool_catalog)
+        if tool_catalog is not None
+        else system_prompt
+    )
     llm_messages = [{"role": "system", "content": formatted_prompt}] + messages
 
-    result = llm.invoke(llm_messages)
-    content = result.content
+    # ── Primary: LangChain invoke ─────────────────────────────────────────────
+    content: Any
+    try:
+        result = llm.invoke(llm_messages)
+        content = result.content
+    except Exception as exc:
+        # Cloudflare Workers AI returns `content` as a parsed dict, which
+        # langchain-openai rejects with a ValidationError. Fall back to a
+        # direct httpx call that handles both str and dict content.
+        if type(exc).__name__ not in ("ValidationError", "PydanticValidationError", "ValueError"):
+            raise
+        content = _call_api_direct(llm, llm_messages)
+
+    if isinstance(content, dict):
+        return _normalize_llm_decision(content)
     if not isinstance(content, str):
-        raise RuntimeError("LLM response content must be a string")
+        raise RuntimeError(f"LLM response content must be a string or dict, got {type(content)}")
+
+    # If the model returned empty content (e.g. empty markdown fence ``` ```)
+    # retry once via the direct httpx path which uses the full timeout.
+    # Check AFTER fence-stripping so ``` ```json\n\n``` ``` is also caught.
+    if not _strip_markdown_code_fence(content).strip():
+        print("[llm] Empty content from LLM, retrying via direct httpx call")
+        content = _call_api_direct(llm, llm_messages)
+        if isinstance(content, dict):
+            return _normalize_llm_decision(content)
+        if not isinstance(content, str):
+            raise RuntimeError(f"Retry returned unexpected type: {type(content)}")
 
     try:
         return _normalize_llm_decision(_parse_llm_json(content))
     except Exception:
+        # Model returned non-JSON plain text (e.g. a prose report).
+        # If the stripped content is non-empty, wrap it as a final_response
+        # so the workflow can continue rather than crashing.
+        stripped = _strip_markdown_code_fence(content)
+        if stripped.strip():
+            print("[llm] Non-JSON response — treating as plain-text final_response")
+            return {"action": "final", "final_response": stripped}
         print("\n[llm] Raw LLM response before crash:")
-        print(content)
+        print(repr(content))
         raise
 
 

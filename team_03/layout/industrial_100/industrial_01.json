@@ -1,0 +1,164 @@
+{
+  "layoutId": "Industrial-Claude-01",
+
+  "outline": [[0.0, 0.0], [20.0, 0.0], [20.0, 10.0], [0.0, 10.0], [0.0, 0.0]],
+
+  "rooms": [
+    {
+      "id": "room-1",
+      "name": "Workshop",
+      "geometry": [[0.0, 0.0], [14.0, 0.0], [14.0, 10.0], [0.0, 10.0], [0.0, 0.0]],
+      "attributes": { "area": 140.0 }
+    },
+    {
+      "id": "room-2",
+      "name": "Office",
+      "geometry": [[14.0, 5.0], [20.0, 5.0], [20.0, 10.0], [14.0, 10.0], [14.0, 5.0]],
+      "attributes": { "area": 30.0 }
+    },
+    {
+      "id": "room-3",
+      "name": "Restroom",
+      "geometry": [[14.0, 0.0], [18.0, 0.0], [18.0, 5.0], [14.0, 5.0], [14.0, 0.0]],
+      "attributes": { "area": 20.0 }
+    },
+    {
+      "id": "room-4",
+      "name": "Storage Room",
+      "geometry": [[18.0, 0.0], [20.0, 0.0], [20.0, 5.0], [18.0, 5.0], [18.0, 0.0]],
+      "attributes": { "area": 10.0 }
+    }
+  ],
+
+  "doors": [
+    {
+      "id": "door-1",
+      "type": "sliding",
+      "name": "Main Workshop Entrance",
+      "geometry": [[0.0, 4.5], [0.0, 5.4]],
+      "attributes": { "connectsRooms": ["room-1", "exterior"] }
+    },
+    {
+      "id": "door-2",
+      "type": "wooden",
+      "name": "Office Door",
+      "geometry": [[14.0, 6.5], [14.0, 7.4]],
+      "attributes": { "connectsRooms": ["room-1", "room-2"] }
+    },
+    {
+      "id": "door-3",
+      "type": "wooden",
+      "name": "Restroom Door",
+      "geometry": [[14.0, 2.0], [14.0, 2.85]],
+      "attributes": { "connectsRooms": ["room-1", "room-3"] }
+    },
+    {
+      "id": "door-4",
+      "type": "wooden",
+      "name": "Storage Door",
+      "geometry": [[18.0, 2.0], [18.0, 2.85]],
+      "attributes": { "connectsRooms": ["room-3", "room-4"] }
+    }
+  ],
+
+  "windows": [
+    {
+      "id": "window-1",
+      "type": "fixed",
+      "name": "Workshop South Window 1",
+      "geometry": [[3.0, 0.0], [4.5, 0.0]],
+      "attributes": { "roomId": "room-1" }
+    },
+    {
+      "id": "window-2",
+      "type": "fixed",
+      "name": "Workshop South Window 2",
+      "geometry": [[8.0, 0.0], [9.5, 0.0]],
+      "attributes": { "roomId": "room-1" }
+    },
+    {
+      "id": "window-3",
+      "type": "fixed",
+      "name": "Workshop North Window 1",
+      "geometry": [[3.0, 10.0], [4.5, 10.0]],
+      "attributes": { "roomId": "room-1" }
+    },
+    {
+      "id": "window-4",
+      "type": "fixed",
+      "name": "Workshop North Window 2",
+      "geometry": [[8.0, 10.0], [9.5, 10.0]],
+      "attributes": { "roomId": "room-1" }
+    },
+    {
+      "id": "window-5",
+      "type": "casement",
+      "name": "Office North Window",
+      "geometry": [[16.0, 10.0], [18.0, 10.0]],
+      "attributes": { "roomId": "room-2" }
+    },
+    {
+      "id": "window-6",
+      "type": "casement",
+      "name": "Office East Window",
+      "geometry": [[20.0, 7.0], [20.0, 8.5]],
+      "attributes": { "roomId": "room-2" }
+    },
+    {
+      "id": "window-7",
+      "type": "awning",
+      "name": "Restroom East Window",
+      "geometry": [[20.0, 2.0], [20.0, 3.0]],
+      "attributes": { "roomId": "room-3" }
+    }
+  ],
+
+  "furniture": [],
+
+  "mep": [],
+
+  "structure": [
+    {
+      "id": "wall-1",
+      "name": "South Exterior Wall",
+      "geometry": [[0.0, 0.0], [20.0, 0.0]],
+      "attributes": { "type": "load-bearing", "material": "concrete" }
+    },
+    {
+      "id": "wall-2",
+      "name": "East Exterior Wall",
+      "geometry": [[20.0, 0.0], [20.0, 10.0]],
+      "attributes": { "type": "load-bearing", "material": "concrete" }
+    },
+    {
+      "id": "wall-3",
+      "name": "North Exterior Wall",
+      "geometry": [[0.0, 10.0], [20.0, 10.0]],
+      "attributes": { "type": "load-bearing", "material": "concrete" }
+    },
+    {
+      "id": "wall-4",
+      "name": "West Exterior Wall",
+      "geometry": [[0.0, 0.0], [0.0, 10.0]],
+      "attributes": { "type": "load-bearing", "material": "concrete" }
+    },
+    {
+      "id": "wall-5",
+      "name": "Workshop-Offices Divider",
+      "geometry": [[14.0, 0.0], [14.0, 10.0]],
+      "attributes": { "type": "partition", "material": "drywall" }
+    },
+    {
+      "id": "wall-6",
+      "name": "Office-Restroom Divider",
+      "geometry": [[14.0, 5.0], [20.0, 5.0]],
+      "attributes": { "type": "partition", "material": "drywall" }
+    },
+    {
+      "id": "wall-7",
+      "name": "Restroom-Storage Divider",
+      "geometry": [[18.0, 0.0], [18.0, 5.0]],
+      "attributes": { "type": "partition", "material": "drywall" }
+    }
+  ]
+}

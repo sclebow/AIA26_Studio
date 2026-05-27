@@ -1,0 +1,121 @@
+{
+  "source": "Neufert Architects Data 4th Ed + ISO 11228 + OSHA 1910 + manufacturer standard dimensions",
+  "topic": "Standard heights for industrial equipment and workstations",
+  "facts": [
+    {
+      "object_type": "workbench",
+      "height_m": 0.900,
+      "context": "Standard industrial workbench — EN 547 / Neufert. Comfortable standing work height."
+    },
+    {
+      "object_type": "quality_control_station",
+      "height_m": 0.900,
+      "context": "QC inspection bench — same as workbench. Surface within comfortable reach zone 0.35-1.6m."
+    },
+    {
+      "object_type": "assembly_station",
+      "height_m": 0.850,
+      "context": "Assembly workstation — slightly lower than inspection bench for two-handed manipulation tasks."
+    },
+    {
+      "object_type": "packaging_station",
+      "height_m": 0.850,
+      "context": "Packaging bench — matches assembly station height for ergonomic flow between stations."
+    },
+    {
+      "object_type": "labeling_station",
+      "height_m": 0.900,
+      "context": "Labeling workstation — standard bench height for precision label application tasks."
+    },
+    {
+      "object_type": "conveyor",
+      "height_m": 0.850,
+      "context": "Standard industrial conveyor belt height — matches workstation height for direct transfer."
+    },
+    {
+      "object_type": "conveyor_section",
+      "height_m": 0.850,
+      "context": "Conveyor section — same as conveyor. Consistent height across conveyor runs."
+    },
+    {
+      "object_type": "parts_bin_rack",
+      "height_m": 2.100,
+      "context": "Standard parts bin rack — Neufert. Max height 2.1m for manual picking without ladder."
+    },
+    {
+      "object_type": "storage_rack",
+      "height_m": 2.400,
+      "context": "Heavy-duty storage rack — forklift accessible. Ceiling clearance minimum 0.5m above."
+    },
+    {
+      "object_type": "cnc_machine",
+      "height_m": 1.800,
+      "context": "CNC machining centre — typical enclosure height including guard. OSHA 1910.212."
+    },
+    {
+      "object_type": "press_brake",
+      "height_m": 1.600,
+      "context": "Press brake machine — standard frame height for sheet metal operations."
+    },
+    {
+      "object_type": "lathe",
+      "height_m": 1.400,
+      "context": "Industrial lathe — bed height plus headstock. Operator works at standing height."
+    },
+    {
+      "object_type": "welding_station",
+      "height_m": 0.900,
+      "context": "Welding table — standard bench height. Welding fixture sits on top."
+    },
+    {
+      "object_type": "robot_cell",
+      "height_m": 2.200,
+      "context": "Robot cell enclosure including safety fence. ISO 10218-2 fence height minimum 1.4m."
+    },
+    {
+      "object_type": "electrical_panel",
+      "height_m": 2.000,
+      "context": "Electrical panel cabinet — NEC 110.26 standard enclosure height."
+    },
+    {
+      "object_type": "compressor",
+      "height_m": 1.200,
+      "context": "Industrial air compressor — typical skid-mounted unit height."
+    },
+    {
+      "object_type": "forklift_charging_station",
+      "height_m": 1.500,
+      "context": "Forklift battery charging unit — wall-mounted or freestanding charger height."
+    },
+    {
+      "object_type": "pallet_station",
+      "height_m": 0.150,
+      "context": "Pallet storage position — standard EUR pallet height 0.144m. Floor level."
+    },
+    {
+      "object_type": "qc_table",
+      "height_m": 0.900,
+      "context": "Quality control inspection table — standard bench height."
+    },
+    {
+      "object_type": "office_desk",
+      "height_m": 0.750,
+      "context": "Industrial office desk — standard desk height for seated work."
+    },
+    {
+      "object_type": "tool_cabinet",
+      "height_m": 1.000,
+      "context": "Tool storage cabinet — accessible without reaching above shoulder height."
+    },
+    {
+      "object_type": "sink",
+      "height_m": 0.850,
+      "context": "Industrial sink — standard counter height for standing use."
+    },
+    {
+      "object_type": "toilet",
+      "height_m": 0.400,
+      "context": "Standard toilet fixture height — ADA/accessibility standard."
+    }
+  ]
+}

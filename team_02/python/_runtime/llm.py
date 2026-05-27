@@ -229,6 +229,45 @@ def call_llm(
 
 
 # ---------------------------------------------------------------------------
+# Simple LLM call — no tool catalog, just system + user message → string
+# Used by chitchat, respond, and route_intent nodes.
+# ---------------------------------------------------------------------------
+
+def _strip_think_tags(text: str) -> str:
+    """
+    Remove <think>...</think> reasoning blocks produced by Qwen3, DeepSeek-R1,
+    and similar models.  Safe to call on any LLM output — if no think block
+    exists the string is returned unchanged.
+    """
+    import re
+    try:
+        return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
+    except Exception:
+        return text
+
+
+def call_llm_simple(llm: Any, system_prompt: str, user_message: str) -> str:
+    """Invoke the LLM with a plain system + user message and return the response string.
+
+    Pass a plain LLM instance (no response_format / JSON schema) so the model
+    can respond freely without token budget wasted on JSON wrapper.
+    Use ctx.llm_simple, not ctx.llm, when calling this function.
+
+    Think tags (<think>...</think>) produced by reasoning models (Qwen3,
+    DeepSeek-R1) are stripped automatically before the string is returned.
+    """
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_message},
+    ]
+    result = llm.invoke(messages)
+    content = result.content
+    if not isinstance(content, str):
+        raise RuntimeError("LLM response content must be a string")
+    return _strip_think_tags(content)
+
+
+# ---------------------------------------------------------------------------
 # Tool output persistence helper used by tool nodes
 # ---------------------------------------------------------------------------
 

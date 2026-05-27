@@ -1,0 +1,40 @@
+{
+  "tool_name": "user_prompt_reader",
+  "session_id": "USR_001",
+  "input": {
+    "user_prompt_text": "I want a private courtyard building with strong morning sunlight, minimal west heat, easy road access, and a compact efficient layout."
+  },
+  "output": {
+    "parsed_intent": {
+      "privacy": 0.95,
+      "courtyard_priority": 1.0,
+      "morning_sunlight": 0.9,
+      "west_sun_avoidance": 0.85,
+      "road_access": 0.8,
+      "compactness": 0.88,
+      "efficiency": 0.84
+    },
+    "shape_preferences": {
+      "courtyard_shapes_preferred": ["U", "O", "L"],
+      "compact_shapes_preferred": ["Rectangle", "L"]
+    },
+    "placement_preferences": {
+      "preferred_orientation": "east",
+      "avoid_orientation": "west",
+      "preferred_entry_near_road": true
+    },
+    "optimization_weights": {
+      "site_fit": 0.85,
+      "environmental_performance": 0.92,
+      "accessibility": 0.8,
+      "shape_efficiency": 0.87,
+      "open_space_quality": 0.9
+    },
+    "recommended_operations": [
+      "rotate_to_east",
+      "carve_courtyard",
+      "offset_from_west_edge",
+      "compact_massing"
+    ]
+  }
+}

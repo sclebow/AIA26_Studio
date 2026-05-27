@@ -1,536 +1,701 @@
-{
-  "layoutId": "Layout-202",
-  "name": "Cozy 1-Bedroom Home",
-  "outline": [
-    [
-      0.0,
-      0.0
-    ],
-    [
-      10.0,
-      0.0
-    ],
-    [
-      10.0,
-      7.0
-    ],
-    [
-      0.0,
-      7.0
-    ],
-    [
-      0.0,
-      0.0
-    ]
-  ],
-  "rooms": [
-    {
-      "id": "room-1",
-      "name": "Open Plan Living-Dining",
-      "geometry": [
-        [
-          0.0,
-          0.0
-        ],
-        [
-          7.0,
-          0.0
-        ],
-        [
-          7.0,
-          4.5
-        ],
-        [
-          0.0,
-          4.5
-        ],
-        [
-          0.0,
-          0.0
-        ]
-      ],
-      "attributes": {
-        "area": 31.5,
-        "roomType": "living"
-      }
-    },
-    {
-      "id": "room-2",
-      "name": "Kitchen",
-      "geometry": [
-        [
-          7.0,
-          0.0
-        ],
-        [
-          10.0,
-          0.0
-        ],
-        [
-          10.0,
-          4.5
-        ],
-        [
-          7.0,
-          4.5
-        ],
-        [
-          7.0,
-          0.0
-        ]
-      ],
-      "attributes": {
-        "area": 10.5,
-        "roomType": "kitchen"
-      }
-    },
-    {
-      "id": "room-3",
-      "name": "Bedroom",
-      "geometry": [
-        [
-          0.0,
-          4.5
-        ],
-        [
-          5.0,
-          4.5
-        ],
-        [
-          5.0,
-          7.0
-        ],
-        [
-          0.0,
-          7.0
-        ],
-        [
-          0.0,
-          4.5
-        ]
-      ],
-      "attributes": {
-        "area": 12.5,
-        "roomType": "bedroom"
-      }
-    },
-    {
-      "id": "room-4",
-      "name": "Bathroom",
-      "geometry": [
-        [
-          5.0,
-          4.5
-        ],
-        [
-          7.0,
-          4.5
-        ],
-        [
-          7.0,
-          6.0
-        ],
-        [
-          5.0,
-          6.0
-        ],
-        [
-          5.0,
-          4.5
-        ]
-      ],
-      "attributes": {
-        "area": 3.0,
-        "roomType": "bathroom"
-      }
-    },
-    {
-      "id": "room-5",
-      "name": "Laundry/Pantry",
-      "geometry": [
-        [
-          7.0,
-          4.5
-        ],
-        [
-          10.0,
-          4.5
-        ],
-        [
-          10.0,
-          6.0
-        ],
-        [
-          7.0,
-          6.0
-        ],
-        [
-          7.0,
-          4.5
-        ]
-      ],
-      "attributes": {
-        "area": 3.0,
-        "roomType": "utility"
-      }
-    }
-  ],
-  "doors": [
-    {
-      "id": "door-1",
-      "name": "Bedroom Door",
-      "geometry": [
-        [
-          5.0,
-          5.5
-        ],
-        [
-          5.5,
-          5.5
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-1",
-          "room-3"
-        ]
-      }
-    },
-    {
-      "id": "door-2",
-      "name": "Bathroom Door",
-      "geometry": [
-        [
-          6.0,
-          4.5
-        ],
-        [
-          6.5,
-          4.5
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-1",
-          "room-4"
-        ]
-      }
-    },
-    {
-      "id": "door-3",
-      "name": "Laundry Door",
-      "geometry": [
-        [
-          8.5,
-          4.5
-        ],
-        [
-          9.0,
-          4.5
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-2",
-          "room-5"
-        ]
-      }
-    }
-  ],
-  "windows": [
-    {
-      "id": "window-1",
-      "name": "Living Room Window",
-      "geometry": [
-        [
-          0.0,
-          1.5
-        ],
-        [
-          0.0,
-          3.0
-        ]
-      ],
-      "attributes": {
-        "roomId": "room-1"
-      }
-    },
-    {
-      "id": "window-2",
-      "name": "Kitchen Window",
-      "geometry": [
-        [
-          10.0,
-          1.5
-        ],
-        [
-          10.0,
-          3.0
-        ]
-      ],
-      "attributes": {
-        "roomId": "room-2"
-      }
-    },
-    {
-      "id": "window-3",
-      "name": "Bedroom Window",
-      "geometry": [
-        [
-          0.0,
-          5.5
-        ],
-        [
-          0.0,
-          7.0
-        ]
-      ],
-      "attributes": {
-        "roomId": "room-3"
-      }
-    }
-  ],
-  "furniture": [
-    {
-      "id": "furn-1",
-      "name": "L-Shaped Sofa",
-      "geometry": [
-        [
-          1.0,
-          0.8
-        ],
-        [
-          3.5,
-          0.8
-        ],
-        [
-          3.5,
-          2.5
-        ],
-        [
-          1.0,
-          2.5
-        ],
-        [
-          1.0,
-          0.8
-        ]
-      ],
-      "attributes": {
-        "roomId": "room-1",
-        "type": "sofa"
-      }
-    },
-    {
-      "id": "furn-2",
-      "name": "Dining Table",
-      "geometry": [
-        [
-          4.5,
-          1.0
-        ],
-        [
-          6.5,
-          1.0
-        ],
-        [
-          6.5,
-          3.0
-        ],
-        [
-          4.5,
-          3.0
-        ],
-        [
-          4.5,
-          1.0
-        ]
-      ],
-      "attributes": {
-        "roomId": "room-1",
-        "type": "table"
-      }
-    },
-    {
-      "id": "furn-4",
-      "name": "Queen Bed",
-      "geometry": [
-        [
-          1.0,
-          5.0
-        ],
-        [
-          4.0,
-          5.0
-        ],
-        [
-          4.0,
-          6.5
-        ],
-        [
-          1.0,
-          6.5
-        ],
-        [
-          1.0,
-          5.0
-        ]
-      ],
-      "attributes": {
-        "roomId": "room-3",
-        "type": "bed"
-      }
-    },
-    {
-      "id": "furn-5",
-      "name": "Bedroom Dresser",
-      "geometry": [
-        [
-          0.8,
-          4.7
-        ],
-        [
-          2.0,
-          4.7
-        ],
-        [
-          2.0,
-          5.0
-        ],
-        [
-          0.8,
-          5.0
-        ],
-        [
-          0.8,
-          4.7
-        ]
-      ],
-      "attributes": {
-        "roomId": "room-3",
-        "type": "dresser"
-      }
-    }
-  ],
-  "mep": [
-    {
-      "id": "mep-1",
-      "name": "Kitchen Range Hood",
-      "geometry": [
-        [
-          8.5,
-          3.5
-        ],
-        [
-          9.5,
-          3.5
-        ],
-        [
-          9.5,
-          3.8
-        ],
-        [
-          8.5,
-          3.8
-        ],
-        [
-          8.5,
-          3.5
-        ]
-      ],
-      "attributes": {
-        "system": "ventilation"
-      }
-    },
-    {
-      "id": "mep-2",
-      "name": "Wall AC Unit",
-      "geometry": [
-        [
-          5.5,
-          4.2
-        ],
-        [
-          6.5,
-          4.2
-        ],
-        [
-          6.5,
-          4.5
-        ],
-        [
-          5.5,
-          4.5
-        ],
-        [
-          5.5,
-          4.2
-        ]
-      ],
-      "attributes": {
-        "system": "hvac"
-      }
-    },
-    {
-      "id": "mep-3",
-      "name": "Breaker Box",
-      "geometry": [
-        [
-          0.2,
-          0.2
-        ],
-        [
-          0.7,
-          0.2
-        ],
-        [
-          0.7,
-          0.7
-        ],
-        [
-          0.2,
-          0.7
-        ],
-        [
-          0.2,
-          0.2
-        ]
-      ],
-      "attributes": {
-        "system": "electrical"
-      }
-    }
-  ],
-  "structure": [
-    {
-      "id": "wall-1",
-      "name": "Kitchen Divider",
-      "geometry": [
-        [
-          7.0,
-          0.0
-        ],
-        [
-          7.0,
-          4.5
-        ]
-      ],
-      "attributes": {}
-    },
-    {
-      "id": "wall-2",
-      "name": "Bedroom Divider",
-      "geometry": [
-        [
-          5.0,
-          4.5
-        ],
-        [
-          5.0,
-          7.0
-        ]
-      ],
-      "attributes": {}
-    }
-  ]
+{
+  "layoutId": "Layout-202",
+  "name": "Cozy 1-Bedroom Home",
+  "outline": [
+    [
+      0.0,
+      0.0
+    ],
+    [
+      10.0,
+      0.0
+    ],
+    [
+      10.0,
+      7.0
+    ],
+    [
+      0.0,
+      7.0
+    ],
+    [
+      0.0,
+      0.0
+    ]
+  ],
+  "rooms": [
+    {
+      "id": "room-1",
+      "name": "Open Plan Living-Dining",
+      "geometry": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          7.0,
+          0.0
+        ],
+        [
+          7.0,
+          4.5
+        ],
+        [
+          0.0,
+          4.5
+        ],
+        [
+          0.0,
+          0.0
+        ]
+      ],
+      "attributes": {
+        "area": 31.5,
+        "roomType": "living",
+        "height": 2.5,
+        "orientation": "W",
+        "glazingRatio": 0.15,
+        "ventilationType": "natural",
+        "analysis": {
+          "_source": "Comfort Copilot",
+          "persona": "Young Active",
+          "depth": "full",
+          "timestamp": "2026-05-10T15:24:41",
+          "overallScore": 0.69,
+          "comfortScores": {
+            "thermal": 0.58,
+            "visual": 0.8,
+            "acoustic": 0.5,
+            "spatial": 1.0,
+            "olfactory": 0.68,
+            "tactile": 0.6
+          },
+          "conflicts": [],
+          "suggestions": []
+        }
+      }
+    },
+    {
+      "id": "room-2",
+      "name": "Kitchen",
+      "geometry": [
+        [
+          7.0,
+          0.0
+        ],
+        [
+          10.0,
+          0.0
+        ],
+        [
+          10.0,
+          4.5
+        ],
+        [
+          7.0,
+          4.5
+        ],
+        [
+          7.0,
+          0.0
+        ]
+      ],
+      "attributes": {
+        "area": 10.5,
+        "roomType": "kitchen",
+        "height": 2.5,
+        "orientation": "E",
+        "glazingRatio": 0.1,
+        "ventilationType": "natural",
+        "analysis": {
+          "_source": "Comfort Copilot",
+          "persona": "Young Active",
+          "depth": "full",
+          "timestamp": "2026-05-10T15:24:41",
+          "overallScore": 0.55,
+          "comfortScores": {
+            "thermal": 0.4,
+            "visual": 0.7,
+            "acoustic": 0.41,
+            "spatial": 0.89,
+            "olfactory": 0.36,
+            "tactile": 0.57
+          },
+          "conflicts": [],
+          "suggestions": []
+        }
+      }
+    },
+    {
+      "id": "room-3",
+      "name": "Bedroom",
+      "geometry": [
+        [
+          0.0,
+          4.5
+        ],
+        [
+          5.0,
+          4.5
+        ],
+        [
+          5.0,
+          7.0
+        ],
+        [
+          0.0,
+          7.0
+        ],
+        [
+          0.0,
+          4.5
+        ]
+      ],
+      "attributes": {
+        "area": 12.5,
+        "roomType": "bedroom",
+        "height": 2.5,
+        "orientation": "W",
+        "glazingRatio": 0.18,
+        "ventilationType": "natural",
+        "analysis": {
+          "_source": "Comfort Copilot",
+          "persona": "Young Active",
+          "depth": "full",
+          "timestamp": "2026-05-10T15:24:41",
+          "overallScore": 0.64,
+          "comfortScores": {
+            "thermal": 0.62,
+            "visual": 0.65,
+            "acoustic": 0.5,
+            "spatial": 0.7,
+            "olfactory": 0.77,
+            "tactile": 0.62
+          },
+          "conflicts": [],
+          "suggestions": []
+        }
+      }
+    },
+    {
+      "id": "room-4",
+      "name": "Bathroom",
+      "geometry": [
+        [
+          5.0,
+          4.5
+        ],
+        [
+          7.0,
+          4.5
+        ],
+        [
+          7.0,
+          6.0
+        ],
+        [
+          5.0,
+          6.0
+        ],
+        [
+          5.0,
+          4.5
+        ]
+      ],
+      "attributes": {
+        "area": 3.0,
+        "roomType": "bathroom",
+        "height": 2.5,
+        "orientation": "N",
+        "glazingRatio": 0.0,
+        "ventilationType": "mechanical",
+        "analysis": {
+          "_source": "Comfort Copilot",
+          "persona": "Young Active",
+          "depth": "full",
+          "timestamp": "2026-05-10T15:24:41",
+          "overallScore": 0.49,
+          "comfortScores": {
+            "thermal": 0.51,
+            "visual": 0.4,
+            "acoustic": 0.5,
+            "spatial": 0.62,
+            "olfactory": 0.36,
+            "tactile": 0.57
+          },
+          "conflicts": [],
+          "suggestions": []
+        }
+      }
+    },
+    {
+      "id": "room-5",
+      "name": "Laundry/Pantry",
+      "geometry": [
+        [
+          7.0,
+          4.5
+        ],
+        [
+          10.0,
+          4.5
+        ],
+        [
+          10.0,
+          6.0
+        ],
+        [
+          7.0,
+          6.0
+        ],
+        [
+          7.0,
+          4.5
+        ]
+      ],
+      "attributes": {
+        "area": 3.0,
+        "roomType": "utility",
+        "height": 2.5,
+        "orientation": "E",
+        "glazingRatio": 0.0,
+        "ventilationType": "mechanical",
+        "analysis": {
+          "_source": "Comfort Copilot",
+          "persona": "Young Active",
+          "depth": "full",
+          "timestamp": "2026-05-10T15:24:41",
+          "overallScore": 0.5,
+          "comfortScores": {
+            "thermal": 0.51,
+            "visual": 0.35,
+            "acoustic": 0.41,
+            "spatial": 0.76,
+            "olfactory": 0.45,
+            "tactile": 0.5
+          },
+          "conflicts": [],
+          "suggestions": []
+        }
+      }
+    }
+  ],
+  "doors": [
+    {
+      "id": "door-1",
+      "name": "Bedroom Door",
+      "geometry": [
+        [
+          5.0,
+          5.5
+        ],
+        [
+          5.5,
+          5.5
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-1",
+          "room-3"
+        ],
+        "width": 0.9
+      }
+    },
+    {
+      "id": "door-2",
+      "name": "Bathroom Door",
+      "geometry": [
+        [
+          6.0,
+          4.5
+        ],
+        [
+          6.5,
+          4.5
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-1",
+          "room-4"
+        ],
+        "width": 0.8
+      }
+    },
+    {
+      "id": "door-3",
+      "name": "Laundry Door",
+      "geometry": [
+        [
+          8.5,
+          4.5
+        ],
+        [
+          9.0,
+          4.5
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-2",
+          "room-5"
+        ],
+        "width": 0.8
+      }
+    }
+  ],
+  "windows": [
+    {
+      "id": "window-1",
+      "name": "Living Room Window",
+      "geometry": [
+        [
+          0.0,
+          1.5
+        ],
+        [
+          0.0,
+          3.0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-1",
+        "area": 2.25,
+        "orientation": "W",
+        "glazingType": "single"
+      }
+    },
+    {
+      "id": "window-2",
+      "name": "Kitchen Window",
+      "geometry": [
+        [
+          10.0,
+          1.5
+        ],
+        [
+          10.0,
+          3.0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-2",
+        "area": 2.25,
+        "orientation": "E",
+        "glazingType": "single"
+      }
+    },
+    {
+      "id": "window-3",
+      "name": "Bedroom Window",
+      "geometry": [
+        [
+          0.0,
+          5.5
+        ],
+        [
+          0.0,
+          7.0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-3",
+        "area": 2.25,
+        "orientation": "W",
+        "glazingType": "single"
+      }
+    }
+  ],
+  "furniture": [
+    {
+      "id": "furn-1",
+      "name": "L-Shaped Sofa",
+      "geometry": [
+        [
+          1.0,
+          0.8
+        ],
+        [
+          3.5,
+          0.8
+        ],
+        [
+          3.5,
+          2.5
+        ],
+        [
+          1.0,
+          2.5
+        ],
+        [
+          1.0,
+          0.8
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-1",
+        "type": "sofa",
+        "material": "fabric"
+      }
+    },
+    {
+      "id": "furn-2",
+      "name": "Dining Table",
+      "geometry": [
+        [
+          4.5,
+          1.0
+        ],
+        [
+          6.5,
+          1.0
+        ],
+        [
+          6.5,
+          3.0
+        ],
+        [
+          4.5,
+          3.0
+        ],
+        [
+          4.5,
+          1.0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-1",
+        "type": "table",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-3",
+      "name": "Kitchen Cabinetry",
+      "geometry": [
+        [
+          7.5,
+          0.5
+        ],
+        [
+          9.5,
+          0.5
+        ],
+        [
+          9.5,
+          1.5
+        ],
+        [
+          7.5,
+          1.5
+        ],
+        [
+          7.5,
+          0.5
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-2",
+        "type": "storage",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-4",
+      "name": "Queen Bed",
+      "geometry": [
+        [
+          1.0,
+          5.0
+        ],
+        [
+          4.0,
+          5.0
+        ],
+        [
+          4.0,
+          6.5
+        ],
+        [
+          1.0,
+          6.5
+        ],
+        [
+          1.0,
+          5.0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-3",
+        "type": "bed",
+        "material": "fabric"
+      }
+    },
+    {
+      "id": "furn-5",
+      "name": "Bedroom Dresser",
+      "geometry": [
+        [
+          0.8,
+          4.7
+        ],
+        [
+          2.0,
+          4.7
+        ],
+        [
+          2.0,
+          5.0
+        ],
+        [
+          0.8,
+          5.0
+        ],
+        [
+          0.8,
+          4.7
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-3",
+        "type": "dresser",
+        "material": "wood"
+      }
+    }
+  ],
+  "mep": [
+    {
+      "id": "mep-1",
+      "name": "Kitchen Range Hood",
+      "geometry": [
+        [
+          8.5,
+          3.5
+        ],
+        [
+          9.5,
+          3.5
+        ],
+        [
+          9.5,
+          3.8
+        ],
+        [
+          8.5,
+          3.8
+        ],
+        [
+          8.5,
+          3.5
+        ]
+      ],
+      "attributes": {
+        "system": "ventilation"
+      }
+    },
+    {
+      "id": "mep-2",
+      "name": "Wall AC Unit",
+      "geometry": [
+        [
+          5.5,
+          4.2
+        ],
+        [
+          6.5,
+          4.2
+        ],
+        [
+          6.5,
+          4.5
+        ],
+        [
+          5.5,
+          4.5
+        ],
+        [
+          5.5,
+          4.2
+        ]
+      ],
+      "attributes": {
+        "system": "hvac"
+      }
+    },
+    {
+      "id": "mep-3",
+      "name": "Breaker Box",
+      "geometry": [
+        [
+          0.2,
+          0.2
+        ],
+        [
+          0.7,
+          0.2
+        ],
+        [
+          0.7,
+          0.7
+        ],
+        [
+          0.2,
+          0.7
+        ],
+        [
+          0.2,
+          0.2
+        ]
+      ],
+      "attributes": {
+        "system": "electrical"
+      }
+    }
+  ],
+  "structure": [
+    {
+      "id": "wall-1",
+      "name": "Kitchen Divider",
+      "geometry": [
+        [
+          7.0,
+          0.0
+        ],
+        [
+          7.0,
+          4.5
+        ]
+      ],
+      "attributes": {
+        "material": "plaster"
+      }
+    },
+    {
+      "id": "wall-2",
+      "name": "Bedroom Divider",
+      "geometry": [
+        [
+          5.0,
+          4.5
+        ],
+        [
+          5.0,
+          7.0
+        ]
+      ],
+      "attributes": {
+        "material": "plaster"
+      }
+    }
+  ],
+  "analysis": {
+    "_source": "Comfort Copilot",
+    "persona": "Young Active",
+    "depth": "full",
+    "timestamp": "2026-05-10T15:24:41",
+    "overallScore": 0.574,
+    "bestRoom": "room-1",
+    "worstRoom": "room-4"
+  }
 }

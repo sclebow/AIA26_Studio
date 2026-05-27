@@ -1,0 +1,53 @@
+{
+  "tool_name": "parametric_shape_generator",
+  "shape_id": "BLDG_001",
+  "input": {
+    "shape_type": "L_shape",
+    "units": "meters",
+    "parameters": {
+      "arm_a_length": 32.0,
+      "arm_b_length": 24.0,
+      "building_width": 10.0,
+      "courtyard_size": 18.0,
+      "rotation_angle": 15.0,
+      "base_point": [20.0, 12.0, 0.0]
+    }
+  },
+  "output": {
+    "live_geometry": {
+      "geometry_type": "closed_polyline_footprint",
+      "coordinates": [
+        [20.0, 12.0, 0.0],
+        [50.9, 20.3, 0.0],
+        [48.3, 29.9, 0.0],
+        [31.6, 25.4, 0.0],
+        [25.4, 48.6, 0.0],
+        [15.8, 46.0, 0.0],
+        [22.0, 22.8, 0.0],
+        [17.4, 21.6, 0.0],
+        [20.0, 12.0, 0.0]
+      ]
+    },
+    "shape_metadata": {
+      "shape_type": "L_shape",
+      "gross_floorplate_area": 460.0,
+      "courtyard_area": 180.0,
+      "perimeter_length": 118.4,
+      "bounding_box": {
+        "min": [15.8, 12.0, 0.0],
+        "max": [50.9, 48.6, 0.0]
+      },
+      "centroid": [31.4, 29.2, 0.0],
+      "rotation_angle": 15.0
+    },
+    "editable_parameters": {
+      "arm_a_length": true,
+      "arm_b_length": true,
+      "building_width": true,
+      "courtyard_size": true,
+      "rotation_angle": true,
+      "base_point": true
+    },
+    "status": "live_geometry_ready_for_grasshopper"
+  }
+}

@@ -1,0 +1,1476 @@
+{
+  "layoutId": "layout-1-large",
+  "apartment": {
+    "id": "layout-1-large",
+    "name": "Large Sample A - Family Rectangle",
+    "geometry": [
+      [
+        0,
+        0
+      ],
+      [
+        14,
+        0
+      ],
+      [
+        14,
+        10
+      ],
+      [
+        0,
+        10
+      ],
+      [
+        0,
+        0
+      ]
+    ],
+    "attributes": {
+      "area": 140.0
+    }
+  },
+  "outline": [
+    [
+      0,
+      0
+    ],
+    [
+      14,
+      0
+    ],
+    [
+      14,
+      10
+    ],
+    [
+      0,
+      10
+    ],
+    [
+      0,
+      0
+    ]
+  ],
+  "rooms": [
+    {
+      "id": "room-1",
+      "name": "Living Room",
+      "geometry": [
+        [
+          0,
+          0
+        ],
+        [
+          5,
+          0
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          0,
+          5
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "attributes": {
+        "area": 25.0,
+        "program": "living"
+      }
+    },
+    {
+      "id": "room-2",
+      "name": "Kitchen Dining",
+      "geometry": [
+        [
+          0,
+          5
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          5,
+          10
+        ],
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          5
+        ]
+      ],
+      "attributes": {
+        "area": 25.0,
+        "program": "kitchen_dining"
+      }
+    },
+    {
+      "id": "room-3",
+      "name": "Central Hall",
+      "geometry": [
+        [
+          5,
+          0
+        ],
+        [
+          8,
+          0
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          5,
+          10
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "attributes": {
+        "area": 30.0,
+        "program": "circulation"
+      }
+    },
+    {
+      "id": "room-4",
+      "name": "Master Bedroom",
+      "geometry": [
+        [
+          8,
+          0
+        ],
+        [
+          14,
+          0
+        ],
+        [
+          14,
+          4
+        ],
+        [
+          8,
+          4
+        ],
+        [
+          8,
+          0
+        ]
+      ],
+      "attributes": {
+        "area": 24.0,
+        "program": "bedroom"
+      }
+    },
+    {
+      "id": "room-5",
+      "name": "Bathroom",
+      "geometry": [
+        [
+          8,
+          4
+        ],
+        [
+          11,
+          4
+        ],
+        [
+          11,
+          7
+        ],
+        [
+          8,
+          7
+        ],
+        [
+          8,
+          4
+        ]
+      ],
+      "attributes": {
+        "area": 9.0,
+        "program": "bathroom"
+      }
+    },
+    {
+      "id": "room-6",
+      "name": "Study Guest Room",
+      "geometry": [
+        [
+          11,
+          4
+        ],
+        [
+          14,
+          4
+        ],
+        [
+          14,
+          7
+        ],
+        [
+          11,
+          7
+        ],
+        [
+          11,
+          4
+        ]
+      ],
+      "attributes": {
+        "area": 9.0,
+        "program": "study_guest"
+      }
+    },
+    {
+      "id": "room-7",
+      "name": "Bedroom 2",
+      "geometry": [
+        [
+          8,
+          7
+        ],
+        [
+          14,
+          7
+        ],
+        [
+          14,
+          10
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          8,
+          7
+        ]
+      ],
+      "attributes": {
+        "area": 18.0,
+        "program": "bedroom"
+      }
+    }
+  ],
+  "doors": [
+    {
+      "id": "door-1",
+      "name": "Door 1",
+      "geometry": [
+        [
+          5,
+          2.5
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-1",
+          "room-3"
+        ]
+      }
+    },
+    {
+      "id": "door-2",
+      "name": "Door 2",
+      "geometry": [
+        [
+          5,
+          7.5
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-2",
+          "room-3"
+        ]
+      }
+    },
+    {
+      "id": "door-3",
+      "name": "Door 3",
+      "geometry": [
+        [
+          8,
+          2.0
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-3",
+          "room-4"
+        ]
+      }
+    },
+    {
+      "id": "door-4",
+      "name": "Door 4",
+      "geometry": [
+        [
+          8,
+          5.5
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-3",
+          "room-5"
+        ]
+      }
+    },
+    {
+      "id": "door-5",
+      "name": "Door 5",
+      "geometry": [
+        [
+          11,
+          5.5
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-5",
+          "room-6"
+        ]
+      }
+    },
+    {
+      "id": "door-6",
+      "name": "Door 6",
+      "geometry": [
+        [
+          8,
+          8.5
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-3",
+          "room-7"
+        ]
+      }
+    }
+  ],
+  "facades": [
+    {
+      "id": "facade-1",
+      "name": "Facade 1",
+      "geometry": [
+        [
+          0,
+          0
+        ],
+        [
+          14,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "length": 14.0
+      }
+    },
+    {
+      "id": "facade-2",
+      "name": "Facade 2",
+      "geometry": [
+        [
+          14,
+          0
+        ],
+        [
+          14,
+          10
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "length": 10.0
+      }
+    },
+    {
+      "id": "facade-3",
+      "name": "Facade 3",
+      "geometry": [
+        [
+          14,
+          10
+        ],
+        [
+          0,
+          10
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "length": 14.0
+      }
+    },
+    {
+      "id": "facade-4",
+      "name": "Facade 4",
+      "geometry": [
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "length": 10.0
+      }
+    }
+  ],
+  "circulation": [
+    {
+      "id": "circulation-1",
+      "name": "Main hall spine",
+      "geometry": [
+        [
+          6.5,
+          0
+        ],
+        [
+          6.5,
+          10
+        ]
+      ],
+      "attributes": {
+        "type": "circulation_centerline",
+        "length": 10.0
+      }
+    }
+  ],
+  "windows": [
+    {
+      "id": "window-1",
+      "name": "Window 1",
+      "geometry": [
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          0
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-1"
+        ],
+        "type": "exterior_window",
+        "length": 3.0
+      }
+    },
+    {
+      "id": "window-2",
+      "name": "Window 2",
+      "geometry": [
+        [
+          1,
+          10
+        ],
+        [
+          4,
+          10
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-2"
+        ],
+        "type": "exterior_window",
+        "length": 3.0
+      }
+    },
+    {
+      "id": "window-3",
+      "name": "Window 3",
+      "geometry": [
+        [
+          10,
+          0
+        ],
+        [
+          13,
+          0
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-4"
+        ],
+        "type": "exterior_window",
+        "length": 3.0
+      }
+    },
+    {
+      "id": "window-4",
+      "name": "Window 4",
+      "geometry": [
+        [
+          10,
+          10
+        ],
+        [
+          13,
+          10
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-7"
+        ],
+        "type": "exterior_window",
+        "length": 3.0
+      }
+    }
+  ],
+  "furniture": [],
+  "mep": [],
+  "structure": [
+    {
+      "id": "A_1",
+      "name": "Column_A_1",
+      "geometry": [
+        [
+          0,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "80x80",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "section": "HSS80x80x5"
+      }
+    },
+    {
+      "id": "A_2",
+      "name": "Column_A_2",
+      "geometry": [
+        [
+          0,
+          4
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "80x80",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "section": "HSS80x80x5"
+      }
+    },
+    {
+      "id": "A_3",
+      "name": "Column_A_3",
+      "geometry": [
+        [
+          0,
+          7
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "80x80",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "section": "HSS80x80x5"
+      }
+    },
+    {
+      "id": "A_4",
+      "name": "Column_A_4",
+      "geometry": [
+        [
+          0,
+          10
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "80x80",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "section": "HSS80x80x5"
+      }
+    },
+    {
+      "id": "B_1",
+      "name": "Column_B_1",
+      "geometry": [
+        [
+          5,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "80x80",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "section": "HSS80x80x5"
+      }
+    },
+    {
+      "id": "B_2",
+      "name": "Column_B_2",
+      "geometry": [
+        [
+          5,
+          4
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "dimensions": "80x80",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "section": "HSS80x80x5"
+      }
+    },
+    {
+      "id": "B_3",
+      "name": "Column_B_3",
+      "geometry": [
+        [
+          5,
+          7
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "dimensions": "80x80",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "section": "HSS80x80x5"
+      }
+    },
+    {
+      "id": "B_4",
+      "name": "Column_B_4",
+      "geometry": [
+        [
+          5,
+          10
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "80x80",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "section": "HSS80x80x5"
+      }
+    },
+    {
+      "id": "C_1",
+      "name": "Column_C_1",
+      "geometry": [
+        [
+          8,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "80x80",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "section": "HSS80x80x5"
+      }
+    },
+    {
+      "id": "C_2",
+      "name": "Column_C_2",
+      "geometry": [
+        [
+          8,
+          4
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "dimensions": "80x80",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "section": "HSS80x80x5"
+      }
+    },
+    {
+      "id": "C_3",
+      "name": "Column_C_3",
+      "geometry": [
+        [
+          8,
+          7
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "dimensions": "80x80",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "section": "HSS80x80x5"
+      }
+    },
+    {
+      "id": "C_4",
+      "name": "Column_C_4",
+      "geometry": [
+        [
+          8,
+          10
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "80x80",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "section": "HSS80x80x5"
+      }
+    },
+    {
+      "id": "D_1",
+      "name": "Column_D_1",
+      "geometry": [
+        [
+          14,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "80x80",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "section": "HSS80x80x5"
+      }
+    },
+    {
+      "id": "D_2",
+      "name": "Column_D_2",
+      "geometry": [
+        [
+          14,
+          4
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "80x80",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "section": "HSS80x80x5"
+      }
+    },
+    {
+      "id": "D_3",
+      "name": "Column_D_3",
+      "geometry": [
+        [
+          14,
+          7
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "80x80",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "section": "HSS80x80x5"
+      }
+    },
+    {
+      "id": "D_4",
+      "name": "Column_D_4",
+      "geometry": [
+        [
+          14,
+          10
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "dimensions": "80x80",
+        "height": "3.5",
+        "isWallAligned": "true",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "section": "HSS80x80x5"
+      }
+    },
+    {
+      "id": "AB_1",
+      "name": "Beam_AB_1",
+      "geometry": [
+        [
+          0,
+          0
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "5",
+        "depth": "200",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "100",
+        "section": "IPE200"
+      }
+    },
+    {
+      "id": "BC_1",
+      "name": "Beam_BC_1",
+      "geometry": [
+        [
+          5,
+          0
+        ],
+        [
+          8,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "3",
+        "depth": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "64",
+        "section": "IPE120"
+      }
+    },
+    {
+      "id": "CD_1",
+      "name": "Beam_CD_1",
+      "geometry": [
+        [
+          8,
+          0
+        ],
+        [
+          14,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "6",
+        "depth": "240",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "120",
+        "section": "IPE240"
+      }
+    },
+    {
+      "id": "A_12",
+      "name": "Beam_A_12",
+      "geometry": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          4
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "4",
+        "depth": "200",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "100",
+        "section": "IPE200"
+      }
+    },
+    {
+      "id": "A_23",
+      "name": "Beam_A_23",
+      "geometry": [
+        [
+          0,
+          4
+        ],
+        [
+          0,
+          7
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "3",
+        "depth": "160",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "82",
+        "section": "IPE160"
+      }
+    },
+    {
+      "id": "A_34",
+      "name": "Beam_A_34",
+      "geometry": [
+        [
+          0,
+          7
+        ],
+        [
+          0,
+          10
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "3",
+        "depth": "160",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "82",
+        "section": "IPE160"
+      }
+    },
+    {
+      "id": "AB_2",
+      "name": "Beam_AB_2",
+      "geometry": [
+        [
+          0,
+          4
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "attributes": {
+        "type": "interior",
+        "length": "5",
+        "depth": "200",
+        "isWallAligned": "False",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "Floating beam in Living Room",
+        "width": "100",
+        "section": "IPE200"
+      }
+    },
+    {
+      "id": "BC_2",
+      "name": "Beam_BC_2",
+      "geometry": [
+        [
+          5,
+          4
+        ],
+        [
+          8,
+          4
+        ]
+      ],
+      "attributes": {
+        "type": "interior",
+        "length": "3",
+        "depth": "120",
+        "isWallAligned": "False",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "Floating beam in Central Hall",
+        "width": "64",
+        "section": "IPE120"
+      }
+    },
+    {
+      "id": "CD_2",
+      "name": "Beam_CD_2",
+      "geometry": [
+        [
+          8,
+          4
+        ],
+        [
+          14,
+          4
+        ]
+      ],
+      "attributes": {
+        "type": "interior",
+        "length": "6",
+        "depth": "240",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "120",
+        "section": "IPE240"
+      }
+    },
+    {
+      "id": "B_12",
+      "name": "Beam_B_12",
+      "geometry": [
+        [
+          5,
+          0
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "attributes": {
+        "type": "interior",
+        "length": "4",
+        "depth": "160",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "82",
+        "section": "IPE160"
+      }
+    },
+    {
+      "id": "B_23",
+      "name": "Beam_B_23",
+      "geometry": [
+        [
+          5,
+          4
+        ],
+        [
+          5,
+          7
+        ]
+      ],
+      "attributes": {
+        "type": "interior",
+        "length": "3",
+        "depth": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "64",
+        "section": "IPE120"
+      }
+    },
+    {
+      "id": "B_34",
+      "name": "Beam_B_34",
+      "geometry": [
+        [
+          5,
+          7
+        ],
+        [
+          5,
+          10
+        ]
+      ],
+      "attributes": {
+        "type": "interior",
+        "length": "3",
+        "depth": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "64",
+        "section": "IPE120"
+      }
+    },
+    {
+      "id": "AB_3",
+      "name": "Beam_AB_3",
+      "geometry": [
+        [
+          0,
+          7
+        ],
+        [
+          5,
+          7
+        ]
+      ],
+      "attributes": {
+        "type": "interior",
+        "length": "5",
+        "depth": "200",
+        "isWallAligned": "False",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "Floating beam in Kitchen Dining",
+        "width": "100",
+        "section": "IPE200"
+      }
+    },
+    {
+      "id": "BC_3",
+      "name": "Beam_BC_3",
+      "geometry": [
+        [
+          5,
+          7
+        ],
+        [
+          8,
+          7
+        ]
+      ],
+      "attributes": {
+        "type": "interior",
+        "length": "3",
+        "depth": "120",
+        "isWallAligned": "False",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "Floating beam in Central Hall",
+        "width": "64",
+        "section": "IPE120"
+      }
+    },
+    {
+      "id": "CD_3",
+      "name": "Beam_CD_3",
+      "geometry": [
+        [
+          8,
+          7
+        ],
+        [
+          14,
+          7
+        ]
+      ],
+      "attributes": {
+        "type": "interior",
+        "length": "6",
+        "depth": "200",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "100",
+        "section": "IPE200"
+      }
+    },
+    {
+      "id": "C_12",
+      "name": "Beam_C_12",
+      "geometry": [
+        [
+          8,
+          0
+        ],
+        [
+          8,
+          4
+        ]
+      ],
+      "attributes": {
+        "type": "interior",
+        "length": "4",
+        "depth": "160",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "82",
+        "section": "IPE160"
+      }
+    },
+    {
+      "id": "C_23",
+      "name": "Beam_C_23",
+      "geometry": [
+        [
+          8,
+          4
+        ],
+        [
+          8,
+          7
+        ]
+      ],
+      "attributes": {
+        "type": "interior",
+        "length": "3",
+        "depth": "160",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "82",
+        "section": "IPE160"
+      }
+    },
+    {
+      "id": "C_34",
+      "name": "Beam_C_34",
+      "geometry": [
+        [
+          8,
+          7
+        ],
+        [
+          8,
+          10
+        ]
+      ],
+      "attributes": {
+        "type": "interior",
+        "length": "3",
+        "depth": "160",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "82",
+        "section": "IPE160"
+      }
+    },
+    {
+      "id": "AB_4",
+      "name": "Beam_AB_4",
+      "geometry": [
+        [
+          0,
+          10
+        ],
+        [
+          5,
+          10
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "5",
+        "depth": "200",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "100",
+        "section": "IPE200"
+      }
+    },
+    {
+      "id": "BC_4",
+      "name": "Beam_BC_4",
+      "geometry": [
+        [
+          5,
+          10
+        ],
+        [
+          8,
+          10
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "3",
+        "depth": "120",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "64",
+        "section": "IPE120"
+      }
+    },
+    {
+      "id": "CD_4",
+      "name": "Beam_CD_4",
+      "geometry": [
+        [
+          8,
+          10
+        ],
+        [
+          14,
+          10
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "6",
+        "depth": "200",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "100",
+        "section": "IPE200"
+      }
+    },
+    {
+      "id": "D_12",
+      "name": "Beam_D_12",
+      "geometry": [
+        [
+          14,
+          0
+        ],
+        [
+          14,
+          4
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "4",
+        "depth": "200",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "100",
+        "section": "IPE200"
+      }
+    },
+    {
+      "id": "D_23",
+      "name": "Beam_D_23",
+      "geometry": [
+        [
+          14,
+          4
+        ],
+        [
+          14,
+          7
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "3",
+        "depth": "160",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "82",
+        "section": "IPE160"
+      }
+    },
+    {
+      "id": "D_34",
+      "name": "Beam_D_34",
+      "geometry": [
+        [
+          14,
+          7
+        ],
+        [
+          14,
+          10
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": "3",
+        "depth": "160",
+        "isWallAligned": "True",
+        "structuralRole": "primary",
+        "material": "STEEL",
+        "conflict": "None",
+        "width": "82",
+        "section": "IPE160"
+      }
+    }
+  ],
+  "rooms_summary": "1 bathroom, 2 bedroom, 1 circulation, 1 kitchen_dining, 1 living, 1 study_guest",
+  "attributes": {
+    "units": "meters",
+    "scale_assumption": "1 coordinate unit = 1 meter",
+    "minimum_exterior_wall_segment_m": 3.5,
+    "minimum_interior_wall_segment_m": 2.5,
+    "intended_use": "larger residential plot dataset samples"
+  }
+}

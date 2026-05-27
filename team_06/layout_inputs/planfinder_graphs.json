@@ -1,0 +1,2862 @@
+{
+  "L_L10.5_W12.0_de0_dp0.8_wp5": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-5"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-6"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-7"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-8"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-4",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-5",
+        "target": "room-6"
+      },
+      {
+        "weight": 4,
+        "source": "room-5",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-5",
+        "target": "room-8"
+      }
+    ]
+  },
+  "L_L10.5_W15.0_de0_dp0.6_wp3": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-3"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-5"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-6"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-7"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-8"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-9"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-8"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-8"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-9"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-6",
+        "target": "room-8"
+      }
+    ]
+  },
+  "L_L10.5_W15.0_de3_dp0.5_wp3": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-3"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-5"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-6"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-7"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-8"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-9"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-8"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-8"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-9"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-6",
+        "target": "room-8"
+      }
+    ]
+  },
+  "L_L10.5_W4.5_de2_dp0.2_wp3": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-3"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-4"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 2,
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "weight": 2,
+        "source": "room-1",
+        "target": "room-2"
+      },
+      {
+        "weight": 5,
+        "source": "room-2",
+        "target": "room-3"
+      }
+    ]
+  },
+  "L_L10.5_W7.5_de1_dp0.9_wp2": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "WC",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-5"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-6"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-7"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-5"
+      },
+      {
+        "weight": 1,
+        "source": "room-1",
+        "target": "room-2"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-5"
+      },
+      {
+        "weight": 6,
+        "source": "room-4",
+        "target": "room-5"
+      },
+      {
+        "weight": 2,
+        "source": "room-5",
+        "target": "room-6"
+      },
+      {
+        "weight": 4,
+        "source": "room-5",
+        "target": "room-7"
+      }
+    ]
+  },
+  "L_L10.5_W9.0_de3_dp0.4_wp0": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-3"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-5"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-6"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-6"
+      }
+    ]
+  },
+  "L_L12.0_W13.5_de0_dp0.4_wp5": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-3"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-5"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-6"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-7"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-8"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-9"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 6,
+        "source": "room-1",
+        "target": "room-8"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-8"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-9"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-6",
+        "target": "room-8"
+      }
+    ]
+  },
+  "L_L12.0_W7.5_de3_dp0.3_wp1": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-4"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-5"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-4"
+      }
+    ]
+  },
+  "L_L12.0_W9.0_de0_dp0.7_wp1": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "WC",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-5"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-6"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-7"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-8"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-7"
+      },
+      {
+        "weight": 1,
+        "source": "room-3",
+        "target": "room-6"
+      },
+      {
+        "weight": 4,
+        "source": "room-4",
+        "target": "room-6"
+      },
+      {
+        "weight": 4,
+        "source": "room-5",
+        "target": "room-7"
+      },
+      {
+        "weight": 3,
+        "source": "room-6",
+        "target": "room-7"
+      }
+    ]
+  },
+  "L_L12.0_W9.0_de1_dp0.6_wp0": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-3"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-5"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-6"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-6"
+      }
+    ]
+  },
+  "L_L13.5_W15.0_de3_dp0.7_wp5": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "WC",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-4"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-5"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-6"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-7"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-8"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-5"
+      },
+      {
+        "weight": 1,
+        "source": "room-2",
+        "target": "room-3"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-6"
+      },
+      {
+        "weight": 4,
+        "source": "room-4",
+        "target": "room-5"
+      },
+      {
+        "weight": 3,
+        "source": "room-5",
+        "target": "room-6"
+      },
+      {
+        "weight": 4,
+        "source": "room-5",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-5",
+        "target": "room-8"
+      }
+    ]
+  },
+  "L_L13.5_W4.5_de0_dp0.9_wp3": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-4"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-5"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "weight": 2,
+        "source": "room-2",
+        "target": "room-4"
+      },
+      {
+        "weight": 2,
+        "source": "room-2",
+        "target": "room-3"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-4"
+      }
+    ]
+  },
+  "L_L13.5_W4.5_de3_dp0.4_wp2": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "WC",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-4"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-5"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-6"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 5,
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "weight": 5,
+        "source": "room-2",
+        "target": "room-4"
+      },
+      {
+        "weight": 5,
+        "source": "room-3",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-4",
+        "target": "room-6"
+      },
+      {
+        "weight": 3,
+        "source": "room-5",
+        "target": "room-6"
+      }
+    ]
+  },
+  "L_L13.5_W7.5_de3_dp0.8_wp0": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-5"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-6"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-7"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-8"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-6"
+      },
+      {
+        "weight": 3,
+        "source": "room-4",
+        "target": "room-7"
+      },
+      {
+        "weight": 1,
+        "source": "room-4",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-5",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-6",
+        "target": "room-7"
+      }
+    ]
+  },
+  "L_L13.5_W9.0_de1_dp0.9_wp3": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "WC",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-5"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-6"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-7"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-8"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-5"
+      },
+      {
+        "weight": 5,
+        "source": "room-3",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-4",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-5",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-5",
+        "target": "room-8"
+      },
+      {
+        "weight": 4,
+        "source": "room-6",
+        "target": "room-7"
+      }
+    ]
+  },
+  "L_L15.0_W7.5_de0_dp0.8_wp2": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "WC",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-5"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-6"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-5"
+      },
+      {
+        "weight": 1,
+        "source": "room-1",
+        "target": "room-2"
+      },
+      {
+        "weight": 3,
+        "source": "room-2",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-4",
+        "target": "room-6"
+      }
+    ]
+  },
+  "L_L16.5_W4.5_de3_dp0.3_wp5": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-4"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-5"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-4"
+      }
+    ]
+  },
+  "L_L16.5_W7.5_de2_dp0.5_wp3": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "WC",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-4"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-5"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-6"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-7"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-4",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-4",
+        "target": "room-6"
+      },
+      {
+        "weight": 4,
+        "source": "room-4",
+        "target": "room-7"
+      }
+    ]
+  },
+  "L_L18.0_W4.5_de2_dp0.9_wp5": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-3"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-4"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-3"
+      }
+    ]
+  },
+  "L_L4.5_W12.0_de3_dp0.6_wp5": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-3"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-4"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-3"
+      }
+    ]
+  },
+  "L_L4.5_W13.5_de1_dp0.8_wp3": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-3"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-4"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-3"
+      }
+    ]
+  },
+  "L_L4.5_W13.5_de1_dp0.9_wp0": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-3"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-4"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "weight": 6,
+        "source": "room-2",
+        "target": "room-3"
+      },
+      {
+        "weight": 2,
+        "source": "room-3",
+        "target": "room-4"
+      }
+    ]
+  },
+  "L_L4.5_W13.5_de2_dp0.8_wp3": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-4"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-5"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "weight": 2,
+        "source": "room-2",
+        "target": "room-4"
+      },
+      {
+        "weight": 2,
+        "source": "room-2",
+        "target": "room-3"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-4"
+      }
+    ]
+  },
+  "L_L4.5_W15.0_de1_dp0.2_wp2": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "WC",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-4"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-5"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-6"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 5,
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "weight": 5,
+        "source": "room-2",
+        "target": "room-4"
+      },
+      {
+        "weight": 5,
+        "source": "room-3",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-4",
+        "target": "room-6"
+      },
+      {
+        "weight": 3,
+        "source": "room-5",
+        "target": "room-6"
+      }
+    ]
+  },
+  "L_L4.5_W16.5_de1_dp0.5_wp3": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-5"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-2"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-3"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-5"
+      }
+    ]
+  },
+  "L_L4.5_W18.0_de0_dp0.5_wp3": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-4"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-5"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-4"
+      }
+    ]
+  },
+  "L_L4.5_W18.0_de0_dp0.6_wp3": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-4"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-5"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-4"
+      }
+    ]
+  },
+  "L_L4.5_W18.0_de2_dp0.5_wp3": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-4"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-5"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-4"
+      }
+    ]
+  },
+  "L_L4.5_W6.0_de1_dp0.9_wp1": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-3"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-4"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 2,
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "weight": 3,
+        "source": "room-1",
+        "target": "room-2"
+      },
+      {
+        "weight": 3,
+        "source": "room-2",
+        "target": "room-3"
+      }
+    ]
+  },
+  "L_L4.5_W7.5_de1_dp0.2_wp2": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-2"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-3"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-2"
+      }
+    ]
+  },
+  "L_L4.5_W9.0_de3_dp0.2_wp2": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-3"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-4"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-3"
+      },
+      {
+        "weight": 1,
+        "source": "room-3",
+        "target": "room-4"
+      }
+    ]
+  },
+  "L_L6.0_W13.5_de1_dp0.4_wp4": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "WC",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-4"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-5"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-6"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-7"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-4",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-4",
+        "target": "room-6"
+      },
+      {
+        "weight": 4,
+        "source": "room-4",
+        "target": "room-7"
+      }
+    ]
+  },
+  "L_L6.0_W15.0_de3_dp0.8_wp2": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-4"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-5"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "weight": 6,
+        "source": "room-2",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-4"
+      }
+    ]
+  },
+  "L_L6.0_W9.0_de0_dp0.8_wp5": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-3"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-4"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-3"
+      }
+    ]
+  },
+  "L_L6.0_W9.0_de2_dp0.9_wp1": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "FuseBox",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "WC",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-4"
+      },
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-5"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-6"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-7"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 5,
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-4"
+      },
+      {
+        "weight": 6,
+        "source": "room-3",
+        "target": "room-4"
+      },
+      {
+        "weight": 5,
+        "source": "room-4",
+        "target": "room-6"
+      },
+      {
+        "weight": 1,
+        "source": "room-4",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-5",
+        "target": "room-7"
+      }
+    ]
+  },
+  "L_L6.0_W9.0_de3_dp0.3_wp0": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-4"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-5"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "weight": 1,
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-4"
+      },
+      {
+        "weight": 3,
+        "source": "room-3",
+        "target": "room-4"
+      }
+    ]
+  },
+  "L_L7.5_W15.0_de3_dp0.7_wp1": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-5"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-6"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-7"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-8"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-6"
+      },
+      {
+        "weight": 4,
+        "source": "room-4",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-5",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-6",
+        "target": "room-7"
+      }
+    ]
+  },
+  "L_L7.5_W18.0_de3_dp0.5_wp5": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "WC",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-5"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-6"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-7"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-8"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-9"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 3,
+        "source": "room-1",
+        "target": "room-7"
+      },
+      {
+        "weight": 1,
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-7"
+      },
+      {
+        "weight": 3,
+        "source": "room-3",
+        "target": "room-7"
+      },
+      {
+        "weight": 1,
+        "source": "room-3",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-4",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-5",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-6",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-7",
+        "target": "room-8"
+      },
+      {
+        "weight": 4,
+        "source": "room-7",
+        "target": "room-9"
+      }
+    ]
+  },
+  "L_L7.5_W9.0_de0_dp0.3_wp1": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Shaft",
+        "program": "shaft",
+        "id": "room-1"
+      },
+      {
+        "name": "FuseBox",
+        "program": "extra",
+        "id": "room-2"
+      },
+      {
+        "name": "WC",
+        "program": "bathroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-5"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-6"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-7"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-8"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 5,
+        "source": "room-2",
+        "target": "room-6"
+      },
+      {
+        "weight": 5,
+        "source": "room-3",
+        "target": "room-6"
+      },
+      {
+        "weight": 4,
+        "source": "room-4",
+        "target": "room-6"
+      },
+      {
+        "weight": 4,
+        "source": "room-5",
+        "target": "room-6"
+      },
+      {
+        "weight": 4,
+        "source": "room-6",
+        "target": "room-7"
+      },
+      {
+        "weight": 3,
+        "source": "room-6",
+        "target": "room-8"
+      }
+    ]
+  },
+  "L_L9.0_W12.0_de2_dp0.7_wp5": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "WC",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-5"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-6"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-7"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-8"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 5,
+        "source": "room-1",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-5"
+      },
+      {
+        "weight": 6,
+        "source": "room-3",
+        "target": "room-5"
+      },
+      {
+        "weight": 6,
+        "source": "room-4",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-5",
+        "target": "room-7"
+      },
+      {
+        "weight": 2,
+        "source": "room-5",
+        "target": "room-8"
+      },
+      {
+        "weight": 4,
+        "source": "room-6",
+        "target": "room-7"
+      }
+    ]
+  },
+  "L_L9.0_W15.0_de1_dp0.5_wp2": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "FuseBox",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "WC",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Shaft",
+        "program": "shaft",
+        "id": "room-3"
+      },
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-4"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-5"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-6"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-7"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-8"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-9"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 3,
+        "source": "room-1",
+        "target": "room-6"
+      },
+      {
+        "weight": 2,
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-6"
+      },
+      {
+        "weight": 4,
+        "source": "room-4",
+        "target": "room-6"
+      },
+      {
+        "weight": 4,
+        "source": "room-5",
+        "target": "room-6"
+      },
+      {
+        "weight": 4,
+        "source": "room-6",
+        "target": "room-7"
+      },
+      {
+        "weight": 4,
+        "source": "room-6",
+        "target": "room-8"
+      },
+      {
+        "weight": 4,
+        "source": "room-6",
+        "target": "room-9"
+      }
+    ]
+  },
+  "L_L9.0_W4.5_de2_dp0.6_wp0": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "FuseBox",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-2"
+      },
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-3"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-5"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-6"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-7"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 5,
+        "source": "room-1",
+        "target": "room-6"
+      },
+      {
+        "weight": 1,
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "weight": 6,
+        "source": "room-2",
+        "target": "room-6"
+      },
+      {
+        "weight": 1,
+        "source": "room-3",
+        "target": "room-6"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-4"
+      },
+      {
+        "weight": 1,
+        "source": "room-4",
+        "target": "room-6"
+      },
+      {
+        "weight": 2,
+        "source": "room-4",
+        "target": "room-5"
+      },
+      {
+        "weight": 3,
+        "source": "room-5",
+        "target": "room-6"
+      }
+    ]
+  },
+  "L_L9.0_W6.0_de3_dp0.3_wp2": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-4"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 7,
+        "source": "room-1",
+        "target": "room-2"
+      },
+      {
+        "weight": 3,
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-4"
+      }
+    ]
+  },
+  "L_L9.0_W7.5_de1_dp0.3_wp1": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Storage",
+        "program": "extra",
+        "id": "room-1"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-5"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-2",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-5"
+      },
+      {
+        "weight": 4,
+        "source": "room-4",
+        "target": "room-5"
+      }
+    ]
+  },
+  "L_L9.0_W7.5_de3_dp0.4_wp5": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "WC",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bathroom",
+        "id": "room-2"
+      },
+      {
+        "name": "Circulation",
+        "program": "extra",
+        "id": "room-3"
+      },
+      {
+        "name": "Bed",
+        "program": "bedroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-5"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 4,
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "weight": 5,
+        "source": "room-2",
+        "target": "room-3"
+      },
+      {
+        "weight": 3,
+        "source": "room-3",
+        "target": "room-4"
+      },
+      {
+        "weight": 4,
+        "source": "room-3",
+        "target": "room-5"
+      }
+    ]
+  }
+}

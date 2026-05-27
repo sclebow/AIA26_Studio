@@ -1,0 +1,627 @@
+    INFO: 2026-05-17 23:54:59,107:               log.py:   20: Logging to E:\IAAC Local GIT Repositories\AIA26_Studio\team_03\ramon_experiments\conversations\mdpdf.log
+   DEBUG: 2026-05-17 23:54:59,108:               cli.py:  103: progress_report_2026-05-17.md
+    INFO: 2026-05-17 23:54:59,109:         converter.py:   14: progress_report_2026-05-17.md
+   DEBUG: 2026-05-17 23:54:59,118:      pdf_renderer.py:  470: printSegment: Team 03 — Accessibility Agent: Progress Report
+   DEBUG: 2026-05-17 23:54:59,131:      pdf_renderer.py:  470: printSegment: Date:
+   DEBUG: 2026-05-17 23:54:59,134:      pdf_renderer.py:  470: printSegment:  2026-05-17
+   DEBUG: 2026-05-17 23:54:59,136:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,137:      pdf_renderer.py:  470: printSegment: Author:
+   DEBUG: 2026-05-17 23:54:59,137:      pdf_renderer.py:  470: printSegment:  Ramon (with Claude Code)
+   DEBUG: 2026-05-17 23:54:59,138:      pdf_renderer.py:  470: printSegment: Starting Point
+   DEBUG: 2026-05-17 23:54:59,158:      pdf_renderer.py:  470: printSegment: Ramy built the full LangGraph agent pipeline (12 node files, graph wiring, session management) but it had never
+   DEBUG: 2026-05-17 23:54:59,163:      pdf_renderer.py:  470: printSegment: completed a clean end-to-end run. The code had three categories of issues: missing dependencies, critical logic bugs,
+   DEBUG: 2026-05-17 23:54:59,164:      pdf_renderer.py:  470: printSegment: and multiple crash points across the graph.
+   DEBUG: 2026-05-17 23:54:59,165:      pdf_renderer.py:  470: printSegment: Phase 1: Unblock 
+   DEBUG: 2026-05-17 23:54:59,166:      pdf_renderer.py:  470: printSegment: &
+   DEBUG: 2026-05-17 23:54:59,167:      pdf_renderer.py:  470: printSegment:  Fix Core Bugs
+   DEBUG: 2026-05-17 23:54:59,167:      pdf_renderer.py:  470: printSegment: 1.1 — 
+   DEBUG: 2026-05-17 23:54:59,168:      pdf_renderer.py:  470: printSegment: call_llm_simple
+   DEBUG: 2026-05-17 23:54:59,170:      pdf_renderer.py:  470: printSegment:  always falling back to defaults (CRITICAL)
+   DEBUG: 2026-05-17 23:54:59,171:      pdf_renderer.py:  470: printSegment: Problem:
+   DEBUG: 2026-05-17 23:54:59,172:      pdf_renderer.py:  470: printSegment:  Both pre-agents (Profile Agent, Space Type Agent) called 
+   DEBUG: 2026-05-17 23:54:59,173:      pdf_renderer.py:  470: printSegment: call_llm_simple()
+   DEBUG: 2026-05-17 23:54:59,174:      pdf_renderer.py:  470: printSegment:  which routed through
+   DEBUG: 2026-05-17 23:54:59,174:      pdf_renderer.py:  470: printSegment: 
+   DEBUG: 2026-05-17 23:54:59,175:      pdf_renderer.py:  470: printSegment: _normalize_llm_decision()
+   DEBUG: 2026-05-17 23:54:59,175:      pdf_renderer.py:  470: printSegment: . That function expected 
+   DEBUG: 2026-05-17 23:54:59,176:      pdf_renderer.py:  470: printSegment: {"action": "final", "tool_calls":
+   DEBUG: 2026-05-17 23:54:59,177:      pdf_renderer.py:  470: printSegment: [...]}
+   DEBUG: 2026-05-17 23:54:59,178:      pdf_renderer.py:  470: printSegment:  but pre-agents return free-form JSON like 
+   DEBUG: 2026-05-17 23:54:59,179:      pdf_renderer.py:  470: printSegment: {"profile_type": "wheelchair_user"}
+   DEBUG: 2026-05-17 23:54:59,187:      pdf_renderer.py:  470: printSegment: . The
+   DEBUG: 2026-05-17 23:54:59,190:      pdf_renderer.py:  470: printSegment: normalization always threw RuntimeError → silently caught → both agents fell back to hardcoded defaults every time. The
+   DEBUG: 2026-05-17 23:54:59,202:      pdf_renderer.py:  470: printSegment: LLM call was wasted.
+   DEBUG: 2026-05-17 23:54:59,203:      pdf_renderer.py:  470: printSegment: Fix:
+   DEBUG: 2026-05-17 23:54:59,204:      pdf_renderer.py:  470: printSegment:  Anthropic path in 
+   DEBUG: 2026-05-17 23:54:59,204:      pdf_renderer.py:  470: printSegment: call_llm_simple
+   DEBUG: 2026-05-17 23:54:59,206:      pdf_renderer.py:  470: printSegment:  now calls the API directly and parses free-form JSON, bypassing 
+   DEBUG: 2026-05-17 23:54:59,206:      pdf_renderer.py:  470: printSegment: _normalize_llm_decision
+   DEBUG: 2026-05-17 23:54:59,207:      pdf_renderer.py:  470: printSegment: .
+   DEBUG: 2026-05-17 23:54:59,208:      pdf_renderer.py:  470: printSegment: 1.2 — 
+   DEBUG: 2026-05-17 23:54:59,209:      pdf_renderer.py:  470: printSegment: _call_anthropic
+   DEBUG: 2026-05-17 23:54:59,209:      pdf_renderer.py:  470: printSegment:  message format mismatch
+   DEBUG: 2026-05-17 23:54:59,210:      pdf_renderer.py:  470: printSegment: Problem:
+   DEBUG: 2026-05-17 23:54:59,211:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,211:      pdf_renderer.py:  470: printSegment: _call_anthropic()
+   DEBUG: 2026-05-17 23:54:59,212:      pdf_renderer.py:  470: printSegment:  called 
+   DEBUG: 2026-05-17 23:54:59,213:      pdf_renderer.py:  470: printSegment: msg.get("role")
+   DEBUG: 2026-05-17 23:54:59,214:      pdf_renderer.py:  470: printSegment:  which fails on LangChain 
+   DEBUG: 2026-05-17 23:54:59,214:      pdf_renderer.py:  470: printSegment: HumanMessage
+   DEBUG: 2026-05-17 23:54:59,215:      pdf_renderer.py:  470: printSegment: 
+   DEBUG: 2026-05-17 23:54:59,216:      pdf_renderer.py:  470: printSegment: objects from the 
+   DEBUG: 2026-05-17 23:54:59,216:      pdf_renderer.py:  470: printSegment: add_messages
+   DEBUG: 2026-05-17 23:54:59,217:      pdf_renderer.py:  470: printSegment:  reducer.
+   DEBUG: 2026-05-17 23:54:59,218:      pdf_renderer.py:  470: printSegment: Fix:
+   DEBUG: 2026-05-17 23:54:59,218:      pdf_renderer.py:  470: printSegment:  Handle both dicts and message objects, map 
+   DEBUG: 2026-05-17 23:54:59,219:      pdf_renderer.py:  470: printSegment: "human"
+   DEBUG: 2026-05-17 23:54:59,220:      pdf_renderer.py:  470: printSegment:  → 
+   DEBUG: 2026-05-17 23:54:59,220:      pdf_renderer.py:  470: printSegment: "user"
+   DEBUG: 2026-05-17 23:54:59,221:      pdf_renderer.py:  470: printSegment: , 
+   DEBUG: 2026-05-17 23:54:59,222:      pdf_renderer.py:  470: printSegment: "ai"
+   DEBUG: 2026-05-17 23:54:59,222:      pdf_renderer.py:  470: printSegment:  → 
+   DEBUG: 2026-05-17 23:54:59,223:      pdf_renderer.py:  470: printSegment: "assistant"
+   DEBUG: 2026-05-17 23:54:59,224:      pdf_renderer.py:  470: printSegment: .
+   DEBUG: 2026-05-17 23:54:59,224:      pdf_renderer.py:  470: printSegment: 1.3 — 
+   DEBUG: 2026-05-17 23:54:59,225:      pdf_renderer.py:  470: printSegment: _normalize_llm_decision
+   DEBUG: 2026-05-17 23:54:59,226:      pdf_renderer.py:  470: printSegment:  KeyError on 
+   DEBUG: 2026-05-17 23:54:59,227:      pdf_renderer.py:  470: printSegment: tool_name
+   DEBUG: 2026-05-17 23:54:59,227:      pdf_renderer.py:  470: printSegment:  vs 
+   DEBUG: 2026-05-17 23:54:59,228:      pdf_renderer.py:  470: printSegment: name
+   DEBUG: 2026-05-17 23:54:59,229:      pdf_renderer.py:  470: printSegment: Problem:
+   DEBUG: 2026-05-17 23:54:59,229:      pdf_renderer.py:  470: printSegment:  LLM returned 
+   DEBUG: 2026-05-17 23:54:59,230:      pdf_renderer.py:  470: printSegment: "tool_name"
+   DEBUG: 2026-05-17 23:54:59,231:      pdf_renderer.py:  470: printSegment:  instead of 
+   DEBUG: 2026-05-17 23:54:59,232:      pdf_renderer.py:  470: printSegment: "name"
+   DEBUG: 2026-05-17 23:54:59,232:      pdf_renderer.py:  470: printSegment:  in tool call dicts.
+   DEBUG: 2026-05-17 23:54:59,233:      pdf_renderer.py:  470: printSegment: Fix:
+   DEBUG: 2026-05-17 23:54:59,234:      pdf_renderer.py:  470: printSegment:  Added 
+   DEBUG: 2026-05-17 23:54:59,235:      pdf_renderer.py:  470: printSegment: _extract_tool_name()
+   DEBUG: 2026-05-17 23:54:59,235:      pdf_renderer.py:  470: printSegment:  helper checking 
+   DEBUG: 2026-05-17 23:54:59,236:      pdf_renderer.py:  470: printSegment: name
+   DEBUG: 2026-05-17 23:54:59,237:      pdf_renderer.py:  470: printSegment: , 
+   DEBUG: 2026-05-17 23:54:59,237:      pdf_renderer.py:  470: printSegment: tool_name
+   DEBUG: 2026-05-17 23:54:59,238:      pdf_renderer.py:  470: printSegment: , and 
+   DEBUG: 2026-05-17 23:54:59,239:      pdf_renderer.py:  470: printSegment: function
+   DEBUG: 2026-05-17 23:54:59,239:      pdf_renderer.py:  470: printSegment:  keys.
+   DEBUG: 2026-05-17 23:54:59,241:      pdf_renderer.py:  470: printSegment: 1.4 — Pre-agents failing on nested LLM responses
+   DEBUG: 2026-05-17 23:54:59,241:      pdf_renderer.py:  470: printSegment: Problem:
+   DEBUG: 2026-05-17 23:54:59,242:      pdf_renderer.py:  470: printSegment:  LLM sometimes wraps responses in extra layers like 
+   DEBUG: 2026-05-17 23:54:59,244:      pdf_renderer.py:  470: printSegment: {"accessibility_analysis":
+   DEBUG: 2026-05-17 23:54:59,244:      pdf_renderer.py:  470: printSegment: {"profile": {...}}}
+   DEBUG: 2026-05-17 23:54:59,245:      pdf_renderer.py:  470: printSegment: .
+   DEBUG: 2026-05-17 23:54:59,246:      pdf_renderer.py:  470: printSegment: Fix:
+   DEBUG: 2026-05-17 23:54:59,247:      pdf_renderer.py:  470: printSegment:  Both agents now search up to 2 levels deep for the expected keys.
+   DEBUG: 2026-05-17 23:54:59,249:      pdf_renderer.py:  470: printSegment: Phase 2: Crash Prevention (try/except wrappers)
+   DEBUG: 2026-05-17 23:54:59,250:      pdf_renderer.py:  470: printSegment: Added graceful error handling across all nodes so failures return valid update dicts instead of killing the graph:
+   DEBUG: 2026-05-17 23:54:59,251:      pdf_renderer.py:  470: printSegment: | Node | Change |
+   DEBUG: 2026-05-17 23:54:59,252:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,252:      pdf_renderer.py:  470: printSegment: |---|---|
+   DEBUG: 2026-05-17 23:54:59,253:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,254:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,255:      pdf_renderer.py:  470: printSegment: main.py
+   DEBUG: 2026-05-17 23:54:59,256:      pdf_renderer.py:  470: printSegment:  | try/finally for MCP cleanup |
+   DEBUG: 2026-05-17 23:54:59,256:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,257:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,258:      pdf_renderer.py:  470: printSegment: reason.py
+   DEBUG: 2026-05-17 23:54:59,259:      pdf_renderer.py:  470: printSegment:  | try/except around 
+   DEBUG: 2026-05-17 23:54:59,259:      pdf_renderer.py:  470: printSegment: call_llm()
+   DEBUG: 2026-05-17 23:54:59,260:      pdf_renderer.py:  470: printSegment:  |
+   DEBUG: 2026-05-17 23:54:59,261:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,262:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,262:      pdf_renderer.py:  470: printSegment: tools.py
+   DEBUG: 2026-05-17 23:54:59,263:      pdf_renderer.py:  470: printSegment:  | try/except MCP calls, guard empty 
+   DEBUG: 2026-05-17 23:54:59,264:      pdf_renderer.py:  470: printSegment: pending_tool_calls
+   DEBUG: 2026-05-17 23:54:59,265:      pdf_renderer.py:  470: printSegment: , log JSON parse
+   DEBUG: 2026-05-17 23:54:59,266:      pdf_renderer.py:  470: printSegment: failures |
+   DEBUG: 2026-05-17 23:54:59,267:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,267:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,268:      pdf_renderer.py:  470: printSegment: add_objects.py
+   DEBUG: 2026-05-17 23:54:59,269:      pdf_renderer.py:  470: printSegment:  | try/except MCP calls |
+   DEBUG: 2026-05-17 23:54:59,270:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,270:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,271:      pdf_renderer.py:  470: printSegment: collision.py
+   DEBUG: 2026-05-17 23:54:59,272:      pdf_renderer.py:  470: printSegment:  | try/except around 
+   DEBUG: 2026-05-17 23:54:59,273:      pdf_renderer.py:  470: printSegment: json.loads
+   DEBUG: 2026-05-17 23:54:59,274:      pdf_renderer.py:  470: printSegment:  and 
+   DEBUG: 2026-05-17 23:54:59,275:      pdf_renderer.py:  470: printSegment: check_collision
+   DEBUG: 2026-05-17 23:54:59,276:      pdf_renderer.py:  470: printSegment:  |
+   DEBUG: 2026-05-17 23:54:59,276:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,277:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,278:      pdf_renderer.py:  470: printSegment: visibility.py
+   DEBUG: 2026-05-17 23:54:59,279:      pdf_renderer.py:  470: printSegment:  | try/except around analysis |
+   DEBUG: 2026-05-17 23:54:59,280:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,280:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,281:      pdf_renderer.py:  470: printSegment: path_analysis.py
+   DEBUG: 2026-05-17 23:54:59,282:      pdf_renderer.py:  470: printSegment:  | try/except
+   DEBUG: 2026-05-17 23:54:59,283:      pdf_renderer.py:  470: printSegment: around analysis |
+   DEBUG: 2026-05-17 23:54:59,284:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,285:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,285:      pdf_renderer.py:  470: printSegment: reachability.py
+   DEBUG: 2026-05-17 23:54:59,286:      pdf_renderer.py:  470: printSegment:  | try/except around analysis |
+   DEBUG: 2026-05-17 23:54:59,287:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,288:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,289:      pdf_renderer.py:  470: printSegment: orientation.py
+   DEBUG: 2026-05-17 23:54:59,290:      pdf_renderer.py:  470: printSegment:  | try/except around
+   DEBUG: 2026-05-17 23:54:59,291:      pdf_renderer.py:  470: printSegment: analysis |
+   DEBUG: 2026-05-17 23:54:59,292:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,292:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,293:      pdf_renderer.py:  470: printSegment: graph.py
+   DEBUG: 2026-05-17 23:54:59,294:      pdf_renderer.py:  470: printSegment:  (explain
+   DEBUG: 2026-05-17 23:54:59,294:      pdf_renderer.py:  470: printSegment: _
+   DEBUG: 2026-05-17 23:54:59,295:      pdf_renderer.py:  470: printSegment: node) | try/except around 
+   DEBUG: 2026-05-17 23:54:59,295:      pdf_renderer.py:  470: printSegment: call_llm()
+   DEBUG: 2026-05-17 23:54:59,296:      pdf_renderer.py:  470: printSegment:  |
+   DEBUG: 2026-05-17 23:54:59,297:      pdf_renderer.py:  470: printSegment: Phase 3: State 
+   DEBUG: 2026-05-17 23:54:59,297:      pdf_renderer.py:  470: printSegment: &
+   DEBUG: 2026-05-17 23:54:59,298:      pdf_renderer.py:  470: printSegment:  Routing Bugs
+   DEBUG: 2026-05-17 23:54:59,299:      pdf_renderer.py:  470: printSegment: 3.1 — 
+   DEBUG: 2026-05-17 23:54:59,299:      pdf_renderer.py:  470: printSegment: _keep_last
+   DEBUG: 2026-05-17 23:54:59,300:      pdf_renderer.py:  470: printSegment:  reducer bug: 
+   DEBUG: 2026-05-17 23:54:59,300:      pdf_renderer.py:  470: printSegment: object_to_place
+   DEBUG: 2026-05-17 23:54:59,301:      pdf_renderer.py:  470: printSegment:  never clears
+   DEBUG: 2026-05-17 23:54:59,302:      pdf_renderer.py:  470: printSegment: Problem:
+   DEBUG: 2026-05-17 23:54:59,302:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,303:      pdf_renderer.py:  470: printSegment: _keep_last(old, None) = old
+   DEBUG: 2026-05-17 23:54:59,304:      pdf_renderer.py:  470: printSegment:  — setting state fields to 
+   DEBUG: 2026-05-17 23:54:59,304:      pdf_renderer.py:  470: printSegment: None
+   DEBUG: 2026-05-17 23:54:59,305:      pdf_renderer.py:  470: printSegment:  doesn
+   DEBUG: 2026-05-17 23:54:59,306:      pdf_renderer.py:  470: printSegment: '
+   DEBUG: 2026-05-17 23:54:59,306:      pdf_renderer.py:  470: printSegment: t clear them. 
+   DEBUG: 2026-05-17 23:54:59,307:      pdf_renderer.py:  470: printSegment: reason.py
+   DEBUG: 2026-05-17 23:54:59,307:      pdf_renderer.py:  470: printSegment:  set 
+   DEBUG: 2026-05-17 23:54:59,308:      pdf_renderer.py:  470: printSegment: object_to_place = None
+   DEBUG: 2026-05-17 23:54:59,309:      pdf_renderer.py:  470: printSegment:  to indicate 
+   DEBUG: 2026-05-17 23:54:59,309:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-05-17 23:54:59,310:      pdf_renderer.py:  470: printSegment: done
+   DEBUG: 2026-05-17 23:54:59,310:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-05-17 23:54:59,311:      pdf_renderer.py:  470: printSegment: , but the old value persisted → duplicate placements.
+   DEBUG: 2026-05-17 23:54:59,312:      pdf_renderer.py:  470: printSegment: Fix:
+   DEBUG: 2026-05-17 23:54:59,312:      pdf_renderer.py:  470: printSegment:  Use 
+   DEBUG: 2026-05-17 23:54:59,313:      pdf_renderer.py:  470: printSegment: {}
+   DEBUG: 2026-05-17 23:54:59,314:      pdf_renderer.py:  470: printSegment:  for dicts and 
+   DEBUG: 2026-05-17 23:54:59,314:      pdf_renderer.py:  470: printSegment: []
+   DEBUG: 2026-05-17 23:54:59,315:      pdf_renderer.py:  470: printSegment:  for lists instead of 
+   DEBUG: 2026-05-17 23:54:59,316:      pdf_renderer.py:  470: printSegment: None
+   DEBUG: 2026-05-17 23:54:59,316:      pdf_renderer.py:  470: printSegment:  in 
+   DEBUG: 2026-05-17 23:54:59,317:      pdf_renderer.py:  470: printSegment: reason.py
+   DEBUG: 2026-05-17 23:54:59,317:      pdf_renderer.py:  470: printSegment:  and 
+   DEBUG: 2026-05-17 23:54:59,318:      pdf_renderer.py:  470: printSegment: add_objects.py
+   DEBUG: 2026-05-17 23:54:59,319:      pdf_renderer.py:  470: printSegment: .
+   DEBUG: 2026-05-17 23:54:59,320:      pdf_renderer.py:  470: printSegment: 3.2 — Infinite loop in analysis-only runs
+   DEBUG: 2026-05-17 23:54:59,320:      pdf_renderer.py:  470: printSegment: Problem:
+   DEBUG: 2026-05-17 23:54:59,321:      pdf_renderer.py:  470: printSegment:  When LLM says 
+   DEBUG: 2026-05-17 23:54:59,322:      pdf_renderer.py:  470: printSegment: "action": "final"
+   DEBUG: 2026-05-17 23:54:59,323:      pdf_renderer.py:  470: printSegment:  (no objects placed), collision violations still triggered 
+   DEBUG: 2026-05-17 23:54:59,323:      pdf_renderer.py:  470: printSegment: "adjust"
+   DEBUG: 2026-05-17 23:54:59,324:      pdf_renderer.py:  470: printSegment:  routing → back to reason → LLM says 
+   DEBUG: 2026-05-17 23:54:59,325:      pdf_renderer.py:  470: printSegment: "final"
+   DEBUG: 2026-05-17 23:54:59,326:      pdf_renderer.py:  470: printSegment:  again → infinite loop.
+   DEBUG: 2026-05-17 23:54:59,326:      pdf_renderer.py:  470: printSegment: Fix:
+   DEBUG: 2026-05-17 23:54:59,327:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,328:      pdf_renderer.py:  470: printSegment: _route_after_group1
+   DEBUG: 2026-05-17 23:54:59,328:      pdf_renderer.py:  470: printSegment:  and 
+   DEBUG: 2026-05-17 23:54:59,329:      pdf_renderer.py:  470: printSegment: _route_after_group2
+   DEBUG: 2026-05-17 23:54:59,330:      pdf_renderer.py:  470: printSegment:  only return 
+   DEBUG: 2026-05-17 23:54:59,330:      pdf_renderer.py:  470: printSegment: "adjust"
+   DEBUG: 2026-05-17 23:54:59,331:      pdf_renderer.py:  470: printSegment:  if objects were actually
+   DEBUG: 2026-05-17 23:54:59,332:      pdf_renderer.py:  470: printSegment: placed.
+   DEBUG: 2026-05-17 23:54:59,333:      pdf_renderer.py:  470: printSegment: 3.3 — Infinite adjustment loop after placement
+   DEBUG: 2026-05-17 23:54:59,333:      pdf_renderer.py:  470: printSegment: Problem:
+   DEBUG: 2026-05-17 23:54:59,336:      pdf_renderer.py:  470: printSegment:  Structural violations (e.g., bathroom turning radius) persisted forever, looping collision → adjust → reason
+   DEBUG: 2026-05-17 23:54:59,336:      pdf_renderer.py:  470: printSegment: indefinitely.
+   DEBUG: 2026-05-17 23:54:59,337:      pdf_renderer.py:  470: printSegment: Fix:
+   DEBUG: 2026-05-17 23:54:59,338:      pdf_renderer.py:  470: printSegment:  Added 
+   DEBUG: 2026-05-17 23:54:59,338:      pdf_renderer.py:  470: printSegment: adjustment_count
+   DEBUG: 2026-05-17 23:54:59,339:      pdf_renderer.py:  470: printSegment:  to state with 
+   DEBUG: 2026-05-17 23:54:59,340:      pdf_renderer.py:  470: printSegment: MAX_ADJUSTMENTS = 3
+   DEBUG: 2026-05-17 23:54:59,341:      pdf_renderer.py:  470: printSegment: . After 3 attempts, continues to
+   DEBUG: 2026-05-17 23:54:59,342:      pdf_renderer.py:  470: printSegment: scoring regardless.
+   DEBUG: 2026-05-17 23:54:59,343:      pdf_renderer.py:  470: printSegment: 3.4 — 
+   DEBUG: 2026-05-17 23:54:59,343:      pdf_renderer.py:  470: printSegment: layout_json_string
+   DEBUG: 2026-05-17 23:54:59,344:      pdf_renderer.py:  470: printSegment:  not propagating through parallel nodes
+   DEBUG: 2026-05-17 23:54:59,345:      pdf_renderer.py:  470: printSegment: Problem:
+   DEBUG: 2026-05-17 23:54:59,346:      pdf_renderer.py:  470: printSegment:  After 
+   DEBUG: 2026-05-17 23:54:59,346:      pdf_renderer.py:  470: printSegment: add_objects
+   DEBUG: 2026-05-17 23:54:59,347:      pdf_renderer.py:  470: printSegment:  updated furniture, the value was lost by parallel fan-in.
+   DEBUG: 2026-05-17 23:54:59,348:      pdf_renderer.py:  470: printSegment: Fix:
+   DEBUG: 2026-05-17 23:54:59,349:      pdf_renderer.py:  470: printSegment:  Changed 
+   DEBUG: 2026-05-17 23:54:59,350:      pdf_renderer.py:  470: printSegment: layout_json_string
+   DEBUG: 2026-05-17 23:54:59,350:      pdf_renderer.py:  470: printSegment:  from 
+   DEBUG: 2026-05-17 23:54:59,351:      pdf_renderer.py:  470: printSegment: str
+   DEBUG: 2026-05-17 23:54:59,352:      pdf_renderer.py:  470: printSegment:  to 
+   DEBUG: 2026-05-17 23:54:59,352:      pdf_renderer.py:  470: printSegment: Annotated[str, _keep_last]
+   DEBUG: 2026-05-17 23:54:59,353:      pdf_renderer.py:  470: printSegment: .
+   DEBUG: 2026-05-17 23:54:59,354:      pdf_renderer.py:  470: printSegment: 3.5 — 
+   DEBUG: 2026-05-17 23:54:59,355:      pdf_renderer.py:  470: printSegment: _slim_layout
+   DEBUG: 2026-05-17 23:54:59,355:      pdf_renderer.py:  470: printSegment:  stripping fields needed by GH
+   DEBUG: 2026-05-17 23:54:59,356:      pdf_renderer.py:  470: printSegment: Problem:
+   DEBUG: 2026-05-17 23:54:59,357:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,358:      pdf_renderer.py:  470: printSegment: layout_json_string
+   DEBUG: 2026-05-17 23:54:59,359:      pdf_renderer.py:  470: printSegment:  used a slim version that stripped 
+   DEBUG: 2026-05-17 23:54:59,359:      pdf_renderer.py:  470: printSegment: outline
+   DEBUG: 2026-05-17 23:54:59,360:      pdf_renderer.py:  470: printSegment: , 
+   DEBUG: 2026-05-17 23:54:59,361:      pdf_renderer.py:  470: printSegment: structure
+   DEBUG: 2026-05-17 23:54:59,361:      pdf_renderer.py:  470: printSegment: , 
+   DEBUG: 2026-05-17 23:54:59,362:      pdf_renderer.py:  470: printSegment: mep
+   DEBUG: 2026-05-17 23:54:59,363:      pdf_renderer.py:  470: printSegment: . GH tools
+   DEBUG: 2026-05-17 23:54:59,364:      pdf_renderer.py:  470: printSegment: need them.
+   DEBUG: 2026-05-17 23:54:59,364:      pdf_renderer.py:  470: printSegment: Fix:
+   DEBUG: 2026-05-17 23:54:59,365:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,366:      pdf_renderer.py:  470: printSegment: layout_json_string
+   DEBUG: 2026-05-17 23:54:59,367:      pdf_renderer.py:  470: printSegment:  stores the full layout; slim version used only in LLM prompt.
+   DEBUG: 2026-05-17 23:54:59,368:      pdf_renderer.py:  470: printSegment: 3.6 — Scoring weights not normalized
+   DEBUG: 2026-05-17 23:54:59,369:      pdf_renderer.py:  470: printSegment: Problem:
+   DEBUG: 2026-05-17 23:54:59,369:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,370:      pdf_renderer.py:  470: printSegment: space_config
+   DEBUG: 2026-05-17 23:54:59,371:      pdf_renderer.py:  470: printSegment:  could inject 
+   DEBUG: 2026-05-17 23:54:59,372:      pdf_renderer.py:  470: printSegment: tool_weights
+   DEBUG: 2026-05-17 23:54:59,372:      pdf_renderer.py:  470: printSegment:  that don
+   DEBUG: 2026-05-17 23:54:59,373:      pdf_renderer.py:  470: printSegment: '
+   DEBUG: 2026-05-17 23:54:59,374:      pdf_renderer.py:  470: printSegment: t sum to 1.0.
+   DEBUG: 2026-05-17 23:54:59,375:      pdf_renderer.py:  470: printSegment: Fix:
+   DEBUG: 2026-05-17 23:54:59,375:      pdf_renderer.py:  470: printSegment:  Normalize weights after merging.
+   DEBUG: 2026-05-17 23:54:59,377:      pdf_renderer.py:  470: printSegment: Phase 4: Score Not Updating After Placement
+   DEBUG: 2026-05-17 23:54:59,378:      pdf_renderer.py:  470: printSegment: Problem:
+   DEBUG: 2026-05-17 23:54:59,380:      pdf_renderer.py:  470: printSegment:  Score stayed at 60.2 despite moving 12 objects. The analysis nodes re-ran but collision score was always
+   DEBUG: 2026-05-17 23:54:59,381:      pdf_renderer.py:  470: printSegment: 0.
+   DEBUG: 2026-05-17 23:54:59,381:      pdf_renderer.py:  470: printSegment: Root cause:
+   DEBUG: 2026-05-17 23:54:59,382:      pdf_renderer.py:  470: printSegment:  Python collision node stored results under 
+   DEBUG: 2026-05-17 23:54:59,383:      pdf_renderer.py:  470: printSegment: grid_meta
+   DEBUG: 2026-05-17 23:54:59,384:      pdf_renderer.py:  470: printSegment:  key, but 
+   DEBUG: 2026-05-17 23:54:59,385:      pdf_renderer.py:  470: printSegment: scoring.py
+   DEBUG: 2026-05-17 23:54:59,386:      pdf_renderer.py:  470: printSegment:  looked for 
+   DEBUG: 2026-05-17 23:54:59,386:      pdf_renderer.py:  470: printSegment: grid
+   DEBUG: 2026-05-17 23:54:59,388:      pdf_renderer.py:  470: printSegment: .
+   DEBUG: 2026-05-17 23:54:59,389:      pdf_renderer.py:  470: printSegment: Binary scoring: any hard violation → score = 0.
+   DEBUG: 2026-05-17 23:54:59,390:      pdf_renderer.py:  470: printSegment: Fix:
+   DEBUG: 2026-05-17 23:54:59,391:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,392:      pdf_renderer.py:  470: printSegment: scoring.py
+   DEBUG: 2026-05-17 23:54:59,393:      pdf_renderer.py:  470: printSegment:  checks both 
+   DEBUG: 2026-05-17 23:54:59,394:      pdf_renderer.py:  470: printSegment: grid_meta
+   DEBUG: 2026-05-17 23:54:59,394:      pdf_renderer.py:  470: printSegment:  and 
+   DEBUG: 2026-05-17 23:54:59,395:      pdf_renderer.py:  470: printSegment: grid
+   DEBUG: 2026-05-17 23:54:59,395:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,396:      pdf_renderer.py:  470: printSegment: Changed from binary to proportional scoring: 
+   DEBUG: 2026-05-17 23:54:59,398:      pdf_renderer.py:  470: printSegment: score = 100 * (1 - blocked_pct * 3 -
+   DEBUG: 2026-05-17 23:54:59,398:      pdf_renderer.py:  470: printSegment: warning_pct * 1)
+   DEBUG: 2026-05-17 23:54:59,399:      pdf_renderer.py:  470: printSegment: Phase 5: Doors Lost in Output
+   DEBUG: 2026-05-17 23:54:59,400:      pdf_renderer.py:  470: printSegment: Problem:
+   DEBUG: 2026-05-17 23:54:59,401:      pdf_renderer.py:  470: printSegment:  After furniture placement, MCP 
+   DEBUG: 2026-05-17 23:54:59,402:      pdf_renderer.py:  470: printSegment: place_objects
+   DEBUG: 2026-05-17 23:54:59,403:      pdf_renderer.py:  470: printSegment:  returned a full layout missing doors (3 → 0).
+   DEBUG: 2026-05-17 23:54:59,403:      pdf_renderer.py:  470: printSegment: Fix:
+   DEBUG: 2026-05-17 23:54:59,404:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,405:      pdf_renderer.py:  470: printSegment: add_objects.py
+   DEBUG: 2026-05-17 23:54:59,405:      pdf_renderer.py:  470: printSegment:  and 
+   DEBUG: 2026-05-17 23:54:59,406:      pdf_renderer.py:  470: printSegment: tools.py
+   DEBUG: 2026-05-17 23:54:59,410:      pdf_renderer.py:  470: printSegment: : merge missing layers (doors, windows, mep, structure,
+   DEBUG: 2026-05-17 23:54:59,411:      pdf_renderer.py:  470: printSegment: outline) from current state when MCP returns a full layout
+   DEBUG: 2026-05-17 23:54:59,412:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,413:      pdf_renderer.py:  470: printSegment: Checkpoint: structural integrity check compares with 
+   DEBUG: 2026-05-17 23:54:59,414:      pdf_renderer.py:  470: printSegment: original_layout
+   DEBUG: 2026-05-17 23:54:59,415:      pdf_renderer.py:  470: printSegment: , auto-restores lost
+   DEBUG: 2026-05-17 23:54:59,415:      pdf_renderer.py:  470: printSegment: layers
+   DEBUG: 2026-05-17 23:54:59,416:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,417:      pdf_renderer.py:  470: printSegment: Door change detection alerts the user of removed/modified/added doors
+   DEBUG: 2026-05-17 23:54:59,418:      pdf_renderer.py:  470: printSegment: Phase 6: Collision Score Dominated by Walls
+   DEBUG: 2026-05-17 23:54:59,419:      pdf_renderer.py:  470: printSegment: Problem:
+   DEBUG: 2026-05-17 23:54:59,424:      pdf_renderer.py:  470: printSegment:  Walls generated huge clearance violation zones along the entire perimeter, making scores very low even
+   DEBUG: 2026-05-17 23:54:59,425:      pdf_renderer.py:  470: printSegment: with good furniture placement. The agent can
+   DEBUG: 2026-05-17 23:54:59,425:      pdf_renderer.py:  470: printSegment: '
+   DEBUG: 2026-05-17 23:54:59,426:      pdf_renderer.py:  470: printSegment: t move walls.
+   DEBUG: 2026-05-17 23:54:59,427:      pdf_renderer.py:  470: printSegment: Fix:
+   DEBUG: 2026-05-17 23:54:59,427:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,428:      pdf_renderer.py:  470: printSegment: scoring.py
+   DEBUG: 2026-05-17 23:54:59,429:      pdf_renderer.py:  470: printSegment:  now separates violations by 
+   DEBUG: 2026-05-17 23:54:59,430:      pdf_renderer.py:  470: printSegment: object_type
+   DEBUG: 2026-05-17 23:54:59,430:      pdf_renderer.py:  470: printSegment: :
+   DEBUG: 2026-05-17 23:54:59,431:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,432:      pdf_renderer.py:  470: printSegment: Structure (walls):
+   DEBUG: 2026-05-17 23:54:59,433:      pdf_renderer.py:  470: printSegment:  penalized at 20% weight (not actionable)
+   DEBUG: 2026-05-17 23:54:59,433:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,434:      pdf_renderer.py:  470: printSegment: Furniture/MEP:
+   DEBUG: 2026-05-17 23:54:59,435:      pdf_renderer.py:  470: printSegment:  full penalty (actionable by the agent)
+   DEBUG: 2026-05-17 23:54:59,436:      pdf_renderer.py:  470: printSegment: Phase 7: Viewport Toggle System
+   DEBUG: 2026-05-17 23:54:59,437:      pdf_renderer.py:  470: printSegment: 7.1 — Created 
+   DEBUG: 2026-05-17 23:54:59,438:      pdf_renderer.py:  470: printSegment: set_viewport
+   DEBUG: 2026-05-17 23:54:59,439:      pdf_renderer.py:  470: printSegment:  GHPython component
+   DEBUG: 2026-05-17 23:54:59,439:      pdf_renderer.py:  470: printSegment: File:
+   DEBUG: 2026-05-17 23:54:59,440:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,441:      pdf_renderer.py:  470: printSegment: gh/set_viewport.py
+   DEBUG: 2026-05-17 23:54:59,444:      pdf_renderer.py:  470: printSegment: Lightweight layout renderer — receives layout JSON and a display mode, outputs Rhino geometry for real-time
+   DEBUG: 2026-05-17 23:54:59,445:      pdf_renderer.py:  470: printSegment: viewport preview. Modes: 
+   DEBUG: 2026-05-17 23:54:59,446:      pdf_renderer.py:  470: printSegment: all
+   DEBUG: 2026-05-17 23:54:59,446:      pdf_renderer.py:  470: printSegment: , 
+   DEBUG: 2026-05-17 23:54:59,447:      pdf_renderer.py:  470: printSegment: rooms
+   DEBUG: 2026-05-17 23:54:59,448:      pdf_renderer.py:  470: printSegment: , 
+   DEBUG: 2026-05-17 23:54:59,448:      pdf_renderer.py:  470: printSegment: furniture
+   DEBUG: 2026-05-17 23:54:59,449:      pdf_renderer.py:  470: printSegment: , 
+   DEBUG: 2026-05-17 23:54:59,450:      pdf_renderer.py:  470: printSegment: doors
+   DEBUG: 2026-05-17 23:54:59,450:      pdf_renderer.py:  470: printSegment: , 
+   DEBUG: 2026-05-17 23:54:59,451:      pdf_renderer.py:  470: printSegment: structure
+   DEBUG: 2026-05-17 23:54:59,452:      pdf_renderer.py:  470: printSegment: , 
+   DEBUG: 2026-05-17 23:54:59,452:      pdf_renderer.py:  470: printSegment: outline_only
+   DEBUG: 2026-05-17 23:54:59,453:      pdf_renderer.py:  470: printSegment: , 
+   DEBUG: 2026-05-17 23:54:59,454:      pdf_renderer.py:  470: printSegment: none
+   DEBUG: 2026-05-17 23:54:59,454:      pdf_renderer.py:  470: printSegment: .
+   DEBUG: 2026-05-17 23:54:59,455:      pdf_renderer.py:  470: printSegment: 7.2 — Interactive checkpoint toggle
+   DEBUG: 2026-05-17 23:54:59,456:      pdf_renderer.py:  470: printSegment: Added to 
+   DEBUG: 2026-05-17 23:54:59,457:      pdf_renderer.py:  470: printSegment: user_checkpoint_node
+   DEBUG: 2026-05-17 23:54:59,457:      pdf_renderer.py:  470: printSegment:  in 
+   DEBUG: 2026-05-17 23:54:59,458:      pdf_renderer.py:  470: printSegment: graph.py
+   DEBUG: 2026-05-17 23:54:59,459:      pdf_renderer.py:  470: printSegment: :
+   DEBUG: 2026-05-17 23:54:59,460:      pdf_renderer.py:  470: printSegment: Viewport:
+   DEBUG: 2026-05-17 23:54:59,461:      pdf_renderer.py:  470: printSegment:   1 = BEFORE layout (original)
+   DEBUG: 2026-05-17 23:54:59,462:      pdf_renderer.py:  470: printSegment:   2 = AFTER layout (disabled if no changes)
+   DEBUG: 2026-05-17 23:54:59,463:      pdf_renderer.py:  470: printSegment:   3 = + Collision overlay
+   DEBUG: 2026-05-17 23:54:59,463:      pdf_renderer.py:  470: printSegment:   4 = + Visibility overlay
+   DEBUG: 2026-05-17 23:54:59,464:      pdf_renderer.py:  470: printSegment:   5 = + Path overlay
+   DEBUG: 2026-05-17 23:54:59,465:      pdf_renderer.py:  470: printSegment:   0 = Clear overlays (layout only)
+   DEBUG: 2026-05-17 23:54:59,466:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,467:      pdf_renderer.py:  470: printSegment: 1/2
+   DEBUG: 2026-05-17 23:54:59,468:      pdf_renderer.py:  470: printSegment:  switch the active layout (before/after)
+   DEBUG: 2026-05-17 23:54:59,468:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,469:      pdf_renderer.py:  470: printSegment: 3/4/5
+   DEBUG: 2026-05-17 23:54:59,470:      pdf_renderer.py:  470: printSegment:  send the active layout to 
+   DEBUG: 2026-05-17 23:54:59,471:      pdf_renderer.py:  470: printSegment: collision-detector-grid
+   DEBUG: 2026-05-17 23:54:59,472:      pdf_renderer.py:  470: printSegment:  as base + call the analysis tool on
+   DEBUG: 2026-05-17 23:54:59,473:      pdf_renderer.py:  470: printSegment: top
+   DEBUG: 2026-05-17 23:54:59,473:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,474:      pdf_renderer.py:  470: printSegment: Tracks which layout is 
+   DEBUG: 2026-05-17 23:54:59,475:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-05-17 23:54:59,475:      pdf_renderer.py:  470: printSegment: active
+   DEBUG: 2026-05-17 23:54:59,476:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-05-17 23:54:59,477:      pdf_renderer.py:  470: printSegment:  — overlays apply to it
+   DEBUG: 2026-05-17 23:54:59,477:      pdf_renderer.py:  470: printSegment: 7.3 — 
+   DEBUG: 2026-05-17 23:54:59,478:      pdf_renderer.py:  470: printSegment: set_viewport
+   DEBUG: 2026-05-17 23:54:59,479:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,479:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-05-17 23:54:59,480:      pdf_renderer.py:  470: printSegment: pending
+   DEBUG: 2026-05-17 23:54:59,480:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-05-17 23:54:59,481:      pdf_renderer.py:  470: printSegment:  fix
+   DEBUG: 2026-05-17 23:54:59,481:      pdf_renderer.py:  470: printSegment: Problem:
+   DEBUG: 2026-05-17 23:54:59,482:      pdf_renderer.py:  470: printSegment:  MCP call to 
+   DEBUG: 2026-05-17 23:54:59,483:      pdf_renderer.py:  470: printSegment: set_viewport
+   DEBUG: 2026-05-17 23:54:59,484:      pdf_renderer.py:  470: printSegment:  hung forever, blocking the pipeline.
+   DEBUG: 2026-05-17 23:54:59,484:      pdf_renderer.py:  470: printSegment: Fixes:
+   DEBUG: 2026-05-17 23:54:59,485:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,485:      pdf_renderer.py:  470: printSegment: info
+   DEBUG: 2026-05-17 23:54:59,486:      pdf_renderer.py:  470: printSegment:  output changed from plain string to valid JSON (Swiftlet requirement)
+   DEBUG: 2026-05-17 23:54:59,487:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,488:      pdf_renderer.py:  470: printSegment: Added optional 
+   DEBUG: 2026-05-17 23:54:59,488:      pdf_renderer.py:  470: printSegment: timeout
+   DEBUG: 2026-05-17 23:54:59,489:      pdf_renderer.py:  470: printSegment:  parameter to 
+   DEBUG: 2026-05-17 23:54:59,490:      pdf_renderer.py:  470: printSegment: mcp_client.call_tool()
+   DEBUG: 2026-05-17 23:54:59,490:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,491:      pdf_renderer.py:  470: printSegment: set_viewport
+   DEBUG: 2026-05-17 23:54:59,492:      pdf_renderer.py:  470: printSegment:  calls use 10s timeout
+   DEBUG: 2026-05-17 23:54:59,492:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,493:      pdf_renderer.py:  470: printSegment: Auto-disabled for session after first failure, falls back to 
+   DEBUG: 2026-05-17 23:54:59,494:      pdf_renderer.py:  470: printSegment: collision-detector-grid
+   DEBUG: 2026-05-17 23:54:59,495:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,496:      pdf_renderer.py:  470: printSegment: Checkpoint auto-send wrapped in try/except
+   DEBUG: 2026-05-17 23:54:59,497:      pdf_renderer.py:  470: printSegment: Phase 8: Score Comparison 
+   DEBUG: 2026-05-17 23:54:59,497:      pdf_renderer.py:  470: printSegment: &
+   DEBUG: 2026-05-17 23:54:59,498:      pdf_renderer.py:  470: printSegment:  ANSI Colors
+   DEBUG: 2026-05-17 23:54:59,499:      pdf_renderer.py:  470: printSegment: 8.1 — Previous vs current score display
+   DEBUG: 2026-05-17 23:54:59,500:      pdf_renderer.py:  470: printSegment: Added 
+   DEBUG: 2026-05-17 23:54:59,500:      pdf_renderer.py:  470: printSegment: previous_scoring
+   DEBUG: 2026-05-17 23:54:59,501:      pdf_renderer.py:  470: printSegment:  to 
+   DEBUG: 2026-05-17 23:54:59,502:      pdf_renderer.py:  470: printSegment: AgentState
+   DEBUG: 2026-05-17 23:54:59,503:      pdf_renderer.py:  470: printSegment: . Each checkpoint visit snapshots the current scoring. Next visit
+   DEBUG: 2026-05-17 23:54:59,504:      pdf_renderer.py:  470: printSegment: shows deltas:
+   DEBUG: 2026-05-17 23:54:59,505:      pdf_renderer.py:  470: printSegment: LAYOUT SCORE: 72.3/100  Grade: C  ▲ +12.1
+   DEBUG: 2026-05-17 23:54:59,519:      pdf_renderer.py:  470: printSegment: Previous:      60.2/100
+   DEBUG: 2026-05-17 23:54:59,520:      pdf_renderer.py:  470: printSegment: Score breakdown:
+   DEBUG: 2026-05-17 23:54:59,521:      pdf_renderer.py:  470: printSegment:   collision        85.0/100  (weight 0.30, +25.50)  ▲ +25.0
+   DEBUG: 2026-05-17 23:54:59,522:      pdf_renderer.py:  470: printSegment:   visibility       68.2/100  (weight 0.25, +17.05)  ▼ -2.3
+   DEBUG: 2026-05-17 23:54:59,536:      pdf_renderer.py:  470: printSegment:   path             70.0/100  (weight 0.20, +14.00)  = no change
+   DEBUG: 2026-05-17 23:54:59,537:      pdf_renderer.py:  470: printSegment: 8.2 — ANSI color coding
+   DEBUG: 2026-05-17 23:54:59,537:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,538:      pdf_renderer.py:  470: printSegment: Green
+   DEBUG: 2026-05-17 23:54:59,539:      pdf_renderer.py:  470: printSegment:  (▲): score improved
+   DEBUG: 2026-05-17 23:54:59,552:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,553:      pdf_renderer.py:  470: printSegment: Red
+   DEBUG: 2026-05-17 23:54:59,554:      pdf_renderer.py:  470: printSegment:  (▼): score worsened
+   DEBUG: 2026-05-17 23:54:59,567:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,567:      pdf_renderer.py:  470: printSegment: Dim
+   DEBUG: 2026-05-17 23:54:59,568:      pdf_renderer.py:  470: printSegment:  (=): no change
+   DEBUG: 2026-05-17 23:54:59,569:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,570:      pdf_renderer.py:  470: printSegment: Score values colored: green ≥80, yellow 50-79, red 
+   DEBUG: 2026-05-17 23:54:59,571:      pdf_renderer.py:  470: printSegment: <
+   DEBUG: 2026-05-17 23:54:59,571:      pdf_renderer.py:  470: printSegment: 50
+   DEBUG: 2026-05-17 23:54:59,572:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,573:      pdf_renderer.py:  470: printSegment: Collision violations in red, furniture changes in cyan/yellow, integrity warnings in yellow
+   DEBUG: 2026-05-17 23:54:59,575:      pdf_renderer.py:  470: printSegment: Phase 9: Smart Suggestions
+   DEBUG: 2026-05-17 23:54:59,576:      pdf_renderer.py:  470: printSegment: Auto-generated action suggestions based on the lowest-scoring tools:
+   DEBUG: 2026-05-17 23:54:59,577:      pdf_renderer.py:  470: printSegment: Suggestions:
+   DEBUG: 2026-05-17 23:54:59,578:      pdf_renderer.py:  470: printSegment:   s1 = Fix collisions (cnc_machine, workbench_01...)
+   DEBUG: 2026-05-17 23:54:59,579:      pdf_renderer.py:  470: printSegment:   s3 = Improve path accessibility
+   DEBUG: 2026-05-17 23:54:59,579:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,580:      pdf_renderer.py:  470: printSegment: Only appear for tools scoring 
+   DEBUG: 2026-05-17 23:54:59,581:      pdf_renderer.py:  470: printSegment: <
+   DEBUG: 2026-05-17 23:54:59,581:      pdf_renderer.py:  470: printSegment:  80
+   DEBUG: 2026-05-17 23:54:59,582:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,583:      pdf_renderer.py:  470: printSegment: Collision suggestions name the specific furniture causing violations
+   DEBUG: 2026-05-17 23:54:59,584:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,585:      pdf_renderer.py:  470: printSegment: Selecting 
+   DEBUG: 2026-05-17 23:54:59,586:      pdf_renderer.py:  470: printSegment: s1
+   DEBUG: 2026-05-17 23:54:59,587:      pdf_renderer.py:  470: printSegment:  sends the prompt directly to the reason node as a user instruction
+   DEBUG: 2026-05-17 23:54:59,588:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-05-17 23:54:59,589:      pdf_renderer.py:  470: printSegment: Generic fallback if score 
+   DEBUG: 2026-05-17 23:54:59,589:      pdf_renderer.py:  470: printSegment: <
+   DEBUG: 2026-05-17 23:54:59,590:      pdf_renderer.py:  470: printSegment:  80 but no specific tool data available
+   DEBUG: 2026-05-17 23:54:59,592:      pdf_renderer.py:  470: printSegment: Files Modified
+   DEBUG: 2026-05-17 23:54:59,593:      pdf_renderer.py:  470: printSegment: | File | Changes |
+   DEBUG: 2026-05-17 23:54:59,593:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,594:      pdf_renderer.py:  470: printSegment: |---|---|
+   DEBUG: 2026-05-17 23:54:59,594:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,595:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,595:      pdf_renderer.py:  470: printSegment: _runtime/llm.py
+   DEBUG: 2026-05-17 23:54:59,596:      pdf_renderer.py:  470: printSegment:  | 
+   DEBUG: 2026-05-17 23:54:59,597:      pdf_renderer.py:  470: printSegment: call_llm_simple
+   DEBUG: 2026-05-17 23:54:59,597:      pdf_renderer.py:  470: printSegment:  Anthropic path, message format handling, 
+   DEBUG: 2026-05-17 23:54:59,598:      pdf_renderer.py:  470: printSegment: .replace()
+   DEBUG: 2026-05-17 23:54:59,599:      pdf_renderer.py:  470: printSegment:  instead of 
+   DEBUG: 2026-05-17 23:54:59,599:      pdf_renderer.py:  470: printSegment: .format()
+   DEBUG: 2026-05-17 23:54:59,600:      pdf_renderer.py:  470: printSegment:  |
+   DEBUG: 2026-05-17 23:54:59,600:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,601:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,601:      pdf_renderer.py:  470: printSegment: _runtime/mcp_client.py
+   DEBUG: 2026-05-17 23:54:59,602:      pdf_renderer.py:  470: printSegment:  | Optional 
+   DEBUG: 2026-05-17 23:54:59,603:      pdf_renderer.py:  470: printSegment: timeout
+   DEBUG: 2026-05-17 23:54:59,603:      pdf_renderer.py:  470: printSegment:  parameter on 
+   DEBUG: 2026-05-17 23:54:59,604:      pdf_renderer.py:  470: printSegment: call_tool()
+   DEBUG: 2026-05-17 23:54:59,604:      pdf_renderer.py:  470: printSegment:  and 
+   DEBUG: 2026-05-17 23:54:59,605:      pdf_renderer.py:  470: printSegment: _rpc()
+   DEBUG: 2026-05-17 23:54:59,605:      pdf_renderer.py:  470: printSegment:  |
+   DEBUG: 2026-05-17 23:54:59,606:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,606:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,607:      pdf_renderer.py:  470: printSegment: graph.py
+   DEBUG: 2026-05-17 23:54:59,607:      pdf_renderer.py:  470: printSegment:  | 
+   DEBUG: 2026-05-17 23:54:59,608:      pdf_renderer.py:  470: printSegment: AgentState
+   DEBUG: 2026-05-17 23:54:59,609:      pdf_renderer.py:  470: printSegment:  (new fields: 
+   DEBUG: 2026-05-17 23:54:59,609:      pdf_renderer.py:  470: printSegment: original_layout
+   DEBUG: 2026-05-17 23:54:59,610:      pdf_renderer.py:  470: printSegment: , 
+   DEBUG: 2026-05-17 23:54:59,610:      pdf_renderer.py:  470: printSegment: placement_history
+   DEBUG: 2026-05-17 23:54:59,611:      pdf_renderer.py:  470: printSegment: , 
+   DEBUG: 2026-05-17 23:54:59,612:      pdf_renderer.py:  470: printSegment: previous_scoring
+   DEBUG: 2026-05-17 23:54:59,612:      pdf_renderer.py:  470: printSegment: ), 
+   DEBUG: 2026-05-17 23:54:59,613:      pdf_renderer.py:  470: printSegment: build_user_checkpoint_node
+   DEBUG: 2026-05-17 23:54:59,617:      pdf_renderer.py:  470: printSegment:  (viewport toggles, score
+   DEBUG: 2026-05-17 23:54:59,619:      pdf_renderer.py:  470: printSegment: comparison, ANSI colors, smart suggestions, integrity check, MCP timeout), routing fixes |
+   DEBUG: 2026-05-17 23:54:59,619:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,620:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,620:      pdf_renderer.py:  470: printSegment: nodes/reason.py
+   DEBUG: 2026-05-17 23:54:59,621:      pdf_renderer.py:  470: printSegment:  |
+   DEBUG: 2026-05-17 23:54:59,622:      pdf_renderer.py:  470: printSegment: 
+   DEBUG: 2026-05-17 23:54:59,622:      pdf_renderer.py:  470: printSegment: _keep_last
+   DEBUG: 2026-05-17 23:54:59,622:      pdf_renderer.py:  470: printSegment:  fix (
+   DEBUG: 2026-05-17 23:54:59,623:      pdf_renderer.py:  470: printSegment: {}
+   DEBUG: 2026-05-17 23:54:59,624:      pdf_renderer.py:  470: printSegment:  instead of 
+   DEBUG: 2026-05-17 23:54:59,624:      pdf_renderer.py:  470: printSegment: None
+   DEBUG: 2026-05-17 23:54:59,625:      pdf_renderer.py:  470: printSegment: ), try/except |
+   DEBUG: 2026-05-17 23:54:59,625:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,626:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,627:      pdf_renderer.py:  470: printSegment: nodes/tools.py
+   DEBUG: 2026-05-17 23:54:59,629:      pdf_renderer.py:  470: printSegment:  | Layer preservation, guard empty tool
+   DEBUG: 2026-05-17 23:54:59,630:      pdf_renderer.py:  470: printSegment: calls, try/except, logging |
+   DEBUG: 2026-05-17 23:54:59,630:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,631:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,631:      pdf_renderer.py:  470: printSegment: nodes/add_objects.py
+   DEBUG: 2026-05-17 23:54:59,633:      pdf_renderer.py:  470: printSegment:  | Layer preservation, placement history tracking, no-op
+   DEBUG: 2026-05-17 23:54:59,634:      pdf_renderer.py:  470: printSegment: move filter, 
+   DEBUG: 2026-05-17 23:54:59,635:      pdf_renderer.py:  470: printSegment: _keep_last
+   DEBUG: 2026-05-17 23:54:59,635:      pdf_renderer.py:  470: printSegment:  fix |
+   DEBUG: 2026-05-17 23:54:59,636:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,636:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,637:      pdf_renderer.py:  470: printSegment: nodes/collision.py
+   DEBUG: 2026-05-17 23:54:59,638:      pdf_renderer.py:  470: printSegment:  | try/except wrappers |
+   DEBUG: 2026-05-17 23:54:59,638:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,639:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,640:      pdf_renderer.py:  470: printSegment: nodes/visibility.py
+   DEBUG: 2026-05-17 23:54:59,640:      pdf_renderer.py:  470: printSegment:  |
+   DEBUG: 2026-05-17 23:54:59,641:      pdf_renderer.py:  470: printSegment: try/except wrappers |
+   DEBUG: 2026-05-17 23:54:59,642:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,642:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,643:      pdf_renderer.py:  470: printSegment: nodes/path_analysis.py
+   DEBUG: 2026-05-17 23:54:59,644:      pdf_renderer.py:  470: printSegment:  | try/except wrappers |
+   DEBUG: 2026-05-17 23:54:59,645:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,645:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,646:      pdf_renderer.py:  470: printSegment: nodes/reachability.py
+   DEBUG: 2026-05-17 23:54:59,647:      pdf_renderer.py:  470: printSegment:  |
+   DEBUG: 2026-05-17 23:54:59,647:      pdf_renderer.py:  470: printSegment: try/except wrappers |
+   DEBUG: 2026-05-17 23:54:59,648:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,649:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,649:      pdf_renderer.py:  470: printSegment: nodes/orientation.py
+   DEBUG: 2026-05-17 23:54:59,650:      pdf_renderer.py:  470: printSegment:  | try/except wrappers |
+   DEBUG: 2026-05-17 23:54:59,651:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,651:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,652:      pdf_renderer.py:  470: printSegment: nodes/scoring.py
+   DEBUG: 2026-05-17 23:54:59,653:      pdf_renderer.py:  470: printSegment:  | Proportional
+   DEBUG: 2026-05-17 23:54:59,654:      pdf_renderer.py:  470: printSegment: scoring, 
+   DEBUG: 2026-05-17 23:54:59,655:      pdf_renderer.py:  470: printSegment: grid_meta
+   DEBUG: 2026-05-17 23:54:59,655:      pdf_renderer.py:  470: printSegment: /
+   DEBUG: 2026-05-17 23:54:59,656:      pdf_renderer.py:  470: printSegment: grid
+   DEBUG: 2026-05-17 23:54:59,657:      pdf_renderer.py:  470: printSegment:  lookup, structure vs furniture separation, weight normalization |
+   DEBUG: 2026-05-17 23:54:59,658:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,658:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,659:      pdf_renderer.py:  470: printSegment: nodes/profile_agent.py
+   DEBUG: 2026-05-17 23:54:59,660:      pdf_renderer.py:  470: printSegment:  | Nested response handling, fallback logging |
+   DEBUG: 2026-05-17 23:54:59,661:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,661:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,662:      pdf_renderer.py:  470: printSegment: nodes/space_type_agent.py
+   DEBUG: 2026-05-17 23:54:59,663:      pdf_renderer.py:  470: printSegment:  | Nested response handling, fallback logging |
+   DEBUG: 2026-05-17 23:54:59,664:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,664:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,665:      pdf_renderer.py:  470: printSegment: main.py
+   DEBUG: 2026-05-17 23:54:59,666:      pdf_renderer.py:  470: printSegment:  | try/finally MCP
+   DEBUG: 2026-05-17 23:54:59,667:      pdf_renderer.py:  470: printSegment: cleanup |
+   DEBUG: 2026-05-17 23:54:59,668:      pdf_renderer.py:  470: printSegment: Files Created
+   DEBUG: 2026-05-17 23:54:59,668:      pdf_renderer.py:  470: printSegment: | File | Purpose |
+   DEBUG: 2026-05-17 23:54:59,669:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,670:      pdf_renderer.py:  470: printSegment: |---|---|
+   DEBUG: 2026-05-17 23:54:59,671:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-05-17 23:54:59,671:      pdf_renderer.py:  470: printSegment: | 
+   DEBUG: 2026-05-17 23:54:59,672:      pdf_renderer.py:  470: printSegment: gh/set_viewport.py
+   DEBUG: 2026-05-17 23:54:59,674:      pdf_renderer.py:  470: printSegment:  | GHPython component for viewport layout rendering (MCP
+   DEBUG: 2026-05-17 23:54:59,674:      pdf_renderer.py:  470: printSegment: tool) |
+   DEBUG: 2026-05-17 23:54:59,676:      pdf_renderer.py:  470: printSegment: Open Issues
+   DEBUG: 2026-05-17 23:54:59,676:      pdf_renderer.py:  470: printSegment:  1 
+   DEBUG: 2026-05-17 23:54:59,677:      pdf_renderer.py:  470: printSegment: set_viewport
+   DEBUG: 2026-05-17 23:54:59,678:      pdf_renderer.py:  470: printSegment:  as MCP tool
+   DEBUG: 2026-05-17 23:54:59,679:      pdf_renderer.py:  470: printSegment:  — May still stay 
+   DEBUG: 2026-05-17 23:54:59,680:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-05-17 23:54:59,680:      pdf_renderer.py:  470: printSegment: pending
+   DEBUG: 2026-05-17 23:54:59,681:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-05-17 23:54:59,682:      pdf_renderer.py:  470: printSegment:  if the Swiftlet Result cluster isn
+   DEBUG: 2026-05-17 23:54:59,683:      pdf_renderer.py:  470: printSegment: '
+   DEBUG: 2026-05-17 23:54:59,685:      pdf_renderer.py:  470: printSegment: t wired
+   DEBUG: 2026-05-17 23:54:59,686:      pdf_renderer.py:  470: printSegment: correctly in GH. Workaround: 10s timeout + fallback to 
+   DEBUG: 2026-05-17 23:54:59,687:      pdf_renderer.py:  470: printSegment: collision-detector-grid
+   DEBUG: 2026-05-17 23:54:59,688:      pdf_renderer.py:  470: printSegment: .
+   DEBUG: 2026-05-17 23:54:59,689:      pdf_renderer.py:  470: printSegment:  2 
+   DEBUG: 2026-05-17 23:54:59,690:      pdf_renderer.py:  470: printSegment: Viewport overlay visibility
+   DEBUG: 2026-05-17 23:54:59,690:      pdf_renderer.py:  470: printSegment:  — 
+   DEBUG: 2026-05-17 23:54:59,691:      pdf_renderer.py:  470: printSegment: set_viewport
+   DEBUG: 2026-05-17 23:54:59,692:      pdf_renderer.py:  470: printSegment:  and analysis tools are separate GH components. If 
+   DEBUG: 2026-05-17 23:54:59,693:      pdf_renderer.py:  470: printSegment: set_viewport
+   DEBUG: 2026-05-17 23:54:59,694:      pdf_renderer.py:  470: printSegment:  doesn
+   DEBUG: 2026-05-17 23:54:59,694:      pdf_renderer.py:  470: printSegment: '
+   DEBUG: 2026-05-17 23:54:59,696:      pdf_renderer.py:  470: printSegment: t respond, only the analysis overlay shows. Current approach: use 
+   DEBUG: 2026-05-17 23:54:59,697:      pdf_renderer.py:  470: printSegment: collision-detector-grid
+   DEBUG: 2026-05-17 23:54:59,698:      pdf_renderer.py:  470: printSegment:  as layout base for overlay views.
+   DEBUG: 2026-05-17 23:54:59,698:      pdf_renderer.py:  470: printSegment:  3 
+   DEBUG: 2026-05-17 23:54:59,699:      pdf_renderer.py:  470: printSegment: place_objects
+   DEBUG: 2026-05-17 23:54:59,700:      pdf_renderer.py:  470: printSegment:  format mismatch
+   DEBUG: 2026-05-17 23:54:59,704:      pdf_renderer.py:  470: printSegment:  — LLM sometimes sends malformed input for the compact
+   DEBUG: 2026-05-17 23:54:59,705:      pdf_renderer.py:  470: printSegment: string format. Warning logged but silent failure possible.
+   DEBUG: 2026-05-17 23:54:59,706:      pdf_renderer.py:   53: 0, [1, 'Team 03 — Accessibility Agent: Progress Report', 1, 68.0]
+   DEBUG: 2026-05-17 23:54:59,706:      pdf_renderer.py:   53: 1, [2, 'Starting Point', 1, 136.0]
+   DEBUG: 2026-05-17 23:54:59,706:      pdf_renderer.py:   53: 2, [2, 'Phase 1: Unblock ', 1, 223.60000000000002]
+   DEBUG: 2026-05-17 23:54:59,706:      pdf_renderer.py:   53: 3, [3, '1.1 — ', 1, 256.8]
+   DEBUG: 2026-05-17 23:54:59,706:      pdf_renderer.py:   53: 4, [3, '1.2 — ', 1, 381.59999999999997]
+   DEBUG: 2026-05-17 23:54:59,706:      pdf_renderer.py:   53: 5, [3, '1.3 — ', 1, 458.3999999999999]
+   DEBUG: 2026-05-17 23:54:59,706:      pdf_renderer.py:   53: 6, [3, '1.4 — Pre-agents failing on nested LLM responses', 1, 523.1999999999999]
+   DEBUG: 2026-05-17 23:54:59,706:      pdf_renderer.py:   53: 7, [2, 'Phase 2: Crash Prevention (try/except wrappers)', 1, 612.3999999999999]
+   DEBUG: 2026-05-17 23:54:59,706:      pdf_renderer.py:   53: 8, [2, 'Phase 3: State ', 2, 110.8]
+   DEBUG: 2026-05-17 23:54:59,706:      pdf_renderer.py:   53: 9, [3, '3.1 — ', 2, 144.0]
+   DEBUG: 2026-05-17 23:54:59,706:      pdf_renderer.py:   53: 10, [3, '3.2 — Infinite loop in analysis-only runs', 2, 220.8]
+   DEBUG: 2026-05-17 23:54:59,706:      pdf_renderer.py:   53: 11, [3, '3.3 — Infinite adjustment loop after placement', 2, 309.6]
+   DEBUG: 2026-05-17 23:54:59,707:      pdf_renderer.py:   53: 12, [3, '3.4 — ', 2, 398.4]
+   DEBUG: 2026-05-17 23:54:59,707:      pdf_renderer.py:   53: 13, [3, '3.5 — ', 2, 463.19999999999993]
+   DEBUG: 2026-05-17 23:54:59,707:      pdf_renderer.py:   53: 14, [3, '3.6 — Scoring weights not normalized', 2, 539.9999999999999]
+   DEBUG: 2026-05-17 23:54:59,707:      pdf_renderer.py:   53: 15, [2, 'Phase 4: Score Not Updating After Placement', 2, 617.1999999999998]
+   DEBUG: 2026-05-17 23:54:59,707:      pdf_renderer.py:   53: 16, [2, 'Phase 5: Doors Lost in Output', 3, 146.8]
+   DEBUG: 2026-05-17 23:54:59,707:      pdf_renderer.py:   53: 17, [2, 'Phase 6: Collision Score Dominated by Walls', 3, 300.40000000000003]
+   DEBUG: 2026-05-17 23:54:59,707:      pdf_renderer.py:   53: 18, [2, 'Phase 7: Viewport Toggle System', 3, 430.00000000000006]
+   DEBUG: 2026-05-17 23:54:59,707:      pdf_renderer.py:   53: 19, [3, '7.1 — Created ', 3, 463.20000000000005]
+   DEBUG: 2026-05-17 23:54:59,707:      pdf_renderer.py:   53: 20, [3, '7.2 — Interactive checkpoint toggle', 3, 540.0]
+   DEBUG: 2026-05-17 23:54:59,707:      pdf_renderer.py:   53: 21, [3, '7.3 — ', 4, 104.4]
+   DEBUG: 2026-05-17 23:54:59,707:      pdf_renderer.py:   53: 22, [2, 'Phase 8: Score Comparison ', 4, 253.60000000000002]
+   DEBUG: 2026-05-17 23:54:59,707:      pdf_renderer.py:   53: 23, [3, '8.1 — Previous vs current score display', 4, 286.8]
+   DEBUG: 2026-05-17 23:54:59,707:      pdf_renderer.py:   53: 24, [3, '8.2 — ANSI color coding', 4, 429.59999999999997]
+   DEBUG: 2026-05-17 23:54:59,707:      pdf_renderer.py:   53: 25, [2, 'Phase 9: Smart Suggestions', 4, 542.8]
+   DEBUG: 2026-05-17 23:54:59,707:      pdf_renderer.py:   53: 26, [2, 'Files Modified', 5, 70.0]
+   DEBUG: 2026-05-17 23:54:59,707:      pdf_renderer.py:   53: 27, [2, 'Files Created', 5, 277.6]
+   DEBUG: 2026-05-17 23:54:59,707:      pdf_renderer.py:   53: 28, [2, 'Open Issues', 5, 353.20000000000005]
