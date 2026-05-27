@@ -842,20 +842,19 @@ with tab_advice:
             "border-bottom:2px solid #ddd;color:#555;font-size:0.82rem;font-weight:600"
         )
         _td = "padding:8px 14px;border-bottom:1px solid #eee;font-size:0.88rem;color:#111"
-        _headers = ["Material", "Carbon Footprint", "Unit", "GWP Source", "Fire Rating", "Lifespan (yrs)"]
+        _headers = ["Material", "Carbon Footprint", "Fire Rating", "Lifespan (yrs)"]
         _head_html = "".join(f'<th style="{_th}">{h}</th>' for h in _headers)
         _body_html = ""
         for _r in _adv_rows:
             _fire = str(_r.get("Fire Rating", "—"))
             _fc   = _FIRE_COLOR.get(_fire, "#111")
             _gwp  = _r.get("Carbon Footprint")
-            _gwp_s = f"{_gwp:,.2f}" if isinstance(_gwp, (int, float)) else "—"
+            _unit = _r.get("Unit", "")
+            _gwp_s = f"{_gwp:,.2f} {_unit}" if isinstance(_gwp, (int, float)) else "—"
             _body_html += (
                 f'<tr>'
                 f'<td style="{_td};font-weight:600">{_r.get("Material","")}</td>'
                 f'<td style="{_td}">{_gwp_s}</td>'
-                f'<td style="{_td};color:#666">{_r.get("Unit","—")}</td>'
-                f'<td style="{_td};color:#666">{_r.get("GWP Source","—")}</td>'
                 f'<td style="{_td};color:{_fc};font-weight:600">{_fire}</td>'
                 f'<td style="{_td}">{_r.get("Lifespan (yrs)","—")}</td>'
                 f'</tr>'

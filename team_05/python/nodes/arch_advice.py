@@ -195,15 +195,26 @@ _DETECTABLE_FINISH_MATERIALS = [
 
 
 def extract_materials_from_messages(messages: list[dict]) -> list[str]:
-    """Scan chat message history for material keyword mentions."""
+    """Scan user chat messages for material keyword mentions."""
+    # Build a combined keyword → canonical-key lookup from both sources
+    _keyword_map: dict[str, str] = {}
+    for mat in _DETECTABLE_FINISH_MATERIALS:
+        key = mat.lower().replace(" ", "_").replace("-", "_")
+        _keyword_map[mat] = _MATERIAL_ALIASES.get(key, key)
+    for alias, canonical in _MATERIAL_ALIASES.items():
+        _keyword_map[alias.replace("_", " ")] = canonical
+
+    # Sort longest keyword first so "ceramic tile" beats "ceramic"
+    keywords = sorted(_keyword_map.keys(), key=len, reverse=True)
+
     materials: list[str] = []
     for msg in messages:
+        if msg.get("role") != "user":
+            continue
         content = (msg.get("content") or "").lower()
-        for mat in _DETECTABLE_FINISH_MATERIALS:
-            if mat in content:
-                key = mat.lower().replace(" ", "_").replace("-", "_")
-                key = _MATERIAL_ALIASES.get(key, key)
-                materials.append(key)
+        for kw in keywords:
+            if kw in content:
+                materials.append(_keyword_map[kw])
     seen: set[str] = set()
     return [m for m in materials if not (m in seen or seen.add(m))]  # type: ignore[func-returns-value]
 
