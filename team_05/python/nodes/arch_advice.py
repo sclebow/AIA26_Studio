@@ -148,14 +148,33 @@ def _extract_materials(state: dict[str, Any]) -> list[str]:
 # Advice formatter
 # ---------------------------------------------------------------------------
 
-def _format_material_advice(material_key: str, live_gwp: float | None) -> str:
+FIRE_STANDARDS = {
+    "EN 13501-1": "EN_13501",
+    "ASTM E84 (USA)": "ASTM_E84",
+    "BS 476 (UK)": "BS_476",
+    "GB 8624 (China)": "GB_8624",
+    "CAN/ULC-S102 (Canada)": "CAN_ULC",
+    "AS/NZS 1530 (Australia/NZ)": "AS_NZS",
+}
+DEFAULT_STANDARD = "EN 13501-1"
+
+
+def _resolve_fire_rating(static: dict, standard_key: str) -> str:
+    """Return the fire rating string for the given standard key."""
+    fire = static.get("fire_rating", "—")
+    if isinstance(fire, dict):
+        return fire.get(standard_key, fire.get("EN_13501", "—"))
+    return str(fire) if fire else "—"
+
+
+def _format_material_advice(material_key: str, live_gwp: float | None, standard_key: str = "EN_13501") -> str:
     static = _lookup_static(material_key)
     label = material_key.replace("_", " ").title()
 
     if not static:
         return f"**{label}**\n  • No property data found in database\n"
 
-    fire = static.get("fire_rating", "N/A")
+    fire = _resolve_fire_rating(static, standard_key)
     life = static.get("life_cycle_years", "N/A")
     gwp_fallback = static.get("gwp_fallback_kgco2e")
     gwp_unit = static.get("gwp_unit", "kgCO2e/m²")
@@ -252,8 +271,9 @@ def generate_advice_for_materials(materials: list[str]) -> str:
     return "\n".join(sections)
 
 
-def generate_advice_table_data(materials: list[str]) -> list[dict]:
+def generate_advice_table_data(materials: list[str], standard: str = DEFAULT_STANDARD) -> list[dict]:
     """Return a list of property dicts suitable for table display."""
+    standard_key = FIRE_STANDARDS.get(standard, "EN_13501")
     rows: list[dict] = []
     for mat in materials[:_MAX_MATERIALS]:
         live_gwp = get_gwp(mat)
@@ -275,7 +295,7 @@ def generate_advice_table_data(materials: list[str]) -> list[dict]:
             "Carbon Footprint": gwp_display,
             "Unit": static.get("gwp_unit", "kgCO2e/m²") if static else "—",
             "GWP Source": gwp_source,
-            "Fire Rating": static.get("fire_rating", "—") if static else "—",
+            "Fire Rating": _resolve_fire_rating(static, standard_key) if static else "—",
             "Lifespan (yrs)": static.get("life_cycle_years", "—") if static else "—",
             "In DB": "yes" if static else "no",
         })

@@ -794,10 +794,19 @@ with tab_advice:
         extract_materials_from_layout as _extract_layout_mats,
         extract_materials_from_messages as _extract_msg_mats,
         generate_advice_table_data as _gen_table,
+        FIRE_STANDARDS,
+        DEFAULT_STANDARD,
     )
 
-    st.markdown("#### Architectural Material Advice")
-    st.caption("Automatically read from chat history and active plan — fire rating, carbon footprint, and lifespan per material.")
+    _hdr_col, _std_col = st.columns([3, 1])
+    _hdr_col.markdown("#### Architectural Material Advice")
+    _hdr_col.caption("Automatically read from chat history and active plan — fire rating, carbon footprint, and lifespan per material.")
+    _selected_standard = _std_col.selectbox(
+        "Fire rating standard",
+        options=list(FIRE_STANDARDS.keys()),
+        index=list(FIRE_STANDARDS.keys()).index(DEFAULT_STANDARD),
+        key="fire_standard",
+    )
 
     # ── collect materials ─────────────────────────────────────────────────────
     _layout_mats: list[str] = (
@@ -820,10 +829,10 @@ with tab_advice:
 
     # ── auto-generate when material list changes (no spinner — avoids state race) ──
     if _combined:
-        _mat_sig = ",".join(_combined)
+        _mat_sig = ",".join(_combined) + "|" + _selected_standard
         if st.session_state.get("_advice_mat_sig") != _mat_sig:
             try:
-                st.session_state.arch_advice_rows = _gen_table(_combined)
+                st.session_state.arch_advice_rows = _gen_table(_combined, _selected_standard)
                 st.session_state["_advice_mat_sig"] = _mat_sig
             except Exception as _exc:
                 st.error(f"Advice generation failed: {_exc}")
