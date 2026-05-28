@@ -1,13 +1,51 @@
 {
-  "layoutId": 27,
-  "programType": [
-    "bed",
-    "bath",
-    "kitchen",
-    "living",
-    "circulation"
-  ],
-  "connectivityType": "connected",
+  "layoutId": "L_L12.0_W4.5_de0_dp0.85_wp0",
+  "apartment": {
+    "id": "apartment-1",
+    "name": "Apartment",
+    "geometry": [
+      [
+        2.136,
+        4.5
+      ],
+      [
+        0.0,
+        4.5
+      ],
+      [
+        0.0,
+        2.202
+      ],
+      [
+        0.0,
+        0.0
+      ],
+      [
+        4.983,
+        0.0
+      ],
+      [
+        12.0,
+        0.0
+      ],
+      [
+        12.0,
+        4.5
+      ],
+      [
+        5.39,
+        4.5
+      ],
+      [
+        2.136,
+        4.5
+      ]
+    ],
+    "attributes": {
+      "area": 54.0,
+      "description": "1 bed., 1 bath., 1 kitchen., 1 living."
+    }
+  },
   "outline": [
     [
       2.136,
@@ -46,24 +84,6 @@
       4.5
     ]
   ],
-  "boundary": [
-    [
-      0.0,
-      0.0
-    ],
-    [
-      12.0,
-      0.0
-    ],
-    [
-      12.0,
-      4.5
-    ],
-    [
-      0.0,
-      4.5
-    ]
-  ],
   "door_point": [
     0.712,
     0.0
@@ -82,38 +102,10 @@
       1.723
     ]
   ],
-  "facades": [
-    {
-      "geometry": [
-        [
-          12.0,
-          0.0
-        ],
-        [
-          12.0,
-          4.5
-        ]
-      ]
-    }
-  ],
-  "circulation": [
-    {
-      "geometry": [
-        [
-          0.0,
-          0.0
-        ],
-        [
-          12.0,
-          0.0
-        ]
-      ]
-    }
-  ],
   "rooms": [
     {
-      "id": 0,
-      "type": "storage",
+      "id": "room-1",
+      "name": "Extra",
       "geometry": [
         [
           2.136,
@@ -136,11 +128,14 @@
           4.5
         ]
       ],
-      "area": 4.9085
+      "attributes": {
+        "area": 4.9085,
+        "program": "extra"
+      }
     },
     {
-      "id": 1,
-      "type": "bath",
+      "id": "room-2",
+      "name": "Bath",
       "geometry": [
         [
           2.136,
@@ -163,11 +158,14 @@
           4.5
         ]
       ],
-      "area": 7.4777
+      "attributes": {
+        "area": 7.4777,
+        "program": "bath"
+      }
     },
     {
-      "id": 2,
-      "type": "circulation",
+      "id": "room-3",
+      "name": "Extra",
       "geometry": [
         [
           0.0,
@@ -190,11 +188,14 @@
           2.202
         ]
       ],
-      "area": 10.9726
+      "attributes": {
+        "area": 10.9726,
+        "program": "extra"
+      }
     },
     {
-      "id": 3,
-      "type": "living",
+      "id": "room-4",
+      "name": "Living",
       "geometry": [
         [
           5.39,
@@ -225,7 +226,10 @@
           4.5
         ]
       ],
-      "area": 30.6412
+      "attributes": {
+        "area": 30.6412,
+        "program": "living"
+      }
     }
   ],
   "doors": [
@@ -240,8 +244,8 @@
       ],
       "attributes": {
         "connectsRooms": [
-          0,
-          2
+          "room-1",
+          "room-3"
         ]
       }
     },
@@ -256,8 +260,8 @@
       ],
       "attributes": {
         "connectsRooms": [
-          1,
-          2
+          "room-2",
+          "room-3"
         ]
       }
     },
@@ -272,10 +276,54 @@
       ],
       "attributes": {
         "connectsRooms": [
-          2,
-          3
+          "room-3",
+          "room-4"
         ]
       }
     }
-  ]
+  ],
+  "facades": [
+    {
+      "id": "facade-1",
+      "name": "Facade 1",
+      "geometry": [
+        [
+          12.0,
+          0.0
+        ],
+        [
+          12.0,
+          4.5
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "length": 4.5
+      }
+    }
+  ],
+  "circulation": [
+    {
+      "id": "circulation-1",
+      "name": "Front Door Axis",
+      "geometry": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          12.0,
+          0.0
+        ]
+      ],
+      "attributes": {
+        "type": "circulation",
+        "length": 12.0
+      }
+    }
+  ],
+  "windows": [],
+  "furniture": [],
+  "mep": [],
+  "structure": []
 }

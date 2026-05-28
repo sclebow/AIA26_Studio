@@ -33,6 +33,10 @@ def build_adapt_node(mcp_client: Any) -> Any:
             else:
                 input_layout = {}
 
+            # For testing: if no user boundary defined, use selected layout's own boundary
+            if not input_layout.get("rooms"):
+                input_layout = layout_data
+
 
             def preview(d):
                 if isinstance(d, dict):
