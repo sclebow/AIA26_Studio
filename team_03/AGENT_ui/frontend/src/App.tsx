@@ -268,7 +268,7 @@ export default function App() {
         <div style={{
           gridColumn: '1', gridRow: '1',
           borderRight: panelBorder, background: sidebarBg,
-          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: 'auto',
         }}>
 
           {/* Previous Workflows */}
