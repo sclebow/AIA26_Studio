@@ -1,0 +1,9 @@
+{
+  "recommended_budget": [
+    {"part": "room", "cost": 5000},
+    {"part": "door", "cost": 300},
+    {"part": "window", "cost": 400},
+    {"part": "bathroom", "cost": 2000},
+    {"part": "kitchen", "cost": 7000}
+  ]
+}

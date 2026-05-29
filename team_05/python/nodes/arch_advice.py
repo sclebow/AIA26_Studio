@@ -55,7 +55,12 @@ def _lookup_static(material_key: str) -> dict:
 # Material extraction from layout JSON
 # ---------------------------------------------------------------------------
 
-_ROOM_FINISH_KEYS = ["floor_finish", "wall_finish", "ceiling_material", "slab_material"]
+_ROOM_FINISH_KEYS = [
+    "floor_finish", "floor-finish",
+    "wall_finish", "wall-finish",
+    "ceiling_material", "ceiling-material", "ceiling-finish",
+    "slab_material", "slab-material",
+]
 _OPENING_KEYS = ["leaf_material", "frame_material", "glazing", "window_material"]
 
 # Element-type labels that are NOT materials — skip these from tool arg extraction
@@ -143,14 +148,66 @@ def _extract_materials(state: dict[str, Any]) -> list[str]:
 # Advice formatter
 # ---------------------------------------------------------------------------
 
-def _format_material_advice(material_key: str, live_gwp: float | None) -> str:
+FIRE_STANDARDS = {
+    "EN 13501-1": "EN_13501",
+    "ASTM E84 (USA)": "ASTM_E84",
+    "BS 476 (UK)": "BS_476",
+    "GB 8624 (China)": "GB_8624",
+    "CAN/ULC-S102 (Canada)": "CAN_ULC",
+    "AS/NZS 1530 (Australia/NZ)": "AS_NZS",
+}
+DEFAULT_STANDARD = "EN 13501-1"
+
+# Region → GWP data source configuration.
+# "source" is either "oekobaudat" (existing client) or "ec3" (Building Transparency).
+# "jurisdiction" is an ISO 3166-1 alpha-2 code passed to the EC3 API.
+GWP_REGIONS: dict[str, dict] = {
+    "Europe (Ökobaudat)":        {"source": "oekobaudat"},
+    "USA (EC3)":                 {"source": "ec3", "jurisdiction": "US"},
+    "Canada (EC3)":              {"source": "ec3", "jurisdiction": "CA"},
+    "Australia (EC3)":           {"source": "ec3", "jurisdiction": "AU"},
+    "New Zealand (EC3)":         {"source": "ec3", "jurisdiction": "NZ"},
+    "China (static only)":       {"source": "static"},
+    "Global (static only)":      {"source": "static"},
+}
+DEFAULT_REGION = "Europe (Ökobaudat)"
+
+
+def get_gwp_regional(material_key: str, region: str = DEFAULT_REGION) -> float | None:
+    """Return GWP A1-A3 for a material using the appropriate regional database.
+
+    Falls back to static value (None) if the chosen source is unavailable.
+    """
+    cfg = GWP_REGIONS.get(region, {"source": "oekobaudat"})
+    source = cfg.get("source", "oekobaudat")
+
+    if source == "oekobaudat":
+        return get_gwp(material_key)
+
+    if source == "ec3":
+        from nodes.bt_client import get_gwp as bt_get_gwp
+        return bt_get_gwp(material_key, cfg.get("jurisdiction"))
+
+    # "static" — caller will use the fallback value from material_properties.json
+    return None
+
+
+def _resolve_fire_rating(static: dict, standard_key: str) -> str:
+    """Return the fire rating string for the given standard key."""
+    fire = static.get("fire_rating", "—")
+    if isinstance(fire, dict):
+        return fire.get(standard_key, fire.get("EN_13501", "—"))
+    return str(fire) if fire else "—"
+
+
+def _format_material_advice(material_key: str, live_gwp: float | None, standard_key: str = "EN_13501") -> str:
     static = _lookup_static(material_key)
     label = material_key.replace("_", " ").title()
 
     if not static:
         return f"**{label}**\n  • No property data found in database\n"
 
-    fire = static.get("fire_rating", "N/A")
+    fire = _resolve_fire_rating(static, standard_key)
     life = static.get("life_cycle_years", "N/A")
     gwp_fallback = static.get("gwp_fallback_kgco2e")
     gwp_unit = static.get("gwp_unit", "kgCO2e/m²")
@@ -175,6 +232,111 @@ def _format_material_advice(material_key: str, live_gwp: float | None) -> str:
 
 # Cap materials per call to avoid overloading context and EC3 rate limits
 _MAX_MATERIALS = 8
+
+
+# Materials recognisable in free-text prompts
+_DETECTABLE_FINISH_MATERIALS = [
+    "marble", "granite", "porcelain", "ceramic tile", "ceramic",
+    "natural stone", "engineered wood", "solid wood", "laminate",
+    "vinyl", "epoxy", "polished concrete", "carpet", "terrazzo",
+    "paint", "wallpaper", "wood panel", "veneer", "stucco",
+    "gypsum board", "acoustic tile", "metal panel", "wood slat",
+    "plaster", "glass", "aluminium", "aluminum", "timber",
+    "rc solid", "rc waffle", "hollow core", "precast",
+]
+
+
+def extract_materials_from_messages(messages: list[dict]) -> list[str]:
+    """Scan user chat messages for material keyword mentions."""
+    # Build a combined keyword → canonical-key lookup from both sources
+    _keyword_map: dict[str, str] = {}
+    for mat in _DETECTABLE_FINISH_MATERIALS:
+        key = mat.lower().replace(" ", "_").replace("-", "_")
+        _keyword_map[mat] = _MATERIAL_ALIASES.get(key, key)
+    for alias, canonical in _MATERIAL_ALIASES.items():
+        _keyword_map[alias.replace("_", " ")] = canonical
+
+    # Sort longest keyword first so "ceramic tile" beats "ceramic"
+    keywords = sorted(_keyword_map.keys(), key=len, reverse=True)
+
+    materials: list[str] = []
+    for msg in messages:
+        if msg.get("role") != "user":
+            continue
+        content = (msg.get("content") or "").lower()
+        for kw in keywords:
+            if kw in content:
+                materials.append(_keyword_map[kw])
+    seen: set[str] = set()
+    return [m for m in materials if not (m in seen or seen.add(m))]  # type: ignore[func-returns-value]
+
+
+def extract_materials_from_layout(layout: dict) -> list[str]:
+    """Return a deduplicated list of material keys found in room/opening finish fields."""
+    materials: list[str] = []
+    for room in layout.get("rooms", []):
+        for k in _ROOM_FINISH_KEYS:
+            val = room.get(k)
+            if val:
+                key = str(val).lower().replace(" ", "_").replace("-", "_")
+                key = _MATERIAL_ALIASES.get(key, key)
+                materials.append(key)
+    for opening in layout.get("openings", []):
+        for k in _OPENING_KEYS:
+            val = opening.get(k)
+            if val:
+                key = str(val).lower().replace(" ", "_").replace("-", "_")
+                key = _MATERIAL_ALIASES.get(key, key)
+                materials.append(key)
+    seen: set[str] = set()
+    return [m for m in materials if not (m in seen or seen.add(m))]  # type: ignore[func-returns-value]
+
+
+def generate_advice_for_materials(materials: list[str]) -> str:
+    """Generate formatted advice markdown for an explicit list of material keys."""
+    if not materials:
+        return ""
+    capped = materials[:_MAX_MATERIALS]
+    sections: list[str] = ["## Architectural Material Advice\n"]
+    for mat in capped:
+        live_gwp = get_gwp(mat)
+        sections.append(_format_material_advice(mat, live_gwp))
+    return "\n".join(sections)
+
+
+def generate_advice_table_data(
+    materials: list[str],
+    standard: str = DEFAULT_STANDARD,
+    region: str = DEFAULT_REGION,
+) -> list[dict]:
+    """Return a list of property dicts suitable for table display."""
+    standard_key = FIRE_STANDARDS.get(standard, "EN_13501")
+    rows: list[dict] = []
+    for mat in materials[:_MAX_MATERIALS]:
+        live_gwp = get_gwp_regional(mat, region)
+        static = _lookup_static(mat)
+        label = mat.replace("_", " ").title()
+
+        if live_gwp is not None:
+            gwp_display = live_gwp
+            gwp_source = "Okobaudat live"
+        elif static.get("gwp_fallback_kgco2e") is not None:
+            gwp_display = static["gwp_fallback_kgco2e"]
+            gwp_source = "reference"
+        else:
+            gwp_display = None
+            gwp_source = "—"
+
+        rows.append({
+            "Material": label,
+            "Carbon Footprint": gwp_display,
+            "Unit": static.get("gwp_unit", "kgCO2e/m²") if static else "—",
+            "GWP Source": gwp_source,
+            "Fire Rating": _resolve_fire_rating(static, standard_key) if static else "—",
+            "Lifespan (yrs)": static.get("life_cycle_years", "—") if static else "—",
+            "In DB": "yes" if static else "no",
+        })
+    return rows
 
 
 def build_architectural_advice_node():
