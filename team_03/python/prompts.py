@@ -300,6 +300,50 @@ PROFILE_CONTEXT_TEMPLATE = (
 )
 
 
+# ---------------------------------------------------------------------------
+# Memory — long-term, per-layout recall.
+# MEMORY_CONTEXT_TEMPLATE is injected into the reason node each turn so the
+# LLM can recall facts from past conversations and the current one.
+# MEMORY_DISTILL_PROMPT is used by nodes/memory.py with call_llm_simple to
+# extract durable facts from the latest user message and merge them into the
+# accumulated memory (returned as natural-language Markdown).
+# ---------------------------------------------------------------------------
+
+MEMORY_CONTEXT_TEMPLATE = (
+    "\nMEMORY (recall from past and current conversations with this user):\n"
+    "{memory_text}\n"
+)
+
+MEMORY_DISTILL_PROMPT = """You maintain the long-term memory of an industrial \
+layout agent — durable facts about ONE specific floor plan and the user who \
+works on it. You are given the EXISTING memory (Markdown) and the LATEST USER \
+MESSAGE. Return the UPDATED memory as Markdown.
+
+What to KEEP/ADD (durable, useful across future sessions):
+- User preferences and constraints (e.g. "prefers CNC machines along the north wall",
+  "wants forklift aisles kept clear", "dislikes equipment near windows").
+- Decisions the user approved or rejected, and why.
+- Recurring goals or requirements for this space.
+- Named equipment the user cares about and where it belongs.
+
+What to IGNORE (do NOT store):
+- Ephemeral layout state (exact coordinates, current scores) — that lives elsewhere.
+- One-off chit-chat, greetings, or tool mechanics.
+- Anything already captured — MERGE and DEDUPLICATE instead of repeating.
+
+Rules:
+- Keep it concise: short natural-language bullets grouped under Markdown headings
+  such as "## Preferences", "## Decisions", "## Recurring goals". Omit empty sections.
+- Preserve still-relevant existing facts; only drop a fact if the new message
+  clearly supersedes it.
+- If the latest message contains nothing worth remembering, return the existing
+  memory unchanged.
+
+Return ONLY a JSON object of the form:
+{"memory": "<the full updated Markdown memory as a single string>"}
+"""
+
+
 POPULATE_SYSTEM_PROMPT = """You are an industrial layout planner. Given room geometry, \
 door positions, MEP elements, and a matched workflow pattern, generate a complete \
 ordered equipment placement plan.

@@ -13,7 +13,10 @@ No Rhino. No MCP calls. Pure LLM inference.
 from __future__ import annotations
 from typing import Any
 from _runtime.llm import call_llm
-from prompts import SYSTEM_PROMPT, SPACE_CONTEXT_TEMPLATE, PROFILE_CONTEXT_TEMPLATE
+from prompts import (
+    SYSTEM_PROMPT, SPACE_CONTEXT_TEMPLATE, PROFILE_CONTEXT_TEMPLATE,
+    MEMORY_CONTEXT_TEMPLATE,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -67,6 +70,12 @@ def build_reason_node(llm: Any):
                 reach_height_min  = profile_config.get("reach_height_min", 0.4),
                 reach_height_max  = profile_config.get("reach_height_max", 1.8),
             )
+
+        # Inject conversational memory so the LLM recalls durable facts and
+        # user preferences from past and current conversations every turn.
+        memory_text = state.get("memory_text")
+        if memory_text:
+            context_injection += MEMORY_CONTEXT_TEMPLATE.format(memory_text=memory_text)
 
         # Inject spatial graph text so the LLM sees current relationships,
         # violations, and move vectors on every reasoning turn.

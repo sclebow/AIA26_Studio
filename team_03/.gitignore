@@ -2,3 +2,6 @@
 AGENT_ui/frontend/node_modules/
 AGENT_ui/frontend/dist/
 AGENT_ui/frontend/test-results/
+
+# Per-layout conversational memory (local user data, generated at runtime)
+memory/
