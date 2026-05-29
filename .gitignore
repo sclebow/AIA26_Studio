@@ -2,8 +2,16 @@
 *.pyc
 mcp.json
 **/__pycache__/
-.venv/
-team_06/output/
 .vscode/
+.venv/
+check_results.py
+check_compute_room_costs.py
+check_room_names.py
+debug_result.py
+_check_layout.py
+_extract_layout.py
+check_layout.py
+settings.json
+team_06/output/
 team_03 - backup
 .claude/
