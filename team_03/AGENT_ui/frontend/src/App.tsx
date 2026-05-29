@@ -178,6 +178,9 @@ export default function App() {
   const handleLayoutSelect  = useCallback(async (name: string) => { await layoutState.loadLayout(name); }, [layoutState]);
   const handleLayoutUpload  = useCallback(async (file: File)   => { await layoutState.uploadLayout(file); }, [layoutState]);
   const handleViewportSelect = useCallback((id: string | null) => { select(id, 'viewport'); }, [select]);
+  const handleObserverPoint = useCallback((x: number, y: number, height: number, pointStr: string) => {
+    ws.send({ type: 'observer_point', x, y, height, point_str: pointStr });
+  }, [ws]);
   const handleGraphSelect    = useCallback((id: string | null) => { select(id, 'graph');    }, [select]);
 
   const togglePanel = useCallback((key: keyof PanelVisibility) => {
@@ -345,6 +348,7 @@ export default function App() {
               layers={layerVisibility}
               graphData={layoutState.graphData}
               modifiedIds={layoutState.modifiedIds}
+              onObserverPoint={handleObserverPoint}
             />
             {layoutState.isPending && (
               <ProposalBanner

@@ -324,6 +324,7 @@ python/knowledge/
 - `visualize_visibility` — pushes isovist/sightline results to GH.
 - `visualize_paths` — pushes path results to GH.
 - `set_viewport` — lightweight layout renderer. Params: `layout_json`, `mode`. 10s timeout, auto-disabled on failure.
+- `set_observer` — places a draggable 1.7m observer/person point. Params: `point` (`"x,y,h"` in layout metres), `height` (optional, default 1.7). Driven from the AGENT_ui viewport (not the agent pipeline); returns `info` JSON with the ground coords. See "Observer Point" below.
 - `shortest_path`, `check_door_widths`, `widen_doors` — legacy tools.
 
 All tool calls automatically receive `layout_json` (full layout, all 7 layers). `_slim_layout` (rooms+doors+furniture only) is used only in the LLM prompt.
@@ -343,8 +344,30 @@ The GH definition (`gh/team_03_working.gh`) contains GHPython scripts forming th
 | 5 — Room Centroid Point | room center | in: `room_name` → out: `point` (Point3d) |
 | 6 — Visibility Analysis (Isovist) | per-room visibility | in: `path`, `boundary`, `current_room` → out: visibility % |
 | 7 — set_viewport | viewport toggle (`gh/set_viewport.py`) | in: `layout_json`, `mode` → out: per-layer curves + `info` JSON |
+| 8 — set_observer | observer/person point (`gh/set_observer.py`) | in: `point` (`"x,y,h"`), `height` → out: `observer_point`/`observer_eye` (Point3d), `person_curve` (Curve), `info` JSON |
 
 **set_viewport modes:** `all`, `rooms`, `furniture`, `doors`, `structure`, `outline_only`, `none`. The `info` output must be valid JSON for Swiftlet to return the MCP response; `none` clears all geometry (analysis-only views). To add it in GH: new GHPython component named `set_viewport`, inputs `layout_json`/`mode`, the per-layer outputs above, paste `gh/set_viewport.py`, restart Swiftlet (auto-discovers).
+
+**set_observer wiring (Define Tool pattern):** unlike `set_viewport`, this tool is wired through the two Swiftlet clusters, not auto-discovered by component name. Inputs arrive **wired** (not injected), so `gh/set_observer.py` reads `point`/`height` as normal GH inputs.
+- **Definition cluster** — `Define Tool` with N=`set_observer`, D=description, P=`Merge` of two `Define Tool Parameter` (`point` string/required, `height` string/optional). Param keys must match the MCP args sent by the UI (`point`, `height`).
+- **Results cluster** — `Deconstruct Tool Call` → `A` (args) → two `Get JSON Object Key` (`point`, `height`) → `Read JSON Value` `S` → wired into `set_observer.point`/`.height`. Geometry outputs → Custom Preview; `info` → the shared `Merge`/Construct JSON → `Tool Response` (same return path as `set_viewport.info`). With a single shared Tool Response, gate by the Deconstruct's tool-name `T` output so only the active tool's `info` is returned.
+
+---
+
+## Observer Point (AGENT_ui viewport → MCP → Grasshopper)
+
+A draggable point representing a 1.7m-tall person, placed interactively in the AGENT_ui 3D viewport and pushed to Grasshopper as an observer location (for visibility/isovist/sightline use). Independent of the LangGraph pipeline — driven straight from the UI.
+
+**Flow:** toggle **Person** → click the floor to place (placement overlay captures the click so geometry doesn't react) → drag to fine-tune → on release the layout coords are sent. `"x,y,h"` string (metres, layout origin) → WebSocket `observer_point` → backend `mcp_bridge` → MCP tool `set_observer` → GH (Define Tool / Deconstruct Tool Call clusters, above).
+
+**Coordinate basis:** the viewport floor (XZ plane) maps to layout X/Y. Coords are emitted in layout metres (origin bottom-left, same as the JSON and Rhino), not the centred-group world coords.
+
+**Files:**
+- Frontend: `AGENT_ui/frontend/src/components/ThreeViewport/ObserverMarker.tsx` (draggable person proxy, raycasts to the `y=0` plane), wired in `ThreeViewport.tsx` (Person toggle, placement overlay, output HUD, drag-selection guard), `App.tsx` (`onObserverPoint` → `ws.send`), `utils/wsProtocol.ts` (`ObserverPoint` message).
+- Backend: `AGENT_ui/backend/mcp_bridge.py` (lazy MCP client reusing `_runtime/mcp_client.py` + `mcp.json` endpoint; calls `set_observer`; fails gracefully if Swiftlet is down), wired in `server.py` `/ws` handler, `observer_point` added to `websocket_manager.MessageType`.
+- GH: `gh/set_observer.py`.
+
+The output string also appears live in a viewport HUD (bottom-left, with copy button) for manual use.
 
 ---
 
@@ -474,6 +497,7 @@ team_03/
   gh/
     team_03_working.gh
     set_viewport.py               # GHPython viewport toggle script
+    set_observer.py               # GHPython observer/person point script
     team_03_definition_cluster.ghcluster
     team_03_result_cluster.ghcluster
     SPATIAL_GRAPH_METHODOLOGY.md

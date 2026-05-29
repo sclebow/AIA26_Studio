@@ -7,11 +7,13 @@ import PulseHighlight from './PulseHighlight'
 import Labels3D from './Labels3D'
 import ViewCube from './ViewCube'
 import SelectionPanel from './SelectionPanel'
+import ObserverMarker from './ObserverMarker'
 import { useTheme } from '../common/ThemeToggle'
 import { LayoutJSON, LayerVisibility } from '../../types'
 import type { NodeLinkData } from '../GraphPanel/graphDataMapper'
 
 const EMPTY_SET = new Set<string>()
+const PERSON_HEIGHT = 1.7
 
 interface ThreeViewportProps {
   layout: LayoutJSON
@@ -20,6 +22,8 @@ interface ThreeViewportProps {
   layers: LayerVisibility
   graphData?: NodeLinkData | null
   modifiedIds?: Set<string>
+  /** Push the observer point to the backend (→ MCP → Grasshopper) on release. */
+  onObserverPoint?: (x: number, y: number, height: number, pointStr: string) => void
 }
 
 interface SceneProps extends ThreeViewportProps {
@@ -38,6 +42,18 @@ function CameraTracker({ anglesRef }: { anglesRef: React.MutableRefObject<{ azim
     anglesRef.current.elevation = Math.atan2(pos.y, dist)
   })
 
+  return null
+}
+
+// ── Exposes the live camera + renderer to the parent so DOM-level handlers
+//    (e.g. click-to-place) can raycast against the floor. Updates on camera
+//    swaps (ortho/persp). ──────────────────────────────────────────────────
+function ViewportRefBridge({ threeRef }: { threeRef: React.MutableRefObject<{ camera: THREE.Camera; gl: THREE.WebGLRenderer } | null> }) {
+  const camera = useThree(s => s.camera)
+  const gl = useThree(s => s.gl)
+  useEffect(() => {
+    threeRef.current = { camera, gl }
+  }, [camera, gl, threeRef])
   return null
 }
 
@@ -308,17 +324,32 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
   )
 }
 
-export default function ThreeViewport({ layout, selectedId, onSelect, layers, graphData, modifiedIds }: ThreeViewportProps) {
+export default function ThreeViewport({ layout, selectedId, onSelect, layers, graphData, modifiedIds, onObserverPoint }: ThreeViewportProps) {
   const { theme, colors } = useTheme()
   const isDark = theme === 'dark'
   const [showLabels, setShowLabels] = useState(true)
   const [isOrtho, setIsOrtho] = useState(true)
   const [viewCommand, setViewCommand] = useState<string | null>(null)
+  const [personMode, setPersonMode] = useState(false)
+  const [personPos, setPersonPos] = useState<{ x: number; y: number } | null>(null)
+  const [placing, setPlacing] = useState(false)
+  const threeRef = useRef<{ camera: THREE.Camera; gl: THREE.WebGLRenderer } | null>(null)
   const cameraAnglesRef = useRef({ azimuth: 0.75, elevation: 0.6 })
   const clickScreenPosRef = useRef<{ x: number; y: number } | null>(null)
   const [clickScreenPos, setClickScreenPos] = useState<{ x: number; y: number } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const viewCounter = useRef(0)
+
+  // Geometry centre — same formula as FloorPlanRenderer's centred group.
+  const geoCenter = useMemo(() => {
+    const pts = layout.outline
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+    for (const [x, y] of pts) {
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x)
+      minY = Math.min(minY, y); maxY = Math.max(maxY, y)
+    }
+    return { x: (minX + maxX) / 2, z: (minY + maxY) / 2 }
+  }, [layout])
 
   const cameraConfig = useMemo(() => {
     const pts = layout.outline
@@ -335,7 +366,73 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
     }
   }, [layout])
 
+  const personStr = personPos
+    ? `${personPos.x.toFixed(2)},${personPos.y.toFixed(2)},${PERSON_HEIGHT.toFixed(2)}`
+    : ''
+
+  const sendObserver = useCallback((x: number, y: number) => {
+    const str = `${x.toFixed(2)},${y.toFixed(2)},${PERSON_HEIGHT.toFixed(2)}`
+    onObserverPoint?.(x, y, PERSON_HEIGHT, str)
+  }, [onObserverPoint])
+
+  const handleTogglePerson = useCallback(() => {
+    setPersonMode(prev => {
+      const next = !prev
+      // Turning it on enters placement mode (click the floor to place);
+      // turning it off hides the marker.
+      setPlacing(next)
+      return next
+    })
+  }, [])
+
+  // Click anywhere on the floor to (re)place the person. Converts the screen
+  // click into a y=0 ground point, ignoring any geometry under the cursor.
+  const handlePlacementClick = useCallback((e: React.MouseEvent) => {
+    const t = threeRef.current
+    if (!t) return
+    const rect = t.gl.domElement.getBoundingClientRect()
+    const ndcX = ((e.clientX - rect.left) / rect.width) * 2 - 1
+    const ndcY = -((e.clientY - rect.top) / rect.height) * 2 + 1
+    const rc = new THREE.Raycaster()
+    rc.setFromCamera(new THREE.Vector2(ndcX, ndcY), t.camera)
+    const hit = new THREE.Vector3()
+    if (rc.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit)) {
+      const x = hit.x + geoCenter.x
+      const y = hit.z + geoCenter.z
+      setPersonPos({ x, y })
+      sendObserver(x, y)
+      setPlacing(false)
+    }
+  }, [geoCenter, sendObserver])
+
+  const handleObserverMove = useCallback((x: number, y: number) => {
+    setPersonPos({ x, y })
+  }, [])
+
+  const handleObserverRelease = useCallback((x: number, y: number) => {
+    setPersonPos({ x, y })
+    sendObserver(x, y)
+  }, [sendObserver])
+
+  // While dragging the person, suppress geometry selection — otherwise the
+  // synthesized click on pointer-up (over a room) would open its detail panel.
+  const draggingObserverRef = useRef(false)
+  const handleObserverDragStart = useCallback(() => { draggingObserverRef.current = true }, [])
+  const handleObserverDragEnd = useCallback(() => {
+    // Keep the guard up briefly so the trailing click is swallowed too.
+    setTimeout(() => { draggingObserverRef.current = false }, 150)
+  }, [])
+  const guardedSelect = useCallback((id: string | null) => {
+    if (draggingObserverRef.current) return
+    onSelect(id)
+  }, [onSelect])
+
+  const handleCopyPersonStr = useCallback(() => {
+    if (personStr) navigator.clipboard?.writeText(personStr).catch(() => {})
+  }, [personStr])
+
   const handleMissedClick = useCallback(() => {
+    if (draggingObserverRef.current) return
     onSelect(null)
   }, [onSelect])
 
@@ -374,19 +471,45 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
         onPointerMissed={handleMissedClick}
       >
         <CameraTracker anglesRef={cameraAnglesRef} />
+        <ViewportRefBridge threeRef={threeRef} />
         <CameraController viewCommand={viewCommand} />
         <OrthoController isOrtho={isOrtho} />
         <BoundsFitter layout={layout} onFit={() => handleViewChange('top-front-right')} />
         <SceneContent
           layout={layout}
           selectedId={selectedId}
-          onSelect={onSelect}
+          onSelect={guardedSelect}
           layers={layers}
           isDark={isDark}
           showLabels={showLabels}
           modifiedIds={modifiedIds}
         />
+        {personMode && personPos && (
+          <ObserverMarker
+            center={geoCenter}
+            position={personPos}
+            isDark={isDark}
+            onMove={handleObserverMove}
+            onRelease={handleObserverRelease}
+            onDragStart={handleObserverDragStart}
+            onDragEnd={handleObserverDragEnd}
+          />
+        )}
       </Canvas>
+
+      {/* Placement overlay — while picking a spot, capture clicks here so the
+          viewport geometry (and orbit/deselect) never react to the click. */}
+      {personMode && placing && (
+        <div
+          onClick={handlePlacementClick}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 15,
+            cursor: 'crosshair',
+          }}
+        />
+      )}
 
       {/* Labels toggle button */}
       <button
@@ -421,6 +544,39 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
           <line x1="7" y1="16" x2="15" y2="16" />
         </svg>
         {showLabels ? 'Labels ON' : 'Labels'}
+      </button>
+
+      {/* Person (observer point) toggle button */}
+      <button
+        onClick={handleTogglePerson}
+        title={personMode ? 'Hide observer point' : 'Place a draggable 1.7m person'}
+        style={{
+          position: 'absolute',
+          top: 12,
+          right: 644,
+          zIndex: 20,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          background: colors.panelBg,
+          border: `1px solid ${personMode ? colors.accent + '44' : colors.border}`,
+          borderRadius: 8,
+          padding: '5px 10px',
+          color: personMode ? colors.accent : colors.muted,
+          fontSize: 9,
+          fontWeight: 600,
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+          cursor: 'pointer',
+          fontFamily: colors.font,
+          transition: 'color 0.2s, border-color 0.2s',
+        }}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <circle cx="12" cy="6" r="3" />
+          <path d="M12 9v8" /><path d="M8 13h8" /><path d="M9 21l3-4 3 4" />
+        </svg>
+        {personMode ? 'Person ON' : 'Person'}
       </button>
 
       {/* Center/fit button */}
@@ -475,6 +631,86 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
         onClose={handleClosePanel}
         clickPosition={clickScreenPos}
       />
+
+      {/* Observer point output HUD — high z-index so floating panels never cover it */}
+      {personMode && (
+        <div style={{
+          position: 'absolute',
+          bottom: 16,
+          left: 16,
+          zIndex: 240,
+          background: colors.panelBg,
+          border: `1px solid ${colors.accent}44`,
+          borderRadius: 10,
+          padding: '10px 12px',
+          fontFamily: colors.font,
+          minWidth: 210,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+        }}>
+          <div style={{
+            fontSize: 9,
+            fontWeight: 600,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            color: colors.accent,
+            marginBottom: 6,
+          }}>
+            Observer Point (person 1.7m)
+          </div>
+          {personPos ? (
+            <>
+              <div style={{ display: 'flex', gap: 12, fontSize: 11, color: colors.text, marginBottom: 6 }}>
+                <span>X <b>{personPos.x.toFixed(2)}</b></span>
+                <span>Y <b>{personPos.y.toFixed(2)}</b></span>
+                <span style={{ color: colors.muted }}>h 1.70</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <code style={{
+                  flex: 1,
+                  fontSize: 11,
+                  padding: '4px 6px',
+                  borderRadius: 6,
+                  background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+                  color: colors.text,
+                  userSelect: 'all',
+                }}>
+                  "{personStr}"
+                </code>
+                <button
+                  onClick={handleCopyPersonStr}
+                  title="Copy string"
+                  style={{
+                    background: 'transparent',
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: 6,
+                    padding: '4px 6px',
+                    color: colors.muted,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                </button>
+              </div>
+              <div style={{ fontSize: 8.5, color: colors.muted, marginTop: 6, letterSpacing: '0.02em' }}>
+                {placing ? 'Click on the floor to place.' : 'Drag the figure, or toggle again to re-place. Sent to MCP on release.'}
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: 11, color: colors.muted, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{
+                display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+                background: colors.accent, boxShadow: `0 0 6px ${colors.accent}`,
+              }} />
+              Click on the floor to place the person.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
