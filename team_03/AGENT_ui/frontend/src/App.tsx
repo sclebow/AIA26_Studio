@@ -268,7 +268,7 @@ export default function App() {
         <div style={{
           gridColumn: '1', gridRow: '1',
           borderRight: panelBorder, background: sidebarBg,
-          display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: 'auto',
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}>
 
           {/* Previous Workflows */}
@@ -312,14 +312,16 @@ export default function App() {
             </div>
           </div>
 
-          {/* Layers (only when layout is loaded) */}
-          {layoutState.layout && (
-            <div style={{ flexShrink: 0, borderTop: panelBorder }}>
+          {/* Layers — grows to fill remaining sidebar height */}
+          {layoutState.layout ? (
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', borderTop: panelBorder }}>
               <div style={sectionHeaderStyle}><span>Layers</span></div>
-              <div style={{ padding: 8 }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
                 <LayerToggle layers={layerVisibility} onToggle={handleToggleLayer} />
               </div>
             </div>
+          ) : (
+            <div style={{ flex: 1 }} />
           )}
         </div>
 
@@ -357,8 +359,8 @@ export default function App() {
           display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0,
         }}>
 
-          {/* Top 40%: swapped panel (GraphPanel in geometry mode, ThreeViewport in graph mode) */}
-          <div style={{ flex: '0 0 40%', display: 'flex', flexDirection: 'column', overflow: 'hidden', borderBottom: panelBorder, minHeight: 0 }}>
+          {/* Top ~40%: swapped panel (GraphPanel in geometry mode, ThreeViewport in graph mode) */}
+          <div style={{ flex: 8, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderBottom: panelBorder }}>
             <div style={sectionHeaderStyle}>
               <span>{displayMode === 'geometry' ? 'Spatial Graph' : '3D View'}</span>
             </div>
@@ -373,16 +375,16 @@ export default function App() {
             </div>
           </div>
 
-          {/* Middle 35%: Dashboard */}
-          <div style={{ flex: '0 0 35%', display: 'flex', flexDirection: 'column', overflow: 'hidden', borderBottom: panelBorder, minHeight: 0 }}>
+          {/* Middle ~35%: Dashboard */}
+          <div style={{ flex: 7, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderBottom: panelBorder }}>
             <div style={sectionHeaderStyle}><span>Analysis</span></div>
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
               <Dashboard scores={layoutState.scores} />
             </div>
           </div>
 
-          {/* Bottom 25%: ProcessPanel */}
-          <div style={{ flex: '0 0 25%', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+          {/* Bottom ~25%: ProcessPanel */}
+          <div style={{ flex: 5, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={sectionHeaderStyle}><span>Pipeline</span></div>
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
               <ProcessPanel nodeStatuses={agentState.nodeStatuses} />
