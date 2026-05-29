@@ -37,7 +37,7 @@ export default function App() {
   const { colors, theme } = useTheme();
   const isDark = theme === 'dark';
   const ws = useWebSocket();
-  const { selectedId, select } = useSelectionSync(ws);
+  const { selectedId, select, applyRemoteSelection } = useSelectionSync(ws);
   const layoutState = useLayoutState();
   const agentState = useAgentState({ onScoresReady: layoutState.setScores });
 
@@ -63,7 +63,7 @@ export default function App() {
       case 'agent_event':    agentState.handleAgentEvent(msg);    break;
       case 'agent_response': agentState.handleAgentResponse(msg); break;
       case 'state_update':   layoutState.updateFromWS(msg);       break;
-      case 'selection_sync': select(msg.elementId, msg.source);   break;
+      case 'selection_sync': applyRemoteSelection(msg.elementId, msg.source); break;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ws.lastMessage]);

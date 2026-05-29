@@ -3,6 +3,8 @@ import { Network, DataSet } from 'vis-network/standalone';
 import {
   NODE_COLORS,
   EDGE_COLORS,
+  NODE_SHAPES,
+  EDGE_DASHES,
   NODE_DESCRIPTIONS,
   EDGE_DESCRIPTIONS,
   NETWORK_OPTIONS,
@@ -27,6 +29,45 @@ interface DetailInfo {
 }
 
 // ── Styles ──────────────────────────────────────────────────────────────────
+
+const MONO_FONT = '"Share Tech Mono", "SF Mono", "Fira Code", ui-monospace, monospace';
+
+// ── Legend glyphs — SVG markers that mirror each node's actual vis.js shape
+//    (dot/diamond/square) with a purple bloom, matching the welcome aesthetic. ─
+function NodeGlyph({ ntype, color }: { ntype: string; color: string }) {
+  const shape = NODE_SHAPES[ntype] || 'dot';
+  const glow = { filter: `drop-shadow(0 0 3px ${color})` };
+  if (shape === 'diamond') {
+    return (
+      <svg width="13" height="13" viewBox="0 0 14 14" style={glow}>
+        <rect x="3.5" y="3.5" width="7" height="7" transform="rotate(45 7 7)" fill={color} />
+      </svg>
+    );
+  }
+  if (shape === 'square') {
+    return (
+      <svg width="13" height="13" viewBox="0 0 14 14" style={glow}>
+        <rect x="2.5" y="2.5" width="9" height="9" rx="1.5" fill={color} />
+      </svg>
+    );
+  }
+  // dot (circle)
+  return (
+    <svg width="13" height="13" viewBox="0 0 14 14" style={glow}>
+      <circle cx="7" cy="7" r="4.2" fill={color} />
+    </svg>
+  );
+}
+
+function EdgeGlyph({ etype, color }: { etype: string; color: string }) {
+  const dash = EDGE_DASHES[etype];
+  const dashArray = Array.isArray(dash) ? dash.join(' ') : dash ? '3 2' : undefined;
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" style={{ filter: `drop-shadow(0 0 2px ${color})` }}>
+      <line x1="1" y1="7" x2="13" y2="7" stroke={color} strokeWidth="2" strokeLinecap="round" strokeDasharray={dashArray} />
+    </svg>
+  );
+}
 
 function makeStyles(T: GraphTheme) {
   const isDark = T.canvasBg === '#08080C';
@@ -55,69 +96,76 @@ function makeStyles(T: GraphTheme) {
       height: '100%',
     },
     // ── Legend panel (left) — used in fullscreen overlay mode ──────
+    // Welcome-page aesthetic: glassmorphism + purple glow + monospace.
     legend: {
-      ...glassPanel,
       position: 'absolute' as const,
       top: '50%',
-      left: 10,
+      left: 12,
       transform: 'translateY(-50%)',
-      width: 148,
-      maxHeight: '78%',
+      width: 156,
+      maxHeight: '80%',
       overflowY: 'auto' as const,
-      padding: '5px 0',
+      padding: '8px 0',
       zIndex: 200,
+      fontFamily: MONO_FONT,
+      background: isDark ? 'rgba(15, 9, 30, 0.92)' : 'rgba(255,255,255,0.86)',
+      border: `1px solid ${isDark ? 'rgba(139,92,246,0.28)' : 'rgba(124,58,237,0.18)'}`,
+      borderRadius: 10,
+      color: T.text,
+      backdropFilter: 'blur(10px)',
+      WebkitBackdropFilter: 'blur(10px)',
+      boxShadow: isDark
+        ? '0 0 28px rgba(139,92,246,0.18), inset 0 0 24px rgba(139,92,246,0.04)'
+        : '0 4px 16px rgba(124,58,237,0.10)',
       scrollbarWidth: 'none' as const,
     },
     legSection: {
-      padding: '5px 10px 2px',
+      padding: '6px 12px 3px',
       fontSize: 8,
       fontWeight: 700,
-      letterSpacing: '0.12em',
+      letterSpacing: '0.18em',
       textTransform: 'uppercase' as const,
+      fontFamily: MONO_FONT,
       color: T.accent,
-      opacity: 0.7,
+      opacity: 0.85,
     },
     legSep: {
-      marginTop: 2,
-      paddingTop: 5,
-      borderTop: `1px solid ${T.panelBorder}`,
+      marginTop: 3,
+      paddingTop: 6,
+      borderTop: `1px solid ${isDark ? 'rgba(139,92,246,0.18)' : T.panelBorder}`,
     },
     legItem: {
       display: 'flex',
       alignItems: 'center',
-      gap: 6,
-      padding: '3px 10px',
-      fontSize: 9.5,
+      gap: 8,
+      padding: '3px 12px',
+      fontSize: 9,
+      letterSpacing: '0.08em',
+      textTransform: 'uppercase' as const,
+      fontFamily: MONO_FONT,
       color: T.text,
       cursor: 'pointer',
       userSelect: 'none' as const,
       transition: 'background 0.15s, opacity 0.2s',
     },
-    legDot: (color: string): React.CSSProperties => ({
-      width: 7,
-      height: 7,
-      borderRadius: '50%',
-      flexShrink: 0,
-      background: color,
-      boxShadow: isDark ? `0 0 6px ${color}60` : 'none',
-    }),
-    legLine: (color: string): React.CSSProperties => ({
+    legGlyphWrap: {
       width: 14,
-      height: 2,
-      borderRadius: 1,
+      height: 14,
       flexShrink: 0,
-      background: color,
-      boxShadow: isDark ? `0 0 4px ${color}40` : 'none',
-    }),
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    } as React.CSSProperties,
     legLabel: {
       flex: 1,
-      letterSpacing: '0.02em',
+      letterSpacing: '0.08em',
     },
     legCount: {
       fontSize: 9,
       fontWeight: 600,
-      color: isDark ? T.accent : T.muted,
-      opacity: isDark ? 0.6 : 1,
+      fontFamily: MONO_FONT,
+      color: T.accent,
+      opacity: isDark ? 0.7 : 0.9,
       fontVariantNumeric: 'tabular-nums' as const,
     },
     // ── Center/fit button ──────────────────────────────────────────
@@ -285,6 +333,14 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
   const [nodeFilters, setNodeFilters] = useState<Set<string>>(new Set());
   const [edgeFilters, setEdgeFilters] = useState<Set<string>>(new Set());
 
+  // Latest-value refs so the network-init effect never depends on (and thus
+  // never re-creates the vis.js Network because of) changing callback identity.
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
+  const openDetailRef = useRef<(nodeId: string) => void>(() => {});
+
   // ── Derived data ────────────────────────────────────────────────
   const mapped = useMemo(() => {
     if (!graphData) return null;
@@ -335,6 +391,7 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
     });
     setDetail({ node, neighbors });
   }, [nodesById, edgeIndex]);
+  openDetailRef.current = openDetail;
 
   // ── Initialize / update vis.js network ──────────────────────────
   useEffect(() => {
@@ -365,10 +422,12 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
     network.on('click', (params: any) => {
       if (params.nodes && params.nodes.length > 0) {
         const nid = params.nodes[0] as string;
-        onSelect(nid);
-        openDetail(nid);
+        // Guard against re-emitting an already-selected id (avoids redundant
+        // WS broadcasts; the real loop break lives in useSelectionSync).
+        if (selectedIdRef.current !== nid) onSelectRef.current(nid);
+        openDetailRef.current(nid);
       } else {
-        onSelect(null);
+        if (selectedIdRef.current !== null) onSelectRef.current(null);
         setDetail(null);
       }
     });
@@ -388,9 +447,14 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
       nodesDSRef.current = null;
       edgesDSRef.current = null;
     };
-  }, [mapped, onSelect, openDetail]);
+    // Only re-create the network when the graph DATA changes — never on
+    // selection or callback-identity changes (those are read via refs).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapped]);
 
   // ── React to external selectedId changes ────────────────────────
+  // Depends ONLY on selectedId — nodesById/openDetail are read via refs/current
+  // so a stable-data graph never re-runs this for callback identity churn.
   useEffect(() => {
     const network = networkRef.current;
     const nodesDS = nodesDSRef.current;
@@ -414,7 +478,7 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
       animation: { duration: 400, easingFunction: 'easeInOutQuad' },
     });
 
-    openDetail(selectedId);
+    openDetailRef.current(selectedId);
 
     return () => {
       if (nodesDSRef.current) {
@@ -425,7 +489,8 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
         }] as any);
       }
     };
-  }, [selectedId, nodesById, openDetail]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, mapped]);
 
   // ── Update node font colors when theme changes ──────────────────
   useEffect(() => {
@@ -552,7 +617,7 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
         const isDimmed = nodeFilters.size > 0 && !isActive;
         return (
           <div key={ntype} style={{ ...styles.legItem, background: isActive ? `${THEME.accent}15` : 'transparent', opacity: isDimmed ? 0.25 : 1 }} onClick={(e) => handleNodeFilterClick(ntype, e.shiftKey)}>
-            <span style={styles.legDot(color)} />
+            <span style={styles.legGlyphWrap}><NodeGlyph ntype={ntype} color={color} /></span>
             <span style={styles.legLabel}>{ntype}</span>
             <span style={styles.legCount}>{count}</span>
           </div>
@@ -566,7 +631,7 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
         const isDimmed = edgeFilters.size > 0 && !isActive;
         return (
           <div key={etype} style={{ ...styles.legItem, background: isActive ? `${THEME.accent}15` : 'transparent', opacity: isDimmed ? 0.25 : 1 }} title={EDGE_DESCRIPTIONS[etype] || ''} onClick={(e) => handleEdgeFilterClick(etype, e.shiftKey)}>
-            <span style={styles.legLine(color)} />
+            <span style={styles.legGlyphWrap}><EdgeGlyph etype={etype} color={color} /></span>
             <span style={styles.legLabel}>{etype}</span>
             <span style={styles.legCount}>{count}</span>
           </div>

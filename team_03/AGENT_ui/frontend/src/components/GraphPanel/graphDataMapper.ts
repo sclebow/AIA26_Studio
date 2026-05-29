@@ -267,10 +267,10 @@ export function mapGraphData(
       borderWidth: 2,
       shadow: isDark ? {
         enabled: true,
-        size: 16,
+        size: 26,
         x: 0,
         y: 0,
-        color: `${nodeColor}40`,
+        color: `${nodeColor}70`,
       } : {
         enabled: true,
         size: 6,
