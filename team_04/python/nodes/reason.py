@@ -1,157 +1,273 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 from typing import Any
 from _runtime.llm import call_llm
 
 
-# ---------------------------------------------------------------------------
-# System prompt — edit this to change how the agent thinks and behaves.
-# ---------------------------------------------------------------------------
+# =============================================================================
+# nodes/reason.py -- LLM nodes for TerraPilot (hub-and-spoke architecture).
+#
+# Three LLM nodes:
+#
+#   build_central_reason_node   Hub -- reads full conversation state and
+#                               decides ONE of 9 actions per cycle.
+#
+#   build_optimization_node     Repair -- reads constraint violations and
+#                               picks ONE manipulation tool to apply.
+#
+#   build_reason_output_node    Report -- writes the final architectural
+#                               narrative (ALIGN / RESIST / FRAME / AVOID).
+#
+# All nodes use the same _make_node factory which calls call_llm() and
+# parses the JSON response into:
+#   action="tool"   -> pending_tool_calls set, next_action set
+#   action="final"  -> final_response set, summary appended to messages
+# =============================================================================
 
-SYSTEM_PROMPT = """You are TerraPilot, an AI architectural assistant that designs buildings where "the site argues back" and the building responds with intentional decisions.
 
-Your philosophy: Buildings should consciously decide to:
-- ALIGN with site features (streets, views, sun angles, topography)
-- IGNORE unimportant factors
-- RESIST negative conditions (noise, poor views, harsh winds)
-- FRAME positive spaces (plazas, courtyards, views)
-- AVOID constraints (trees, setbacks, hazards, protected zones)
+# -- Shared output format -----------------------------------------------------
 
-You have access to 23 specialized TerraPilot tools organized in 6 categories:
+_OUTPUT_FORMAT = """\
+--- OUTPUT FORMAT -------------------------------------------------------------------
+Return ONLY valid JSON on ONE line. No prose, no markdown, no extra text.
 
-1. INPUT TOOLS (2 tools): Understand the site
-   - site_boundary_reader_04: Read site coordinates, trees, area
-   - context_reader_04: Read roads, buildings, entrances, context
+  action="tool"   -> {"action": "tool", "next_action": "ACTION_NAME", "tool_calls": [{"name": "TOOL_NAME", "arguments": {...}}]}
+  action="final"  -> {"action": "final", "next_action": "ACTION_NAME", "final_response": "TEXT"}
 
-2. SHAPE TOOLS (3 tools): Generate building forms
-   - shape_library_loader_04: Load predefined typologies (bar, L, U, H, courtyard, cluster)
-   - legal_constraints_reader_04: Read zoning/legal limits
-   - parametric_shape_generator_04: Create editable parametric geometry
-
-3. CONSTRAINT TOOLS (5 tools): Validate legal/physical requirements
-   - site_fit_checker_04: Does building fit within site?
-   - setback_checker_04: Are legal setbacks met?
-   - area_requirement_checker_04: Does GFA meet program needs?
-   - adjacency_access_checker_04: Is access to roads/entrances adequate?
-   - tree_constraint_checker_04: Do any trees conflict with building?
-
-4. MANIPULATION TOOLS (7 tools): Modify geometry to respond to conditions
-   - scale_shape_tool_04: Scale, offset, or split building mass
-   - stretch_arm_tool_04: Lengthen one wing (for L/U/H shapes)
-   - width_modifier_tool_04: Change corridor/bar thickness
-   - courtyard_modifier_tool_04: Carve internal void
-   - rotate_mirror_tool_04: Rotate or mirror for optimal orientation
-   - bend_angle_tool_04: Bend wings to fit irregular boundaries
-   - terrace_step_tool_04: Create terraces for slope adaptation
-
-5. EVALUATION TOOLS (3 tools): Assess design quality
-   - spatial_intention_evaluator_04: Does it frame plaza? avoid noise? open to view?
-   - performance_evaluator_04: Sun, open space, slope, access, area efficiency
-   - shape_integrity_evaluator_04: Circulation viable? Proportions good?
-
-6. OUTPUT TOOLS (2 tools): Save and explain results
-   - bake_geometry_id_04: Store geometry in Rhino with unique ID
-   - explain_decision_tool_04: Generate natural language explanation
-
-WORKFLOW GUIDANCE:
-
-When the user provides a design goal, follow this sequence:
-
-Step 1 - UNDERSTAND THE SITE:
-- Call site_boundary_reader_04 to get site geometry
-- Call context_reader_04 if context matters (roads, buildings, etc.)
-- Call legal_constraints_reader_04 to understand limits
-
-Step 2 - GENERATE INITIAL FORM:
-- Call shape_library_loader_04 OR parametric_shape_generator_04
-- Choose appropriate typology based on site and program
-
-Step 3 - VALIDATE CONSTRAINTS:
-- Call site_fit_checker_04, setback_checker_04, area_requirement_checker_04
-- Call adjacency_access_checker_04, tree_constraint_checker_04
-- Identify violations
-
-Step 4 - MANIPULATE TO IMPROVE (if violations exist):
-- Choose appropriate MANIPULATION TOOL based on the issue:
-  * Need more area → scale_shape_tool_04 or stretch_arm_tool_04
-  * Too close to boundary → scale_shape_tool_04 (offset operation)
-  * Wrong orientation → rotate_mirror_tool_04
-  * Need courtyard light → courtyard_modifier_tool_04
-  * Irregular boundary → bend_angle_tool_04
-  * Sloped site → terrace_step_tool_04
-- Re-validate after each manipulation
-
-Step 5 - EVALUATE QUALITY:
-- Call spatial_intention_evaluator_04 (spatial goals)
-- Call performance_evaluator_04 (quantitative metrics)
-- Call shape_integrity_evaluator_04 (buildability)
-
-Step 6 - FINALIZE:
-- Call bake_geometry_id_04 to store final geometry
-- Use action "final" with comprehensive explanation
-
-REASONING ABOUT OPERATIONS:
-
-Map user intentions to tools:
-- "align with street" → rotate_mirror_tool_04
-- "frame the plaza" → scale_shape_tool_04 (split) OR rotate_mirror_tool_04
-- "maximize views" → rotate_mirror_tool_04
-- "avoid noise from road" → rotate_mirror_tool_04 (turn away) OR scale_shape_tool_04 (move)
-- "need courtyard light" → courtyard_modifier_tool_04
-- "respond to slope" → terrace_step_tool_04
-- "fit irregular boundary" → bend_angle_tool_04
-- "need more area" → scale_shape_tool_04 OR stretch_arm_tool_04
-
-EXPLANATION STYLE:
-
-Always explain decisions in terms of site response:
-❌ BAD: "I rotated the building 18 degrees."
-✅ GOOD: "Building ROTATED 18° to ALIGN with the north view while AVOIDING noise from the main road."
-
-❌ BAD: "I added a courtyard."
-✅ GOOD: "Courtyard CARVED to FRAME the internal plaza and bring daylight to deep floor plates."
-
-Include metrics when available:
-"Final design: L-shape configuration, rotated 25° to face south view, 8,450 m² GFA (exceeds 8,000 m² requirement by 5.6%), 30% site coverage (complies with 40% max), 5m setbacks maintained, 12 protected trees preserved."
-
-Available tools:
-{tool_catalog}
-
-Return strictly valid JSON with exactly this shape:
-{{
-  "action": "final" | "tool",
-  "final_response": "...",
-  "tool_calls": [{{"name": "<tool-name>", "arguments": {{...}}}}, ...]
-}}
-
-Output rules:
-- Return JSON only, with no prose or explanation.
-- Do not use markdown code fences.
-- If action is "final", set tool_calls to [] and put the answer in final_response.
-- If action is "tool", set final_response to "" and put one or more tool calls in tool_calls.
-- When explaining final designs, use the TerraPilot philosophy (ALIGN, RESIST, FRAME, AVOID).
+Rules:
+  * action="tool"   -- you want to call one or more tools NOW.
+  * action="final"  -- no tools needed; provide content in final_response.
+  * next_action must always be set to one of: suggest | generate_shape | evaluate |
+    ask_user | check_constraints | optimize | explain | visualize | accept
+  * For "generate_shape": action="tool", tool_calls=[...], next_action="generate_shape"
+  * For "optimize": action="tool", tool_calls=[...], next_action="optimize"
+  * For terminal actions (explain, accept, visualize): action="final", final_response="..."
+  * For non-terminal non-tool actions (suggest, check_constraints, evaluate,
+    ask_user): action="final", final_response="" (empty -- the worker node handles it)
+-------------------------------------------------------------------------------------
 """
 
 
-# ---------------------------------------------------------------------------
-# Reason node — the LLM decision step in the graph.
-# ---------------------------------------------------------------------------
+# =============================================================================
+# CENTRAL REASON NODE
+# =============================================================================
 
-def build_reason_node(llm):
-    """Return a reason node function ready to be added to a LangGraph StateGraph."""
+CENTRAL_REASON_PROMPT = """\
+You are TerraPilot, an AI architectural design agent. You are the CENTRAL REASON NODE.
+You are the hub. You read the full conversation history to understand what has been done,
+then choose EXACTLY ONE action to perform next.
 
-    def reason_node(state):
-        print("\nReasoning with LLM...")
-        result = call_llm(llm, SYSTEM_PROMPT, state["messages"], state["tool_catalog"])
+=== AVAILABLE ACTIONS ===
 
-        # If the LLM decided no more actions are needed (action is final), set the final response in the state and clear pending tool calls
-        if result["action"] == "final":
-            state["final_response"] = result["final_response"]
-            state["pending_tool_calls"] = None
+  suggest          Present design alternatives or explain options. Use when the user
+                   asks for options or when a creative decision point is reached.
 
-        # If the LLM decided the action is to use a tool, set the pending tool calls
+  generate_shape   Call site-reading and shape-creation tools to build or re-generate
+                   the parametric form. Use this FIRST if no geometry_id exists yet.
+                   Include tool_calls in your response.
+
+  check_constraints Run all 5 constraint validators (auto). Use after generating a shape
+                   or after a modification to verify compliance.
+
+  optimize         Apply ONE manipulation tool to fix violations. Use when constraint
+                   check found violations AND modification_iters < {max_mod_iters}.
+                   Include tool_calls in your response.
+
+  evaluate         Run all 3 evaluation tools to score the current design. Use when
+                   constraints are clear (no violations or max iters reached).
+
+  ask_user         Request clarification or approval from the user. Use when the brief
+                   is ambiguous or when the user has not confirmed a direction.
+
+  explain          Write the final architectural report. Use when evaluation is done
+                   and the design is ready to present.
+
+  visualize        Generate a visual summary of the current design state. Use when the
+                   user asks to see the design.
+
+  accept           Accept the current design as final with no further explanation.
+                   Use only when the user explicitly says to finalise.
+
+=== DECISION RULES ===
+
+  1. No geometry_id exists             -> generate_shape
+  2. geometry_id exists, not checked   -> check_constraints
+  3. Violations + iters < {max_mod_iters}  -> optimize  (fix ONE violation per cycle)
+  4. Violations + iters >= {max_mod_iters} -> evaluate  (forced -- stop looping)
+  5. No violations, not evaluated       -> evaluate
+  6. Evaluation done, no report yet     -> explain
+  7. User asks for alternatives         -> suggest
+  8. Unclear brief                      -> ask_user
+
+=== TOOLS AVAILABLE FOR generate_shape ===
+
+{shape_catalog}
+
+=== TOOLS AVAILABLE FOR optimize ===
+
+{manipulation_catalog}
+
+{output_format}"""
+
+
+# =============================================================================
+# OPTIMIZATION NODE
+# =============================================================================
+
+OPTIMIZATION_PROMPT = """\
+You are the OPTIMIZER. The constraint checker found violations.
+Apply EXACTLY ONE manipulation tool to fix the most critical violation.
+
+Read the most recent "=== CONSTRAINT CHECK RESULTS ===" message above for the
+exact violations before deciding.
+
+=== VIOLATION -> TOOL MAPPING (apply in priority order) ===
+
+  fit   (footprint overlaps site boundary)
+    -> scale_shape_tool_04  operation="scale_uniform"  scale_factor < 1.0
+    OR scale_shape_tool_04  operation="offset_from_boundary"
+
+  setback  (too close to a site edge)
+    -> scale_shape_tool_04  operation="offset_from_boundary"
+       offset_distance_m = required_setback - current_clearance + 0.5
+
+  area  (GFA below requirement)
+    -> stretch_arm_tool_04  extension_m = metres needed
+    OR scale_shape_tool_04  operation="scale_uniform"  scale_factor > 1.0
+
+  trees  (footprint conflicts with protected trees)
+    -> bend_angle_tool_04   bend away from tree cluster
+    OR courtyard_modifier_tool_04  carve void around trees
+
+  access  (building too far from road / entrance)
+    -> rotate_mirror_tool_04  operation="rotate"  angle = degrees to face road
+    OR scale_shape_tool_04  operation="offset_from_boundary"
+
+Use the geometry_id from the most recent "=== SHAPE STATE UPDATED ===" or
+"=== MODIFIED SHAPE STATE UPDATED ===" message above.
+
+Call ONE tool. Return action="tool", next_action="optimize", and put the
+single tool call in tool_calls[].
+
+=== TOOLS AVAILABLE ===
+
+{manipulation_catalog}
+
+{output_format}"""
+
+
+# =============================================================================
+# REASON OUTPUT NODE
+# =============================================================================
+
+REASON_OUTPUT_PROMPT = """\
+You are the REPORT WRITER. All design cycles are complete.
+Write the final architectural narrative. Do NOT call any tools.
+
+Read the "=== EVALUATION RESULTS ===" and "=== SCORE STATE UPDATED ===" messages
+above for scores. Read the "=== CONSTRAINT STATE UPDATED ===" messages for the
+final violation status.
+
+Write a report using this EXACT structure:
+
+## Design Summary -- [Typology] / [Brief site description]
+
+### ALIGN -- how the building responds to site forces
+[Orientation relative to sun, wind, views, street access.  Be specific.]
+
+### RESIST -- how violations were resolved
+[List each correction made.  Be specific with tool and parameters used.]
+
+### FRAME -- spatial qualities created
+[What spatial experiences does the form produce?]
+
+### AVOID -- what was protected
+[Protected trees, noise, privacy setbacks, sight-lines.]
+
+### Performance Metrics
+  Spatial quality score  : [score]
+  Performance score      : [score]
+  Shape integrity score  : [score]
+
+Return action="final", next_action="explain", final_response="<full report>".
+Do NOT include tool_calls.
+
+{output_format}"""
+
+
+# =============================================================================
+# Node builders
+# =============================================================================
+
+def _make_node(llm: Any, system_prompt: str, node_name: str) -> Any:
+    """
+    Generic LLM node factory.
+
+    Parses LLM JSON output:
+      action="tool"   -> sets pending_tool_calls + next_action
+      action="final"  -> sets final_response + next_action; appends summary
+    """
+
+    def node(state: dict) -> dict:
+        print(f"\n[{node_name}] calling LLM ...")
+        messages = state.get("messages", [])
+        result   = call_llm(llm, system_prompt, messages)
+        action   = result.get("action", "final")
+        nxt      = result.get("next_action") or result.get("action_name", "accept")
+
+        if action == "tool":
+            return {
+                "pending_tool_calls": result.get("tool_calls", []),
+                "next_action":        nxt,
+            }
         else:
-            state["pending_tool_calls"] = result["tool_calls"]
+            summary_text = result.get("final_response", "")
+            new_messages = list(messages) + [
+                {"role": "assistant", "content": summary_text}
+            ]
+            return {
+                "messages":           new_messages,
+                "pending_tool_calls": None,
+                "final_response":     summary_text if summary_text else state.get("final_response"),
+                "next_action":        nxt,
+            }
 
-        return state
+    return node
 
-    return reason_node
+
+def build_central_reason_node(llm: Any, full_catalog: str, max_mod_iters: int) -> Any:
+    """Hub node: reads full state from messages and decides next action."""
+    # Split catalog into shape and manipulation sections for clarity
+    shape_names = {
+        "site_boundary_reader_04", "context_reader_04", "legal_constraints_reader_04",
+        "shape_library_loader_04", "parametric_shape_generator_04",
+    }
+    manip_names = {
+        "scale_shape_tool_04", "stretch_arm_tool_04", "width_modifier_tool_04",
+        "courtyard_modifier_tool_04", "rotate_mirror_tool_04",
+        "bend_angle_tool_04", "terrace_step_tool_04",
+    }
+    shape_lines = [l for l in full_catalog.splitlines() if any(n in l for n in shape_names)]
+    manip_lines = [l for l in full_catalog.splitlines() if any(n in l for n in manip_names)]
+
+    prompt = CENTRAL_REASON_PROMPT.format(
+        max_mod_iters=max_mod_iters,
+        shape_catalog="\n".join(shape_lines) or full_catalog,
+        manipulation_catalog="\n".join(manip_lines) or full_catalog,
+        output_format=_OUTPUT_FORMAT,
+    )
+    return _make_node(llm, prompt, "central_reason")
+
+
+def build_optimization_node(llm: Any, manipulation_catalog: str) -> Any:
+    """Optimizer node: picks ONE manipulation tool to fix the top violation."""
+    prompt = OPTIMIZATION_PROMPT.format(
+        manipulation_catalog=manipulation_catalog,
+        output_format=_OUTPUT_FORMAT,
+    )
+    return _make_node(llm, prompt, "optimization")
+
+
+def build_reason_output_node(llm: Any) -> Any:
+    """Report writer node: produces ALIGN/RESIST/FRAME/AVOID narrative."""
+    prompt = REASON_OUTPUT_PROMPT.format(output_format=_OUTPUT_FORMAT)
+    return _make_node(llm, prompt, "reason_output")

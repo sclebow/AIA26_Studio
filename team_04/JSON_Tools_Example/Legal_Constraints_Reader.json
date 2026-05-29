@@ -1,0 +1,47 @@
+{
+  "tool_name": "legal_constraints_reader",
+  "constraint_id": "LEGAL_001",
+  "input": {
+    "site_id": "SITE_001",
+    "site_area": {
+      "value": 2400.0,
+      "units": "square_meters"
+    },
+    "building_footprint_area": {
+      "value": 1320.0,
+      "units": "square_meters"
+    },
+    "site_coverage_ratio_limit_percent": 60.0
+  },
+  "output": {
+    "calculated_values": {
+      "site_coverage_ratio_percent": 55.0,
+      "remaining_allowable_coverage_area": {
+        "value": 120.0,
+        "units": "square_meters"
+      },
+      "maximum_permitted_footprint_area": {
+        "value": 1440.0,
+        "units": "square_meters"
+      }
+    },
+    "legal_constraints": {
+      "site_coverage_compliant": true,
+      "coverage_status": "within_limit",
+      "exceeds_limit_by_percent": 0.0,
+      "recommended_max_expansion_area": {
+        "value": 120.0,
+        "units": "square_meters"
+      }
+    },
+    "design_guidance": {
+      "can_expand_footprint": true,
+      "suggested_actions": [
+        "maintain_current_footprint",
+        "optional_minor_expansion",
+        "preserve_open_space_balance"
+      ]
+    },
+    "status": "legal_constraints_verified"
+  }
+}

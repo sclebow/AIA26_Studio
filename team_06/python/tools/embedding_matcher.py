@@ -77,11 +77,17 @@ def match_layouts(
     query: str,
     all_descriptions: list[dict[str, Any]],
     top_k: int = 3,
-    min_score: float = 0.3
+    min_score: float = 0.5
 ) -> dict[str, Any]:
     
     # Load model and validate input
-    model = get_embedding_model()
+    print(f"[embedding_matcher] Loading model...")
+    try:
+        model = get_embedding_model()
+        print(f"[embedding_matcher] Model loaded successfully")
+    except Exception as e:
+        print(f"[embedding_matcher] ERROR loading model: {e}")
+        raise
     
     # Early return if query is empty
     if not query or not query.strip():
@@ -91,16 +97,20 @@ def match_layouts(
             "count": 0
         }
     
+    print(f"[embedding_matcher] Encoding query: '{query}'")
     # Convert the query text into a 384-dimensional vector.
     # This vector captures the semantic meaning of what the user is asking.
     # convert_to_tensor=True returns a PyTorch tensor (needed for cosine similarity)
     query_embedding = model.encode(query, convert_to_tensor=True)
+    print(f"[embedding_matcher] Query embedding shape: {query_embedding.shape}")
 
     # Embed all descriptions and calculate similarities
+    print(f"[embedding_matcher] Processing {len(all_descriptions)} layout descriptions...")
     results = []
     
     for desc_item in all_descriptions:
         description = desc_item["description"]
+        layoutId = desc_item["layoutId"]
         
         # Convert description to embedding vector
         desc_embedding = model.encode(description, convert_to_tensor=True)
@@ -110,21 +120,28 @@ def match_layouts(
         # Range: -1 to 1 (in practice, 0 to 1 for text similarity)
         similarity = util.pytorch_cos_sim(query_embedding, desc_embedding).item()
         
+        print(f"[embedding_matcher] {layoutId}: similarity={similarity:.3f}")
+        
         # Only include results above the minimum threshold
         if similarity >= min_score:
             results.append({
-                "layoutId": desc_item["layoutId"],          # Unique identifier
-                "description": description,                  # Human readable
-                "score": round(similarity, 3),              # Rounded to 3 decimals
-                "area": desc_item.get("area"),              # For reference
-                "roomTypes": desc_item.get("roomTypes", []) # For reference
+                "layoutId": layoutId,
+                "description": description,
+                "score": round(similarity, 3),
+                "area": desc_item.get("area"),
+                "roomTypes": desc_item.get("roomTypes", [])
             })
     
     # Sort descending by score
     results.sort(key=lambda x: x["score"], reverse=True)
     
+    print(f"[embedding_matcher] Total layouts checked: {len(all_descriptions)}")
+    print(f"[embedding_matcher] Results above min_score ({min_score}): {len(results)}")
+    
     # Limit to top_k results
     results = results[:top_k]
+    
+    print(f"[embedding_matcher] Returning top {len(results)} results")
     
     return {
         "matches": results,

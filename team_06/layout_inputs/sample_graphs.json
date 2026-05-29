@@ -1,0 +1,411 @@
+{
+  "layout-1": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Bedroom",
+        "program": "bedroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-2"
+      },
+      {
+        "name": "Kitchen",
+        "program": "kitchen",
+        "id": "room-3"
+      },
+      {
+        "name": "Bathroom",
+        "program": "bathroom",
+        "id": "room-4"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 1,
+        "source": "room-1",
+        "target": "room-2"
+      },
+      {
+        "weight": 1,
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "weight": 1,
+        "source": "room-2",
+        "target": "room-3"
+      }
+    ]
+  },
+  "layout-2": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Foyer",
+        "program": "foyer",
+        "id": "room-1"
+      },
+      {
+        "name": "Extra",
+        "program": "extra",
+        "id": "room-2"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-3"
+      },
+      {
+        "name": "Kitchen",
+        "program": "kitchen",
+        "id": "room-4"
+      },
+      {
+        "name": "Bathroom",
+        "program": "bathroom",
+        "id": "room-5"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 1,
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "weight": 1,
+        "source": "room-1",
+        "target": "room-5"
+      },
+      {
+        "weight": 1,
+        "source": "room-2",
+        "target": "room-3"
+      },
+      {
+        "weight": 1,
+        "source": "room-3",
+        "target": "room-4"
+      }
+    ]
+  },
+  "layout-3": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Foyer",
+        "program": "foyer",
+        "id": "room-1"
+      },
+      {
+        "name": "Extra",
+        "program": "extra",
+        "id": "room-2"
+      },
+      {
+        "name": "Bathroom",
+        "program": "bathroom",
+        "id": "room-3"
+      },
+      {
+        "name": "Bedroom",
+        "program": "bedroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-5"
+      },
+      {
+        "name": "Kitchen",
+        "program": "kitchen",
+        "id": "room-6"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 1,
+        "source": "room-1",
+        "target": "room-2"
+      },
+      {
+        "weight": 1,
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "weight": 1,
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "weight": 1,
+        "source": "room-1",
+        "target": "room-6"
+      },
+      {
+        "weight": 1,
+        "source": "room-5",
+        "target": "room-6"
+      }
+    ]
+  },
+  "layout-4": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Bathroom",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Foyer",
+        "program": "foyer",
+        "id": "room-2"
+      },
+      {
+        "name": "Extra",
+        "program": "extra",
+        "id": "room-3"
+      },
+      {
+        "name": "Bedroom",
+        "program": "bedroom",
+        "id": "room-4"
+      },
+      {
+        "name": "Bathroom",
+        "program": "bathroom",
+        "id": "room-5"
+      },
+      {
+        "name": "Extra",
+        "program": "extra",
+        "id": "room-6"
+      },
+      {
+        "name": "Kitchen",
+        "program": "kitchen",
+        "id": "room-7"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-8"
+      },
+      {
+        "name": "Bedroom",
+        "program": "bedroom",
+        "id": "room-9"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 3,
+        "source": "room-1",
+        "target": "room-2"
+      },
+      {
+        "weight": 3,
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "weight": 3,
+        "source": "room-1",
+        "target": "room-7"
+      },
+      {
+        "weight": 2,
+        "source": "room-1",
+        "target": "room-9"
+      },
+      {
+        "weight": 3,
+        "source": "room-2",
+        "target": "room-3"
+      },
+      {
+        "weight": 3,
+        "source": "room-2",
+        "target": "room-7"
+      },
+      {
+        "weight": 2,
+        "source": "room-2",
+        "target": "room-9"
+      },
+      {
+        "weight": 3,
+        "source": "room-3",
+        "target": "room-7"
+      },
+      {
+        "weight": 2,
+        "source": "room-3",
+        "target": "room-9"
+      },
+      {
+        "weight": 1,
+        "source": "room-4",
+        "target": "room-6"
+      },
+      {
+        "weight": 1,
+        "source": "room-4",
+        "target": "room-8"
+      },
+      {
+        "weight": 1,
+        "source": "room-5",
+        "target": "room-6"
+      },
+      {
+        "weight": 2,
+        "source": "room-7",
+        "target": "room-9"
+      },
+      {
+        "weight": 1,
+        "source": "room-7",
+        "target": "room-8"
+      },
+      {
+        "weight": 1,
+        "source": "room-8",
+        "target": "room-9"
+      }
+    ]
+  },
+  "layout-5": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Foyer",
+        "program": "foyer",
+        "id": "room-1"
+      },
+      {
+        "name": "Foyer",
+        "program": "foyer",
+        "id": "room-2"
+      },
+      {
+        "name": "Foyer",
+        "program": "foyer",
+        "id": "room-3"
+      },
+      {
+        "name": "Kitchen",
+        "program": "kitchen",
+        "id": "room-4"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-5"
+      },
+      {
+        "name": "Bedroom",
+        "program": "bedroom",
+        "id": "room-6"
+      },
+      {
+        "name": "Bathroom",
+        "program": "bathroom",
+        "id": "room-7"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 1,
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "weight": 1,
+        "source": "room-2",
+        "target": "room-7"
+      },
+      {
+        "weight": 1,
+        "source": "room-2",
+        "target": "room-5"
+      },
+      {
+        "weight": 1,
+        "source": "room-3",
+        "target": "room-6"
+      },
+      {
+        "weight": 1,
+        "source": "room-3",
+        "target": "room-5"
+      },
+      {
+        "weight": 1,
+        "source": "room-4",
+        "target": "room-5"
+      }
+    ]
+  },
+  "layout-6": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "name": "Bathroom",
+        "program": "bathroom",
+        "id": "room-1"
+      },
+      {
+        "name": "Kitchen",
+        "program": "kitchen",
+        "id": "room-2"
+      },
+      {
+        "name": "Extra",
+        "program": "extra",
+        "id": "room-3"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "id": "room-4"
+      }
+    ],
+    "edges": [
+      {
+        "weight": 1,
+        "source": "room-1",
+        "target": "room-2"
+      },
+      {
+        "weight": 1,
+        "source": "room-2",
+        "target": "room-4"
+      },
+      {
+        "weight": 1,
+        "source": "room-2",
+        "target": "room-3"
+      }
+    ]
+  }
+}

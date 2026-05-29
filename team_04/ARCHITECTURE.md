@@ -2,14 +2,14 @@
 
 ## Overview
 
-This is an **AI agent system** that uses LangGraph to build a reasoning-tool loop for modifying building layouts through a Grasshopper MCP (Model Context Protocol) server. The agent receives natural language instructions, reasons about them using an LLM, executes Grasshopper tools to modify the layout, and iterates until the task is complete.
+This is an **AI agent system** that uses LangGraph to implement a **hub-and-spoke workflow** for generating and modifying building layouts through a Grasshopper MCP (Model Context Protocol) server. The agent receives natural language design briefs and a **Central Reason Node (LLM hub)** decides what to do next each cycle, dispatching to 15 specialist worker nodes. Three terminal paths (explain / visualize / accept) end the run.
 
 ## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         User Input                              │
-│        Natural language design request (CLI or notebook)        │
+│        Natural language design brief (CLI or notebook)          │
 └────────────────┬────────────────────────────────────────────────┘
                  │
                  ▼
@@ -27,52 +27,55 @@ This is an **AI agent system** that uses LangGraph to build a reasoning-tool loo
 │        • Loads environment settings (.env)                      │
 │        • Connects to MCP server                                 │
 │        • Discovers available tools                              │
-│        • Creates LLM with structured output                     │
-│        • Reads layout schema JSON                               │
+│        • Builds per-category filtered tool catalogs             │
+│        • Creates LLM + reads layout schema JSON                 │
 └────────────────┬────────────────────────────────────────────────┘
                  │
                  ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                        graph.py                                 │
-│                  LangGraph Workflow Engine                      │
+│              LangGraph Hub-and-Spoke Architecture               │
 │                                                                 │
-│  ┌─────────┐   ┌──────────────────────────────────────────┐   │
-│  │  START  │──▶│              reason node                 │   │
-│  └─────────┘   │  (LLM: plan, call tools, or respond)     │   │
-│                └──────┬────────────┬───────────────────────┘   │
-│          tool calls   │            │ final_response set         │
-│                       │            │                            │
-│                ┌──────▼──────┐     ├── geometry + !evaluated   │
-│                │  tool node  │     │      ┌─────────────────┐  │
-│                │  (MCP exec) │     └─────▶│  auto_evaluate  │  │
-│                └──────┬──────┘            │  (3 evaluators) │  │
-│                       │                   └────────┬────────┘  │
-│                       │◀───────────────────────────┘           │
-│                       │                                        │
-│                       │  final_response + evaluated            │
-│                       ▼                                        │
-│                  ┌────────┐                                    │
-│                  │  END   │                                    │
-│                  └────────┘                                    │
+│  START → [central_reason] ─────────────────────────────────┐   │
+│            │ suggest       → [suggestion_layer] ────────────┤   │
+│            │ generate_shape→ [tool_shape_creation]          │   │
+│            │                  → [update_shape_state] ───────┤   │
+│            │ evaluate      → [tool_evaluation]              │   │
+│            │                  → [update_score_state] ───────┤   │
+│            │ ask_user      → [human_feedback] ──────────────┤   │
+│            │ check_con...  → [tool_constraint_check]        │   │
+│            │                  → [update_constraint_state] ──┤   │
+│            │ optimize      → [optimization]                 │   │
+│            │               → [tool_manipulation]            │   │
+│            │               → [update_modified_shape]        │   │
+│            │               → [tool_constraint_check]        │   │
+│            │                  → [update_constraint_state] ──┘   │
+│            │ explain       → [reason_output] ──────────┐        │
+│            │ visualize     → [visualization] ──────────┤        │
+│            └ accept        ────────────────────────────┘        │
+│                                         ↓                       │
+│                                  [final_output]                 │
+│                                  [cache_final_state]            │
+│                                       END                       │
 │                                                                 │
-│   • Defines AgentState (messages, tools, phase tracking)       │
-│   • Routes between reason, tool, and auto_evaluate nodes       │
-│   • Forces evaluation before final response if geometry exists │
-│   • Manages iteration count and safety limits                  │
+│   • 3 LLM nodes: central_reason, optimization, reason_output   │
+│   • 12 AUTO nodes handle tools, state updates, I/O             │
+│   • optimize loop re-checks constraints (≤4 cycles)            │
 └─────────────────────────────────────────────────────────────────┘
                  │
-                 ├──────────────────┬──────────────────┐
-                 ▼                  ▼                  ▼
-        ┌────────────────┐ ┌────────────────┐ ┌────────────────┐
-        │  reason.py     │ │   tools.py     │ │  Runtime Utils │
-        │                │ │                │ │                │
-        │ • System prompt│ │ • Executes MCP │ │ • config.py    │
-        │ • Calls LLM    │ │   tool calls   │ │ • llm.py       │
-        │ • Decides next │ │ • Validates    │ │ • mcp_client.py│
-        │   action       │ │   arguments    │ └────────────────┘
-        │                │ │ • Updates state│
-        │                │ │ • Saves results│
-        └────────────────┘ └────────────────┘
+     ┌───────────┼───────────┬──────────────────┐
+     ▼           ▼           ▼                  ▼
+┌──────────┐ ┌──────────┐ ┌────────────────┐ ┌────────────────┐
+│reason.py │ │ tools.py │ │  Runtime Utils │ │  nodes/        │
+│          │ │          │ │                │ │                │
+│5 Two-Mode│ │• Executes│ │ • config.py    │ │ • reason.py    │
+│LLM nodes │ │  MCP     │ │ • llm.py       │ │ • tools.py     │
+│(see §)   │ │  calls   │ │ • mcp_client.py│ │                │
+│          │ │• Injects │ │ • bootstrap.py │ └────────────────┘
+│          │ │  layout  │ └────────────────┘
+│          │ │• Saves   │
+│          │ │  results │
+└──────────┘ └──────────┘
 ```
 
 ---
@@ -81,31 +84,93 @@ This is an **AI agent system** that uses LangGraph to build a reasoning-tool loo
 
 ```
 team_04/
-├── gh/                                 # Grasshopper files
-│   ├── team_04_definition_cluster.ghcluster   # Input definition
-│   ├── team_04_result_cluster.ghcluster       # Output results
-│   └── team_04_working.gh                     # Working file
+├── ARCHITECTURE.md                         # System architecture (this file)
+├── PROGRESS.md                             # Implementation progress log
+├── QUICK_START.md                          # Week-by-week GH implementation guide
+├── README_DELIVERABLES.md                  # Hand-off summary of all deliverables
+├── TERRAPILOT_PLAN.md                      # Full 23-tool specification + timeline
+├── TOOLS_CHECKLIST.md                      # Interactive per-tool checkbox tracker
+├── team_04_edited_layout.json              # Output from latest agent run
 │
-└── python/                             # Python agent code
-    ├── main.py                         # Entry point
-    ├── graph.py                        # LangGraph workflow definition
+├── gh/                                     # Grasshopper files
+│   ├── team_04_definition_cluster.ghcluster   # INPUT + SHAPE tools cluster
+│   ├── team_04_result_cluster.ghcluster       # Remaining tools + MCP output
+│   ├── team_04_working.gh                     # Test harness (MCP server entry)
+│   └── tool_definitions/                      # Per-tool specification docs
+│       ├── README.md                          # GH cluster template (JSON parse/format pattern)
+│       ├── 01_site_boundary_reader.md         # Full spec: site_boundary_reader_04
+│       └── 05_parametric_shape_generator.md   # Full spec: parametric_shape_generator_04
+│
+├── test_cases/                             # Test scenario definitions
+│   ├── test_01_simple_rectangle.md         # Simple rectangular site
+│   └── test_02_pentagon_with_trees.md      # Pentagon site with tree constraints
+│
+└── python/                                 # Python agent code
+    ├── main.py                             # Entry point
+    ├── graph.py                            # LangGraph workflow definition
+    ├── terrapilot_explore.ipynb            # 19-cell notebook: 5 test cases, mock client, graph viz
+    ├── terrapilot_hub_workflow.png         # Generated hub-and-spoke workflow diagram
     │
-    ├── _runtime/                       # Core runtime utilities
-    │   ├── __init__.py                 # Empty (package marker)
-    │   ├── bootstrap.py                # System initialization
-    │   ├── config.py                   # Settings and env loading
-    │   ├── llm.py                      # LLM interface & schema
-    │   └── mcp_client.py               # MCP server client
+    ├── _runtime/                           # Core runtime utilities
+    │   ├── __init__.py                     # Empty (package marker)
+    │   ├── bootstrap.py                    # System initialization
+    │   ├── config.py                       # Settings and env loading
+    │   ├── llm.py                          # LLM interface & schema
+    │   └── mcp_client.py                   # MCP server client
     │
-    └── nodes/                          # Graph node implementations
-        ├── __init__.py                 # Empty (package marker)
-        ├── reason.py                   # Reasoning node (LLM)
-        └── tools.py                    # Tool execution node
+    └── nodes/                              # Graph node implementations
+        ├── __init__.py                     # Empty (package marker)
+        ├── reason.py                       # 3 LLM nodes: central_reason, optimization, reason_output
+        └── tools.py                        # Shared MCP tool executor node
 ```
 
 ---
 
 ## File-by-File Breakdown
+
+### 📁 `/` (Team Root)
+
+#### `TERRAPILOT_PLAN.md`
+Complete 23-tool specification. Covers all tool input/output schemas, GH implementation notes, and a week-by-week build timeline.
+
+#### `TOOLS_CHECKLIST.md`
+Interactive checkbox tracker — one section per tool with sub-tasks and priority levels (CRITICAL / HIGH / MEDIUM / LOW). Update this as you build each GH tool.
+
+#### `QUICK_START.md`
+Day-by-day guide for building GH clusters (Week 1 detailed, Weeks 2–4 sketched). Includes Python placeholder templates and testing workflow.
+
+#### `README_DELIVERABLES.md`
+Hand-off summary listing everything created in this branch: docs, code, tool specs, test cases.
+
+#### `team_04_edited_layout.json`
+Output layout JSON written by the agent during the first successful end-to-end run. Serves as a baseline for regression tests.
+
+---
+
+### 📁 `/gh/tool_definitions/` (GH Tool Specs)
+
+#### `README.md`
+Grasshopper cluster template: describes the standard JSON-parse → core logic → JSON-format cluster pattern, with Python component code templates.
+
+#### `01_site_boundary_reader.md`
+Full spec for `site_boundary_reader_04`: input schema, output schema, example JSON, GH implementation steps, test cases.
+
+#### `05_parametric_shape_generator.md`
+Full spec for `parametric_shape_generator_04`: `geometry_id` generation, shape types (bar/L/U/H/courtyard/cluster), parameter schema.
+
+---
+
+### 📁 `/test_cases/` (Test Scenarios)
+
+#### `test_01_simple_rectangle.md`
+Test case for a simple rectangular site. Defines site coordinates, expected tool call sequence, and pass/fail criteria.
+
+#### `test_02_pentagon_with_trees.md`
+Test case for an irregular pentagon site with 3 trees. Covers tree constraint checking, setback validation, and geometry manipulation.
+
+> **Note:** Three additional test scenarios (`sloped_site`, `gfa_deficit`, `irregular_boundary`) are fully implemented in notebook cell 17 with mock overrides. Standalone markdown spec files (`test_03`–`test_05`) are still pending.
+
+---
 
 ### 📁 `/python/` (Root Python Code)
 
@@ -124,34 +189,54 @@ team_04/
 ---
 
 #### `graph.py`
-**Purpose:** Defines the agent workflow using LangGraph
+**Purpose:** Defines the 16-node hub-and-spoke LangGraph workflow
 
-**What it does:**
-- Defines `AgentState` (TypedDict) — the data structure that flows through the graph:
-  - `messages`: conversation history
-  - `pending_tool_calls`: tool calls queued by the LLM
-  - `final_response`: set when the agent is ready to respond
-  - `iteration`: current tool-call count
-  - `max_iterations`: safety limit
-  - `tool_catalog`: formatted list of available MCP tools
-  - `layout_json_string`: current building layout as JSON
-  - `phase`: workflow phase — `"design"` | `"evaluate"` | `"done"`
-  - `geometry_id`: active parametric geometry ID (auto-extracted)
-  - `evaluation_done`: `True` after `auto_evaluate` has run — prevents double-evaluation
-- Builds the LangGraph workflow with **three nodes**: `reason`, `tool`, `auto_evaluate`
-- Routes conditionally: tool calls → `tool`; unvalidated geometry → `auto_evaluate`; done → `END`
-- `auto_evaluate` calls all 3 evaluators (spatial, performance, integrity) then clears `final_response` so the LLM synthesises a qualified response
-- `_build_tracked_tool_node` wraps the inner tool node to extract `geometry_id` from `parametric_shape_generator_04` responses automatically
-- `print_ascii()` call in `run_agent` is wrapped in `try/except ImportError` — prints graph structure only when `grandalf` is installed; silently skipped otherwise
+**Architecture — Central Reason Node as hub:**
+The `central_reason` LLM node reads the full conversation history each cycle and picks ONE of 9 actions. Specialist workers execute the action, update state, and return to the hub. Three actions (explain / visualize / accept) terminate the run.
 
-**Key functions:**
-- `build_graph(ctx)` — assembles the 3-node workflow and compiles it
-- `run_agent(prompt, ctx)` — executes the graph and returns the final response
-- `_route(state)` — 3-way routing: `run_tool` | `evaluate` | `finish`
-- `_build_initial_state(prompt, ctx)` — prepares state including `phase`, `geometry_id`, `evaluation_done`
-- `_build_auto_evaluate_node(mcp_client)` — builds the evaluation gate node
-- `_build_tracked_tool_node(ctx)` — wraps tool node with `geometry_id` extraction
-- `_format_tool_catalog(tools)` — formats tool descriptions for the LLM
+**Node inventory:**
+| Node | Type | Role | Tools |
+|---|---|---|---|
+| `central_reason` | LLM | Hub — decides next action (9 options) | shape + manipulation tools |
+| `suggestion_layer` | AUTO | Presents design alternatives | — |
+| `tool_shape_creation` | TOOL | Executes site/shape MCP calls | `site_boundary_reader_04`, `context_reader_04`, `legal_constraints_reader_04`, `shape_library_loader_04`, `parametric_shape_generator_04` |
+| `update_shape_state` | AUTO | Extracts geometry_id; logs state | — |
+| `tool_evaluation` | AUTO | Runs all 3 evaluators | `spatial_intention_evaluator_04`, `performance_evaluator_04`, `shape_integrity_evaluator_04` |
+| `update_score_state` | AUTO | Stores evaluation scores | — |
+| `human_feedback` | AUTO* | Simulates user feedback | — |
+| `tool_constraint_check` | AUTO | Runs all 5 constraint checkers | `site_fit_checker_04`, `setback_checker_04`, `area_requirement_checker_04`, `adjacency_access_checker_04`, `tree_constraint_checker_04` |
+| `update_constraint_state` | AUTO | Stores violations | — |
+| `optimization` | LLM | Picks ONE manipulation tool to fix top violation | manipulation tools |
+| `tool_manipulation` | TOOL | Executes manipulation MCP calls | `scale_shape_tool_04`, `stretch_arm_tool_04`, `width_modifier_tool_04`, `courtyard_modifier_tool_04`, `rotate_mirror_tool_04`, `bend_angle_tool_04`, `terrace_step_tool_04` |
+| `update_modified_shape` | AUTO | Updates geometry_id after manipulation | — |
+| `reason_output` | LLM | Writes ALIGN/RESIST/FRAME/AVOID narrative | — |
+| `visualization` | AUTO | Generates text-based design summary | — |
+| `final_output` | AUTO | Consolidates final_response | — |
+| `cache_final_state` | AUTO | Saves design JSON to disk | — |
+
+**Decision rules embedded in `central_reason` system prompt:**
+1. No `geometry_id` → `generate_shape`
+2. `geometry_id` exists, not checked → `check_constraints`
+3. Violations + iters < 4 → `optimize`
+4. Violations + iters ≥ 4 → `evaluate` (forced)
+5. No violations, not evaluated → `evaluate`
+6. Evaluation done → `explain`
+
+**`tool_constraint_check` is shared** between the `[check_constraints]` spoke and the end of every `[optimize]` cycle. Both paths flow through the same node sequence: `tool_constraint_check → update_constraint_state → central_reason`.
+
+#### Builder functions in `nodes/reason.py` (hub-and-spoke)
+
+| Function | Role | Prompt variable |
+|---|---|---|
+| `build_central_reason_node(llm, full_catalog, max_mod_iters)` | Hub — 9-action dispatcher | `CENTRAL_REASON_PROMPT` |
+| `build_optimization_node(llm, manipulation_catalog)` | Picks ONE repair tool | `OPTIMIZATION_PROMPT` |
+| `build_reason_output_node(llm)` | Final ALIGN/RESIST/FRAME/AVOID report | `REASON_OUTPUT_PROMPT` |
+
+---
+
+### Previous Design — 9-Node Category-Based Pipeline (`graph.py` + `nodes/reason.py`) — 2026-05-10
+
+Replaced by the hub-and-spoke redesign above. The previous design used a linear pipeline: `read_site → plan_form → check_constraints → fix_orientation / fix_form → evaluate → write_report → bake_output`. Each LLM node used a **Two-Mode pattern** (MODE A: plan tool calls; MODE B: summarise results). Superseded because the linear pipeline could not represent the flexible hub-driven decision flow shown in the architectural diagram.
 
 ---
 
@@ -249,18 +334,28 @@ Cloudflare defaults the output cap to 2 000 tokens. Setting `max_tokens=8192` li
 ### 📁 `/python/nodes/` (Graph Nodes)
 
 #### `reason.py`
-**Purpose:** LLM reasoning node
+**Purpose:** Three LLM nodes for the hub-and-spoke architecture
 
-**What it does:**
-- Defines the system prompt that instructs the LLM how to behave
-- Calls the LLM with conversation history and tool catalog
-- Updates the agent state based on the LLM's decision:
-  - If action is `"final"`: sets `final_response` (agent done)
-  - If action is `"tool"`: sets `pending_tool_calls` (execute tools)
+**Builder functions:**
 
-**Key constant:** `SYSTEM_PROMPT` — the instruction given to the LLM
+| Builder | Role | Prompt |
+|---|---|---|
+| `build_central_reason_node(llm, full_catalog, max_mod_iters)` | Hub — 9-action dispatcher | `CENTRAL_REASON_PROMPT` |
+| `build_optimization_node(llm, manipulation_catalog)` | Picks ONE repair tool per cycle | `OPTIMIZATION_PROMPT` |
+| `build_reason_output_node(llm)` | Final ALIGN/RESIST/FRAME/AVOID narrative | `REASON_OUTPUT_PROMPT` |
 
-**Key function:** `build_reason_node(llm)` — returns the node function
+**Shared `_make_node` factory:**  
+All three nodes use the same factory which calls `call_llm()` and parses JSON output:
+- `action="tool"` → sets `pending_tool_calls` + `next_action`
+- `action="final"` → sets `final_response` + `next_action`; appends summary to messages
+
+**Shared output format:**
+```json
+{ "action": "tool" | "final",
+  "next_action": "suggest|generate_shape|check_constraints|optimize|evaluate|ask_user|explain|visualize|accept",
+  "tool_calls": [{"name": "<tool>", "arguments": {...}}],
+  "final_response": "..." }
+```
 
 ---
 
@@ -301,30 +396,34 @@ Cloudflare defaults the output cap to 2 000 tokens. Setting `max_tokens=8192` li
 
 ## Data Flow
 
-1. **User input** → Command-line argument (e.g., `"delete the kitchen"`)
+1. **User input** → Natural language design brief (CLI or notebook)
 
 2. **Bootstrap phase:**
-   - Load settings and environment variables
+   - Load settings from `.env` and `mcp.json`
    - Connect to MCP server and discover tools
-   - Create LLM with structured output schema
-   - Load building layout from JSON
+   - Build per-category filtered tool catalogs (site / form / orient / modify)
+   - Create 5 LLM nodes + 3 AUTO nodes + 1 shared tool executor
+   - Load building layout JSON
 
-3. **Graph execution — 5 phases:**
-   - **START** → Initial state: `phase="design"`, `geometry_id=None`, `evaluation_done=False`
-   - **reason node:** LLM analyses the request and decides:
-     - Call tools (site reading, shape generation, constraint checking, manipulation) → `tool` node
-     - Signal completion (`final_response` set) → routing check
-   - **tool node:** Executes MCP tool calls; automatically extracts `geometry_id` from `parametric_shape_generator_04`; saves layout; loops back to `reason`
-   - **auto_evaluate gate** (triggered when `final_response` set + `geometry_id` present + `evaluation_done=False`):
-     - Calls `spatial_intention_evaluator_04`, `performance_evaluator_04`, `shape_integrity_evaluator_04`
-     - Injects results as a new user message; clears `final_response`; sets `evaluation_done=True`
-     - Returns to `reason` for synthesis
-   - **END:** Reached only after evaluation is complete (or if no geometry was created)
+3. **Graph execution — 9-node category pipeline:**
+
+   | Step | Node | Kind | What happens |
+   |---|---|---|---|
+   | 1 | `read_site` | LLM | Calls up to 3 site tools (Mode A), then writes "SITE READ COMPLETE" summary (Mode B) |
+   | 2 | `plan_form` | LLM | Selects typology, calls 1 shape tool (Mode A), writes "FORM GENERATION COMPLETE" summary (Mode B) |
+   | 3 | `check_constraints` | AUTO | All 5 checkers run; `violations` list populated; logs "CONSTRAINT CHECK RESULTS (cycle N)" |
+   | 4a | `fix_orientation` | LLM | Calls 1 rotation/offset tool (Mode A), writes "ORIENTATION FIX APPLIED" summary (Mode B) |
+   | 4b | `fix_form` | LLM | Calls 1 modification tool (Mode A), writes "FORM FIX APPLIED" summary (Mode B) |
+   | — | *(loop step 3 → 4a/4b up to 4 times)* | | |
+   | 5 | `evaluate` | AUTO | All 3 evaluators run; logs "EVALUATION COMPLETE" message |
+   | 6 | `write_report` | LLM | Reads evaluation scores; writes ALIGN/RESIST/FRAME/AVOID narrative (**no tools**) |
+   | 7 | `bake_output` | AUTO | Calls `bake_geometry_id_04` to bake geometry to Rhino (**no LLM**) |
+   | — | `tool` (shared) | — | Executes any pending MCP tool calls; routes back to current phase node |
 
 4. **Output:**
-   - Console output with agent's response (includes evaluation scores)
-   - `team_04_edited_layout.json` with the modified layout
-   - `geometry_id` in state for downstream baking via `bake_geometry_id_04`
+   - Console: phase-by-phase progress + final narrative
+   - `team_04_edited_layout.json` — saved after every tool call
+   - Baked geometry in Rhino via `bake_geometry_id_04`
 
 ---
 
@@ -337,18 +436,38 @@ The data structure that flows through the graph. Contains:
 - Current layout (as JSON string)
 - Iteration tracking
 - Final response
+- Phase tracking (`phase`, `geometry_id`, `violations`, `modification_iters`, `evaluation_done`)
 
-### Reasoning Loop
-1. LLM receives conversation history and tool catalog
-2. LLM decides: call a tool OR respond to user
-3. If tool: execute tool, update state, go back to step 1
-4. If respond: set final response and terminate
+### Two-Mode LLM Pattern
+Instead of calling each LLM node repeatedly with no clear separation between planning and
+summarising, every node's prompt explicitly defines:
+- **Mode A (Plan):** No tool results yet → output `action="tool"` with tool call arguments
+- **Mode B (Summarise):** Tool results present → output `action="final"` with a structured phase summary
 
-### MCP Tools
-Tools exposed by the Grasshopper MCP server. Examples might include:
-- `modify_layout` — edit the building layout
-- `analyze_layout` — get information about the layout
-- `validate_layout` — check if the layout is valid
+The Mode B summary is appended to `messages` as an assistant message with a tagged header.
+This creates a clear, timestamped log of what each phase accomplished — easily readable by both
+humans and the subsequent LLM nodes.
+
+### Category-Based Node Design
+21 MCP tools are split across 5 node categories.  Each LLM node sees only the 2–6 tools
+relevant to its single task:
+
+| Category | Node | Tools |
+|---|---|---|
+| Site reading | `read_site` | `site_boundary_reader_04`, `context_reader_04`, `legal_constraints_reader_04` |
+| Shape generation | `plan_form` | `shape_library_loader_04`, `parametric_shape_generator_04` |
+| Constraint checking (AUTO) | `check_constraints` | `site_fit_checker_04`, `setback_checker_04`, `area_requirement_checker_04`, `adjacency_access_checker_04`, `tree_constraint_checker_04` |
+| Orientation fix | `fix_orientation` | `rotate_mirror_tool_04`, `scale_shape_tool_04` |
+| Form modification | `fix_form` | `scale_shape_tool_04`, `stretch_arm_tool_04`, `width_modifier_tool_04`, `courtyard_modifier_tool_04`, `bend_angle_tool_04`, `terrace_step_tool_04` |
+| Evaluation (AUTO) | `evaluate` | `spatial_intention_evaluator_04`, `performance_evaluator_04`, `shape_integrity_evaluator_04` |
+| Report writing | `write_report` | *(no tools)* |
+| Output baking (AUTO) | `bake_output` | `bake_geometry_id_04` |
+
+### Separated Report and Bake
+Previously the `synthesise_reason` node had to both call `bake_geometry_id_04` **and** compose the
+architectural narrative in the same turn — an ambiguous dual role.  Now:
+- `write_report` is a pure LLM task: read evaluation scores from messages, write narrative.
+- `bake_output` is a pure AUTO task: call the bake tool, log the Rhino GUID.
 
 ### Structured Output
 The LLM is instructed via the system prompt to return JSON in this exact format:
@@ -370,7 +489,7 @@ No `response_format` flag is passed to the API (see `llm.py` notes above). Parsi
 ### LLM Provider — Cloudflare Workers AI
 
 The active provider is Cloudflare Workers AI via an OpenAI-compatible endpoint:
-- **Model:** `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (fast FP8-quantised Llama 3.3 70B)
+- **Verified working model:** `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (fast FP8-quantised Llama 3.3 70B)
 - **Base URL:** `https://api.cloudflare.com/client/v4/accounts/{CF_ACCOUNT_ID}/ai/v1`
 - **Credentials:** `CF_ACCOUNT_ID`, `CF_API_TOKEN`, `CF_MODEL` in `.env` at repo root
 - **Timeout:** `timeout_seconds=300` for multi-turn agent runs (history grows with each tool call)
@@ -378,6 +497,17 @@ The active provider is Cloudflare Workers AI via an OpenAI-compatible endpoint:
 
 **Why `llama-3.3-70b-instruct-fp8-fast` over `qwen3-30b-a3b-fp8`:**  
 The Qwen 30B model consistently timed out (HTTP 408) when processing multi-turn conversations with the large TerraPilot system prompt. The Llama 3.3 70B FP8-fast variant handles the same load reliably.
+
+> ⚠️ **Current issue (2026-05-10):** `.env` was changed to `@cf/google/gemini-flash-1.5-8b`, which Cloudflare rejects (`BadRequestError 400: No such model`). Restore `CF_MODEL` to `@cf/meta/llama-3.3-70b-instruct-fp8-fast` to fix.
+
+### MockMcpClient (Notebook)
+
+Used in `terrapilot_explore.ipynb` as a drop-in replacement for the real `McpClient`. Key interface:
+- `initialize()` — no-op, prints confirmation
+- `list_tools()` — returns `TERRAPILOT_TOOLS` (21 tool definitions)
+- `call_tool(name, arguments)` — routes to stubs in `MOCK_TOOL_RESPONSES`; logs to call history
+- `call_history()` — returns list of `{"tool": name, "args": {...}}` dicts for test inspection
+- `reset_history()` — clears call history between test runs
 
 ---
 

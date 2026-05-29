@@ -1,0 +1,33 @@
+{
+  "households": [
+    {
+      "id": "string",
+      "age": "int",
+      "special_need": "string (optional)",
+      "relationship": "me|child|partner|parent|friend|other"
+    }
+  ],
+  "pets": [
+    {
+      "id": "string",
+      "type": "string",
+      "size": "string"
+    }
+  ],
+  "activities": [
+    {
+      "id": "string",
+      "type": "cook|work|sleep|other",
+      "daytime": ["morning", "afternoon", "evening"]
+    }
+  ],
+  "rooms": [
+    {
+      "id": "string", 
+      "program": "bedroom|kitchen|living|bathroom|other",
+      "size": "small|medium|large",
+      "daytime": ["morning", "afternoon", "evening"],
+      "connected_to": ["room_id"]
+    }
+  ]
+}

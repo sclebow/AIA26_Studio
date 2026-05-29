@@ -3,36 +3,36 @@
         "layoutId": "layout-1",
         "description": "1-bedroom 32 sqm apartment, day area with living and kitchen, night area with bedroom and big bathroom accessible from bedroom. Ideal for young couples or single professionals.",
         "area": 32.47,
-        "rooms_summary": "1 bath, 1 bed, 1 kitchen, 1 living"
+        "rooms_summary": "1 bathroom, 1 bedroom, 1 kitchen, 1 living"
     },
     {
         "layoutId": "layout-2",
         "description": "L-shaped 22 sqm studio apartment with foyer, kitchen, bathroom, small storage and open-plan living and bedroom area. Ideal for young singles.",
         "area": 22.48,
-        "rooms_summary": "1 bath, 1 extra, 1 foyer, 1 kitchen, 1 living"
+        "rooms_summary": "1 bathroom, 1 extra, 1 foyer, 1 kitchen, 1 living"
     },
     {
         "layoutId": "layout-3",
         "description": "1-bedroom 28 sqm apartment, day area with big kitchen and living, night area with bedroom, bathroom and storage, all accessible from foyer. Ideal for young couples or single professionals.",
         "area": 28.33,
-         "rooms_summary": "1 bath, 1 bed, 1 extra, 1 foyer, 1 kitchen, 1 living"
+         "rooms_summary": "1 bathroom, 1 bedroom, 1 extra, 1 foyer, 1 kitchen, 1 living"
     },
     {
         "layoutId": "layout-4",
         "description": "2-bedroom 35 sqm apartment with central day area with living and kitchen, 2 lateral bedrooms with private bathrooms. Ideal for students, shared-flat configuration",
         "area": 35.19,
-         "rooms_summary": "2 bath, 2 bed, 2 extra, 1 foyer, 1 kitchen, 1 living"
+         "rooms_summary": "2 bathroom, 2 bedroom, 2 extra, 1 foyer, 1 kitchen, 1 living"
     },
     {
         "layoutId": "layout-5",
         "description": "Cozy L-shaped 37 sqm 1-bedroom apartment with foyer, living, kitchen, bedroom and big bathroom accessible from living area. Ideal for couples or young professionals.",
         "area": 36.83,
-        "rooms_summary": "1 bath, 1 bed, 3 foyer, 1 kitchen, 1 living"
+        "rooms_summary": "1 bathroom, 1 bedroom, 3 foyer, 1 kitchen, 1 living"
     },
     {
         "layoutId": "layout-6",
         "description": "Compact 18 sqm studio apartment with kitchen, small bathroom accessible from kitchen, big storage and open-plan living and bedroom area. Ideal for young singles.",
         "area": 18.12,
-        "rooms_summary": "1 bath, 1 extra, 1 kitchen, 1 living"
+        "rooms_summary": "1 bathroom, 1 extra, 1 kitchen, 1 living"
     }
 ]

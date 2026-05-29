@@ -1,12 +1,7 @@
 {
-  "success": true,
-  "data": {
-    "gfa_compliant": true,
-    "gfa_surplus_deficit_sqm": 450,
-    "footprint_compliant": true
-  },
-  "metadata": {
-    "tool_name": "area_requirement_checker_04",
-    "placeholder": true
-  }
+  "final_response": "Design complete.\ngeometry_id  : None\nViolations   : none\nScores       : {}",
+  "geometry_id": null,
+  "violations": [],
+  "score_state": null,
+  "modification_iters": 0
 }

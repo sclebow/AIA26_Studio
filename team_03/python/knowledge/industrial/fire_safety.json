@@ -1,0 +1,96 @@
+{
+  "source": "NFPA 10 + NFPA 13 + NFPA 30 + OSHA 29 CFR 1910.157 + IBC 2021 Chapter 9",
+  "topic": "Industrial fire safety — extinguisher placement, sprinkler clearances, hazard separation zones",
+  "facts": [
+    {
+      "rule": "fire_extinguisher_max_travel_distance_class_a",
+      "value_m": 22.860,
+      "context": "NFPA 10 — max 75 ft travel distance to a Class A extinguisher (ordinary combustibles)"
+    },
+    {
+      "rule": "fire_extinguisher_max_travel_distance_class_b",
+      "value_m": 15.240,
+      "context": "NFPA 10 — max 50 ft travel distance to a Class B extinguisher (flammable liquids)"
+    },
+    {
+      "rule": "fire_extinguisher_mounting_height_max",
+      "value_m": 1.524,
+      "context": "OSHA 1910.157(c)(6) — extinguishers over 18 kg mounted no higher than 1.07m; lighter units max 60 in (1.524m)"
+    },
+    {
+      "rule": "fire_extinguisher_clear_access_radius",
+      "value_m": 0.915,
+      "context": "OSHA 1910.157 — 36 in minimum clear access maintained to all fire extinguisher locations"
+    },
+    {
+      "rule": "sprinkler_head_clearance_below",
+      "value_m": 0.457,
+      "context": "NFPA 13 — minimum 18 in clear below sprinkler deflector — storage and equipment must not encroach"
+    },
+    {
+      "rule": "sprinkler_head_clearance_lateral",
+      "value_m": 0.300,
+      "context": "NFPA 13 — minimum 12 in lateral clear zone around each sprinkler head"
+    },
+    {
+      "rule": "sprinkler_max_spacing_standard_hazard",
+      "value_m": 4.600,
+      "context": "NFPA 13 — max 15 ft between sprinkler heads in ordinary hazard industrial occupancy"
+    },
+    {
+      "rule": "sprinkler_max_spacing_high_hazard",
+      "value_m": 3.700,
+      "context": "NFPA 13 — max 12 ft between heads in extra hazard group 2 (flammable liquid areas)"
+    },
+    {
+      "rule": "flammable_storage_separation_from_ignition",
+      "value_m": 7.620,
+      "context": "NFPA 30 — flammable liquid storage must be separated from ignition sources by min 25 ft"
+    },
+    {
+      "rule": "flammable_storage_cabinet_clearance",
+      "value_m": 0.600,
+      "context": "Minimum clear access zone around flammable storage cabinets — front and sides"
+    },
+    {
+      "rule": "hazardous_material_room_separation",
+      "value_m": 3.050,
+      "context": "IBC 414 — hazardous material rooms must have 10 ft separation from exit routes"
+    },
+    {
+      "rule": "welding_combustible_clearance",
+      "value_m": 10.670,
+      "context": "NFPA 51B — 35 ft separation between welding operations and combustible materials"
+    },
+    {
+      "rule": "fire_door_clear_swing_zone",
+      "value_m": 0.915,
+      "context": "Fire doors must have 36 in clear zone on both sides — no storage or equipment in swing path"
+    },
+    {
+      "rule": "fire_hose_cabinet_access_radius",
+      "value_m": 0.915,
+      "context": "Minimum 36 in clear zone in front of fire hose cabinets — same as extinguishers"
+    },
+    {
+      "rule": "emergency_shower_eyewash_clearance",
+      "value_m": 1.220,
+      "context": "ANSI Z358.1 — 48 in clear zone around emergency shower/eyewash stations — must be reachable within 10 seconds"
+    },
+    {
+      "rule": "emergency_shower_max_travel_distance",
+      "value_m": 30.480,
+      "context": "ANSI Z358.1 — emergency shower must be within 100 ft (10 second walk) from hazardous chemical exposure areas"
+    },
+    {
+      "rule": "smoke_detector_spacing_max",
+      "value_m": 9.140,
+      "context": "NFPA 72 — smoke detectors spaced no more than 30 ft apart in industrial ceiling configuration"
+    },
+    {
+      "rule": "electrical_room_fire_separation",
+      "value_m": 1.830,
+      "context": "Electrical rooms and switchgear must maintain 6 ft separation from flammable storage areas"
+    }
+  ]
+}

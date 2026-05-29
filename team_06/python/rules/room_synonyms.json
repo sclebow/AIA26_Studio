@@ -1,0 +1,18 @@
+{
+            "bedroom": "bed",
+            "bedrooms": "bed",
+            "bed": "bed",
+            "sleep": "bed",
+            "bathroom": "bath",
+            "bathrooms": "bath",
+            "bath": "bath",
+            "wc": "bath",
+            "toilet": "bath",
+            "livingroom": "living",
+            "living_room": "living",
+            "living": "living",
+            "kitchen": "kitchen",
+            "foyer": "foyer",
+            "hall": "foyer",
+            "extra": "extra"
+        }

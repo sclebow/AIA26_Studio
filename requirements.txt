@@ -7,3 +7,4 @@ python-dotenv
 grandalf
 sentence-transformers
 torch
+networkx

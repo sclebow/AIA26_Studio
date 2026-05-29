@@ -2,9 +2,8 @@
 *.pyc
 mcp.json
 **/__pycache__/
-
-#Ignore virtual environment
 .venv/
-
-#Ignore vscode settings
+team_06/output/
 .vscode/
+team_03 - backup
+.claude/
