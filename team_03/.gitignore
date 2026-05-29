@@ -1,0 +1,4 @@
+# AGENT_ui frontend build & dependency artifacts
+AGENT_ui/frontend/node_modules/
+AGENT_ui/frontend/dist/
+AGENT_ui/frontend/test-results/
