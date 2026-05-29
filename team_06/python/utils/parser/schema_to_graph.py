@@ -33,6 +33,23 @@ def classify_room_size(program: str, area: float) -> str:
     else:
         return 'Large'
 
+def calculate_centrality_measures(graph: nx.Graph) -> dict:
+    """
+    Calculate various centrality measures for all nodes in the graph.
+    
+    Returns a dictionary with centrality type as key and dict of {node: value} as value.
+    """
+    # Create subgraph with only access edges
+    access_subgraph = nx.Graph([(u, v) for u, v, d in graph.edges(data=True) 
+                             if 'access' in d.get('edge_types', [])])
+
+    centrality = {
+        'betweenness': nx.betweenness_centrality(access_subgraph), # How often a room lies on shortest paths between other rooms (most important for circulation analysis)
+        'degree': nx.degree_centrality(access_subgraph), # Count of connections
+        'closeness': nx.closeness_centrality(access_subgraph), # Average distance to all other rooms. Best for: Finding "central" rooms
+    }
+    return centrality
+
 def shares_wall(room1, room2):
     """
     Check if two rooms share a wall using Shapely geometry.
@@ -74,7 +91,7 @@ def create_graph_from_layout(layout: dict) -> nx.Graph:
     """
     graph = nx.Graph()
     
-    # Add nodes for each room with program attribute
+    # Add nodes for each room with name, program, area and size attributes
     for room in layout['rooms']:
         room_id = room['id']
         attrs = room.get('attributes', {})
@@ -124,6 +141,11 @@ def create_graph_from_layout(layout: dict) -> nx.Graph:
                     # New edge, create with adjacency type
                     graph.add_edge(room_id_1, room_id_2, edge_types=['adjacency'])
     
+    # Calculate centrality measures on complete access graph and add as node attribute (need to do this after all edges are added)
+    centrality_measures = calculate_centrality_measures(graph)
+    for node in graph.nodes():
+        graph.nodes[node]['betweenness_centrality'] = centrality_measures['betweenness'].get(node, 0)
+
     return graph
 
 def generate_and_save_graphs(layouts_path: str, output_path: str = None) -> None:
