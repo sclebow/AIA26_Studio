@@ -745,7 +745,8 @@ def boundary_analyzer(input_boundary: List[List[float]] = None,
                 'composite': best_match['composite_score'],
                 'area': best_match['area_score'],
                 'iou': best_match['iou_score'],
-                'topology': best_match['topology_score']
+                'topology': best_match['topology_score'],
+                'turning': best_match.get('turning_score')
             },
             {
                 'id': best_match['boundary_id'],
@@ -777,6 +778,7 @@ def boundary_analyzer(input_boundary: List[List[float]] = None,
                     "iou_score": m['iou_score'],
                     "topology_score": m['topology_score'],
                     "graph_score": m['graph_score'],
+                    "turning_score": m.get('turning_score'),
                     "boundary_graph": m['boundary_graph']
                 }
                 for i, m in enumerate(top_matches)
