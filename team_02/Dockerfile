@@ -9,8 +9,8 @@ RUN npm run build
 
 FROM python:3.11-slim
 WORKDIR /app
-COPY python/requirements-web.txt ./python/requirements-web.txt
-RUN pip install --no-cache-dir -r python/requirements-web.txt
+COPY python/requirements.txt ./python/requirements.txt
+RUN pip install --no-cache-dir -r python/requirements.txt
 COPY python/ /app/python/
 COPY personas/ /app/personas/
 COPY randomized_layouts/ /app/randomized_layouts/
