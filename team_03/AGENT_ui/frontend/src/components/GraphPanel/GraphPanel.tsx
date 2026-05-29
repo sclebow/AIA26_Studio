@@ -54,7 +54,7 @@ function makeStyles(T: GraphTheme) {
       width: '100%',
       height: '100%',
     },
-    // ── Legend panel (left) ────────────────────────────────────────
+    // ── Legend panel (left) — used in fullscreen overlay mode ──────
     legend: {
       ...glassPanel,
       position: 'absolute' as const,
@@ -141,7 +141,7 @@ function makeStyles(T: GraphTheme) {
       padding: 0,
       outline: 'none',
     } as React.CSSProperties,
-    // ── Detail panel (right) ──────────────────────────────────────
+    // ── Detail panel (right) — used in fullscreen overlay mode ─────
     detail: {
       ...glassPanel,
       position: 'absolute' as const,
@@ -291,7 +291,6 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
     return mapGraphData(graphData, isDark);
   }, [graphData, isDark]);
 
-  // Counts for legend
   const nodeCounts = useMemo(() => {
     if (!mapped) return {};
     const counts: Record<string, number> = {};
@@ -306,7 +305,6 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
     return counts;
   }, [mapped]);
 
-  // Edge index for detail panel neighbors
   const edgeIndex = useMemo(() => {
     if (!mapped) return new Map<string, { etype: string; id: string }[]>();
     const idx = new Map<string, { etype: string; id: string }[]>();
@@ -333,12 +331,7 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
     const conns = edgeIndex.get(nodeId) || [];
     const neighbors = conns.slice(0, 20).map(c => {
       const nb = nodesById.get(c.id);
-      return {
-        id: c.id,
-        label: nb?.label || c.id,
-        ntype: nb?.ntype || 'unknown',
-        etype: c.etype,
-      };
+      return { id: c.id, label: nb?.label || c.id, ntype: nb?.ntype || 'unknown', etype: c.etype };
     });
     setDetail({ node, neighbors });
   }, [nodesById, edgeIndex]);
@@ -347,7 +340,6 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
   useEffect(() => {
     if (!containerRef.current || !mapped) return;
 
-    // Destroy previous network
     if (networkRef.current) {
       networkRef.current.destroy();
       networkRef.current = null;
@@ -366,12 +358,10 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
 
     networkRef.current = network;
 
-    // Fit on first draw
     network.once('afterDrawing', () => {
       network.fit({ animation: false });
     });
 
-    // Click node -> select + detail
     network.on('click', (params: any) => {
       if (params.nodes && params.nodes.length > 0) {
         const nid = params.nodes[0] as string;
@@ -383,7 +373,6 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
       }
     });
 
-    // Double-click -> zoom to node
     network.on('doubleClick', (params: any) => {
       if (params.nodes && params.nodes.length > 0) {
         network.focus(params.nodes[0], {
@@ -410,23 +399,16 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
     const node = nodesById.get(selectedId);
     if (!node) return;
 
-    // Select and highlight
     network.selectNodes([selectedId]);
-
-    // Update visual: increase border for selected node
     nodesDS.update([{
       id: selectedId,
       borderWidth: 4,
       shadow: {
-        enabled: true,
-        size: 20,
-        x: 0,
-        y: 0,
+        enabled: true, size: 20, x: 0, y: 0,
         color: `${(NODE_COLORS as Record<string, string>)[node.ntype] || THEME.accent}66`,
       },
     }] as any);
 
-    // Zoom to it
     network.focus(selectedId, {
       scale: Math.max(network.getScale(), 1.2),
       animation: { duration: 400, easingFunction: 'easeInOutQuad' },
@@ -434,7 +416,6 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
 
     openDetail(selectedId);
 
-    // Reset border after a delay when selection changes
     return () => {
       if (nodesDSRef.current) {
         nodesDSRef.current.update([{
@@ -451,10 +432,7 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
     const nodesDS = nodesDSRef.current;
     if (!nodesDS) return;
     const fontColor = THEME.nodeFontColor;
-    nodesDS.update(nodesDS.get().map((n: any) => ({
-      id: n.id,
-      font: { ...n.font, color: fontColor },
-    })));
+    nodesDS.update(nodesDS.get().map((n: any) => ({ id: n.id, font: { ...n.font, color: fontColor } })));
   }, [isDark]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Apply legend filters ────────────────────────────────────────
@@ -466,29 +444,17 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
     const nf = nodeFilters.size > 0;
     const ef = edgeFilters.size > 0;
 
-    // Update node opacity
     nodesDS.update(nodesDS.get().map((n: any) => ({
       id: n.id,
       opacity: (!nf || nodeFilters.has(n.ntype)) ? 1.0 : 0.1,
     })));
 
-    // Update edge opacity
     edgesDS.update(edgesDS.get().map((e: any) => {
       const fn = nodesDS.get(e.from) as any;
       const tn = nodesDS.get(e.to) as any;
-      const nodeOk = !nf || (
-        (fn && nodeFilters.has(fn.ntype)) ||
-        (tn && nodeFilters.has(tn.ntype))
-      );
+      const nodeOk = !nf || ((fn && nodeFilters.has(fn.ntype)) || (tn && nodeFilters.has(tn.ntype)));
       const edgeOk = !ef || edgeFilters.has(e.etype);
-      const match = nodeOk && edgeOk;
-      return {
-        id: e.id,
-        color: {
-          ...e.color,
-          opacity: match ? 0.7 : 0.04,
-        },
-      };
+      return { id: e.id, color: { ...e.color, opacity: (nodeOk && edgeOk) ? 0.7 : 0.04 } };
     }));
   }, [nodeFilters, edgeFilters]);
 
@@ -496,16 +462,8 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
   const handleNodeFilterClick = useCallback((ntype: string, shiftKey: boolean) => {
     setNodeFilters(prev => {
       const next = new Set(prev);
-      if (shiftKey) {
-        next.has(ntype) ? next.delete(ntype) : next.add(ntype);
-      } else {
-        if (next.size === 1 && next.has(ntype)) {
-          next.clear();
-        } else {
-          next.clear();
-          next.add(ntype);
-        }
-      }
+      if (shiftKey) { next.has(ntype) ? next.delete(ntype) : next.add(ntype); }
+      else { if (next.size === 1 && next.has(ntype)) { next.clear(); } else { next.clear(); next.add(ntype); } }
       return next;
     });
   }, []);
@@ -513,36 +471,23 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
   const handleEdgeFilterClick = useCallback((etype: string, shiftKey: boolean) => {
     setEdgeFilters(prev => {
       const next = new Set(prev);
-      if (shiftKey) {
-        next.has(etype) ? next.delete(etype) : next.add(etype);
-      } else {
-        if (next.size === 1 && next.has(etype)) {
-          next.clear();
-        } else {
-          next.clear();
-          next.add(etype);
-        }
-      }
+      if (shiftKey) { next.has(etype) ? next.delete(etype) : next.add(etype); }
+      else { if (next.size === 1 && next.has(etype)) { next.clear(); } else { next.clear(); next.add(etype); } }
       return next;
     });
   }, []);
 
-  // ── Neighbor click in detail panel ──────────────────────────────
   const handleNeighborClick = useCallback((neighborId: string) => {
     const network = networkRef.current;
     if (!network) return;
     network.selectNodes([neighborId]);
-    network.focus(neighborId, {
-      animation: { duration: 400, easingFunction: 'easeInOutQuad' },
-      scale: Math.max(network.getScale(), 1.2),
-    });
+    network.focus(neighborId, { animation: { duration: 400, easingFunction: 'easeInOutQuad' }, scale: Math.max(network.getScale(), 1.2) });
     onSelect(neighborId);
     openDetail(neighborId);
   }, [onSelect, openDetail]);
 
-  // ── Format a metadata value ─────────────────────────────────────
   const fmtVal = (v: unknown): string => {
-    if (v === null || v === undefined) return '\u2014';
+    if (v === null || v === undefined) return '—';
     if (typeof v === 'boolean') return v ? 'Yes' : 'No';
     if (Array.isArray(v)) return '[' + v.map(x => typeof x === 'number' ? x.toFixed(2) : String(x)).join(', ') + ']';
     if (typeof v === 'number') return Number.isInteger(v) ? String(v) : v.toFixed(3);
@@ -565,263 +510,175 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
   ]);
   const SKIP_KEYS = new Set(['id', 'ntype']);
 
-  return (
-    <div style={styles.container}>
-      {/* Vis.js canvas */}
-      <div ref={containerRef} style={styles.canvas} />
+  // ── Shared JSX pieces ────────────────────────────────────────────
 
-      {/* ── Center / fit-all button (top-right) ─────────────────── */}
-      <button
-        style={styles.fitBtn}
-        title="Center graph"
-        aria-label="Center graph"
-        onClick={() => networkRef.current?.fit({ animation: { duration: 400, easingFunction: 'easeInOutQuad' } })}
-        onMouseEnter={(e) => {
-          const el = e.currentTarget;
-          el.style.color = THEME.accent;
-          el.style.borderColor = THEME.accent;
-          el.style.background = `${THEME.accent}18`;
-        }}
-        onMouseLeave={(e) => {
-          const el = e.currentTarget;
-          el.style.color = THEME.muted;
-          el.style.borderColor = THEME.panelBorder;
-          el.style.background = THEME.panelBg;
-        }}
-      >
-        {/* Crosshair / target SVG */}
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="22" y1="12" x2="18" y2="12" />
-          <line x1="6" y1="12" x2="2" y2="12" />
-          <line x1="12" y1="6" x2="12" y2="2" />
-          <line x1="12" y1="22" x2="12" y2="18" />
-        </svg>
-      </button>
+  const fitButton = (
+    <button
+      style={styles.fitBtn}
+      title="Center graph"
+      aria-label="Center graph"
+      onClick={() => networkRef.current?.fit({ animation: { duration: 400, easingFunction: 'easeInOutQuad' } })}
+      onMouseEnter={(e) => {
+        const el = e.currentTarget;
+        el.style.color = THEME.accent;
+        el.style.borderColor = THEME.accent;
+        el.style.background = `${THEME.accent}18`;
+      }}
+      onMouseLeave={(e) => {
+        const el = e.currentTarget;
+        el.style.color = THEME.muted;
+        el.style.borderColor = THEME.panelBorder;
+        el.style.background = THEME.panelBg;
+      }}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="22" y1="12" x2="18" y2="12" />
+        <line x1="6" y1="12" x2="2" y2="12" />
+        <line x1="12" y1="6" x2="12" y2="2" />
+        <line x1="12" y1="22" x2="12" y2="18" />
+      </svg>
+    </button>
+  );
 
-      {/* ── Legend panel (left) ─────────────────────────────────── */}
-      <div style={styles.legend}>
-        <div style={styles.legSection}>Nodes</div>
-        {Object.entries(NODE_COLORS).map(([ntype, color]) => {
-          const count = nodeCounts[ntype];
-          if (!count) return null;
-          const isActive = nodeFilters.has(ntype);
-          const isDimmed = nodeFilters.size > 0 && !isActive;
-          return (
-            <div
-              key={ntype}
-              style={{
-                ...styles.legItem,
-                background: isActive ? `${THEME.accent}15` : 'transparent',
-                opacity: isDimmed ? 0.25 : 1,
-              }}
-              onClick={(e) => handleNodeFilterClick(ntype, e.shiftKey)}
-            >
-              <span style={styles.legDot(color)} />
-              <span style={styles.legLabel}>{ntype}</span>
-              <span style={styles.legCount}>{count}</span>
-            </div>
-          );
-        })}
-
-        <div style={{ ...styles.legSection, ...styles.legSep }}>Edges</div>
-        {Object.entries(EDGE_COLORS).map(([etype, color]) => {
-          const count = edgeCounts[etype];
-          if (!count) return null;
-          const isActive = edgeFilters.has(etype);
-          const isDimmed = edgeFilters.size > 0 && !isActive;
-          return (
-            <div
-              key={etype}
-              style={{
-                ...styles.legItem,
-                background: isActive ? `${THEME.accent}15` : 'transparent',
-                opacity: isDimmed ? 0.25 : 1,
-              }}
-              title={EDGE_DESCRIPTIONS[etype] || ''}
-              onClick={(e) => handleEdgeFilterClick(etype, e.shiftKey)}
-            >
-              <span style={styles.legLine(color)} />
-              <span style={styles.legLabel}>{etype}</span>
-              <span style={styles.legCount}>{count}</span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ── Detail panel (right) ───────────────────────────────── */}
-      {detail && (
-        <div style={styles.detail}>
-          {/* Header */}
-          <div style={styles.dpHeader}>
-            <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
-              <span style={styles.dpChip(
-                (NODE_COLORS as Record<string, string>)[detail.node.ntype] || '#888'
-              )}>
-                {detail.node.ntype}
-              </span>
-              <span style={styles.dpName}>{detail.node.label}</span>
-            </div>
-            <button
-              style={styles.dpClose}
-              onClick={() => {
-                setDetail(null);
-                onSelect(null);
-                networkRef.current?.unselectAll();
-              }}
-              onMouseEnter={(e) => {
-                (e.target as HTMLElement).style.color = THEME.text;
-                (e.target as HTMLElement).style.background = THEME.panelBorder;
-              }}
-              onMouseLeave={(e) => {
-                (e.target as HTMLElement).style.color = THEME.muted;
-                (e.target as HTMLElement).style.background = 'none';
-              }}
-            >
-              {'\u2715'}
-            </button>
+  const legendInner = (
+    <>
+      <div style={styles.legSection}>Nodes</div>
+      {Object.entries(NODE_COLORS).map(([ntype, color]) => {
+        const count = nodeCounts[ntype];
+        if (!count) return null;
+        const isActive = nodeFilters.has(ntype);
+        const isDimmed = nodeFilters.size > 0 && !isActive;
+        return (
+          <div key={ntype} style={{ ...styles.legItem, background: isActive ? `${THEME.accent}15` : 'transparent', opacity: isDimmed ? 0.25 : 1 }} onClick={(e) => handleNodeFilterClick(ntype, e.shiftKey)}>
+            <span style={styles.legDot(color)} />
+            <span style={styles.legLabel}>{ntype}</span>
+            <span style={styles.legCount}>{count}</span>
           </div>
+        );
+      })}
+      <div style={{ ...styles.legSection, ...styles.legSep }}>Edges</div>
+      {Object.entries(EDGE_COLORS).map(([etype, color]) => {
+        const count = edgeCounts[etype];
+        if (!count) return null;
+        const isActive = edgeFilters.has(etype);
+        const isDimmed = edgeFilters.size > 0 && !isActive;
+        return (
+          <div key={etype} style={{ ...styles.legItem, background: isActive ? `${THEME.accent}15` : 'transparent', opacity: isDimmed ? 0.25 : 1 }} title={EDGE_DESCRIPTIONS[etype] || ''} onClick={(e) => handleEdgeFilterClick(etype, e.shiftKey)}>
+            <span style={styles.legLine(color)} />
+            <span style={styles.legLabel}>{etype}</span>
+            <span style={styles.legCount}>{count}</span>
+          </div>
+        );
+      })}
+    </>
+  );
 
-          {/* Scrollable body */}
-          <div style={styles.dpScroll}>
-            {/* Description */}
-            {NODE_DESCRIPTIONS[detail.node.ntype] && (
-              <div style={styles.dpDesc}>
-                {NODE_DESCRIPTIONS[detail.node.ntype]}
+  const detailInner = detail ? (
+    <>
+      <div style={styles.dpHeader}>
+        <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+          <span style={styles.dpChip((NODE_COLORS as Record<string, string>)[detail.node.ntype] || '#888')}>{detail.node.ntype}</span>
+          <span style={styles.dpName}>{detail.node.label}</span>
+        </div>
+        <button
+          style={styles.dpClose}
+          onClick={() => { setDetail(null); onSelect(null); networkRef.current?.unselectAll(); }}
+          onMouseEnter={(e) => { (e.target as HTMLElement).style.color = THEME.text; (e.target as HTMLElement).style.background = THEME.panelBorder; }}
+          onMouseLeave={(e) => { (e.target as HTMLElement).style.color = THEME.muted; (e.target as HTMLElement).style.background = 'none'; }}
+        >{'✕'}</button>
+      </div>
+      <div style={styles.dpScroll}>
+        {NODE_DESCRIPTIONS[detail.node.ntype] && <div style={styles.dpDesc}>{NODE_DESCRIPTIONS[detail.node.ntype]}</div>}
+        {(() => {
+          const meta = detail.node._meta;
+          const propEntries = Object.entries(meta).filter(([k]) => !ANALYSIS_KEYS.has(k) && !SKIP_KEYS.has(k));
+          if (propEntries.length === 0) return null;
+          return (<><div style={{ ...styles.dpSection, marginTop: 0 }}>Properties</div>{propEntries.map(([k, v]) => (<div key={k} style={styles.dpRow}><span style={styles.dpLbl}>{k.replace(/_/g, ' ')}</span><span style={styles.dpVal}>{fmtVal(v)}</span></div>))}</>);
+        })()}
+        {(() => {
+          const meta = detail.node._meta as Record<string, any>;
+          const hasAnalysis = meta.clearance_ok !== undefined || meta.reachable !== undefined || meta.facing_ok !== undefined;
+          if (!hasAnalysis) return null;
+          return (
+            <>
+              <div style={styles.dpDivider} />
+              <div style={styles.dpSection}>Analysis</div>
+              {meta.clearance_ok !== undefined && (<>
+                <div style={styles.dpRow}><span style={styles.dpLbl}>clearance</span><span style={{ ...styles.dpVal, color: meta.clearance_ok ? THEME.ok : THEME.fail, fontWeight: 500 }}>{meta.clearance_ok ? 'OK' : 'FAIL'}</span></div>
+                {!meta.clearance_ok && meta.min_clearance_m !== undefined && (<div style={styles.dpRow}><span style={styles.dpLbl}>has / needs</span><span style={styles.dpVal}>{fmtVal(meta.min_clearance_m)}m / {fmtVal(meta.required_clearance_m)}m</span></div>)}
+                {!meta.clearance_ok && meta.move_direction && (<div style={styles.dpRow}><span style={styles.dpLbl}>suggested fix</span><span style={{ ...styles.dpVal, color: THEME.accent, fontWeight: 500 }}>move {fmtVal(meta.move_direction)} {'·'} {fmtVal(meta.move_distance_m)}m</span></div>)}
+              </>)}
+              {meta.reachable !== undefined && (<div style={styles.dpRow}><span style={styles.dpLbl}>reachable</span><span style={{ ...styles.dpVal, color: meta.reachable ? THEME.ok : THEME.fail, fontWeight: 500 }}>{meta.reachable ? 'YES' : 'NO'}</span></div>)}
+              {meta.facing_ok !== undefined && (<div style={styles.dpRow}><span style={styles.dpLbl}>facing</span><span style={{ ...styles.dpVal, color: meta.facing_ok ? THEME.ok : THEME.warn, fontWeight: 500 }}>{meta.facing_ok ? 'OK' : `off ${fmtVal(meta.angle_diff)}°`}</span></div>)}
+            </>
+          );
+        })()}
+        {detail.neighbors.length > 0 && (
+          <>
+            <div style={styles.dpDivider} />
+            <div style={styles.dpSection}>Connections ({(edgeIndex.get(detail.node.id) || []).length})</div>
+            {detail.neighbors.map((nb, i) => {
+              const nbColor = (NODE_COLORS as Record<string, string>)[nb.ntype] || '#888';
+              const eColor = (EDGE_COLORS as Record<string, string>)[nb.etype] || '#888';
+              return (
+                <div key={`${nb.id}-${nb.etype}-${i}`}
+                  style={{ ...styles.dpNeighbor, ...(i === detail.neighbors.length - 1 ? { borderBottom: 'none' } : {}) }}
+                  onClick={() => handleNeighborClick(nb.id)}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = THEME.panelBorder; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                >
+                  <span style={styles.dpNdot(nbColor)} />
+                  <span style={styles.dpNname}>{nb.label}</span>
+                  <span style={styles.dpEtype(eColor)}>{nb.etype}</span>
+                </div>
+              );
+            })}
+            {(edgeIndex.get(detail.node.id) || []).length > 20 && (
+              <div style={{ fontSize: 9, color: THEME.muted, marginTop: 4 }}>
+                +{(edgeIndex.get(detail.node.id) || []).length - 20} more
               </div>
             )}
+          </>
+        )}
+      </div>
+    </>
+  ) : null;
 
-            {/* Properties */}
-            {(() => {
-              const meta = detail.node._meta;
-              const propEntries = Object.entries(meta).filter(
-                ([k]) => !ANALYSIS_KEYS.has(k) && !SKIP_KEYS.has(k)
-              );
-              if (propEntries.length === 0) return null;
-              return (
-                <>
-                  <div style={{ ...styles.dpSection, marginTop: 0 }}>Properties</div>
-                  {propEntries.map(([k, v]) => (
-                    <div key={k} style={styles.dpRow}>
-                      <span style={styles.dpLbl}>{k.replace(/_/g, ' ')}</span>
-                      <span style={styles.dpVal}>{fmtVal(v)}</span>
-                    </div>
-                  ))}
-                </>
-              );
-            })()}
-
-            {/* Analysis */}
-            {(() => {
-              const meta = detail.node._meta as Record<string, any>;
-              const hasAnalysis = ANALYSIS_KEYS.has('clearance_ok') && meta.clearance_ok !== undefined
-                || meta.reachable !== undefined
-                || meta.facing_ok !== undefined;
-              if (!hasAnalysis) return null;
-              return (
-                <>
-                  <div style={styles.dpDivider} />
-                  <div style={styles.dpSection}>Analysis</div>
-                  {meta.clearance_ok !== undefined && (
-                    <>
-                      <div style={styles.dpRow}>
-                        <span style={styles.dpLbl}>clearance</span>
-                        <span style={{
-                          ...styles.dpVal,
-                          color: meta.clearance_ok ? THEME.ok : THEME.fail,
-                          fontWeight: 500,
-                        }}>
-                          {meta.clearance_ok ? 'OK' : 'FAIL'}
-                        </span>
-                      </div>
-                      {!meta.clearance_ok && meta.min_clearance_m !== undefined && (
-                        <div style={styles.dpRow}>
-                          <span style={styles.dpLbl}>has / needs</span>
-                          <span style={styles.dpVal}>
-                            {fmtVal(meta.min_clearance_m)}m / {fmtVal(meta.required_clearance_m)}m
-                          </span>
-                        </div>
-                      )}
-                      {!meta.clearance_ok && meta.move_direction && (
-                        <div style={styles.dpRow}>
-                          <span style={styles.dpLbl}>suggested fix</span>
-                          <span style={{ ...styles.dpVal, color: THEME.accent, fontWeight: 500 }}>
-                            move {fmtVal(meta.move_direction)} {'\u00b7'} {fmtVal(meta.move_distance_m)}m
-                          </span>
-                        </div>
-                      )}
-                    </>
-                  )}
-                  {meta.reachable !== undefined && (
-                    <div style={styles.dpRow}>
-                      <span style={styles.dpLbl}>reachable</span>
-                      <span style={{
-                        ...styles.dpVal,
-                        color: meta.reachable ? THEME.ok : THEME.fail,
-                        fontWeight: 500,
-                      }}>
-                        {meta.reachable ? 'YES' : 'NO'}
-                      </span>
-                    </div>
-                  )}
-                  {meta.facing_ok !== undefined && (
-                    <div style={styles.dpRow}>
-                      <span style={styles.dpLbl}>facing</span>
-                      <span style={{
-                        ...styles.dpVal,
-                        color: meta.facing_ok ? THEME.ok : THEME.warn,
-                        fontWeight: 500,
-                      }}>
-                        {meta.facing_ok ? 'OK' : `off ${fmtVal(meta.angle_diff)}\u00b0`}
-                      </span>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-
-            {/* Connections */}
-            {detail.neighbors.length > 0 && (
-              <>
-                <div style={styles.dpDivider} />
-                <div style={styles.dpSection}>
-                  Connections ({(edgeIndex.get(detail.node.id) || []).length})
-                </div>
-                {detail.neighbors.map((nb, i) => {
-                  const nbColor = (NODE_COLORS as Record<string, string>)[nb.ntype] || '#888';
-                  const eColor = (EDGE_COLORS as Record<string, string>)[nb.etype] || '#888';
-                  return (
-                    <div
-                      key={`${nb.id}-${nb.etype}-${i}`}
-                      style={{
-                        ...styles.dpNeighbor,
-                        ...(i === detail.neighbors.length - 1 ? { borderBottom: 'none' } : {}),
-                      }}
-                      onClick={() => handleNeighborClick(nb.id)}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLElement).style.background = THEME.panelBorder;
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLElement).style.background = 'transparent';
-                      }}
-                    >
-                      <span style={styles.dpNdot(nbColor)} />
-                      <span style={styles.dpNname}>{nb.label}</span>
-                      <span style={styles.dpEtype(eColor)}>{nb.etype}</span>
-                    </div>
-                  );
-                })}
-                {(edgeIndex.get(detail.node.id) || []).length > 20 && (
-                  <div style={{ fontSize: 9, color: THEME.muted, marginTop: 4 }}>
-                    +{(edgeIndex.get(detail.node.id) || []).length - 20} more
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+  // ── Non-fullscreen: flex-column, info panels below canvas ────────
+  if (!fullscreen) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', background: THEME.canvasBg, overflow: 'hidden' }}>
+        {/* Canvas fills available height */}
+        <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
+          <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+          {fitButton}
         </div>
-      )}
+        {/* Legend or detail — below the canvas, never overlapping */}
+        <div style={{
+          flexShrink: 0,
+          borderTop: `1px solid ${THEME.panelBorder}`,
+          background: THEME.panelBg,
+          overflowY: 'auto',
+          maxHeight: '45%',
+        }}>
+          {detail
+            ? <div style={{ overflow: 'hidden' }}>{detailInner}</div>
+            : <div style={{ padding: '4px 0' }}>{legendInner}</div>
+          }
+        </div>
+      </div>
+    );
+  }
+
+  // ── Fullscreen: original overlay layout (legend left, detail right) ──
+  return (
+    <div style={styles.container}>
+      <div ref={containerRef} style={styles.canvas} />
+      {fitButton}
+      <div style={styles.legend}>{legendInner}</div>
+      {detail && <div style={styles.detail}>{detailInner}</div>}
     </div>
   );
 };

@@ -97,7 +97,6 @@ const ProcessPanel: React.FC<ProcessPanelProps> = ({ nodeStatuses }) => {
     <div style={{
       display: 'flex',
       flexDirection: 'column',
-      height: '100%',
       overflowY: 'auto',
       overflowX: 'hidden',
       scrollbarWidth: 'thin',

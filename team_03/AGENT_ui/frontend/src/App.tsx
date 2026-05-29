@@ -359,8 +359,8 @@ export default function App() {
           display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0,
         }}>
 
-          {/* Top ~40%: swapped panel (GraphPanel in geometry mode, ThreeViewport in graph mode) */}
-          <div style={{ flex: 8, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderBottom: panelBorder }}>
+          {/* Top ~30%: swapped panel (GraphPanel in geometry mode, ThreeViewport in graph mode) */}
+          <div style={{ flex: 6, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderBottom: panelBorder }}>
             <div style={sectionHeaderStyle}>
               <span>{displayMode === 'geometry' ? 'Spatial Graph' : '3D View'}</span>
             </div>
@@ -375,16 +375,16 @@ export default function App() {
             </div>
           </div>
 
-          {/* Middle ~35%: Dashboard */}
-          <div style={{ flex: 7, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderBottom: panelBorder }}>
+          {/* Middle ~25%: Dashboard */}
+          <div style={{ flex: 5, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderBottom: panelBorder }}>
             <div style={sectionHeaderStyle}><span>Analysis</span></div>
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
               <Dashboard scores={layoutState.scores} />
             </div>
           </div>
 
-          {/* Bottom ~25%: ProcessPanel */}
-          <div style={{ flex: 5, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* Bottom ~45%: ProcessPanel — pipeline has 9 steps, needs more room */}
+          <div style={{ flex: 9, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={sectionHeaderStyle}><span>Pipeline</span></div>
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
               <ProcessPanel nodeStatuses={agentState.nodeStatuses} />
