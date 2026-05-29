@@ -702,9 +702,24 @@ def build_graph(ctx: Any) -> Any:
             last_msg = last.content if hasattr(last, "content") else last.get("content", "")
         else:
             last_msg = ""
-        keywords = ["populate", "fill", "set up", "setup", "generate layout"]
-        if any(k in last_msg.lower() for k in keywords):
+        m = last_msg.lower()
+        # Unambiguous "fill the whole space" intent → populate.
+        if any(k in m for k in ("populate", "fill", "generate layout", "generate a layout")):
             return "populate_agent"
+        # "set up" / "setup" is ambiguous: "set up a production line / the room"
+        # means populate, but "set up a QC zone / a station" is a TARGETED
+        # placement and must go to reason, not the zone-by-zone populate flow.
+        if "set up" in m or "setup" in m:
+            whole_space = any(w in m for w in (
+                "production line", "assembly line", " line", "whole", "entire",
+                "from scratch", "empty", "layout", "the room", "this room",
+            ))
+            targeted = any(t in m for t in (
+                "zone", "station", "corner", "a desk", "a rack", "a conveyor",
+                "a machine", "a table", "a cnc", "a workbench",
+            ))
+            if whole_space and not targeted:
+                return "populate_agent"
         # The initial user prompt enters here — route through memory so the
         # agent loads/updates its per-layout memory before reasoning.
         return "memory"
