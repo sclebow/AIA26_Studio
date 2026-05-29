@@ -113,6 +113,13 @@ def build_reason_node(llm: Any):
         # Build an update dict — never mutate state directly.
         updates: dict = {}
 
+        # Capture the LLM's human-readable narrative (final_response for "final"
+        # turns, the surrounding prose for "tool" turns) so the checkpoint can
+        # show what the agent said even on a clean placement with no final.
+        narrative = (result.get("_narrative") or "").strip()
+        if narrative:
+            updates["agent_message"] = narrative
+
         if result["action"] == "query":
             updates["_query_mode"] = True
             updates["object_to_place"] = {}

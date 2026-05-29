@@ -156,6 +156,11 @@ class AgentState(TypedDict):
     memory_text:   Annotated[str | None,  _keep_last]
     memory_loaded: Annotated[bool | None, _keep_last]
 
+    # Latest human-readable narrative from the reason LLM (final_response or the
+    # prose around a tool decision). Shown by the checkpoint as the "Agent"
+    # chat message so the user need not scroll to the raw response preview.
+    agent_message: Annotated[str | None, _keep_last]
+
 
 # ---------------------------------------------------------------------------
 # Routing functions — pure state reads, no side effects.
@@ -886,6 +891,7 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
         "current_zone":          None,
         "memory_text":           None,   # loaded from disk by the memory node
         "memory_loaded":         None,
+        "agent_message":         None,
     }
 
 

@@ -216,6 +216,39 @@ def _parse_llm_json(content: str) -> dict[str, Any]:
     )
 
 
+def _strip_json_blocks(content: str) -> str:
+    """Remove the decision JSON from a raw LLM response, leaving the prose.
+
+    The LLM often writes a human-readable explanation around the JSON decision
+    block (e.g. "Reasoning: ... {json} ..."). This returns just that prose so the
+    UI can show what the agent "said" even on tool/placement turns where
+    final_response is empty.
+    """
+    text = (content or "").strip()
+    # Fenced ```json {...} ``` blocks
+    text = re.sub(r'```(?:json)?\s*\{.*?\}\s*```', '', text, flags=re.DOTALL)
+    # Claude <function_calls> XML
+    text = re.sub(r'<function_calls>.*?</function_calls>', '', text, flags=re.DOTALL)
+    # A leftover bare decision object, if it still looks like the decision schema
+    m = re.search(r'\{.*\}', text, re.DOTALL)
+    if m:
+        chunk = m.group(0)
+        if any(k in chunk for k in ('"action"', '"tool_calls"', '"final_response"')):
+            text = text[:m.start()] + text[m.end():]
+    # Tidy leftover fences and whitespace
+    text = text.replace("```json", "").replace("```", "").strip()
+    return text
+
+
+def _extract_narrative(content: str, decision: dict[str, Any]) -> str:
+    """Best human-readable message for the UI: final_response, else the prose."""
+    if decision.get("action") == "final":
+        fr = (decision.get("final_response") or "").strip()
+        if fr:
+            return fr
+    return _strip_json_blocks(content)
+
+
 def _extract_tool_name(t: dict) -> str:
     """Extract tool name from a tool call dict, handling LLM format variations."""
     return t.get("name") or t.get("tool_name") or t.get("function", "")
@@ -311,7 +344,9 @@ def _call_anthropic(
     print("\n[anthropic] Raw response preview:")
     print(content[:400])
 
-    return _normalize_llm_decision(_parse_llm_json(content))
+    decision = _normalize_llm_decision(_parse_llm_json(content))
+    decision["_narrative"] = _extract_narrative(content, decision)
+    return decision
 
 
 # ---------------------------------------------------------------------------
@@ -341,7 +376,9 @@ def call_llm(
         raise RuntimeError("LLM response content must be a string")
 
     try:
-        return _normalize_llm_decision(_parse_llm_json(content))
+        decision = _normalize_llm_decision(_parse_llm_json(content))
+        decision["_narrative"] = _extract_narrative(content, decision)
+        return decision
     except Exception:
         print("\n[llm] Raw LLM response before crash:")
         print(content)

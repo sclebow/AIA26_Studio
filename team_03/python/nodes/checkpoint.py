@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import textwrap
 from typing import TYPE_CHECKING, Any
 from _runtime.session import save_session
 from nodes.memory import (
@@ -391,6 +392,23 @@ def build_user_checkpoint_node(mcp_client):
             print(f"\n{BOLD}Memory — active user rules (always enforced):{RESET}")
             for _i, _rule in enumerate(_active_rules, 1):
                 print(f"  {CYAN}{_i}.{RESET} {_rule}")
+
+        # ── Agent message (chat-style) ──────────────────────────────────
+        # Echo the LLM's own narrative right above the input so the user reads
+        # what the agent said/decided without scrolling up to the truncated
+        # "[anthropic] Raw response preview" from the start of the turn.
+        agent_msg = (state.get("agent_message")
+                     or state.get("final_response") or "").strip()
+        if agent_msg:
+            print(f"\n{BOLD}{CYAN}{'─' * 60}{RESET}")
+            print(f"{BOLD}{CYAN}Agent:{RESET}")
+            for _para in agent_msg.split("\n"):
+                if not _para.strip():
+                    print()
+                    continue
+                for _line in textwrap.wrap(_para, width=74):
+                    print(f"  {_line}")
+            print(f"{BOLD}{CYAN}{'─' * 60}{RESET}")
 
         populate_done = state.get("populate_done")
         if populate_done and zone_queue:
