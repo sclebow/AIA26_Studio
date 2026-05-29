@@ -1,77 +1,93 @@
 {
   "layoutId": "Layout-202",
-  "name": "Cozy 1-Bedroom Home",
+  "name": "Studio Loft — Acoustic & Olfactory Conflicts",
+  "description": "A compact loft where the kitchen sits between the living area and bedroom, creating acoustic conflict in both. All mechanical ventilation, hard surfaces, zero plants. Perfect demo for: detect, full analysis, add_furniture (plants), biophilic audit, change_material (floor).",
   "outline": [
     [
-      0.0,
-      0.0
+      0,
+      0
     ],
     [
-      10.0,
-      0.0
+      10,
+      0
     ],
     [
-      10.0,
-      7.0
+      10,
+      7
     ],
     [
-      0.0,
-      7.0
+      0,
+      7
     ],
     [
-      0.0,
-      0.0
+      0,
+      0
     ]
   ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Open Plan Living-Dining",
+      "name": "Living Area",
       "geometry": [
         [
-          0.0,
-          0.0
+          0,
+          0
         ],
         [
-          7.0,
-          0.0
+          6,
+          0
         ],
         [
-          7.0,
-          4.5
+          6,
+          4
         ],
         [
-          0.0,
-          4.5
+          0,
+          4
         ],
         [
-          0.0,
-          0.0
+          0,
+          0
         ]
       ],
       "attributes": {
-        "area": 31.5,
+        "area": 24.0,
         "roomType": "living",
-        "height": 2.5,
-        "orientation": "W",
-        "glazingRatio": 0.15,
-        "ventilationType": "natural",
+        "height": 3.2,
+        "orientation": "S",
+        "glazingRatio": 0.3,
+        "ventilationType": "mechanical",
+        "floorMaterial": "concrete",
         "analysis": {
-          "_source": "Comfort Copilot",
-          "persona": "Young Active",
-          "depth": "full",
-          "timestamp": "2026-05-10T15:24:41",
-          "overallScore": 0.69,
+          "_source": "Sensi",
+          "persona": "Neutral",
+          "depth": "analyze",
+          "timestamp": "2026-05-29T14:58:04",
+          "overallScore": 0.56,
           "comfortScores": {
-            "thermal": 0.58,
-            "visual": 0.8,
-            "acoustic": 0.5,
-            "spatial": 1.0,
-            "olfactory": 0.68,
-            "tactile": 0.6
+            "thermal": 0.47,
+            "visual": 0.7,
+            "acoustic": 0.31,
+            "spatial": 0.85,
+            "olfactory": 0.59,
+            "tactile": 0.42
           },
-          "conflicts": [],
-          "suggestions": []
+          "conflicts": [
+            "acoustic score 0.31 below threshold 0.45",
+            "tactile score 0.42 below threshold 0.45"
+          ],
+          "suggestions": [
+            {
+              "sense": "acoustic",
+              "priority": 1,
+              "suggestion": "Add rugs and curtains to absorb sound"
+            },
+            {
+              "sense": "tactile",
+              "priority": 2,
+              "suggestion": "Add natural material surfaces (wood, cork)"
+            }
+          ]
         }
       }
     },
@@ -80,49 +96,76 @@
       "name": "Kitchen",
       "geometry": [
         [
-          7.0,
-          0.0
+          6,
+          0
         ],
         [
-          10.0,
-          0.0
+          10,
+          0
         ],
         [
-          10.0,
-          4.5
+          10,
+          4
         ],
         [
-          7.0,
-          4.5
+          6,
+          4
         ],
         [
-          7.0,
-          0.0
+          6,
+          0
         ]
       ],
       "attributes": {
-        "area": 10.5,
+        "area": 16.0,
         "roomType": "kitchen",
-        "height": 2.5,
-        "orientation": "E",
-        "glazingRatio": 0.1,
-        "ventilationType": "natural",
+        "height": 3.2,
+        "orientation": "S",
+        "glazingRatio": 0.12,
+        "ventilationType": "mechanical",
+        "floorMaterial": "ceramic",
         "analysis": {
-          "_source": "Comfort Copilot",
-          "persona": "Young Active",
-          "depth": "full",
-          "timestamp": "2026-05-10T15:24:41",
-          "overallScore": 0.55,
+          "_source": "Sensi",
+          "persona": "Neutral",
+          "depth": "analyze",
+          "timestamp": "2026-05-29T14:58:04",
+          "overallScore": 0.44,
           "comfortScores": {
-            "thermal": 0.4,
-            "visual": 0.7,
-            "acoustic": 0.41,
-            "spatial": 0.89,
-            "olfactory": 0.36,
-            "tactile": 0.57
+            "thermal": 0.3,
+            "visual": 0.56,
+            "acoustic": 0.23,
+            "spatial": 0.9,
+            "olfactory": 0.27,
+            "tactile": 0.36
           },
-          "conflicts": [],
-          "suggestions": []
+          "conflicts": [
+            "thermal score 0.30 below threshold 0.45",
+            "acoustic score 0.23 below threshold 0.45",
+            "olfactory score 0.27 below threshold 0.45",
+            "tactile score 0.36 below threshold 0.45"
+          ],
+          "suggestions": [
+            {
+              "sense": "acoustic",
+              "priority": 1,
+              "suggestion": "Add rugs and curtains to absorb sound"
+            },
+            {
+              "sense": "thermal",
+              "priority": 2,
+              "suggestion": "Upgrade to double or triple glazing to reduce thermal loss"
+            },
+            {
+              "sense": "olfactory",
+              "priority": 3,
+              "suggestion": "Upgrade to mixed or mechanical ventilation for active air exchange"
+            },
+            {
+              "sense": "tactile",
+              "priority": 4,
+              "suggestion": "Add natural material surfaces (wood, cork)"
+            }
+          ]
         }
       }
     },
@@ -131,151 +174,214 @@
       "name": "Bedroom",
       "geometry": [
         [
-          0.0,
-          4.5
+          0,
+          4
         ],
         [
-          5.0,
-          4.5
+          7,
+          4
         ],
         [
-          5.0,
-          7.0
+          7,
+          7
         ],
         [
-          0.0,
-          7.0
+          0,
+          7
         ],
         [
-          0.0,
-          4.5
+          0,
+          4
         ]
       ],
       "attributes": {
-        "area": 12.5,
+        "area": 21.0,
         "roomType": "bedroom",
-        "height": 2.5,
-        "orientation": "W",
-        "glazingRatio": 0.18,
-        "ventilationType": "natural",
+        "height": 3.2,
+        "orientation": "N",
+        "glazingRatio": 0.14,
+        "ventilationType": "mechanical",
+        "floorMaterial": "concrete",
         "analysis": {
-          "_source": "Comfort Copilot",
-          "persona": "Young Active",
-          "depth": "full",
-          "timestamp": "2026-05-10T15:24:41",
-          "overallScore": 0.64,
+          "_source": "Sensi",
+          "persona": "Neutral",
+          "depth": "analyze",
+          "timestamp": "2026-05-29T14:58:04",
+          "overallScore": 0.54,
           "comfortScores": {
-            "thermal": 0.62,
-            "visual": 0.65,
-            "acoustic": 0.5,
-            "spatial": 0.7,
-            "olfactory": 0.77,
-            "tactile": 0.62
+            "thermal": 0.4,
+            "visual": 0.52,
+            "acoustic": 0.31,
+            "spatial": 0.9,
+            "olfactory": 0.68,
+            "tactile": 0.43
           },
-          "conflicts": [],
-          "suggestions": []
+          "conflicts": [
+            "thermal score 0.40 below threshold 0.45",
+            "acoustic score 0.31 below threshold 0.45",
+            "tactile score 0.43 below threshold 0.45"
+          ],
+          "suggestions": [
+            {
+              "sense": "acoustic",
+              "priority": 1,
+              "suggestion": "Add rugs and curtains to absorb sound"
+            },
+            {
+              "sense": "thermal",
+              "priority": 2,
+              "suggestion": "Upgrade to double or triple glazing to reduce thermal loss"
+            },
+            {
+              "sense": "tactile",
+              "priority": 3,
+              "suggestion": "Add natural material surfaces (wood, cork)"
+            }
+          ]
         }
       }
     },
     {
       "id": "room-4",
-      "name": "Bathroom",
+      "name": "Study",
       "geometry": [
         [
-          5.0,
-          4.5
+          7,
+          4
         ],
         [
-          7.0,
-          4.5
+          10,
+          4
         ],
         [
-          7.0,
-          6.0
+          10,
+          6
         ],
         [
-          5.0,
-          6.0
+          7,
+          6
         ],
         [
-          5.0,
-          4.5
+          7,
+          4
         ]
       ],
       "attributes": {
-        "area": 3.0,
-        "roomType": "bathroom",
-        "height": 2.5,
-        "orientation": "N",
-        "glazingRatio": 0.0,
+        "area": 6.0,
+        "roomType": "study",
+        "height": 3.2,
+        "orientation": "E",
+        "glazingRatio": 0.08,
         "ventilationType": "mechanical",
+        "floorMaterial": "concrete",
         "analysis": {
-          "_source": "Comfort Copilot",
-          "persona": "Young Active",
-          "depth": "full",
-          "timestamp": "2026-05-10T15:24:41",
-          "overallScore": 0.49,
+          "_source": "Sensi",
+          "persona": "Neutral",
+          "depth": "analyze",
+          "timestamp": "2026-05-29T14:58:04",
+          "overallScore": 0.46,
           "comfortScores": {
-            "thermal": 0.51,
+            "thermal": 0.4,
             "visual": 0.4,
-            "acoustic": 0.5,
-            "spatial": 0.62,
-            "olfactory": 0.36,
-            "tactile": 0.57
+            "acoustic": 0.51,
+            "spatial": 0.53,
+            "olfactory": 0.59,
+            "tactile": 0.32
           },
-          "conflicts": [],
-          "suggestions": []
+          "conflicts": [
+            "thermal score 0.40 below threshold 0.45",
+            "visual score 0.40 below threshold 0.45",
+            "tactile score 0.32 below threshold 0.45"
+          ],
+          "suggestions": [
+            {
+              "sense": "thermal",
+              "priority": 1,
+              "suggestion": "Upgrade to double or triple glazing to reduce thermal loss"
+            },
+            {
+              "sense": "visual",
+              "priority": 2,
+              "suggestion": "Add larger windows or skylights"
+            },
+            {
+              "sense": "tactile",
+              "priority": 3,
+              "suggestion": "Add natural material surfaces (wood, cork)"
+            }
+          ]
         }
       }
     },
     {
       "id": "room-5",
-      "name": "Laundry/Pantry",
+      "name": "Bathroom",
       "geometry": [
         [
-          7.0,
-          4.5
+          7,
+          6
         ],
         [
-          10.0,
-          4.5
+          10,
+          6
         ],
         [
-          10.0,
-          6.0
+          10,
+          7
         ],
         [
-          7.0,
-          6.0
+          7,
+          7
         ],
         [
-          7.0,
-          4.5
+          7,
+          6
         ]
       ],
       "attributes": {
         "area": 3.0,
-        "roomType": "utility",
-        "height": 2.5,
+        "roomType": "bathroom",
+        "height": 3.2,
         "orientation": "E",
         "glazingRatio": 0.0,
         "ventilationType": "mechanical",
+        "floorMaterial": "ceramic",
         "analysis": {
-          "_source": "Comfort Copilot",
-          "persona": "Young Active",
-          "depth": "full",
-          "timestamp": "2026-05-10T15:24:41",
-          "overallScore": 0.5,
+          "_source": "Sensi",
+          "persona": "Neutral",
+          "depth": "analyze",
+          "timestamp": "2026-05-29T14:58:04",
+          "overallScore": 0.46,
           "comfortScores": {
-            "thermal": 0.51,
-            "visual": 0.35,
-            "acoustic": 0.41,
-            "spatial": 0.76,
-            "olfactory": 0.45,
-            "tactile": 0.5
+            "thermal": 0.39,
+            "visual": 0.32,
+            "acoustic": 0.55,
+            "spatial": 0.64,
+            "olfactory": 0.36,
+            "tactile": 0.47
           },
-          "conflicts": [],
-          "suggestions": []
+          "conflicts": [
+            "thermal score 0.39 below threshold 0.45",
+            "visual score 0.32 below threshold 0.45",
+            "olfactory score 0.36 below threshold 0.45"
+          ],
+          "suggestions": [
+            {
+              "sense": "thermal",
+              "priority": 1,
+              "suggestion": "Upgrade to double or triple glazing to reduce thermal loss"
+            },
+            {
+              "sense": "visual",
+              "priority": 2,
+              "suggestion": "Add larger windows or skylights"
+            },
+            {
+              "sense": "olfactory",
+              "priority": 3,
+              "suggestion": "Upgrade to mixed or mechanical ventilation for active air exchange"
+            }
+          ]
         }
       }
     }
@@ -283,15 +389,36 @@
   "doors": [
     {
       "id": "door-1",
-      "name": "Bedroom Door",
+      "name": "Living to Kitchen",
       "geometry": [
         [
-          5.0,
-          5.5
+          6,
+          2
         ],
         [
-          5.5,
-          5.5
+          6,
+          2.9
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-1",
+          "room-2"
+        ],
+        "width": 0.9
+      }
+    },
+    {
+      "id": "door-2",
+      "name": "Living to Bedroom",
+      "geometry": [
+        [
+          2,
+          4
+        ],
+        [
+          2.9,
+          4
         ]
       ],
       "attributes": {
@@ -303,42 +430,63 @@
       }
     },
     {
-      "id": "door-2",
-      "name": "Bathroom Door",
+      "id": "door-3",
+      "name": "Kitchen to Bedroom",
       "geometry": [
         [
-          6.0,
-          4.5
+          6,
+          4
         ],
         [
-          6.5,
-          4.5
+          6.9,
+          4
         ]
       ],
       "attributes": {
         "connectsRooms": [
-          "room-1",
+          "room-2",
+          "room-3"
+        ],
+        "width": 0.9
+      }
+    },
+    {
+      "id": "door-4",
+      "name": "Bedroom to Study",
+      "geometry": [
+        [
+          7,
+          5
+        ],
+        [
+          7,
+          5.9
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-3",
           "room-4"
         ],
         "width": 0.8
       }
     },
     {
-      "id": "door-3",
-      "name": "Laundry Door",
+      "id": "door-5",
+      "name": "Study to Bathroom",
       "geometry": [
         [
-          8.5,
-          4.5
+          7,
+          6.5
         ],
         [
-          9.0,
-          4.5
+          7,
+          6.9
         ]
       ],
       "attributes": {
         "connectsRooms": [
-          "room-2",
+          "room-4",
           "room-5"
         ],
         "width": 0.8
@@ -348,61 +496,81 @@
   "windows": [
     {
       "id": "window-1",
-      "name": "Living Room Window",
+      "name": "Living South Window",
       "geometry": [
         [
-          0.0,
-          1.5
+          1,
+          0
         ],
         [
-          0.0,
-          3.0
+          4,
+          0
         ]
       ],
       "attributes": {
         "roomId": "room-1",
-        "area": 2.25,
-        "orientation": "W",
-        "glazingType": "single"
+        "area": 3.5,
+        "orientation": "S",
+        "glazingType": "double"
       }
     },
     {
       "id": "window-2",
-      "name": "Kitchen Window",
+      "name": "Kitchen South Window",
       "geometry": [
         [
-          10.0,
-          1.5
+          7,
+          0
         ],
         [
-          10.0,
-          3.0
+          9,
+          0
         ]
       ],
       "attributes": {
         "roomId": "room-2",
-        "area": 2.25,
-        "orientation": "E",
+        "area": 1.5,
+        "orientation": "S",
         "glazingType": "single"
       }
     },
     {
       "id": "window-3",
-      "name": "Bedroom Window",
+      "name": "Bedroom North Window",
       "geometry": [
         [
-          0.0,
-          5.5
+          1,
+          7
         ],
         [
-          0.0,
-          7.0
+          4,
+          7
         ]
       ],
       "attributes": {
         "roomId": "room-3",
-        "area": 2.25,
-        "orientation": "W",
+        "area": 2.5,
+        "orientation": "N",
+        "glazingType": "single"
+      }
+    },
+    {
+      "id": "window-4",
+      "name": "Study East Window",
+      "geometry": [
+        [
+          10,
+          4.5
+        ],
+        [
+          10,
+          5.5
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-4",
+        "area": 0.8,
+        "orientation": "E",
         "glazingType": "single"
       }
     }
@@ -410,27 +578,58 @@
   "furniture": [
     {
       "id": "furn-1",
-      "name": "L-Shaped Sofa",
+      "name": "Dining Table",
       "geometry": [
         [
-          1.0,
-          0.8
+          0.5,
+          0.5
         ],
         [
           3.5,
-          0.8
+          0.5
         ],
         [
           3.5,
+          2
+        ],
+        [
+          0.5,
+          2
+        ],
+        [
+          0.5,
+          0.5
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-1",
+        "type": "table",
+        "material": "glass"
+      }
+    },
+    {
+      "id": "furn-2",
+      "name": "Sofa",
+      "geometry": [
+        [
+          0.5,
           2.5
         ],
         [
-          1.0,
+          4.5,
           2.5
         ],
         [
-          1.0,
-          0.8
+          4.5,
+          3.5
+        ],
+        [
+          0.5,
+          3.5
+        ],
+        [
+          0.5,
+          2.5
         ]
       ],
       "attributes": {
@@ -440,90 +639,90 @@
       }
     },
     {
-      "id": "furn-2",
-      "name": "Dining Table",
-      "geometry": [
-        [
-          4.5,
-          1.0
-        ],
-        [
-          6.5,
-          1.0
-        ],
-        [
-          6.5,
-          3.0
-        ],
-        [
-          4.5,
-          3.0
-        ],
-        [
-          4.5,
-          1.0
-        ]
-      ],
-      "attributes": {
-        "roomId": "room-1",
-        "type": "table",
-        "material": "wood"
-      }
-    },
-    {
       "id": "furn-3",
-      "name": "Kitchen Cabinetry",
+      "name": "Kitchen Counter",
       "geometry": [
         [
-          7.5,
-          0.5
+          6,
+          0
         ],
         [
-          9.5,
-          0.5
+          10,
+          0
         ],
         [
-          9.5,
-          1.5
+          10,
+          0.8
         ],
         [
-          7.5,
-          1.5
+          6,
+          0.8
         ],
         [
-          7.5,
-          0.5
+          6,
+          0
         ]
       ],
       "attributes": {
         "roomId": "room-2",
-        "type": "storage",
-        "material": "wood"
+        "type": "counter",
+        "material": "stone"
       }
     },
     {
       "id": "furn-4",
-      "name": "Queen Bed",
+      "name": "Kitchen Island",
       "geometry": [
         [
-          1.0,
-          5.0
+          6.5,
+          1.5
         ],
         [
-          4.0,
-          5.0
+          9.5,
+          1.5
         ],
         [
-          4.0,
+          9.5,
+          2.8
+        ],
+        [
+          6.5,
+          2.8
+        ],
+        [
+          6.5,
+          1.5
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-2",
+        "type": "island",
+        "material": "metal"
+      }
+    },
+    {
+      "id": "furn-5",
+      "name": "Bed",
+      "geometry": [
+        [
+          0.5,
+          4.5
+        ],
+        [
+          3.5,
+          4.5
+        ],
+        [
+          3.5,
           6.5
         ],
         [
-          1.0,
+          0.5,
           6.5
         ],
         [
-          1.0,
-          5.0
+          0.5,
+          4.5
         ]
       ],
       "attributes": {
@@ -533,61 +732,176 @@
       }
     },
     {
-      "id": "furn-5",
-      "name": "Bedroom Dresser",
+      "id": "furn-6",
+      "name": "Bedside Table",
       "geometry": [
         [
-          0.8,
-          4.7
+          3.5,
+          4.5
         ],
         [
-          2.0,
-          4.7
+          4.5,
+          4.5
         ],
         [
-          2.0,
-          5.0
+          4.5,
+          5.5
         ],
         [
-          0.8,
-          5.0
+          3.5,
+          5.5
         ],
         [
-          0.8,
-          4.7
+          3.5,
+          4.5
         ]
       ],
       "attributes": {
         "roomId": "room-3",
-        "type": "dresser",
-        "material": "wood"
+        "type": "table",
+        "material": "metal"
+      }
+    },
+    {
+      "id": "furn-7",
+      "name": "Study Desk",
+      "geometry": [
+        [
+          7.5,
+          4.5
+        ],
+        [
+          9.5,
+          4.5
+        ],
+        [
+          9.5,
+          5.3
+        ],
+        [
+          7.5,
+          5.3
+        ],
+        [
+          7.5,
+          4.5
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-4",
+        "type": "desk",
+        "material": "metal"
+      }
+    },
+    {
+      "id": "furn-8",
+      "name": "Bookshelf",
+      "geometry": [
+        [
+          7.5,
+          5.5
+        ],
+        [
+          9,
+          5.5
+        ],
+        [
+          9,
+          6
+        ],
+        [
+          7.5,
+          6
+        ],
+        [
+          7.5,
+          5.5
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-4",
+        "type": "bookshelf",
+        "material": "metal"
+      }
+    }
+  ],
+  "structure": [
+    {
+      "id": "wall-1",
+      "name": "Kitchen-Living Partition",
+      "geometry": [
+        [
+          6,
+          0
+        ],
+        [
+          6,
+          4
+        ]
+      ],
+      "attributes": {
+        "material": "concrete"
+      }
+    },
+    {
+      "id": "wall-2",
+      "name": "Sleeping Zone Wall",
+      "geometry": [
+        [
+          0,
+          4
+        ],
+        [
+          7,
+          4
+        ]
+      ],
+      "attributes": {
+        "material": "concrete"
+      }
+    },
+    {
+      "id": "wall-3",
+      "name": "Study-Bathroom Wall",
+      "geometry": [
+        [
+          7,
+          4
+        ],
+        [
+          7,
+          7
+        ]
+      ],
+      "attributes": {
+        "material": "concrete"
       }
     }
   ],
   "mep": [
     {
       "id": "mep-1",
-      "name": "Kitchen Range Hood",
+      "name": "Kitchen Exhaust",
       "geometry": [
         [
-          8.5,
-          3.5
+          9,
+          0
         ],
         [
-          9.5,
-          3.5
+          10,
+          0
         ],
         [
-          9.5,
-          3.8
+          10,
+          0.5
         ],
         [
-          8.5,
-          3.8
+          9,
+          0.5
         ],
         [
-          8.5,
-          3.5
+          9,
+          0
         ]
       ],
       "attributes": {
@@ -596,106 +910,41 @@
     },
     {
       "id": "mep-2",
-      "name": "Wall AC Unit",
+      "name": "HVAC Unit",
       "geometry": [
         [
-          5.5,
-          4.2
+          5,
+          3.5
         ],
         [
-          6.5,
-          4.2
+          6,
+          3.5
         ],
         [
-          6.5,
-          4.5
+          6,
+          4
         ],
         [
-          5.5,
-          4.5
+          5,
+          4
         ],
         [
-          5.5,
-          4.2
+          5,
+          3.5
         ]
       ],
       "attributes": {
         "system": "hvac"
       }
-    },
-    {
-      "id": "mep-3",
-      "name": "Breaker Box",
-      "geometry": [
-        [
-          0.2,
-          0.2
-        ],
-        [
-          0.7,
-          0.2
-        ],
-        [
-          0.7,
-          0.7
-        ],
-        [
-          0.2,
-          0.7
-        ],
-        [
-          0.2,
-          0.2
-        ]
-      ],
-      "attributes": {
-        "system": "electrical"
-      }
-    }
-  ],
-  "structure": [
-    {
-      "id": "wall-1",
-      "name": "Kitchen Divider",
-      "geometry": [
-        [
-          7.0,
-          0.0
-        ],
-        [
-          7.0,
-          4.5
-        ]
-      ],
-      "attributes": {
-        "material": "plaster"
-      }
-    },
-    {
-      "id": "wall-2",
-      "name": "Bedroom Divider",
-      "geometry": [
-        [
-          5.0,
-          4.5
-        ],
-        [
-          5.0,
-          7.0
-        ]
-      ],
-      "attributes": {
-        "material": "plaster"
-      }
     }
   ],
   "analysis": {
-    "_source": "Comfort Copilot",
-    "persona": "Young Active",
-    "depth": "full",
-    "timestamp": "2026-05-10T15:24:41",
-    "overallScore": 0.574,
+    "_source": "Sensi",
+    "persona": "Neutral",
+    "depth": "analyze",
+    "timestamp": "2026-05-29T14:58:04",
+    "overallScore": 0.492,
     "bestRoom": "room-1",
-    "worstRoom": "room-4"
+    "worstRoom": "room-2"
   }
 }

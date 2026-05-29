@@ -1498,3 +1498,69 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
   text-align: center;
   padding: 20px;
 }
+
+/* ── Sense graph header & inline hint ─────────────────────────────────────── */
+.sg-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 10px 0;
+}
+.sg-title {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: rgba(240,237,232,0.55);
+  text-transform: uppercase;
+}
+.sg-hint-inline {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+  color: rgba(240,237,232,0.28);
+  font-style: italic;
+}
+
+/* ── Room graph overlay legend strip ─────────────────────────────────────── */
+.lm-graph-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+  color: rgba(240,237,232,0.45);
+}
+.lm-graph-legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+
+/* ── Room graph overlay toggle button ─────────────────────────────────────── */
+.lm-graph-toggle {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  border: 1px solid rgba(240,237,232,0.20);
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(240,237,232,0.40);
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.lm-graph-toggle:hover {
+  border-color: rgba(240,237,232,0.40);
+  color: rgba(240,237,232,0.75);
+}
+.lm-graph-toggle.on {
+  border-color: rgba(155,143,212,0.65);
+  color: rgba(155,143,212,1.0);
+  background: rgba(155,143,212,0.10);
+}

@@ -62,7 +62,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-29T14:18:05",
+          "timestamp": "2026-05-29T15:25:09",
           "overallScore": 0.63,
           "comfortScores": {
             "thermal": 0.45,
@@ -70,7 +70,7 @@
             "acoustic": 0.31,
             "spatial": 0.9,
             "olfactory": 0.75,
-            "tactile": 0.64
+            "tactile": 0.61
           },
           "conflicts": [],
           "suggestions": []
@@ -114,7 +114,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-29T14:18:05",
+          "timestamp": "2026-05-29T15:25:09",
           "overallScore": 0.42,
           "comfortScores": {
             "thermal": 0.25,
@@ -122,7 +122,7 @@
             "acoustic": 0.23,
             "spatial": 0.9,
             "olfactory": 0.27,
-            "tactile": 0.45
+            "tactile": 0.42
           },
           "conflicts": [],
           "suggestions": []
@@ -166,7 +166,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-29T14:18:05",
+          "timestamp": "2026-05-29T15:25:09",
           "overallScore": 0.6,
           "comfortScores": {
             "thermal": 0.45,
@@ -174,7 +174,7 @@
             "acoustic": 0.43,
             "spatial": 0.77,
             "olfactory": 0.77,
-            "tactile": 0.67
+            "tactile": 0.64
           },
           "conflicts": [],
           "suggestions": []
@@ -218,15 +218,15 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-29T14:18:05",
-          "overallScore": 0.65,
+          "timestamp": "2026-05-29T15:25:09",
+          "overallScore": 0.64,
           "comfortScores": {
             "thermal": 0.45,
             "visual": 0.52,
             "acoustic": 0.55,
             "spatial": 0.9,
             "olfactory": 0.77,
-            "tactile": 0.68
+            "tactile": 0.66
           },
           "conflicts": [],
           "suggestions": []
@@ -270,15 +270,15 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-29T14:18:05",
-          "overallScore": 0.51,
+          "timestamp": "2026-05-29T15:25:09",
+          "overallScore": 0.5,
           "comfortScores": {
             "thermal": 0.39,
             "visual": 0.32,
             "acoustic": 0.55,
             "spatial": 0.9,
             "olfactory": 0.36,
-            "tactile": 0.53
+            "tactile": 0.5
           },
           "conflicts": [],
           "suggestions": []
@@ -322,15 +322,15 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-29T14:18:05",
-          "overallScore": 0.44,
+          "timestamp": "2026-05-29T15:25:09",
+          "overallScore": 0.43,
           "comfortScores": {
             "thermal": 0.39,
             "visual": 0.32,
             "acoustic": 0.39,
             "spatial": 0.47,
             "olfactory": 0.59,
-            "tactile": 0.48
+            "tactile": 0.45
           },
           "conflicts": [],
           "suggestions": []
@@ -823,7 +823,7 @@
         ]
       ],
       "attributes": {
-        "material": "wood"
+        "material": "plaster"
       }
     },
     {
@@ -840,7 +840,7 @@
         ]
       ],
       "attributes": {
-        "material": "wood"
+        "material": "plaster"
       }
     },
     {
@@ -857,7 +857,7 @@
         ]
       ],
       "attributes": {
-        "material": "wood"
+        "material": "ceramic tile"
       }
     }
   ],
@@ -913,8 +913,8 @@
     "_source": "Sensi",
     "persona": "Neutral",
     "depth": "analyze",
-    "timestamp": "2026-05-29T14:18:05",
-    "overallScore": 0.5417,
+    "timestamp": "2026-05-29T15:25:09",
+    "overallScore": 0.5367,
     "bestRoom": "room-4",
     "worstRoom": "room-2"
   }

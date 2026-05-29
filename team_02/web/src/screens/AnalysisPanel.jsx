@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
-import cytoscape from "cytoscape";
 
-// Phase 6 slim: plan/3D tabs moved to Zone 2 (LayoutModeScreen center viewer).
-// This panel keeps: topology, room chips, bars/radar scores, conflicts, suggestions, specialist blocks.
-// selectedRoom and onSelectRoom are owned by LayoutModeScreen and passed as props.
+// Topology removed — the room network now lives in the center viewer (SenseSpaceGraph).
+// This panel: room chips, bars/radar, conflicts, suggestions, specialist blocks.
+// selectedRoom / onSelectRoom are owned by LayoutModeScreen (shared with Zone 2).
 
 const SC  = { thermal:"#E8836A", visual:"#D4B96A", acoustic:"#9B8FD4", spatial:"#6AB8C8", olfactory:"#8BB88A", tactile:"#C4A882" };
 const ALL = ["thermal","visual","acoustic","spatial","olfactory","tactile"];
@@ -92,68 +91,7 @@ function Radar({ rooms }) {
     });
     return () => { try { chart.destroy(); } catch { /* noop */ } };
   }, [rooms]);
-  return <canvas ref={ref} style={{ width:"100%", minHeight:280 }} />;
-}
-
-// ── Room topology (conflict overlap graph) ────────────────────────────────────
-function Topology({ rooms, flaggedRooms, onSelect, selectedRoom }) {
-  const ref   = useRef(null);
-  const cyRef = useRef(null);
-
-  useEffect(() => {
-    if (!ref.current) return;
-    const roomSenses = {};
-    (flaggedRooms || []).forEach((r) => {
-      const senses = sensesFromConflicts(r.conflicts);
-      if (senses.length) roomSenses[r.roomName] = senses;
-    });
-    const nodes = (rooms || []).map((room) => {
-      const overall = room.overallScore || 0.5;
-      const issues  = (roomSenses[room.roomName] || []).length;
-      const color   = overall < 0.5 ? "#E8836A" : overall < 0.65 ? "#D4B96A" : "#8BB88A";
-      const border  = overall < 0.5 ? "rgba(232,131,106,0.55)" : overall < 0.65 ? "rgba(212,185,106,0.45)" : "rgba(139,184,138,0.45)";
-      return { data:{ id:room.roomName, label:room.roomName, color, border, size:28+issues*8 } };
-    });
-    const edges = [];
-    const names = Object.keys(roomSenses);
-    for (let i = 0; i < names.length; i++)
-      for (let j = i+1; j < names.length; j++) {
-        const shared = roomSenses[names[i]].filter((s) => roomSenses[names[j]].includes(s));
-        if (shared.length) edges.push({ data:{ id:names[i]+"_"+names[j], source:names[i], target:names[j], label:shared.join(" · ") } });
-      }
-
-    const cy = cytoscape({
-      container: ref.current,
-      elements:  { nodes, edges },
-      style: [
-        { selector:"node",  style:{ "background-color":"data(color)", "background-opacity":0.18, label:"data(label)", color:"rgba(240,237,232,0.72)", "font-size":"9px", "font-family":"IBM Plex Mono", "text-valign":"bottom", "text-margin-y":"6px", width:"data(size)", height:"data(size)", "border-width":1.5, "border-color":"data(border)" }},
-        { selector:"edge",  style:{ width:1, "line-color":"rgba(212,185,106,0.25)", label:"data(label)", "font-size":"7px", color:"rgba(212,185,106,0.55)", "font-family":"IBM Plex Mono", "text-rotation":"autorotate", "curve-style":"bezier", "text-margin-y":"-6px" }},
-      ],
-      layout: { name:"cose", animate:false, padding:22, nodeRepulsion:5000 },
-      userZoomingEnabled:false, userPanningEnabled:false, boxSelectionEnabled:false, autoungrabify:true,
-    });
-    cy.on("tap","node",(evt) => onSelect(evt.target.data("id")));
-    cyRef.current = cy;
-    return () => { try { cy.destroy(); } catch { /* noop */ } };
-  }, [rooms, flaggedRooms, onSelect]);
-
-  useEffect(() => {
-    const cy = cyRef.current;
-    if (!cy) return;
-    cy.nodes().forEach((n) => {
-      n.style("background-opacity", n.data("id") === selectedRoom ? 0.5  : 0.12);
-      n.style("border-width",       n.data("id") === selectedRoom ? 2.5  : 1.5);
-    });
-  }, [selectedRoom]);
-
-  return (
-    <>
-      <div ref={ref} style={{ width:"100%", height:220, borderRadius:6, background:"rgba(240,237,232,.02)", border:"1px solid rgba(240,237,232,.05)" }} />
-      <div style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:8, letterSpacing:".10em", color:"rgba(240,237,232,.18)", textAlign:"center", padding:"4px 0 2px", textTransform:"uppercase" }}>
-        {selectedRoom ? selectedRoom.toUpperCase() : "click a room to highlight"}
-      </div>
-    </>
-  );
+  return <canvas ref={ref} style={{ width:"100%", minHeight:260 }} />;
 }
 
 // ── Collapsible specialist narrative block ────────────────────────────────────
@@ -172,26 +110,23 @@ function Specialist({ title, text }) {
 }
 
 // ── Main panel ────────────────────────────────────────────────────────────────
-// selectedRoom / onSelectRoom are controlled by LayoutModeScreen (Zone 2 and Zone 3 share state).
-// Plan and 3D views live in Zone 2 (LayoutModeScreen center viewer) — not here.
 export default function AnalysisPanel({ data, open, onClose, selectedRoom, onSelectRoom }) {
-  const scores    = useMemo(() => parse(data && data.scores_json),    [data]);
-  const conflicts = useMemo(() => parse(data && data.conflicts_json), [data]);
+  const scores      = useMemo(() => parse(data && data.scores_json),      [data]);
+  const conflicts   = useMemo(() => parse(data && data.conflicts_json),   [data]);
   const suggestions = useMemo(() => parse(data && data.suggestions_json), [data]);
   const depth  = (data && data.analysis_depth) || "analyze";
-  const rooms  = (scores && scores.rooms)              || [];
-  const flagged = (conflicts && conflicts.flaggedRooms) || [];
+  const rooms  = (scores && scores.rooms)               || [];
+  const flagged = (conflicts && conflicts.flaggedRooms)  || [];
 
   const [view,     setView]     = useState("bars");
   const [allRooms, setAllRooms] = useState(false);
 
-  // Collapse all-rooms expand when data changes
   useEffect(() => { if (rooms.length) setAllRooms(false); }, [data]); // eslint-disable-line
 
   if (!open || !scores) return <div id="analysis-panel-right" />;
 
-  const focusRoom       = rooms.find((r) => r.roomName === selectedRoom);
-  const conflictsShown  = depth === "detect" || depth === "full";
+  const focusRoom        = rooms.find((r) => r.roomName === selectedRoom);
+  const conflictsShown   = depth === "detect" || depth === "full";
   const suggestionsShown = depth === "full";
 
   return (
@@ -211,20 +146,10 @@ export default function AnalysisPanel({ data, open, onClose, selectedRoom, onSel
 
       <div className="ap-scroll">
 
-        {/* Room topology */}
-        <div id="ap-topology">
-          <div className="ap-section-label" style={{ marginTop:0 }}>room network</div>
-          <Topology
-            rooms={rooms}
-            flaggedRooms={conflictsShown ? flagged : []}
-            onSelect={(n) => { onSelectRoom(n); setAllRooms(false); }}
-            selectedRoom={selectedRoom}
-          />
-        </div>
-
         {/* Room chips */}
         {rooms.length >= 2 && (
           <div id="ap-room-selector">
+            <div className="ap-section-label" style={{ marginTop:0 }}>rooms</div>
             <div className="ap-room-strip">
               {rooms.map((room) => {
                 const o     = room.overallScore || 0;

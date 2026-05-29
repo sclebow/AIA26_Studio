@@ -12,7 +12,6 @@ import { formatChatMessage } from "../lib/formatMessage.js";
 
 function parse(s) { try { return s ? JSON.parse(s) : null; } catch { return null; } }
 
-// ── Chips linking chat bubble → analysis panel ────────────────────────────────
 function Chips({ depth, openPanel }) {
   const chips = [["scores","scores"]];
   if (depth === "detect" || depth === "full") chips.push(["conflicts","conflicts"]);
@@ -32,7 +31,6 @@ function Chips({ depth, openPanel }) {
   );
 }
 
-// ── Chat thread (sidebar mode) ────────────────────────────────────────────────
 function ChatThread({ messages, thinking, openPanel }) {
   const ref = useRef(null);
   useEffect(() => {
@@ -67,7 +65,6 @@ function ChatThread({ messages, thinking, openPanel }) {
   );
 }
 
-// ── Space-bar floating input ──────────────────────────────────────────────────
 function SpaceInput({ pos, onSend, onClose }) {
   const [val, setVal] = useState("");
   const inputRef = useRef(null);
@@ -103,30 +100,27 @@ function SpaceInput({ pos, onSend, onClose }) {
   );
 }
 
-// ── Main screen ───────────────────────────────────────────────────────────────
 export default function LayoutModeScreen({ messages, turns, thinking, persona, layoutId, onSend }) {
+  // "comfort" | "room-graph" | "sense-graph"
+  const [centerMode,   setCenterMode]   = useState("comfort");
   const [immersed,     setImmersed]     = useState(false);
-  const [centerMode,   setCenterMode]   = useState("comfort"); // "comfort" | "sense-space"
   const [panelOpen,    setPanelOpen]    = useState(false);
   const [profileOpen,  setProfileOpen]  = useState(false);
   const [capOpen,      setCapOpen]      = useState(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [activeTurnId, setActiveTurnId] = useState(null);
-  const [spaceInput,   setSpaceInput]   = useState(null); // {x, y} | null
+  const [spaceInput,   setSpaceInput]   = useState(null);
   const [draft,        setDraft]        = useState("");
   const taRef    = useRef(null);
   const centerRef = useRef(null);
 
-  // Latest turn with analysis data (default), or the chip-selected turn
   const latestTurn = turns.length ? turns[turns.length - 1] : null;
   const activeTurn = activeTurnId ? turns.find(t => t.id === activeTurnId) : latestTurn;
 
-  // Auto-open panel when first analysis arrives
   useEffect(() => {
     if (latestTurn?.scores_json) { setPanelOpen(true); setActiveTurnId(null); }
   }, [latestTurn?.id]); // eslint-disable-line
 
-  // Auto-select worst room when turn changes
   useEffect(() => {
     if (!activeTurn?.scores_json) return;
     try {
@@ -138,14 +132,12 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
     } catch {}
   }, [activeTurn?.id]); // eslint-disable-line
 
-  // Scoreboard values for top bar
   const rooms         = parse(activeTurn?.scores_json)?.rooms || [];
   const avg           = rooms.length ? rooms.reduce((a,r) => a+(r.overallScore||0), 0) / rooms.length : null;
   const conflictCount = parse(activeTurn?.conflicts_json)?.flaggedRooms?.length || 0;
   const ringClass     = avg == null ? "" : avg >= 0.65 ? "score-pass" : avg >= 0.45 ? "score-warn" : "score-fail";
   const initial       = persona?.name?.charAt(0).toUpperCase() || "";
 
-  // Space-bar handler: summon input at cursor, only in immersed mode
   const cursorPos = useRef({ x: 200, y: 200 });
   useEffect(() => {
     const onMove = e => { cursorPos.current = { x: e.clientX, y: e.clientY }; };
@@ -155,7 +147,6 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
 
   useEffect(() => {
     const onKey = e => {
-      // Only trigger in immersed mode; not when already typing in a field
       if (!immersed) return;
       if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") return;
       if (e.code === "Space") {
@@ -167,7 +158,6 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
     return () => window.removeEventListener("keydown", onKey);
   }, [immersed]);
 
-  // Dismiss space input on outside click
   useEffect(() => {
     if (!spaceInput) return;
     const dismiss = () => setSpaceInput(null);
@@ -183,24 +173,18 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
     onSend(t);
   }, [draft, onSend]);
 
-  const handleLayoutSelect = (id) => {
-    onSend(`load layout ${id}`);
-  };
-  const handleLayoutUpload = (id, name) => {
-    onSend(`analyse layout ${id}`);
-  };
+  const handleLayoutSelect = (id) => { onSend(`load layout ${id}`); };
+  const handleLayoutUpload = (id)  => { onSend(`analyse layout ${id}`); };
 
   return (
     <div className={"layout-mode-screen" + (immersed ? " immersed" : "")}>
 
-      {/* ── TOP BAR ── */}
       <div className="top-bar">
         <div className="top-bar-pill top-bar-pill--wide">
           <SensiAvatar size={26} />
           <span className="top-bar-label">sensi</span>
           <span className="top-bar-sep">|</span>
 
-          {/* Layout picker */}
           <LayoutPicker
             layoutId={layoutId}
             onSelect={handleLayoutSelect}
@@ -228,10 +212,8 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
 
       <Capabilities open={capOpen} onClose={() => setCapOpen(false)} />
 
-      {/* ── BODY: 3 zones ── */}
       <div className="lm-body">
 
-        {/* ZONE 1: Chat sidebar (hidden when immersed) */}
         {!immersed && (
           <div className="lm-chat-sidebar">
             <ChatThread messages={messages} thinking={thinking} openPanel={() => setPanelOpen(true)} />
@@ -256,30 +238,25 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
           </div>
         )}
 
-        {/* ZONE 2: Layout center */}
         <div className="lm-center" ref={centerRef}>
 
-          {/* Center controls */}
           <div className="lm-center-controls">
             <div className="lm-mode-toggle">
               <button className={"lm-mode-btn" + (centerMode === "comfort"     ? " active" : "")} onClick={() => setCenterMode("comfort")}>comfort</button>
-              <button className={"lm-mode-btn" + (centerMode === "sense-space" ? " active" : "")} onClick={() => setCenterMode("sense-space")}>sense-space</button>
+              <button className={"lm-mode-btn" + (centerMode === "room-graph"  ? " active" : "")} onClick={() => setCenterMode("room-graph")}>room graph</button>
+              <button className={"lm-mode-btn" + (centerMode === "sense-graph" ? " active" : "")} onClick={() => setCenterMode("sense-graph")}>sense graph</button>
             </div>
             <button
               className={"lm-immerse-btn" + (immersed ? " active" : "")}
               title={immersed ? "show chat (or press Space to type)" : "immersive mode"}
               onClick={() => setImmersed(o => !o)}
-            >
-              {immersed ? "⛶" : "⛶"}
-            </button>
-            {immersed && (
-              <span className="lm-space-hint">space to type</span>
-            )}
+            >⛶</button>
+            {immersed && <span className="lm-space-hint">space to type</span>}
           </div>
 
-          {/* Viewer */}
           <div className="lm-viewer">
-            {centerMode === "comfort" ? (
+            {/* Floor plan — always mounted, hidden only in sense-graph mode */}
+            <div style={{ display: centerMode === "sense-graph" ? "none" : "block", width:"100%", height:"100%" }}>
               <LayoutPlan
                 rooms={rooms}
                 selectedRoom={selectedRoom}
@@ -288,19 +265,22 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
                 layoutDiff={activeTurn?.layout_diff}
                 biophilicData={activeTurn?.biophilic_data}
                 showMode="comfort"
-              />
-            ) : (
-              <SenseSpaceGraph
+                showGraph={centerMode === "room-graph"}
                 graphData={activeTurn?.graph_data}
+              />
+            </div>
+
+            {/* Sense graph — always mounted, hidden until active */}
+            <div style={{ display: centerMode === "sense-graph" ? "block" : "none", width:"100%", height:"100%" }}>
+              <SenseSpaceGraph
                 scoresJson={activeTurn?.scores_json}
                 conflictsJson={activeTurn?.conflicts_json}
                 onSelect={setSelectedRoom}
                 selectedId={selectedRoom}
               />
-            )}
+            </div>
           </div>
 
-          {/* Timeline strip */}
           <TimelineStrip
             turns={turns}
             activeTurnId={activeTurnId}
@@ -308,7 +288,6 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
           />
         </div>
 
-        {/* ZONE 3: Analysis panel */}
         <AnalysisPanel
           data={activeTurn}
           open={panelOpen}
@@ -319,13 +298,8 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
         />
       </div>
 
-      {/* Space-bar floating input (immersed mode) */}
       {spaceInput && (
-        <SpaceInput
-          pos={spaceInput}
-          onSend={send}
-          onClose={() => setSpaceInput(null)}
-        />
+        <SpaceInput pos={spaceInput} onSend={send} onClose={() => setSpaceInput(null)} />
       )}
 
       <ProfilePanel persona={persona} open={profileOpen} onClose={() => setProfileOpen(false)} onFullView={() => setProfileOpen(false)} />
