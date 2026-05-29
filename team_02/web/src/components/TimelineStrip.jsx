@@ -1,5 +1,6 @@
 import { useState } from "react";
 import SenseSpaceGraph from "./SenseSpaceGraph.jsx";
+import { scoreColor } from "../lib/constants.js";
 
 const ACTION_ICONS = {
   analyze:         "◎",
@@ -18,7 +19,7 @@ const ACTION_ICONS = {
 
 function MiniRing({ score, conflicts }) {
   if (score == null) return null;
-  const color = score < 0.5 ? "#E8836A" : score < 0.65 ? "#D4B96A" : "#8BB88A";
+  const color = scoreColor(score);
   return (
     <span className="tl-mini-ring" style={{ borderColor: color, color }}>
       {score.toFixed(2)}

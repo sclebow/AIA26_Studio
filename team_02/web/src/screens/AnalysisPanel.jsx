@@ -1,20 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
+import { SC, SI, SENSES, scoreColor } from "../lib/constants.js";
 
 // Topology removed — the room network now lives in the center viewer (SenseSpaceGraph).
 // This panel: room chips, bars/radar, conflicts, suggestions, specialist blocks.
 // selectedRoom / onSelectRoom are owned by LayoutModeScreen (shared with Zone 2).
 
-const SC  = { thermal:"#E8836A", visual:"#D4B96A", acoustic:"#9B8FD4", spatial:"#6AB8C8", olfactory:"#8BB88A", tactile:"#C4A882" };
-const ALL = ["thermal","visual","acoustic","spatial","olfactory","tactile"];
-const SYM = { thermal:"~ thm", visual:"◎ vis", acoustic:")) aco", spatial:"⬡ spt", olfactory:"✿ olf", tactile:"≈ tac" };
 
 function parse(s) { try { return s ? JSON.parse(s) : null; } catch { return null; } }
 
 function sensesFromConflicts(conflicts) {
   const out = [];
   (conflicts || []).forEach((conf) => {
-    ALL.forEach((s) => {
+    SENSES.forEach((s) => {
       if (out.includes(s)) return;
       if (typeof conf === "string") { if (conf.indexOf(s) !== -1) out.push(s); }
       else if (conf && typeof conf === "object") { if (s in conf) out.push(s); }
@@ -27,14 +25,14 @@ function sensesFromConflicts(conflicts) {
 function RoomBars({ room }) {
   const sc      = room.comfortScores || {};
   const overall = room.overallScore || 0;
-  const oColor  = overall < 0.5 ? "#E8836A" : overall < 0.65 ? "#D4B96A" : "#8BB88A";
+  const oColor  = scoreColor(overall);
   return (
     <div>
       <div className="ap-room-detail-header">
         <span className="ap-room-detail-name">{room.roomName || "?"}</span>
         <span className="ap-room-detail-score" style={{ color:oColor, opacity:0.8 }}>{overall.toFixed(2)}</span>
       </div>
-      {ALL.map((s) => {
+      {SENSES.map((s) => {
         const v       = sc[s] !== undefined ? sc[s] : 0;
         const opacity = v < 0.5 ? 1 : v < 0.65 ? 0.65 : 0.38;
         return (
@@ -65,12 +63,12 @@ function Radar({ rooms }) {
     const chart = new Chart(ref.current, {
       type: "radar",
       data: {
-        labels: ALL.map((s) => SYM[s] || s),
+        labels: SENSES.map((s) => (SI[s] ? SI[s] + " " + s : s)),
         datasets: rooms.map((room, i) => {
           const sc = room.comfortScores || {};
           return {
             label:           room.roomName || "?",
-            data:            ALL.map((s) => (sc[s] || 0) * 100),
+            data:            SENSES.map((s) => (sc[s] || 0) * 100),
             backgroundColor: colors[i % colors.length].replace("0.85","0.07"),
             borderColor:     colors[i % colors.length],
             borderWidth:     1.5, pointRadius:0, pointHoverRadius:3,
@@ -153,7 +151,7 @@ export default function AnalysisPanel({ data, open, onClose, selectedRoom, onSel
             <div className="ap-room-strip">
               {rooms.map((room) => {
                 const o     = room.overallScore || 0;
-                const color = o < 0.5 ? "#E8836A" : o < 0.65 ? "#D4B96A" : "#8BB88A";
+                const color = scoreColor(o);
                 return (
                   <button
                     key={room.roomName}

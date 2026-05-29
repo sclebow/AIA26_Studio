@@ -43,3 +43,12 @@ export const OVERLAY_PHRASES = {
   "building your comfort profile...": ["building your comfort profile...", "mapping your sensory world...", "putting it all together..."],
   "starting sensi...":                ["starting sensi...", "waking up..."],
 };
+
+// Status palette - distinct from the six sense hues (option B). For score health only.
+export const STATUS = { pass: "#3FB97A", warn: "#E0A92E", fail: "#E0524A" };
+
+// One source of truth for the score -> color thresholds (was duplicated across files).
+export function scoreColor(score) {
+  const s = typeof score === "number" ? score : 0;
+  return s < 0.5 ? STATUS.fail : s < 0.65 ? STATUS.warn : STATUS.pass;
+}

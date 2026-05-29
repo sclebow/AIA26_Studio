@@ -131,7 +131,7 @@ export default function PersonaScreen({ persona, message, moodboardUrls, onConfi
               )}
 
               <div style={{ marginTop: 14 }}>
-                <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 8, letterSpacing: ".12em", textTransform: "uppercase", color: "rgba(240,237,232,.25)", marginBottom: 8 }}>
+                <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: "rgba(240,237,232,.25)", marginBottom: 8 }}>
                   your weights · research baseline · delta
                 </div>
                 {SENSES.map((s) => {
@@ -142,11 +142,11 @@ export default function PersonaScreen({ persona, message, moodboardUrls, onConfi
                   const deltaColor = Math.abs(delta) > 0.25 ? (delta > 0 ? "rgba(138,184,138,.80)" : "rgba(232,131,106,.80)") : "rgba(240,237,232,.28)";
                   return (
                     <div key={s} style={{ display: "flex", alignItems: "center", marginBottom: 6 }}>
-                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 8, letterSpacing: ".10em", textTransform: "uppercase", color: SC[s], width: 80, flexShrink: 0 }}>{SI[s]} {s}</span>
-                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "rgba(240,237,232,.70)", width: 28, textAlign: "right", flexShrink: 0 }}>{w.toFixed(2)}</span>
-                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 8, color: "rgba(240,237,232,.30)", margin: "0 6px" }}>vs</span>
-                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "rgba(240,237,232,.35)", width: 28, flexShrink: 0 }}>{base.toFixed(2)}</span>
-                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 8, color: deltaColor, marginLeft: 8 }}>{deltaStr}</span>
+                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: ".10em", textTransform: "uppercase", color: SC[s], width: 80, flexShrink: 0 }}>{SI[s]} {s}</span>
+                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "rgba(240,237,232,.70)", width: 28, textAlign: "right", flexShrink: 0 }}>{w.toFixed(2)}</span>
+                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "rgba(240,237,232,.30)", margin: "0 6px" }}>vs</span>
+                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "rgba(240,237,232,.35)", width: 28, flexShrink: 0 }}>{base.toFixed(2)}</span>
+                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: deltaColor, marginLeft: 8 }}>{deltaStr}</span>
                     </div>
                   );
                 })}

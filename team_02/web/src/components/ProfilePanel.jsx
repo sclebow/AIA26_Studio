@@ -27,8 +27,8 @@ export default function ProfilePanel({ persona, open, onClose, onFullView }) {
             <div key={s} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 10 }}>
               <span style={{ color: SC[s], fontSize: 13, flexShrink: 0, marginTop: 1 }}>{SI[s]}</span>
               <div>
-                <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 7, letterSpacing: ".16em", textTransform: "uppercase", color: SC[s], marginBottom: 3 }}>{s}</div>
-                <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 300, fontSize: 10, lineHeight: 1.5, color: "rgba(240,237,232,.42)" }}>{(IMPLICATIONS[s] && IMPLICATIONS[s][role]) || ""}</div>
+                <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: SC[s], marginBottom: 3 }}>{s}</div>
+                <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 300, fontSize: 11, lineHeight: 1.5, color: "rgba(240,237,232,.42)" }}>{(IMPLICATIONS[s] && IMPLICATIONS[s][role]) || ""}</div>
               </div>
             </div>
           ))}
