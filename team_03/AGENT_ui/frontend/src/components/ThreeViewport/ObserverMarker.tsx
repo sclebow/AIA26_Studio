@@ -7,24 +7,17 @@ const PERSON_HEIGHT = 1.7
 const HEAD_RADIUS = 0.16
 
 interface ObserverMarkerProps {
-  /** Geometry centre offset — matches FloorPlanRenderer's centred group so the
-   *  marker's local coords equal layout coords. */
   center: { x: number; z: number }
-  /** Current position in LAYOUT coordinates (metres, origin bottom-left). Used only when pathMode is false. */
   position: { x: number; y: number }
   isDark: boolean
-  /** Fired continuously while dragging (layout coords). */
   onMove: (x: number, y: number) => void
-  /** Fired once on pointer-up (layout coords). */
   onRelease: (x: number, y: number) => void
-  /** Fired when a drag starts — lets the parent suppress geometry selection. */
   onDragStart?: () => void
-  /** Fired when a drag ends. */
   onDragEnd?: () => void
-  /** When true, renders the path visualization instead of the draggable person. */
   pathMode?: boolean
-  /** Ordered path points in LAYOUT coordinates. Rendered when pathMode is true. */
   pathPoints?: Array<{ x: number; y: number }>
+  /** When true: visible but non-interactive ghost (semi-transparent, no drag). */
+  ghost?: boolean
 }
 
 /**
@@ -32,17 +25,20 @@ interface ObserverMarkerProps {
  * plane (XZ). Lives inside a group offset by -center so its local (x, z) map
  * directly onto layout (x, y) in metres.
  */
-function PathRenderer({ center, pathPoints }: { center: { x: number; z: number }; pathPoints: Array<{ x: number; y: number }> }) {
+function PathRenderer({ center, pathPoints, ghost }: { center: { x: number; z: number }; pathPoints: Array<{ x: number; y: number }>; ghost?: boolean }) {
   const linePositions = useMemo(() => {
     return new Float32Array(pathPoints.flatMap(pt => [pt.x, 0.15, pt.y]))
   }, [pathPoints])
+
+  const opacity = ghost ? 0.25 : 0.7
+  const dotOpacity = ghost ? 0.2 : 1.0
 
   return (
     <group position={[-center.x, 0, -center.z]}>
       {pathPoints.map((pt, i) => (
         <mesh key={i} position={[pt.x, 0.15, pt.y]}>
           <sphereGeometry args={[0.15, 12, 12]} />
-          <meshStandardMaterial color="#ef4444" roughness={0.5} emissive="#ef4444" emissiveIntensity={0.4} />
+          <meshStandardMaterial color="#ef4444" roughness={0.5} emissive="#ef4444" emissiveIntensity={ghost ? 0.1 : 0.4} transparent opacity={dotOpacity} />
         </mesh>
       ))}
       {pathPoints.length >= 2 && (
@@ -50,14 +46,14 @@ function PathRenderer({ center, pathPoints }: { center: { x: number; z: number }
           <bufferGeometry>
             <bufferAttribute attach="attributes-position" args={[linePositions, 3]} />
           </bufferGeometry>
-          <lineBasicMaterial color="#ef4444" transparent opacity={0.7} />
+          <lineBasicMaterial color="#ef4444" transparent opacity={opacity} />
         </line>
       )}
     </group>
   )
 }
 
-export default function ObserverMarker({ center, position, isDark, onMove, onRelease, onDragStart, onDragEnd, pathMode, pathPoints }: ObserverMarkerProps) {
+export default function ObserverMarker({ center, position, isDark, onMove, onRelease, onDragStart, onDragEnd, pathMode, pathPoints, ghost }: ObserverMarkerProps) {
   const { camera, gl, controls } = useThree()
   const groupRef = useRef<THREE.Group>(null)
   const draggingRef = useRef(false)
@@ -69,10 +65,12 @@ export default function ObserverMarker({ center, position, isDark, onMove, onRel
   const ndc = useMemo(() => new THREE.Vector2(), [])
 
   if (pathMode) {
-    return <PathRenderer center={center} pathPoints={pathPoints ?? []} />
+    return <PathRenderer center={center} pathPoints={pathPoints ?? []} ghost={ghost} />
   }
 
   const accent = isDark ? '#8b5cf6' : '#7c3aed'
+  const matOpacity = ghost ? 0.22 : 1.0
+  const emissiveInt = ghost ? 0.0 : 0.25
 
   // ── Convert a pointer event to a layout-coordinate hit on the floor ──────
   const pointerToLayout = useCallback((e: PointerEvent): { x: number; y: number } | null => {
@@ -123,37 +121,34 @@ export default function ObserverMarker({ center, position, isDark, onMove, onRel
     <group ref={groupRef} position={[-center.x, 0, -center.z]}>
       <group
         position={[localX, 0, localZ]}
-        onPointerDown={handlePointerDown}
-        onPointerOver={() => { gl.domElement.style.cursor = 'grab' }}
-        onPointerOut={() => { gl.domElement.style.cursor = 'auto' }}
+        onPointerDown={ghost ? undefined : handlePointerDown}
+        onPointerOver={ghost ? undefined : () => { gl.domElement.style.cursor = 'grab' }}
+        onPointerOut={ghost ? undefined : () => { gl.domElement.style.cursor = 'auto' }}
       >
-        {/* Base disc on the floor */}
+        {/* Base disc */}
         <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.18, 0.32, 32]} />
-          <meshBasicMaterial color={accent} transparent opacity={0.9} side={THREE.DoubleSide} />
+          <meshBasicMaterial color={accent} transparent opacity={ghost ? 0.2 : 0.9} side={THREE.DoubleSide} />
         </mesh>
 
-        {/* Body — tapered cylinder up to shoulder height */}
+        {/* Body */}
         <mesh position={[0, (PERSON_HEIGHT - HEAD_RADIUS * 2) / 2, 0]} castShadow>
           <cylinderGeometry args={[0.12, 0.20, PERSON_HEIGHT - HEAD_RADIUS * 2, 16]} />
-          <meshStandardMaterial color={accent} roughness={0.6} metalness={0} emissive={accent} emissiveIntensity={0.25} />
+          <meshStandardMaterial color={accent} roughness={0.6} metalness={0} emissive={accent} emissiveIntensity={emissiveInt} transparent opacity={matOpacity} />
         </mesh>
 
         {/* Head */}
         <mesh position={[0, PERSON_HEIGHT - HEAD_RADIUS, 0]} castShadow>
           <sphereGeometry args={[HEAD_RADIUS, 16, 16]} />
-          <meshStandardMaterial color={accent} roughness={0.6} metalness={0} emissive={accent} emissiveIntensity={0.25} />
+          <meshStandardMaterial color={accent} roughness={0.6} metalness={0} emissive={accent} emissiveIntensity={emissiveInt} transparent opacity={matOpacity} />
         </mesh>
 
-        {/* Vertical guide line base → head top */}
+        {/* Vertical guide line */}
         <line>
           <bufferGeometry>
-            <bufferAttribute
-              attach="attributes-position"
-              args={[new Float32Array([0, 0, 0, 0, PERSON_HEIGHT, 0]), 3]}
-            />
+            <bufferAttribute attach="attributes-position" args={[new Float32Array([0, 0, 0, 0, PERSON_HEIGHT, 0]), 3]} />
           </bufferGeometry>
-          <lineBasicMaterial color={accent} transparent opacity={0.5} />
+          <lineBasicMaterial color={accent} transparent opacity={ghost ? 0.15 : 0.5} />
         </line>
       </group>
     </group>

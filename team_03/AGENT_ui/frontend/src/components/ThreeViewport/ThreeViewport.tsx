@@ -58,18 +58,15 @@ function ViewportRefBridge({ threeRef }: { threeRef: React.MutableRefObject<{ ca
   return null
 }
 
-// ── Auto-fit: set orbit target to geometry center on layout change ─────
-function BoundsFitter({ layout, onFit }: { layout: LayoutJSON; onFit: () => void }) {
-  const threeState = useThree()
-  const fittedRef = useRef<string | null>(null)
+// ── Auto-fit: center camera on layout change ───────────────────────────
+function BoundsFitter({ layout }: { layout: LayoutJSON }) {
+  const { camera, controls } = useThree()
+  const fittedRef = useRef<object | null>(null)
 
   useEffect(() => {
-    if (fittedRef.current === layout.layoutId) return
-    fittedRef.current = layout.layoutId
+    if (fittedRef.current === layout) return
+    fittedRef.current = layout
 
-    const { controls } = threeState
-
-    // Compute center of geometry
     const pts = layout.outline
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
     for (const [x, y] of pts) {
@@ -78,17 +75,17 @@ function BoundsFitter({ layout, onFit }: { layout: LayoutJSON; onFit: () => void
     }
     const cx = (minX + maxX) / 2
     const cz = (minY + maxY) / 2
+    const maxDim = Math.max(maxX - minX, maxY - minY)
+    const dist = maxDim * 1.0
 
-    // Set orbit target to geometry center
-    if (controls) {
-      const ctrl = controls as any
-      ctrl.target.set(cx, 0, cz)
-      ctrl.update()
-    }
-
-    // Trigger Center view (top-front-right) after target is set
-    requestAnimationFrame(() => onFit())
-  }) // Runs every render but guarded by ref
+    if (!controls) return
+    const ctrl = controls as any
+    ctrl.target.set(cx, 0, cz)
+    camera.position.set(cx + dist * 0.577, dist * 0.577, cz + dist * 0.577)
+    camera.up.set(0, 1, 0)
+    camera.lookAt(cx, 0, cz)
+    ctrl.update()
+  })
 
   return null
 }
@@ -517,7 +514,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
         <ViewportRefBridge threeRef={threeRef} />
         <CameraController viewCommand={viewCommand} />
         <OrthoController isOrtho={isOrtho} />
-        <BoundsFitter layout={layout} onFit={() => handleViewChange('top-front-right')} />
+        <BoundsFitter layout={layout} />
         <SceneContent
           layout={layout}
           selectedId={selectedId}
@@ -527,22 +524,24 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
           showLabels={showLabels}
           modifiedIds={modifiedIds}
         />
-        {personMode && personPos && (
+        {personPos && (
           <ObserverMarker
             center={geoCenter}
             position={personPos}
             isDark={isDark}
-            onMove={handleObserverMove}
-            onRelease={handleObserverRelease}
-            onDragStart={handleObserverDragStart}
-            onDragEnd={handleObserverDragEnd}
+            ghost={!personMode}
+            onMove={personMode ? handleObserverMove : () => {}}
+            onRelease={personMode ? handleObserverRelease : () => {}}
+            onDragStart={personMode ? handleObserverDragStart : undefined}
+            onDragEnd={personMode ? handleObserverDragEnd : undefined}
           />
         )}
-        {pathMode && pathPoints.length > 0 && (
+        {pathPoints.length > 0 && (
           <ObserverMarker
             center={geoCenter}
             position={{ x: 0, y: 0 }}
             isDark={isDark}
+            ghost={!pathMode}
             onMove={() => {}}
             onRelease={() => {}}
             pathMode
