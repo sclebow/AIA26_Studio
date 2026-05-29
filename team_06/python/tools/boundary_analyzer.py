@@ -22,11 +22,17 @@ WEIGHT_AREA = 0.2
 WEIGHT_IOU = 0.5
 WEIGHT_TOPOLOGY = 0.3
 
+# Boundary graph refinement weight applied after the base composite score.
+GRAPH_REFINEMENT_WEIGHT = 0.2
+
 # Grid-based IoU sampling resolution
 GRID_RESOLUTION = 100
 
 # Rotation angles to test (degrees)
 ROTATION_ANGLES = [0, 90, 180, 270]
+
+# Number of samples used when comparing boundary graph signatures.
+GRAPH_SIGNATURE_SAMPLES = 64
 
 # Default number of top matches to return
 DEFAULT_TOP_N = 5
@@ -40,7 +46,7 @@ def get_boundary_analyzer_schema() -> Dict[str, Any]:
     """Return the MCP tool schema for boundary_analyzer."""
     return {
         "name": "boundary_analyzer",
-        "description": "Analyzes input boundary against dataset to find best matches using area, IoU, and topology scoring",
+        "description": "Analyzes input boundary against dataset to find best matches using area, IoU, topology, and circulation-anchored boundary graph scoring",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -56,12 +62,12 @@ def get_boundary_analyzer_schema() -> Dict[str, Any]:
                 },
                 "input_layout_path": {
                     "type": "string",
-                    "description": "Path to input layout JSON file (will use 'outline' field as boundary)",
+                    "description": "Path to input layout JSON file (will use 'outline' field as boundary and 'circulation' to anchor the start point)",
                     "default": "team_06/team_06_input_layout.json"
                 },
                 "dataset_path": {
                     "type": "string",
-                    "description": "Path to layout dataset JSON file (optional)",
+                    "description": "Path to layout dataset JSON file (optional, layouts should expose 'outline' and 'circulation')",
                     "default": "team_06/layout_inputs/sample_layouts.json"
                 },
                 "top_n_results": {
@@ -116,6 +122,213 @@ def normalize_to_origin(coords: List[List[float]]) -> List[List[float]]:
     """Translate polygon so its bounding box starts at (0, 0)."""
     min_x, _, min_y, _ = get_bounding_box(coords)
     return [[x - min_x, y - min_y] for x, y in coords]
+
+
+def _is_closed_polygon(coords: List[List[float]]) -> bool:
+    return len(coords) > 1 and coords[0] == coords[-1]
+
+
+def _open_polygon(coords: List[List[float]]) -> List[List[float]]:
+    return coords[:-1] if _is_closed_polygon(coords) else coords[:]
+
+
+def _points_close(point_a: List[float], point_b: List[float], tolerance: float = 1e-6) -> bool:
+    return abs(point_a[0] - point_b[0]) <= tolerance and abs(point_a[1] - point_b[1]) <= tolerance
+
+
+def _project_point_to_segment(point: List[float], start: List[float], end: List[float]) -> Tuple[List[float], float]:
+    """Project a point onto a segment and return the projected point plus distance."""
+    point_vec = np.array(point, dtype=float)
+    start_vec = np.array(start, dtype=float)
+    end_vec = np.array(end, dtype=float)
+    segment_vec = end_vec - start_vec
+    segment_length_sq = float(np.dot(segment_vec, segment_vec))
+
+    if segment_length_sq == 0.0:
+        projected = start_vec
+    else:
+        t = float(np.dot(point_vec - start_vec, segment_vec) / segment_length_sq)
+        t = max(0.0, min(1.0, t))
+        projected = start_vec + t * segment_vec
+
+    distance = float(np.linalg.norm(point_vec - projected))
+    return projected.tolist(), distance
+
+
+def extract_circulation_anchor_point(layout: Dict[str, Any]) -> List[float] | None:
+    """Return the first point of the best circulation line, preferring the front-door axis."""
+    circulation_items = layout.get("circulation", [])
+    if not circulation_items:
+        return None
+
+    preferred_item = None
+    for item in circulation_items:
+        name = str(item.get("name", "")).lower()
+        if "front door" in name or "door" in name:
+            preferred_item = item
+            break
+
+    item = preferred_item or circulation_items[0]
+    geometry = item.get("geometry", [])
+    if not geometry:
+        return None
+
+    return list(geometry[0])
+
+
+def align_outline_to_anchor(coords: List[List[float]], anchor_point: List[float] | None) -> Dict[str, Any]:
+    """Rotate the boundary so the outline starts near the circulation anchor point."""
+    open_coords = _open_polygon(coords)
+    if not open_coords:
+        return {
+            "coordinates": coords[:],
+            "start_vertex_index": 0,
+            "anchor_point": anchor_point,
+        }
+
+    if anchor_point is None:
+        return {
+            "coordinates": open_coords + [open_coords[0]],
+            "start_vertex_index": 0,
+            "anchor_point": None,
+        }
+
+    best_index = 0
+    best_projection = open_coords[0]
+    best_distance = float("inf")
+    vertex_count = len(open_coords)
+
+    for index in range(vertex_count):
+        segment_start = open_coords[index]
+        segment_end = open_coords[(index + 1) % vertex_count]
+        projected_point, distance = _project_point_to_segment(anchor_point, segment_start, segment_end)
+        if distance < best_distance:
+            best_distance = distance
+            best_index = index
+            best_projection = projected_point
+
+    next_vertex = open_coords[(best_index + 1) % vertex_count]
+    if _points_close(best_projection, next_vertex):
+        rotated_open = open_coords[(best_index + 1) % vertex_count:] + open_coords[:best_index + 1]
+    else:
+        rotated_open = [best_projection] + open_coords[(best_index + 1) % vertex_count:] + open_coords[:best_index + 1]
+
+    if not _points_close(rotated_open[0], rotated_open[-1]):
+        rotated_open = rotated_open + [rotated_open[0]]
+
+    return {
+        "coordinates": rotated_open,
+        "start_vertex_index": 0,
+        "anchor_point": anchor_point,
+    }
+
+
+def _signed_turn_angle(prev_point: List[float], current_point: List[float], next_point: List[float]) -> float:
+    """Return the signed turning angle in radians for a polygon vertex."""
+    incoming = np.array(prev_point, dtype=float) - np.array(current_point, dtype=float)
+    outgoing = np.array(next_point, dtype=float) - np.array(current_point, dtype=float)
+    cross = float(incoming[0] * outgoing[1] - incoming[1] * outgoing[0])
+    dot = float(np.dot(incoming, outgoing))
+    return float(np.arctan2(cross, dot))
+
+
+def build_boundary_graph(coords: List[List[float]], anchor_point: List[float] | None = None) -> Dict[str, Any]:
+    """Encode a boundary as an ordered cycle graph anchored to the circulation line when available."""
+    aligned = align_outline_to_anchor(coords, anchor_point)
+    graph_coords = aligned["coordinates"]
+    open_coords = _open_polygon(graph_coords)
+    perimeter = polygon_perimeter(open_coords)
+
+    if not open_coords:
+        return {
+            "anchor_point": anchor_point,
+            "start_vertex_index": 0,
+            "perimeter": 0.0,
+            "vertex_count": 0,
+            "edge_count": 0,
+            "nodes": [],
+            "edges": [],
+            "signature": [],
+        }
+
+    vertex_count = len(open_coords)
+    nodes = []
+    edges = []
+    signature = []
+
+    for index in range(vertex_count):
+        current_point = open_coords[index]
+        next_point = open_coords[(index + 1) % vertex_count]
+        previous_point = open_coords[(index - 1) % vertex_count]
+
+        edge_length = float(np.linalg.norm(np.array(next_point, dtype=float) - np.array(current_point, dtype=float)))
+        turn_angle = _signed_turn_angle(previous_point, current_point, next_point)
+
+        nodes.append({
+            "index": index,
+            "point": [round(current_point[0], 6), round(current_point[1], 6)],
+            "turn_angle_radians": round(turn_angle, 6),
+            "turn_angle_normalized": round(turn_angle / math.pi, 6),
+        })
+        edges.append({
+            "index": index,
+            "from": index,
+            "to": (index + 1) % vertex_count,
+            "length": round(edge_length, 6),
+            "normalized_length": round(edge_length / perimeter, 6) if perimeter else 0.0,
+        })
+        signature.append([
+            edge_length / perimeter if perimeter else 0.0,
+            turn_angle / math.pi,
+        ])
+
+    return {
+        "anchor_point": anchor_point,
+        "start_vertex_index": aligned["start_vertex_index"],
+        "perimeter": round(perimeter, 6),
+        "vertex_count": vertex_count,
+        "edge_count": len(edges),
+        "nodes": nodes,
+        "edges": edges,
+        "signature": signature,
+    }
+
+
+def _resample_cyclic_signature(signature: List[List[float]], sample_count: int = GRAPH_SIGNATURE_SAMPLES) -> np.ndarray:
+    if not signature:
+        return np.zeros((sample_count, 2), dtype=float)
+
+    samples = np.array(signature, dtype=float)
+    if len(samples) == 1:
+        return np.repeat(samples, sample_count, axis=0)
+
+    positions = np.linspace(0.0, 1.0, num=len(samples), endpoint=False)
+    positions_extended = np.append(positions, 1.0)
+    samples_extended = np.vstack([samples, samples[0]])
+    target_positions = np.linspace(0.0, 1.0, num=sample_count, endpoint=False)
+
+    resampled = np.column_stack([
+        np.interp(target_positions, positions_extended, samples_extended[:, 0]),
+        np.interp(target_positions, positions_extended, samples_extended[:, 1]),
+    ])
+    return resampled
+
+
+def calculate_graph_score(graph1: Dict[str, Any], graph2: Dict[str, Any], sample_count: int = GRAPH_SIGNATURE_SAMPLES) -> float:
+    """Compare two boundary graphs using their resampled edge-length and turning-angle signatures."""
+    signature1 = _resample_cyclic_signature(graph1.get("signature", []), sample_count)
+    signature2 = _resample_cyclic_signature(graph2.get("signature", []), sample_count)
+
+    if signature1.size == 0 or signature2.size == 0:
+        return 0.0
+
+    length_diff = np.abs(signature1[:, 0] - signature2[:, 0])
+    angle_diff = np.abs(signature1[:, 1] - signature2[:, 1])
+
+    length_score = max(0.0, 1.0 - float(np.mean(length_diff)))
+    angle_score = max(0.0, 1.0 - float(np.mean(angle_diff) / 2.0))
+
+    return round(0.6 * length_score + 0.4 * angle_score, 6)
 
 
 def rotate_polygon(coords: List[List[float]], angle_degrees: float) -> List[List[float]]:
@@ -250,11 +463,17 @@ def calculate_topology_score(stats1: Dict, stats2: Dict) -> float:
     return (vertex_sim + perimeter_sim + compactness_sim) / 3.0
 
 
-def calculate_composite_score(area_score: float, iou_score: float, topology_score: float) -> float:
-    """Calculate weighted composite score using predefined weights."""
-    return (WEIGHT_AREA * area_score + 
-            WEIGHT_IOU * iou_score + 
-            WEIGHT_TOPOLOGY * topology_score)
+def calculate_composite_score(area_score: float, iou_score: float, topology_score: float, graph_score: float | None = None) -> float:
+    """Calculate weighted composite score using predefined weights, optionally refined by the boundary graph."""
+    base_score = (WEIGHT_AREA * area_score +
+                  WEIGHT_IOU * iou_score +
+                  WEIGHT_TOPOLOGY * topology_score)
+
+    if graph_score is None:
+        return base_score
+
+    return ((1.0 - GRAPH_REFINEMENT_WEIGHT) * base_score +
+            GRAPH_REFINEMENT_WEIGHT * graph_score)
 
 
 def compute_boundary_stats(coords: List[List[float]]) -> Dict[str, float]:
@@ -295,6 +514,9 @@ def boundary_analyzer(input_boundary: List[List[float]] = None,
         Dictionary with analysis results, scores, and SVG visualization
     """
     
+    input_layout = None
+    input_anchor_point = None
+
     # Load input boundary from file if path provided
     if input_layout_path is not None:
         input_layout_path = Path(input_layout_path)
@@ -314,6 +536,7 @@ def boundary_analyzer(input_boundary: List[List[float]] = None,
             input_layout = json.load(f)
         
         input_boundary = input_layout.get('outline', [])
+        input_anchor_point = extract_circulation_anchor_point(input_layout)
         if not input_boundary:
             return {
                 "status": "error",
@@ -350,6 +573,7 @@ def boundary_analyzer(input_boundary: List[List[float]] = None,
         dataset = json.load(f)
     
     input_stats = compute_boundary_stats(input_boundary)
+    input_graph = build_boundary_graph(input_boundary, input_anchor_point)
     
     results = []
     
@@ -360,13 +584,17 @@ def boundary_analyzer(input_boundary: List[List[float]] = None,
         
         if not candidate_coords:
             continue
+
+        candidate_anchor_point = extract_circulation_anchor_point(layout)
             
         candidate_stats = compute_boundary_stats(candidate_coords)
+        candidate_graph = build_boundary_graph(candidate_coords, candidate_anchor_point)
         
         area_score = calculate_area_score(input_stats['area'], candidate_stats['area'])
         iou_score = calculate_iou_with_rotation(input_boundary, candidate_coords)
         topology_score = calculate_topology_score(input_stats, candidate_stats)
-        composite_score = calculate_composite_score(area_score, iou_score, topology_score)
+        graph_score = calculate_graph_score(input_graph, candidate_graph)
+        composite_score = calculate_composite_score(area_score, iou_score, topology_score, graph_score)
         
         # Extract layout info
         layout_id = layout.get('layoutId', 'unknown')
@@ -380,8 +608,10 @@ def boundary_analyzer(input_boundary: List[List[float]] = None,
             "area_score": round(area_score, 3),
             "iou_score": round(iou_score, 3),
             "topology_score": round(topology_score, 3),
+            "graph_score": round(graph_score, 3),
             "coordinates": candidate_coords,
-            "stats": candidate_stats
+            "stats": candidate_stats,
+            "boundary_graph": candidate_graph
         })
     
     results.sort(key=lambda x: x['composite_score'], reverse=True)
@@ -418,6 +648,7 @@ def boundary_analyzer(input_boundary: List[List[float]] = None,
         return {
             "status": "success",
             "input_boundary_stats": input_stats,
+            "input_boundary_graph": input_graph,
             "top_matches": [
                 {
                     "rank": i + 1,
@@ -427,7 +658,9 @@ def boundary_analyzer(input_boundary: List[List[float]] = None,
                     "composite_score": m['composite_score'],
                     "area_score": m['area_score'],
                     "iou_score": m['iou_score'],
-                    "topology_score": m['topology_score']
+                    "topology_score": m['topology_score'],
+                    "graph_score": m['graph_score'],
+                    "boundary_graph": m['boundary_graph']
                 }
                 for i, m in enumerate(top_matches)
             ],
