@@ -55,6 +55,115 @@ function wallRectFromLine(
   ]
 }
 
+// ── Shared element dimensions (single source of truth for walls + openings) ──
+const WALL_HEIGHT = 3.0
+const WALL_THICKNESS = 0.2
+const DOOR_HEIGHT = 2.2
+const WIN_BOTTOM = 1.0
+const WIN_HEIGHT = 1.0
+
+type Pt = [number, number]
+type Opening = { t1: number; t2: number; kind: 'door' | 'window' }
+type WallPiece = { rect: Pt[]; zBottom: number; depth: number }
+
+function wallAxis(p1: Pt, p2: Pt) {
+  const dx = p2[0] - p1[0], dy = p2[1] - p1[1]
+  const len = Math.hypot(dx, dy) || 1
+  return { dir: [dx / len, dy / len] as Pt, len }
+}
+/** Signed projection of q onto the wall axis (distance along wall from p1). */
+function projParam(q: Pt, p1: Pt, dir: Pt) {
+  return (q[0] - p1[0]) * dir[0] + (q[1] - p1[1]) * dir[1]
+}
+/** Perpendicular distance of q from the wall's infinite centerline. */
+function perpDist(q: Pt, p1: Pt, dir: Pt) {
+  const t = projParam(q, p1, dir)
+  const px = p1[0] + dir[0] * t, py = p1[1] + dir[1] * t
+  return Math.hypot(q[0] - px, q[1] - py)
+}
+
+/** Assign every door/window opening to the wall it lies on (collinear +
+ *  overlapping), returning a map of wallId → openings (in wall-local 1D coords). */
+function assignOpenings(
+  walls: LayoutJSON['structure'],
+  doors: LayoutJSON['doors'],
+  windows: LayoutJSON['windows'],
+): Map<string, Opening[]> {
+  const map = new Map<string, Opening[]>()
+  const segs: { geo: Pt[]; kind: 'door' | 'window' }[] = [
+    ...doors.map(d => ({ geo: d.geometry as Pt[], kind: 'door' as const })),
+    ...windows.map(w => ({ geo: w.geometry as Pt[], kind: 'window' as const })),
+  ]
+  for (const s of segs) {
+    if (!s.geo || s.geo.length < 2) continue
+    const [q1, q2] = s.geo
+    let best: { wallId: string; t1: number; t2: number } | null = null
+    let bestDist = Infinity
+    for (const w of walls) {
+      const [p1, p2] = w.geometry as Pt[]
+      const { dir, len } = wallAxis(p1, p2)
+      const d1 = perpDist(q1, p1, dir), d2 = perpDist(q2, p1, dir)
+      if (Math.max(d1, d2) > WALL_THICKNESS * 1.5) continue   // not on this wall line
+      let t1 = projParam(q1, p1, dir), t2 = projParam(q2, p1, dir)
+      if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp }
+      if (t2 < 0 || t1 > len) continue                         // no overlap with extent
+      const avg = (d1 + d2) / 2
+      if (avg < bestDist) {
+        bestDist = avg
+        best = { wallId: w.id, t1: Math.max(0, t1), t2: Math.min(len, t2) }
+      }
+    }
+    if (best) {
+      if (!map.has(best.wallId)) map.set(best.wallId, [])
+      map.get(best.wallId)!.push({ t1: best.t1, t2: best.t2, kind: s.kind })
+    }
+  }
+  return map
+}
+
+/** Decompose a wall into extrudable pieces: full-height solid segments between
+ *  openings, plus sill/lintel blocks so each opening is a real void at its own
+ *  height band (doors: gap up to DOOR_HEIGHT + lintel; windows: sill + band + lintel). */
+function buildWallPieces(p1: Pt, p2: Pt, openings: Opening[]): WallPiece[] {
+  const { dir, len } = wallAxis(p1, p2)
+  const pt = (t: number): Pt => [p1[0] + dir[0] * t, p1[1] + dir[1] * t]
+  const piece = (a: Pt, b: Pt, zBottom: number, depth: number): WallPiece =>
+    ({ rect: wallRectFromLine(a, b, WALL_THICKNESS), zBottom, depth })
+  const pieces: WallPiece[] = []
+
+  // Merge opening spans for the full-height solid complement.
+  const spans = openings
+    .map(o => [Math.max(0, Math.min(o.t1, o.t2)), Math.min(len, Math.max(o.t1, o.t2))] as Pt)
+    .filter(([a, b]) => b - a > 1e-3)
+    .sort((a, b) => a[0] - b[0])
+  const merged: Pt[] = []
+  for (const sp of spans) {
+    const last = merged[merged.length - 1]
+    if (last && sp[0] <= last[1] + 1e-6) last[1] = Math.max(last[1], sp[1])
+    else merged.push([sp[0], sp[1]])
+  }
+  let cursor = 0
+  for (const [a, b] of merged) {
+    if (a - cursor > 1e-3) pieces.push(piece(pt(cursor), pt(a), 0, WALL_HEIGHT))
+    cursor = Math.max(cursor, b)
+  }
+  if (len - cursor > 1e-3) pieces.push(piece(pt(cursor), pt(len), 0, WALL_HEIGHT))
+
+  // Sill / lintel blocks above & below each opening band.
+  for (const o of openings) {
+    const a = Math.max(0, Math.min(o.t1, o.t2)), b = Math.min(len, Math.max(o.t1, o.t2))
+    if (b - a <= 1e-3) continue
+    if (o.kind === 'door') {
+      if (WALL_HEIGHT > DOOR_HEIGHT) pieces.push(piece(pt(a), pt(b), DOOR_HEIGHT, WALL_HEIGHT - DOOR_HEIGHT))
+    } else {
+      if (WIN_BOTTOM > 0) pieces.push(piece(pt(a), pt(b), 0, WIN_BOTTOM))
+      const top = WIN_BOTTOM + WIN_HEIGHT
+      if (WALL_HEIGHT > top) pieces.push(piece(pt(a), pt(b), top, WALL_HEIGHT - top))
+    }
+  }
+  return pieces
+}
+
 // ── Sub-components ─────────────────────────────────────────────────────
 
 interface FloorPlanRendererProps {
@@ -81,7 +190,7 @@ export default function FloorPlanRenderer({ layout, layers, selectedId, onSelect
     <group position={[-center.x, 0, -center.z]}>
       {layers.outline && <OutlineLayer outline={layout.outline} selectedId={selectedId} isDark={isDark} />}
       {layers.rooms && <RoomsLayer rooms={layout.rooms} selectedId={selectedId} onSelect={onSelect} isDark={isDark} />}
-      {layers.structure && <StructureLayer items={layout.structure} selectedId={selectedId} onSelect={onSelect} isDark={isDark} />}
+      {layers.structure && <StructureLayer items={layout.structure} doors={layout.doors} windows={layout.windows} selectedId={selectedId} onSelect={onSelect} isDark={isDark} />}
       {layers.doors && <DoorsLayer items={layout.doors} selectedId={selectedId} onSelect={onSelect} isDark={isDark} />}
       {layers.windows && <WindowsLayer items={layout.windows} selectedId={selectedId} onSelect={onSelect} isDark={isDark} />}
       {layers.furniture && <FurnitureLayer items={layout.furniture} selectedId={selectedId} onSelect={onSelect} isDark={isDark} />}
@@ -154,52 +263,75 @@ function RoomMesh({ room, isSelected, onSelect, isDark }: {
   )
 }
 
-// ── Structure (walls) — always white, 80% transparency ────────────────
-function StructureLayer({ items, selectedId, onSelect, isDark }: {
-  items: LayoutJSON['structure']; selectedId: string | null; onSelect: (id: string | null) => void
+// ── Structure (walls) — extruded with door/window openings cut out ────────
+function StructureLayer({ items, doors, windows, selectedId, onSelect, isDark }: {
+  items: LayoutJSON['structure']
+  doors: LayoutJSON['doors']
+  windows: LayoutJSON['windows']
+  selectedId: string | null
+  onSelect: (id: string | null) => void
 } & DarkProp) {
+  // Match every opening to its host wall once, in wall-local coordinates.
+  const openingsByWall = useMemo(
+    () => assignOpenings(items, doors, windows),
+    [items, doors, windows],
+  )
   return (
     <group>
       {items.map(wall => (
-        <WallMesh key={wall.id} wall={wall} isSelected={selectedId === wall.id} onSelect={onSelect} isDark={isDark} />
+        <WallMesh
+          key={wall.id}
+          wall={wall}
+          openings={openingsByWall.get(wall.id) || []}
+          isSelected={selectedId === wall.id}
+          onSelect={onSelect}
+          isDark={isDark}
+        />
       ))}
     </group>
   )
 }
 
-function WallMesh({ wall, isSelected, onSelect, isDark }: {
-  wall: LayoutJSON['structure'][0]; isSelected: boolean; onSelect: (id: string | null) => void
+function WallMesh({ wall, openings, isSelected, onSelect, isDark }: {
+  wall: LayoutJSON['structure'][0]; openings: Opening[]; isSelected: boolean; onSelect: (id: string | null) => void
 } & DarkProp) {
-  const WALL_HEIGHT = 3.0
-  const WALL_THICKNESS = 0.2
-  const geo = useMemo(() => {
-    const [p1, p2] = wall.geometry
-    const rect = wallRectFromLine(p1, p2, WALL_THICKNESS)
-    const shape = shapeFromPolygon(rect)
-    const g = new THREE.ExtrudeGeometry(shape, { depth: WALL_HEIGHT, bevelEnabled: false })
-    g.rotateX(-Math.PI / 2)
-    return g
-  }, [wall.geometry])
+  // One extruded box per solid sub-piece (segments between openings + sills/lintels).
+  const geos = useMemo(() => {
+    const [p1, p2] = wall.geometry as Pt[]
+    const pieces = buildWallPieces(p1, p2, openings)
+    return pieces.map(pc => {
+      const shape = shapeFromPolygon(pc.rect)
+      const g = new THREE.ExtrudeGeometry(shape, { depth: pc.depth, bevelEnabled: false })
+      g.rotateX(-Math.PI / 2)
+      g.translate(0, pc.zBottom, 0)
+      return g
+    })
+  }, [wall.geometry, openings])
 
   return (
-    <mesh geometry={geo} castShadow userData={{ elementId: wall.id, type: 'structure', name: wall.name }}
+    <group userData={{ elementId: wall.id, type: 'structure', name: wall.name }}
       onClick={(e) => { e.stopPropagation(); onSelect(wall.id) }}>
-      {isDark ? (
-        <meshStandardMaterial
-          color={ARCTIC.wall.dark}
-          transparent opacity={0.80}
-          roughness={0.95} metalness={0}
-          emissive={isSelected ? '#6B7B9E' : '#000000'}
-          emissiveIntensity={isSelected ? 0.35 : 0}
-        />
-      ) : (
-        <meshBasicMaterial
-          color={isSelected ? '#d0d8e4' : ARCTIC.wall.light}
-          transparent opacity={0.80}
-        />
-      )}
-      <Edges threshold={15} color={isDark ? '#6B7B9E' : ARCTIC.wall.edge} />
-    </mesh>
+      {geos.map((g, i) => (
+        <mesh key={i} geometry={g} castShadow
+          userData={{ elementId: wall.id, type: 'structure', name: wall.name }}>
+          {isDark ? (
+            <meshStandardMaterial
+              color={ARCTIC.wall.dark}
+              transparent opacity={0.80}
+              roughness={0.95} metalness={0}
+              emissive={isSelected ? '#6B7B9E' : '#000000'}
+              emissiveIntensity={isSelected ? 0.35 : 0}
+            />
+          ) : (
+            <meshBasicMaterial
+              color={isSelected ? '#d0d8e4' : ARCTIC.wall.light}
+              transparent opacity={0.80}
+            />
+          )}
+          <Edges threshold={15} color={isDark ? '#6B7B9E' : ARCTIC.wall.edge} />
+        </mesh>
+      ))}
+    </group>
   )
 }
 
@@ -219,7 +351,6 @@ function DoorsLayer({ items, selectedId, onSelect, isDark }: {
 function DoorMesh({ door, isSelected, onSelect, isDark }: {
   door: LayoutJSON['doors'][0]; isSelected: boolean; onSelect: (id: string | null) => void
 } & DarkProp) {
-  const DOOR_HEIGHT = 2.2
   const { position, size, rotation } = useMemo(() => {
     const [p1, p2] = door.geometry
     const cx = (p1[0] + p2[0]) / 2, cy = (p1[1] + p2[1]) / 2
@@ -265,7 +396,6 @@ function WindowsLayer({ items, selectedId, onSelect, isDark }: {
 function WindowMesh({ win, isSelected, onSelect, isDark }: {
   win: LayoutJSON['windows'][0]; isSelected: boolean; onSelect: (id: string | null) => void
 } & DarkProp) {
-  const WIN_BOTTOM = 1.0, WIN_HEIGHT = 1.0
   const { position, size, rotation } = useMemo(() => {
     const [p1, p2] = win.geometry
     const cx = (p1[0] + p2[0]) / 2, cy = (p1[1] + p2[1]) / 2
