@@ -51,7 +51,7 @@ export default function App() {
   const [displayMode, setDisplayMode] = useState<ViewMode>('geometry');
   const [animPhase, setAnimPhase] = useState<'idle' | 'out' | 'in'>('idle');
   const [logOpen, setLogOpen] = useState(false);
-  const [workflowsOpen, setWorkflowsOpen] = useState(true);
+  const [workflowsOpen, setWorkflowsOpen] = useState(false);
   const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasRunningRef = useRef(false);
 
