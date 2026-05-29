@@ -1,6 +1,59 @@
 """
-Boundary Analyzer Tool - Matches input boundaries against reference dataset
-Uses area, IoU, and topology scoring with SVG visualization output.
+Boundary Analyzer
+-----------------
+
+This module implements a deterministic, geometric boundary matching tool
+designed for the Team06 layout dataset (and similar JSON layout exports).
+
+Main purpose
+ - Given an input apartment boundary (polygon) find similar layouts from a
+     dataset by combining explicit geometric measures:
+         * area similarity (Shoelace area)
+         * IoU between polygons (grid-sampled for concave shapes)
+         * topology similarity (vertex count, perimeter, compactness)
+         * turning-function distance (boundary shape anchored at the front door)
+         * optional boundary-graph signature refinement (edge length + vertex turning)
+
+Why these measures?
+ - Area and IoU capture scale and overlap.
+ - Topology captures coarse vertex/perimeter/compactness similarities.
+ - Turning-function is sensitive to door placement and ordered boundary detail
+     (useful when two shapes have similar area/IoU but different entrance position).
+ - The boundary-graph provides an ordered, anchored cycle encoding that can be
+     used as an additional robust signature for ranking.
+
+How it works (high-level)
+ 1. Load input polygon: either provided as `input_boundary` or read from an
+        `input_layout_path` JSON file (uses the `outline` field).
+ 2. Extract a circulation anchor point from the layout's `circulation` entries
+        (prefer items named like "Front Door Axis") and use that point as the
+        canonical start location on the polygon boundary.
+ 3. For each candidate layout in the dataset (expected to have an `outline`):
+        - compute geometric stats (area, perimeter, compactness)
+        - compute IoU (grid-based sampling; rotation-invariant by testing 0/90/180/270°)
+        - build an anchored boundary graph: ordered vertex list, edge lengths,
+            signed turning angles, and a compact signature
+        - compute a turning-function signature (cumulative turning across
+            normalized perimeter) and compare it to the input's turning function
+        - combine the measures into a composite score (weighted sum)
+        - optionally refine the score using the boundary-graph similarity
+ 4. Return the top N matches and a comparison SVG for the best match.
+
+Notes and design choices
+ - The algorithm prefers transparent, interpretable geometric measures over
+     black-box embeddings. Learned embeddings can be added later as extra
+     features but should not replace these explicit metrics without evaluation.
+ - IoU uses grid sampling (CONFIGURABLE via `GRID_RESOLUTION`) to support
+     concave polygons without relying on heavy geometry libraries.
+ - The turning-function is anchored using the `circulation` entry so that
+     door placement becomes part of the descriptor (this resolves cyclic-shift
+     ambiguity for retrieval).
+
+Required fields in layout JSON
+ - `outline` : ordered polygon coordinates [[x,y], ...]
+ - `circulation` (optional) : polylines describing circulation axes; the
+        first point of the preferred `circulation` feature is used as the anchor.
+
 """
 
 import json
@@ -19,8 +72,10 @@ from utils.svg_utils import generate_boundary_comparison_svg
 
 # Scoring weights (must sum to 1.0)
 WEIGHT_AREA = 0.2
-WEIGHT_IOU = 0.5
-WEIGHT_TOPOLOGY = 0.3
+WEIGHT_IOU = 0.45
+WEIGHT_TOPOLOGY = 0.25
+# Turning-function weight (part of base composite score)
+WEIGHT_TURNING = 0.10
 
 # Boundary graph refinement weight applied after the base composite score.
 GRAPH_REFINEMENT_WEIGHT = 0.2
@@ -33,6 +88,9 @@ ROTATION_ANGLES = [0, 90, 180, 270]
 
 # Number of samples used when comparing boundary graph signatures.
 GRAPH_SIGNATURE_SAMPLES = 64
+
+# Turning-function sampling count (same idea as graph signature sampling)
+TURNING_SAMPLES = 64
 
 # Default number of top matches to return
 DEFAULT_TOP_N = 5
@@ -331,6 +389,56 @@ def calculate_graph_score(graph1: Dict[str, Any], graph2: Dict[str, Any], sample
     return round(0.6 * length_score + 0.4 * angle_score, 6)
 
 
+def _compute_turning_samples_from_graph(graph: Dict[str, Any], sample_count: int = TURNING_SAMPLES) -> np.ndarray:
+    """Compute a resampled turning-function (cumulative turning normalized by 2π)
+    from a `build_boundary_graph` output.
+    Returns a 1D numpy array of length `sample_count` with values in roughly [-1,1].
+    """
+    sig = graph.get('signature', [])
+    if not sig:
+        return np.zeros(sample_count, dtype=float)
+
+    samples = np.array(sig, dtype=float)
+    # signature: [normalized_edge_length, turn_angle/pi]
+    normalized_edge_lengths = samples[:, 0]
+    turn_angle_over_pi = samples[:, 1]
+    turn_radians = turn_angle_over_pi * math.pi
+
+    # positions along perimeter at vertex points (fraction)
+    positions = np.concatenate(([0.0], np.cumsum(normalized_edge_lengths)))[:-1]
+    # cumulative turning at each vertex (radians)
+    cumulative_turn = np.cumsum(turn_radians)
+    # normalize by full-turn (2π)
+    cumulative_turn_norm = cumulative_turn / (2.0 * math.pi)
+
+    # Resample onto uniform positions 0..1
+    target_positions = np.linspace(0.0, 1.0, num=sample_count, endpoint=False)
+    # extend positions to include endpoint 1.0 for interpolation convenience
+    pos_ext = np.append(positions, 1.0)
+    turn_ext = np.append(cumulative_turn_norm, cumulative_turn_norm[0] if len(cumulative_turn_norm) else 0.0)
+
+    resampled = np.interp(target_positions, pos_ext, turn_ext)
+    return resampled
+
+
+def calculate_turning_score(graph1: Dict[str, Any], graph2: Dict[str, Any], sample_count: int = TURNING_SAMPLES) -> float:
+    """Compute a similarity score in [0,1] from two boundary graphs' turning functions.
+    1. Resample both turning functions to `sample_count` points.
+    2. Compute mean absolute difference and normalize by 2 (max possible difference).
+    3. Return 1 - normalized_mean_diff.
+    """
+    t1 = _compute_turning_samples_from_graph(graph1, sample_count)
+    t2 = _compute_turning_samples_from_graph(graph2, sample_count)
+
+    if t1.size == 0 or t2.size == 0:
+        return 0.0
+
+    mean_abs_diff = float(np.mean(np.abs(t1 - t2)))
+    # Differences are in units of full-turns; divide by 2 to map max diff->1.0
+    normalized = min(1.0, mean_abs_diff / 2.0)
+    return round(max(0.0, 1.0 - normalized), 6)
+
+
 def rotate_polygon(coords: List[List[float]], angle_degrees: float) -> List[List[float]]:
     """Rotate polygon around its centroid."""
     coords_array = np.array(coords)
@@ -463,11 +571,18 @@ def calculate_topology_score(stats1: Dict, stats2: Dict) -> float:
     return (vertex_sim + perimeter_sim + compactness_sim) / 3.0
 
 
-def calculate_composite_score(area_score: float, iou_score: float, topology_score: float, graph_score: float | None = None) -> float:
+def calculate_composite_score(area_score: float, iou_score: float, topology_score: float, turning_score: float | None = None, graph_score: float | None = None) -> float:
     """Calculate weighted composite score using predefined weights, optionally refined by the boundary graph."""
+    # Build base score including turning (if provided)
+    if turning_score is None:
+        turning_val = 0.0
+    else:
+        turning_val = turning_score
+
     base_score = (WEIGHT_AREA * area_score +
                   WEIGHT_IOU * iou_score +
-                  WEIGHT_TOPOLOGY * topology_score)
+                  WEIGHT_TOPOLOGY * topology_score +
+                  WEIGHT_TURNING * turning_val)
 
     if graph_score is None:
         return base_score
@@ -594,7 +709,8 @@ def boundary_analyzer(input_boundary: List[List[float]] = None,
         iou_score = calculate_iou_with_rotation(input_boundary, candidate_coords)
         topology_score = calculate_topology_score(input_stats, candidate_stats)
         graph_score = calculate_graph_score(input_graph, candidate_graph)
-        composite_score = calculate_composite_score(area_score, iou_score, topology_score, graph_score)
+        turning_score = calculate_turning_score(input_graph, candidate_graph)
+        composite_score = calculate_composite_score(area_score, iou_score, topology_score, turning_score, graph_score)
         
         # Extract layout info
         layout_id = layout.get('layoutId', 'unknown')
@@ -609,6 +725,7 @@ def boundary_analyzer(input_boundary: List[List[float]] = None,
             "iou_score": round(iou_score, 3),
             "topology_score": round(topology_score, 3),
             "graph_score": round(graph_score, 3),
+            "turning_score": round(turning_score, 3),
             "coordinates": candidate_coords,
             "stats": candidate_stats,
             "boundary_graph": candidate_graph
