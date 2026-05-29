@@ -9,6 +9,11 @@ langchain-anthropic
 httpx
 python-dotenv
 
+# ── Web backend (FastAPI server — web replacement for the PyQt bridge) ───────
+fastapi
+uvicorn[standard]
+pydantic
+
 # ── GUI (PyQt5 desktop app — more stable on Windows than PyQt6) ──────────────
 PyQt5
 PyQtWebEngine

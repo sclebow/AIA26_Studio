@@ -59,8 +59,8 @@
         "analysis": {
           "_source": "Sensi",
           "persona": "Neutral",
-          "depth": "full",
-          "timestamp": "2026-05-24T21:57:06",
+          "depth": "analyze",
+          "timestamp": "2026-05-29T00:25:34",
           "overallScore": 0.73,
           "comfortScores": {
             "thermal": 0.72,
@@ -118,8 +118,8 @@
         "analysis": {
           "_source": "Sensi",
           "persona": "Neutral",
-          "depth": "full",
-          "timestamp": "2026-05-24T21:57:06",
+          "depth": "analyze",
+          "timestamp": "2026-05-29T00:25:34",
           "overallScore": 0.56,
           "comfortScores": {
             "thermal": 0.52,
@@ -183,8 +183,8 @@
         "analysis": {
           "_source": "Sensi",
           "persona": "Neutral",
-          "depth": "full",
-          "timestamp": "2026-05-24T21:57:06",
+          "depth": "analyze",
+          "timestamp": "2026-05-29T00:25:34",
           "overallScore": 0.74,
           "comfortScores": {
             "thermal": 0.72,
@@ -234,8 +234,8 @@
         "analysis": {
           "_source": "Sensi",
           "persona": "Neutral",
-          "depth": "full",
-          "timestamp": "2026-05-24T21:57:06",
+          "depth": "analyze",
+          "timestamp": "2026-05-29T00:25:34",
           "overallScore": 0.69,
           "comfortScores": {
             "thermal": 0.72,
@@ -285,8 +285,8 @@
         "analysis": {
           "_source": "Sensi",
           "persona": "Neutral",
-          "depth": "full",
-          "timestamp": "2026-05-24T21:57:06",
+          "depth": "analyze",
+          "timestamp": "2026-05-29T00:25:34",
           "overallScore": 0.56,
           "comfortScores": {
             "thermal": 0.62,
@@ -350,8 +350,8 @@
         "analysis": {
           "_source": "Sensi",
           "persona": "Neutral",
-          "depth": "full",
-          "timestamp": "2026-05-24T21:57:06",
+          "depth": "analyze",
+          "timestamp": "2026-05-29T00:25:34",
           "overallScore": 0.56,
           "comfortScores": {
             "thermal": 0.62,
@@ -924,8 +924,8 @@
   "analysis": {
     "_source": "Sensi",
     "persona": "Neutral",
-    "depth": "full",
-    "timestamp": "2026-05-24T21:57:06",
+    "depth": "analyze",
+    "timestamp": "2026-05-29T00:25:34",
     "overallScore": 0.64,
     "bestRoom": "room-3",
     "worstRoom": "room-2"

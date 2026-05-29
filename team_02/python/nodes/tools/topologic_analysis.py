@@ -1,54 +1,55 @@
 """
-TOPOLOGIC_ANALYSIS placeholder — builds room adjacency graph from door connections.
-TODO: Wire to TopologicPy or MCP compute_topologic_adjacency tool.
+TOPOLOGIC_ANALYSIS — real room-adjacency graph from door connections, plus degree
+metrics. Pure Python (no Rhino). If topologicpy is installed it is detected and
+noted, but the authoritative adjacency here is the door graph; building a
+topologicpy CellComplex from room polygons is a future improvement (flagged).
 """
 
 from __future__ import annotations
-import json
+from nodes.tools import _edits
+
+try:
+    import topologic  # noqa: F401  (topologicpy exposes the `topologic` module)
+    _TOPOLOGIC_AVAILABLE = True
+except Exception:
+    _TOPOLOGIC_AVAILABLE = False
 
 
 def build_topologic_analysis_node():
-    """Return the topologic_analysis node function."""
-
     def topologic_analysis_node(state: dict) -> dict:
-        layout_json_string: str = state.get("layout_json_string", "")
+        layout = _edits.load(state.get("layout_json_string", ""))
+        if layout is None:
+            return {**state, "adjacency_graph": {"_error": "no layout"}}
 
-        print("[topologic_analysis] PLACEHOLDER — building mock adjacency graph from doors")
+        rooms = {r.get("id", ""): r.get("name", "unknown") for r in layout.get("rooms", [])}
 
-        adjacency_graph: dict = {}
+        # Adjacency from door connectsRooms pairs (under attributes — the real schema).
+        adj: dict = {}
+        for door in layout.get("doors", []):
+            conn = door.get("attributes", {}).get("connectsRooms", [])
+            if len(conn) == 2:
+                a, b = conn
+                adj.setdefault(a, set()).add(b)
+                adj.setdefault(b, set()).add(a)
 
-        # Mock: parse door connections from layout JSON
-        try:
-            layout = json.loads(layout_json_string)
-            rooms = {r.get("id", ""): r.get("name", "unknown") for r in layout.get("rooms", [])}
+        named: dict = {}
+        for rid, neighbours in adj.items():
+            named[rooms.get(rid, rid)] = sorted(rooms.get(n, n) for n in neighbours)
 
-            # Build adjacency from door connectsRooms pairs
-            for door in layout.get("doors", []):
-                connects = door.get("connectsRooms", [])
-                if len(connects) == 2:
-                    a, b = connects[0], connects[1]
-                    adjacency_graph.setdefault(a, [])
-                    adjacency_graph.setdefault(b, [])
-                    if b not in adjacency_graph[a]:
-                        adjacency_graph[a].append(b)
-                    if a not in adjacency_graph[b]:
-                        adjacency_graph[b].append(a)
+        # Degree metrics
+        degrees = {name: len(neis) for name, neis in named.items()}
+        most_connected = max(degrees, key=degrees.get) if degrees else None
+        isolated = [rooms.get(rid, rid) for rid in rooms if rid not in adj]
 
-            # Annotate with room names for readability
-            named_graph: dict = {}
-            for room_id, neighbours in adjacency_graph.items():
-                room_name = rooms.get(room_id, room_id)
-                named_graph[room_name] = [rooms.get(n, n) for n in neighbours]
-
-            adjacency_graph = named_graph
-            print(f"[topologic_analysis] Adjacency graph: {adjacency_graph}")
-        except Exception as exc:
-            print(f"[topologic_analysis] Parse error ({exc}) — empty graph")
-            adjacency_graph = {"_error": str(exc)}
-
-        return {
-            **state,
-            "adjacency_graph": adjacency_graph,
+        metrics = {
+            "degrees": degrees,
+            "most_connected": most_connected,
+            "isolated_rooms": isolated,
+            "topologicpy_available": _TOPOLOGIC_AVAILABLE,
         }
+        print("[topologic_analysis] graph={} | most_connected={} | topologicpy={}".format(
+            named, most_connected, _TOPOLOGIC_AVAILABLE))
+
+        return {**state, "adjacency_graph": named, "adjacency_metrics": metrics}
 
     return topologic_analysis_node
