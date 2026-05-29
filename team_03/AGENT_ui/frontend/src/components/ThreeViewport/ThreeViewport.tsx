@@ -106,9 +106,9 @@ function CameraController({ viewCommand }: { viewCommand: string | null }) {
     const viewName = viewCommand.split('__')[0]
 
     // Offsets relative to the current orbit target (geometry center)
-    const offsets: Record<string, { off: [number, number, number]; up?: [number, number, number] }> = {
-      top: { off: [0, dist, 0.001], up: [0, 0, -1] },
-      bottom: { off: [0, -dist, 0.001], up: [0, 0, 1] },
+    const offsets: Record<string, { off: [number, number, number] }> = {
+      top: { off: [0, dist, 0.001] },
+      bottom: { off: [0, -dist, 0.001] },
       front: { off: [0, 0, dist] },
       back: { off: [0, 0, -dist] },
       right: { off: [dist, 0, 0] },
@@ -130,8 +130,7 @@ function CameraController({ viewCommand }: { viewCommand: string | null }) {
       target.y + view.off[1],
       target.z + view.off[2]
     )
-    if (view.up) camera.up.set(...view.up)
-    else camera.up.set(0, 1, 0)
+    camera.up.set(0, 1, 0)
     camera.lookAt(target)
     ctrl.update()
   }, [viewCommand, camera, controls])
@@ -320,7 +319,11 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
         minDistance={5}
         maxDistance={150}
         maxPolarAngle={Math.PI / 2.1}
-        target={[0, 0, 0]}
+        mouseButtons={{
+          LEFT: undefined as any,
+          MIDDLE: THREE.MOUSE.PAN,
+          RIGHT: THREE.MOUSE.ROTATE,
+        }}
       />
     </>
   )
@@ -502,13 +505,9 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
   }, [onSelect])
 
   const handleContainerClick = useCallback((e: React.MouseEvent) => {
-    const rect = containerRef.current?.getBoundingClientRect()
-    if (rect) {
-      // Store in ref (no re-render); SelectionPanel reads it via prop only when selectedId changes
-      const pos = { x: e.clientX - rect.left, y: e.clientY - rect.top }
-      clickScreenPosRef.current = pos
-      setClickScreenPos(pos)
-    }
+    const pos = { x: e.clientX, y: e.clientY }
+    clickScreenPosRef.current = pos
+    setClickScreenPos(pos)
   }, [])
 
   const bgColor = isDark ? '#1a1b24' : '#ffffff'
@@ -588,144 +587,112 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
         />
       )}
 
-      {/* Labels toggle button */}
-      <button
-        onClick={() => setShowLabels(v => !v)}
-        title={showLabels ? 'Hide labels' : 'Show labels'}
-        style={{
-          position: 'absolute',
-          top: 12,
-          right: 468,
-          zIndex: 20,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          background: colors.panelBg,
-          border: `1px solid ${showLabels ? colors.accent + '44' : colors.border}`,
-          borderRadius: 8,
-          padding: '5px 10px',
-          color: showLabels ? colors.accent : colors.muted,
-          fontSize: 9,
-          fontWeight: 600,
-          letterSpacing: '0.04em',
-          textTransform: 'uppercase',
-          cursor: 'pointer',
-          fontFamily: colors.font,
-          transition: 'color 0.2s, border-color 0.2s',
-        }}
-      >
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M3 7V5a2 2 0 012-2h2" /><path d="M17 3h2a2 2 0 012 2v2" />
-          <path d="M21 17v2a2 2 0 01-2 2h-2" /><path d="M7 21H5a2 2 0 01-2-2v-2" />
-          <line x1="7" y1="12" x2="17" y2="12" /><line x1="7" y1="8" x2="13" y2="8" />
-          <line x1="7" y1="16" x2="15" y2="16" />
-        </svg>
-        {showLabels ? 'Labels ON' : 'Labels'}
-      </button>
+      {/* Compact controls row — top-right, left of ViewCube */}
+      <div style={{
+        position: 'absolute',
+        top: 12,
+        right: 102,
+        zIndex: 20,
+        display: 'flex',
+        flexDirection: 'row',
+        gap: 4,
+        alignItems: 'center',
+      }}>
+        {/* Path toggle */}
+        <button
+          onClick={handleTogglePath}
+          title={pathMode ? 'Cancel path — Esc also cancels' : 'Draw an observer path (click points, dbl-click to finish)'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: colors.panelBg,
+            border: `1px solid ${pathMode ? colors.accent + '44' : colors.border}`,
+            borderRadius: 8, padding: '5px 10px',
+            color: pathMode ? colors.accent : colors.muted,
+            fontSize: 9, fontWeight: 600, letterSpacing: '0.04em',
+            textTransform: 'uppercase', cursor: 'pointer',
+            fontFamily: colors.font, transition: 'color 0.2s, border-color 0.2s',
+          }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="4" cy="20" r="2" fill="currentColor" stroke="none" />
+            <circle cx="12" cy="4" r="2" fill="currentColor" stroke="none" />
+            <circle cx="20" cy="14" r="2" fill="currentColor" stroke="none" />
+            <path d="M5.5 18.5L10.5 5.5M13.5 5.5L18.5 12.5" />
+          </svg>
+          {pathMode ? 'Path ON' : 'Path'}
+        </button>
 
-      {/* Person (observer point) toggle button */}
-      <button
-        onClick={handleTogglePerson}
-        title={personMode ? 'Hide observer point' : 'Place a draggable 1.7m person'}
-        style={{
-          position: 'absolute',
-          top: 12,
-          right: 644,
-          zIndex: 20,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          background: colors.panelBg,
-          border: `1px solid ${personMode ? colors.accent + '44' : colors.border}`,
-          borderRadius: 8,
-          padding: '5px 10px',
-          color: personMode ? colors.accent : colors.muted,
-          fontSize: 9,
-          fontWeight: 600,
-          letterSpacing: '0.04em',
-          textTransform: 'uppercase',
-          cursor: 'pointer',
-          fontFamily: colors.font,
-          transition: 'color 0.2s, border-color 0.2s',
-        }}
-      >
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <circle cx="12" cy="6" r="3" />
-          <path d="M12 9v8" /><path d="M8 13h8" /><path d="M9 21l3-4 3 4" />
-        </svg>
-        {personMode ? 'Person ON' : 'Person'}
-      </button>
+        {/* Person toggle */}
+        <button
+          onClick={handleTogglePerson}
+          title={personMode ? 'Hide observer point' : 'Place a draggable 1.7m person'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: colors.panelBg,
+            border: `1px solid ${personMode ? colors.accent + '44' : colors.border}`,
+            borderRadius: 8, padding: '5px 10px',
+            color: personMode ? colors.accent : colors.muted,
+            fontSize: 9, fontWeight: 600, letterSpacing: '0.04em',
+            textTransform: 'uppercase', cursor: 'pointer',
+            fontFamily: colors.font, transition: 'color 0.2s, border-color 0.2s',
+          }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="12" cy="6" r="3" />
+            <path d="M12 9v8" /><path d="M8 13h8" /><path d="M9 21l3-4 3 4" />
+          </svg>
+          {personMode ? 'Person ON' : 'Person'}
+        </button>
 
-      {/* Path (observer path) toggle button */}
-      <button
-        onClick={handleTogglePath}
-        title={pathMode ? 'Cancel path — Esc also cancels' : 'Draw an observer path (click points, dbl-click to finish)'}
-        style={{
-          position: 'absolute',
-          top: 12,
-          right: 732,
-          zIndex: 20,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          background: colors.panelBg,
-          border: `1px solid ${pathMode ? colors.accent + '44' : colors.border}`,
-          borderRadius: 8,
-          padding: '5px 10px',
-          color: pathMode ? colors.accent : colors.muted,
-          fontSize: 9,
-          fontWeight: 600,
-          letterSpacing: '0.04em',
-          textTransform: 'uppercase',
-          cursor: 'pointer',
-          fontFamily: colors.font,
-          transition: 'color 0.2s, border-color 0.2s',
-        }}
-      >
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="4" cy="20" r="2" fill="currentColor" stroke="none" />
-          <circle cx="12" cy="4" r="2" fill="currentColor" stroke="none" />
-          <circle cx="20" cy="14" r="2" fill="currentColor" stroke="none" />
-          <path d="M5.5 18.5L10.5 5.5M13.5 5.5L18.5 12.5" />
-        </svg>
-        {pathMode ? 'Path ON' : 'Path'}
-      </button>
+        {/* Center/fit */}
+        <button
+          onClick={() => handleViewChange('top-front-right')}
+          title="Center geometry"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: colors.panelBg,
+            border: `1px solid ${colors.border}`,
+            borderRadius: 8, padding: '5px 10px',
+            color: colors.muted,
+            fontSize: 9, fontWeight: 600, letterSpacing: '0.04em',
+            textTransform: 'uppercase', cursor: 'pointer',
+            fontFamily: colors.font, transition: 'color 0.2s, border-color 0.2s',
+          }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="12" cy="12" r="3" />
+            <line x1="12" y1="2" x2="12" y2="6" />
+            <line x1="12" y1="18" x2="12" y2="22" />
+            <line x1="2" y1="12" x2="6" y2="12" />
+            <line x1="18" y1="12" x2="22" y2="12" />
+          </svg>
+          Center
+        </button>
 
-      {/* Center/fit button */}
-      <button
-        onClick={() => handleViewChange('top-front-right')}
-        title="Center geometry"
-        style={{
-          position: 'absolute',
-          top: 12,
-          right: 556,
-          zIndex: 20,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          background: colors.panelBg,
-          border: `1px solid ${colors.border}`,
-          borderRadius: 8,
-          padding: '5px 10px',
-          color: colors.muted,
-          fontSize: 9,
-          fontWeight: 600,
-          letterSpacing: '0.04em',
-          textTransform: 'uppercase',
-          cursor: 'pointer',
-          fontFamily: colors.font,
-          transition: 'color 0.2s, border-color 0.2s',
-        }}
-      >
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <circle cx="12" cy="12" r="3" />
-          <line x1="12" y1="2" x2="12" y2="6" />
-          <line x1="12" y1="18" x2="12" y2="22" />
-          <line x1="2" y1="12" x2="6" y2="12" />
-          <line x1="18" y1="12" x2="22" y2="12" />
-        </svg>
-        Center
-      </button>
+        {/* Labels toggle */}
+        <button
+          onClick={() => setShowLabels(v => !v)}
+          title={showLabels ? 'Hide labels' : 'Show labels'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: colors.panelBg,
+            border: `1px solid ${showLabels ? colors.accent + '44' : colors.border}`,
+            borderRadius: 8, padding: '5px 10px',
+            color: showLabels ? colors.accent : colors.muted,
+            fontSize: 9, fontWeight: 600, letterSpacing: '0.04em',
+            textTransform: 'uppercase', cursor: 'pointer',
+            fontFamily: colors.font, transition: 'color 0.2s, border-color 0.2s',
+          }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 7V5a2 2 0 012-2h2" /><path d="M17 3h2a2 2 0 012 2v2" />
+            <path d="M21 17v2a2 2 0 01-2 2h-2" /><path d="M7 21H5a2 2 0 01-2-2v-2" />
+            <line x1="7" y1="12" x2="17" y2="12" /><line x1="7" y1="8" x2="13" y2="8" />
+            <line x1="7" y1="16" x2="15" y2="16" />
+          </svg>
+          {showLabels ? 'Labels ON' : 'Labels'}
+        </button>
+      </div>
 
       {/* ViewCube + Ortho toggle */}
       <ViewCube

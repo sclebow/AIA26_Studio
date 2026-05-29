@@ -266,7 +266,7 @@ export default function App() {
 
         {/* ── LEFT SIDEBAR (col 1, rows 1-2) ──────────────────────────── */}
         <div style={{
-          gridColumn: '1', gridRow: '1 / 3',
+          gridColumn: '1', gridRow: '1',
           borderRight: panelBorder, background: sidebarBg,
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}>
@@ -392,7 +392,7 @@ export default function App() {
 
         {/* ── BOTTOM CHAT STRIP (all cols, row 2) ──────────────────────── */}
         <div style={{
-          gridColumn: '1 / 4', gridRow: '2',
+          gridColumn: '2', gridRow: '2',
           borderTop: panelBorder,
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
           background: isDark ? 'rgba(10,11,16,0.98)' : 'rgba(250,251,253,0.98)',

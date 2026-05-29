@@ -100,7 +100,7 @@ export default function ViewCube({ onViewChange, isOrtho, onToggleOrtho, cameraA
 
       const transformed = FACES.map(face => {
         const rotated = face.corners.map(c => {
-          let v = rotateY(c, -az)
+          let v = rotateY(c, az)
           v = rotateX(v, -el)
           return v
         })
@@ -164,7 +164,7 @@ export default function ViewCube({ onViewChange, isOrtho, onToggleOrtho, cameraA
   // Initial face computation for first render
   const initialFaces = FACES.map(face => {
     const rotated = face.corners.map(c => {
-      let v = rotateY(c, -initAz)
+      let v = rotateY(c, initAz)
       v = rotateX(v, -initEl)
       return v
     })
@@ -183,7 +183,7 @@ export default function ViewCube({ onViewChange, isOrtho, onToggleOrtho, cameraA
     <div style={{
       position: 'absolute',
       top: 12,
-      right: 370,
+      right: 8,
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',

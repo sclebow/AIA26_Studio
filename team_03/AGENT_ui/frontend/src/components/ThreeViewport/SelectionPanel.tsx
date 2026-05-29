@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useTheme } from '../common/ThemeToggle'
 import { LayoutJSON } from '../../types'
 import type { NodeLinkData } from '../GraphPanel/graphDataMapper'
@@ -211,9 +212,9 @@ export default function SelectionPanel({ selectedId, layout, graphData, onClose,
 
   const typeColor = TYPE_COLORS[info.type] || colors.accent
 
-  return (
+  const panel = (
     <div style={{
-      position: 'absolute',
+      position: 'fixed',
       top: position.y,
       left: position.x,
       width: 260,
@@ -342,4 +343,6 @@ export default function SelectionPanel({ selectedId, layout, graphData, onClose,
       </div>
     </div>
   )
+
+  return createPortal(panel, document.body)
 }
