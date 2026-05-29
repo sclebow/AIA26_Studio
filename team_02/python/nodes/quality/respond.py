@@ -1,6 +1,6 @@
 """
 RESPOND node — generates the final user-facing response.
-Format adapts to comfort_depth (analyze/detect/full) and user_type register.
+Format adapts to action (analyze/detect/full/change_material/etc.) and user_type register.
 Incorporates specialist interpretations and any evaluator/fact-checker feedback.
 """
 
@@ -183,7 +183,8 @@ def build_respond_node(llm):
             p_role   = state.get("user_type", "client")
 
         layout_id   = state.get("layout_id", "?")
-        depth       = state.get("comfort_depth", "analyze")
+        # action is the unified v4 field (replaces dead comfort_depth)
+        depth       = state.get("action", "") or state.get("intent", "analyze")
         scores      = state.get("last_scores_json", "")
         conflicts   = state.get("last_conflicts_json", "")
         suggestions = state.get("last_suggestions_json", "")

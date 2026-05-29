@@ -172,7 +172,8 @@ def message(req: MessageReq) -> dict:
     sid, slot = _slot(req.session_id)
     msg, new_session = run_agent(req.text, _CTX, slot["session"])
     slot["session"] = new_session
-    return {"session_id": sid, **contracts.agent_response_payload(msg, new_session)}
+    # Pass new_session as final_state proxy — per-turn fields are stored there
+    return {"session_id": sid, **contracts.agent_response_payload(msg, new_session, new_session)}
 
 
 @app.post("/api/reset-persona")

@@ -1,6 +1,7 @@
 """
 SUGGESTION_CRITIC node — reviews each suggestion for feasibility, persona priority
 alignment, and cross-sense unintended consequences before RESPOND presents them.
+Updated: uses flat v4 persona schema (matches persona_compiler v2 output).
 Writes suggestion_critique to state.
 """
 
@@ -65,12 +66,30 @@ def _format_suggestions(suggestions_json: str) -> str:
 
 
 def _format_persona_priorities(persona_profile: dict) -> str:
+    """Build a priorities string from the flat v4 schema (persona_compiler v2)."""
     if not persona_profile:
         return "no specific priorities"
+
+    parts = []
+
+    # --- Flat schema (v4, persona_compiler v2) --------------------------------
+    if "sensory_priorities" in persona_profile or "sensory_sensitivities" in persona_profile:
+        priorities    = persona_profile.get("sensory_priorities", [])
+        sensitivities = persona_profile.get("sensory_sensitivities", [])
+        if priorities:
+            parts.append(f"Top senses: {', '.join(priorities)}")
+        if sensitivities:
+            parts.append(f"Sensitivities: {', '.join(sensitivities)}")
+        weights = persona_profile.get("comfort_weights", {})
+        if weights:
+            top_w = sorted(weights, key=weights.get, reverse=True)[:3]
+            parts.append(f"Highest weighted: {', '.join(top_w)}")
+        return "; ".join(parts) if parts else "no specific priorities"
+
+    # --- Legacy nested schema (backward compat) --------------------------------
     primary = persona_profile.get("primary_user", {})
     priorities = primary.get("sensory_priorities", [])
     sensitivities = primary.get("sensory_sensitivities", [])
-    parts = []
     if priorities:
         parts.append(f"Top senses: {', '.join(priorities)}")
     if sensitivities:
@@ -80,6 +99,7 @@ def _format_persona_priorities(persona_profile: dict) -> str:
         sec_p = secondary.get("sensory_priorities", [])
         if sec_p:
             parts.append(f"Second occupant top senses: {', '.join(sec_p)}")
+
     return "; ".join(parts) if parts else "no specific priorities"
 
 
@@ -87,14 +107,14 @@ def build_suggestion_critic_node(llm):
     """Return the suggestion_critic node function, capturing the LLM instance."""
 
     def suggestion_critic_node(state: dict) -> dict:
-        suggestions_json: str = state.get("last_suggestions_json", "")
+        suggestions_json: str   = state.get("last_suggestions_json", "")
         conflict_reasoning: str = state.get("conflict_reasoning", "")
-        persona_profile: dict = state.get("persona_profile") or {}
+        persona_profile: dict   = state.get("persona_profile") or {}
 
         print("[suggestion_critic] Critiquing suggestions...")
 
         suggestions_summary = _format_suggestions(suggestions_json)
-        persona_priorities = _format_persona_priorities(persona_profile)
+        persona_priorities  = _format_persona_priorities(persona_profile)
 
         system = _SYSTEM_PROMPT.format(
             suggestions_summary=suggestions_summary,
@@ -105,9 +125,6 @@ def build_suggestion_critic_node(llm):
         critique = call_llm_simple(llm, system, "Critique these suggestions.")
         print(f"[suggestion_critic] Critique: {critique[:80]}...")
 
-        return {
-            **state,
-            "suggestion_critique": critique,
-        }
+        return {**state, "suggestion_critique": critique}
 
     return suggestion_critic_node

@@ -79,10 +79,11 @@ def _extract_room_attributes(layout_json_string: str, conflicted_rooms: list[str
                 continue  # only include rooms with conflicts
             attrs = room.get("attributes", {})
             lines.append(
-                f"{name}: orientation={room.get('orientation','?')}, "
+                f"{name}: orientation={attrs.get('orientation','?')}, "
                 f"glazingRatio={attrs.get('glazingRatio','?')}, "
                 f"ventilation={attrs.get('ventilationType','?')}, "
-                f"roomType={room.get('roomType','?')}"
+                f"roomType={attrs.get('roomType','?')}, "
+                f"floorMaterial={attrs.get('floorMaterial','?')}"
             )
         return "\n".join(lines) if lines else "(no attribute data)"
     except Exception:
