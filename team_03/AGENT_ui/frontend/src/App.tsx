@@ -266,7 +266,7 @@ export default function App() {
 
         {/* ── LEFT SIDEBAR (col 1, rows 1-2) ──────────────────────────── */}
         <div style={{
-          gridColumn: '1', gridRow: '1',
+          gridColumn: '1', gridRow: '1 / 3',
           borderRight: panelBorder, background: sidebarBg,
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}>
@@ -354,7 +354,7 @@ export default function App() {
 
         {/* ── RIGHT PANEL (col 3, row 1) ────────────────────────────────── */}
         <div style={{
-          gridColumn: '3', gridRow: '1',
+          gridColumn: '3', gridRow: '1 / 3',
           borderLeft: panelBorder, background: sidebarBg,
           display: 'grid',
           gridTemplateRows: '3fr 2fr 4fr',
