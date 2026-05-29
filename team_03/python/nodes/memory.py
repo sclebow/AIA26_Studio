@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from _runtime.llm import call_llm_simple
-from prompts import MEMORY_DISTILL_PROMPT
+from prompts import MEMORY_DISTILL_PROMPT, RULE_COMMAND_PROMPT
 
 
 # ---------------------------------------------------------------------------
@@ -216,6 +216,63 @@ def distill_memory(llm: Any, existing: str, user_msg: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Natural-language rule commands
+#
+# Lets the user manage binding rules conversationally ("add a rule that…",
+# "recover the rule I deleted", "forget the visibility rule") in addition to the
+# explicit `rule:`/`forget:` checkpoint prefixes. A cheap keyword gate avoids an
+# extra LLM call on normal placement turns.
+# ---------------------------------------------------------------------------
+
+_RULE_NOUNS = ("rule", "rules", "regla", "reglas")
+# Stems so conjugations match (borr -> borra/borré/borrar, recuper -> recupera/recuperar).
+_RULE_VERBS = (
+    "add", "creat", "always", "from now on", "remember",
+    "remov", "delet", "drop", "forget", "clear",
+    "recover", "restore", "bring back", "re-add", "readd",
+    "añad", "agreg", "siempre", "recuerd",
+    "borr", "elimin", "quit", "olvid",
+    "recuper", "restaur", "regres", "devuelv",
+)
+
+
+def _is_rule_command(msg: str) -> bool:
+    """True when the message looks like an add/remove/recover-a-rule instruction."""
+    m = (msg or "").lower()
+    if not any(n in m for n in _RULE_NOUNS):
+        return False
+    return any(v in m for v in _RULE_VERBS)
+
+
+def interpret_rule_command(
+    llm: Any, rules_text: str, removed_trail: list, user_msg: str
+) -> tuple[list[str], list[str]]:
+    """Ask the LLM to resolve a NL rule command into (add, remove) lists.
+
+    Returns ([rule texts to add], [selectors to remove]); empty on failure.
+    """
+    rules = list_user_rules(rules_text)
+    numbered = "\n".join(f"{i + 1}. {r}" for i, r in enumerate(rules)) or "(none)"
+    trail = "\n".join(f"- {r}" for r in (removed_trail or [])) or "(none)"
+    payload = (
+        f"CURRENT RULES:\n{numbered}\n\n"
+        f"RECENTLY REMOVED (recovery trail):\n{trail}\n\n"
+        f"LATEST USER MESSAGE:\n{user_msg}"
+    )
+    result = call_llm_simple(llm, RULE_COMMAND_PROMPT, payload)
+    add: list[str] = []
+    remove: list[str] = []
+    if isinstance(result, dict):
+        a = result.get("add")
+        r = result.get("remove")
+        if isinstance(a, list):
+            add = [str(x).strip() for x in a if str(x).strip()]
+        if isinstance(r, list):
+            remove = [str(x).strip() for x in r if str(x).strip()]
+    return add, remove
+
+
+# ---------------------------------------------------------------------------
 # Node factory
 # ---------------------------------------------------------------------------
 
@@ -237,8 +294,44 @@ def build_memory_node(llm: Any):
                 else:
                     print(f"[memory] No prior memory for this layout — starting fresh")
 
-            # Distill the latest user message into durable facts.
             user_msg = _last_user_message(state.get("messages"))
+            updates: dict = {"memory_loaded": True}
+
+            # Natural-language rule command? Apply it and skip distillation —
+            # a command is an instruction, not a durable fact to summarize.
+            if user_msg and _is_rule_command(user_msg):
+                removed_trail = list(state.get("removed_rules") or [])
+                add, remove = interpret_rule_command(
+                    llm, memory_text or "", removed_trail, user_msg
+                )
+                cur = memory_text or ""
+                changed = False
+                for sel in remove:
+                    new_text, removed = remove_user_rule(cur, sel)
+                    if removed:
+                        cur = new_text
+                        changed = True
+                        for rr in removed:
+                            if rr not in removed_trail:
+                                removed_trail.append(rr)
+                            print(f"[memory] Removed rule: {rr}")
+                for rule in add:
+                    before = cur
+                    cur = add_user_rule(cur, rule)
+                    if cur != before:
+                        changed = True
+                        print(f"[memory] Added rule: {rule}")
+                if changed:
+                    memory_text = cur
+                    save_memory(path, memory_text)
+                    updates["removed_rules"] = removed_trail
+                    print(f"[memory] Rules updated -> {path.name}")
+                else:
+                    print("[memory] Rule command detected but no change resolved.")
+                updates["memory_text"] = memory_text or ""
+                return updates
+
+            # Otherwise: distill the latest user message into durable facts.
             if user_msg:
                 before = memory_text or ""
                 memory_text = distill_memory(llm, before, user_msg)
@@ -246,10 +339,8 @@ def build_memory_node(llm: Any):
                     save_memory(path, memory_text)
                     print(f"[memory] Updated memory ({len(memory_text)} chars) -> {path.name}")
 
-            return {
-                "memory_text": memory_text or "",
-                "memory_loaded": True,
-            }
+            updates["memory_text"] = memory_text or ""
+            return updates
         except Exception as exc:
             print(f"[memory] Warning: {exc}")
             # Never break the pipeline — mark loaded so we don't retry the

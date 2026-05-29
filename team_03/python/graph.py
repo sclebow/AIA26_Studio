@@ -155,6 +155,9 @@ class AgentState(TypedDict):
     # memory/<layout_name>.md by the memory node (see nodes/memory.py).
     memory_text:   Annotated[str | None,  _keep_last]
     memory_loaded: Annotated[bool | None, _keep_last]
+    # Recently removed User Rules — recovery trail so "recover the rule I deleted"
+    # works within a session. Maintained by the memory node.
+    removed_rules: Annotated[list | None, _keep_last]
 
     # Latest human-readable narrative from the reason LLM (final_response or the
     # prose around a tool decision). Shown by the checkpoint as the "Agent"
@@ -891,6 +894,7 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
         "current_zone":          None,
         "memory_text":           None,   # loaded from disk by the memory node
         "memory_loaded":         None,
+        "removed_rules":         [],
         "agent_message":         None,
     }
 

@@ -56,6 +56,10 @@ LLM_DECISION_SCHEMA: dict[str, Any] = {
             "type": "string",
             "enum": ["final", "tool"],
         },
+        "message": {
+            "type": "string",
+            "description": "Short, natural, conversational message for the user (1-3 sentences), always in English. Required on every response.",
+        },
         "final_response": {
             "type": "string",
             "description": "Use a non-empty string only when action is 'final'. Use an empty string when action is 'tool'.",
@@ -79,7 +83,7 @@ LLM_DECISION_SCHEMA: dict[str, Any] = {
             },
         },
     },
-    "required": ["action", "final_response", "tool_calls"],
+    "required": ["action", "message", "final_response", "tool_calls"],
     "additionalProperties": False,
 }
 
@@ -241,7 +245,14 @@ def _strip_json_blocks(content: str) -> str:
 
 
 def _extract_narrative(content: str, decision: dict[str, Any]) -> str:
-    """Best human-readable message for the UI: final_response, else the prose."""
+    """Best human-readable message for the UI.
+
+    Prefers the dedicated `message` field (concise, conversational, set on every
+    action), then final_response for a 'final' turn, then the prose around the JSON.
+    """
+    msg = decision.get("message")
+    if isinstance(msg, str) and msg.strip():
+        return msg.strip()
     if decision.get("action") == "final":
         fr = (decision.get("final_response") or "").strip()
         if fr:
@@ -344,7 +355,11 @@ def _call_anthropic(
     print("\n[anthropic] Raw response preview:")
     print(content[:400])
 
-    decision = _normalize_llm_decision(_parse_llm_json(content))
+    parsed = _parse_llm_json(content)
+    decision = _normalize_llm_decision(parsed)
+    _msg = parsed.get("message")
+    if isinstance(_msg, str) and _msg.strip():
+        decision["message"] = _msg.strip()
     decision["_narrative"] = _extract_narrative(content, decision)
     return decision
 
@@ -376,7 +391,11 @@ def call_llm(
         raise RuntimeError("LLM response content must be a string")
 
     try:
-        decision = _normalize_llm_decision(_parse_llm_json(content))
+        parsed = _parse_llm_json(content)
+        decision = _normalize_llm_decision(parsed)
+        _msg = parsed.get("message")
+        if isinstance(_msg, str) and _msg.strip():
+            decision["message"] = _msg.strip()
         decision["_narrative"] = _extract_narrative(content, decision)
         return decision
     except Exception:

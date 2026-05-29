@@ -1,4 +1,5 @@
 import argparse
+import random
 from _runtime.bootstrap import bootstrap
 from graph import run_agent
 
@@ -17,6 +18,11 @@ def main():
 
     # Initialize and run the agent
     ctx = bootstrap()
+
+    # Easter egg: rarely, the agent blurts a teaser at the start of a new chat.
+    if random.random() < 0.12:
+        print("\nHope you're not Ramy... what can I do for you?")
+
     try:
         response = run_agent(args.prompt, ctx)
 
