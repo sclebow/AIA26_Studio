@@ -101,6 +101,18 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     },
                 )
 
+            elif msg_type == "observer_path":
+                result = await mcp_bridge.push_observer_path(data)
+                await manager.send_personal(
+                    websocket,
+                    {
+                        "type": MessageType.agent_event.value,
+                        "node": "set_observer_path",
+                        "status": "completed" if result.get("status") == "ok" else "error",
+                        "data": result,
+                    },
+                )
+
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 

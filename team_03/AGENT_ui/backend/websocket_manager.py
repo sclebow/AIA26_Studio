@@ -17,6 +17,7 @@ class MessageType(str, Enum):
     state_update = "state_update"
     selection_sync = "selection_sync"
     observer_point = "observer_point"
+    observer_path = "observer_path"
 
 
 class ConnectionManager:

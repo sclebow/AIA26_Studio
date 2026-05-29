@@ -4,13 +4,19 @@ Utilities for discovering, loading, and validating layout JSON files.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# Absolute path to the shared layout directory.
-LAYOUT_DIR = Path(
-    r"E:\IAAC Local GIT Repositories\AIA26_Studio\team_03\layout"
-)
+# Resolve layout directory: env override → sibling /layout → fallback hardcoded path.
+_env = os.environ.get("LAYOUT_DIR")
+if _env:
+    LAYOUT_DIR = Path(_env)
+else:
+    LAYOUT_DIR = (Path(__file__).parent / ".." / ".." / "layout").resolve()
+if not LAYOUT_DIR.exists():
+    LAYOUT_DIR = Path(r"C:\Users\ramyayoub\Desktop\IAAC\Master\Semester-3\AIA Studio\GRP-03_studio\AIA26_Studio\team_03\layout")
+print(f"[layout_loader] LAYOUT_DIR: {LAYOUT_DIR} (exists: {LAYOUT_DIR.exists()})")
 
 REQUIRED_KEYS = {"layoutId", "outline", "rooms"}
 

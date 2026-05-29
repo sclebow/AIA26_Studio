@@ -39,10 +39,17 @@ export interface ObserverPoint {
   point_str: string; // "x,y,h" in layout metres
 }
 
+export interface ObserverPathMessage {
+  type: 'observer_path';
+  path_str: string; // "x1,y1;x2,y2;..." in layout metres
+  height: number;
+}
+
 export type WSMessage =
   | ChatMessage
   | AgentResponse
   | AgentEvent
   | StateUpdate
   | SelectionSync
-  | ObserverPoint;
+  | ObserverPoint
+  | ObserverPathMessage;

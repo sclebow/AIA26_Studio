@@ -24,6 +24,8 @@ interface ThreeViewportProps {
   modifiedIds?: Set<string>
   /** Push the observer point to the backend (→ MCP → Grasshopper) on release. */
   onObserverPoint?: (x: number, y: number, height: number, pointStr: string) => void
+  /** Push an ordered path of floor points to the backend on finish. */
+  onObserverPath?: (points: Array<{ x: number; y: number }>) => void
 }
 
 interface SceneProps extends ThreeViewportProps {
@@ -324,7 +326,7 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
   )
 }
 
-export default function ThreeViewport({ layout, selectedId, onSelect, layers, graphData, modifiedIds, onObserverPoint }: ThreeViewportProps) {
+export default function ThreeViewport({ layout, selectedId, onSelect, layers, graphData, modifiedIds, onObserverPoint, onObserverPath }: ThreeViewportProps) {
   const { theme, colors } = useTheme()
   const isDark = theme === 'dark'
   const [showLabels, setShowLabels] = useState(true)
@@ -333,6 +335,8 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
   const [personMode, setPersonMode] = useState(false)
   const [personPos, setPersonPos] = useState<{ x: number; y: number } | null>(null)
   const [placing, setPlacing] = useState(false)
+  const [pathMode, setPathMode] = useState(false)
+  const [pathPoints, setPathPoints] = useState<Array<{ x: number; y: number }>>([])
   const threeRef = useRef<{ camera: THREE.Camera; gl: THREE.WebGLRenderer } | null>(null)
   const cameraAnglesRef = useRef({ azimuth: 0.75, elevation: 0.6 })
   const clickScreenPosRef = useRef<{ x: number; y: number } | null>(null)
@@ -385,11 +389,9 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
     })
   }, [])
 
-  // Click anywhere on the floor to (re)place the person. Converts the screen
-  // click into a y=0 ground point, ignoring any geometry under the cursor.
-  const handlePlacementClick = useCallback((e: React.MouseEvent) => {
+  const raycastFloor = useCallback((e: React.MouseEvent): { x: number; y: number } | null => {
     const t = threeRef.current
-    if (!t) return
+    if (!t) return null
     const rect = t.gl.domElement.getBoundingClientRect()
     const ndcX = ((e.clientX - rect.left) / rect.width) * 2 - 1
     const ndcY = -((e.clientY - rect.top) / rect.height) * 2 + 1
@@ -397,13 +399,20 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
     rc.setFromCamera(new THREE.Vector2(ndcX, ndcY), t.camera)
     const hit = new THREE.Vector3()
     if (rc.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit)) {
-      const x = hit.x + geoCenter.x
-      const y = hit.z + geoCenter.z
-      setPersonPos({ x, y })
-      sendObserver(x, y)
+      return { x: hit.x + geoCenter.x, y: hit.z + geoCenter.z }
+    }
+    return null
+  }, [geoCenter])
+
+  // Click anywhere on the floor to (re)place the person.
+  const handlePlacementClick = useCallback((e: React.MouseEvent) => {
+    const pt = raycastFloor(e)
+    if (pt) {
+      setPersonPos(pt)
+      sendObserver(pt.x, pt.y)
       setPlacing(false)
     }
-  }, [geoCenter, sendObserver])
+  }, [raycastFloor, sendObserver])
 
   const handleObserverMove = useCallback((x: number, y: number) => {
     setPersonPos({ x, y })
@@ -435,6 +444,49 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
     if (draggingObserverRef.current) return
     onSelect(null)
   }, [onSelect])
+
+  const finishPath = useCallback(() => {
+    if (pathPoints.length >= 2) onObserverPath?.(pathPoints)
+    setPathPoints([])
+    setPathMode(false)
+  }, [pathPoints, onObserverPath])
+
+  const handlePathClick = useCallback((e: React.MouseEvent) => {
+    if (e.detail > 1) return
+    const pt = raycastFloor(e)
+    if (pt) setPathPoints(prev => [...prev, pt])
+  }, [raycastFloor])
+
+  const handlePathDoubleClick = useCallback((e: React.MouseEvent) => {
+    if (pathPoints.length >= 2) {
+      onObserverPath?.(pathPoints)
+      setPathPoints([])
+      setPathMode(false)
+    }
+  }, [pathPoints, onObserverPath])
+
+  const handleTogglePath = useCallback(() => {
+    setPathMode(prev => {
+      const next = !prev
+      if (next) {
+        setPersonMode(false)
+        setPlacing(false)
+        setPathPoints([])
+      } else {
+        setPathPoints([])
+      }
+      return next
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!pathMode) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setPathPoints([]); setPathMode(false) }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [pathMode])
 
   const handleViewChange = useCallback((view: string) => {
     viewCounter.current++
@@ -495,6 +547,17 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
             onDragEnd={handleObserverDragEnd}
           />
         )}
+        {pathMode && pathPoints.length > 0 && (
+          <ObserverMarker
+            center={geoCenter}
+            position={{ x: 0, y: 0 }}
+            isDark={isDark}
+            onMove={() => {}}
+            onRelease={() => {}}
+            pathMode
+            pathPoints={pathPoints}
+          />
+        )}
       </Canvas>
 
       {/* Placement overlay — while picking a spot, capture clicks here so the
@@ -502,6 +565,20 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
       {personMode && placing && (
         <div
           onClick={handlePlacementClick}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 15,
+            cursor: 'crosshair',
+          }}
+        />
+      )}
+
+      {/* Path drawing overlay — captures all clicks while path mode is active. */}
+      {pathMode && (
+        <div
+          onClick={handlePathClick}
+          onDoubleClick={handlePathDoubleClick}
           style={{
             position: 'absolute',
             inset: 0,
@@ -579,6 +656,41 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
         {personMode ? 'Person ON' : 'Person'}
       </button>
 
+      {/* Path (observer path) toggle button */}
+      <button
+        onClick={handleTogglePath}
+        title={pathMode ? 'Cancel path — Esc also cancels' : 'Draw an observer path (click points, dbl-click to finish)'}
+        style={{
+          position: 'absolute',
+          top: 12,
+          right: 732,
+          zIndex: 20,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          background: colors.panelBg,
+          border: `1px solid ${pathMode ? colors.accent + '44' : colors.border}`,
+          borderRadius: 8,
+          padding: '5px 10px',
+          color: pathMode ? colors.accent : colors.muted,
+          fontSize: 9,
+          fontWeight: 600,
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+          cursor: 'pointer',
+          fontFamily: colors.font,
+          transition: 'color 0.2s, border-color 0.2s',
+        }}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="4" cy="20" r="2" fill="currentColor" stroke="none" />
+          <circle cx="12" cy="4" r="2" fill="currentColor" stroke="none" />
+          <circle cx="20" cy="14" r="2" fill="currentColor" stroke="none" />
+          <path d="M5.5 18.5L10.5 5.5M13.5 5.5L18.5 12.5" />
+        </svg>
+        {pathMode ? 'Path ON' : 'Path'}
+      </button>
+
       {/* Center/fit button */}
       <button
         onClick={() => handleViewChange('top-front-right')}
@@ -631,6 +743,86 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
         onClose={handleClosePanel}
         clickPosition={clickScreenPos}
       />
+
+      {/* Path HUD — mutually exclusive with observer point HUD (personMode and pathMode can't both be true) */}
+      {pathMode && (
+        <div style={{
+          position: 'absolute',
+          bottom: 16,
+          left: 16,
+          zIndex: 240,
+          background: colors.panelBg,
+          border: `1px solid ${colors.accent}44`,
+          borderRadius: 10,
+          padding: '10px 12px',
+          fontFamily: colors.font,
+          minWidth: 210,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+        }}>
+          <div style={{
+            fontSize: 9,
+            fontWeight: 600,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            color: colors.accent,
+            marginBottom: 6,
+          }}>
+            Observer Path
+          </div>
+          <div style={{ fontSize: 11, color: colors.text, marginBottom: 6 }}>
+            {pathPoints.length} point{pathPoints.length !== 1 ? 's' : ''} placed
+          </div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+            {pathPoints.length >= 2 && (
+              <button
+                onClick={finishPath}
+                style={{
+                  flex: 1,
+                  padding: '4px 8px',
+                  borderRadius: 6,
+                  border: `1px solid ${colors.accent}`,
+                  background: colors.accentDim,
+                  color: colors.accent,
+                  fontSize: 9,
+                  fontWeight: 600,
+                  letterSpacing: '0.04em',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  fontFamily: colors.font,
+                }}
+              >
+                Done
+              </button>
+            )}
+            {pathPoints.length > 0 && (
+              <button
+                onClick={() => setPathPoints([])}
+                style={{
+                  flex: 1,
+                  padding: '4px 8px',
+                  borderRadius: 6,
+                  border: `1px solid ${colors.border}`,
+                  background: 'transparent',
+                  color: colors.muted,
+                  fontSize: 9,
+                  fontWeight: 600,
+                  letterSpacing: '0.04em',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  fontFamily: colors.font,
+                }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <div style={{ fontSize: 8.5, color: colors.muted, letterSpacing: '0.02em' }}>
+            {pathPoints.length < 2
+              ? 'Click to add points. Dbl-click or Done (min 2 pts).'
+              : 'Click to add more. Dbl-click or Done to finish. Esc to cancel.'}
+          </div>
+        </div>
+      )}
 
       {/* Observer point output HUD — high z-index so floating panels never cover it */}
       {personMode && (

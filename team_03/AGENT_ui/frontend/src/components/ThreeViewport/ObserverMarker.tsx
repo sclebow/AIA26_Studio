@@ -10,7 +10,7 @@ interface ObserverMarkerProps {
   /** Geometry centre offset — matches FloorPlanRenderer's centred group so the
    *  marker's local coords equal layout coords. */
   center: { x: number; z: number }
-  /** Current position in LAYOUT coordinates (metres, origin bottom-left). */
+  /** Current position in LAYOUT coordinates (metres, origin bottom-left). Used only when pathMode is false. */
   position: { x: number; y: number }
   isDark: boolean
   /** Fired continuously while dragging (layout coords). */
@@ -21,6 +21,10 @@ interface ObserverMarkerProps {
   onDragStart?: () => void
   /** Fired when a drag ends. */
   onDragEnd?: () => void
+  /** When true, renders the path visualization instead of the draggable person. */
+  pathMode?: boolean
+  /** Ordered path points in LAYOUT coordinates. Rendered when pathMode is true. */
+  pathPoints?: Array<{ x: number; y: number }>
 }
 
 /**
@@ -28,7 +32,32 @@ interface ObserverMarkerProps {
  * plane (XZ). Lives inside a group offset by -center so its local (x, z) map
  * directly onto layout (x, y) in metres.
  */
-export default function ObserverMarker({ center, position, isDark, onMove, onRelease, onDragStart, onDragEnd }: ObserverMarkerProps) {
+function PathRenderer({ center, pathPoints }: { center: { x: number; z: number }; pathPoints: Array<{ x: number; y: number }> }) {
+  const linePositions = useMemo(() => {
+    return new Float32Array(pathPoints.flatMap(pt => [pt.x, 0.15, pt.y]))
+  }, [pathPoints])
+
+  return (
+    <group position={[-center.x, 0, -center.z]}>
+      {pathPoints.map((pt, i) => (
+        <mesh key={i} position={[pt.x, 0.15, pt.y]}>
+          <sphereGeometry args={[0.15, 12, 12]} />
+          <meshStandardMaterial color="#ef4444" roughness={0.5} emissive="#ef4444" emissiveIntensity={0.4} />
+        </mesh>
+      ))}
+      {pathPoints.length >= 2 && (
+        <line>
+          <bufferGeometry>
+            <bufferAttribute attach="attributes-position" args={[linePositions, 3]} />
+          </bufferGeometry>
+          <lineBasicMaterial color="#ef4444" transparent opacity={0.7} />
+        </line>
+      )}
+    </group>
+  )
+}
+
+export default function ObserverMarker({ center, position, isDark, onMove, onRelease, onDragStart, onDragEnd, pathMode, pathPoints }: ObserverMarkerProps) {
   const { camera, gl, controls } = useThree()
   const groupRef = useRef<THREE.Group>(null)
   const draggingRef = useRef(false)
@@ -38,6 +67,10 @@ export default function ObserverMarker({ center, position, isDark, onMove, onRel
   const groundPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), [])
   const hitPoint = useMemo(() => new THREE.Vector3(), [])
   const ndc = useMemo(() => new THREE.Vector2(), [])
+
+  if (pathMode) {
+    return <PathRenderer center={center} pathPoints={pathPoints ?? []} />
+  }
 
   const accent = isDark ? '#8b5cf6' : '#7c3aed'
 

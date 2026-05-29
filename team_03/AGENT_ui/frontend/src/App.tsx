@@ -14,78 +14,16 @@ import { useWebSocket } from './hooks/useWebSocket';
 import { useSelectionSync } from './hooks/useSelectionSync';
 import { useLayoutState } from './hooks/useLayoutState';
 import { useAgentState } from './hooks/useAgentState';
+import WelcomePage from "./components/WelcomePage";
+import OnboardingPage, { OnboardingData } from "./components/OnboardingPage";
 import type { LayerVisibility, LayerName } from './types';
 
-// ─── Defaults ────────────────────────────────────────────────────────────────
-
 const defaultVisibility: LayerVisibility = {
-  outline: true,
-  rooms: true,
-  doors: true,
-  windows: true,
-  furniture: true,
-  mep: true,
-  structure: true,
+  outline: true, rooms: true, doors: true, windows: true,
+  furniture: true, mep: true, structure: true,
 };
 
 type ViewMode = 'geometry' | 'graph';
-
-// ─── Panel visibility state ─────────────────────────────────────────────────
-
-interface PanelVisibility {
-  layout: boolean
-  layers: boolean
-  pipeline: boolean
-  chat: boolean
-  dashboard: boolean
-  log: boolean
-}
-
-const defaultPanelVisibility: PanelVisibility = {
-  layout: true,
-  layers: true,
-  pipeline: true,
-  chat: true,
-  dashboard: true,
-  log: false,
-};
-
-// ─── Small SVG icons for panel headers ──────────────────────────────────────
-
-const IconCube = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-  </svg>
-);
-
-const IconLayers = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <polygon points="12 2 2 7 12 12 22 7 12 2" />
-    <polyline points="2 17 12 22 22 17" />
-    <polyline points="2 12 12 17 22 12" />
-  </svg>
-);
-
-const IconPipeline = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-  </svg>
-);
-
-const IconChat = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-  </svg>
-);
-
-const IconDashboard = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <rect x="3" y="3" width="7" height="7" rx="1" />
-    <rect x="14" y="3" width="7" height="7" rx="1" />
-    <rect x="3" y="14" width="7" height="7" rx="1" />
-    <rect x="14" y="14" width="7" height="7" rx="1" />
-  </svg>
-);
 
 const IconLog = () => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -94,8 +32,6 @@ const IconLog = () => (
   </svg>
 );
 
-// ─── App ──────────────────────────────────────────────────────────────────────
-
 export default function App() {
   const { colors, theme } = useTheme();
   const isDark = theme === 'dark';
@@ -103,25 +39,21 @@ export default function App() {
   const { selectedId, select } = useSelectionSync(ws);
   const layoutState = useLayoutState();
   const agentState = useAgentState({ onScoresReady: layoutState.setScores });
+
+  // Auth gates
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [onboarded, setOnboarded] = useState(false);
+  const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
+
+  // UI state
   const [layerVisibility, setLayerVisibility] = useState<LayerVisibility>(defaultVisibility);
-  const [logVisible, setLogVisible] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('geometry');
-  const [panels, setPanels] = useState<PanelVisibility>(defaultPanelVisibility);
-  const [topZ, setTopZ] = useState(110);
-
-  // Z-index state per panel
-  const [panelZ, setPanelZ] = useState<Record<string, number>>({
-    layout: 100, layers: 101, pipeline: 102,
-    chat: 103, dashboard: 104, log: 105,
-  });
-
-  const bringToFront = useCallback((id: string) => {
-    setTopZ(prev => {
-      const next = prev + 1;
-      setPanelZ(pz => ({ ...pz, [id]: next }));
-      return next;
-    });
-  }, []);
+  const [displayMode, setDisplayMode] = useState<ViewMode>('geometry');
+  const [animPhase, setAnimPhase] = useState<'idle' | 'out' | 'in'>('idle');
+  const [logOpen, setLogOpen] = useState(false);
+  const [workflowsOpen, setWorkflowsOpen] = useState(true);
+  const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wasRunningRef = useRef(false);
 
   // ── WebSocket dispatcher ──────────────────────────────────────────────────
   useEffect(() => {
@@ -146,21 +78,32 @@ export default function App() {
   }, []);
 
   // ── Poll layout from disk while agent is running ──────────────────────────
-  const wasRunningRef = useRef(false);
   useEffect(() => {
     if (agentState.isAgentRunning && !layoutState.isPending) {
       wasRunningRef.current = true;
-      const interval = setInterval(() => {
-        layoutState.reloadLayout();
-      }, 3000);
+      const interval = setInterval(() => { layoutState.reloadLayout(); }, 3000);
       return () => clearInterval(interval);
     } else if (wasRunningRef.current && !layoutState.isPending) {
-      // Agent just finished — do a final reload to catch any last changes
       wasRunningRef.current = false;
       layoutState.reloadLayout();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentState.isAgentRunning, layoutState.isPending]);
+
+  // ── View mode switch with fade/scale animation ────────────────────────────
+  const switchMode = useCallback((next: ViewMode) => {
+    if (next === viewMode || animPhase !== 'idle') return;
+    setViewMode(next);
+    setAnimPhase('out');
+    if (animTimerRef.current) clearTimeout(animTimerRef.current);
+    animTimerRef.current = setTimeout(() => {
+      setDisplayMode(next);
+      setAnimPhase('in');
+      animTimerRef.current = setTimeout(() => setAnimPhase('idle'), 180);
+    }, 180);
+  }, [viewMode, animPhase]);
+
+  useEffect(() => () => { if (animTimerRef.current) clearTimeout(animTimerRef.current); }, []);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleToggleLayer = useCallback((layer: LayerName) => {
@@ -175,60 +118,97 @@ export default function App() {
   const handleChatReset  = useCallback(() => { agentState.resetChat(); }, [agentState]);
   const handleChatCancel = useCallback(() => { agentState.cancelLast(); }, [agentState]);
 
-  const handleLayoutSelect  = useCallback(async (name: string) => { await layoutState.loadLayout(name); }, [layoutState]);
-  const handleLayoutUpload  = useCallback(async (file: File)   => { await layoutState.uploadLayout(file); }, [layoutState]);
+  const handleLayoutSelect = useCallback(async (name: string) => {
+    await layoutState.loadLayout(name);
+  }, [layoutState]);
+
+  const handleLayoutUpload = useCallback(async (file: File) => {
+    await layoutState.uploadLayout(file);
+  }, [layoutState]);
+
   const handleViewportSelect = useCallback((id: string | null) => { select(id, 'viewport'); }, [select]);
+  const handleGraphSelect    = useCallback((id: string | null) => { select(id, 'graph'); }, [select]);
+
   const handleObserverPoint = useCallback((x: number, y: number, height: number, pointStr: string) => {
     ws.send({ type: 'observer_point', x, y, height, point_str: pointStr });
   }, [ws]);
-  const handleGraphSelect    = useCallback((id: string | null) => { select(id, 'graph');    }, [select]);
 
-  const togglePanel = useCallback((key: keyof PanelVisibility) => {
-    setPanels(prev => ({ ...prev, [key]: !prev[key] }));
-  }, []);
+  const handleObserverPath = useCallback((points: Array<{ x: number; y: number }>) => {
+    const path_str = points.map(p => `${p.x.toFixed(3)},${p.y.toFixed(3)}`).join(';');
+    ws.send({ type: 'observer_path', path_str, height: 1.7 });
+  }, [ws]);
 
-  // ── Computed positions (relative to window) ──────────────────────────────
-  const W = typeof window !== 'undefined' ? window.innerWidth : 1920;
-  const H = typeof window !== 'undefined' ? window.innerHeight : 1080;
+  // ── Auth gates ────────────────────────────────────────────────────────────
+  if (!loggedIn) return <WelcomePage onEnter={() => setLoggedIn(true)} />;
+  if (!onboarded) return <OnboardingPage onComplete={(data) => { setOnboardingData(data); setOnboarded(true); }} />;
+
+  // ── Shared style tokens ───────────────────────────────────────────────────
+  const sidebarBg = isDark ? 'rgba(12,13,18,0.98)' : 'rgba(248,249,251,0.98)';
+  const panelBorder = `1px solid ${colors.border}`;
+
+  const sectionHeaderStyle: React.CSSProperties = {
+    padding: '7px 12px',
+    fontSize: 9,
+    fontWeight: 600,
+    letterSpacing: '0.1em',
+    textTransform: 'uppercase',
+    color: colors.muted,
+    borderBottom: panelBorder,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexShrink: 0,
+    userSelect: 'none',
+  };
+
+  // Animation wrapper style — both CENTER and RIGHT-top share this so they animate in sync.
+  const swapStyle: React.CSSProperties = {
+    opacity: animPhase === 'out' ? 0 : 1,
+    transform: animPhase === 'out' ? 'scale(0.96)' : 'scale(1)',
+    transition: 'opacity 180ms ease, transform 180ms ease',
+    width: '100%',
+    height: '100%',
+  };
+
+  // ── ThreeViewport — shared props to avoid repetition ─────────────────────
+  const viewportProps = layoutState.layout ? {
+    layout: layoutState.layout,
+    selectedId,
+    onSelect: handleViewportSelect,
+    layers: layerVisibility,
+    graphData: layoutState.graphData,
+    modifiedIds: layoutState.modifiedIds,
+    onObserverPoint: handleObserverPoint,
+    onObserverPath: handleObserverPath,
+  } : null;
+
+  const noLayoutPlaceholder = (
+    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.muted, fontSize: 11, flexDirection: 'column', gap: 8 }}>
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={colors.accentDim} strokeWidth="1.5">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+        <line x1="12" y1="22.08" x2="12" y2="12" />
+      </svg>
+      No layout loaded
+    </div>
+  );
 
   return (
-    <div style={{
-      position: 'relative',
-      width: '100vw',
-      height: '100vh',
-      background: colors.bg,
-      color: colors.text,
-      fontFamily: colors.font,
-      overflow: 'hidden',
-    }}>
+    <div style={{ width: '100vw', height: '100vh', background: colors.bg, color: colors.text, fontFamily: colors.font, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
-      {/* ═══════════════════════════════════════════════════════════════════════
+      {/* ══════════════════════════════════════════════════════════════════════
           TOP NAV BAR
-      ═══════════════════════════════════════════════════════════════════════ */}
+      ══════════════════════════════════════════════════════════════════════ */}
       <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: 44,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 16px',
-        zIndex: 250,
-        background: isDark ? 'rgba(18, 19, 26, 0.96)' : 'rgba(245, 245, 247, 0.97)',
-        borderBottom: `1px solid ${colors.border}`,
+        height: 44, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 16px', zIndex: 250,
+        background: isDark ? 'rgba(18,19,26,0.96)' : 'rgba(245,245,247,0.97)',
+        borderBottom: panelBorder,
       }}>
-        {/* Left: Logo + Title */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          fontSize: 13,
-          fontWeight: 600,
-          color: colors.text,
-          letterSpacing: '0.02em',
-        }}>
+
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: colors.text, letterSpacing: '0.02em' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.accent} strokeWidth="2">
             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
             <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
@@ -237,273 +217,211 @@ export default function App() {
           AGENT Studio
         </div>
 
-        {/* Center: View Mode Toggle */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 2,
-          background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
-          borderRadius: 10,
-          padding: 3,
-          border: `1px solid ${colors.border}`,
-        }}>
-          <button
-            onClick={() => setViewMode('geometry')}
-            style={{
-              padding: '5px 16px',
-              borderRadius: 8,
-              border: 'none',
-              fontSize: 12,
-              fontWeight: 500,
-              letterSpacing: '0.02em',
-              cursor: 'pointer',
-              fontFamily: colors.font,
-              transition: 'all 0.2s',
-              background: viewMode === 'geometry'
-                ? (isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(124, 58, 237, 0.12)')
-                : 'transparent',
-              color: viewMode === 'geometry' ? colors.accent : colors.muted,
-            }}
-          >
-            3D Viewport
-          </button>
-          <button
-            onClick={() => setViewMode('graph')}
-            style={{
-              padding: '5px 16px',
-              borderRadius: 8,
-              border: 'none',
-              fontSize: 12,
-              fontWeight: 500,
-              letterSpacing: '0.02em',
-              cursor: 'pointer',
-              fontFamily: colors.font,
-              transition: 'all 0.2s',
-              background: viewMode === 'graph'
-                ? (isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(124, 58, 237, 0.12)')
-                : 'transparent',
-              color: viewMode === 'graph' ? colors.accent : colors.muted,
-            }}
-          >
-            Spatial Graph
-          </button>
-        </div>
-
-        {/* Right: Panel toggles + Status + Theme */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Panel toggle pills */}
-          {(['layout', 'layers', 'pipeline', 'chat', 'dashboard', 'log'] as (keyof PanelVisibility)[]).map(key => (
-            <button
-              key={key}
-              onClick={() => togglePanel(key)}
-              style={{
-                padding: '3px 8px',
-                borderRadius: 6,
-                border: `1px solid ${panels[key] ? colors.accent + '30' : 'transparent'}`,
-                fontSize: 9,
-                fontWeight: 500,
-                letterSpacing: '0.04em',
-                textTransform: 'uppercase',
-                cursor: 'pointer',
-                fontFamily: colors.font,
-                transition: 'all 0.2s',
-                background: panels[key] ? colors.accentDim : 'transparent',
-                color: panels[key] ? colors.accent : colors.muted,
-              }}
-            >
-              {key}
+        {/* View mode pills */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', borderRadius: 10, padding: 3, border: panelBorder }}>
+          {(['geometry', 'graph'] as ViewMode[]).map(m => (
+            <button key={m} onClick={() => switchMode(m)} style={{
+              padding: '5px 16px', borderRadius: 8, border: 'none',
+              fontSize: 12, fontWeight: 500, letterSpacing: '0.02em',
+              cursor: 'pointer', fontFamily: colors.font, transition: 'all 0.2s',
+              background: viewMode === m ? (isDark ? 'rgba(139,92,246,0.15)' : 'rgba(124,58,237,0.12)') : 'transparent',
+              color: viewMode === m ? colors.accent : colors.muted,
+            }}>
+              {m === 'geometry' ? '3D Viewport' : 'Spatial Graph'}
             </button>
           ))}
+        </div>
 
-          {/* Connection dot */}
+        {/* Right: Log + WS dot + Theme */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={() => setLogOpen(v => !v)} style={{
+            padding: '3px 8px', borderRadius: 6,
+            border: `1px solid ${logOpen ? colors.accent + '30' : 'transparent'}`,
+            fontSize: 9, fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase',
+            cursor: 'pointer', fontFamily: colors.font, transition: 'all 0.2s',
+            background: logOpen ? colors.accentDim : 'transparent',
+            color: logOpen ? colors.accent : colors.muted,
+          }}>
+            Log
+          </button>
           <div style={{
             width: 6, height: 6, borderRadius: '50%',
             background: ws.isConnected ? colors.success : colors.error,
-            boxShadow: ws.isConnected
-              ? `0 0 6px ${colors.success}`
-              : `0 0 6px ${colors.error}`,
+            boxShadow: ws.isConnected ? `0 0 6px ${colors.success}` : `0 0 6px ${colors.error}`,
           }} />
-
           <ThemeToggle />
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════════════
-          FULL-SCREEN VIEWPORT / GRAPH (toggle with display)
-      ═══════════════════════════════════════════════════════════════════════ */}
-
-      {/* 3D Viewport */}
+      {/* ══════════════════════════════════════════════════════════════════════
+          GRID BODY
+      ══════════════════════════════════════════════════════════════════════ */}
       <div style={{
-        position: 'absolute',
-        inset: 0,
-        paddingTop: 44,
-        display: viewMode === 'geometry' ? 'block' : 'none',
+        flex: 1, minHeight: 0,
+        display: 'grid',
+        gridTemplateColumns: '220px 1fr 320px',
+        gridTemplateRows: '1fr 260px',
+        overflow: 'hidden',
       }}>
-        {layoutState.layout ? (
-          <>
-            <ThreeViewport
-              layout={layoutState.layout}
-              selectedId={selectedId}
-              onSelect={handleViewportSelect}
-              layers={layerVisibility}
-              graphData={layoutState.graphData}
-              modifiedIds={layoutState.modifiedIds}
-              onObserverPoint={handleObserverPoint}
-            />
-            {layoutState.isPending && (
-              <ProposalBanner
-                onAccept={layoutState.acceptPending}
-                onReject={layoutState.rejectPending}
-              />
+
+        {/* ── LEFT SIDEBAR (col 1, rows 1-2) ──────────────────────────── */}
+        <div style={{
+          gridColumn: '1', gridRow: '1 / 3',
+          borderRight: panelBorder, background: sidebarBg,
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        }}>
+
+          {/* Previous Workflows */}
+          <div style={{ flexShrink: 0 }}>
+            <div style={{ ...sectionHeaderStyle, cursor: 'pointer' }} onClick={() => setWorkflowsOpen(v => !v)}>
+              <span>Previous Workflows</span>
+              <span style={{ fontSize: 8, opacity: 0.5 }}>{workflowsOpen ? '▲' : '▼'}</span>
+            </div>
+            {workflowsOpen && (
+              <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+                {layoutState.availableLayouts.length === 0 ? (
+                  <div style={{ padding: '8px 12px', fontSize: 10, color: colors.muted }}>No layouts found</div>
+                ) : (
+                  layoutState.availableLayouts.map(l => (
+                    <button key={l.name} onClick={() => handleLayoutSelect(l.name)} style={{
+                      display: 'block', width: '100%', textAlign: 'left',
+                      padding: '6px 12px', border: 'none',
+                      borderBottom: `1px solid ${colors.border}`,
+                      background: layoutState.selectedLayoutName === l.name ? colors.accentDim : 'transparent',
+                      color: layoutState.selectedLayoutName === l.name ? colors.accent : colors.text,
+                      fontSize: 11, cursor: 'pointer', fontFamily: colors.font, letterSpacing: '0.02em',
+                    }}>
+                      {l.name}
+                    </button>
+                  ))
+                )}
+              </div>
             )}
-          </>
-        ) : (
-          <div style={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: colors.bg,
-            color: colors.muted,
-            fontSize: 13,
-            flexDirection: 'column',
-            gap: 12,
-          }}>
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
-              stroke={colors.accentDim} strokeWidth="1.5">
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-              <line x1="12" y1="22.08" x2="12" y2="12" />
-            </svg>
-            <span>Select or upload a layout to begin</span>
           </div>
-        )}
+
+          {/* Layout Loader */}
+          <div style={{ flexShrink: 0, borderTop: panelBorder }}>
+            <div style={sectionHeaderStyle}><span>Layout Loader</span></div>
+            <div style={{ padding: 8 }}>
+              <LayoutLoader
+                layouts={layoutState.availableLayouts}
+                selectedLayout={layoutState.selectedLayoutName}
+                onSelect={handleLayoutSelect}
+                onUpload={handleLayoutUpload}
+              />
+            </div>
+          </div>
+
+          {/* Layers (only when layout is loaded) */}
+          {layoutState.layout && (
+            <div style={{ flexShrink: 0, borderTop: panelBorder }}>
+              <div style={sectionHeaderStyle}><span>Layers</span></div>
+              <div style={{ padding: 8 }}>
+                <LayerToggle layers={layerVisibility} onToggle={handleToggleLayer} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── CENTER (col 2, row 1) ─────────────────────────────────────── */}
+        <div style={{ gridColumn: '2', gridRow: '1', position: 'relative', overflow: 'hidden', minWidth: 0, minHeight: 0 }}>
+          <div style={swapStyle}>
+            {displayMode === 'geometry' ? (
+              viewportProps ? (
+                <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                  <ThreeViewport {...viewportProps} />
+                  {layoutState.isPending && (
+                    <ProposalBanner onAccept={layoutState.acceptPending} onReject={layoutState.rejectPending} />
+                  )}
+                </div>
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, color: colors.muted, fontSize: 13 }}>
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={colors.accentDim} strokeWidth="1.5">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                    <line x1="12" y1="22.08" x2="12" y2="12" />
+                  </svg>
+                  <span>Select or upload a layout to begin</span>
+                </div>
+              )
+            ) : (
+              <GraphPanel graphData={layoutState.graphData} selectedId={selectedId} onSelect={handleGraphSelect} fullscreen />
+            )}
+          </div>
+        </div>
+
+        {/* ── RIGHT PANEL (col 3, row 1) ────────────────────────────────── */}
+        <div style={{
+          gridColumn: '3', gridRow: '1',
+          borderLeft: panelBorder, background: sidebarBg,
+          display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0,
+        }}>
+
+          {/* Top 40%: swapped panel (GraphPanel in geometry mode, ThreeViewport in graph mode) */}
+          <div style={{ flex: '0 0 40%', display: 'flex', flexDirection: 'column', overflow: 'hidden', borderBottom: panelBorder, minHeight: 0 }}>
+            <div style={sectionHeaderStyle}>
+              <span>{displayMode === 'geometry' ? 'Spatial Graph' : '3D View'}</span>
+            </div>
+            <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: 0 }}>
+              <div style={swapStyle}>
+                {displayMode === 'geometry' ? (
+                  <GraphPanel graphData={layoutState.graphData} selectedId={selectedId} onSelect={handleGraphSelect} />
+                ) : (
+                  viewportProps ? <ThreeViewport {...viewportProps} /> : noLayoutPlaceholder
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Middle 35%: Dashboard */}
+          <div style={{ flex: '0 0 35%', display: 'flex', flexDirection: 'column', overflow: 'hidden', borderBottom: panelBorder, minHeight: 0 }}>
+            <div style={sectionHeaderStyle}><span>Analysis</span></div>
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+              <Dashboard scores={layoutState.scores} />
+            </div>
+          </div>
+
+          {/* Bottom 25%: ProcessPanel */}
+          <div style={{ flex: '0 0 25%', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+            <div style={sectionHeaderStyle}><span>Pipeline</span></div>
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+              <ProcessPanel nodeStatuses={agentState.nodeStatuses} />
+            </div>
+          </div>
+        </div>
+
+        {/* ── BOTTOM CHAT STRIP (all cols, row 2) ──────────────────────── */}
+        <div style={{
+          gridColumn: '1 / 4', gridRow: '2',
+          borderTop: panelBorder,
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          background: isDark ? 'rgba(10,11,16,0.98)' : 'rgba(250,251,253,0.98)',
+        }}>
+          <ChatPanel
+            messages={agentState.messages}
+            onSend={handleChatSend}
+            isAgentRunning={agentState.isAgentRunning}
+            onReset={handleChatReset}
+            onCancel={handleChatCancel}
+          />
+        </div>
       </div>
 
-      {/* Graph Panel (full-screen background) */}
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        paddingTop: 44,
-        display: viewMode === 'graph' ? 'block' : 'none',
-      }}>
-        <GraphPanel
-          graphData={layoutState.graphData}
-          selectedId={selectedId}
-          onSelect={handleGraphSelect}
-          fullscreen
-        />
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════════════════════
-          FLOATING PANELS
-      ═══════════════════════════════════════════════════════════════════════ */}
-
-      {/* Layout Loader — static, not draggable */}
-      <FloatingPanel
-        id="layout"
-        title="Layout"
-        icon={<IconCube />}
-        defaultPosition={{ x: 16, y: 56 }}
-        defaultSize={{ width: 240 }}
-        visible={panels.layout}
-        zIndex={panelZ.layout}
-        onFocus={() => bringToFront('layout')}
-        draggable={false}
-      >
-        <LayoutLoader
-          layouts={layoutState.availableLayouts}
-          selectedLayout={layoutState.selectedLayoutName}
-          onSelect={handleLayoutSelect}
-          onUpload={handleLayoutUpload}
-        />
-      </FloatingPanel>
-
-      {/* Layers — draggable, positioned to avoid Layout overlap */}
-      {viewMode === 'geometry' && (
-        <FloatingPanel
-          id="layers"
-          title="Layers"
-          icon={<IconLayers />}
-          defaultPosition={{ x: 270, y: 100 }}
-          defaultSize={{ width: 150 }}
-          visible={panels.layers}
-          zIndex={panelZ.layers}
-          onFocus={() => bringToFront('layers')}
-          draggable={true}
-        >
-          <LayerToggle layers={layerVisibility} onToggle={handleToggleLayer} />
-        </FloatingPanel>
-      )}
-
-      {/* Pipeline — static, not draggable */}
-      <FloatingPanel
-        id="pipeline"
-        title="Pipeline"
-        icon={<IconPipeline />}
-        defaultPosition={{ x: 16, y: 460 }}
-        defaultSize={{ width: 220 }}
-        visible={panels.pipeline}
-        zIndex={panelZ.pipeline}
-        onFocus={() => bringToFront('pipeline')}
-        draggable={false}
-        maxHeight={350}
-      >
-        <ProcessPanel nodeStatuses={agentState.nodeStatuses} />
-      </FloatingPanel>
-
-      {/* Chat — static, not draggable */}
-      <FloatingPanel
-        id="chat"
-        title="Chat"
-        icon={<IconChat />}
-        defaultPosition={{ x: W - 356, y: 56 }}
-        defaultSize={{ width: 340, height: 380 }}
-        visible={panels.chat}
-        zIndex={panelZ.chat}
-        onFocus={() => bringToFront('chat')}
-        draggable={false}
-      >
-        <ChatPanel
-          messages={agentState.messages}
-          onSend={handleChatSend}
-          isAgentRunning={agentState.isAgentRunning}
-          onReset={handleChatReset}
-          onCancel={handleChatCancel}
-        />
-      </FloatingPanel>
-
-      {/* Dashboard — static, not draggable */}
-      <FloatingPanel
-        id="dashboard"
-        title="Analysis"
-        icon={<IconDashboard />}
-        defaultPosition={{ x: W - 356, y: 450 }}
-        defaultSize={{ width: 340 }}
-        visible={panels.dashboard}
-        zIndex={panelZ.dashboard}
-        onFocus={() => bringToFront('dashboard')}
-        draggable={false}
-      >
-        <Dashboard scores={layoutState.scores} />
-      </FloatingPanel>
-
-      {/* Reasoning Log */}
+      {/* ── FLOATING AGENT LOG ─────────────────────────────────────────── */}
       <FloatingPanel
         id="log"
         title="Agent Log"
         icon={<IconLog />}
-        defaultPosition={{ x: W - 420, y: H - 280 }}
+        defaultPosition={{ x: 240, y: 60 }}
         defaultSize={{ width: 400 }}
-        visible={panels.log}
-        zIndex={panelZ.log}
-        onFocus={() => bringToFront('log')}
+        visible={logOpen}
+        zIndex={300}
+        onFocus={() => {}}
       >
         <ReasoningLog
           entries={agentState.logEntries}
           visible={true}
-          onToggle={() => togglePanel('log')}
+          onToggle={() => setLogOpen(v => !v)}
           isRunning={agentState.isAgentRunning}
         />
       </FloatingPanel>

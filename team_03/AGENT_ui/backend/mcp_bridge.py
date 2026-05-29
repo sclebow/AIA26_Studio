@@ -64,6 +64,45 @@ def _call_set_observer_sync(point_str: str, height: float) -> Dict[str, Any]:
         return {"status": "error", "tool": "set_observer", "point": point_str, "message": str(exc)}
 
 
+def _call_set_observer_path_sync(path_str: str, height: float) -> Dict[str, Any]:
+    """Blocking MCP call for a multi-point path — runs in a thread executor."""
+    try:
+        client = _ensure_client()
+        raw = client.call_tool(
+            "set_observer_path",
+            {"path_points": path_str, "height": height},
+            timeout=_OBSERVER_TIMEOUT_SECONDS,
+        )
+        return {"status": "ok", "tool": "set_observer_path", "path_str": path_str, "raw": raw}
+    except Exception as exc:
+        global _client
+        _client = None
+        return {"status": "error", "tool": "set_observer_path", "path_str": path_str, "message": str(exc)}
+
+
+async def push_observer_path(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Push an observer path to Grasshopper via MCP.
+
+    `data` is the parsed `observer_path` WS message:
+        { type, path_str, height }
+    Returns a status dict (never raises) so the WS loop stays alive even when
+    Swiftlet/Rhino is not running.
+    """
+    path_str = data.get("path_str")
+    if not isinstance(path_str, str) or not path_str.strip():
+        return {"status": "error", "tool": "set_observer_path", "message": "missing path_str"}
+
+    try:
+        height = float(data.get("height", 1.7))
+    except (TypeError, ValueError):
+        height = 1.7
+
+    async with _lock:
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, _call_set_observer_path_sync, path_str, height)
+
+
 async def push_observer(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Push an observer point to Grasshopper via MCP.
