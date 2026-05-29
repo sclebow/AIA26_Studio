@@ -357,11 +357,11 @@ export default function App() {
           gridColumn: '3', gridRow: '1 / 3',
           borderLeft: panelBorder, background: sidebarBg,
           display: 'grid',
-          gridTemplateRows: '3fr 2fr 4fr',
+          gridTemplateRows: '2fr 1fr 4fr',
           overflow: 'hidden', minHeight: 0,
         }}>
 
-          {/* Row 1 — Spatial Graph (~33%) */}
+          {/* Row 1 — Spatial Graph (~29%) */}
           <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', borderBottom: panelBorder, minHeight: 0 }}>
             <div style={sectionHeaderStyle}>
               <span>{displayMode === 'geometry' ? 'Spatial Graph' : '3D View'}</span>
@@ -377,19 +377,19 @@ export default function App() {
             </div>
           </div>
 
-          {/* Row 2 — Analysis Dashboard (~22%) */}
+          {/* Row 2 — Pipeline (~14%) — compact, scrollable */}
           <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', borderBottom: panelBorder, minHeight: 0 }}>
-            <div style={sectionHeaderStyle}><span>Analysis</span></div>
-            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-              <Dashboard scores={layoutState.scores} />
-            </div>
-          </div>
-
-          {/* Row 3 — Pipeline (~44%) — grid row gives definite height so overflow-y auto works */}
-          <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
             <div style={sectionHeaderStyle}><span>Pipeline</span></div>
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
               <ProcessPanel nodeStatuses={agentState.nodeStatuses} />
+            </div>
+          </div>
+
+          {/* Row 3 — Analysis Dashboard (~57%) — fills to panel bottom */}
+          <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+            <div style={sectionHeaderStyle}><span>Analysis</span></div>
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+              <Dashboard scores={layoutState.scores} />
             </div>
           </div>
         </div>
