@@ -5,3 +5,6 @@ AGENT_ui/frontend/test-results/
 
 # Per-layout conversational memory (local user data, generated at runtime)
 memory/
+
+# Live session state — ephemeral, overwritten on every run
+workspace/
