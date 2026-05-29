@@ -419,7 +419,7 @@ pip install langchain-openai langchain-anthropic langgraph grandalf shapely http
 1. **Timeout on MCP tool calls (OPEN)** — GH simulations are slow. Use `REQUEST_TIMEOUT_SECONDS=300`. If it times out, check Rhino for red/orange GH components.
 2. **`set_viewport` stays "pending" (PARTIALLY FIXED)** — Sometimes no response through Swiftlet. Checkpoint has 10s timeout + auto-fallback to `collision-detector-grid`. GH-side fix: wire the Result cluster.
 3. **Viewport overlay not simultaneous (OPEN)** — Toggling to analysis views (3/4/5) may show only the analysis. Workaround: overlays use `collision-detector-grid` as base.
-4. **`place_objects` format mismatch (OPEN)** — LLM sometimes sends malformed `objects_list`; the regex parser yields nothing (a warning prints). Use the `name:WxDxH:x=X,y=Y` format exactly.
+4. **`place_objects` format mismatch (FIXED)** — `_parse_objects_list` (`nodes/add_objects.py`) now accepts BOTH the colon form `name:WxDxH:x=X,y=Y` AND the JSON array the LLM often emits (`[{"name":..,"position":[x,y],"size":[w,d,h]}]`). Previously the JSON form parsed to nothing and silently placed no objects.
 5. **`test_spatial_graph.py --session` shows 0 furniture for base layout** — Expected: `--session` reads the live workspace; without it the base layout has no furniture.
 6. **`spatial_graph.py` import fails if networkx missing** — `pip install networkx`. All call sites are wrapped in try/except so it degrades gracefully.
 
