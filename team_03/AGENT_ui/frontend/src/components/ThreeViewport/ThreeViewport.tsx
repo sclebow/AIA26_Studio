@@ -444,8 +444,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
 
   const finishPath = useCallback(() => {
     if (pathPoints.length >= 2) onObserverPath?.(pathPoints)
-    setPathPoints([])
-    setPathMode(false)
+    setPathMode(false)   // keep points → ghost remains visible
   }, [pathPoints, onObserverPath])
 
   const handlePathClick = useCallback((e: React.MouseEvent) => {
@@ -457,8 +456,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
   const handlePathDoubleClick = useCallback((e: React.MouseEvent) => {
     if (pathPoints.length >= 2) {
       onObserverPath?.(pathPoints)
-      setPathPoints([])
-      setPathMode(false)
+      setPathMode(false) // keep points → ghost remains visible
     }
   }, [pathPoints, onObserverPath])
 
@@ -466,12 +464,12 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
     setPathMode(prev => {
       const next = !prev
       if (next) {
+        // Turning ON: clear old ghost and start fresh
         setPersonMode(false)
         setPlacing(false)
         setPathPoints([])
-      } else {
-        setPathPoints([])
       }
+      // Turning OFF: keep points so ghost persists
       return next
     })
   }, [])
