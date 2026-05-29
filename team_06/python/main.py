@@ -1,27 +1,41 @@
-import argparse
 from _runtime.bootstrap import bootstrap
 from graph import run_agent
 
-
 def main():
-
-    # Process the command line arguments (the user instruction)
-    parser = argparse.ArgumentParser(description="Run the Grasshopper MCP agent.")
-    parser.add_argument("prompt", help="Your instruction for the agent (e.g. 'delete the kitchen')")
-    args = parser.parse_args()
-
-    # Initialize and run the agent
+    """Main loop - session persists across turns."""
+    print("\n" + "="*60)
+    print("🏠 Layout Design Agent")
+    print("="*60)
+    print("Describe your desired layout or type 'quit' to exit.\n")
+    
     ctx = bootstrap()
-    response = run_agent(args.prompt, ctx)
-
-    # Print the final response
-    print("\nAgent response:\n")
-    safe_response = response.encode("ascii", errors="replace").decode("ascii")
-    print(safe_response)
-
-    # Clean up by properly closing the MCP client connection
-    ctx.mcp_client.close()
-
+    session = {"feedback_history": []}  # Persists across turns, ensure feedback_history always present
+    
+    while True:
+        try:
+            user_input = input("You: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nGoodbye.")
+            break
+        
+        if not user_input:
+            continue
+        
+        if user_input.lower() in ("exit", "quit"):
+            print("Goodbye.")
+            break
+        
+        try:
+            # Always ensure feedback_history is present in session
+            if "feedback_history" not in session:
+                session["feedback_history"] = []
+            response, session = run_agent(user_input, ctx, session)
+            print(f"\nAgent: {response}\n")
+            print(f"[DEBUG] Session after turn: {session.get('question_index')}")
+        except Exception as e:
+            print(f"\n❌ Error: {e}")
+            print("Session still active. Try again or type 'quit'.\n")
+            continue
 
 if __name__ == "__main__":
     main()

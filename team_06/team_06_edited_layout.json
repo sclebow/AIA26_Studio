@@ -81,7 +81,7 @@
       "attributes": {
         "area": 2.82,
         "program": "bath",
-        "daylight": 0.0
+        "daylight": 3.4
       }
     },
     {
@@ -236,7 +236,7 @@
       "attributes": {
         "area": 2.05,
         "program": "extra",
-        "daylight": 3.4
+        "daylight": 2.7
       }
     },
     {
@@ -298,7 +298,7 @@
       "attributes": {
         "area": 7.31,
         "program": "living",
-        "daylight": 2.7
+        "daylight": 0.0
       }
     },
     {

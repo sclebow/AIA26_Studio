@@ -20,6 +20,7 @@ class Context:
     edited_layout_path: Path
     layout_input_dir: Path   # Source layouts -- read-only input  (randomized_layouts/)
     layout_output_dir: Path  # Analysis results -- write destination (resulting_layout/)
+    mcp_available: bool = True  # False when Grasshopper is not running -- LLM path still works
 
 
 # Python-side pseudo-tool. Not an MCP tool -- it's intercepted in nodes/tools.py
@@ -104,17 +105,27 @@ def bootstrap(layout_path: Path | None = None) -> Context:
     else:
         layout_data = {}
 
-    # Connect to the Grasshopper MCP server and list available tools
+    # Connect to the Grasshopper MCP server and list available tools.
+    # If the server is not running, we degrade gracefully: LLM nodes still work,
+    # MCP tool nodes (ANALYZE, DETECT, SUGGEST) will skip with a clear message.
     mcp_client = McpClient(settings.mcp_endpoint, settings.request_timeout_seconds)
-    mcp_client.initialize()
-    mcp_tools = mcp_client.list_tools()
-    print("Discovered MCP tools: {}".format([t.get("name") for t in mcp_tools]))
+    mcp_available = True
+    mcp_tools: list[dict[str, Any]] = []
+    try:
+        mcp_client.initialize()
+        mcp_tools = mcp_client.list_tools()
+        print("Discovered MCP tools: {}".format([t.get("name") for t in mcp_tools]))
+    except Exception as exc:
+        mcp_available = False
+        print("\n[WARNING] Grasshopper MCP server not reachable: {}".format(exc))
+        print("[WARNING] Continuing without MCP tools -- analysis nodes will be skipped.\n")
 
     # Combine MCP tools with our Python-side pseudo-tool. From the LLM's
     # perspective they are all just tools it can choose to call; the tool node
     # routes select_layout locally instead of forwarding it to the MCP server.
     tools = mcp_tools + [SELECT_LAYOUT_TOOL]
-    print("Plus Python-side pseudo-tool: {}".format(SELECT_LAYOUT_TOOL["name"]))
+    if mcp_available:
+        print("Plus Python-side pseudo-tool: {}".format(SELECT_LAYOUT_TOOL["name"]))
 
     # Structured LLM -- JSON schema enforced (reserved for future tool-calling nodes)
     llm = create_chat_llm(
@@ -148,4 +159,5 @@ def bootstrap(layout_path: Path | None = None) -> Context:
         edited_layout_path=edited_layout_path,
         layout_input_dir=layout_input_dir,
         layout_output_dir=layout_output_dir,
+        mcp_available=mcp_available,
     )

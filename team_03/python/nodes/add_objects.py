@@ -13,8 +13,49 @@ _OBJECT_PATTERN = re.compile(
 
 
 def _parse_objects_list(objects_str: str) -> list[dict]:
+    """Parse an objects_list into [{name, position:[x,y], size:[w,d,h]}, ...].
+
+    Accepts BOTH formats the LLM produces:
+      A) JSON array:  [{"name":"rack_1","position":[x,y],"size":[w,d,h]}, ...]
+      B) Colon form:  "rack_1:1.5x1.2x2.1:x=1.8,y=1.8"
+    """
+    s = (objects_str or "").strip()
+
+    # Format A — JSON array/object (the LLM frequently emits this).
+    if s[:1] in ("[", "{"):
+        try:
+            data = json.loads(s)
+            if isinstance(data, dict):
+                data = [data]
+            results = []
+            for o in data if isinstance(data, list) else []:
+                if not isinstance(o, dict):
+                    continue
+                name = str(o.get("name", "")).strip()
+                pos = o.get("position") or [o.get("x"), o.get("y")]
+                size = o.get("size") or [o.get("width"), o.get("depth"), o.get("height")]
+                if (not name or not isinstance(pos, (list, tuple)) or len(pos) < 2
+                        or pos[0] is None or pos[1] is None):
+                    continue
+                def _num(seq, i, default):
+                    try:
+                        v = seq[i]
+                        return float(v) if v is not None else default
+                    except (IndexError, TypeError, ValueError):
+                        return default
+                results.append({
+                    "name":     name,
+                    "position": [float(pos[0]), float(pos[1])],
+                    "size":     [_num(size, 0, 1.0), _num(size, 1, 1.0), _num(size, 2, 1.0)],
+                })
+            if results:
+                return results
+        except (json.JSONDecodeError, ValueError, TypeError):
+            pass  # fall through to the colon format
+
+    # Format B — "name:WxDxH:x=X,y=Y"
     results = []
-    for m in _OBJECT_PATTERN.finditer(objects_str):
+    for m in _OBJECT_PATTERN.finditer(s):
         name, w, d, h, x, y = m.groups()
         if x is None or y is None:
             continue

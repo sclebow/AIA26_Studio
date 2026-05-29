@@ -25,9 +25,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 import api_routes
+import mcp_bridge
 from agent_runner import run_agent
 from session_manager import SessionManager
-from websocket_manager import ConnectionManager
+from websocket_manager import ConnectionManager, MessageType
 
 # ---------------------------------------------------------------------------
 # App setup
@@ -78,12 +79,27 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                         session.get_session(),
                         manager,
                         websocket,
+                        session=session,
                     )
                 )
 
             elif msg_type == "selection_sync":
                 # Broadcast the selection change to all connected clients.
                 await manager.broadcast(data)
+
+            elif msg_type == "observer_point":
+                # Push the draggable person point to Grasshopper via MCP.
+                # Fails gracefully (status "error") if Swiftlet/Rhino is down.
+                result = await mcp_bridge.push_observer(data)
+                await manager.send_personal(
+                    websocket,
+                    {
+                        "type": MessageType.agent_event.value,
+                        "node": "set_observer",
+                        "status": "completed" if result.get("status") == "ok" else "error",
+                        "data": result,
+                    },
+                )
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)

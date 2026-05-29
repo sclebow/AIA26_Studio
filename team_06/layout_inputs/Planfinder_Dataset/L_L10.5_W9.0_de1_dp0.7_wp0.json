@@ -1,0 +1,791 @@
+{
+  "layoutId": "L_L10.5_W9.0_de1_dp0.7_wp0",
+  "outline": [
+    [
+      0.0,
+      0.0
+    ],
+    [
+      10.5,
+      0.0
+    ],
+    [
+      10.5,
+      9.0
+    ],
+    [
+      0.0,
+      9.0
+    ]
+  ],
+  "boundary": [
+    [
+      0.0,
+      0.0
+    ],
+    [
+      10.5,
+      0.0
+    ],
+    [
+      10.5,
+      9.0
+    ],
+    [
+      0.0,
+      9.0
+    ]
+  ],
+  "area_sqm": 94.5,
+  "door_edge_idx": 1,
+  "door_point": [
+    10.5,
+    6.3
+  ],
+  "window_edge_idxs": [
+    0
+  ],
+  "facades": [
+    {
+      "geometry": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          10.5,
+          0.0
+        ]
+      ]
+    }
+  ],
+  "circulation": [
+    {
+      "geometry": [
+        [
+          10.5,
+          0.0
+        ],
+        [
+          10.5,
+          9.0
+        ]
+      ]
+    }
+  ],
+  "rooms": [
+    {
+      "id": "room-1",
+      "name": "WC",
+      "geometry": [
+        [
+          3.532,
+          8.085
+        ],
+        [
+          3.532,
+          5.565
+        ],
+        [
+          4.773,
+          5.565
+        ],
+        [
+          4.773,
+          8.085
+        ],
+        [
+          3.532,
+          8.085
+        ]
+      ],
+      "attributes": {
+        "program": "wc",
+        "area": 3.127
+      }
+    },
+    {
+      "id": "room-2",
+      "name": "Storage",
+      "geometry": [
+        [
+          4.773,
+          8.085
+        ],
+        [
+          4.773,
+          5.565
+        ],
+        [
+          6.109,
+          5.565
+        ],
+        [
+          6.109,
+          8.085
+        ],
+        [
+          4.773,
+          8.085
+        ]
+      ],
+      "attributes": {
+        "program": "storage",
+        "area": 3.367
+      }
+    },
+    {
+      "id": "room-3",
+      "name": "Circulation",
+      "geometry": [
+        [
+          10.5,
+          5.565
+        ],
+        [
+          10.5,
+          8.085
+        ],
+        [
+          8.495,
+          8.085
+        ],
+        [
+          8.495,
+          5.565
+        ],
+        [
+          10.5,
+          5.565
+        ]
+      ],
+      "attributes": {
+        "program": "circulation",
+        "area": 5.053
+      }
+    },
+    {
+      "id": "room-4",
+      "name": "Circulation",
+      "geometry": [
+        [
+          6.109,
+          4.2
+        ],
+        [
+          6.109,
+          5.565
+        ],
+        [
+          2.386,
+          5.565
+        ],
+        [
+          2.386,
+          4.2
+        ],
+        [
+          6.109,
+          4.2
+        ]
+      ],
+      "attributes": {
+        "program": "circulation",
+        "area": 5.082
+      }
+    },
+    {
+      "id": "room-5",
+      "name": "Bath",
+      "geometry": [
+        [
+          3.532,
+          8.085
+        ],
+        [
+          0.0,
+          8.085
+        ],
+        [
+          0.0,
+          5.565
+        ],
+        [
+          3.532,
+          5.565
+        ],
+        [
+          3.532,
+          8.085
+        ]
+      ],
+      "attributes": {
+        "program": "bath",
+        "area": 8.901
+      }
+    },
+    {
+      "id": "room-6",
+      "name": "Bed",
+      "geometry": [
+        [
+          0.0,
+          5.565
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          2.386,
+          0.0
+        ],
+        [
+          2.386,
+          5.565
+        ],
+        [
+          0.0,
+          5.565
+        ]
+      ],
+      "attributes": {
+        "program": "bed",
+        "area": 13.278
+      }
+    },
+    {
+      "id": "room-7",
+      "name": "Bed",
+      "geometry": [
+        [
+          6.109,
+          0.0
+        ],
+        [
+          6.109,
+          4.2
+        ],
+        [
+          2.386,
+          4.2
+        ],
+        [
+          2.386,
+          0.0
+        ],
+        [
+          6.109,
+          0.0
+        ]
+      ],
+      "attributes": {
+        "program": "bed",
+        "area": 15.637
+      }
+    },
+    {
+      "id": "room-8",
+      "name": "Living",
+      "geometry": [
+        [
+          6.109,
+          0.0
+        ],
+        [
+          10.5,
+          0.0
+        ],
+        [
+          10.5,
+          5.565
+        ],
+        [
+          8.495,
+          5.565
+        ],
+        [
+          8.495,
+          8.085
+        ],
+        [
+          6.109,
+          8.085
+        ],
+        [
+          6.109,
+          0.0
+        ]
+      ],
+      "attributes": {
+        "program": "living",
+        "area": 30.449
+      }
+    }
+  ],
+  "doors": [
+    {
+      "id": "door-1",
+      "name": "Door 1",
+      "geometry": [
+        [
+          4.105,
+          5.565
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-1",
+          "room-4"
+        ]
+      }
+    },
+    {
+      "id": "door-3",
+      "name": "Door 3",
+      "geometry": [
+        [
+          4.505,
+          5.615
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-1",
+          "room-4"
+        ]
+      }
+    },
+    {
+      "id": "door-4",
+      "name": "Door 4",
+      "geometry": [
+        [
+          4.555,
+          5.615
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-1",
+          "room-4"
+        ]
+      }
+    },
+    {
+      "id": "door-5",
+      "name": "Door 5",
+      "geometry": [
+        [
+          3.705,
+          5.615
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-1",
+          "room-4"
+        ]
+      }
+    },
+    {
+      "id": "door-6",
+      "name": "Door 6",
+      "geometry": [
+        [
+          5.345,
+          5.565
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-2",
+          "room-4"
+        ]
+      }
+    },
+    {
+      "id": "door-8",
+      "name": "Door 8",
+      "geometry": [
+        [
+          5.745,
+          5.615
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-2",
+          "room-4"
+        ]
+      }
+    },
+    {
+      "id": "door-9",
+      "name": "Door 9",
+      "geometry": [
+        [
+          5.795,
+          5.615
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-2",
+          "room-4"
+        ]
+      }
+    },
+    {
+      "id": "door-10",
+      "name": "Door 10",
+      "geometry": [
+        [
+          4.945,
+          5.615
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-2",
+          "room-4"
+        ]
+      }
+    },
+    {
+      "id": "door-16",
+      "name": "Door 16",
+      "geometry": [
+        [
+          6.109,
+          4.935
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-4",
+          "room-8"
+        ]
+      }
+    },
+    {
+      "id": "door-18",
+      "name": "Door 18",
+      "geometry": [
+        [
+          6.059,
+          4.535
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-4",
+          "room-8"
+        ]
+      }
+    },
+    {
+      "id": "door-19",
+      "name": "Door 19",
+      "geometry": [
+        [
+          6.059,
+          4.485
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-4",
+          "room-8"
+        ]
+      }
+    },
+    {
+      "id": "door-20",
+      "name": "Door 20",
+      "geometry": [
+        [
+          6.059,
+          5.335
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-4",
+          "room-8"
+        ]
+      }
+    },
+    {
+      "id": "door-21",
+      "name": "Door 21",
+      "geometry": [
+        [
+          2.959,
+          5.565
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-4",
+          "room-5"
+        ]
+      }
+    },
+    {
+      "id": "door-23",
+      "name": "Door 23",
+      "geometry": [
+        [
+          3.359,
+          5.615
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-4",
+          "room-5"
+        ]
+      }
+    },
+    {
+      "id": "door-24",
+      "name": "Door 24",
+      "geometry": [
+        [
+          3.409,
+          5.615
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-1",
+          "room-4"
+        ]
+      }
+    },
+    {
+      "id": "door-25",
+      "name": "Door 25",
+      "geometry": [
+        [
+          2.559,
+          5.615
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-4",
+          "room-5"
+        ]
+      }
+    },
+    {
+      "id": "door-26",
+      "name": "Door 26",
+      "geometry": [
+        [
+          2.386,
+          4.935
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-4",
+          "room-6"
+        ]
+      }
+    },
+    {
+      "id": "door-28",
+      "name": "Door 28",
+      "geometry": [
+        [
+          2.336,
+          5.335
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-4",
+          "room-6"
+        ]
+      }
+    },
+    {
+      "id": "door-29",
+      "name": "Door 29",
+      "geometry": [
+        [
+          2.336,
+          5.385
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-4",
+          "room-6"
+        ]
+      }
+    },
+    {
+      "id": "door-30",
+      "name": "Door 30",
+      "geometry": [
+        [
+          2.336,
+          4.535
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-4",
+          "room-6"
+        ]
+      }
+    },
+    {
+      "id": "door-31",
+      "name": "Door 31",
+      "geometry": [
+        [
+          4.964,
+          4.2
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-4",
+          "room-7"
+        ]
+      }
+    },
+    {
+      "id": "door-33",
+      "name": "Door 33",
+      "geometry": [
+        [
+          5.364,
+          4.15
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-4",
+          "room-7"
+        ]
+      }
+    },
+    {
+      "id": "door-34",
+      "name": "Door 34",
+      "geometry": [
+        [
+          5.414,
+          4.15
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-4",
+          "room-7"
+        ]
+      }
+    },
+    {
+      "id": "door-35",
+      "name": "Door 35",
+      "geometry": [
+        [
+          4.564,
+          4.15
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-4",
+          "room-7"
+        ]
+      }
+    },
+    {
+      "id": "door-36",
+      "name": "Door 36",
+      "geometry": [
+        [
+          9.736,
+          5.565
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-3",
+          "room-8"
+        ]
+      }
+    },
+    {
+      "id": "door-38",
+      "name": "Door 38",
+      "geometry": [
+        [
+          10.136,
+          5.615
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-3",
+          "room-8"
+        ]
+      }
+    },
+    {
+      "id": "door-39",
+      "name": "Door 39",
+      "geometry": [
+        [
+          10.186,
+          5.615
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-3",
+          "room-8"
+        ]
+      }
+    },
+    {
+      "id": "door-40",
+      "name": "Door 40",
+      "geometry": [
+        [
+          9.336,
+          5.615
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-3",
+          "room-8"
+        ]
+      }
+    }
+  ],
+  "programs": [
+    "bed",
+    "bath",
+    "kitchen",
+    "living",
+    "circulation"
+  ],
+  "connection_type": "connected",
+  "run_params": {
+    "length": 10.5,
+    "width": 9.0,
+    "door_edge_idx": 1,
+    "door_position": 0.7,
+    "window_pattern": 0
+  }
+}

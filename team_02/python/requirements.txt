@@ -1,0 +1,19 @@
+# Sensi — Python dependencies
+# Install with: pip install -r requirements.txt
+
+# ── LangGraph agent stack ─────────────────────────────────────────────────────
+langgraph
+langchain-core
+langchain-openai
+langchain-anthropic
+httpx
+python-dotenv
+
+# ── GUI (PyQt5 desktop app — more stable on Windows than PyQt6) ──────────────
+PyQt5
+PyQtWebEngine
+
+# ── Embeddings / ML (optional — comment out if not needed) ───────────────────
+grandalf
+sentence-transformers
+torch

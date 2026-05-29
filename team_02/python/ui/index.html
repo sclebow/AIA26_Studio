@@ -1,0 +1,3240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>sensi</title>
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
+
+<style>
+/* ── tokens ── */
+:root {
+  --bg:        #0D0D0D;
+  --fg:        #F0EDE8;
+  --thermal:   #E8836A;
+  --visual:    #D4B96A;
+  --acoustic:  #9B8FD4;
+  --spatial:   #6AB8C8;
+  --olfactory: #8BB88A;
+  --tactile:   #C4A882;
+}
+
+/* ── reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { width: 100%; height: 100%; }
+body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  overflow: hidden;
+  animation: breathe 4s ease-in-out infinite;
+}
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(240,237,232,.07); }
+
+/* ── keyframes ── */
+@keyframes breathe { 0%,100%{background:#0D0D0D} 50%{background:#101010} }
+@keyframes fadeUp  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeIn  { from{opacity:0} to{opacity:1} }
+@keyframes sensiBar {
+  0%,100% { transform:scaleX(.2); opacity:.30; }
+  50%      { transform:scaleX(1);  opacity:.60; }
+}
+@keyframes srg0 { 0%,100%{opacity:.14} 50%{opacity:.55} }
+@keyframes srg1 { 0%,100%{opacity:.14} 50%{opacity:.55} }
+@keyframes srg2 { 0%,100%{opacity:.14} 50%{opacity:.55} }
+@keyframes srg3 { 0%,100%{opacity:.14} 50%{opacity:.55} }
+@keyframes srg4 { 0%,100%{opacity:.14} 50%{opacity:.55} }
+@keyframes srg5 { 0%,100%{opacity:.14} 50%{opacity:.55} }
+
+/* ── screen system ── */
+.screen {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column;
+  opacity: 0; pointer-events: none;
+  transition: opacity .3s ease;
+}
+.screen.active { opacity: 1; pointer-events: auto; }
+
+/* ── loading overlay — FULLSCREEN ── */
+#overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 9999;
+  background: rgba(13,13,13,.95);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 0;
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s ease;
+}
+#overlay.visible { opacity: 1; pointer-events: auto; }
+.overlay-msg {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 300; font-size: 12px; letter-spacing: .12em;
+  color: rgba(240,237,232,.38);
+  text-align: center; max-width: 280px; line-height: 1.6;
+  margin-top: 20px;
+}
+
+/* ── shared top bar — floating pill ── */
+.top-bar {
+  flex-shrink: 0;
+  width: 100%;
+  padding: 16px 24px;
+  display: flex; align-items: center; justify-content: center;
+}
+.top-bar-pill {
+  display: inline-flex; align-items: center;
+  height: 54px;
+  border-radius: 999px;
+  background: rgba(22,22,22,1);
+  border: 1px solid rgba(240,237,232,.13);
+  padding: 0 28px;
+}
+/* chat screen needs a wider pill to push the profile button right */
+.top-bar-pill--wide {
+  width: 100%;
+  max-width: 640px;
+}
+.top-bar-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 14px; letter-spacing: .18em;
+  text-transform: uppercase;
+  color: rgba(240,237,232,.88);
+  margin-left: 12px;
+}
+.top-bar-sep {
+  /* gap is broken in PyQt5 Chromium — sep carries all the spacing via padding */
+  padding: 0 16px;
+  color: rgba(240,237,232,.28);
+  font-size: 15px;
+  line-height: 1;
+}
+.top-bar-section {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px; letter-spacing: .16em;
+  text-transform: uppercase;
+  color: rgba(240,237,232,.42);
+}
+.top-bar-step {
+  display: flex; align-items: center;
+  background: rgba(232,131,106,.12);
+  border: 1px solid rgba(232,131,106,.30);
+  border-radius: 999px;
+  padding: 0 18px;
+  height: 36px;
+  white-space: nowrap;
+}
+.top-bar-step-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #E8836A; flex-shrink: 0;
+  margin-right: 9px;
+}
+.top-bar-step-text {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px; letter-spacing: .12em;
+  text-transform: uppercase;
+  color: rgba(232,131,106,.95);
+}
+
+/* ── CONVERSATION THREAD (quiz + chat share this) ── */
+.thread {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 28px 0 12px;
+  display: flex; flex-direction: column; gap: 0;
+}
+.thread-inner {
+  width: 100%; max-width: 560px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex; flex-direction: column; gap: 0;
+}
+
+/* sensi bubble */
+.bubble-s {
+  align-self: flex-start;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-weight: 300;
+  font-size: clamp(15px, 2.2vw, 18px);
+  line-height: 1.6;
+  color: rgba(240,237,232,.82);
+  max-width: 88%;
+  animation: fadeUp .35s ease-out both;
+  background: rgba(240,237,232,.04);
+  border: 1px solid rgba(240,237,232,.07);
+  border-radius: 0 14px 14px 14px;
+  padding: 11px 15px;
+}
+/* user bubble */
+.bubble-u {
+  align-self: flex-end;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-size: clamp(14px, 2vw, 16px);
+  font-weight: 300;
+  line-height: 1.5;
+  color: rgba(232,131,106,.92);
+  background: rgba(232,131,106,.10);
+  border: 1px solid rgba(232,131,106,.22);
+  padding: 10px 15px;
+  border-radius: 14px 0 14px 14px;
+  max-width: 72%;
+  text-align: right;
+  animation: fadeIn .2s ease-out both;
+  margin-bottom: 28px;
+}
+
+/* ── ACTIVE INPUT AREA ── */
+.input-area {
+  flex-shrink: 0;
+  width: 100%; max-width: 560px;
+  margin: 0 auto;
+  padding: 16px 28px 28px;
+  border-top: 1px solid rgba(240,237,232,.06);
+}
+
+/* text + textarea inputs */
+.sensi-input {
+  width: 100%;
+  background: rgba(232,131,106,.07);
+  border: 1px solid rgba(232,131,106,.28);
+  border-radius: 999px;
+  color: rgba(232,131,106,.90);
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-size: 16px;
+  padding: 13px 22px;
+  outline: none;
+  caret-color: rgba(232,131,106,.80);
+  transition: border-color .2s;
+}
+.sensi-input::placeholder { color: rgba(232,131,106,.28); font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: .10em; }
+.sensi-input:focus { border-color: rgba(232,131,106,.55); }
+/* tall textareas (inspire): rounded-rect, not oval */
+textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radius: 20px; padding: 13px 22px; }
+
+/* inline send row — positioning context for the inside button */
+.send-row {
+  position: relative; width: 100%;
+}
+.send-row .sensi-input {
+  width: 100%; height: 50px; overflow-y: auto;
+  border-radius: 20px; padding: 13px 54px 13px 20px; margin-right: 0;
+}
+/* arrow button sits inside the pill at bottom-right */
+.btn-send {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(232,131,106,.18);
+  border: 1px solid rgba(232,131,106,.35);
+  color: rgba(232,131,106,.90);
+  font-size: 15px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0;
+  transition: all .2s;
+}
+.btn-send:hover { background: rgba(232,131,106,.28); border-color: rgba(232,131,106,.55); color: rgba(232,131,106,1); }
+
+/* action button (continue, build, etc.) */
+.btn-action {
+  background: transparent;
+  border: 1px solid rgba(240,237,232,.15);
+  color: rgba(240,237,232,.40);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+  padding: 12px 28px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all .2s;
+  margin-top: 16px;
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+.btn-action:hover { border-color: rgba(240,237,232,.55); color: var(--fg); }
+.btn-action:disabled { opacity: .2; cursor: not-allowed; }
+
+/* ghost secondary button */
+.btn-ghost {
+  background: transparent;
+  border: 1px solid rgba(240,237,232,.07);
+  color: rgba(240,237,232,.22);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+  padding: 12px 24px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all .2s;
+}
+.btn-ghost:hover { border-color: rgba(240,237,232,.35); color: rgba(240,237,232,.60); }
+
+/* ── PILLS ── */
+.pill-group {
+  display: flex; flex-wrap: wrap;
+  width: 100%; margin-top: 10px;
+}
+.pill {
+  flex: 1; min-width: 70px;
+  border: 1px solid rgba(240,237,232,.10);
+  padding: 14px 10px;
+  text-align: center;
+  cursor: pointer;
+  border-radius: 99px;
+  transition: all .16s ease;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+  color: rgba(240,237,232,.32);
+  user-select: none;
+  margin-right: 6px; margin-bottom: 6px;
+}
+.pill:hover { border-color: rgba(240,237,232,.32); color: rgba(240,237,232,.70); background: rgba(240,237,232,.02); }
+.pill.selected { border-color: rgba(240,237,232,.55); color: var(--fg); background: rgba(240,237,232,.04); }
+
+/* ── SENSE PILLS ── */
+.sense-grid { display: flex; width: 100%; margin-top: 10px; }
+.sense-pill:not(:last-child) { margin-right: 5px; }
+.sense-pill {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 14px 6px;
+  border: 1px solid rgba(240,237,232,.12);
+  border-radius: 99px;
+  cursor: pointer;
+  transition: all .16s ease;
+  user-select: none;
+}
+.sense-pill .si { font-size: 16px; color: rgba(240,237,232,.38); transition: color .16s; line-height: 1; margin-bottom: 6px; }
+.sense-pill .sn { font-family: 'IBM Plex Mono', monospace; font-size:7px; letter-spacing:.12em; text-transform:uppercase; color:rgba(240,237,232,.30); transition:color .16s; }
+/* subtle tint at rest so pills read as interactive */
+.sense-pill[data-sense="thermal"]   { background: rgba(232,131,106,.04); }
+.sense-pill[data-sense="visual"]    { background: rgba(212,185,106,.04); }
+.sense-pill[data-sense="acoustic"]  { background: rgba(155,143,212,.04); }
+.sense-pill[data-sense="spatial"]   { background: rgba(106,184,200,.04); }
+.sense-pill[data-sense="olfactory"] { background: rgba(139,184,138,.04); }
+.sense-pill[data-sense="tactile"]   { background: rgba(196,168,130,.04); }
+
+.sense-pill[data-sense="thermal"]:hover   { border-color:var(--thermal);   background:rgba(232,131,106,.06); }
+.sense-pill[data-sense="visual"]:hover    { border-color:var(--visual);    background:rgba(212,185,106,.06); }
+.sense-pill[data-sense="acoustic"]:hover  { border-color:var(--acoustic);  background:rgba(155,143,212,.06); }
+.sense-pill[data-sense="spatial"]:hover   { border-color:var(--spatial);   background:rgba(106,184,200,.06); }
+.sense-pill[data-sense="olfactory"]:hover { border-color:var(--olfactory); background:rgba(139,184,138,.06); }
+.sense-pill[data-sense="tactile"]:hover   { border-color:var(--tactile);   background:rgba(196,168,130,.06); }
+
+.sense-pill[data-sense="thermal"]:hover   .si, .sense-pill[data-sense="thermal"]:hover   .sn { color:var(--thermal);   }
+.sense-pill[data-sense="visual"]:hover    .si, .sense-pill[data-sense="visual"]:hover    .sn { color:var(--visual);    }
+.sense-pill[data-sense="acoustic"]:hover  .si, .sense-pill[data-sense="acoustic"]:hover  .sn { color:var(--acoustic);  }
+.sense-pill[data-sense="spatial"]:hover   .si, .sense-pill[data-sense="spatial"]:hover   .sn { color:var(--spatial);   }
+.sense-pill[data-sense="olfactory"]:hover .si, .sense-pill[data-sense="olfactory"]:hover .sn { color:var(--olfactory); }
+.sense-pill[data-sense="tactile"]:hover   .si, .sense-pill[data-sense="tactile"]:hover   .sn { color:var(--tactile);   }
+
+.sense-pill[data-sense="thermal"].selected   { border-color:var(--thermal);   background:rgba(232,131,106,.10); }
+.sense-pill[data-sense="visual"].selected    { border-color:var(--visual);    background:rgba(212,185,106,.10); }
+.sense-pill[data-sense="acoustic"].selected  { border-color:var(--acoustic);  background:rgba(155,143,212,.10); }
+.sense-pill[data-sense="spatial"].selected   { border-color:var(--spatial);   background:rgba(106,184,200,.10); }
+.sense-pill[data-sense="olfactory"].selected { border-color:var(--olfactory); background:rgba(139,184,138,.10); }
+.sense-pill[data-sense="tactile"].selected   { border-color:var(--tactile);   background:rgba(196,168,130,.10); }
+
+.sense-pill[data-sense="thermal"].selected   .si, .sense-pill[data-sense="thermal"].selected   .sn { color:var(--thermal);   }
+.sense-pill[data-sense="visual"].selected    .si, .sense-pill[data-sense="visual"].selected    .sn { color:var(--visual);    }
+.sense-pill[data-sense="acoustic"].selected  .si, .sense-pill[data-sense="acoustic"].selected  .sn { color:var(--acoustic);  }
+.sense-pill[data-sense="spatial"].selected   .si, .sense-pill[data-sense="spatial"].selected   .sn { color:var(--spatial);   }
+.sense-pill[data-sense="olfactory"].selected .si, .sense-pill[data-sense="olfactory"].selected .sn { color:var(--olfactory); }
+.sense-pill[data-sense="tactile"].selected   .si, .sense-pill[data-sense="tactile"].selected   .sn { color:var(--tactile);   }
+
+/* ── INSPIRE IMAGE GRID ── */
+@keyframes sg {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.img-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px; width: 100%; margin-top: 6px;
+}
+.img-cell {
+  position: relative;
+  border-radius: 8px;
+  padding: 2.5px;
+  background: rgba(240,237,232,.05);
+  cursor: pointer;
+  transition: background .4s;
+}
+.img-cell.sg-anim {
+  background-size: 400% 400%;
+  animation: sg 3s ease infinite;
+}
+.img-cell img {
+  width: 100%; aspect-ratio: 1/1; object-fit: cover;
+  display: block; opacity: .60;
+  border-radius: 6px;
+  transition: opacity .2s ease;
+}
+.img-cell:hover img    { opacity: .82; }
+.img-cell.selected img { opacity: 1; }
+.sense-badge {
+  position: absolute; bottom: 6px; right: 8px;
+  display: flex; align-items: center;
+  background: rgba(13,13,13,.72);
+  border-radius: 999px;
+  padding: 2px 6px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .2s;
+}
+.img-cell.selected .sense-badge { opacity: 1; }
+.sense-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  display: inline-block; margin-right: 3px;
+}
+.sense-dot:last-of-type { margin-right: 0; }
+.sense-sym {
+  font-size: 9px; margin-left: 3px;
+  font-family: 'IBM Plex Mono', monospace;
+  color: rgba(240,237,232,.70);
+  letter-spacing: .05em;
+}
+
+/* ── SENSE LEGEND ── */
+.sense-legend {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  margin: 6px 0 8px;
+}
+.sl-item {
+  display: inline-flex; align-items: center;
+  margin-right: 10px; margin-bottom: 4px;
+}
+.sl-item:last-child { margin-right: 0; }
+.sl-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  display: inline-block; margin-right: 4px; flex-shrink: 0;
+}
+.sl-sym {
+  font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+  color: rgba(240,237,232,.55); margin-right: 3px; letter-spacing: .04em;
+}
+.sl-name {
+  font-family: 'IBM Plex Mono', monospace; font-size: 8px;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: rgba(240,237,232,.28);
+}
+
+/* ── PERSONA BARS ── */
+.pbar-row { display:flex; align-items:center; margin-bottom:10px; }
+.pbar-lbl { font-family: 'IBM Plex Mono', monospace; font-size:8px; letter-spacing:.12em; text-transform:uppercase; width:80px; flex-shrink:0; margin-right:10px; }
+.pbar-track { flex:1; height:3px; background:rgba(240,237,232,.07); border-radius:99px; position:relative; margin-right:10px; }
+.pbar-fill  { height:100%; border-radius:99px; transition:width .6s ease; }
+.pbar-tick  { position:absolute; top:-3px; width:1px; height:9px; background:rgba(240,237,232,.32); }
+.pbar-val   { font-family: 'IBM Plex Mono', monospace; font-size:8px; color:rgba(240,237,232,.30); width:26px; text-align:right; }
+
+/* ── MOODBOARD STRIP ── */
+.moodboard-strip { display:flex; width:100%; margin-top:14px; }
+.moodboard-strip img { flex:1; height:58px; object-fit:cover; border-radius:4px; opacity:.70; }
+.moodboard-strip img:not(:last-child) { margin-right: 5px; }
+
+/* ── FILE UPLOAD AREA ── */
+.upload-row {
+  display: flex; align-items: center;
+  margin-top: 10px;
+}
+.btn-upload {
+  background: transparent;
+  border: 1px dashed rgba(240,237,232,.12);
+  margin-right: 8px;
+  color: rgba(240,237,232,.25);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px; letter-spacing: .18em; text-transform: uppercase;
+  padding: 7px 14px;
+  cursor: pointer; border-radius: 6px;
+  transition: all .2s;
+}
+.btn-upload:hover { border-color: rgba(240,237,232,.35); color: rgba(240,237,232,.55); }
+.upload-names {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px; letter-spacing: .10em;
+  color: rgba(240,237,232,.22);
+  flex: 1; overflow: hidden;
+  white-space: nowrap; text-overflow: ellipsis;
+}
+
+/* ── two-button row ── */
+.btn-row { display: flex; margin-top: 16px; width: 100%; }
+.btn-row .btn-action { flex: 1; margin-top: 0; }
+.btn-row > *:not(:last-child) { margin-right: 8px; }
+
+/* label */
+.label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 7px; letter-spacing: .24em; text-transform: uppercase;
+  color: rgba(240,237,232,.18);
+  text-align: center;
+}
+
+/* ── avatar + bubble row ── */
+.bubble-wrap { display: flex; align-items: flex-start; margin-bottom: 28px; }
+/* avatar aligns with bubble top — flat top-left corner of bubble "connects" to avatar */
+.sensi-avatar { flex-shrink: 0; margin-top: 0; opacity: .88; margin-right: 14px; }
+/* previous messages: demoted to a small static dot, no animation */
+.sensi-avatar-static {
+  flex-shrink: 0;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: rgba(240,237,232,.22);
+  margin-top: 8px;
+  margin-right: 14px;
+}
+
+/* ── persona profile sections ── */
+.persona-identity { padding-bottom: 4px; }
+.persona-name { font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 20px; font-weight: 300; color: rgba(240,237,232,.90); }
+.persona-role { font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: .22em; text-transform: uppercase; color: rgba(240,237,232,.30); margin-top: 5px; }
+.persona-desc { font-family: 'IBM Plex Sans', sans-serif; font-weight: 300; font-size: 12px; line-height: 1.65; color: rgba(240,237,232,.45); margin-top: 10px; }
+
+.persona-section-label {
+  font-family: 'IBM Plex Mono', monospace; font-size: 7px; letter-spacing: .24em; text-transform: uppercase;
+  color: rgba(240,237,232,.28); margin: 24px 0 10px;
+  display: flex; align-items: center;
+}
+.persona-section-label::before { content: ''; flex: 0 0 12px; height: 1px; background: rgba(240,237,232,.10); margin-right: 8px; }
+.persona-section-label::after  { content: ''; flex: 1; height: 1px; background: rgba(240,237,232,.10); margin-left: 8px; }
+
+/* top 3 cards */
+.top3-grid { display: flex; width: 100%; }
+.top3-grid > .top3-card:not(:last-child) { margin-right: 7px; }
+.top3-card  { flex: 1; padding: 12px 10px; border: 1px solid rgba(240,237,232,.08); border-radius: 6px; display: flex; flex-direction: column; }
+.top3-icon  { font-size: 14px; line-height: 1; margin-bottom: 5px; }
+.top3-sense { font-family: 'IBM Plex Mono', monospace; font-size: 7px; letter-spacing: .16em; text-transform: uppercase; margin-bottom: 5px; }
+.top3-note  { font-family:'IBM Plex Sans', sans-serif; font-weight: 300; font-size: 11px; line-height: 1.5; color: rgba(240,237,232,.48); }
+
+/* bar legend */
+.bar-legend { display: flex; margin-bottom: 8px; }
+.bar-legend > span:not(:last-child) { margin-right: 16px; }
+.bar-legend span { font-family: 'IBM Plex Mono', monospace; font-size: 7px; letter-spacing: .12em; color: rgba(240,237,232,.28); display: flex; align-items: center; }
+
+/* gap items */
+.gap-item { padding: 10px 12px; border-left: 2px solid; margin-bottom: 8px; border-radius: 0 5px 5px 0; background: rgba(240,237,232,.02); }
+.gap-item-sense { font-family: 'IBM Plex Mono', monospace; font-size: 7px; letter-spacing: .16em; text-transform: uppercase; margin-bottom: 4px; }
+.gap-item-note  { font-family:'IBM Plex Sans', sans-serif; font-weight: 300; font-size: 11px; line-height: 1.6; color: rgba(240,237,232,.55); }
+
+/* aesthetic note */
+.aesthetic-note { font-family:'IBM Plex Sans', sans-serif; font-weight: 300; font-size: 11px; line-height: 1.65; color: rgba(240,237,232,.38); margin-top: 8px; font-style: italic; }
+
+/* formula collapsible */
+.formula-toggle { font-family: 'IBM Plex Mono', monospace; font-size: 7px; letter-spacing: .22em; text-transform: uppercase; color: rgba(240,237,232,.22); cursor: pointer; margin-top: 22px; margin-bottom: 4px; transition: color .2s; }
+.formula-toggle:hover { color: rgba(240,237,232,.50); }
+.formula-content { border-left: 1px solid rgba(240,237,232,.08); padding-left: 14px; margin-top: 8px; margin-bottom: 24px; }
+
+/* formula equation block */
+.formula-eq-block { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid rgba(240,237,232,.06); }
+.formula-eq-row { display: -webkit-box; display: flex; -webkit-box-align: baseline; align-items: baseline; margin-bottom: 10px; }
+.formula-eq-lhs { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: rgba(240,237,232,.70); width: 130px; -webkit-flex-shrink: 0; flex-shrink: 0; }
+.formula-eq-rhs { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: rgba(240,237,232,.42); -webkit-flex: 1; flex: 1; }
+.formula-eq-note { font-family:'IBM Plex Sans', sans-serif; font-weight: 300; font-size: 11px; color: rgba(240,237,232,.22); margin-left: 10px; font-style: italic; -webkit-flex-shrink: 0; flex-shrink: 0; }
+.formula-prose { font-family:'IBM Plex Sans', sans-serif; font-weight: 300; font-size: 11px; line-height: 1.75; color: rgba(240,237,232,.35); }
+
+/* ── profile side panel ── */
+.profile-panel {
+  position: fixed; top: 0; right: 0;
+  width: 320px; height: 100%;
+  background: rgba(13,13,13,.98);
+  border-left: 1px solid rgba(240,237,232,.07);
+  z-index: 8000;
+  transform: translateX(100%);
+  transition: transform .3s ease;
+  display: flex; flex-direction: column;
+}
+.profile-panel.open { transform: translateX(0); }
+.panel-header { flex-shrink: 0; padding: 16px 20px; border-bottom: 1px solid rgba(240,237,232,.05); display: flex; align-items: center; }
+.panel-header > *:not(.panel-close) { margin-right: 8px; }
+.panel-close { background: transparent; border: none; color: rgba(240,237,232,.30); font-size: 18px; cursor: pointer; padding: 0 4px; line-height: 1; margin-left: auto; transition: color .2s; }
+.panel-close:hover { color: var(--fg); }
+.btn-panel-full { background: transparent; border: 1px solid rgba(240,237,232,.10); color: rgba(240,237,232,.30); font-family: 'IBM Plex Mono', monospace; font-size: 7px; letter-spacing: .16em; text-transform: uppercase; padding: 5px 10px; cursor: pointer; border-radius: 6px; transition: all .2s; }
+.btn-panel-full:hover { border-color: rgba(240,237,232,.35); color: var(--fg); }
+.panel-scroll { flex: 1; overflow-y: auto; padding: 16px 20px 32px; }
+
+/* profile button in top bar — kept for non-chat screens */
+.btn-profile { background: transparent; border: none; color: rgba(240,237,232,.25); cursor: pointer; padding: 4px; display: flex; align-items: center; transition: color .2s; }
+.btn-profile:hover { color: rgba(240,237,232,.65); }
+
+/* layout badge — mirrors the onboarding step pill, spatial teal colour */
+.top-bar-layout-badge {
+  display: inline-flex; align-items: center;
+  background: rgba(106,184,200,.08);
+  border: 1px solid rgba(106,184,200,.22);
+  border-radius: 999px;
+  padding: 0 14px;
+  height: 34px;
+  margin-left: 10px;
+}
+.top-bar-layout-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(106,184,200,.70);
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+.top-bar-layout-id {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: rgba(106,184,200,.82);
+}
+
+/* user initial avatar — replaces the abstract profile SVG */
+.top-bar-user-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(155,143,212,.10);
+  border: 1px solid rgba(155,143,212,.28);
+  color: rgba(155,143,212,.85);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px; font-weight: 400; letter-spacing: .02em;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; text-transform: uppercase;
+  transition: all .2s;
+  padding: 0;
+  flex-shrink: 0;
+}
+.top-bar-user-avatar:hover { background: rgba(155,143,212,.20); border-color: rgba(155,143,212,.50); }
+
+/* top bar right-side status group */
+.top-bar-status-group {
+  display: none;
+  align-items: center;
+  margin-left: auto;
+}
+/* conflict count badge */
+.top-bar-conflict-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: .10em; text-transform: uppercase;
+  color: rgba(232,131,106,.80);
+  background: rgba(232,131,106,.10);
+  border: 1px solid rgba(232,131,106,.22);
+  border-radius: 999px;
+  padding: 2px 10px;
+  white-space: nowrap;
+  margin-right: 10px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.top-bar-conflict-badge:hover { background: rgba(232,131,106,.18); }
+/* overall score ring */
+.top-bar-score-ring {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; font-weight: 400;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  border: 1.5px solid rgba(240,237,232,.18);
+  color: rgba(240,237,232,.55);
+  margin-right: 8px;
+  transition: border-color .2s, color .2s;
+}
+.top-bar-score-ring.score-pass  { border-color: rgba(139,184,138,.65); color: rgba(139,184,138,.90); }
+.top-bar-score-ring.score-warn  { border-color: rgba(196,168,130,.65); color: rgba(196,168,130,.90); }
+.top-bar-score-ring.score-fail  { border-color: rgba(232,131,106,.65); color: rgba(232,131,106,.90); }
+
+/* ── Sensi message structure ── */
+.bubble-msg-header {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
+  color: rgba(240,237,232,.30);
+  margin-bottom: 9px; padding-bottom: 7px;
+  border-bottom: 1px solid rgba(240,237,232,.07);
+}
+/* paragraph reset — text styles inherit from .bubble-s */
+.bubble-msg-para { margin: 0; }
+.bubble-msg-para + .bubble-msg-para {
+  margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid rgba(240,237,232,.05);
+}
+
+/* ── thinking bubble dots ── */
+@keyframes dotPulse {
+  0%,80%,100% { opacity:.15; transform:scale(.75); }
+  40%         { opacity:.90; transform:scale(1); }
+}
+.thinking-dots { display:flex; align-items:center; padding:2px 0; }
+.thinking-dots span { display:inline-block; width:5px; height:5px; border-radius:50%; background:rgba(240,237,232,.55); animation:dotPulse 1.4s ease-in-out infinite; margin-right:4px; }
+.thinking-dots span:last-child { margin-right:0; }
+.thinking-dots span:nth-child(2) { animation-delay:.2s; }
+.thinking-dots span:nth-child(3) { animation-delay:.4s; }
+
+/* ── upload image preview strip ── */
+.upload-preview { display:flex; flex-wrap:wrap; margin-top:8px; }
+.upload-preview img { width:46px; height:46px; object-fit:cover; border-radius:6px; opacity:.72; margin-right:6px; margin-bottom:6px; border:1px solid rgba(240,237,232,.10); }
+
+/* ── analysis split panel ── */
+#chat-body {
+  -webkit-flex:1; flex:1;
+  overflow:hidden;
+  display:-webkit-box; display:-webkit-flex; display:flex;
+  min-height:0;
+}
+#chat-left {
+  display:-webkit-box; display:-webkit-flex; display:flex;
+  -webkit-flex-direction:column; flex-direction:column;
+  overflow:hidden;
+  -webkit-flex:1; flex:1;
+  min-width:0;
+}
+#chat-left.panel-open { -webkit-flex:0 0 42%; flex:0 0 42%; }
+#analysis-panel-right {
+  display:none;
+  -webkit-flex-direction:column; flex-direction:column;
+  -webkit-flex:1; flex:1;
+  overflow:hidden;
+  border-left:1px solid rgba(240,237,232,.07);
+  background:rgba(10,10,10,.82);
+  min-width:0;
+}
+#analysis-panel-right.open { display:-webkit-box; display:-webkit-flex; display:flex; }
+.ap-header {
+  -webkit-flex-shrink:0; flex-shrink:0;
+  padding:9px 14px;
+  border-bottom:1px solid rgba(240,237,232,.06);
+  display:-webkit-box; display:-webkit-flex; display:flex;
+  -webkit-align-items:center; align-items:center;
+}
+.ap-header-label {
+  font-family: 'IBM Plex Mono', monospace; font-size:10px; letter-spacing:.18em; text-transform:uppercase;
+  color:rgba(240,237,232,.55); margin-right:8px;
+}
+.ap-depth-tag {
+  font-family: 'IBM Plex Mono', monospace; font-size:8px; letter-spacing:.12em; text-transform:uppercase;
+  color:rgba(232,131,106,.75); background:rgba(232,131,106,.10);
+  border:1px solid rgba(232,131,106,.22); border-radius:999px;
+  padding:2px 8px; margin-right:auto;
+}
+.ap-view-toggle {
+  display:-webkit-box; display:-webkit-flex; display:flex;
+  border:1px solid rgba(240,237,232,.10); border-radius:6px;
+  overflow:hidden; margin-right:8px;
+}
+.ap-toggle-btn {
+  background:transparent; border:none;
+  color:rgba(240,237,232,.25); font-family: 'IBM Plex Mono', monospace;
+  font-size:8px; letter-spacing:.12em; text-transform:uppercase;
+  padding:4px 10px; cursor:pointer; transition:all .15s;
+}
+.ap-toggle-btn.ap-toggle-active { background:rgba(240,237,232,.07); color:rgba(240,237,232,.75); }
+.ap-close {
+  background:transparent; border:none;
+  color:rgba(240,237,232,.22); font-size:16px;
+  cursor:pointer; padding:0 2px; line-height:1; transition:color .2s;
+}
+.ap-close:hover { color:var(--fg); }
+.ap-scroll { -webkit-flex:1; flex:1; overflow-y:auto; overflow-x:hidden; padding:10px 14px 24px; }
+.ap-section-label {
+  font-family: 'IBM Plex Mono', monospace; font-size:7px; letter-spacing:.22em; text-transform:uppercase;
+  color:rgba(240,237,232,.22); margin:16px 0 8px;
+  display:-webkit-box; display:-webkit-flex; display:flex;
+  -webkit-align-items:center; align-items:center;
+}
+.ap-section-label::before { content:''; -webkit-flex:0 0 10px; flex:0 0 10px; height:1px; background:rgba(240,237,232,.08); margin-right:6px; }
+.ap-section-label::after  { content:''; -webkit-flex:1; flex:1; height:1px; background:rgba(240,237,232,.08); margin-left:6px; }
+.ap-section-label:first-child { margin-top:0; }
+.ap-room-label {
+  font-family: 'IBM Plex Mono', monospace; font-size:10px; letter-spacing:.12em; text-transform:uppercase;
+  color:rgba(240,237,232,.65); margin-bottom:7px; margin-top:16px; display:block;
+  border-bottom:1px solid rgba(240,237,232,.05); padding-bottom:4px;
+}
+.ap-room-label:first-child { margin-top:0; }
+.ap-bar-row {
+  display:-webkit-box; display:-webkit-flex; display:flex;
+  -webkit-align-items:center; align-items:center; margin-bottom:6px;
+}
+.ap-bar-sense {
+  font-family: 'IBM Plex Mono', monospace; font-size:9px; letter-spacing:.06em;
+  color:rgba(240,237,232,.40); width:58px; -webkit-flex-shrink:0; flex-shrink:0;
+}
+.ap-bar-track {
+  -webkit-flex:1; flex:1; height:6px;
+  background:rgba(240,237,232,.05); border-radius:99px;
+  position:relative; overflow:visible; margin-right:8px;
+}
+.ap-bar-fill { height:100%; border-radius:99px; position:relative; z-index:1; }
+.ap-bar-threshold {
+  position:absolute; top:-2px; width:1px; height:10px;
+  background:rgba(240,237,232,.20); z-index:2;
+}
+.ap-bar-val {
+  font-family: 'IBM Plex Mono', monospace; font-size:9px; color:rgba(240,237,232,.38);
+  width:30px; text-align:right; -webkit-flex-shrink:0; flex-shrink:0;
+}
+.ap-conflict-room {
+  margin-bottom:8px;
+  display:-webkit-box; display:-webkit-flex; display:flex;
+  -webkit-flex-wrap:wrap; flex-wrap:wrap;
+  -webkit-align-items:center; align-items:center;
+}
+.ap-conflict-room .ap-room-label { margin:0; margin-right:6px; display:inline; }
+.ap-conflict-flag {
+  font-family: 'IBM Plex Mono', monospace; font-size:7px; letter-spacing:.10em; text-transform:uppercase;
+  padding:2px 7px; border-radius:999px; margin-right:4px; margin-bottom:2px;
+}
+.ap-conflict-flag[data-sense="thermal"]   { background:rgba(232,131,106,.14); color:var(--thermal);   border:1px solid rgba(232,131,106,.24); }
+.ap-conflict-flag[data-sense="visual"]    { background:rgba(212,185,106,.14); color:var(--visual);    border:1px solid rgba(212,185,106,.24); }
+.ap-conflict-flag[data-sense="acoustic"]  { background:rgba(155,143,212,.14); color:var(--acoustic);  border:1px solid rgba(155,143,212,.24); }
+.ap-conflict-flag[data-sense="spatial"]   { background:rgba(106,184,200,.14); color:var(--spatial);   border:1px solid rgba(106,184,200,.24); }
+.ap-conflict-flag[data-sense="olfactory"] { background:rgba(139,184,138,.14); color:var(--olfactory); border:1px solid rgba(139,184,138,.24); }
+.ap-conflict-flag[data-sense="tactile"]   { background:rgba(196,168,130,.14); color:var(--tactile);   border:1px solid rgba(196,168,130,.24); }
+.ap-suggestion-item {
+  border-left:2px solid rgba(240,237,232,.08); padding:6px 10px;
+  margin-bottom:6px; border-radius:0 5px 5px 0; background:rgba(240,237,232,.02);
+}
+.ap-suggestion-room {
+  font-family: 'IBM Plex Mono', monospace; font-size:7px; letter-spacing:.14em; text-transform:uppercase;
+  color:rgba(240,237,232,.28); display:block; margin-bottom:2px;
+}
+.ap-suggestion-sense {
+  font-family: 'IBM Plex Mono', monospace; font-size:7px; letter-spacing:.08em; text-transform:uppercase;
+  padding:1px 5px; border-radius:999px; margin-right:5px;
+}
+.ap-suggestion-sense[data-sense="thermal"]   { color:var(--thermal);   background:rgba(232,131,106,.10); }
+.ap-suggestion-sense[data-sense="visual"]    { color:var(--visual);    background:rgba(212,185,106,.10); }
+.ap-suggestion-sense[data-sense="acoustic"]  { color:var(--acoustic);  background:rgba(155,143,212,.10); }
+.ap-suggestion-sense[data-sense="spatial"]   { color:var(--spatial);   background:rgba(106,184,200,.10); }
+.ap-suggestion-sense[data-sense="olfactory"] { color:var(--olfactory); background:rgba(139,184,138,.10); }
+.ap-suggestion-sense[data-sense="tactile"]   { color:var(--tactile);   background:rgba(196,168,130,.10); }
+.ap-suggestion-text {
+  font-family:'IBM Plex Sans', sans-serif; font-weight:300; font-size:11px;
+  color:rgba(240,237,232,.48); line-height:1.5; display:block; margin-top:3px;
+}
+.ap-empty {
+  font-family: 'IBM Plex Mono', monospace; font-size:9px; color:rgba(240,237,232,.18);
+  text-align:center; padding:14px 0; letter-spacing:.10em;
+}
+/* ── Specialist narrative blocks ── */
+.ap-specialist-block {
+  border:1px solid rgba(140,125,210,.22);
+  border-radius:6px;
+  background:rgba(90,80,160,.07);
+  margin-bottom:8px;
+  overflow:hidden;
+}
+.ap-specialist-header {
+  display:-webkit-box; display:-webkit-flex; display:flex;
+  -webkit-align-items:center; align-items:center;
+  justify-content:space-between;
+  padding:7px 11px;
+  cursor:pointer;
+  user-select:none;
+}
+.ap-specialist-title {
+  font-family: 'IBM Plex Mono', monospace; font-size:8px; letter-spacing:.18em;
+  text-transform:uppercase; color:rgba(170,155,225,.65);
+}
+.ap-specialist-chevron {
+  font-size:9px; color:rgba(140,125,210,.45); transition:transform .18s;
+}
+.ap-specialist-chevron.open { transform:rotate(180deg); }
+.ap-specialist-body {
+  padding:9px 12px 11px;
+  font-family: 'IBM Plex Mono', monospace; font-size:10px; line-height:1.65;
+  color:rgba(190,180,235,.72);
+  border-top:1px solid rgba(140,125,210,.12);
+  white-space:pre-wrap; word-break:break-word;
+}
+/* ── Action chips below Sensi messages ── */
+.ap-chips-row {
+  display:-webkit-box; display:-webkit-flex; display:flex;
+  -webkit-flex-wrap:wrap; flex-wrap:wrap;
+  margin-top:10px;
+}
+.ap-jump-chip {
+  display:-webkit-inline-box; display:-webkit-inline-flex; display:inline-flex;
+  -webkit-align-items:center; align-items:center;
+  padding:4px 10px;
+  border-radius:999px;
+  border:1px solid rgba(240,237,232,.13);
+  background:rgba(240,237,232,.04);
+  color:rgba(240,237,232,.45);
+  font-family: 'IBM Plex Mono', monospace; font-size:9px; letter-spacing:.09em;
+  cursor:pointer; transition:all .15s;
+  white-space:nowrap;
+  margin-right:5px; margin-bottom:4px;
+}
+.ap-jump-chip:hover {
+  border-color:rgba(140,125,210,.55);
+  background:rgba(90,80,160,.12);
+  color:rgba(190,180,235,.85);
+}
+.ap-chip-arrow { margin-right:3px; opacity:.50; }
+/* ── Room selector strip ── */
+#ap-room-selector { margin-bottom:6px; }
+.ap-room-strip {
+  display:-webkit-box; display:-webkit-flex; display:flex;
+  -webkit-flex-wrap:wrap; flex-wrap:wrap;
+  padding:4px 0 6px;
+}
+.ap-room-chip {
+  display:-webkit-inline-box; display:-webkit-inline-flex; display:inline-flex;
+  -webkit-align-items:center; align-items:center;
+  padding:4px 10px 4px 8px; border-radius:999px;
+  border:1px solid rgba(240,237,232,.10);
+  background:rgba(240,237,232,.03);
+  cursor:pointer; transition:all .14s;
+  margin-right:5px; margin-bottom:5px;
+}
+.ap-room-chip:hover { border-color:rgba(240,237,232,.22); background:rgba(240,237,232,.06); }
+.ap-room-chip.active { border-color:rgba(240,237,232,.28); background:rgba(240,237,232,.07); }
+.ap-room-chip-dot {
+  width:7px; height:7px; border-radius:50%;
+  -webkit-flex-shrink:0; flex-shrink:0; margin-right:6px;
+}
+.ap-room-chip-name {
+  font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:.10em;
+  text-transform:uppercase; color:rgba(240,237,232,.48); white-space:nowrap;
+}
+.ap-room-chip.active .ap-room-chip-name { color:rgba(240,237,232,.80); }
+.ap-room-detail-header {
+  display:-webkit-box; display:-webkit-flex; display:flex;
+  -webkit-align-items:baseline; align-items:baseline;
+  margin-bottom:10px; padding-bottom:6px;
+  border-bottom:1px solid rgba(240,237,232,.07);
+}
+.ap-room-detail-name {
+  font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.12em;
+  text-transform:uppercase; color:rgba(240,237,232,.80); margin-right:8px;
+}
+.ap-room-detail-score {
+  font-family:'IBM Plex Mono',monospace; font-size:11px;
+  color:rgba(240,237,232,.35);
+}
+.ap-all-rooms-toggle {
+  display:-webkit-box; display:-webkit-flex; display:flex;
+  -webkit-align-items:center; align-items:center;
+  -webkit-justify-content:center; justify-content:center;
+  width:100%; padding:7px 0; margin-top:10px;
+  border:1px solid rgba(240,237,232,.08); border-radius:5px;
+  background:transparent; color:rgba(240,237,232,.28);
+  font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.15em;
+  text-transform:uppercase; cursor:pointer; transition:all .14s;
+}
+.ap-all-rooms-toggle:hover {
+  border-color:rgba(240,237,232,.16); color:rgba(240,237,232,.55);
+  background:rgba(240,237,232,.03);
+}
+
+/* ── capabilities panel ── */
+.cap-btn {
+  -webkit-flex-shrink:0; flex-shrink:0;
+  width:34px; height:34px; border-radius:8px;
+  background:rgba(240,237,232,.05);
+  border:1px solid rgba(240,237,232,.12);
+  color:rgba(240,237,232,.38);
+  font-size:15px; cursor:pointer;
+  display:-webkit-inline-flex; display:inline-flex;
+  -webkit-align-items:center; align-items:center;
+  -webkit-justify-content:center; justify-content:center;
+  transition:all .2s;
+  margin-right:8px;
+}
+.cap-btn:hover { background:rgba(240,237,232,.09); color:rgba(240,237,232,.65); border-color:rgba(240,237,232,.22); }
+.cap-btn.on    { background:rgba(240,237,232,.10); color:rgba(240,237,232,.88); border-color:rgba(240,237,232,.30); }
+.cap-overlay {
+  display:none;
+  position:fixed; top:0; left:0; right:0; bottom:0; z-index:500;
+  background:rgba(0,0,0,.62);
+  -webkit-align-items:center; align-items:center;
+  -webkit-justify-content:center; justify-content:center;
+}
+.cap-overlay.open { display:-webkit-flex; display:flex; }
+.cap-panel {
+  background:#171717;
+  border:1px solid rgba(240,237,232,.10);
+  border-radius:14px;
+  width:480px; max-width:calc(100vw - 32px);
+  max-height:68vh;
+  display:-webkit-flex; display:flex;
+  -webkit-flex-direction:column; flex-direction:column;
+  overflow:hidden;
+  box-shadow:0 24px 60px rgba(0,0,0,.70);
+  transform:scale(1.2);
+  transform-origin:center center;
+}
+.cap-hdr {
+  -webkit-flex-shrink:0; flex-shrink:0;
+  display:-webkit-flex; display:flex;
+  -webkit-align-items:center; align-items:center;
+  padding:14px 16px 10px;
+  border-bottom:1px solid rgba(240,237,232,.07);
+}
+.cap-title {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px; letter-spacing:.18em; text-transform:uppercase;
+  color:rgba(240,237,232,.55); margin-right:auto;
+}
+.cap-vtoggle {
+  display:-webkit-flex; display:flex;
+  border:1px solid rgba(240,237,232,.10);
+  border-radius:6px; overflow:hidden; margin-right:10px;
+}
+.cap-vt {
+  background:transparent; border:none;
+  color:rgba(240,237,232,.28);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px; letter-spacing:.12em; text-transform:uppercase;
+  padding:5px 10px; cursor:pointer; transition:all .15s;
+}
+.cap-vt.on { background:rgba(240,237,232,.08); color:rgba(240,237,232,.75); }
+.cap-close {
+  background:transparent; border:none;
+  color:rgba(240,237,232,.30); font-size:16px;
+  cursor:pointer; padding:0 2px; line-height:1; transition:color .15s;
+}
+.cap-close:hover { color:rgba(240,237,232,.75); }
+.cap-body {
+  overflow-y:auto; overflow-x:hidden;
+  -webkit-flex:1; flex:1;
+  padding:10px 16px 14px;
+}
+.cview { display:none; }
+.cview.on { display:block; }
+.srow {
+  display:-webkit-flex; display:flex;
+  -webkit-align-items:flex-start; align-items:flex-start;
+  padding:8px 0 8px 10px;
+  border-bottom:1px solid rgba(240,237,232,.04);
+  border-left:2.5px solid var(--sc,rgba(240,237,232,.15));
+  margin-bottom:2px;
+}
+.srow-label {
+  display:-webkit-flex; display:flex;
+  -webkit-flex-direction:column; flex-direction:column;
+  -webkit-align-items:center; align-items:center;
+  width:36px; -webkit-flex-shrink:0; flex-shrink:0;
+  margin-right:10px;
+}
+.srow-sym  { font-size:13px; color:var(--sc,rgba(240,237,232,.55)); line-height:1; margin-bottom:3px; }
+.srow-name { font-family:'IBM Plex Mono',monospace; font-size:7px; letter-spacing:.12em; text-transform:uppercase; color:var(--sc,rgba(240,237,232,.40)); }
+.srow-pills {
+  display:-webkit-flex; display:flex;
+  -webkit-flex-wrap:wrap; flex-wrap:wrap;
+  -webkit-align-items:center; align-items:center;
+}
+.srow-pills > * { margin-bottom:4px; margin-right:5px; }
+.arow { padding:8px 0 8px 10px; border-bottom:1px solid rgba(240,237,232,.04); margin-bottom:2px; }
+.arow-title { font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.14em; text-transform:uppercase; color:rgba(240,237,232,.35); margin-bottom:6px; }
+.arow-pills { display:-webkit-flex; display:flex; -webkit-flex-wrap:wrap; flex-wrap:wrap; }
+.arow-pills > * { margin-bottom:4px; margin-right:5px; }
+.cpill {
+  display:-webkit-inline-flex; display:inline-flex;
+  -webkit-align-items:center; align-items:center;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px; letter-spacing:.07em;
+  border-radius:999px; padding:3px 9px;
+  border:1px solid transparent; white-space:nowrap;
+}
+.slive  { background:rgba(100,200,120,.10); border-color:rgba(100,200,120,.30); color:rgba(100,200,120,.95); }
+.soon   { background:rgba(212,185,106,.10); border-color:rgba(212,185,106,.32); color:rgba(212,185,106,.95); }
+.road   { background:rgba(210,85,85,.10);   border-color:rgba(210,85,85,.30);   color:rgba(210,85,85,.90);  }
+.crefine{ background:rgba(80,195,210,.10);  border-color:rgba(80,195,210,.28);  color:rgba(80,195,210,.90); }
+.cap-legend {
+  -webkit-flex-shrink:0; flex-shrink:0;
+  display:-webkit-flex; display:flex;
+  -webkit-flex-wrap:wrap; flex-wrap:wrap;
+  padding:10px 16px; border-top:1px solid rgba(240,237,232,.07);
+}
+.cap-legend > * { margin-right:14px; margin-bottom:2px; }
+.leg-item {
+  display:-webkit-inline-flex; display:inline-flex;
+  -webkit-align-items:center; align-items:center;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:8px; letter-spacing:.10em; color:rgba(240,237,232,.35);
+}
+.leg-dot { width:7px; height:7px; border-radius:50%; margin-right:5px; -webkit-flex-shrink:0; flex-shrink:0; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     LOADING OVERLAY
+══════════════════════════════════════════════════════════ -->
+<div id="overlay">
+  <svg width="52" height="52" viewBox="0 0 32 32" fill="none">
+    <circle cx="16" cy="16" r="14.5" stroke="#E8836A" stroke-width=".9" style="animation:srg0 3s ease-in-out infinite;animation-delay:0s"/>
+    <circle cx="16" cy="16" r="12"   stroke="#D4B96A" stroke-width=".9" style="animation:srg1 3s ease-in-out infinite;animation-delay:.5s"/>
+    <circle cx="16" cy="16" r="9.5"  stroke="#9B8FD4" stroke-width=".9" style="animation:srg2 3s ease-in-out infinite;animation-delay:1s"/>
+    <circle cx="16" cy="16" r="7"    stroke="#6AB8C8" stroke-width=".9" style="animation:srg3 3s ease-in-out infinite;animation-delay:1.5s"/>
+    <circle cx="16" cy="16" r="4.5"  stroke="#8BB88A" stroke-width=".9" style="animation:srg4 3s ease-in-out infinite;animation-delay:2s"/>
+    <circle cx="16" cy="16" r="2"    stroke="#C4A882" stroke-width=".9" style="animation:srg5 3s ease-in-out infinite;animation-delay:2.5s"/>
+    <circle cx="16" cy="16" r="1.4" fill="#F0EDE8" opacity=".85"/>
+  </svg>
+  <p id="overlay-msg" class="overlay-msg">starting sensi...</p>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN: QUIZ  (conversational)
+══════════════════════════════════════════════════════════ -->
+<div id="screen-quiz" class="screen">
+
+  <!-- top bar -->
+  <div class="top-bar">
+    <div class="top-bar-pill">
+      <svg width="26" height="26" viewBox="0 0 32 32" fill="none">
+        <circle cx="16" cy="16" r="14.5" stroke="#E8836A" stroke-width=".8" style="animation:srg0 3s ease-in-out infinite"/>
+        <circle cx="16" cy="16" r="12"   stroke="#D4B96A" stroke-width=".8" style="animation:srg1 3s ease-in-out infinite;animation-delay:.5s"/>
+        <circle cx="16" cy="16" r="9.5"  stroke="#9B8FD4" stroke-width=".8" style="animation:srg2 3s ease-in-out infinite;animation-delay:1s"/>
+        <circle cx="16" cy="16" r="7"    stroke="#6AB8C8" stroke-width=".8" style="animation:srg3 3s ease-in-out infinite;animation-delay:1.5s"/>
+        <circle cx="16" cy="16" r="4.5"  stroke="#8BB88A" stroke-width=".8" style="animation:srg4 3s ease-in-out infinite;animation-delay:2s"/>
+        <circle cx="16" cy="16" r="2"    stroke="#C4A882" stroke-width=".8" style="animation:srg5 3s ease-in-out infinite;animation-delay:2.5s"/>
+        <circle cx="16" cy="16" r="1.2" fill="#F0EDE8" opacity=".80"/>
+      </svg>
+      <span class="top-bar-label">sensi</span>
+      <span class="top-bar-sep">|</span>
+      <span class="top-bar-section">onboarding</span>
+      <span class="top-bar-sep">|</span>
+      <div class="top-bar-step">
+        <div class="top-bar-step-dot"></div>
+        <span class="top-bar-step-text" id="quiz-step-text">step 1 · welcome</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- conversation thread -->
+  <div class="thread" id="quiz-thread">
+    <div class="thread-inner" id="quiz-thread-inner"></div>
+  </div>
+
+  <!-- active input (changes per step) -->
+  <div class="input-area" id="quiz-input-area"></div>
+
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN: INSPIRE
+══════════════════════════════════════════════════════════ -->
+<div id="screen-inspire" class="screen">
+
+  <!-- top bar -->
+  <div class="top-bar">
+    <div class="top-bar-pill">
+      <svg width="26" height="26" viewBox="0 0 32 32" fill="none">
+        <circle cx="16" cy="16" r="14.5" stroke="#E8836A" stroke-width=".8" style="animation:srg0 3s ease-in-out infinite"/>
+        <circle cx="16" cy="16" r="12"   stroke="#D4B96A" stroke-width=".8" style="animation:srg1 3s ease-in-out infinite;animation-delay:.5s"/>
+        <circle cx="16" cy="16" r="9.5"  stroke="#9B8FD4" stroke-width=".8" style="animation:srg2 3s ease-in-out infinite;animation-delay:1s"/>
+        <circle cx="16" cy="16" r="7"    stroke="#6AB8C8" stroke-width=".8" style="animation:srg3 3s ease-in-out infinite;animation-delay:1.5s"/>
+        <circle cx="16" cy="16" r="4.5"  stroke="#8BB88A" stroke-width=".8" style="animation:srg4 3s ease-in-out infinite;animation-delay:2s"/>
+        <circle cx="16" cy="16" r="2"    stroke="#C4A882" stroke-width=".8" style="animation:srg5 3s ease-in-out infinite;animation-delay:2.5s"/>
+        <circle cx="16" cy="16" r="1.2" fill="#F0EDE8" opacity=".80"/>
+      </svg>
+      <span class="top-bar-label">sensi</span>
+      <span class="top-bar-sep">|</span>
+      <span class="top-bar-section">onboarding</span>
+      <span class="top-bar-sep">|</span>
+      <div class="top-bar-step">
+        <div class="top-bar-step-dot"></div>
+        <span class="top-bar-step-text" id="inspire-top-label">aesthetic profile</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- question stage -->
+  <div id="ins-question" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+    <div class="thread" style="flex:1;">
+      <div class="thread-inner" style="padding-top:24px;">
+        <div class="bubble-wrap">
+          <svg class="sensi-avatar" width="28" height="28" viewBox="0 0 32 32" fill="none">
+            <circle cx="16" cy="16" r="14.5" stroke="#E8836A" stroke-width=".8" style="animation:srg0 3s ease-in-out infinite"/>
+            <circle cx="16" cy="16" r="12"   stroke="#D4B96A" stroke-width=".8" style="animation:srg1 3s ease-in-out infinite;animation-delay:.5s"/>
+            <circle cx="16" cy="16" r="9.5"  stroke="#9B8FD4" stroke-width=".8" style="animation:srg2 3s ease-in-out infinite;animation-delay:1s"/>
+            <circle cx="16" cy="16" r="7"    stroke="#6AB8C8" stroke-width=".8" style="animation:srg3 3s ease-in-out infinite;animation-delay:1.5s"/>
+            <circle cx="16" cy="16" r="4.5"  stroke="#8BB88A" stroke-width=".8" style="animation:srg4 3s ease-in-out infinite;animation-delay:2s"/>
+            <circle cx="16" cy="16" r="2"    stroke="#C4A882" stroke-width=".8" style="animation:srg5 3s ease-in-out infinite;animation-delay:2.5s"/>
+            <circle cx="16" cy="16" r="1.2" fill="#F0EDE8" opacity=".80"/>
+          </svg>
+          <p id="ins-q-text" class="bubble-s" style="margin-bottom:0;"></p>
+        </div>
+      </div>
+    </div>
+    <div class="input-area" style="max-width:560px;margin:0 auto;width:100%;">
+      <textarea id="ins-text" class="sensi-input" placeholder="describe your ideal sensory world…" style="height:90px;"></textarea>
+      <div class="upload-row">
+        <button class="btn-upload" onclick="window.bridge.openFilePicker()">+ add reference images</button>
+        <span id="upload-names" class="upload-names">optional · up to 5</span>
+      </div>
+      <div id="upload-preview" class="upload-preview"></div>
+      <button class="btn-action" onclick="submitInspireQuestion()">build my moodboard →</button>
+    </div>
+  </div>
+
+  <!-- grid stage -->
+  <div id="ins-grid" style="flex:1;display:none;flex-direction:column;overflow:hidden;">
+    <div class="thread" style="flex:1;">
+      <div class="thread-inner" style="padding-top:16px;">
+        <div class="bubble-wrap" style="margin-bottom:8px;">
+          <svg class="sensi-avatar" width="28" height="28" viewBox="0 0 32 32" fill="none">
+            <circle cx="16" cy="16" r="14.5" stroke="#E8836A" stroke-width=".8" style="animation:srg0 3s ease-in-out infinite"/>
+            <circle cx="16" cy="16" r="12"   stroke="#D4B96A" stroke-width=".8" style="animation:srg1 3s ease-in-out infinite;animation-delay:.5s"/>
+            <circle cx="16" cy="16" r="9.5"  stroke="#9B8FD4" stroke-width=".8" style="animation:srg2 3s ease-in-out infinite;animation-delay:1s"/>
+            <circle cx="16" cy="16" r="7"    stroke="#6AB8C8" stroke-width=".8" style="animation:srg3 3s ease-in-out infinite;animation-delay:1.5s"/>
+            <circle cx="16" cy="16" r="4.5"  stroke="#8BB88A" stroke-width=".8" style="animation:srg4 3s ease-in-out infinite;animation-delay:2s"/>
+            <circle cx="16" cy="16" r="2"    stroke="#C4A882" stroke-width=".8" style="animation:srg5 3s ease-in-out infinite;animation-delay:2.5s"/>
+            <circle cx="16" cy="16" r="1.2" fill="#F0EDE8" opacity=".80"/>
+          </svg>
+          <p class="bubble-s" style="margin-bottom:0;">which of these feel like you?</p>
+        </div>
+        <p class="label" style="margin-top:4px;">click to select · pick what resonates</p>
+        <div class="sense-legend">
+          <span class="sl-item"><span class="sl-dot" style="background:#E8836A"></span><span class="sl-sym">△</span><span class="sl-name">thermal</span></span>
+          <span class="sl-item"><span class="sl-dot" style="background:#D4B96A"></span><span class="sl-sym">○</span><span class="sl-name">visual</span></span>
+          <span class="sl-item"><span class="sl-dot" style="background:#9B8FD4"></span><span class="sl-sym">∿</span><span class="sl-name">acoustic</span></span>
+          <span class="sl-item"><span class="sl-dot" style="background:#6AB8C8"></span><span class="sl-sym">□</span><span class="sl-name">spatial</span></span>
+          <span class="sl-item"><span class="sl-dot" style="background:#8BB88A"></span><span class="sl-sym">≈</span><span class="sl-name">olfactory</span></span>
+          <span class="sl-item"><span class="sl-dot" style="background:#C4A882"></span><span class="sl-sym">∶</span><span class="sl-name">tactile</span></span>
+        </div>
+        <div class="img-grid" id="inspire-img-grid"></div>
+        <p id="inspire-sel-count" class="label" style="margin-top:8px;"></p>
+      </div>
+    </div>
+    <div class="input-area" style="max-width:560px;margin:0 auto;width:100%;">
+      <button id="ins-next-btn" class="btn-action" onclick="advanceInspireRound()" disabled>continue →</button>
+    </div>
+  </div>
+
+  <!-- moodboard stage -->
+  <div id="ins-moodboard" style="flex:1;display:none;flex-direction:column;overflow:hidden;">
+    <div class="thread" style="flex:1;">
+      <div class="thread-inner" style="padding-top:16px;">
+        <div class="bubble-wrap" style="margin-bottom:10px;">
+          <svg class="sensi-avatar" width="28" height="28" viewBox="0 0 32 32" fill="none">
+            <circle cx="16" cy="16" r="14.5" stroke="#E8836A" stroke-width=".8" style="animation:srg0 3s ease-in-out infinite"/>
+            <circle cx="16" cy="16" r="12"   stroke="#D4B96A" stroke-width=".8" style="animation:srg1 3s ease-in-out infinite;animation-delay:.5s"/>
+            <circle cx="16" cy="16" r="9.5"  stroke="#9B8FD4" stroke-width=".8" style="animation:srg2 3s ease-in-out infinite;animation-delay:1s"/>
+            <circle cx="16" cy="16" r="7"    stroke="#6AB8C8" stroke-width=".8" style="animation:srg3 3s ease-in-out infinite;animation-delay:1.5s"/>
+            <circle cx="16" cy="16" r="4.5"  stroke="#8BB88A" stroke-width=".8" style="animation:srg4 3s ease-in-out infinite;animation-delay:2s"/>
+            <circle cx="16" cy="16" r="2"    stroke="#C4A882" stroke-width=".8" style="animation:srg5 3s ease-in-out infinite;animation-delay:2.5s"/>
+            <circle cx="16" cy="16" r="1.2" fill="#F0EDE8" opacity=".80"/>
+          </svg>
+          <p class="bubble-s" style="margin-bottom:0;">here's your moodboard.</p>
+        </div>
+        <div class="img-grid" id="moodboard-grid" style="margin-top:10px;"></div>
+      </div>
+    </div>
+    <div class="input-area" style="max-width:560px;margin:0 auto;width:100%;">
+      <div class="btn-row">
+        <button class="btn-action btn-ghost" onclick="keepPicking()">keep picking</button>
+        <button class="btn-action" onclick="finaliseMoodboard()">this is it →</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN: PERSONA REVEAL
+══════════════════════════════════════════════════════════ -->
+<div id="screen-persona" class="screen">
+
+  <div class="top-bar">
+    <div class="top-bar-pill">
+      <svg width="26" height="26" viewBox="0 0 32 32" fill="none">
+        <circle cx="16" cy="16" r="14.5" stroke="#E8836A" stroke-width=".8" style="animation:srg0 3s ease-in-out infinite"/>
+        <circle cx="16" cy="16" r="12"   stroke="#D4B96A" stroke-width=".8" style="animation:srg1 3s ease-in-out infinite;animation-delay:.5s"/>
+        <circle cx="16" cy="16" r="9.5"  stroke="#9B8FD4" stroke-width=".8" style="animation:srg2 3s ease-in-out infinite;animation-delay:1s"/>
+        <circle cx="16" cy="16" r="7"    stroke="#6AB8C8" stroke-width=".8" style="animation:srg3 3s ease-in-out infinite;animation-delay:1.5s"/>
+        <circle cx="16" cy="16" r="4.5"  stroke="#8BB88A" stroke-width=".8" style="animation:srg4 3s ease-in-out infinite;animation-delay:2s"/>
+        <circle cx="16" cy="16" r="2"    stroke="#C4A882" stroke-width=".8" style="animation:srg5 3s ease-in-out infinite;animation-delay:2.5s"/>
+        <circle cx="16" cy="16" r="1.2" fill="#F0EDE8" opacity=".80"/>
+      </svg>
+      <span class="top-bar-label">sensi</span>
+      <span class="top-bar-sep">|</span>
+      <span class="top-bar-section">onboarding</span>
+      <span class="top-bar-sep">|</span>
+      <div class="top-bar-step" style="background:rgba(212,185,106,.10);border-color:rgba(212,185,106,.22);">
+        <div class="top-bar-step-dot" style="background:#D4B96A;"></div>
+        <span class="top-bar-step-text" style="color:rgba(212,185,106,.90);">profile reveal</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="thread" style="flex:1;">
+    <div class="thread-inner" style="padding-top:20px;">
+
+      <!-- sensi intro message with avatar -->
+      <div class="bubble-wrap">
+        <svg class="sensi-avatar" width="28" height="28" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="14.5" stroke="#E8836A" stroke-width=".8" style="animation:srg0 3s ease-in-out infinite"/>
+          <circle cx="16" cy="16" r="12"   stroke="#D4B96A" stroke-width=".8" style="animation:srg1 3s ease-in-out infinite;animation-delay:.5s"/>
+          <circle cx="16" cy="16" r="9.5"  stroke="#9B8FD4" stroke-width=".8" style="animation:srg2 3s ease-in-out infinite;animation-delay:1s"/>
+          <circle cx="16" cy="16" r="7"    stroke="#6AB8C8" stroke-width=".8" style="animation:srg3 3s ease-in-out infinite;animation-delay:1.5s"/>
+          <circle cx="16" cy="16" r="4.5"  stroke="#8BB88A" stroke-width=".8" style="animation:srg4 3s ease-in-out infinite;animation-delay:2s"/>
+          <circle cx="16" cy="16" r="2"    stroke="#C4A882" stroke-width=".8" style="animation:srg5 3s ease-in-out infinite;animation-delay:2.5s"/>
+          <circle cx="16" cy="16" r="1.2" fill="#F0EDE8" opacity=".80"/>
+        </svg>
+        <p id="persona-message" class="bubble-s" style="margin-bottom:0;"></p>
+      </div>
+
+      <!-- S1: Identity -->
+      <div id="persona-identity" class="persona-identity"></div>
+
+      <!-- S2: Top 3 priorities -->
+      <div class="persona-section-label">top comfort priorities</div>
+      <div id="persona-top3" class="top3-grid"></div>
+
+      <!-- S3: Sense spectrum -->
+      <div class="persona-section-label">sense spectrum</div>
+      <div class="bar-legend">
+        <span><span style="display:inline-block;width:18px;height:2px;background:rgba(240,237,232,.45);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>stated</span>
+        <span><span style="display:inline-block;width:1px;height:9px;background:rgba(240,237,232,.32);vertical-align:middle;margin-right:4px;"></span>evidence baseline</span>
+      </div>
+      <div id="persona-bars" style="width:100%;"></div>
+
+      <!-- S4: Stated Preference · Evidence Baseline -->
+      <div id="persona-gaps-wrap" style="display:none;">
+        <div class="persona-section-label">stated preference · evidence baseline</div>
+        <div id="persona-gaps"></div>
+      </div>
+
+      <!-- S5: Aesthetic signature -->
+      <div class="persona-section-label">aesthetic signature</div>
+      <div id="persona-moodboard" class="moodboard-strip"></div>
+      <p id="persona-aesthetic-note" class="aesthetic-note"></p>
+
+      <!-- S6: How Sensi built this -->
+      <div class="formula-toggle" id="formula-toggle" onclick="toggleFormula()">how sensi built this +</div>
+      <div id="persona-formula" class="formula-content" style="display:none;">
+
+        <!-- Equations -->
+        <div class="formula-eq-block">
+          <div class="formula-eq-row">
+            <span class="formula-eq-lhs">w(s)</span>
+            <span class="formula-eq-rhs">= derive( quiz, inspire )</span>
+            <span class="formula-eq-note">learned from your responses</span>
+          </div>
+          <div class="formula-eq-row">
+            <span class="formula-eq-lhs">score(room, s)</span>
+            <span class="formula-eq-rhs">= w(s) × raw(room, s)</span>
+            <span class="formula-eq-note">weight × room data per sense</span>
+          </div>
+          <div class="formula-eq-row">
+            <span class="formula-eq-lhs">C(room)</span>
+            <span class="formula-eq-rhs">= &Sigma; score(room, s)</span>
+            <span class="formula-eq-note">sum across all 6 senses</span>
+          </div>
+          <div class="formula-eq-row">
+            <span class="formula-eq-lhs">flag(s)</span>
+            <span class="formula-eq-rhs">= |w(s) &minus; baseline(s)| &gt; 0.25</span>
+            <span class="formula-eq-note">proactive gap detection</span>
+          </div>
+        </div>
+
+        <!-- Natural language breakdown -->
+        <div class="formula-prose">
+          Your comfort weights were built from five sources: your sensory bothers (q3) set a floor for each affected sense; your non-negotiable (q5) gave the strongest keyword signal; your space story (q2) and inspire description added softer cues; and the images you selected in the moodboard contributed directly — each image is tagged with its dominant senses, so the more you picked a visual category, the more that sense was weighted. Sensi then compared each final weight against <em>evidence baselines</em>: research-backed minimum comfort thresholds. Where your stated weight falls below a baseline, Sensi flags it proactively — because the data says it matters even if you haven't noticed it yet.
+        </div>
+
+        <!-- Weight sources — second-level expandable -->
+        <div class="formula-toggle" id="signals-toggle" onclick="toggleSignals()" style="margin-top:18px;margin-bottom:0;">weight sources +</div>
+        <div id="signals-content" class="formula-content" style="display:none;margin-top:10px;">
+          <div class="formula-eq-row">
+            <span class="formula-eq-lhs">q3 bothers</span>
+            <span class="formula-eq-rhs">floor → 0.80</span>
+            <span class="formula-eq-note">explicit comfort complaints</span>
+          </div>
+          <div class="formula-eq-row">
+            <span class="formula-eq-lhs">q5 non-negotiable</span>
+            <span class="formula-eq-rhs">+0.18 / signal &nbsp; cap 0.90</span>
+            <span class="formula-eq-note">strongest preference statement</span>
+          </div>
+          <div class="formula-eq-row">
+            <span class="formula-eq-lhs">inspire text</span>
+            <span class="formula-eq-rhs">+0.08 / signal &nbsp; cap 0.80</span>
+            <span class="formula-eq-note">your aesthetic description</span>
+          </div>
+          <div class="formula-eq-row">
+            <span class="formula-eq-lhs">moodboard picks</span>
+            <span class="formula-eq-rhs">+0.05 / image &nbsp;&nbsp; cap +0.20</span>
+            <span class="formula-eq-note">visual sense selections</span>
+          </div>
+          <div class="formula-eq-row">
+            <span class="formula-eq-lhs">q2 space story</span>
+            <span class="formula-eq-rhs">+0.05 / signal &nbsp; cap 0.75</span>
+            <span class="formula-eq-note">what made a space feel right</span>
+          </div>
+          <div class="formula-eq-row">
+            <span class="formula-eq-lhs">q4 household</span>
+            <span class="formula-eq-rhs">acoustic +0.07 &nbsp; spatial +0.05</span>
+            <span class="formula-eq-note">shared living context</span>
+          </div>
+          <div class="formula-prose" style="margin-top:10px;">Weights only ever increase — if the LLM already gave a sense a high score, it stays.</div>
+        </div>
+
+        <!-- Dynamic weight table — filled by renderPersonaProfile() -->
+        <div id="formula-weights-table" style="margin-top:14px;"></div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <div class="input-area" style="max-width:560px;margin:0 auto;width:100%;">
+    <div class="btn-row">
+      <button class="btn-action btn-ghost" onclick="tweakPersona()">tweak it</button>
+      <button class="btn-action" onclick="confirmPersona()">this is me →</button>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN: PROFILE CHAT  (profile review before layout mode)
+══════════════════════════════════════════════════════════ -->
+<div id="screen-profile-chat" class="screen">
+
+  <div class="top-bar">
+    <div class="top-bar-pill top-bar-pill--wide">
+      <svg width="26" height="26" viewBox="0 0 32 32" fill="none">
+        <circle cx="16" cy="16" r="14.5" stroke="#E8836A" stroke-width=".8" style="animation:srg0 3s ease-in-out infinite"/>
+        <circle cx="16" cy="16" r="12"   stroke="#D4B96A" stroke-width=".8" style="animation:srg1 3s ease-in-out infinite;animation-delay:.5s"/>
+        <circle cx="16" cy="16" r="9.5"  stroke="#9B8FD4" stroke-width=".8" style="animation:srg2 3s ease-in-out infinite;animation-delay:1s"/>
+        <circle cx="16" cy="16" r="7"    stroke="#6AB8C8" stroke-width=".8" style="animation:srg3 3s ease-in-out infinite;animation-delay:1.5s"/>
+        <circle cx="16" cy="16" r="4.5"  stroke="#8BB88A" stroke-width=".8" style="animation:srg4 3s ease-in-out infinite;animation-delay:2s"/>
+        <circle cx="16" cy="16" r="2"    stroke="#C4A882" stroke-width=".8" style="animation:srg5 3s ease-in-out infinite;animation-delay:2.5s"/>
+        <circle cx="16" cy="16" r="1.2" fill="#F0EDE8" opacity=".80"/>
+      </svg>
+      <span class="top-bar-label">sensi</span>
+      <span class="top-bar-section" style="margin-left:4px;">profile review</span>
+    </div>
+  </div>
+
+  <!-- Compact profile summary strip -->
+  <div id="pchat-summary" style="
+    max-width:560px;margin:0 auto;width:100%;
+    padding:10px 20px 0;display:flex;align-items:center;flex-wrap:wrap;">
+    <span id="pchat-name" style="
+      font-family: 'IBM Plex Mono', monospace;font-size:11px;letter-spacing:.12em;
+      color:rgba(240,237,232,.75);text-transform:uppercase;margin-right:10px;"></span>
+    <span id="pchat-role" style="
+      font-family: 'IBM Plex Mono', monospace;font-size:9px;letter-spacing:.10em;
+      color:rgba(240,237,232,.35);text-transform:uppercase;margin-right:12px;"></span>
+    <div id="pchat-top3" style="display:flex;"></div>
+  </div>
+
+  <div class="thread" id="profile-chat-thread">
+    <div class="thread-inner" id="profile-chat-thread-inner"></div>
+  </div>
+
+  <div class="input-area" style="max-width:560px;margin:0 auto;width:100%;">
+    <div class="send-row">
+      <textarea id="profile-chat-input" class="sensi-input"
+                placeholder="ask about your profile, weights, or formula…"
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendProfileChat();}"></textarea>
+      <button class="btn-send" onclick="sendProfileChat()">→</button>
+    </div>
+    <button class="btn-action" onclick="confirmPersona()" style="margin-top:10px;">profile looks good →</button>
+  </div>
+
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN: CHAT
+══════════════════════════════════════════════════════════ -->
+<div id="screen-chat" class="screen">
+
+  <div class="top-bar">
+    <div class="top-bar-pill top-bar-pill--wide">
+      <svg width="26" height="26" viewBox="0 0 32 32" fill="none">
+        <circle cx="16" cy="16" r="14.5" stroke="#E8836A" stroke-width=".8" style="animation:srg0 3s ease-in-out infinite"/>
+        <circle cx="16" cy="16" r="12"   stroke="#D4B96A" stroke-width=".8" style="animation:srg1 3s ease-in-out infinite;animation-delay:.5s"/>
+        <circle cx="16" cy="16" r="9.5"  stroke="#9B8FD4" stroke-width=".8" style="animation:srg2 3s ease-in-out infinite;animation-delay:1s"/>
+        <circle cx="16" cy="16" r="7"    stroke="#6AB8C8" stroke-width=".8" style="animation:srg3 3s ease-in-out infinite;animation-delay:1.5s"/>
+        <circle cx="16" cy="16" r="4.5"  stroke="#8BB88A" stroke-width=".8" style="animation:srg4 3s ease-in-out infinite;animation-delay:2s"/>
+        <circle cx="16" cy="16" r="2"    stroke="#C4A882" stroke-width=".8" style="animation:srg5 3s ease-in-out infinite;animation-delay:2.5s"/>
+        <circle cx="16" cy="16" r="1.2" fill="#F0EDE8" opacity=".80"/>
+      </svg>
+      <span class="top-bar-label">sensi</span>
+      <span class="top-bar-sep">|</span>
+      <span class="top-bar-section">layout</span>
+      <!-- layout badge: shows the layout number/name once set -->
+      <div id="chat-layout-badge" class="top-bar-layout-badge" style="display:none;">
+        <div class="top-bar-layout-dot"></div>
+        <span id="chat-layout-id" class="top-bar-layout-id"></span>
+      </div>
+      <!-- right-side status group: shown after persona loads -->
+      <div id="chat-top-status" class="top-bar-status-group">
+        <span id="chat-conflict-badge" class="top-bar-conflict-badge" style="display:none;" onclick="jumpPanel('conflicts')" title="jump to conflicts"></span>
+        <span id="chat-score-ring" class="top-bar-score-ring" style="display:none;" title="overall comfort score"></span>
+        <button class="top-bar-user-avatar" id="chat-user-avatar" onclick="openProfilePanel()" style="display:none;" title="your comfort profile"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── capabilities panel overlay ── -->
+  <div class="cap-overlay" id="cap-overlay" onclick="if(event.target===this)toggleCap()">
+    <div class="cap-panel">
+      <div class="cap-hdr">
+        <span class="cap-title">capabilities</span>
+        <div class="cap-vtoggle">
+          <button class="cap-vt on" id="cvt-sense"  onclick="switchCapView('sense')">by sense</button>
+          <button class="cap-vt"    id="cvt-action" onclick="switchCapView('action')">by action</button>
+        </div>
+        <button class="cap-close" onclick="toggleCap()">×</button>
+      </div>
+      <div class="cap-body">
+
+        <!-- SENSE VIEW -->
+        <div class="cview on" id="cv-sense">
+
+          <div class="srow" style="--sc:#9B8FD4;--scb:rgba(155,143,212,.09);--scbr:rgba(155,143,212,.25)">
+            <div class="srow-label"><span class="srow-sym">∿</span><span class="srow-name">aco</span></div>
+            <div class="srow-pills">
+              <span class="cpill slive">◈ score</span>
+              <span class="cpill slive">× conflicts</span>
+              <span class="cpill slive">▷ suggest</span>
+              <span class="cpill crefine">⊙ topology</span>
+              <span class="cpill crefine">⊡ furniture</span>
+              <span class="cpill soon">◨ material</span>
+            </div>
+          </div>
+
+          <div class="srow" style="--sc:#E8836A;--scb:rgba(232,131,106,.09);--scbr:rgba(232,131,106,.25)">
+            <div class="srow-label"><span class="srow-sym">△</span><span class="srow-name">thm</span></div>
+            <div class="srow-pills">
+              <span class="cpill slive">◈ score</span>
+              <span class="cpill slive">× conflicts</span>
+              <span class="cpill slive">▷ suggest</span>
+              <span class="cpill crefine">⊙ topology</span>
+              <span class="cpill soon">◨ material</span>
+              <span class="cpill soon">⊟ glazing</span>
+            </div>
+          </div>
+
+          <div class="srow" style="--sc:#D4B96A;--scb:rgba(212,185,106,.09);--scbr:rgba(212,185,106,.25)">
+            <div class="srow-label"><span class="srow-sym">○</span><span class="srow-name">vis</span></div>
+            <div class="srow-pills">
+              <span class="cpill slive">◈ score</span>
+              <span class="cpill slive">× conflicts</span>
+              <span class="cpill slive">▷ suggest</span>
+              <span class="cpill slive">◎ inspire</span>
+              <span class="cpill crefine">⊡ furniture</span>
+              <span class="cpill soon">◨ material</span>
+              <span class="cpill soon">⊟ glazing</span>
+            </div>
+          </div>
+
+          <div class="srow" style="--sc:#6AB8C8;--scb:rgba(106,184,200,.09);--scbr:rgba(106,184,200,.25)">
+            <div class="srow-label"><span class="srow-sym">□</span><span class="srow-name">spt</span></div>
+            <div class="srow-pills">
+              <span class="cpill slive">◈ score</span>
+              <span class="cpill slive">× conflicts</span>
+              <span class="cpill slive">▷ suggest</span>
+              <span class="cpill slive">⊞ areas</span>
+              <span class="cpill slive">≡ overview</span>
+              <span class="cpill crefine">⊙ topology</span>
+              <span class="cpill crefine">⊡ furniture</span>
+              <span class="cpill road">⇄ compare versions</span>
+              <span class="cpill road">⇅ compare personas</span>
+              <span class="cpill road">⊗ multiagent</span>
+            </div>
+          </div>
+
+          <div class="srow" style="--sc:#8BB88A;--scb:rgba(139,184,138,.09);--scbr:rgba(139,184,138,.25)">
+            <div class="srow-label"><span class="srow-sym">≈</span><span class="srow-name">olf</span></div>
+            <div class="srow-pills">
+              <span class="cpill slive">◈ score</span>
+              <span class="cpill slive">× conflicts</span>
+              <span class="cpill slive">▷ suggest</span>
+              <span class="cpill crefine">⊡ furniture</span>
+              <span class="cpill soon">◨ material</span>
+              <span class="cpill road">∾ biophilic audit</span>
+            </div>
+          </div>
+
+          <div class="srow" style="--sc:#C4A882;--scb:rgba(196,168,130,.09);--scbr:rgba(196,168,130,.25)">
+            <div class="srow-label"><span class="srow-sym">∶</span><span class="srow-name">tac</span></div>
+            <div class="srow-pills">
+              <span class="cpill slive">◈ score</span>
+              <span class="cpill slive">× conflicts</span>
+              <span class="cpill slive">▷ suggest</span>
+              <span class="cpill crefine">⊡ furniture</span>
+              <span class="cpill soon">◨ material</span>
+            </div>
+          </div>
+
+        </div><!-- /cv-sense -->
+
+        <!-- ACTION VIEW -->
+        <div class="cview" id="cv-action">
+
+          <div class="arow">
+            <div class="arow-title">◈  analyze</div>
+            <div class="arow-pills">
+              <span class="cpill slive">◈ score</span>
+              <span class="cpill slive">× conflicts</span>
+              <span class="cpill slive">▷ suggest</span>
+            </div>
+          </div>
+
+          <div class="arow">
+            <div class="arow-title">⊠  modify</div>
+            <div class="arow-pills">
+              <span class="cpill crefine">⊡ furniture</span>
+              <span class="cpill soon">◨ material</span>
+              <span class="cpill soon">⊟ glazing</span>
+            </div>
+          </div>
+
+          <div class="arow">
+            <div class="arow-title">⊞  explore</div>
+            <div class="arow-pills">
+              <span class="cpill slive">⊞ areas</span>
+              <span class="cpill slive">≡ overview</span>
+              <span class="cpill crefine">⊙ topology</span>
+            </div>
+          </div>
+
+          <div class="arow">
+            <div class="arow-title">⊙  converse</div>
+            <div class="arow-pills">
+              <span class="cpill slive">◎ inspire</span>
+              <span class="cpill slive">∷ persona</span>
+              <span class="cpill slive">↩ follow-up</span>
+              <span class="cpill slive">◌ chitchat</span>
+            </div>
+          </div>
+
+          <div class="arow">
+            <div class="arow-title">⇄  compare</div>
+            <div class="arow-pills">
+              <span class="cpill road">⇄ versions</span>
+              <span class="cpill road">⇅ personas</span>
+            </div>
+          </div>
+
+          <div class="arow">
+            <div class="arow-title">∾  biophilic</div>
+            <div class="arow-pills">
+              <span class="cpill road">∾ biophilic audit</span>
+            </div>
+          </div>
+
+          <div class="arow">
+            <div class="arow-title">⊗  ecosystem</div>
+            <div class="arow-pills">
+              <span class="cpill road">⊗ multiagent</span>
+            </div>
+          </div>
+
+        </div><!-- /cv-action -->
+
+      </div><!-- /cap-body -->
+
+      <div class="cap-legend">
+        <span class="leg-item"><span class="leg-dot" style="background:rgba(100,200,120,.85)"></span>live now</span>
+        <span class="leg-item"><span class="leg-dot" style="background:rgba(80,195,210,.85)"></span>refining</span>
+        <span class="leg-item"><span class="leg-dot" style="background:rgba(212,185,106,.85)"></span>coming soon</span>
+        <span class="leg-item"><span class="leg-dot" style="background:rgba(210,85,85,.85)"></span>bonus</span>
+      </div>
+
+    </div><!-- /cap-panel -->
+  </div><!-- /cap-overlay -->
+
+  <div id="chat-body">
+
+    <div id="chat-left">
+      <div class="thread" id="chat-thread">
+        <div class="thread-inner" id="chat-thread-inner"></div>
+      </div>
+      <div class="input-area" style="max-width:560px;margin:0 auto;width:100%;">
+        <div style="display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;">
+          <button class="cap-btn" id="cap-btn" onclick="toggleCap()" title="capabilities">⊞</button>
+          <div class="send-row" style="-webkit-flex:1;flex:1;">
+            <textarea id="chat-input" class="sensi-input"
+                      placeholder="ask sensi about your layout…"
+                      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+            <button class="btn-send" onclick="sendChat()">→</button>
+          </div>
+        </div>
+      </div>
+    </div><!-- /#chat-left -->
+
+    <div id="analysis-panel-right">
+      <div class="ap-header">
+        <span class="ap-header-label">analysis</span>
+        <span id="ap-depth-tag" class="ap-depth-tag">analyze</span>
+        <div class="ap-view-toggle">
+          <button id="ap-toggle-bars"  class="ap-toggle-btn ap-toggle-active" onclick="setChartView('bars')">bars</button>
+          <button id="ap-toggle-radar" class="ap-toggle-btn" onclick="setChartView('radar')">radar</button>
+        </div>
+        <button class="ap-close" onclick="closeAnalysisPanel()">×</button>
+      </div>
+      <div class="ap-scroll" id="ap-scroll">
+        <div id="ap-topology"></div>
+        <div id="ap-room-selector"></div>
+        <div id="ap-scores"></div>
+        <div id="ap-score-interp" class="ap-specialist-block" style="display:none;"></div>
+        <div id="ap-conflicts"></div>
+        <div id="ap-conflict-reason" class="ap-specialist-block" style="display:none;"></div>
+        <div id="ap-suggestions"></div>
+        <div id="ap-sug-critique" class="ap-specialist-block" style="display:none;"></div>
+      </div>
+    </div><!-- /#analysis-panel-right -->
+
+  </div><!-- /#chat-body -->
+
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     PROFILE SIDE PANEL  (layout mode — condensed, slide-in)
+══════════════════════════════════════════════════════════ -->
+<div id="profile-panel" class="profile-panel">
+  <div class="panel-header">
+    <svg width="16" height="16" viewBox="0 0 32 32" fill="none" style="opacity:.5;">
+      <circle cx="16" cy="16" r="14.5" stroke="#E8836A" stroke-width=".8"/>
+      <circle cx="16" cy="16" r="9.5"  stroke="#9B8FD4" stroke-width=".8"/>
+      <circle cx="16" cy="16" r="4.5"  stroke="#8BB88A" stroke-width=".8"/>
+      <circle cx="16" cy="16" r="1.4" fill="#F0EDE8" opacity=".80"/>
+    </svg>
+    <span class="top-bar-label">comfort profile</span>
+    <button class="btn-panel-full" onclick="showFullProfileFromPanel()">full view</button>
+    <button class="panel-close" onclick="closeProfilePanel()">×</button>
+  </div>
+  <div class="panel-scroll">
+    <div id="panel-top3"></div>
+    <div id="panel-bars"></div>
+  </div>
+</div>
+
+
+<!-- Chart.js + Cytoscape.js for analysis panel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+
+<!-- ══════════════════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════════════════ -->
+<script>
+"use strict";
+
+// ── State ─────────────────────────────────────────────────
+const S = {
+  quizStep:     0,
+  inspireRound: 1,
+  inspireUrlsPerRound:     [[], [], []],
+  inspireSelectedPerRound: [{}, {}, {}],
+  inspireSensesPerRound:   [[], [], []],
+  uploadedB64s: [],
+};
+
+const SC = {
+  thermal:"#E8836A", visual:"#D4B96A", acoustic:"#9B8FD4",
+  spatial:"#6AB8C8", olfactory:"#8BB88A", tactile:"#C4A882",
+};
+const SI = { thermal:"△", visual:"○", acoustic:"∿", spatial:"□", olfactory:"≈", tactile:"∶" };
+const SENSES = ["thermal","visual","acoustic","spatial","olfactory","tactile"];
+const STEPS  = ["hello","role","space","senses","life","feel"];
+const STEP_LABELS = { hello:"welcome", role:"your role", space:"your space", senses:"senses", life:"lifestyle", feel:"how you feel" };
+
+// ── Screen router ─────────────────────────────────────────
+function showScreen(name) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  const el = document.getElementById("screen-" + name);
+  if (el) el.classList.add("active");
+}
+
+// ── Overlay — full screen (long pipeline processes only) ──
+const _OVERLAY_PHRASES = {
+  "reading your aesthetic...":        ["reading your aesthetic...", "feeling into your world...", "translating your sense of space..."],
+  "gathering images...":              ["gathering images...", "curating your visual world...", "finding what feels right..."],
+  "finding more images...":           ["refining the picture...", "going deeper...", "finding more..."],
+  "building your comfort profile...": ["building your comfort profile...", "mapping your sensory world...", "putting it all together..."],
+  "starting sensi...":                ["starting sensi...", "waking up..."],
+};
+let _overlayInterval = null;
+
+function showOverlay(msg) {
+  const phrases = _OVERLAY_PHRASES[msg] || [msg];
+  let idx = 0;
+  document.getElementById("overlay-msg").textContent = phrases[0];
+  document.getElementById("overlay").classList.add("visible");
+  clearInterval(_overlayInterval);
+  if (phrases.length > 1) {
+    _overlayInterval = setInterval(() => {
+      idx = (idx + 1) % phrases.length;
+      document.getElementById("overlay-msg").textContent = phrases[idx];
+    }, 2600);
+  }
+}
+function hideOverlay() {
+  clearInterval(_overlayInterval);
+  document.getElementById("overlay").classList.remove("visible");
+}
+
+// ── Thinking bubble — inline (simple sensi replies) ───────
+const _THINKING_HTML = `<div class="bubble-wrap" id="thinking-bubble">
+  <svg class="sensi-avatar" width="28" height="28" viewBox="0 0 32 32" fill="none">
+    <circle cx="16" cy="16" r="14.5" stroke="#E8836A" stroke-width=".8" style="animation:srg0 3s ease-in-out infinite"/>
+    <circle cx="16" cy="16" r="12"   stroke="#D4B96A" stroke-width=".8" style="animation:srg1 3s ease-in-out infinite;animation-delay:.5s"/>
+    <circle cx="16" cy="16" r="9.5"  stroke="#9B8FD4" stroke-width=".8" style="animation:srg2 3s ease-in-out infinite;animation-delay:1s"/>
+    <circle cx="16" cy="16" r="7"    stroke="#6AB8C8" stroke-width=".8" style="animation:srg3 3s ease-in-out infinite;animation-delay:1.5s"/>
+    <circle cx="16" cy="16" r="4.5"  stroke="#8BB88A" stroke-width=".8" style="animation:srg4 3s ease-in-out infinite;animation-delay:2s"/>
+    <circle cx="16" cy="16" r="2"    stroke="#C4A882" stroke-width=".8" style="animation:srg5 3s ease-in-out infinite;animation-delay:2.5s"/>
+    <circle cx="16" cy="16" r="1.2" fill="#F0EDE8" opacity=".80"/>
+  </svg>
+  <div class="bubble-s" style="margin-bottom:0;padding:12px 16px;">
+    <span class="thinking-dots"><span></span><span></span><span></span></span>
+  </div>
+</div>`;
+
+function showThinking(threadInnerId) {
+  const inner = document.getElementById(threadInnerId);
+  if (!inner || inner.querySelector("#thinking-bubble")) return;
+  // Demote existing animated avatars to static dots
+  inner.querySelectorAll(".sensi-avatar").forEach(av => {
+    const dot = document.createElement("div");
+    dot.className = "sensi-avatar-static";
+    av.parentNode.replaceChild(dot, av);
+  });
+  const tmp = document.createElement("div");
+  tmp.innerHTML = _THINKING_HTML;
+  inner.appendChild(tmp.firstElementChild);
+  const thread = inner.closest(".thread") || inner.parentElement;
+  setTimeout(() => { thread.scrollTop = thread.scrollHeight; }, 50);
+}
+function hideThinking() {
+  ["quiz-thread-inner","chat-thread-inner","profile-chat-thread-inner"].forEach(id => {
+    const inner = document.getElementById(id);
+    if (inner) { const b = inner.querySelector("#thinking-bubble"); if (b) b.remove(); }
+  });
+}
+
+// ── Step badge update ─────────────────────────────────────
+function renderDots(step) {
+  const idx = Math.min(step, STEPS.length - 1);
+  const label = STEP_LABELS[STEPS[idx]] || STEPS[idx];
+  const el = document.getElementById("quiz-step-text");
+  if (el) el.textContent = `${idx + 1} of ${STEPS.length} · ${label}`;
+}
+
+// ── Sensi avatar SVG (mini, reused in bubbles) ───────────
+const _AVATAR_SVG = `<svg class="sensi-avatar" width="28" height="28" viewBox="0 0 32 32" fill="none">
+  <circle cx="16" cy="16" r="14.5" stroke="#E8836A" stroke-width=".8" style="animation:srg0 3s ease-in-out infinite"/>
+  <circle cx="16" cy="16" r="12"   stroke="#D4B96A" stroke-width=".8" style="animation:srg1 3s ease-in-out infinite;animation-delay:.5s"/>
+  <circle cx="16" cy="16" r="9.5"  stroke="#9B8FD4" stroke-width=".8" style="animation:srg2 3s ease-in-out infinite;animation-delay:1s"/>
+  <circle cx="16" cy="16" r="7"    stroke="#6AB8C8" stroke-width=".8" style="animation:srg3 3s ease-in-out infinite;animation-delay:1.5s"/>
+  <circle cx="16" cy="16" r="4.5"  stroke="#8BB88A" stroke-width=".8" style="animation:srg4 3s ease-in-out infinite;animation-delay:2s"/>
+  <circle cx="16" cy="16" r="2"    stroke="#C4A882" stroke-width=".8" style="animation:srg5 3s ease-in-out infinite;animation-delay:2.5s"/>
+  <circle cx="16" cy="16" r="1.2" fill="#F0EDE8" opacity=".80"/>
+</svg>`;
+
+// ── Quiz thread helpers ───────────────────────────────────
+function addBubble(role, html, isHTML) {
+  const inner = document.getElementById("quiz-thread-inner");
+  if (role === "s") {
+    // Demote any existing animated avatars in this thread to static dots
+    inner.querySelectorAll(".sensi-avatar").forEach(av => {
+      const dot = document.createElement("div");
+      dot.className = "sensi-avatar-static";
+      av.parentNode.replaceChild(dot, av);
+    });
+    const wrap = document.createElement("div");
+    wrap.className = "bubble-wrap";
+    wrap.innerHTML = _AVATAR_SVG;
+    const div = document.createElement("div");
+    div.className = "bubble-s";
+    if (isHTML) div.innerHTML = html; else div.textContent = html;
+    wrap.appendChild(div);
+    inner.appendChild(wrap);
+  } else {
+    const div = document.createElement("div");
+    div.className = "bubble-u";
+    if (isHTML) div.innerHTML = html; else div.textContent = html;
+    inner.appendChild(div);
+  }
+  const thread = document.getElementById("quiz-thread");
+  setTimeout(() => { thread.scrollTop = thread.scrollHeight; }, 50);
+}
+
+// ── Render active input per step ──────────────────────────
+function renderInput(step) {
+  const area = document.getElementById("quiz-input-area");
+  area.innerHTML = "";
+  renderDots(step);
+  S.quizStep = step;
+
+  if (step === 0) {
+    area.innerHTML = `
+      <div class="send-row">
+        <input id="q-in" class="sensi-input" type="text" placeholder="your name" autocomplete="off" style="flex:1;">
+        <button class="btn-send" onclick="submitStep(0)">→</button>
+      </div>`;
+    const inp = area.querySelector("#q-in");
+    inp.focus();
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") submitStep(0); });
+
+  } else if (step === 1) {
+    area.innerHTML = `
+      <div class="pill-group" id="role-pills">
+        <div class="pill" data-role="architect" onclick="pillAutoSubmit(this,'role-pills',1)">◎ &nbsp;i design spaces</div>
+        <div class="pill" data-role="client"    onclick="pillAutoSubmit(this,'role-pills',1)">⌂ &nbsp;i live in them</div>
+        <div class="pill" data-role="student"   onclick="pillAutoSubmit(this,'role-pills',1)">◈ &nbsp;here to learn</div>
+      </div>`;
+
+  } else if (step === 2) {
+    area.innerHTML = `
+      <div class="send-row" style="align-items:flex-end;">
+        <textarea id="q-in" class="sensi-input" placeholder="could be anywhere — a room, a café, a corner of the world..." style="flex:1;height:72px;"></textarea>
+        <button class="btn-send" onclick="submitStep(2)">→</button>
+      </div>`;
+    const ta = area.querySelector("#q-in");
+    ta.focus();
+    ta.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitStep(2); } });
+
+  } else if (step === 3) {
+    area.innerHTML = `
+      <div class="sense-grid" id="sense-grid">
+        <div class="sense-pill" data-sense="thermal"   onclick="toggleSense(this)"><span class="si">△</span><span class="sn">thermal</span></div>
+        <div class="sense-pill" data-sense="visual"    onclick="toggleSense(this)"><span class="si">○</span><span class="sn">visual</span></div>
+        <div class="sense-pill" data-sense="acoustic"  onclick="toggleSense(this)"><span class="si">∿</span><span class="sn">acoustic</span></div>
+        <div class="sense-pill" data-sense="spatial"   onclick="toggleSense(this)"><span class="si">□</span><span class="sn">spatial</span></div>
+        <div class="sense-pill" data-sense="olfactory" onclick="toggleSense(this)"><span class="si">≈</span><span class="sn">olfactory</span></div>
+        <div class="sense-pill" data-sense="tactile"   onclick="toggleSense(this)"><span class="si">∶</span><span class="sn">tactile</span></div>
+      </div>
+      <button id="sense-done-btn" class="btn-action" onclick="submitStep(3)" style="opacity:.2;pointer-events:none;">done →</button>`;
+
+  } else if (step === 4) {
+    area.innerHTML = `
+      <p class="label" style="margin-bottom:10px;text-align:left;">life stage</p>
+      <div class="pill-group" id="stage-pills">
+        <div class="pill" data-val="20s-30s" onclick="selectPill(this,'stage-pills')">20s – 30s</div>
+        <div class="pill" data-val="30s-40s" onclick="selectPill(this,'stage-pills')">30s – 40s</div>
+        <div class="pill" data-val="40s+"    onclick="selectPill(this,'stage-pills')">40s +</div>
+      </div>
+      <p class="label" style="margin:16px 0 10px;text-align:left;">who do you share your home with?</p>
+      <div class="pill-group" id="living-pills">
+        <div class="pill" data-val="just me"   onclick="selectPill(this,'living-pills')">just me</div>
+        <div class="pill" data-val="partner"   onclick="selectPill(this,'living-pills')">partner</div>
+        <div class="pill" data-val="family"    onclick="selectPill(this,'living-pills')">family</div>
+        <div class="pill" data-val="flatmates" onclick="selectPill(this,'living-pills')">flatmates</div>
+        <div class="pill" data-val="other"     onclick="selectPill(this,'living-pills');toggleOther(this)">other...</div>
+      </div>
+      <input id="other-in" class="sensi-input" type="text" placeholder="tell us a bit more..." style="display:none;margin-top:8px;">
+      <button class="btn-action" onclick="submitStep(4)">continue →</button>`;
+
+  } else if (step === 5) {
+    area.innerHTML = `
+      <div class="send-row" style="align-items:flex-end;">
+        <textarea id="q-in" class="sensi-input" placeholder="e.g. natural light, silence, warmth..." style="flex:1;height:72px;"></textarea>
+        <button class="btn-send" onclick="submitStep(5)">→</button>
+      </div>`;
+    const ta = area.querySelector("#q-in");
+    ta.focus();
+    ta.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitStep(5); } });
+  }
+}
+
+// ── Pill helpers ──────────────────────────────────────────
+function selectPill(el, groupId) {
+  document.querySelectorAll(`#${groupId} .pill`).forEach(p => p.classList.remove("selected"));
+  el.classList.add("selected");
+}
+function toggleOther(el) {
+  const inp = document.getElementById("other-in");
+  if (inp) inp.style.display = el.classList.contains("selected") ? "block" : "none";
+}
+function pillAutoSubmit(el, groupId, step) {
+  selectPill(el, groupId);
+  setTimeout(() => submitStep(step), 220); // brief visual confirm before submitting
+}
+function toggleSense(el) {
+  el.classList.toggle("selected");
+  const anySelected = document.querySelectorAll(".sense-pill.selected").length > 0;
+  const btn = document.getElementById("sense-done-btn");
+  if (btn) {
+    btn.style.opacity   = anySelected ? "1"   : ".2";
+    btn.style.pointerEvents = anySelected ? "auto" : "none";
+  }
+}
+
+// ── Submit quiz step ──────────────────────────────────────
+function submitStep(step) {
+  let text = "";
+
+  if (step === 0) {
+    const inp = document.getElementById("q-in");
+    text = inp ? inp.value.trim() : "";
+    if (!text) return;
+
+  } else if (step === 1) {
+    const sel = document.querySelector("#role-pills .pill.selected");
+    if (!sel) return;
+    const map = { architect: "I design spaces -- architect", client: "I live in spaces -- client", student: "I am here to learn -- student" };
+    text = map[sel.dataset.role] || sel.dataset.role;
+
+  } else if (step === 2) {
+    const ta = document.getElementById("q-in");
+    text = ta ? ta.value.trim() : "";
+    if (!text) return;
+
+  } else if (step === 3) {
+    const sel = Array.from(document.querySelectorAll(".sense-pill.selected")).map(p => p.dataset.sense);
+    text = sel.length ? "The senses that pull me out of comfort: " + sel.join(", ") + "." : "No specific sensory bothers mentioned.";
+
+  } else if (step === 4) {
+    const stageSel  = document.querySelector("#stage-pills .pill.selected");
+    const livingSel = document.querySelector("#living-pills .pill.selected");
+    if (!stageSel || !livingSel) return;
+    const other = document.getElementById("other-in");
+    const living = (livingSel.dataset.val === "other" && other && other.value.trim())
+      ? other.value.trim() : livingSel.dataset.val;
+    text = `Life stage: ${stageSel.dataset.val}. Living situation: ${living}.`;
+
+  } else if (step === 5) {
+    const ta = document.getElementById("q-in");
+    text = ta ? ta.value.trim() : "";
+    if (!text) return;
+  }
+
+  // Add user bubble to thread
+  addBubble("u", text);
+  // Clear input area while waiting
+  document.getElementById("quiz-input-area").innerHTML = "";
+  showThinking("quiz-thread-inner");
+  window.bridge.sendMessage(text);
+}
+
+// ── Inspire ───────────────────────────────────────────────
+function showInspireStage(stage) {
+  ["question","grid","moodboard"].forEach(s => {
+    const el = document.getElementById("ins-" + s);
+    if (el) el.style.display = "none";
+  });
+  const el = document.getElementById("ins-" + stage);
+  if (el) el.style.display = "flex";
+}
+
+function submitInspireQuestion() {
+  const text = document.getElementById("ins-text").value.trim();
+  if (!text) return;
+  S.inspireRound = 1;
+  showOverlay("reading your aesthetic...");
+  window.bridge.prepareInspire(text, JSON.stringify(S.uploadedB64s), 1);
+}
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  return `${r},${g},${b}`;
+}
+
+function makeGradient(senses) {
+  if (!senses || senses.length === 0) return "rgba(240,237,232,.10)";
+  const c1 = SC[senses[0]] || "#E8836A";
+  if (senses.length === 1) {
+    const rgb = hexToRgb(c1);
+    return `linear-gradient(270deg, ${c1}, rgba(${rgb},.28), rgba(${rgb},.55), ${c1})`;
+  }
+  const c2 = SC[senses[1]] || c1;
+  return `linear-gradient(270deg, ${c1}, rgba(${hexToRgb(c2)},.70), ${c2}, rgba(${hexToRgb(c1)},.70), ${c1})`;
+}
+
+function renderInspireGrid(urls, senses, round) {
+  const grid = document.getElementById("inspire-img-grid");
+  grid.innerHTML = "";
+  S.inspireUrlsPerRound[round - 1]     = urls;
+  S.inspireSelectedPerRound[round - 1] = {};
+  S.inspireSensesPerRound[round - 1]   = senses || [];
+
+  urls.forEach((url, i) => {
+    const cellSenses = (senses && senses[i]) ? senses[i] : [];
+
+    // Sense badge: colored dots + symbol glyphs
+    const dots = cellSenses.map(s =>
+      `<span class="sense-dot" style="background:${SC[s]||'#888'}"></span>`
+    ).join("");
+    const syms = cellSenses.map(s => SI[s] || "").join(" ");
+    const badge = `<div class="sense-badge">${dots}<span class="sense-sym">${syms}</span></div>`;
+
+    const cell = document.createElement("div");
+    cell.className = "img-cell";
+    cell.innerHTML = `<img src="${url}" loading="lazy">${badge}`;
+
+    cell.addEventListener("click", () => {
+      const isSelected = cell.classList.toggle("selected");
+      const sel = S.inspireSelectedPerRound[round - 1];
+      if (isSelected) {
+        cell.style.background = makeGradient(cellSenses);
+        cell.classList.add("sg-anim");
+        sel[i] = true;
+      } else {
+        cell.style.background = "";
+        cell.classList.remove("sg-anim");
+        delete sel[i];
+      }
+      updateInspireCount(round);
+    });
+
+    grid.appendChild(cell);
+  });
+
+  document.getElementById("inspire-top-label").textContent = `aesthetic · round ${round} of 3`;
+  updateInspireCount(round);
+  showInspireStage("grid");
+}
+
+function updateInspireCount(round) {
+  const n = Object.keys(S.inspireSelectedPerRound[round - 1]).length;
+  document.getElementById("inspire-sel-count").textContent = n + " selected";
+  const btn = document.getElementById("ins-next-btn");
+  if (btn) btn.disabled = n === 0;
+}
+
+function advanceInspireRound() {
+  const round = S.inspireRound;
+  const sel   = S.inspireSelectedPerRound[round - 1];
+  const urls  = S.inspireUrlsPerRound[round - 1];
+  const picks = Object.keys(sel).map(i => urls[parseInt(i)]);
+
+  // Save picks for this round BEFORE advancing
+  window.bridge.saveInspirePicks(round, JSON.stringify(picks));
+
+  if (round < 3) {
+    S.inspireRound++;
+    showOverlay("finding more images...");
+    window.bridge.refineInspire("", S.inspireRound);
+  } else {
+    buildMoodboardDisplay();
+  }
+}
+
+function buildMoodboardDisplay() {
+  const allUrls = [];
+  const seen    = new Set();
+  for (let r = 0; r < 3; r++) {
+    const sel  = S.inspireSelectedPerRound[r];
+    const urls = S.inspireUrlsPerRound[r];
+    Object.keys(sel).forEach(i => {
+      const u = urls[parseInt(i)];
+      if (u && !seen.has(u)) { seen.add(u); allUrls.push(u); }
+    });
+  }
+  const grid = document.getElementById("moodboard-grid");
+  grid.innerHTML = "";
+  allUrls.slice(0, 6).forEach(url => {
+    const cell = document.createElement("div");
+    cell.className = "img-cell selected";
+    cell.innerHTML = `<img src="${url}" loading="lazy">`;
+    grid.appendChild(cell);
+  });
+  showInspireStage("moodboard");
+}
+
+function keepPicking() {
+  S.inspireRound = 3;
+  showOverlay("finding more images...");
+  window.bridge.refineInspire("", 3);
+}
+
+function finaliseMoodboard() {
+  showOverlay("building your comfort profile...");
+
+  // Count how many selected images belong to each sense category across all rounds.
+  // Each image can have multiple senses (e.g. ["visual","spatial"]), so we tally
+  // each sense separately. This gives the compiler a direct signal of which senses
+  // the user gravitated toward visually — independent of their text answers.
+  const senseCounts = {};
+  for (let r = 0; r < 3; r++) {
+    const sel    = S.inspireSelectedPerRound[r]    || {};
+    const senses = S.inspireSensesPerRound[r]      || [];
+    Object.keys(sel).forEach(i => {
+      const imgSenses = senses[parseInt(i)] || [];
+      imgSenses.forEach(s => {
+        senseCounts[s] = (senseCounts[s] || 0) + 1;
+      });
+    });
+  }
+
+  window.bridge.buildMoodboard(JSON.stringify(senseCounts));
+}
+
+// ── Persona reveal ────────────────────────────────────────
+// Research baselines (mirrors _COMFORT_BASELINES in persona_compiler.py)
+const BASELINES = {
+  thermal: 0.70, visual: 0.60, acoustic: 0.65,
+  spatial: 0.50, olfactory: 0.40, tactile: 0.35,
+};
+
+// Role-aware implications for the top 3 priority cards
+const IMPLICATIONS = {
+  thermal:   { architect: "Thermal performance will be a primary metric in every room scored.", client: "A cold or overheated room will register before anything else.", student: "Thermal comfort directly affects focus — spaces will be evaluated against this." },
+  visual:    { architect: "Daylighting quality will drive comfort scores across all rooms.", client: "Light quality shapes how every space feels to you.", student: "Visual comfort — light, contrast, glare — will be a strong factor in your analysis." },
+  acoustic:  { architect: "Acoustic performance and noise transmission will be closely tracked.", client: "Background noise and sound bleed will flag consistently in your results.", student: "Acoustic comfort affects concentration — this sense will score sensitively for you." },
+  spatial:   { architect: "Room proportions and adjacency quality will drive spatial scores.", client: "Cramped or poorly proportioned spaces will score low consistently.", student: "How spaces flow and feel proportionally will be a key dimension of analysis." },
+  olfactory: { architect: "Ventilation and air quality metrics will be flagged at your weight level.", client: "Air freshness and ventilation adequacy matter to you — Sensi will track this.", student: "Air quality and odor transmission will be scored against your preferences." },
+  tactile:   { architect: "Material texture and finish quality will contribute to comfort assessments.", client: "The physical feel of surfaces and materials registers in your comfort model.", student: "Material tactility and finish quality will feature in your layout analysis." },
+};
+
+// Store persona for the side panel
+S.persona = null;
+
+function renderPersonaProfile(profile, moodboardUrls) {
+  const weights    = profile.comfort_weights        || {};
+  const pvb        = profile.preference_vs_baseline || {};
+  const role       = (profile.role || 'client').toLowerCase();
+  const priorities = profile.sensory_priorities     || SENSES;
+
+  // S1: Identity
+  const idEl = document.getElementById("persona-identity");
+  if (idEl) {
+    const roleTxt = profile.role  ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : '';
+    const lifeTxt = profile.lifestyle ? ' · ' + profile.lifestyle : '';
+    idEl.innerHTML = `
+      <div class="persona-name">${profile.name || 'Your'}</div>
+      <div class="persona-role">${roleTxt}${lifeTxt}</div>
+      ${profile.description ? `<p class="persona-desc">${profile.description}</p>` : ''}`;
+  }
+
+  // S2: Top 3 priorities
+  const top3El = document.getElementById("persona-top3");
+  if (top3El) {
+    top3El.innerHTML = priorities.slice(0, 3).map(s => {
+      const impl = (IMPLICATIONS[s] && IMPLICATIONS[s][role]) || '';
+      return `<div class="top3-card" style="border-color:${SC[s]}33;">
+        <div class="top3-icon" style="color:${SC[s]};">${SI[s]}</div>
+        <div class="top3-sense" style="color:${SC[s]};">${s}</div>
+        <div class="top3-note">${impl}</div>
+      </div>`;
+    }).join("");
+  }
+
+  // S3: Sense spectrum bars
+  const barsEl = document.getElementById("persona-bars");
+  if (barsEl) {
+    barsEl.innerHTML = "";
+    SENSES.forEach(s => {
+      const color = SC[s];
+      const w     = (weights[s] != null) ? weights[s] : 0;
+      const wPct  = Math.min(100, Math.max(0, w * 100));
+      const bPct  = Math.min(100, Math.max(0, (BASELINES[s] || 0.5) * 100));
+      barsEl.innerHTML += `
+        <div class="pbar-row">
+          <span class="pbar-lbl" style="color:${color};">${SI[s]} ${s}</span>
+          <div class="pbar-track">
+            <div class="pbar-fill" style="width:${wPct}%;background:${color};opacity:.60;"></div>
+            <div class="pbar-tick" style="left:${bPct}%;"></div>
+          </div>
+          <span class="pbar-val">${w.toFixed ? w.toFixed(1) : w}</span>
+        </div>`;
+    });
+  }
+
+  // S4: Stated preference · evidence baseline gaps
+  const gapsWrap = document.getElementById("persona-gaps-wrap");
+  const gapsEl   = document.getElementById("persona-gaps");
+  const gapSenses = Object.keys(pvb).filter(s => pvb[s] && typeof pvb[s] === 'string');
+  if (gapsWrap && gapsEl && gapSenses.length > 0) {
+    gapsEl.innerHTML = gapSenses.map(s => `
+      <div class="gap-item" style="border-color:${SC[s] || 'rgba(240,237,232,.2)'};">
+        <div class="gap-item-sense" style="color:${SC[s] || 'rgba(240,237,232,.4)'};">${SI[s] || ''} ${s}</div>
+        <div class="gap-item-note">${pvb[s]}</div>
+      </div>`).join("");
+    gapsWrap.style.display = "";
+  }
+
+  // S3b: Dynamic weight table inside formula section
+  const wtEl = document.getElementById("formula-weights-table");
+  if (wtEl) {
+    const rows = SENSES.map(s => {
+      const w    = (weights[s] != null) ? weights[s] : 0;
+      const base = BASELINES[s] || 0.5;
+      const delta = w - base;
+      const deltaStr = (delta >= 0 ? "+" : "") + delta.toFixed(2);
+      const deltaColor = Math.abs(delta) > 0.25
+        ? (delta > 0 ? "rgba(138,184,138,.80)" : "rgba(232,131,106,.80)")
+        : "rgba(240,237,232,.28)";
+      return `<div style="display:flex;align-items:center;margin-bottom:6px;">
+        <span style="font-family: 'IBM Plex Mono', monospace;font-size:8px;letter-spacing:.10em;text-transform:uppercase;color:${SC[s]};width:80px;flex-shrink:0;">${SI[s]} ${s}</span>
+        <span style="font-family: 'IBM Plex Mono', monospace;font-size:10px;color:rgba(240,237,232,.70);width:28px;text-align:right;flex-shrink:0;">${w.toFixed(2)}</span>
+        <span style="font-family: 'IBM Plex Mono', monospace;font-size:8px;color:rgba(240,237,232,.30);margin:0 6px;">vs</span>
+        <span style="font-family: 'IBM Plex Mono', monospace;font-size:10px;color:rgba(240,237,232,.35);width:28px;flex-shrink:0;">${base.toFixed(2)}</span>
+        <span style="font-family: 'IBM Plex Mono', monospace;font-size:8px;color:${deltaColor};margin-left:8px;">${deltaStr}</span>
+      </div>`;
+    }).join("");
+    wtEl.innerHTML = `
+      <div style="font-family: 'IBM Plex Mono', monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:rgba(240,237,232,.25);margin-bottom:8px;">your weights · research baseline · delta</div>
+      ${rows}`;
+  }
+
+  // S5: Aesthetic signature
+  const moodEl = document.getElementById("persona-moodboard");
+  const aeNote = document.getElementById("persona-aesthetic-note");
+  if (moodEl) {
+    moodEl.innerHTML = "";
+    (moodboardUrls || []).slice(0, 6).forEach(url => {
+      const img = document.createElement("img");
+      img.src = url; img.loading = "lazy";
+      moodEl.appendChild(img);
+    });
+  }
+  if (aeNote && profile.aesthetic_preferences) {
+    aeNote.textContent = profile.aesthetic_preferences;
+  }
+}
+
+function toggleFormula() {
+  const el     = document.getElementById("persona-formula");
+  const toggle = document.getElementById("formula-toggle");
+  if (!el) return;
+  const open = el.style.display !== "none";
+  el.style.display     = open ? "none" : "block";
+  toggle.textContent   = open ? "how sensi built this +" : "how sensi built this −";
+  // Collapse the nested signals panel when the parent closes
+  if (open) {
+    const sig = document.getElementById("signals-content");
+    const sigToggle = document.getElementById("signals-toggle");
+    if (sig) sig.style.display = "none";
+    if (sigToggle) sigToggle.textContent = "weight sources +";
+  }
+}
+
+function toggleSignals() {
+  const el     = document.getElementById("signals-content");
+  const toggle = document.getElementById("signals-toggle");
+  if (!el) return;
+  const open = el.style.display !== "none";
+  el.style.display   = open ? "none" : "block";
+  toggle.textContent = open ? "weight sources +" : "weight sources −";
+}
+
+// ── Profile side panel ────────────────────────────────────
+function openProfilePanel() {
+  document.getElementById("profile-panel").classList.add("open");
+  _renderPanelContent();
+}
+function closeProfilePanel() {
+  document.getElementById("profile-panel").classList.remove("open");
+}
+function showFullProfileFromPanel() {
+  closeProfilePanel();
+  showScreen("persona");
+}
+
+function _renderPanelContent() {
+  const profile   = S.persona || {};
+  const weights   = profile.comfort_weights    || {};
+  const priorities = profile.sensory_priorities || SENSES;
+  const role      = (profile.role || 'client').toLowerCase();
+
+  const top3El = document.getElementById("panel-top3");
+  if (top3El) {
+    top3El.innerHTML = `<div class="persona-section-label" style="margin-top:0;">top priorities</div>` +
+      priorities.slice(0, 3).map(s => `
+        <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;">
+          <span style="color:${SC[s]};font-size:13px;flex-shrink:0;margin-top:1px;">${SI[s]}</span>
+          <div>
+            <div style="font-family: 'IBM Plex Mono', monospace;font-size:7px;letter-spacing:.16em;text-transform:uppercase;color:${SC[s]};margin-bottom:3px;">${s}</div>
+            <div style="font-family:'IBM Plex Sans', sans-serif;font-weight:300;font-size:10px;line-height:1.5;color:rgba(240,237,232,.42);">${(IMPLICATIONS[s] && IMPLICATIONS[s][role]) || ''}</div>
+          </div>
+        </div>`).join("");
+  }
+
+  const barsEl = document.getElementById("panel-bars");
+  if (barsEl) {
+    barsEl.innerHTML = `<div class="persona-section-label">sense spectrum</div>`;
+    SENSES.forEach(s => {
+      const w    = (weights[s] != null) ? weights[s] : 0;
+      const wPct = Math.min(100, Math.max(0, w * 100));
+      const bPct = Math.min(100, Math.max(0, (BASELINES[s] || 0.5) * 100));
+      barsEl.innerHTML += `
+        <div class="pbar-row" style="margin-bottom:8px;">
+          <span class="pbar-lbl" style="color:${SC[s]};">${SI[s]} ${s}</span>
+          <div class="pbar-track">
+            <div class="pbar-fill" style="width:${wPct}%;background:${SC[s]};opacity:.60;"></div>
+            <div class="pbar-tick" style="left:${bPct}%;"></div>
+          </div>
+          <span class="pbar-val">${w.toFixed ? w.toFixed(1) : w}</span>
+        </div>`;
+    });
+  }
+}
+
+function confirmPersona() {
+  setLayoutTag(null);
+  showScreen("chat");
+}
+
+function tweakPersona() {
+  // Build the compact summary strip before switching screens
+  _renderProfileChatSummary();
+  showScreen("profile-chat");
+  // Opening message from Sensi — explains the profile and invites questions
+  const p = S.persona || {};
+  const name = p.name || "you";
+  const weights = p.comfort_weights || {};
+  const top = (p.sensory_priorities || SENSES).slice(0, 3).join(", ");
+  const opener =
+    `Your profile is live, ${name}. Your top comfort drivers are ${top}. ` +
+    `Ask me anything — why a weight landed where it did, what the evidence baseline means, ` +
+    `or whether something feels off. I'm here to make sure this feels right before we move on.`;
+  setTimeout(() => addProfileChatBubble("s", opener), 160);
+}
+
+function _renderProfileChatSummary() {
+  const p = S.persona || {};
+  const nameEl = document.getElementById("pchat-name");
+  const roleEl = document.getElementById("pchat-role");
+  const top3El = document.getElementById("pchat-top3");
+  if (nameEl) nameEl.textContent = p.name || "";
+  if (roleEl) roleEl.textContent = p.role  || "";
+  if (top3El) {
+    const priorities = (p.sensory_priorities || SENSES).slice(0, 3);
+    top3El.innerHTML = priorities.map(s =>
+      `<span style="
+        display:inline-flex;align-items:center;
+        font-family: 'IBM Plex Mono', monospace;font-size:8px;letter-spacing:.10em;
+        color:${SC[s]||'rgba(240,237,232,.4)'};text-transform:uppercase;
+        margin-right:8px;">
+        <span style="width:5px;height:5px;border-radius:50%;background:${SC[s]||'#888'};display:inline-block;margin-right:4px;flex-shrink:0;"></span>${s}
+      </span>`
+    ).join("");
+  }
+}
+
+function addProfileChatBubble(who, text) {
+  const inner = document.getElementById("profile-chat-thread-inner");
+  if (!inner) return;
+  const wrap = document.createElement("div");
+  if (who === "s") {
+    wrap.className = "bubble-wrap";
+    wrap.innerHTML = `
+      <svg class="sensi-avatar" width="28" height="28" viewBox="0 0 32 32" fill="none">
+        <circle cx="16" cy="16" r="14.5" stroke="#E8836A" stroke-width=".8" style="animation:srg0 3s ease-in-out infinite"/>
+        <circle cx="16" cy="16" r="12"   stroke="#D4B96A" stroke-width=".8" style="animation:srg1 3s ease-in-out infinite;animation-delay:.5s"/>
+        <circle cx="16" cy="16" r="9.5"  stroke="#9B8FD4" stroke-width=".8" style="animation:srg2 3s ease-in-out infinite;animation-delay:1s"/>
+        <circle cx="16" cy="16" r="7"    stroke="#6AB8C8" stroke-width=".8" style="animation:srg3 3s ease-in-out infinite;animation-delay:1.5s"/>
+        <circle cx="16" cy="16" r="4.5"  stroke="#8BB88A" stroke-width=".8" style="animation:srg4 3s ease-in-out infinite;animation-delay:2s"/>
+        <circle cx="16" cy="16" r="2"    stroke="#C4A882" stroke-width=".8" style="animation:srg5 3s ease-in-out infinite;animation-delay:2.5s"/>
+        <circle cx="16" cy="16" r="1.2" fill="#F0EDE8" opacity=".80"/>
+      </svg>
+      <p class="bubble-s">${text}</p>`;
+  } else {
+    wrap.className = "bubble-wrap bubble-user-wrap";
+    wrap.innerHTML = `<p class="bubble-u">${text}</p>`;
+  }
+  inner.appendChild(wrap);
+  const thread = document.getElementById("profile-chat-thread");
+  if (thread) thread.scrollTop = thread.scrollHeight;
+}
+
+function sendProfileChat() {
+  const inp  = document.getElementById("profile-chat-input");
+  const text = (inp ? inp.value : "").trim();
+  if (!text) return;
+  if (inp) inp.value = "";
+  addProfileChatBubble("u", text);
+  showThinking("profile-chat-thread-inner");
+  window.bridge.profileChat(text);
+}
+
+window.receiveProfileChat = function(data) {
+  hideThinking();
+  if (data.ok !== false) {
+    addProfileChatBubble("s", data.message || "");
+  } else {
+    addProfileChatBubble("s", "Something went wrong — try asking again.");
+  }
+};
+
+// ── Sensi message formatter ───────────────────────────────
+// Handles: "For Name (role), Layout-ID:" header, **bold**, \n\n paragraphs
+function _formatChatMessage(text) {
+  // 1. Escape HTML entities
+  var safe = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // 2. Extract "For Name (role), Layout-ID:" prefix → styled header
+  var headerHtml = '';
+  safe = safe.replace(/^(For\s+[^,\n]+\([^)]+\)[^:\n]*:)\s*/,
+    function(_, h) {
+      headerHtml = '<span class="bubble-msg-header">' + h + '</span>';
+      return '';
+    }
+  );
+
+  // 3. Bold: **text**
+  safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+  // 4. Paragraphs — prefer explicit \n\n; fall back to single block
+  var bodyHtml;
+  if (safe.indexOf('\n\n') !== -1) {
+    bodyHtml = safe.split(/\n\n+/)
+      .map(function(p) { return p.trim(); })
+      .filter(Boolean)
+      .map(function(p) { return '<p class="bubble-msg-para">' + p + '</p>'; })
+      .join('');
+  } else {
+    bodyHtml = '<p class="bubble-msg-para">' + safe.trim() + '</p>';
+  }
+
+  return headerHtml + bodyHtml;
+}
+
+// ── Chat ──────────────────────────────────────────────────
+function addChatBubble(role, text) {
+  const inner = document.getElementById("chat-thread-inner");
+  if (role === "s") {
+    // Demote any existing animated avatars in this thread to static dots
+    inner.querySelectorAll(".sensi-avatar").forEach(av => {
+      const dot = document.createElement("div");
+      dot.className = "sensi-avatar-static";
+      av.parentNode.replaceChild(dot, av);
+    });
+    const wrap = document.createElement("div");
+    wrap.className = "bubble-wrap";
+    wrap.innerHTML = _AVATAR_SVG;
+    const div = document.createElement("div");
+    div.className = "bubble-s";
+    div.innerHTML = _formatChatMessage(text);
+    wrap.appendChild(div);
+    inner.appendChild(wrap);
+  } else {
+    const div = document.createElement("div");
+    div.className = "bubble-u";
+    div.textContent = text;
+    inner.appendChild(div);
+  }
+  const thread = document.getElementById("chat-thread");
+  setTimeout(() => { thread.scrollTop = thread.scrollHeight; }, 50);
+}
+
+function sendChat() {
+  const ta  = document.getElementById("chat-input");
+  const txt = ta.value.trim();
+  if (!txt) return;
+  ta.value = "";
+  ta.style.height = "50px";
+  addChatBubble("u", txt);
+  showThinking("chat-thread-inner");
+  window.bridge.sendMessage(txt);
+}
+
+// auto-resize chat textarea
+document.addEventListener("DOMContentLoaded", () => {
+  const ta = document.getElementById("chat-input");
+  if (ta) ta.addEventListener("input", () => {
+    ta.style.height = "50px";
+    ta.style.height = Math.min(ta.scrollHeight, 120) + "px";
+  });
+});
+
+// ── Prevent Ctrl+Scroll zoom ──────────────────────────────
+document.addEventListener("wheel", e => {
+  if (e.ctrlKey) e.preventDefault();
+}, { passive: false });
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey && (e.key === "+" || e.key === "-" || e.key === "0")) e.preventDefault();
+});
+
+// ── Layout phase badge ────────────────────────────────────
+function setLayoutTag(layoutId) {
+  const badge = document.getElementById("chat-layout-badge");
+  const idEl  = document.getElementById("chat-layout-id");
+  if (!badge || !idEl) return;
+  if (layoutId) {
+    // Strip redundant "layout-" / "layout " prefix if the ID already contains it
+    const display = String(layoutId).replace(/^layout[- ]?/i, '');
+    idEl.textContent = display;
+    badge.style.display = "flex";
+  } else {
+    badge.style.display = "none";
+  }
+}
+
+// ── Bridge callbacks ──────────────────────────────────────
+
+window.receiveInit = function(data) {
+  hideOverlay(); hideThinking();
+  if (data.screen === "chat") {
+    // Returning user — persona already loaded
+    if (data.persona) {
+      S.persona = data.persona;
+      const grp    = document.getElementById("chat-top-status");
+      const avatar = document.getElementById("chat-user-avatar");
+      if (grp) grp.style.display = "flex";
+      if (avatar && S.persona.name) {
+        avatar.textContent  = S.persona.name.charAt(0).toUpperCase();
+        avatar.style.display = "flex";
+      }
+    }
+    setLayoutTag(data.layout_id || null);
+    showScreen("chat");
+    addChatBubble("s", data.message);
+  } else {
+    showScreen("quiz");
+    addBubble("s", data.message);
+    renderInput(data.quiz_step || 0);
+  }
+};
+
+window.receiveResponse = function(data) {
+  hideOverlay(); hideThinking();
+  if (data.screen === "quiz") {
+    showScreen("quiz");
+    addBubble("s", data.message);
+    renderInput(data.quiz_step || 0);
+  } else if (data.screen === "inspire") {
+    showScreen("inspire");
+    showInspireStage("question");
+    document.getElementById("ins-q-text").textContent = data.message;
+  } else if (data.screen === "chat") {
+    setLayoutTag(data.layout_id || null);
+    showScreen("chat");
+    addChatBubble("s", data.message);
+    if (data.scores_json) {
+      renderAnalysisPanel(
+        data.scores_json,
+        data.conflicts_json        || '',
+        data.suggestions_json      || '',
+        data.analysis_depth        || 'analyze',
+        data.score_interpretation  || '',
+        data.conflict_reasoning    || '',
+        data.suggestion_critique   || ''
+      );
+      _addAnalysisChips(data.analysis_depth || 'analyze');
+    }
+  }
+};
+
+window.receiveImages = function(data) {
+  hideOverlay();
+  showScreen("inspire");
+  if (!data.urls || data.urls.length === 0) {
+    // No Unsplash key — skip straight to moodboard
+    buildMoodboardDisplay();
+    return;
+  }
+  renderInspireGrid(data.urls, data.senses || [], data.round);
+};
+
+window.receivePersona = function(data) {
+  hideOverlay();
+  const profile = data.persona || {};
+  // Store for side panel
+  S.persona = profile;
+  // Sensi intro message
+  const msgEl = document.getElementById("persona-message");
+  if (msgEl) msgEl.textContent = data.message || "here's what I know about you.";
+  // Render full 6-section profile
+  renderPersonaProfile(profile, data.moodboard_urls || []);
+  // Show status group + set user avatar initial
+  const grp    = document.getElementById("chat-top-status");
+  const avatar = document.getElementById("chat-user-avatar");
+  if (grp) grp.style.display = "flex";
+  if (avatar && profile.name) {
+    avatar.textContent   = profile.name.charAt(0).toUpperCase();
+    avatar.style.display = "flex";
+  }
+  showScreen("persona");
+};
+
+window.receiveProgress = function(msg) {
+  // Kick off a new phrase-cycling overlay for this pipeline stage
+  showOverlay(msg);
+};
+
+window.receiveFiles = function(b64s) {
+  S.uploadedB64s = b64s || [];
+  const n = S.uploadedB64s.length;
+  document.getElementById("upload-names").textContent =
+    n ? `${n} image${n > 1 ? "s" : ""} selected` : "optional · up to 5";
+  // Show thumbnails
+  const preview = document.getElementById("upload-preview");
+  if (preview) {
+    preview.innerHTML = S.uploadedB64s.map(b64 =>
+      `<img src="data:image/jpeg;base64,${b64}" alt="">`
+    ).join("");
+  }
+};
+
+window.receiveError = function(msg) {
+  hideOverlay();
+  console.error("[sensi]", msg);
+  if (document.getElementById("screen-chat").classList.contains("active")) {
+    addChatBubble("s", "something went wrong — " + msg);
+  } else {
+    showOverlay("⚠ " + msg);
+    setTimeout(hideOverlay, 3500);
+  }
+};
+
+// ══════════════════════════════════════════════════════════
+// ANALYSIS PANEL
+// ══════════════════════════════════════════════════════════
+
+var _chartView  = 'bars';
+var _apChart    = null;
+var _apCy       = null;
+var _panelScores      = null;
+var _panelConflicts   = null;
+var _panelSuggestions = null;
+var _panelDepth       = '';
+var _selectedRoom     = null;
+var _allRoomsExpanded = false;
+
+var SENSE_COLORS = {
+  thermal:   '#E8836A', visual:    '#D4B96A', acoustic:  '#9B8FD4',
+  spatial:   '#6AB8C8', olfactory: '#8BB88A', tactile:   '#C4A882'
+};
+var ALL_SENSES = ['thermal','visual','acoustic','spatial','olfactory','tactile'];
+
+function openAnalysisPanel() {
+  document.getElementById('chat-left').classList.add('panel-open');
+  document.getElementById('analysis-panel-right').classList.add('open');
+}
+
+function closeAnalysisPanel() {
+  document.getElementById('chat-left').classList.remove('panel-open');
+  document.getElementById('analysis-panel-right').classList.remove('open');
+}
+
+function setChartView(view) {
+  _chartView = view;
+  var bBars  = document.getElementById('ap-toggle-bars');
+  var bRadar = document.getElementById('ap-toggle-radar');
+  if (bBars)  bBars.classList.toggle('ap-toggle-active',  view === 'bars');
+  if (bRadar) bRadar.classList.toggle('ap-toggle-active', view === 'radar');
+  if (!_panelScores) return;
+  var rooms = _panelScores.rooms || [];
+  if (view === 'bars') _renderScoreBars(rooms);
+  else _renderRadar(rooms);
+}
+
+// ── Room selector strip ──────────────────────────────────
+function _renderRoomSelector(rooms) {
+  var c = document.getElementById('ap-room-selector');
+  if (!c) return;
+  if (!rooms || rooms.length < 2) { c.innerHTML = ''; return; }
+  var strip = document.createElement('div');
+  strip.className = 'ap-room-strip';
+  rooms.forEach(function(room) {
+    var overall = room.overallScore || 0;
+    var color = overall < 0.50 ? '#E8836A' : overall < 0.65 ? '#D4B96A' : '#8BB88A';
+    var chip = document.createElement('button');
+    chip.className = 'ap-room-chip' + (_selectedRoom === room.roomName ? ' active' : '');
+    chip.setAttribute('data-room', room.roomName);
+    chip.onclick = (function(name) { return function() { selectRoom(name); }; })(room.roomName);
+    chip.innerHTML =
+      '<span class="ap-room-chip-dot" style="background:' + color + ';opacity:0.75;"></span>' +
+      '<span class="ap-room-chip-name">' + (room.roomName || '?') + '</span>';
+    strip.appendChild(chip);
+  });
+  c.innerHTML = '';
+  c.appendChild(strip);
+}
+
+function selectRoom(roomName) {
+  _selectedRoom = roomName;
+  _allRoomsExpanded = false;
+  // Update chip active states
+  var chips = document.querySelectorAll('.ap-room-chip');
+  chips.forEach(function(ch) {
+    if (ch.getAttribute('data-room') === roomName) ch.classList.add('active');
+    else ch.classList.remove('active');
+  });
+  // Update cytoscape highlight
+  if (_apCy) {
+    _apCy.nodes().forEach(function(n) {
+      n.style('background-opacity', n.data('id') === roomName ? 0.50 : 0.12);
+      n.style('border-width', n.data('id') === roomName ? 2.5 : 1.5);
+    });
+    var hint = document.getElementById('cy-room-hint');
+    if (hint) hint.textContent = roomName.toUpperCase();
+  }
+  // Re-render room-aware sections
+  if (_panelScores) {
+    var rooms = _panelScores.rooms || [];
+    if (_chartView === 'bars') _renderScoreBars(rooms);
+  }
+  if (_panelConflicts && (_panelDepth === 'detect' || _panelDepth === 'full')) {
+    _renderConflicts(_panelConflicts.flaggedRooms || []);
+  }
+  if (_panelSuggestions && _panelDepth === 'full') {
+    _renderSuggestions(_panelSuggestions.improvements || []);
+  }
+}
+
+function toggleAllRoomsExpand() {
+  _allRoomsExpanded = !_allRoomsExpanded;
+  if (_panelScores) {
+    var rooms = _panelScores.rooms || [];
+    if (_chartView === 'bars') _renderScoreBars(rooms);
+  }
+}
+
+function _renderRoomBarsDetail(room, container) {
+  var sc = room.comfortScores || {};
+  var overall = room.overallScore || 0;
+  var overallColor = overall < 0.50 ? '#E8836A' : overall < 0.65 ? '#D4B96A' : '#8BB88A';
+  var header = document.createElement('div');
+  header.className = 'ap-room-detail-header';
+  header.innerHTML =
+    '<span class="ap-room-detail-name">' + (room.roomName || '?') + '</span>' +
+    '<span class="ap-room-detail-score" style="color:' + overallColor + ';opacity:0.80;">' + overall.toFixed(2) + '</span>';
+  container.appendChild(header);
+  ALL_SENSES.forEach(function(s) {
+    var val = sc[s] !== undefined ? sc[s] : 0;
+    var pct = (val * 100).toFixed(1);
+    var opacity = val < 0.50 ? '1.0' : val < 0.65 ? '0.65' : '0.38';
+    var row = document.createElement('div');
+    row.className = 'ap-bar-row';
+    var ticks =
+      '<div class="ap-bar-threshold" style="left:50%;"></div>' +
+      '<div class="ap-bar-threshold" style="left:65%;opacity:0.10;"></div>';
+    row.innerHTML =
+      '<span class="ap-bar-sense">' + s + '</span>' +
+      '<div class="ap-bar-track">' +
+        '<div class="ap-bar-fill" style="width:' + pct + '%;background:' + SENSE_COLORS[s] + ';opacity:' + opacity + ';"></div>' +
+        ticks +
+      '</div>' +
+      '<span class="ap-bar-val" style="color:' + (val < 0.50 ? SENSE_COLORS[s] : 'rgba(240,237,232,.35)') + '">' + val.toFixed(2) + '</span>';
+    container.appendChild(row);
+  });
+}
+
+function _renderScoreBars(rooms) {
+  var c = document.getElementById('ap-scores');
+  c.innerHTML = '<div class="ap-section-label">scores</div>';
+
+  // Focused mode: single room
+  if (_selectedRoom && !_allRoomsExpanded) {
+    var focusRoom = null;
+    rooms.forEach(function(r) { if (r.roomName === _selectedRoom) focusRoom = r; });
+    if (focusRoom) _renderRoomBarsDetail(focusRoom, c);
+    var toggleBtn = document.createElement('button');
+    toggleBtn.className = 'ap-all-rooms-toggle';
+    toggleBtn.onclick = toggleAllRoomsExpand;
+    toggleBtn.textContent = '↓  all rooms';
+    c.appendChild(toggleBtn);
+    return;
+  }
+
+  // All-rooms mode
+  rooms.forEach(function(room) { _renderRoomBarsDetail(room, c); });
+  if (_selectedRoom && _allRoomsExpanded) {
+    var collapseBtn = document.createElement('button');
+    collapseBtn.className = 'ap-all-rooms-toggle';
+    collapseBtn.onclick = toggleAllRoomsExpand;
+    collapseBtn.textContent = '↑  collapse';
+    c.appendChild(collapseBtn);
+  }
+}
+
+var SENSE_SYMBOLS = {
+  thermal: '~ thm', visual: '◎ vis', acoustic: ')) aco',
+  spatial: '⬡ spt', olfactory: '✿ olf', tactile: '≈ tac'
+};
+
+function _renderRadar(rooms) {
+  var c = document.getElementById('ap-scores');
+  c.innerHTML = '<div class="ap-section-label">scores — radar</div><canvas id="ap-radar-canvas" style="width:100%;min-height:300px;"></canvas>';
+  if (typeof Chart === 'undefined') {
+    c.innerHTML += '<div class="ap-empty">chart.js not loaded</div>';
+    return;
+  }
+  if (_apChart) { try { _apChart.destroy(); } catch(e) {} _apChart = null; }
+  var canvas = document.getElementById('ap-radar-canvas');
+  var roomColors = [
+    'rgba(232,131,106,0.85)','rgba(212,185,106,0.85)','rgba(155,143,212,0.85)',
+    'rgba(106,184,200,0.85)','rgba(139,184,138,0.85)','rgba(196,168,130,0.85)'
+  ];
+  var datasets = rooms.map(function(room, i) {
+    var sc = room.comfortScores || {};
+    return {
+      label: room.roomName || '?',
+      data: ALL_SENSES.map(function(s) { return ((sc[s] || 0) * 100); }),
+      backgroundColor: roomColors[i % roomColors.length].replace('0.85','0.07'),
+      borderColor: roomColors[i % roomColors.length],
+      borderWidth: 1.5,
+      pointRadius: 0,
+      pointHoverRadius: 3
+    };
+  });
+  var labels = ALL_SENSES.map(function(s) { return SENSE_SYMBOLS[s] || s; });
+  _apChart = new Chart(canvas, {
+    type: 'radar',
+    data: { labels: labels, datasets: datasets },
+    options: {
+      responsive: true,
+      scales: { r: {
+        min: 0, max: 100, stepSize: 25,
+        ticks: { color: 'rgba(240,237,232,0.20)', font: { size: 8 }, backdropColor: 'transparent' },
+        pointLabels: {
+          color: 'rgba(240,237,232,0.60)', font: { size: 10, family: "\'IBM Plex Mono\', monospace" }
+        },
+        grid:       { color: 'rgba(240,237,232,0.08)' },
+        angleLines: { color: 'rgba(240,237,232,0.08)' }
+      }},
+      plugins: {
+        legend: { labels: { color: 'rgba(240,237,232,0.55)', font: { size: 9 }, padding: 10, boxWidth: 12, usePointStyle: true } }
+      }
+    }
+  });
+}
+
+function _sensesFromConflicts(conflicts) {
+  /* Handles both string items ("acoustic score 0.40 below threshold 0.45")
+     and object items ({acoustic: 0.40}) -- the MCP may return either format. */
+  var senses = [];
+  (conflicts || []).forEach(function(conf) {
+    ALL_SENSES.forEach(function(s) {
+      if (senses.indexOf(s) !== -1) return;
+      if (typeof conf === 'string') {
+        if (conf.indexOf(s) !== -1) senses.push(s);
+      } else if (conf !== null && typeof conf === 'object') {
+        if (s in conf) senses.push(s);
+      }
+    });
+  });
+  return senses;
+}
+
+function _renderConflicts(flaggedRooms) {
+  var c = document.getElementById('ap-conflicts');
+  c.innerHTML = '<div class="ap-section-label">conflicts</div>';
+  var filtered = _selectedRoom
+    ? (flaggedRooms || []).filter(function(r) { return r.roomName === _selectedRoom; })
+    : (flaggedRooms || []);
+  if (filtered.length === 0) {
+    c.innerHTML += '<div class="ap-empty">' + (_selectedRoom ? 'no conflicts in this room' : 'no conflicts detected') + '</div>';
+    return;
+  }
+  filtered.forEach(function(room) {
+    var senses = _sensesFromConflicts(room.conflicts);
+    var div = document.createElement('div');
+    div.className = 'ap-conflict-room';
+    div.innerHTML = '<span class="ap-room-label">' + (room.roomName || '?') + '</span>' +
+      senses.map(function(s) {
+        return '<span class="ap-conflict-flag" data-sense="' + s + '">' + s + '</span>';
+      }).join('');
+    c.appendChild(div);
+  });
+}
+
+function _renderTopology(flaggedRooms, allRooms) {
+  var c = document.getElementById('ap-topology');
+  c.innerHTML =
+    '<div class="ap-section-label" style="margin-top:0;">room network</div>' +
+    '<div id="cy-container" style="width:100%;height:280px;border-radius:6px;background:rgba(240,237,232,.02);border:1px solid rgba(240,237,232,.05);"></div>' +
+    '<div id="cy-room-hint" style="font-family:\'IBM Plex Mono\',monospace;font-size:8px;letter-spacing:.10em;color:rgba(240,237,232,.18);text-align:center;padding:5px 0 2px;text-transform:uppercase;">click a room to highlight</div>';
+  if (typeof cytoscape === 'undefined') {
+    c.innerHTML += '<div class="ap-empty">cytoscape not loaded</div>';
+    return;
+  }
+  // Build room -> failing senses map
+  var roomSenses = {};
+  (flaggedRooms || []).forEach(function(r) {
+    var senses = _sensesFromConflicts(r.conflicts);
+    if (senses.length > 0) roomSenses[r.roomName] = senses;
+  });
+  // Nodes -- size = 28 base + 8 per conflict; color encodes overall health
+  var nodes = (allRooms || []).map(function(room) {
+    var overall = room.overallScore || 0.5;
+    var issueCount = (roomSenses[room.roomName] || []).length;
+    var color  = overall < 0.50 ? '#E8836A' : overall < 0.65 ? '#D4B96A' : '#8BB88A';
+    var border = overall < 0.50 ? 'rgba(232,131,106,0.55)' : overall < 0.65 ? 'rgba(212,185,106,0.45)' : 'rgba(139,184,138,0.45)';
+    var size   = 28 + issueCount * 8;
+    return { data: { id: room.roomName, label: room.roomName, color: color, border: border, size: size, overall: overall } };
+  });
+  // Edges between rooms sharing a failing sense
+  var edges = [];
+  var conflictedNames = Object.keys(roomSenses);
+  for (var i = 0; i < conflictedNames.length; i++) {
+    for (var j = i + 1; j < conflictedNames.length; j++) {
+      var a = conflictedNames[i], b = conflictedNames[j];
+      var shared = roomSenses[a].filter(function(s) { return roomSenses[b].indexOf(s) !== -1; });
+      if (shared.length > 0) {
+        edges.push({ data: { id: a + '_' + b, source: a, target: b, label: shared.join(' · ') } });
+      }
+    }
+  }
+  if (_apCy) { try { _apCy.destroy(); } catch(e) {} _apCy = null; }
+  _apCy = cytoscape({
+    container: document.getElementById('cy-container'),
+    elements: { nodes: nodes, edges: edges },
+    style: [
+      { selector: 'node', style: {
+        'background-color': 'data(color)',
+        'background-opacity': 0.18,
+        'label': 'data(label)',
+        'color': 'rgba(240,237,232,0.72)',
+        'font-size': '9px',
+        'font-family': 'IBM Plex Mono',
+        'text-valign': 'bottom',
+        'text-margin-y': '6px',
+        'width':  'data(size)',
+        'height': 'data(size)',
+        'border-width': 1.5,
+        'border-color': 'data(border)'
+      }},
+      { selector: 'node:selected', style: {
+        'background-opacity': 0.35,
+        'border-width': 2.5,
+        'color': 'rgba(240,237,232,1)'
+      }},
+      { selector: 'edge', style: {
+        'width': 1,
+        'line-color': 'rgba(212,185,106,0.25)',
+        'label': 'data(label)',
+        'font-size': '7px',
+        'color': 'rgba(212,185,106,0.55)',
+        'font-family': 'IBM Plex Mono',
+        'text-rotation': 'autorotate',
+        'curve-style': 'bezier',
+        'text-margin-y': '-6px'
+      }}
+    ],
+    layout: { name: 'cose', animate: false, padding: 22, nodeRepulsion: 5000 },
+    userZoomingEnabled: false,
+    userPanningEnabled: false,
+    boxSelectionEnabled: false,
+    autoungrabify: true
+  });
+
+  // Node click -> select that room (room-centric mode)
+  _apCy.on('tap', 'node', function(evt) {
+    var roomName = evt.target.data('id');
+    selectRoom(roomName);
+    // Scroll panel to scores section so the focused detail is visible
+    setTimeout(function() {
+      var scoresEl = document.getElementById('ap-scores');
+      if (scoresEl) scoresEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  });
+}
+
+function _renderSuggestions(improvements) {
+  var c = document.getElementById('ap-suggestions');
+  c.innerHTML = '<div class="ap-section-label">suggestions</div>';
+  var any = false;
+  (improvements || []).forEach(function(room) {
+    if (_selectedRoom && room.roomName !== _selectedRoom) return;
+    (room.suggestions || []).forEach(function(s) {
+      any = true;
+      var div = document.createElement('div');
+      div.className = 'ap-suggestion-item';
+      div.innerHTML =
+        '<span class="ap-suggestion-room">' + (room.roomName || '?') + '</span>' +
+        '<span class="ap-suggestion-sense" data-sense="' + (s.sense || '') + '">' + (s.sense || '') + '</span>' +
+        '<span class="ap-suggestion-text">' + (s.suggestion || '') + '</span>';
+      c.appendChild(div);
+    });
+  });
+  if (!any) c.innerHTML += '<div class="ap-empty">' + (_selectedRoom ? 'no suggestions for this room' : 'no suggestions generated') + '</div>';
+}
+
+// -- Specialist block renderer ------------------------------------------
+function _renderSpecialistBlock(blockId, title, text) {
+  var el = document.getElementById(blockId);
+  if (!el) return;
+  if (!text || !text.trim()) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.innerHTML =
+    '<div class="ap-specialist-header" onclick="_toggleSpecialist(\'' + blockId + '\')">' +
+      '<span class="ap-specialist-title">' + title + '</span>' +
+      '<span class="ap-specialist-chevron" id="' + blockId + '-chev">\u25bc</span>' +
+    '</div>' +
+    '<div class="ap-specialist-body" id="' + blockId + '-body" style="display:none;">' +
+      text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
+    '</div>';
+}
+
+function _toggleSpecialist(blockId) {
+  var body = document.getElementById(blockId + '-body');
+  var chev = document.getElementById(blockId + '-chev');
+  if (!body) return;
+  var open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (chev) {
+    chev.textContent = open ? '\u25bc' : '\u25b2';
+    if (open) chev.classList.remove('open'); else chev.classList.add('open');
+  }
+}
+
+// -- Action chips -------------------------------------------------------
+function _addAnalysisChips(depth) {
+  var inner = document.getElementById('chat-thread-inner');
+  if (!inner) return;
+  var wraps = inner.querySelectorAll('.bubble-wrap');
+  if (!wraps.length) return;
+  var lastWrap = wraps[wraps.length - 1];
+  var row = document.createElement('div');
+  row.className = 'ap-chips-row';
+  var chips = [
+    '<button class="ap-jump-chip" onclick="jumpPanel(\'scores\')"><span class="ap-chip-arrow">\u2197</span>scores</button>'
+  ];
+  if (depth === 'detect' || depth === 'full') {
+    chips.push('<button class="ap-jump-chip" onclick="jumpPanel(\'conflicts\')"><span class="ap-chip-arrow">\u2197</span>conflicts</button>');
+  }
+  if (depth === 'full') {
+    chips.push('<button class="ap-jump-chip" onclick="jumpPanel(\'suggestions\')"><span class="ap-chip-arrow">\u2197</span>suggestions</button>');
+    chips.push('<button class="ap-jump-chip" onclick="jumpPanel(\'score-interp\')"><span class="ap-chip-arrow">\u2197</span>analysis</button>');
+  }
+  row.innerHTML = chips.join('');
+  lastWrap.appendChild(row);
+}
+
+// -- Panel section jump -------------------------------------------------
+function jumpPanel(section) {
+  if (!document.getElementById('analysis-panel-right').classList.contains('open')) {
+    openAnalysisPanel();
+  }
+  setTimeout(function() {
+    var el = document.getElementById('ap-' + section);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Auto-expand if it's a collapsed specialist block
+    var body = document.getElementById('ap-' + section + '-body');
+    if (body && body.style.display === 'none') _toggleSpecialist('ap-' + section);
+    // Brief highlight
+    el.style.outline = '1px solid rgba(140,125,210,.55)';
+    setTimeout(function() { el.style.outline = ''; }, 1100);
+  }, 280);
+}
+
+// -- Top bar status update (score ring + conflict badge) ----------------
+function _updateTopBarStatus(rooms, flaggedRooms) {
+  // Overall score = average of all room overallScores
+  var scores = (rooms || []).map(function(r) { return r.overallScore || 0; });
+  var avg = scores.length ? scores.reduce(function(a,b){return a+b;},0) / scores.length : 0;
+  var ring = document.getElementById('chat-score-ring');
+  if (ring) {
+    ring.textContent = avg.toFixed(2);
+    ring.className = 'top-bar-score-ring';
+    if (avg >= 0.65)      ring.classList.add('score-pass');
+    else if (avg >= 0.45) ring.classList.add('score-warn');
+    else                  ring.classList.add('score-fail');
+    ring.style.display = 'flex';
+  }
+  // Conflict badge = count of flagged rooms
+  var badge = document.getElementById('chat-conflict-badge');
+  if (badge) {
+    var n = (flaggedRooms || []).length;
+    if (n > 0) {
+      badge.textContent = n + (n === 1 ? ' conflict' : ' conflicts');
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+}
+
+// -- Main panel render --------------------------------------------------
+function renderAnalysisPanel(scoresJson, conflictsJson, suggestionsJson, depth, scoreInterp, conflictReason, suggCritique) {
+  if (!scoresJson) return;
+  var scores = null, conflicts = null, suggestions = null;
+  try { scores = JSON.parse(scoresJson); } catch(e) { return; }
+  if (conflictsJson) try { conflicts = JSON.parse(conflictsJson); } catch(e) {}
+  if (suggestionsJson) try { suggestions = JSON.parse(suggestionsJson); } catch(e) {}
+
+  _panelScores      = scores;
+  _panelConflicts   = conflicts;
+  _panelSuggestions = suggestions;
+  _panelDepth       = depth || 'analyze';
+
+  openAnalysisPanel();
+
+  // Update top bar status ring + conflict badge
+  var _allRooms = scores.rooms || [];
+  var _flagged  = (conflicts && conflicts.flaggedRooms) ? conflicts.flaggedRooms : [];
+  _updateTopBarStatus(_allRooms, _flagged);
+
+  // depth tag
+  var tag = document.getElementById('ap-depth-tag');
+  if (tag) tag.textContent = _panelDepth;
+
+  // 1. Room network first (spatial overview -- hero element)
+  var rooms = scores.rooms || [];
+  var tEl = document.getElementById('ap-topology');
+  tEl.innerHTML = '';
+  if (conflicts && (depth === 'detect' || depth === 'full')) {
+    _renderTopology(conflicts.flaggedRooms || [], rooms);
+  } else {
+    _renderTopology([], rooms);
+  }
+
+  // 2. Room selector strip + auto-select worst room
+  _selectedRoom = null;
+  _allRoomsExpanded = false;
+  if (rooms.length > 0) {
+    var worst = rooms.reduce(function(a, b) {
+      return (a.overallScore || 0) <= (b.overallScore || 0) ? a : b;
+    });
+    _selectedRoom = worst.roomName;
+  }
+  _renderRoomSelector(rooms);
+
+  // 3. Scores section
+  if (_chartView === 'bars') _renderScoreBars(rooms);
+  else _renderRadar(rooms);
+
+  // 4. Score interpreter narrative
+  _renderSpecialistBlock('ap-score-interp', 'what this means', scoreInterp || '');
+
+  // 5. Conflicts section
+  var cEl = document.getElementById('ap-conflicts');
+  cEl.innerHTML = '';
+  document.getElementById('ap-conflict-reason').style.display = 'none';
+  if (conflicts && (depth === 'detect' || depth === 'full')) {
+    _renderConflicts(conflicts.flaggedRooms || []);
+    _renderSpecialistBlock('ap-conflict-reason', 'why it\'s failing', conflictReason || '');
+  }
+
+  // suggestions section
+  var sEl = document.getElementById('ap-suggestions');
+  sEl.innerHTML = '';
+  document.getElementById('ap-sug-critique').style.display = 'none';
+  if (suggestions && depth === 'full') {
+    _renderSuggestions(suggestions.improvements || []);
+    _renderSpecialistBlock('ap-sug-critique', 'what to watch out for', suggCritique || '');
+  }
+}
+
+// -- Bridge init --------------------------------------------------------
+/* ── capabilities panel ── */
+function toggleCap() {
+  var ov  = document.getElementById('cap-overlay');
+  var btn = document.getElementById('cap-btn');
+  var open = ov.classList.contains('open');
+  if (open) {
+    ov.classList.remove('open');
+    if (btn) btn.classList.remove('on');
+  } else {
+    ov.classList.add('open');
+    if (btn) btn.classList.add('on');
+  }
+}
+function switchCapView(v) {
+  document.getElementById('cv-sense').className  = 'cview' + (v === 'sense'  ? ' on' : '');
+  document.getElementById('cv-action').className = 'cview' + (v === 'action' ? ' on' : '');
+  document.getElementById('cvt-sense').className  = 'cap-vt' + (v === 'sense'  ? ' on' : '');
+  document.getElementById('cvt-action').className = 'cap-vt' + (v === 'action' ? ' on' : '');
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  showOverlay("starting sensi...");
+  new QWebChannel(qt.webChannelTransport, function(channel) {
+    window.bridge = channel.objects.bridge;
+    window.bridge.initApp();
+  });
+});
+</script>
+</body>
+</html>

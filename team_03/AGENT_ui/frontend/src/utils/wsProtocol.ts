@@ -31,9 +31,18 @@ export interface SelectionSync {
   source: string;
 }
 
+export interface ObserverPoint {
+  type: 'observer_point';
+  x: number;
+  y: number;
+  height: number;
+  point_str: string; // "x,y,h" in layout metres
+}
+
 export type WSMessage =
   | ChatMessage
   | AgentResponse
   | AgentEvent
   | StateUpdate
-  | SelectionSync;
+  | SelectionSync
+  | ObserverPoint;
