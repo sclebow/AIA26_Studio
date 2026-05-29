@@ -2,7 +2,6 @@ import React, { useRef, useMemo, useCallback } from 'react'
 import { useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 
-// Person proxy height in metres.
 const PERSON_HEIGHT = 1.7
 const HEAD_RADIUS = 0.16
 
@@ -16,81 +15,176 @@ interface ObserverMarkerProps {
   onDragEnd?: () => void
   pathMode?: boolean
   pathPoints?: Array<{ x: number; y: number }>
-  /** When true: visible but non-interactive ghost (semi-transparent, no drag). */
+  /** Called continuously while dragging a path node. */
+  onUpdatePathPoint?: (index: number, x: number, y: number) => void
+  /** Called on pointer-up after dragging a path node. */
+  onReleasePathPoint?: (index: number, x: number, y: number) => void
+  /** When true: visible ghost — semi-transparent, non-interactive. */
   ghost?: boolean
 }
 
-/**
- * A draggable point representing a 1.7m-tall person, constrained to the floor
- * plane (XZ). Lives inside a group offset by -center so its local (x, z) map
- * directly onto layout (x, y) in metres.
- */
-function PathRenderer({ center, pathPoints, ghost }: { center: { x: number; z: number }; pathPoints: Array<{ x: number; y: number }>; ghost?: boolean }) {
+// ── Draggable path node ──────────────────────────────────────────────────────
+
+function DraggablePathNode({
+  center, pt, index, onMove, onRelease, ghost,
+}: {
+  center: { x: number; z: number }
+  pt: { x: number; y: number }
+  index: number
+  onMove: (i: number, x: number, y: number) => void
+  onRelease: (i: number, x: number, y: number) => void
+  ghost?: boolean
+}) {
+  const { camera, gl, controls } = useThree()
+  const dragging = useRef(false)
+  const raycaster = useMemo(() => new THREE.Raycaster(), [])
+  const plane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), [])
+  const hitVec = useMemo(() => new THREE.Vector3(), [])
+  const ndc = useMemo(() => new THREE.Vector2(), [])
+
+  // cbRef avoids stale closures inside event listeners
+  const cbRef = useRef({ onMove, onRelease, center, camera, gl, controls, raycaster, plane, hitVec, ndc })
+  cbRef.current = { onMove, onRelease, center, camera, gl, controls, raycaster, plane, hitVec, ndc }
+
+  const getLayout = (e: PointerEvent): { x: number; y: number } | null => {
+    const { gl: g, ndc: n, raycaster: rc, plane: pl, hitVec: h, camera: cam, center: c } = cbRef.current
+    const rect = g.domElement.getBoundingClientRect()
+    n.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
+    n.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
+    rc.setFromCamera(n, cam)
+    if (!rc.ray.intersectPlane(pl, h)) return null
+    return { x: h.x + c.x, y: h.z + c.z }
+  }
+
+  const handlePointerDown = useCallback((e: any) => {
+    if (ghost) return
+    e.stopPropagation()
+    dragging.current = true
+    const ctrl = cbRef.current.controls as any
+    if (ctrl) ctrl.enabled = false
+
+    const move = (ev: PointerEvent) => {
+      if (!dragging.current) return
+      const p = getLayout(ev)
+      if (p) cbRef.current.onMove(index, p.x, p.y)
+    }
+    const up = (ev: PointerEvent) => {
+      dragging.current = false
+      if (ctrl) ctrl.enabled = true
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      const p = getLayout(ev)
+      if (p) cbRef.current.onRelease(index, p.x, p.y)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }, [ghost, index])
+
+  return (
+    <mesh
+      position={[pt.x, 0.15, pt.y]}
+      onPointerDown={handlePointerDown}
+      onPointerOver={ghost ? undefined : () => { cbRef.current.gl.domElement.style.cursor = 'grab' }}
+      onPointerOut={ghost ? undefined : () => { cbRef.current.gl.domElement.style.cursor = 'auto' }}
+    >
+      <sphereGeometry args={[0.18, 12, 12]} />
+      <meshStandardMaterial
+        color="#ef4444" roughness={0.5} emissive="#ef4444"
+        emissiveIntensity={ghost ? 0.1 : 0.4}
+        transparent opacity={ghost ? 0.2 : 1.0}
+      />
+    </mesh>
+  )
+}
+
+// ── Path renderer ────────────────────────────────────────────────────────────
+
+function PathRenderer({
+  center, pathPoints, ghost, onUpdatePoint, onReleasePoint,
+}: {
+  center: { x: number; z: number }
+  pathPoints: Array<{ x: number; y: number }>
+  ghost?: boolean
+  onUpdatePoint?: (i: number, x: number, y: number) => void
+  onReleasePoint?: (i: number, x: number, y: number) => void
+}) {
   const linePositions = useMemo(() => {
     return new Float32Array(pathPoints.flatMap(pt => [pt.x, 0.15, pt.y]))
   }, [pathPoints])
 
-  const opacity = ghost ? 0.25 : 0.7
-  const dotOpacity = ghost ? 0.2 : 1.0
-
   return (
     <group position={[-center.x, 0, -center.z]}>
       {pathPoints.map((pt, i) => (
-        <mesh key={i} position={[pt.x, 0.15, pt.y]}>
-          <sphereGeometry args={[0.15, 12, 12]} />
-          <meshStandardMaterial color="#ef4444" roughness={0.5} emissive="#ef4444" emissiveIntensity={ghost ? 0.1 : 0.4} transparent opacity={dotOpacity} />
-        </mesh>
+        <DraggablePathNode
+          key={i}
+          center={center}
+          pt={pt}
+          index={i}
+          onMove={onUpdatePoint ?? (() => {})}
+          onRelease={onReleasePoint ?? (() => {})}
+          ghost={ghost}
+        />
       ))}
       {pathPoints.length >= 2 && (
         <line>
           <bufferGeometry>
             <bufferAttribute attach="attributes-position" args={[linePositions, 3]} />
           </bufferGeometry>
-          <lineBasicMaterial color="#ef4444" transparent opacity={opacity} />
+          <lineBasicMaterial color="#ef4444" transparent opacity={ghost ? 0.25 : 0.7} />
         </line>
       )}
     </group>
   )
 }
 
-export default function ObserverMarker({ center, position, isDark, onMove, onRelease, onDragStart, onDragEnd, pathMode, pathPoints, ghost }: ObserverMarkerProps) {
+// ── Main component (person marker) ──────────────────────────────────────────
+
+export default function ObserverMarker({
+  center, position, isDark, onMove, onRelease, onDragStart, onDragEnd,
+  pathMode, pathPoints, onUpdatePathPoint, onReleasePathPoint, ghost,
+}: ObserverMarkerProps) {
   const { camera, gl, controls } = useThree()
   const groupRef = useRef<THREE.Group>(null)
   const draggingRef = useRef(false)
 
-  // Reusable raycasting scratch objects.
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
   const groundPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), [])
   const hitPoint = useMemo(() => new THREE.Vector3(), [])
   const ndc = useMemo(() => new THREE.Vector2(), [])
 
   if (pathMode) {
-    return <PathRenderer center={center} pathPoints={pathPoints ?? []} ghost={ghost} />
+    return (
+      <PathRenderer
+        center={center}
+        pathPoints={pathPoints ?? []}
+        ghost={ghost}
+        onUpdatePoint={onUpdatePathPoint}
+        onReleasePoint={onReleasePathPoint}
+      />
+    )
   }
 
   const accent = isDark ? '#8b5cf6' : '#7c3aed'
   const matOpacity = ghost ? 0.22 : 1.0
   const emissiveInt = ghost ? 0.0 : 0.25
 
-  // ── Convert a pointer event to a layout-coordinate hit on the floor ──────
-  const pointerToLayout = useCallback((e: PointerEvent): { x: number; y: number } | null => {
+  const pointerToLayout = (e: PointerEvent): { x: number; y: number } | null => {
     const rect = gl.domElement.getBoundingClientRect()
     ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
     ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
     raycaster.setFromCamera(ndc, camera)
     const hit = raycaster.ray.intersectPlane(groundPlane, hitPoint)
     if (!hit) return null
-    // World coords → layout coords (undo the centred-group offset).
-    return { x: hit.x + center.x, y: hit.z + center.z }
-  }, [camera, gl, raycaster, groundPlane, hitPoint, ndc, center])
+    return { x: hitPoint.x + center.x, y: hitPoint.z + center.z }
+  }
 
-  const handlePointerMove = useCallback((e: PointerEvent) => {
+  const handlePointerMove = (e: PointerEvent) => {
     if (!draggingRef.current) return
     const layout = pointerToLayout(e)
     if (layout) onMove(layout.x, layout.y)
-  }, [pointerToLayout, onMove])
+  }
 
-  const handlePointerUp = useCallback((e: PointerEvent) => {
+  const handlePointerUp = (e: PointerEvent) => {
     if (!draggingRef.current) return
     draggingRef.current = false
     if (controls) (controls as any).enabled = true
@@ -99,21 +193,18 @@ export default function ObserverMarker({ center, position, isDark, onMove, onRel
     const layout = pointerToLayout(e)
     if (layout) onRelease(layout.x, layout.y)
     onDragEnd?.()
-  }, [controls, pointerToLayout, onRelease, handlePointerMove, onDragEnd])
+  }
 
-  const handlePointerDown = useCallback((e: any) => {
+  const handlePointerDown = (e: any) => {
+    if (ghost) return
     e.stopPropagation()
     draggingRef.current = true
     onDragStart?.()
-    // Disable orbit so dragging the marker doesn't rotate the camera.
     if (controls) (controls as any).enabled = false
     window.addEventListener('pointermove', handlePointerMove)
     window.addEventListener('pointerup', handlePointerUp)
-  }, [controls, handlePointerMove, handlePointerUp, onDragStart])
+  }
 
-  // The outer group already applies the -center offset, so inside it the local
-  // position is simply the raw layout coords (matches FloorPlanRenderer, where
-  // a layout point [x,y] is drawn at local (x, h, y) inside the same group).
   const localX = position.x
   const localZ = position.y
 
@@ -125,25 +216,18 @@ export default function ObserverMarker({ center, position, isDark, onMove, onRel
         onPointerOver={ghost ? undefined : () => { gl.domElement.style.cursor = 'grab' }}
         onPointerOut={ghost ? undefined : () => { gl.domElement.style.cursor = 'auto' }}
       >
-        {/* Base disc */}
         <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.18, 0.32, 32]} />
           <meshBasicMaterial color={accent} transparent opacity={ghost ? 0.2 : 0.9} side={THREE.DoubleSide} />
         </mesh>
-
-        {/* Body */}
         <mesh position={[0, (PERSON_HEIGHT - HEAD_RADIUS * 2) / 2, 0]} castShadow>
           <cylinderGeometry args={[0.12, 0.20, PERSON_HEIGHT - HEAD_RADIUS * 2, 16]} />
           <meshStandardMaterial color={accent} roughness={0.6} metalness={0} emissive={accent} emissiveIntensity={emissiveInt} transparent opacity={matOpacity} />
         </mesh>
-
-        {/* Head */}
         <mesh position={[0, PERSON_HEIGHT - HEAD_RADIUS, 0]} castShadow>
           <sphereGeometry args={[HEAD_RADIUS, 16, 16]} />
           <meshStandardMaterial color={accent} roughness={0.6} metalness={0} emissive={accent} emissiveIntensity={emissiveInt} transparent opacity={matOpacity} />
         </mesh>
-
-        {/* Vertical guide line */}
         <line>
           <bufferGeometry>
             <bufferAttribute attach="attributes-position" args={[new Float32Array([0, 0, 0, 0, PERSON_HEIGHT, 0]), 3]} />

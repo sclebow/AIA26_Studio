@@ -464,15 +464,26 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
     setPathMode(prev => {
       const next = !prev
       if (next) {
-        // Turning ON: clear old ghost and start fresh
         setPersonMode(false)
         setPlacing(false)
-        setPathPoints([])
+        // Keep existing pathPoints so user resumes where they left off
       }
       // Turning OFF: keep points so ghost persists
       return next
     })
   }, [])
+
+  const handleUpdatePathPoint = useCallback((index: number, x: number, y: number) => {
+    setPathPoints(prev => prev.map((pt, i) => i === index ? { x, y } : pt))
+  }, [])
+
+  const handleReleasePathPoint = useCallback((index: number, x: number, y: number) => {
+    setPathPoints(prev => {
+      const updated = prev.map((pt, i) => i === index ? { x, y } : pt)
+      if (updated.length >= 2) onObserverPath?.(updated)
+      return updated
+    })
+  }, [onObserverPath])
 
   useEffect(() => {
     if (!pathMode) return
@@ -544,6 +555,8 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
             onRelease={() => {}}
             pathMode
             pathPoints={pathPoints}
+            onUpdatePathPoint={handleUpdatePathPoint}
+            onReleasePathPoint={handleReleasePathPoint}
           />
         )}
       </Canvas>
@@ -587,10 +600,34 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
         gap: 4,
         alignItems: 'center',
       }}>
+        {/* Clear path — only visible when path exists */}
+        {pathPoints.length > 0 && (
+          <button
+            onClick={() => setPathPoints([])}
+            title="Clear path"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              background: colors.panelBg,
+              border: `1px solid ${colors.border}`,
+              borderRadius: 8, padding: '5px 8px',
+              color: colors.muted, fontSize: 9, fontWeight: 600,
+              letterSpacing: '0.04em', textTransform: 'uppercase',
+              cursor: 'pointer', fontFamily: colors.font,
+              transition: 'color 0.2s, border-color 0.2s',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#ef4444'; (e.currentTarget as HTMLElement).style.borderColor = '#ef4444' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = colors.muted; (e.currentTarget as HTMLElement).style.borderColor = colors.border }}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        )}
+
         {/* Path toggle */}
         <button
           onClick={handleTogglePath}
-          title={pathMode ? 'Cancel path — Esc also cancels' : 'Draw an observer path (click points, dbl-click to finish)'}
+          title={pathMode ? 'Pause path drawing' : pathPoints.length > 0 ? 'Resume path drawing' : 'Draw an observer path (click points, dbl-click to finish)'}
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             background: colors.panelBg,
