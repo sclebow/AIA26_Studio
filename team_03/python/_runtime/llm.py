@@ -215,9 +215,15 @@ def _parse_llm_json(content: str) -> dict[str, Any]:
     except json.JSONDecodeError:
         pass
 
-    raise RuntimeError(
-        "Could not extract JSON from LLM response: {}".format(content_stripped[:200])
-    )
+    # Last resort: the model replied in prose with no usable JSON (common on
+    # chatty/greeting/conflict turns). Rather than crash and burn retries, treat
+    # the whole reply as a conversational final message so the agent still speaks.
+    print("[llm] No JSON found — treating the reply as a conversational final message.")
+    return {
+        "action": "final",
+        "final_response": content_stripped,
+        "message": content_stripped,
+    }
 
 
 def _strip_json_blocks(content: str) -> str:

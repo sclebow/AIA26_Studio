@@ -353,11 +353,16 @@ MEMORY_CONTEXT_TEMPLATE = (
     "{memory_text}\n"
     "\nIMPORTANT — items under the '## User Rules' heading above are BINDING "
     "constraints the user set explicitly. You MUST honor every one of them on "
-    "each placement and move, unless the user's latest message overrides them. "
-    "If the current request cannot satisfy all User Rules at once (e.g. two rules "
-    "conflict, or a rule conflicts with the new instruction), DO NOT silently "
-    "ignore a rule: state the conflict plainly and ask the user which rule takes "
-    "priority before acting.\n"
+    "each placement and move, unless the user's latest message overrides them.\n"
+    "When two rules conflict (or a rule conflicts with the request):\n"
+    "- If the user has NOT yet chosen a priority: ask ONCE, in one sentence, which "
+    "rule should win. Ask only once.\n"
+    "- If the user HAS already indicated a priority — in their latest message OR "
+    "anywhere earlier in this conversation (e.g. they answered 'isolation', "
+    "'visibility', 'sight lines', 'the first one') — STOP asking. Act NOW: treat the "
+    "chosen rule as the hard constraint and the conflicting rule as best-effort, "
+    "then PLACE or MOVE the object with an action:tool call. Never re-ask a conflict "
+    "the user already resolved, and never reach a checkpoint having done nothing.\n"
 )
 
 MEMORY_DISTILL_PROMPT = """You maintain the long-term memory of an industrial \
