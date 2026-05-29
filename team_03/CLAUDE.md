@@ -1,7 +1,9 @@
 # Team 03 — Industrial Spatial Flow Agent
 
-> Canonical project documentation. Consolidates the former MASTER_CLAUDE.md and
-> MASTER_CLAUDE_V2.md into a single source of truth. The agent is **industrial-only**.
+> Canonical project documentation for the entire `team_03/` folder. Lives at
+> `team_03/CLAUDE.md` (moved here from `ramon_experiments/conversations/`).
+> Consolidates the former MASTER_CLAUDE.md and MASTER_CLAUDE_V2.md into a single
+> source of truth. The agent is **industrial-only**.
 
 ## What this project does
 
@@ -26,8 +28,10 @@ LangGraph (graph.py)
     +-- profile_agent.py       (identify movement profile: forklift, worker, crane...)
     +-- space_type_agent.py    (detect space subtype: workshop, warehouse, assembly...)
     +-- populate_agent.py      (optional: zone-by-zone layout population)
-    +-- prompts.py             (SYSTEM_PROMPT, SPACE/PROFILE/POPULATE templates)
-    +-- reason.py              (LLM decision: place / tool / query / final)
+    +-- memory.py              (per-layout durable memory + protected User Rules)
+    +-- prompts.py             (SYSTEM_PROMPT, SPACE/PROFILE/POPULATE/MEMORY templates)
+    +-- reason.py              (LLM decision: place / tool / query / final; injects
+    |                           memory + spatial graph; captures agent_message narrative)
     +-- tools.py               (execute MCP tool calls)
     +-- add_objects.py         (place_objects MCP + spatial graph rebuild)
     |
@@ -54,7 +58,7 @@ LangGraph (graph.py)
     |
     _runtime/
     +-- bootstrap.py           (Context dataclass, session init, MCP, LLM)
-    +-- llm.py                 (call_llm, call_llm_simple, LLM provider abstraction)
+    +-- llm.py                 (call_llm, call_llm_simple, narrative capture, provider abstraction)
     +-- mcp_client.py          (HTTP JSON-RPC client for Swiftlet)
     +-- session.py             (create/save/close session_active.json)
     +-- utils.py               (_slim_layout, _format_tool_catalog)
@@ -70,9 +74,14 @@ LangGraph (graph.py)
 ```
 START -> profile_agent -> space_type_agent -> populate_check
                                                |
-                              populate prompt?  +-- YES -> populate_agent -> reason
-                                                +-- NO  --------------------> reason
+                              populate prompt?  +-- YES -> populate_agent -> memory -> reason
+                                                +-- NO  ----------------------> memory -> reason
                                                |
+  memory: loads memory/<layout>.md, distills the latest user message into durable
+          facts (User Rules block kept verbatim), injected into reason every turn.
+          Runs on each user-message entry point (startup, populate, checkpoint
+          "continue"); skipped on internal tool/adjustment loops.
+
 reason:
                               +----------------+----------------+
                               v                v                v
@@ -107,8 +116,10 @@ reason:
                            scoring
                               v
                         user_checkpoint
+                        | shows "Agent:" chat message + active User Rules
                         | 1=BEFORE  2=AFTER  3=collision  4=visibility  5=paths
                         | 0=clear overlays   s1..s5=smart suggestions
+                        | rule:/mem:/remember: add rule   forget: <n|text|all> remove
                         +--------+--------+
                       approved        continue -> reason
                         |
@@ -129,6 +140,31 @@ reason:
 - **Profile Agent** (`nodes/profile_agent.py`) — Identifies the movement profile from the prompt (industrial profiles only). Outputs `profile_config` (reach envelope, min path width, turning radius). Default: `standard_worker`.
 - **Space Type Agent** (`nodes/space_type_agent.py`) — Detects the industrial subtype (workshop, warehouse, assembly, fabrication, clean room...) and outputs `space_config` (analysis priorities, clearances, per-tool weight overrides).
 - **Populate Agent** (`nodes/populate_agent.py`) — Optional zone-by-zone population flow. Splits a room into functional zones, then for each zone calls `calculate_zone_coordinates()` (LLM, `POPULATE_COORDS_PROMPT`) to compute x,y placements respecting clearance, doors, windows, and MEP. Fills the `zone_queue`; `reason` then drains it placement-by-placement. Always places with `standard_worker` profile.
+
+---
+
+## Conversational Memory & User Rules
+
+Per-layout durable memory persisted to `team_03/memory/<layout_name>.md` (gitignored — it is per-user local data). The **Memory node** (`nodes/memory.py`) loads the file once per session, distills the latest user message into durable facts via `MEMORY_DISTILL_PROMPT`, and writes it back immediately (crash-safe). `reason.py` injects `state["memory_text"]` (via `MEMORY_CONTEXT_TEMPLATE`) on every turn so the LLM recalls facts and preferences across sessions.
+
+### Two kinds of memory
+| Kind | Heading | How saved | Distiller behavior |
+|------|---------|-----------|--------------------|
+| **User Rules** (binding) | `## User Rules` | `rule:` / `mem:` / `remember:` checkpoint command (verbatim) | **Protected** — `distill_memory` strips this block out before the LLM call and re-attaches it verbatim, so it can never be reworded, softened, or dropped |
+| **Distilled facts** (soft) | `## Preferences`, `## Decisions`, … | Auto-distilled from each user message | Merged/deduplicated by the LLM each turn |
+
+User Rules are presented to the reason LLM as **binding constraints** (`MEMORY_CONTEXT_TEMPLATE`): it must honor them on every placement/move, and if a request conflicts with a rule (or two rules conflict), it must surface the conflict and ask which takes priority rather than silently ignoring a rule.
+
+### Checkpoint memory commands
+- `rule: <text>` (aliases `mem:`, `remember:`) — add a binding rule, verbatim.
+- `forget: <n>` — remove rule number n; `forget: <text>` — remove by substring; `forget: all` — clear all.
+- `rules` / `mem` — list current rules without changing anything.
+- Active User Rules are printed on every checkpoint under "Memory — active user rules (always enforced)".
+
+Helpers live in `nodes/memory.py`: `split_rules`, `compose_memory`, `add_user_rule`, `remove_user_rule`, `list_user_rules`. Legacy `## User notes` headings are recognized and migrated to `## User Rules`.
+
+### Agent chat message
+The reason LLM's human-readable narrative is captured every turn as `state["agent_message"]` — `final_response` on a `final` turn, or the prose surrounding the JSON on a `tool`/placement turn (extracted by `_extract_narrative` in `_runtime/llm.py`). The checkpoint renders it as an indented **"Agent:"** block right above the `Your decision:` prompt, so the agent's message is visible without scrolling up to the truncated `[anthropic] Raw response preview`.
 
 ---
 
@@ -393,10 +429,11 @@ pip install langchain-openai langchain-anthropic langgraph grandalf shapely http
 
 ```
 team_03/
+  CLAUDE.md                       # This document (canonical for all of team_03/)
   python/
     main.py                       # CLI entry point
     graph.py                      # LangGraph StateGraph, AgentState, enrich_graph_node
-    prompts.py                    # SYSTEM/SPACE/PROFILE/POPULATE prompts
+    prompts.py                    # SYSTEM/SPACE/PROFILE/POPULATE/MEMORY prompts
     spatial_graph.py              # NetworkX spatial relationship graph module
     visualize_interactive.py      # Interactive live HTML graph visualizer (port 7477)
     test_spatial_graph.py         # Standalone matplotlib graph visualizer
@@ -405,7 +442,8 @@ team_03/
       profile_agent.py            # Industrial profile detection (forklift/worker/crane...)
       space_type_agent.py         # Space subtype detection (workshop/warehouse/assembly...)
       populate_agent.py           # Zone-by-zone layout population
-      reason.py                   # LLM decision node (injects spatial_graph_text)
+      memory.py                   # Durable per-layout memory + protected User Rules
+      reason.py                   # LLM decision node (injects memory + spatial graph)
       tools.py                    # Generic MCP tool execution
       add_objects.py              # Object placement + spatial graph rebuild
       fan_out.py                  # analysis_fan_out_node + group1_join_node
@@ -430,6 +468,8 @@ team_03/
     residential_100/              # On disk but out of scope (agent is industrial-only)
   workspace/
     session_active.json           # Live session state (ephemeral)
+  memory/
+    <layout_name>.md              # Per-layout durable memory + User Rules (gitignored)
   output/                         # Timestamped final layouts
   gh/
     team_03_working.gh
@@ -440,7 +480,6 @@ team_03/
   AGENT_ui/                       # Full-stack web UI (see AGENT_ui/CLAUDE.md)
   ramon_experiments/
     conversations/
-      CLAUDE.md                   # This document (canonical)
       RAMY_CLAUDE.md
     topologic_graph/ ...          # Reference spatial graph + report
     python_tools/                 # Archived utility scripts
