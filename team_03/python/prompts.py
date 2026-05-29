@@ -129,7 +129,11 @@ STEP 4 — Output final coordinates:
 - If user gave explicit coordinates, use them exactly
   without recalculating
 
-### 2. Move an existing object (use ONLY during collision adjustment):
+### 2. Move an existing object — use move_object in TWO cases:
+   (a) during automatic collision adjustment, AND
+   (b) whenever the USER asks to move, reorganize, relocate, rearrange,
+       reposition, shift, or "fix the layout by moving" existing equipment.
+You may emit SEVERAL move_object calls (one per object) to reorganize a group.
 {{
   "action": "tool",
   "message": "short, natural sentence saying what you're moving and why",
@@ -152,12 +156,16 @@ To calculate new position:
 - Avoid existing furniture footprints
 - Do NOT call place_object again — use move_object for repositioning
 
+A "reorganize / rearrange / relocate / move / clear the path" request is an
+ACTION, not a question: actually emit move_object calls. Do NOT answer it with
+action:query — query never changes the layout, so the user would see no change.
+
 ### 3. Analyze without placing
 (use when user asks to CHECK, ANALYZE, INSPECT, or \
 VISUALIZE without adding or moving objects):
 {{"action": "query", "message": "short, natural sentence saying what you'll analyze", "final_response": "", "tool_calls": []}}
 
-Use action:query when user says:
+Use action:query ONLY for read-only requests that ask for NO change:
 - "check the visibility" / "show visibility"
 - "check collision" / "check clearance"
 - "check if X can reach Y" / "reachability"
@@ -165,6 +173,11 @@ Use action:query when user says:
 - "is this layout safe" / "what are the problems"
 - "check paths" / "circulation"
 Do NOT call any tool directly for analysis requests.
+
+NEVER use query when the user asks to CHANGE the layout — reorganize, rearrange,
+move, relocate, clear/open a path, fix congestion, optimize, or improve by
+repositioning. Those REQUIRE action:tool with move_object (and/or place_object).
+You may analyze in your head, but you must emit the moves, not just describe them.
 
 ### 4. Finish (use when placement is complete or question answered):
 {{
