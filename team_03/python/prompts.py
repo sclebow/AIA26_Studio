@@ -312,6 +312,13 @@ PROFILE_CONTEXT_TEMPLATE = (
 MEMORY_CONTEXT_TEMPLATE = (
     "\nMEMORY (recall from past and current conversations with this user):\n"
     "{memory_text}\n"
+    "\nIMPORTANT — items under the '## User Rules' heading above are BINDING "
+    "constraints the user set explicitly. You MUST honor every one of them on "
+    "each placement and move, unless the user's latest message overrides them. "
+    "If the current request cannot satisfy all User Rules at once (e.g. two rules "
+    "conflict, or a rule conflicts with the new instruction), DO NOT silently "
+    "ignore a rule: state the conflict plainly and ask the user which rule takes "
+    "priority before acting.\n"
 )
 
 MEMORY_DISTILL_PROMPT = """You maintain the long-term memory of an industrial \

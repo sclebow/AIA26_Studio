@@ -2,6 +2,10 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 from _runtime.session import save_session
+from nodes.memory import (
+    _memory_path, load_memory, save_memory,
+    add_user_rule, remove_user_rule, list_user_rules,
+)
 
 if TYPE_CHECKING:
     from graph import AgentState
@@ -375,6 +379,19 @@ def build_user_checkpoint_node(mcp_client):
             for sug in suggestions:
                 print(f"  {CYAN}{sug['key']}{RESET} = {sug['label']}")
 
+        # Always surface the binding user rules so they are visible in the chat
+        # on every checkpoint. These are honored by the reason node each turn.
+        try:
+            _active_rules = list_user_rules(
+                state.get("memory_text") or load_memory(_memory_path(state))
+            )
+        except Exception:
+            _active_rules = []
+        if _active_rules:
+            print(f"\n{BOLD}Memory — active user rules (always enforced):{RESET}")
+            for _i, _rule in enumerate(_active_rules, 1):
+                print(f"  {CYAN}{_i}.{RESET} {_rule}")
+
         populate_done = state.get("populate_done")
         if populate_done and zone_queue:
             next_zone_name = zone_queue[0].get("zone_name", "next zone")
@@ -383,15 +400,18 @@ def build_user_checkpoint_node(mcp_client):
             print(f"Next zone: '{next_zone_name}' ({next_count} objects)")
             print(f"  {GREEN}'yes'{RESET}     -> proceed to next zone")
             print(f"  {GREEN}'end'{RESET}     -> save layout and get final analysis")
+            print(f"  {GREEN}'rule: <text>'{RESET} -> add a binding memory rule  |  {GREEN}'forget: <n|text>'{RESET} -> remove one")
             print(f"  anything else -> describe changes to make to this zone")
         elif populate_done and not zone_queue:
             print(f"\n{BOLD}All zones complete — full layout ready.{RESET}")
             print(f"  {GREEN}'end'{RESET}     -> save layout and get final analysis")
+            print(f"  {GREEN}'rule: <text>'{RESET} -> add a binding memory rule  |  {GREEN}'forget: <n|text>'{RESET} -> remove one")
             print(f"  anything else -> describe any final changes")
         else:
             print(f"\n{BOLD}Actions:{RESET}")
             print("  'yes'     -> proceed to next zone")
             print("  'end'     -> save layout and get final analysis")
+            print("  'rule: <text>' -> add a binding memory rule  |  'forget: <n|text>' -> remove one")
             print("  anything else -> describe changes to make to this zone")
         print(f"{'=' * 60}")
         print()
@@ -420,10 +440,69 @@ def build_user_checkpoint_node(mcp_client):
             mcp_client.call_tool("collision-detector-grid", args, timeout=30.0)
             print(f"  -> {label} sent to collision-detector-grid")
 
+        # Tracks force-saved memory notes so the new text both persists to disk
+        # immediately (crash-safe) and propagates to the in-session memory_text.
+        pending_memory_text: str | None = None
+
         while True:
             user_input = input("Your decision: ").strip()
 
             try:
+                _cmd = user_input.lower()
+
+                def _current_memory() -> str:
+                    """Latest memory text: in-loop edits, then session, then disk."""
+                    if pending_memory_text is not None:
+                        return pending_memory_text
+                    return state.get("memory_text") or load_memory(_memory_path(state))
+
+                def _print_rules(mem_text: str) -> None:
+                    rules = list_user_rules(mem_text)
+                    if rules:
+                        print(f"  {BOLD}Active user rules:{RESET}")
+                        for i, r in enumerate(rules, 1):
+                            print(f"    {CYAN}{i}.{RESET} {r}")
+                    else:
+                        print("  (no user rules saved)")
+
+                # Add a binding rule (verbatim, protected from the distiller).
+                if _cmd.startswith(("mem:", "remember:", "rule:")):
+                    note = user_input.split(":", 1)[1].strip()
+                    if not note:
+                        print("  -> Nothing to save. Usage:  rule: <fact to enforce>")
+                        continue
+                    path = _memory_path(state)
+                    pending_memory_text = add_user_rule(_current_memory(), note)
+                    save_memory(path, pending_memory_text)
+                    print(f"  {GREEN}-> Rule saved ({path.name}):{RESET} {note}")
+                    _print_rules(pending_memory_text)
+                    continue
+
+                # Remove a rule by 1-based index, substring, or 'all'.
+                if _cmd.startswith(("forget:", "mem-del:", "unrule:")):
+                    selector = user_input.split(":", 1)[1].strip()
+                    if not selector:
+                        print("  -> Usage:  forget: <rule number | text | all>")
+                        _print_rules(_current_memory())
+                        continue
+                    path = _memory_path(state)
+                    new_text, removed = remove_user_rule(_current_memory(), selector)
+                    if removed:
+                        pending_memory_text = new_text
+                        save_memory(path, pending_memory_text)
+                        for r in removed:
+                            print(f"  {GREEN}-> Removed rule:{RESET} {r}")
+                    else:
+                        print(f"  -> No rule matched '{selector}'.")
+                    _print_rules(pending_memory_text if pending_memory_text is not None
+                                 else _current_memory())
+                    continue
+
+                # List current rules without changing anything.
+                if _cmd in ("rules", "mem", "mem-list", "memory"):
+                    _print_rules(_current_memory())
+                    continue
+
                 if user_input == "1":
                     active_layout = original
                     active_label = "BEFORE"
@@ -485,6 +564,10 @@ def build_user_checkpoint_node(mcp_client):
         updates: dict = {"previous_scoring": scoring}
         if restored:
             updates["layout_json_string"] = json.dumps(current_layout)
+        # Surface any force-saved memory notes to the running session so the
+        # reason node (via the memory node) sees them without a restart.
+        if pending_memory_text is not None:
+            updates["memory_text"] = pending_memory_text
 
 
         if user_input.lower() in ("approve", "approved", "yes", "ok", "done", "y"):
