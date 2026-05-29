@@ -357,7 +357,7 @@ export default function App() {
           gridColumn: '3', gridRow: '1 / 3',
           borderLeft: panelBorder, background: sidebarBg,
           display: 'grid',
-          gridTemplateRows: '2fr 4fr 1fr',
+          gridTemplateRows: '1fr 1fr 260px',
           overflow: 'hidden', minHeight: 0,
         }}>
 
