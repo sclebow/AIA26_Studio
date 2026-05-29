@@ -287,8 +287,11 @@ def _route_after_checkpoint(state: AgentState) -> str:
     if state.get("user_approved") and not zone_queue:
         return "approved"
 
-    # Empty input with no zones left → done
-    if (state.get("_query_mode") is False
+    # Empty input with no zones left → done. Only auto-exit when the user gave NO
+    # actionable instruction; a real reply (e.g. answering a conflict question like
+    # "isolation") must loop back to reason, not end the session.
+    if (not user_input
+            and state.get("_query_mode") is False
             and not state.get("placement_history")
             and not zone_queue):
         return "query_done"
