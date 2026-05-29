@@ -7,6 +7,7 @@ import ChatPanel from './components/ChatPanel/ChatPanel';
 import Dashboard from './components/Dashboard/Dashboard';
 import ProcessPanel from './components/ProcessPanel/ProcessPanel';
 import LayoutLoader from './components/LayoutLoader/LayoutLoader';
+import SelectionPanel from './components/ThreeViewport/SelectionPanel';
 import ReasoningLog from './components/ReasoningLog/ReasoningLog';
 import ThemeToggle, { useTheme } from './components/common/ThemeToggle';
 import FloatingPanel from './components/common/FloatingPanel';
@@ -312,7 +313,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Layers — grows to fill remaining sidebar height */}
+          {/* Layers — grows to fill middle space */}
           {layoutState.layout ? (
             <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', borderTop: panelBorder }}>
               <div style={sectionHeaderStyle}><span>Layers</span></div>
@@ -323,6 +324,16 @@ export default function App() {
           ) : (
             <div style={{ flex: 1 }} />
           )}
+
+          {/* Properties — 260px, matches Agent Chat height */}
+          <div style={{ flexShrink: 0, height: 260, borderTop: panelBorder }}>
+            <SelectionPanel
+              selectedId={selectedId}
+              layout={layoutState.layout}
+              graphData={layoutState.graphData}
+              onClose={() => select(null, 'viewport')}
+            />
+          </div>
         </div>
 
         {/* ── CENTER (col 2, row 1) ─────────────────────────────────────── */}

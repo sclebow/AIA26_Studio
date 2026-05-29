@@ -6,7 +6,6 @@ import FloorPlanRenderer from './FloorPlanRenderer'
 import PulseHighlight from './PulseHighlight'
 import Labels3D from './Labels3D'
 import ViewCube from './ViewCube'
-import SelectionPanel from './SelectionPanel'
 import ObserverMarker from './ObserverMarker'
 import { useTheme } from '../common/ThemeToggle'
 import { LayoutJSON, LayerVisibility } from '../../types'
@@ -342,8 +341,6 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
   const [pathPoints, setPathPoints] = useState<Array<{ x: number; y: number }>>([])
   const threeRef = useRef<{ camera: THREE.Camera; gl: THREE.WebGLRenderer } | null>(null)
   const cameraAnglesRef = useRef({ azimuth: 0.75, elevation: 0.6 })
-  const clickScreenPosRef = useRef<{ x: number; y: number } | null>(null)
-  const [clickScreenPos, setClickScreenPos] = useState<{ x: number; y: number } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const viewCounter = useRef(0)
 
@@ -504,16 +501,11 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
     onSelect(null)
   }, [onSelect])
 
-  const handleContainerClick = useCallback((e: React.MouseEvent) => {
-    const pos = { x: e.clientX, y: e.clientY }
-    clickScreenPosRef.current = pos
-    setClickScreenPos(pos)
-  }, [])
 
   const bgColor = isDark ? '#1a1b24' : '#ffffff'
 
   return (
-    <div ref={containerRef} onClick={handleContainerClick} style={{ width: '100%', height: '100%', position: 'relative' }}>
+    <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
       <Canvas
         camera={{ position: cameraConfig.position, fov: cameraConfig.fov, near: 0.1, far: 500 }}
         style={{ width: '100%', height: '100%', background: bgColor, transition: 'background 0.3s ease' }}
@@ -703,14 +695,6 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
       />
 
       {/* Selection detail panel */}
-      <SelectionPanel
-        selectedId={selectedId}
-        layout={layout}
-        graphData={graphData || null}
-        onClose={handleClosePanel}
-        clickPosition={clickScreenPos}
-      />
-
       {/* Path HUD — mutually exclusive with observer point HUD (personMode and pathMode can't both be true) */}
       {pathMode && (
         <div style={{
