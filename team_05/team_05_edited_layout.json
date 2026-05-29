@@ -45,9 +45,9 @@
           4.5
         ]
       ],
-      "rate_per_m2": 3301.0,
+      "rate_per_m2": 3200,
       "area_m2": 36.0,
-      "total_cost": 118836.0,
+      "total_cost": 115200,
       "color_hex": "#BD0026",
       "color_rgb": [
         189,
@@ -78,16 +78,16 @@
           4.5
         ]
       ],
-      "rate_per_m2": 2786.0,
+      "rate_per_m2": 2901.0,
       "area_m2": 27.0,
-      "total_cost": 75222.0,
-      "color_hex": "#FDAE49",
+      "total_cost": 78327.0,
+      "color_hex": "#FA9D3C",
       "color_rgb": [
-        253,
-        174,
-        73
+        250,
+        157,
+        60
       ],
-      "heat_t": 0.5107
+      "heat_t": 0.5687
     },
     {
       "id": "corridor",
@@ -114,13 +114,13 @@
       "rate_per_m2": 1500,
       "area_m2": 28.0,
       "total_cost": 42000,
-      "color_hex": "#FEE5A3",
+      "color_hex": "#FEE4A1",
       "color_rgb": [
         254,
-        229,
-        163
+        228,
+        161
       ],
-      "heat_t": 0.138
+      "heat_t": 0.1439
     },
     {
       "id": "master_bed",
@@ -147,13 +147,13 @@
       "rate_per_m2": 2800,
       "area_m2": 22.5,
       "total_cost": 63000,
-      "color_hex": "#FEC561",
+      "color_hex": "#FEC35E",
       "color_rgb": [
         254,
-        197,
-        97
+        195,
+        94
       ],
-      "heat_t": 0.3736
+      "heat_t": 0.3895
     },
     {
       "id": "bedroom_2",
@@ -246,13 +246,13 @@
       "rate_per_m2": 4500,
       "area_m2": 13.5,
       "total_cost": 60750,
-      "color_hex": "#FEC965",
+      "color_hex": "#FEC762",
       "color_rgb": [
         254,
-        201,
-        101
+        199,
+        98
       ],
-      "heat_t": 0.3483
+      "heat_t": 0.3632
     }
   ],
   "openings": [
@@ -918,16 +918,16 @@
     "ranges": {
       "rooms": {
         "min": 29700,
-        "max": 118836.0
+        "max": 115200
       }
     }
   },
   "totals": {
     "currency": "USD",
-    "rooms": 419208.0,
+    "rooms": 418677.0,
     "doors": 15700,
     "windows": 27900,
     "columns": 47000,
-    "grand": 509808.0
+    "grand": 509277.0
   }
 }
