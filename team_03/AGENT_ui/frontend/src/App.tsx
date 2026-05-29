@@ -52,7 +52,6 @@ export default function App() {
   const [displayMode, setDisplayMode] = useState<ViewMode>('geometry');
   const [animPhase, setAnimPhase] = useState<'idle' | 'out' | 'in'>('idle');
   const [logOpen, setLogOpen] = useState(false);
-  const [workflowsOpen, setWorkflowsOpen] = useState(false);
   const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasRunningRef = useRef(false);
 
@@ -272,36 +271,8 @@ export default function App() {
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}>
 
-          {/* Previous Workflows */}
-          <div style={{ flexShrink: 0 }}>
-            <div style={{ ...sectionHeaderStyle, cursor: 'pointer' }} onClick={() => setWorkflowsOpen(v => !v)}>
-              <span>Previous Workflows</span>
-              <span style={{ fontSize: 8, opacity: 0.5 }}>{workflowsOpen ? '▲' : '▼'}</span>
-            </div>
-            {workflowsOpen && (
-              <div style={{ maxHeight: 200, overflowY: 'auto' }}>
-                {layoutState.availableLayouts.length === 0 ? (
-                  <div style={{ padding: '8px 12px', fontSize: 10, color: colors.muted }}>No layouts found</div>
-                ) : (
-                  layoutState.availableLayouts.map(l => (
-                    <button key={l.name} onClick={() => handleLayoutSelect(l.name)} style={{
-                      display: 'block', width: '100%', textAlign: 'left',
-                      padding: '6px 12px', border: 'none',
-                      borderBottom: `1px solid ${colors.border}`,
-                      background: layoutState.selectedLayoutName === l.name ? colors.accentDim : 'transparent',
-                      color: layoutState.selectedLayoutName === l.name ? colors.accent : colors.text,
-                      fontSize: 11, cursor: 'pointer', fontFamily: colors.font, letterSpacing: '0.02em',
-                    }}>
-                      {l.name}
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-
           {/* Layout Loader */}
-          <div style={{ flexShrink: 0, borderTop: panelBorder }}>
+          <div style={{ flexShrink: 0 }}>
             <div style={sectionHeaderStyle}><span>Layout Loader</span></div>
             <div style={{ padding: 8 }}>
               <LayoutLoader
