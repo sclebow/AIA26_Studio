@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import queue
+import re as _re
 import threading
 import uuid
 from pathlib import Path
@@ -26,6 +27,7 @@ from typing import Any, Optional
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import os
@@ -113,37 +115,39 @@ def _read_persona() -> Optional[dict]:
 class SessionReq(BaseModel):
     session_id: Optional[str] = None
 
-
 class MessageReq(SessionReq):
     text: str
-
 
 class PrepareInspireReq(SessionReq):
     text: str = ""
     b64s: list[str] = []
     round: int = 1
 
-
 class RefineInspireReq(SessionReq):
     refine_desc: str = ""
     round: int = 2
-
 
 class PicksReq(SessionReq):
     round: int
     urls: list[str] = []
 
-
 class MoodboardReq(SessionReq):
     sense_counts: dict[str, int] = {}
-
 
 class ProfileChatReq(SessionReq):
     text: str
 
+class LayoutSelectReq(BaseModel):
+    session_id: Optional[str] = None
+    layout_id: str
+
+class LayoutUploadReq(BaseModel):
+    session_id: Optional[str] = None
+    layout_json: str
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Endpoints
+# Endpoints — ALL routes must be registered before app.mount("/", ...)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/api/health")
@@ -172,7 +176,6 @@ def message(req: MessageReq) -> dict:
     sid, slot = _slot(req.session_id)
     msg, new_session = run_agent(req.text, _CTX, slot["session"])
     slot["session"] = new_session
-    # Pass new_session as final_state proxy — per-turn fields are stored there
     return {"session_id": sid, **contracts.agent_response_payload(msg, new_session, new_session)}
 
 
@@ -193,7 +196,7 @@ def _inspire_stream(slot: dict, sid: str, *, text: str, b64s: list,
                     round_num: int, refine_desc: str = "") -> StreamingResponse:
     """Run an inspire round in a worker thread; stream progress + result as SSE."""
     insp = slot["inspire"]
-    if not refine_desc:                 # prepare: record text + images
+    if not refine_desc:
         insp["text"] = text
         insp["b64s"] = b64s
     llm = _CTX.llm_simple
@@ -230,14 +233,12 @@ def _inspire_stream(slot: dict, sid: str, *, text: str, b64s: list,
 
 @app.post("/api/inspire/prepare")
 def inspire_prepare(req: PrepareInspireReq) -> StreamingResponse:
-    """Kick off a moodboard round (SSE). Mirrors SensiBridge.prepareInspire."""
     sid, slot = _slot(req.session_id)
     return _inspire_stream(slot, sid, text=req.text, b64s=req.b64s, round_num=req.round)
 
 
 @app.post("/api/inspire/refine")
 def inspire_refine(req: RefineInspireReq) -> StreamingResponse:
-    """Fetch the next round with a refinement cue (SSE). Mirrors SensiBridge.refineInspire."""
     sid, slot = _slot(req.session_id)
     return _inspire_stream(slot, sid, text="", b64s=[],
                            round_num=req.round, refine_desc=req.refine_desc)
@@ -245,7 +246,6 @@ def inspire_refine(req: RefineInspireReq) -> StreamingResponse:
 
 @app.post("/api/inspire/picks")
 def inspire_picks(req: PicksReq) -> dict:
-    """Store the user's selected image URLs for a round. Mirrors saveInspirePicks."""
     sid, slot = _slot(req.session_id)
     key = {1: "r1_picks", 2: "r2_picks", 3: "final_picks"}.get(req.round, "final_picks")
     slot["inspire"][key] = req.urls
@@ -254,7 +254,6 @@ def inspire_picks(req: PicksReq) -> dict:
 
 @app.post("/api/inspire/moodboard")
 def inspire_moodboard(req: MoodboardReq) -> dict:
-    """Finalise inspire -> compile persona. Mirrors SensiBridge.buildMoodboard."""
     sid, slot = _slot(req.session_id)
     insp = slot["inspire"]
     sess = slot["session"]
@@ -286,12 +285,7 @@ def inspire_moodboard(req: MoodboardReq) -> dict:
 
 @app.post("/api/layout")
 def layout(req: SessionReq) -> dict:
-    """Return the current session's layout JSON for the in-UI 2D/3D viewer.
-
-    The agent stores the loaded layout as a JSON string on the session
-    (layout_json_string); the viewer parses it into geometry. Empty if no
-    layout has been loaded yet this session.
-    """
+    """Return the current session's layout JSON for the in-UI 2D/3D viewer."""
     sid, slot = _slot(req.session_id)
     raw = slot["session"].get("layout_json_string", "")
     layout_obj = None
@@ -307,6 +301,48 @@ def layout(req: SessionReq) -> dict:
     }
 
 
+@app.post("/api/layout/select")
+def layout_select(req: LayoutSelectReq) -> dict:
+    """Select a named layout by ID. Stores layout_id on session so next agent turn loads it."""
+    sid, slot = _slot(req.session_id)
+    slot["session"]["layout_id"] = req.layout_id
+    slot["session"]["last_scores_json"] = ""
+    slot["session"]["last_conflicts_json"] = ""
+    slot["session"]["last_suggestions_json"] = ""
+    slot["session"]["layout_json_string"] = ""
+    return {"session_id": sid, "ok": True, "layout_id": req.layout_id}
+
+
+@app.post("/api/layout/upload")
+def layout_upload(req: LayoutUploadReq) -> dict:
+    """Upload a custom layout JSON. Saves to randomized_layouts/ and selects it."""
+    sid, slot = _slot(req.session_id)
+    try:
+        data = json.loads(req.layout_json)
+    except Exception:
+        return {"session_id": sid, "ok": False, "error": "Invalid JSON"}
+
+    layout_id = str(data.get("layoutId", f"custom-{sid[:6]}"))
+    layout_id = _re.sub(r"[^a-zA-Z0-9\-]", "-", layout_id)
+
+    layouts_dir = _CTX.layout_input_dir if _CTX else (
+        Path(__file__).resolve().parent.parent.parent / "randomized_layouts"
+    )
+    save_path = layouts_dir / f"layout_{layout_id}.json"
+    try:
+        save_path.write_text(req.layout_json, encoding="utf-8")
+    except Exception as exc:
+        return {"session_id": sid, "ok": False, "error": str(exc)}
+
+    slot["session"]["layout_id"] = layout_id
+    slot["session"]["last_scores_json"] = ""
+    slot["session"]["last_conflicts_json"] = ""
+    slot["session"]["last_suggestions_json"] = ""
+    slot["session"]["layout_json_string"] = ""
+
+    return {"session_id": sid, "ok": True, "layout_id": layout_id, "name": data.get("name", layout_id)}
+
+
 @app.post("/api/profile-chat")
 def profile_chat(req: ProfileChatReq) -> dict:
     """Profile-review chat (direct LLM, no graph). Mirrors SensiBridge.profileChat."""
@@ -316,8 +352,9 @@ def profile_chat(req: ProfileChatReq) -> dict:
     return {"session_id": sid, **result}
 
 
-# ── Phase 7: serve the built SPA so one origin serves API + app (one link) ──
-from fastapi.staticfiles import StaticFiles
+# ── SPA static file mount — MUST come after all @app.post / @app.get routes ──
+# StaticFiles mounted at "/" intercepts every unmatched path. Any route defined
+# after this mount will be shadowed and return 405 for non-GET methods.
 _DIST = Path(__file__).resolve().parent.parent.parent / "web" / "dist"
 if _DIST.exists():
     app.mount("/", StaticFiles(directory=str(_DIST), html=True), name="spa")

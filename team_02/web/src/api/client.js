@@ -88,3 +88,19 @@ export const prepareInspire = (text, b64s, round, cbs) =>
 
 export const refineInspire = (refineDesc, round, cbs) =>
   inspireStream("/api/inspire/refine", { refine_desc: refineDesc, round }, cbs);
+
+// Layout management
+export const selectLayout = (layout_id) => post("/api/layout/select", { layout_id });
+
+export const uploadLayout = async (file) => {
+  const text = await file.text();
+  const res = await fetch(`${BASE}/api/layout/upload`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: getSessionId(), layout_json: text }),
+  });
+  if (!res.ok) throw new Error(`layout upload failed: ${res.status}`);
+  const data = await res.json();
+  if (data.session_id) setSessionId(data.session_id);
+  return data;
+};
