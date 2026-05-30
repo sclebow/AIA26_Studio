@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import { Html } from '@react-three/drei'
+import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { LayoutJSON } from '../../types'
 
@@ -71,6 +72,45 @@ export default function Labels3D({ layout, isDark, center }: Labels3DProps) {
     return items
   }, [layout, center])
 
+  // Geometry size — drives the zoom threshold for swapping label sets.
+  const maxDim = useMemo(() => {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+    for (const [x, y] of layout.outline) {
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x)
+      minY = Math.min(minY, y); maxY = Math.max(maxY, y)
+    }
+    return Math.max(maxX - minX, maxY - minY) || 1
+  }, [layout])
+
+  // Zoom-driven label swap: far away → only room titles; close in → only
+  // element tags. A hysteresis band (near/far) prevents flicker at the edge.
+  const [showElements, setShowElements] = useState(false)
+  const showElementsRef = useRef(false)
+  const controls = useThree(s => s.controls) as { target: THREE.Vector3 } | null
+  const tmpTarget = useRef(new THREE.Vector3())
+
+  useFrame(({ camera }) => {
+    const target = controls?.target ?? tmpTarget.current
+    // Visible world height — zoom-agnostic, works for both ortho (wheel changes
+    // camera.zoom) and perspective (wheel changes distance).
+    let visH: number
+    const ortho = camera as THREE.OrthographicCamera
+    if (ortho.isOrthographicCamera) {
+      visH = (ortho.top - ortho.bottom) / ortho.zoom
+    } else {
+      const persp = camera as THREE.PerspectiveCamera
+      const dist = camera.position.distanceTo(target)
+      visH = 2 * dist * Math.tan((persp.fov * Math.PI / 180) / 2)
+    }
+    const near = maxDim * 0.72   // less of the scene visible than this → element tags
+    const far = maxDim * 0.92    // more visible than this → room titles
+    if (!showElementsRef.current && visH < near) {
+      showElementsRef.current = true; setShowElements(true)
+    } else if (showElementsRef.current && visH > far) {
+      showElementsRef.current = false; setShowElements(false)
+    }
+  })
+
   const typeColors: Record<string, string> = {
     room: isDark ? '#B5A898' : '#8a7e72',
     door: isDark ? '#C4896E' : '#a06848',
@@ -85,29 +125,28 @@ export default function Labels3D({ layout, isDark, center }: Labels3DProps) {
 
   return (
     <group>
-      {/* Element tags — perspective-scaled (transform) so distant tags shrink. */}
-      {elementLabels.map(label => (
+      {/* Element tags — only when zoomed IN. Constant screen size so they're
+          clearly readable. */}
+      {showElements && elementLabels.map(label => (
         <Html
           key={label.id}
           position={label.position}
           center
-          sprite
-          transform
-          scale={0.4}
+          zIndexRange={[90, 0]}
           style={{ pointerEvents: 'none' }}
         >
           <div style={{
             background: isDark ? 'rgba(22,24,32,0.82)' : 'rgba(255,255,255,0.88)',
             color: typeColors[label.type] || (isDark ? '#aabbcc' : '#334455'),
-            padding: '2px 6px',
+            padding: '3px 8px',
             borderRadius: 4,
-            fontSize: 10,
-            fontWeight: 500,
+            fontSize: 12,
+            fontWeight: 600,
             fontFamily: '-apple-system, system-ui, sans-serif',
             whiteSpace: 'nowrap',
             letterSpacing: '0.02em',
             border: `1px solid ${isDark ? 'rgba(120,130,150,0.20)' : 'rgba(100,110,130,0.15)'}`,
-            maxWidth: 120,
+            maxWidth: 160,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             userSelect: 'none',
@@ -117,9 +156,8 @@ export default function Labels3D({ layout, isDark, center }: Labels3DProps) {
         </Html>
       ))}
 
-      {/* Room titles — constant screen size (no transform) so they stay legible
-          at any zoom, and a touch larger/bolder than the element tags. */}
-      {roomLabels.map(label => (
+      {/* Room titles — only when zoomed OUT. Constant screen size. */}
+      {!showElements && roomLabels.map(label => (
         <Html
           key={label.id}
           position={label.position}
