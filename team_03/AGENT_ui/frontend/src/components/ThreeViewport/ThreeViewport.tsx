@@ -2,7 +2,7 @@ import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react'
 import { Canvas, useThree, useFrame } from '@react-three/fiber'
 import { OrbitControls, Grid, ContactShadows } from '@react-three/drei'
 import * as THREE from 'three'
-import FloorPlanRenderer from './FloorPlanRenderer'
+import FloorPlanRenderer, { type RenderMode } from './FloorPlanRenderer'
 import PulseHighlight from './PulseHighlight'
 import Labels3D from './Labels3D'
 import ViewCube from './ViewCube'
@@ -35,6 +35,7 @@ interface ThreeViewportProps {
 interface SceneProps extends ThreeViewportProps {
   isDark: boolean
   showLabels: boolean
+  renderMode: RenderMode
 }
 
 // ── Camera angle tracker — writes to a ref, never triggers re-renders ──
@@ -205,7 +206,7 @@ function RendererConfig({ isDark }: { isDark: boolean }) {
   return null
 }
 
-function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels, modifiedIds }: SceneProps & { modifiedIds?: Set<string> }) {
+function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels, renderMode, modifiedIds }: SceneProps & { modifiedIds?: Set<string> }) {
   const bounds = useMemo(() => {
     const pts = layout.outline
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
@@ -219,6 +220,24 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
   }, [layout])
 
   const center = useMemo(() => ({ x: bounds.cx, z: bounds.cz }), [bounds])
+
+  // Centroid (world coords) of the selected element — drives a point light that
+  // makes the selection glow and cast onto its neighbours in *every* render mode.
+  const selectedCenter = useMemo(() => {
+    if (!selectedId) return null
+    const groups = [layout.rooms, layout.doors, layout.windows, layout.furniture, layout.mep, layout.structure]
+    for (const g of groups) {
+      const el = g.find(e => e.id === selectedId)
+      if (el && el.geometry.length) {
+        let sx = 0, sy = 0
+        for (const [x, y] of el.geometry) { sx += x; sy += y }
+        const n = el.geometry.length
+        const h = (el.attributes as { height?: number }).height ?? 2.6
+        return { x: sx / n, y: sy / n, h: Math.max(h * 0.8, 1.6) }
+      }
+    }
+    return null
+  }, [selectedId, layout])
 
   const bgColor = isDark ? '#15101f' : '#ffffff'
 
@@ -303,6 +322,22 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
         position={[0, 0.004, 0]}
       />
 
+      {/* Selected-object glow — illuminates and casts shadow onto neighbours in
+          every render mode (coords = world − centred-group offset). */}
+      {selectedCenter && (
+        <pointLight
+          position={[selectedCenter.x - center.x, selectedCenter.h, selectedCenter.y - center.z]}
+          color="#a78bfa"
+          intensity={3.2}
+          distance={bounds.maxDim * 0.9}
+          decay={2}
+          castShadow
+          shadow-mapSize-width={1024}
+          shadow-mapSize-height={1024}
+          shadow-bias={-0.0005}
+        />
+      )}
+
       {/* Floor plan */}
       <FloorPlanRenderer
         layout={layout}
@@ -310,6 +345,7 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
         selectedId={selectedId}
         onSelect={onSelect}
         isDark={isDark}
+        renderMode={renderMode}
       />
 
       {/* 3D Labels */}
@@ -346,6 +382,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
   const showLabels = showLabelsProp ?? internalShowLabels
   const toggleLabels = onToggleLabels ?? (() => setInternalShowLabels(v => !v))
   const [isOrtho, setIsOrtho] = useState(true)
+  const [renderMode, setRenderMode] = useState<RenderMode>('rendered')
   const [viewCommand, setViewCommand] = useState<string | null>(null)
   const [personMode, setPersonMode] = useState(false)
   const [personPos, setPersonPos] = useState<{ x: number; y: number } | null>(null)
@@ -547,6 +584,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
           layers={layers}
           isDark={isDark}
           showLabels={showLabels}
+          renderMode={renderMode}
           modifiedIds={modifiedIds}
         />
         {personPos && (
@@ -736,13 +774,67 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
         </button>
       </div>
 
-      {/* ViewCube + Ortho toggle */}
-      <ViewCube
-        onViewChange={handleViewChange}
-        isOrtho={isOrtho}
-        onToggleOrtho={handleToggleOrtho}
-        cameraAnglesRef={cameraAnglesRef}
-      />
+      {/* ViewCube + render-mode buttons — one absolute column, no overlaps */}
+      <div style={{
+        position: 'absolute',
+        top: 12,
+        right: 8,
+        zIndex: 20,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 8,
+      }}>
+        <ViewCube
+          onViewChange={handleViewChange}
+          isOrtho={isOrtho}
+          onToggleOrtho={handleToggleOrtho}
+          cameraAnglesRef={cameraAnglesRef}
+        />
+
+        {/* Render-mode switch (Rhino-style): Rendered / Shaded / Wireframe / Ghosted */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+          width: 84,
+        }}>
+          {([
+            ['rendered', 'RENDERED'],
+            ['shaded', 'SHADED'],
+            ['wireframe', 'WIRE'],
+            ['ghosted', 'GHOST'],
+          ] as [RenderMode, string][]).map(([mode, label]) => {
+            const active = renderMode === mode
+            return (
+              <button
+                key={mode}
+                onClick={() => setRenderMode(mode)}
+                title={`${label} view`}
+                style={{
+                  width: '100%',
+                  background: active ? colors.accentDim : colors.panelBg,
+                  border: `1px solid ${active ? colors.accent + '88' : colors.border}`,
+                  borderRadius: 6,
+                  padding: '4px 6px',
+                  color: active ? colors.accent : colors.muted,
+                  fontSize: 9,
+                  fontWeight: 700,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  fontFamily: colors.font,
+                  transition: 'color 0.2s, border-color 0.2s, background 0.2s',
+                }}
+                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = colors.accent }}
+                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = colors.muted }}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       {/* Selection detail panel */}
       {/* Path HUD — mutually exclusive with observer point HUD (personMode and pathMode can't both be true) */}

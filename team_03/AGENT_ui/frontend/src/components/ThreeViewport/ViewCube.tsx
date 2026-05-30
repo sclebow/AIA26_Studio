@@ -181,14 +181,11 @@ export default function ViewCube({ onViewChange, isOrtho, onToggleOrtho, cameraA
 
   return (
     <div style={{
-      position: 'absolute',
-      top: 12,
-      right: 8,
+      position: 'relative',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       gap: 6,
-      zIndex: 20,
       pointerEvents: 'auto',
     }}>
       {/* Rotating View Cube */}

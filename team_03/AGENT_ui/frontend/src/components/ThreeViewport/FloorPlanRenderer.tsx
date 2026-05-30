@@ -172,9 +172,10 @@ interface FloorPlanRendererProps {
   selectedId: string | null
   onSelect: (id: string | null) => void
   isDark?: boolean
+  renderMode?: RenderMode
 }
 
-export default function FloorPlanRenderer({ layout, layers, selectedId, onSelect, isDark = true }: FloorPlanRendererProps) {
+export default function FloorPlanRenderer({ layout, layers, selectedId, onSelect, isDark = true, renderMode = 'rendered' }: FloorPlanRendererProps) {
   // Compute center offset so layout is centered at origin
   const center = useMemo(() => {
     const outline = layout.outline
@@ -189,43 +190,75 @@ export default function FloorPlanRenderer({ layout, layers, selectedId, onSelect
   return (
     <group position={[-center.x, 0, -center.z]}>
       {layers.outline && <OutlineLayer outline={layout.outline} selectedId={selectedId} isDark={isDark} />}
-      {layers.rooms && <RoomsLayer rooms={layout.rooms} selectedId={selectedId} onSelect={onSelect} isDark={isDark} />}
-      {layers.structure && <StructureLayer items={layout.structure} doors={layout.doors} windows={layout.windows} selectedId={selectedId} onSelect={onSelect} isDark={isDark} />}
-      {layers.doors && <DoorsLayer items={layout.doors} selectedId={selectedId} onSelect={onSelect} isDark={isDark} />}
-      {layers.windows && <WindowsLayer items={layout.windows} selectedId={selectedId} onSelect={onSelect} isDark={isDark} />}
-      {layers.furniture && <FurnitureLayer items={layout.furniture} selectedId={selectedId} onSelect={onSelect} isDark={isDark} />}
-      {layers.mep && <MEPLayer items={layout.mep} selectedId={selectedId} onSelect={onSelect} isDark={isDark} />}
+      {layers.rooms && <RoomsLayer rooms={layout.rooms} selectedId={selectedId} onSelect={onSelect} isDark={isDark} renderMode={renderMode} />}
+      {layers.structure && <StructureLayer items={layout.structure} doors={layout.doors} windows={layout.windows} selectedId={selectedId} onSelect={onSelect} isDark={isDark} renderMode={renderMode} />}
+      {layers.doors && <DoorsLayer items={layout.doors} selectedId={selectedId} onSelect={onSelect} isDark={isDark} renderMode={renderMode} />}
+      {layers.windows && <WindowsLayer items={layout.windows} selectedId={selectedId} onSelect={onSelect} isDark={isDark} renderMode={renderMode} />}
+      {layers.furniture && <FurnitureLayer items={layout.furniture} selectedId={selectedId} onSelect={onSelect} isDark={isDark} renderMode={renderMode} />}
+      {layers.mep && <MEPLayer items={layout.mep} selectedId={selectedId} onSelect={onSelect} isDark={isDark} renderMode={renderMode} />}
     </group>
   )
 }
 
 // ── Shared types ──────────────────────────────────────────────────────
-type DarkProp = { isDark: boolean }
+type DarkProp = { isDark: boolean; renderMode: RenderMode }
 
-// ── Arctic palette — muted Scandinavian tones matching layer dot colors ──
-// Outline #6B7B9E  Rooms #B5A898  Walls #8B8F96  Doors #C4896E
-// Windows #7A9DB8  Furniture #9888AD  MEP #7EA68B
-// Dark variants carry a sci-fi purple tint (welcome aesthetic) while keeping a
-// distinct hue per layer for legibility; light mode unchanged.
+// Viewport render styles (Rhino-like).
+export type RenderMode = 'rendered' | 'wireframe' | 'shaded' | 'ghosted'
+
+// ── Palette — sci-fi purple family. Dark variants brightened for contrast so the
+// geometry reads clearly over the #15101f viewport background; light unchanged. ──
 const ARCTIC = {
-  room:      { dark: '#262035', light: '#eae6e2', edge: '#d4cec8' },   // indigo-tinted floor
-  wall:      { dark: '#46415e', light: '#c5c7cb', edge: '#a0a3a8' },   // slate-purple
-  door:      { dark: '#8a667c', light: '#edddd0', edge: '#d4b8a0' },   // warm orchid (contrast)
-  window:    { dark: '#5a6a96', light: '#dce8f0', edge: '#b0c8d8' },   // lavender-steel
-  furniture: { dark: '#665a86', light: '#e6e0ec', edge: '#c4b8d0' },   // violet
-  mep:       { dark: '#46685e', light: '#deeae2', edge: '#b0c8b8' },   // cool teal-green
+  room:      { dark: '#322b4a', light: '#eae6e2', edge: '#d4cec8' },   // indigo-tinted floor
+  wall:      { dark: '#564f74', light: '#c5c7cb', edge: '#a0a3a8' },   // slate-purple
+  door:      { dark: '#a06f8e', light: '#edddd0', edge: '#d4b8a0' },   // warm orchid (contrast)
+  window:    { dark: '#6b7ca8', light: '#dce8f0', edge: '#b0c8d8' },   // lavender-steel
+  furniture: { dark: '#7a6aa0', light: '#e6e0ec', edge: '#c4b8d0' },   // violet
+  mep:       { dark: '#4f7e6e', light: '#deeae2', edge: '#b0c8b8' },   // cool teal-green
 }
 
 // Sci-fi edge/selection accents (dark mode).
 const EDGE_DARK = {
-  outline:   '#8b5cf6',
-  wall:      '#8b7bd0',
-  door:      '#e0a0c4',
-  window:    '#8aa0e0',
-  furniture: '#a78bfa',
-  mep:       '#5eead4',
+  outline:   '#9a78ff',
+  wall:      '#9d8de0',
+  door:      '#e8aacf',
+  window:    '#96acec',
+  furniture: '#b89cff',
+  mep:       '#6df0d8',
 }
 const SELECT_EMISSIVE = '#a78bfa'
+
+// Shadows only make sense for solid fills (rendered/shaded).
+const castsShadow = (m: RenderMode) => m === 'rendered' || m === 'shaded'
+
+/** Material for solid layers, styled per render mode. */
+function SolidMaterial({ mode, color, roughness, metalness, selected }: {
+  mode: RenderMode; color: string; roughness: number; metalness: number; selected: boolean
+}) {
+  const emissive = selected ? SELECT_EMISSIVE : '#000000'
+  if (mode === 'wireframe') {
+    // No fill — only the <Edges> contours show.
+    return <meshBasicMaterial color={color} transparent opacity={0} depthWrite={false} />
+  }
+  if (mode === 'ghosted') {
+    return (
+      <meshStandardMaterial color={color} transparent opacity={0.26} depthWrite={false}
+        roughness={0.9} metalness={0}
+        emissive={emissive} emissiveIntensity={selected ? 0.6 : 0} />
+    )
+  }
+  if (mode === 'shaded') {
+    return (
+      <meshStandardMaterial color={color} roughness={1} metalness={0}
+        emissive={emissive} emissiveIntensity={selected ? 0.55 : 0} />
+    )
+  }
+  // rendered
+  return (
+    <meshStandardMaterial color={color} roughness={roughness} metalness={metalness}
+      emissive={emissive} emissiveIntensity={selected ? 0.75 : 0} />
+  )
+}
 
 // ── Outline ────────────────────────────────────────────────────────────
 function OutlineLayer({ outline, isDark }: { outline: [number, number][]; selectedId: string | null; isDark: boolean }) {
@@ -239,19 +272,19 @@ function OutlineLayer({ outline, isDark }: { outline: [number, number][]; select
 }
 
 // ── Rooms ──────────────────────────────────────────────────────────────
-function RoomsLayer({ rooms, selectedId, onSelect, isDark }: {
+function RoomsLayer({ rooms, selectedId, onSelect, isDark, renderMode }: {
   rooms: LayoutJSON['rooms']; selectedId: string | null; onSelect: (id: string | null) => void
 } & DarkProp) {
   return (
     <group>
       {rooms.map(room => (
-        <RoomMesh key={room.id} room={room} isSelected={selectedId === room.id} onSelect={onSelect} isDark={isDark} />
+        <RoomMesh key={room.id} room={room} isSelected={selectedId === room.id} onSelect={onSelect} isDark={isDark} renderMode={renderMode} />
       ))}
     </group>
   )
 }
 
-function RoomMesh({ room, isSelected, onSelect, isDark }: {
+function RoomMesh({ room, isSelected, onSelect, isDark, renderMode }: {
   room: LayoutJSON['rooms'][0]; isSelected: boolean; onSelect: (id: string | null) => void
 } & DarkProp) {
   const geo = useMemo(() => {
@@ -262,22 +295,28 @@ function RoomMesh({ room, isSelected, onSelect, isDark }: {
     return g
   }, [room.geometry])
 
+  // Floor: only receives shadows; wireframe shows just its outline.
   return (
-    <mesh geometry={geo} receiveShadow userData={{ elementId: room.id, type: 'room', name: room.name }}
+    <mesh geometry={geo} receiveShadow={castsShadow(renderMode)} userData={{ elementId: room.id, type: 'room', name: room.name }}
       onClick={(e) => { e.stopPropagation(); onSelect(room.id) }}>
-      <meshStandardMaterial
-        color={isDark ? ARCTIC.room.dark : ARCTIC.room.light}
-        side={THREE.DoubleSide}
-        roughness={0.82} metalness={0.04}
-        emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
-        emissiveIntensity={isSelected ? 0.35 : 0}
-      />
+      {renderMode === 'wireframe' ? (
+        <meshBasicMaterial color={isDark ? ARCTIC.room.dark : ARCTIC.room.light} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+      ) : (
+        <meshStandardMaterial
+          color={isDark ? ARCTIC.room.dark : ARCTIC.room.light}
+          side={THREE.DoubleSide}
+          transparent={renderMode === 'ghosted'} opacity={renderMode === 'ghosted' ? 0.26 : 1}
+          roughness={renderMode === 'shaded' ? 1 : 0.82} metalness={renderMode === 'shaded' ? 0 : 0.04}
+          emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
+          emissiveIntensity={isSelected ? 0.5 : 0}
+        />
+      )}
     </mesh>
   )
 }
 
 // ── Structure (walls) — extruded with door/window openings cut out ────────
-function StructureLayer({ items, doors, windows, selectedId, onSelect, isDark }: {
+function StructureLayer({ items, doors, windows, selectedId, onSelect, isDark, renderMode }: {
   items: LayoutJSON['structure']
   doors: LayoutJSON['doors']
   windows: LayoutJSON['windows']
@@ -299,13 +338,14 @@ function StructureLayer({ items, doors, windows, selectedId, onSelect, isDark }:
           isSelected={selectedId === wall.id}
           onSelect={onSelect}
           isDark={isDark}
+          renderMode={renderMode}
         />
       ))}
     </group>
   )
 }
 
-function WallMesh({ wall, openings, isSelected, onSelect, isDark }: {
+function WallMesh({ wall, openings, isSelected, onSelect, isDark, renderMode }: {
   wall: LayoutJSON['structure'][0]; openings: Opening[]; isSelected: boolean; onSelect: (id: string | null) => void
 } & DarkProp) {
   // One extruded box per solid sub-piece (segments between openings + sills/lintels).
@@ -321,18 +361,16 @@ function WallMesh({ wall, openings, isSelected, onSelect, isDark }: {
     })
   }, [wall.geometry, openings])
 
+  const shadow = castsShadow(renderMode)
   return (
     <group userData={{ elementId: wall.id, type: 'structure', name: wall.name }}
       onClick={(e) => { e.stopPropagation(); onSelect(wall.id) }}>
       {geos.map((g, i) => (
-        <mesh key={i} geometry={g} castShadow receiveShadow
+        <mesh key={i} geometry={g} castShadow={shadow} receiveShadow={shadow}
           userData={{ elementId: wall.id, type: 'structure', name: wall.name }}>
-          <meshStandardMaterial
+          <SolidMaterial mode={renderMode}
             color={isDark ? ARCTIC.wall.dark : (isSelected ? '#d0d8e4' : ARCTIC.wall.light)}
-            roughness={0.7} metalness={0.12}
-            emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
-            emissiveIntensity={isSelected ? 0.3 : 0}
-          />
+            roughness={0.7} metalness={0.12} selected={isSelected} />
           <Edges threshold={15} color={isDark ? EDGE_DARK.wall : ARCTIC.wall.edge} />
         </mesh>
       ))}
@@ -341,19 +379,19 @@ function WallMesh({ wall, openings, isSelected, onSelect, isDark }: {
 }
 
 // ── Doors ──────────────────────────────────────────────────────────────
-function DoorsLayer({ items, selectedId, onSelect, isDark }: {
+function DoorsLayer({ items, selectedId, onSelect, isDark, renderMode }: {
   items: LayoutJSON['doors']; selectedId: string | null; onSelect: (id: string | null) => void
 } & DarkProp) {
   return (
     <group>
       {items.map(door => (
-        <DoorMesh key={door.id} door={door} isSelected={selectedId === door.id} onSelect={onSelect} isDark={isDark} />
+        <DoorMesh key={door.id} door={door} isSelected={selectedId === door.id} onSelect={onSelect} isDark={isDark} renderMode={renderMode} />
       ))}
     </group>
   )
 }
 
-function DoorMesh({ door, isSelected, onSelect, isDark }: {
+function DoorMesh({ door, isSelected, onSelect, isDark, renderMode }: {
   door: LayoutJSON['doors'][0]; isSelected: boolean; onSelect: (id: string | null) => void
 } & DarkProp) {
   const { position, size, rotation } = useMemo(() => {
@@ -369,35 +407,32 @@ function DoorMesh({ door, isSelected, onSelect, isDark }: {
   }, [door.geometry])
 
   return (
-    <mesh position={position} rotation={rotation} castShadow receiveShadow
+    <mesh position={position} rotation={rotation} castShadow={castsShadow(renderMode)} receiveShadow={castsShadow(renderMode)}
       userData={{ elementId: door.id, type: 'door', name: door.name }}
       onClick={(e) => { e.stopPropagation(); onSelect(door.id) }}>
       <boxGeometry args={size} />
-      <meshStandardMaterial
+      <SolidMaterial mode={renderMode}
         color={isDark ? ARCTIC.door.dark : ARCTIC.door.light}
-        roughness={0.6} metalness={0.1}
-        emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
-        emissiveIntensity={isSelected ? 0.3 : 0}
-      />
+        roughness={0.6} metalness={0.1} selected={isSelected} />
       <Edges threshold={15} color={isDark ? EDGE_DARK.door : ARCTIC.door.edge} />
     </mesh>
   )
 }
 
 // ── Windows ────────────────────────────────────────────────────────────
-function WindowsLayer({ items, selectedId, onSelect, isDark }: {
+function WindowsLayer({ items, selectedId, onSelect, isDark, renderMode }: {
   items: LayoutJSON['windows']; selectedId: string | null; onSelect: (id: string | null) => void
 } & DarkProp) {
   return (
     <group>
       {items.map(win => (
-        <WindowMesh key={win.id} win={win} isSelected={selectedId === win.id} onSelect={onSelect} isDark={isDark} />
+        <WindowMesh key={win.id} win={win} isSelected={selectedId === win.id} onSelect={onSelect} isDark={isDark} renderMode={renderMode} />
       ))}
     </group>
   )
 }
 
-function WindowMesh({ win, isSelected, onSelect, isDark }: {
+function WindowMesh({ win, isSelected, onSelect, isDark, renderMode }: {
   win: LayoutJSON['windows'][0]; isSelected: boolean; onSelect: (id: string | null) => void
 } & DarkProp) {
   const { position, size, rotation } = useMemo(() => {
@@ -413,37 +448,42 @@ function WindowMesh({ win, isSelected, onSelect, isDark }: {
   }, [win.geometry])
 
   return (
-    <mesh position={position} rotation={rotation} castShadow receiveShadow
+    <mesh position={position} rotation={rotation} castShadow={castsShadow(renderMode)} receiveShadow={castsShadow(renderMode)}
       userData={{ elementId: win.id, type: 'window', name: win.name }}
       onClick={(e) => { e.stopPropagation(); onSelect(win.id) }}>
       <boxGeometry args={size} />
-      {/* Glassy, reflective material for windows */}
-      <meshStandardMaterial
-        color={isDark ? ARCTIC.window.dark : ARCTIC.window.light}
-        transparent opacity={0.55}
-        roughness={0.12} metalness={0.2}
-        emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
-        emissiveIntensity={isSelected ? 0.3 : 0}
-      />
+      {renderMode === 'rendered' ? (
+        // Glassy, reflective material for windows (rendered only)
+        <meshStandardMaterial
+          color={isDark ? ARCTIC.window.dark : ARCTIC.window.light}
+          transparent opacity={0.55} roughness={0.12} metalness={0.2}
+          emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
+          emissiveIntensity={isSelected ? 0.5 : 0}
+        />
+      ) : (
+        <SolidMaterial mode={renderMode}
+          color={isDark ? ARCTIC.window.dark : ARCTIC.window.light}
+          roughness={0.5} metalness={0.1} selected={isSelected} />
+      )}
       <Edges threshold={15} color={isDark ? EDGE_DARK.window : ARCTIC.window.edge} />
     </mesh>
   )
 }
 
 // ── Furniture ──────────────────────────────────────────────────────────
-function FurnitureLayer({ items, selectedId, onSelect, isDark }: {
+function FurnitureLayer({ items, selectedId, onSelect, isDark, renderMode }: {
   items: LayoutJSON['furniture']; selectedId: string | null; onSelect: (id: string | null) => void
 } & DarkProp) {
   return (
     <group>
       {items.map(item => (
-        <FurnitureMesh key={item.id} item={item} isSelected={selectedId === item.id} onSelect={onSelect} isDark={isDark} />
+        <FurnitureMesh key={item.id} item={item} isSelected={selectedId === item.id} onSelect={onSelect} isDark={isDark} renderMode={renderMode} />
       ))}
     </group>
   )
 }
 
-function FurnitureMesh({ item, isSelected, onSelect, isDark }: {
+function FurnitureMesh({ item, isSelected, onSelect, isDark, renderMode }: {
   item: LayoutJSON['furniture'][0]; isSelected: boolean; onSelect: (id: string | null) => void
 } & DarkProp) {
   const height = resolveHeight(item.name, item.attributes as Record<string, unknown>, 0.9)
@@ -455,33 +495,30 @@ function FurnitureMesh({ item, isSelected, onSelect, isDark }: {
   }, [item.geometry, height])
 
   return (
-    <mesh geometry={geo} castShadow receiveShadow userData={{ elementId: item.id, type: 'furniture', name: item.name }}
+    <mesh geometry={geo} castShadow={castsShadow(renderMode)} receiveShadow={castsShadow(renderMode)} userData={{ elementId: item.id, type: 'furniture', name: item.name }}
       onClick={(e) => { e.stopPropagation(); onSelect(item.id) }}>
-      <meshStandardMaterial
+      <SolidMaterial mode={renderMode}
         color={isDark ? ARCTIC.furniture.dark : ARCTIC.furniture.light}
-        roughness={0.55} metalness={0.18}
-        emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
-        emissiveIntensity={isSelected ? 0.3 : 0}
-      />
+        roughness={0.55} metalness={0.18} selected={isSelected} />
       <Edges threshold={15} color={isDark ? EDGE_DARK.furniture : ARCTIC.furniture.edge} />
     </mesh>
   )
 }
 
 // ── MEP ────────────────────────────────────────────────────────────────
-function MEPLayer({ items, selectedId, onSelect, isDark }: {
+function MEPLayer({ items, selectedId, onSelect, isDark, renderMode }: {
   items: LayoutJSON['mep']; selectedId: string | null; onSelect: (id: string | null) => void
 } & DarkProp) {
   return (
     <group>
       {items.map(item => (
-        <MEPMesh key={item.id} item={item} isSelected={selectedId === item.id} onSelect={onSelect} isDark={isDark} />
+        <MEPMesh key={item.id} item={item} isSelected={selectedId === item.id} onSelect={onSelect} isDark={isDark} renderMode={renderMode} />
       ))}
     </group>
   )
 }
 
-function MEPMesh({ item, isSelected, onSelect, isDark }: {
+function MEPMesh({ item, isSelected, onSelect, isDark, renderMode }: {
   item: LayoutJSON['mep'][0]; isSelected: boolean; onSelect: (id: string | null) => void
 } & DarkProp) {
   const height = resolveHeight(item.name, item.attributes as Record<string, unknown>, 0.5)
@@ -493,15 +530,12 @@ function MEPMesh({ item, isSelected, onSelect, isDark }: {
   }, [item.geometry, height])
 
   return (
-    <mesh geometry={geo} castShadow receiveShadow userData={{ elementId: item.id, type: 'mep', name: item.name }}
+    <mesh geometry={geo} castShadow={castsShadow(renderMode)} receiveShadow={castsShadow(renderMode)} userData={{ elementId: item.id, type: 'mep', name: item.name }}
       onClick={(e) => { e.stopPropagation(); onSelect(item.id) }}>
       {/* Metallic look for MEP (ducts/equipment) */}
-      <meshStandardMaterial
+      <SolidMaterial mode={renderMode}
         color={isDark ? ARCTIC.mep.dark : ARCTIC.mep.light}
-        roughness={0.4} metalness={0.35}
-        emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
-        emissiveIntensity={isSelected ? 0.3 : 0}
-      />
+        roughness={0.4} metalness={0.35} selected={isSelected} />
       <Edges threshold={15} color={isDark ? EDGE_DARK.mep : ARCTIC.mep.edge} />
     </mesh>
   )
