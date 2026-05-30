@@ -236,27 +236,26 @@ function SolidMaterial({ mode, color, roughness, metalness, selected }: {
   mode: RenderMode; color: string; roughness: number; metalness: number; selected: boolean
 }) {
   const emissive = selected ? SELECT_EMISSIVE : '#000000'
+  // `key={mode}` forces a fresh material instance per mode so toggled props
+  // (transparent/opacity/depthWrite, which need a shader recompile) never get
+  // stuck when returning to a previous mode — e.g. ghosted → rendered.
   if (mode === 'wireframe') {
     // No fill — only the <Edges> contours show.
-    return <meshBasicMaterial color={color} transparent opacity={0} depthWrite={false} />
+    return <meshBasicMaterial key={mode} color={color} transparent opacity={0} depthWrite={false} />
   }
-  if (mode === 'ghosted') {
-    return (
-      <meshStandardMaterial color={color} transparent opacity={0.26} depthWrite={false}
-        roughness={0.9} metalness={0}
-        emissive={emissive} emissiveIntensity={selected ? 0.6 : 0} />
-    )
-  }
-  if (mode === 'shaded') {
-    return (
-      <meshStandardMaterial color={color} roughness={1} metalness={0}
-        emissive={emissive} emissiveIntensity={selected ? 0.55 : 0} />
-    )
-  }
-  // rendered
+  const ghosted = mode === 'ghosted'
   return (
-    <meshStandardMaterial color={color} roughness={roughness} metalness={metalness}
-      emissive={emissive} emissiveIntensity={selected ? 0.75 : 0} />
+    <meshStandardMaterial
+      key={mode}
+      color={color}
+      transparent={ghosted}
+      opacity={ghosted ? 0.26 : 1}
+      depthWrite={!ghosted}
+      roughness={mode === 'shaded' ? 1 : ghosted ? 0.9 : roughness}
+      metalness={mode === 'rendered' ? metalness : 0}
+      emissive={emissive}
+      emissiveIntensity={selected ? (mode === 'rendered' ? 0.75 : mode === 'shaded' ? 0.55 : 0.6) : 0}
+    />
   )
 }
 
@@ -300,12 +299,14 @@ function RoomMesh({ room, isSelected, onSelect, isDark, renderMode }: {
     <mesh geometry={geo} receiveShadow={castsShadow(renderMode)} userData={{ elementId: room.id, type: 'room', name: room.name }}
       onClick={(e) => { e.stopPropagation(); onSelect(room.id) }}>
       {renderMode === 'wireframe' ? (
-        <meshBasicMaterial color={isDark ? ARCTIC.room.dark : ARCTIC.room.light} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+        <meshBasicMaterial key="wireframe" color={isDark ? ARCTIC.room.dark : ARCTIC.room.light} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
       ) : (
         <meshStandardMaterial
+          key={renderMode}
           color={isDark ? ARCTIC.room.dark : ARCTIC.room.light}
           side={THREE.DoubleSide}
           transparent={renderMode === 'ghosted'} opacity={renderMode === 'ghosted' ? 0.26 : 1}
+          depthWrite={renderMode !== 'ghosted'}
           roughness={renderMode === 'shaded' ? 1 : 0.82} metalness={renderMode === 'shaded' ? 0 : 0.04}
           emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
           emissiveIntensity={isSelected ? 0.5 : 0}
@@ -455,6 +456,7 @@ function WindowMesh({ win, isSelected, onSelect, isDark, renderMode }: {
       {renderMode === 'rendered' ? (
         // Glassy, reflective material for windows (rendered only)
         <meshStandardMaterial
+          key="rendered-glass"
           color={isDark ? ARCTIC.window.dark : ARCTIC.window.light}
           transparent opacity={0.55} roughness={0.12} metalness={0.2}
           emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
