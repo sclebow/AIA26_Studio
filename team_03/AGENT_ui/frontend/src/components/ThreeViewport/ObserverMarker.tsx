@@ -26,7 +26,7 @@ interface ObserverMarkerProps {
 // ── Draggable path node ──────────────────────────────────────────────────────
 
 function DraggablePathNode({
-  center, pt, index, onMove, onRelease, ghost,
+  center, pt, index, onMove, onRelease, ghost, color,
 }: {
   center: { x: number; z: number }
   pt: { x: number; y: number }
@@ -34,6 +34,7 @@ function DraggablePathNode({
   onMove: (i: number, x: number, y: number) => void
   onRelease: (i: number, x: number, y: number) => void
   ghost?: boolean
+  color: string
 }) {
   const { camera, gl, controls } = useThree()
   const dragging = useRef(false)
@@ -89,7 +90,7 @@ function DraggablePathNode({
     >
       <sphereGeometry args={[0.18, 12, 12]} />
       <meshStandardMaterial
-        color="#ef4444" roughness={0.5} emissive="#ef4444"
+        color={color} roughness={0.5} emissive={color}
         emissiveIntensity={ghost ? 0.1 : 0.4}
         transparent opacity={ghost ? 0.2 : 1.0}
       />
@@ -100,13 +101,14 @@ function DraggablePathNode({
 // ── Path renderer ────────────────────────────────────────────────────────────
 
 function PathRenderer({
-  center, pathPoints, ghost, onUpdatePoint, onReleasePoint,
+  center, pathPoints, ghost, onUpdatePoint, onReleasePoint, color,
 }: {
   center: { x: number; z: number }
   pathPoints: Array<{ x: number; y: number }>
   ghost?: boolean
   onUpdatePoint?: (i: number, x: number, y: number) => void
   onReleasePoint?: (i: number, x: number, y: number) => void
+  color: string
 }) {
   const linePositions = useMemo(() => {
     return new Float32Array(pathPoints.flatMap(pt => [pt.x, 0.15, pt.y]))
@@ -123,6 +125,7 @@ function PathRenderer({
           onMove={onUpdatePoint ?? (() => {})}
           onRelease={onReleasePoint ?? (() => {})}
           ghost={ghost}
+          color={color}
         />
       ))}
       {pathPoints.length >= 2 && (
@@ -130,7 +133,7 @@ function PathRenderer({
           <bufferGeometry>
             <bufferAttribute attach="attributes-position" args={[linePositions, 3]} />
           </bufferGeometry>
-          <lineBasicMaterial color="#ef4444" transparent opacity={ghost ? 0.25 : 0.7} />
+          <lineBasicMaterial color={color} transparent opacity={ghost ? 0.25 : 0.7} />
         </line>
       )}
     </group>
@@ -152,6 +155,9 @@ export default function ObserverMarker({
   const hitPoint = useMemo(() => new THREE.Vector3(), [])
   const ndc = useMemo(() => new THREE.Vector2(), [])
 
+  // Same purple as the person marker so the path matches.
+  const accent = isDark ? '#8b5cf6' : '#7c3aed'
+
   if (pathMode) {
     return (
       <PathRenderer
@@ -160,11 +166,11 @@ export default function ObserverMarker({
         ghost={ghost}
         onUpdatePoint={onUpdatePathPoint}
         onReleasePoint={onReleasePathPoint}
+        color={accent}
       />
     )
   }
 
-  const accent = isDark ? '#8b5cf6' : '#7c3aed'
   const matOpacity = ghost ? 0.22 : 1.0
   const emissiveInt = ghost ? 0.0 : 0.25
 

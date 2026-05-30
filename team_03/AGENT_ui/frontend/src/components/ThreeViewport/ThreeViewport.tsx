@@ -290,7 +290,9 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
         fadeDistance={100}
         fadeStrength={2.0}
         infiniteGrid
-        position={[0, 0.01, 0]}
+        // Sit ~6mm BELOW the room floor (which is at y=0.01) so the grid never
+        // shares the floor plane — avoids z-fighting/clipping with the geometry.
+        position={[0, 0.004, 0]}
       />
 
       {/* Floor plan */}
