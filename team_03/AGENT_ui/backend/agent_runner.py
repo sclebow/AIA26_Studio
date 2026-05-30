@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import builtins
 import contextlib
+import os
 import queue
 import threading
 from typing import Any, Dict, Optional
@@ -33,6 +34,15 @@ _NODE_ALIAS = {
     "path": "path_analysis",
     "user_checkpoint": "checkpoint",
 }
+
+
+# LangGraph super-step cap. The default (25) is too low for a full placement run:
+# setup + profile + space + memory + reason↔tool loops + the 5-tool analysis
+# fan-out + up to MAX_ADJUSTMENTS re-placement loops + scoring + checkpoint easily
+# exceeds 25 nodes. The graph's own caps (max_iterations, MAX_ADJUSTMENTS) bound
+# legitimate loops well below this, so a higher limit just lets a real run finish.
+# Overridable via the GRAPH_RECURSION_LIMIT env var.
+GRAPH_RECURSION_LIMIT = int(os.environ.get("GRAPH_RECURSION_LIMIT", "100"))
 
 
 # Sentinel pushed into the input queue to abort a blocked checkpoint so the
@@ -196,7 +206,11 @@ async def start_session(
         async def consume(app: Any, initial_state: Dict[str, Any]) -> Dict[str, Any]:
             """Stream node-level events from the real graph for live progress."""
             final_state: Dict[str, Any] = {}
-            async for ev in app.astream_events(initial_state, version="v2"):
+            async for ev in app.astream_events(
+                initial_state,
+                config={"recursion_limit": GRAPH_RECURSION_LIMIT},
+                version="v2",
+            ):
                 etype = ev.get("event")
                 node = (ev.get("metadata") or {}).get("langgraph_node")
                 name = ev.get("name")
