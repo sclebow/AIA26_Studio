@@ -472,6 +472,53 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapped]);
 
+  // ── Rhino-style panning: drag with MIDDLE or RIGHT mouse button ──────
+  // Matches the 3D viewport (left = select, middle/right = pan, scroll = zoom).
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    let panning = false;
+    let startVP = { x: 0, y: 0 };
+    let startX = 0, startY = 0;
+
+    const onMove = (e: PointerEvent) => {
+      const net = networkRef.current;
+      if (!panning || !net) return;
+      const scale = (net.getScale && net.getScale()) || 1;
+      const dx = (e.clientX - startX) / scale;
+      const dy = (e.clientY - startY) / scale;
+      net.moveTo({ position: { x: startVP.x - dx, y: startVP.y - dy } });
+    };
+    const onUp = () => {
+      panning = false;
+      el.style.cursor = '';
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    const onDown = (e: PointerEvent) => {
+      if (e.button !== 1 && e.button !== 2) return;  // middle or right only
+      const net = networkRef.current;
+      if (!net) return;
+      e.preventDefault();
+      panning = true;
+      startVP = net.getViewPosition();
+      startX = e.clientX; startY = e.clientY;
+      el.style.cursor = 'grabbing';
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    };
+    const onContext = (e: MouseEvent) => { e.preventDefault(); };
+
+    el.addEventListener('pointerdown', onDown);
+    el.addEventListener('contextmenu', onContext);
+    return () => {
+      el.removeEventListener('pointerdown', onDown);
+      el.removeEventListener('contextmenu', onContext);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+  }, []);
+
   // ── Label visibility: toggle (shared with 3D) + mini = selected-only ──
   useEffect(() => {
     const nodesDS = nodesDSRef.current;

@@ -88,7 +88,9 @@ export const NETWORK_OPTIONS = {
     hover: true,
     tooltipDelay: 150,
     dragNodes: false,
-    dragView: true,
+    // Left-drag pan disabled to match the 3D viewport (left = select only);
+    // panning is bound to middle/right mouse buttons in GraphPanel instead.
+    dragView: false,
     zoomView: true,
     multiselect: false,
   },
