@@ -20,19 +20,46 @@ interface OnboardingPageProps {
 
 const ROLES = ["Designer", "Engineer", "Researcher", "Factory Owner", "Contractor"];
 const EXPERIENCE = ["Beginner", "Intermediate", "Expert"];
+// Shared props for the minimalist line icons.
+const ICON = {
+  width: 22, height: 22, viewBox: "0 0 24 24", fill: "none",
+  stroke: "currentColor", strokeWidth: 1.6,
+  strokeLinecap: "round" as const, strokeLinejoin: "round" as const,
+};
+
 const LAYOUT_STATUS = [
-  { id: "existing", label: "Existing layout with equipment", icon: "▦" },
-  { id: "empty", label: "Empty layout, ready to populate", icon: "□" },
-  { id: "scratch", label: "Starting from scratch", icon: "✦" },
+  { id: "existing", label: "Existing layout with equipment", icon: (
+    <svg {...ICON}><rect x="3" y="4" width="18" height="16" rx="1" /><rect x="6" y="7" width="4" height="4" /><rect x="14" y="13" width="4" height="4" /></svg>
+  ) },
+  { id: "empty", label: "Empty layout, ready to populate", icon: (
+    <svg {...ICON}><rect x="3" y="4" width="18" height="16" rx="1" strokeDasharray="3 3" /></svg>
+  ) },
+  { id: "scratch", label: "Starting from scratch", icon: (
+    <svg {...ICON}><rect x="5" y="3" width="14" height="18" rx="1" /><path d="M12 9v6M9 12h6" /></svg>
+  ) },
 ];
 const WORKFLOWS = [
-  { id: "electronics", icon: "⚡", label: "Electronics Assembly", desc: "PCB lines, SMT, clean rooms" },
-  { id: "woodworking", icon: "🪵", label: "Woodworking", desc: "CNC routers, saws, finishing" },
-  { id: "metal", icon: "⚙️", label: "Metal Fabrication", desc: "Welding, press brakes, cutting" },
-  { id: "food", icon: "🏭", label: "Food Processing", desc: "Conveyors, packaging, cold storage" },
-  { id: "automotive", icon: "🔧", label: "Automotive", desc: "Assembly lines, paint booths" },
-  { id: "warehousing", icon: "📦", label: "Warehousing", desc: "Racks, forklifts, loading docks" },
-  { id: "custom", icon: "✏️", label: "Custom", desc: "Describe your own space" },
+  { id: "electronics", label: "Electronics Assembly", desc: "PCB lines, SMT, clean rooms", icon: (
+    <svg {...ICON}><rect x="7" y="7" width="10" height="10" rx="1" /><path d="M10 7V4M14 7V4M10 20v-3M14 20v-3M7 10H4M7 14H4M20 10h-3M20 14h-3" /></svg>
+  ) },
+  { id: "woodworking", label: "Woodworking", desc: "CNC routers, saws, finishing", icon: (
+    <svg {...ICON}><rect x="3" y="9" width="18" height="6" rx="1" /><path d="M6 12h5M14 11.5h4" /></svg>
+  ) },
+  { id: "metal", label: "Metal Fabrication", desc: "Welding, press brakes, cutting", icon: (
+    <svg {...ICON}><circle cx="12" cy="12" r="3.2" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" /></svg>
+  ) },
+  { id: "food", label: "Food Processing", desc: "Conveyors, packaging, cold storage", icon: (
+    <svg {...ICON}><rect x="8" y="6" width="8" height="6" rx="1" /><path d="M3 18h18" /><circle cx="6" cy="20" r="1.4" /><circle cx="12" cy="20" r="1.4" /><circle cx="18" cy="20" r="1.4" /></svg>
+  ) },
+  { id: "automotive", label: "Automotive", desc: "Assembly lines, paint booths", icon: (
+    <svg {...ICON}><path d="M5 11l1.6-4h8.8L17 11" /><rect x="3" y="11" width="18" height="5" rx="1" /><circle cx="7.5" cy="18" r="1.6" /><circle cx="16.5" cy="18" r="1.6" /></svg>
+  ) },
+  { id: "warehousing", label: "Warehousing", desc: "Racks, forklifts, loading docks", icon: (
+    <svg {...ICON}><rect x="3" y="4" width="18" height="16" rx="1" /><path d="M3 10h18M3 15h18M9 4v16M15 4v16" /></svg>
+  ) },
+  { id: "custom", label: "Custom", desc: "Describe your own space", icon: (
+    <svg {...ICON}><path d="M4 20l4-1L19 8l-3-3L5 16z" /><path d="M14 7l3 3" /></svg>
+  ) },
 ];
 
 export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
@@ -180,7 +207,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       transition: "all 0.2s",
       boxShadow: active ? "0 0 20px rgba(139,92,246,0.15)" : "none",
     }),
-    workflowIcon: { fontSize: "17px", marginBottom: "8px" },
+    workflowIcon: { marginBottom: "8px", display: "flex", justifyContent: "center", color: "#c4b5fd" } as React.CSSProperties,
     workflowLabel: (active: boolean): React.CSSProperties => ({
       fontSize: "11px", letterSpacing: "0.15em",
       color: active ? "rgb(255, 255, 255)" : "rgb(255, 255, 255)",
@@ -315,7 +342,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                     display: "flex", alignItems: "center", gap: "14px",
                   }}
                     onClick={() => setLayoutStatus(ls.id)}>
-                    <span style={{ fontSize: "16px", opacity: 0.8 }}>{ls.icon}</span>
+                    <span style={{ display: "flex", alignItems: "center", opacity: 0.85, color: "#c4b5fd" }}>{ls.icon}</span>
                     <span>{ls.label}</span>
                   </button>
                 ))}
