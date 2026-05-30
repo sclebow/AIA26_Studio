@@ -14,7 +14,7 @@ def classify_room_size(program: str, area: float) -> str:
     # Define size thresholds for each program type
     size_thresholds = {
         'living': {'small': 20, 'medium': 35},
-        'bed': {'small': 12, 'medium': 20},
+        'bed': {'small': 8, 'medium': 20},
         'bath': {'small': 5, 'medium': 10},
         'kitchen': {'small': 10, 'medium': 18},
         'foyer': {'small': 5, 'medium': 12},
