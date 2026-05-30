@@ -40,7 +40,7 @@ const WeightBar: React.FC<WeightBarProps> = ({ scores }) => {
 
   return (
     <div style={{ fontFamily: colors.font }}>
-      <div style={{ color: colors.muted, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
+      <div style={{ color: colors.muted, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
         Score Contributions
       </div>
       <div style={{ display: 'flex', height: 20, borderRadius: 6, overflow: 'hidden', gap: 1 }}>
@@ -60,10 +60,10 @@ const WeightBar: React.FC<WeightBarProps> = ({ scores }) => {
           const pct = totalContribution > 0 ? (tool.contribution / totalContribution) * 100 : 20;
           return (
             <div key={tool.key} style={{ width: `${pct}%`, overflow: 'hidden' }}>
-              <div style={{ color: getScoreColor(tool.score), fontSize: 9, letterSpacing: '0.03em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ color: getScoreColor(tool.score), fontSize: 10, letterSpacing: '0.03em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {tool.label}
               </div>
-              <div style={{ color: colors.muted, fontSize: 9 }}>{Math.round(tool.contribution)}</div>
+              <div style={{ color: colors.muted, fontSize: 10 }}>{Math.round(tool.contribution)}</div>
             </div>
           );
         })}

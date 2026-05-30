@@ -79,7 +79,7 @@ const EmptyState: React.FC = () => {
               letterSpacing: '-0.03em',
             }}>--</span>
             <span style={{
-              fontSize: 8,
+              fontSize: 10,
               fontWeight: 600,
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
@@ -112,10 +112,10 @@ const EmptyState: React.FC = () => {
           <span style={{ fontSize: 28, fontWeight: 800, opacity: 0.12 }}>?</span>
         </div>
         <div>
-          <div style={{ fontSize: 11, opacity: 0.6, letterSpacing: '0.04em' }}>
+          <div style={{ fontSize: 12, opacity: 0.6, letterSpacing: '0.04em' }}>
             Run the agent to generate
           </div>
-          <div style={{ fontSize: 11, opacity: 0.6, letterSpacing: '0.04em' }}>
+          <div style={{ fontSize: 12, opacity: 0.6, letterSpacing: '0.04em' }}>
             layout analysis scores
           </div>
         </div>
@@ -148,7 +148,7 @@ const Dashboard: React.FC<DashboardProps> = ({ scores }) => {
         </svg>
         <span style={{
           color: colors.text,
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: 600,
           letterSpacing: '0.12em',
           textTransform: 'uppercase',

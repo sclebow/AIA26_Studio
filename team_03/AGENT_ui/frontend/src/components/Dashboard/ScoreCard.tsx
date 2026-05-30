@@ -74,7 +74,7 @@ const ScoreCard: React.FC<ScoreCardProps> = ({ name, score, weight, maxScore = 1
       </div>
       <div style={{
         color: colors.text,
-        fontSize: 9,
+        fontSize: 10,
         fontWeight: 600,
         letterSpacing: '0.08em',
         textTransform: 'uppercase',
@@ -85,7 +85,7 @@ const ScoreCard: React.FC<ScoreCardProps> = ({ name, score, weight, maxScore = 1
       </div>
       <div style={{
         color: colors.muted,
-        fontSize: 8,
+        fontSize: 10,
         textAlign: 'center',
         letterSpacing: '0.04em',
         textTransform: 'uppercase',

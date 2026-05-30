@@ -107,14 +107,14 @@ export default function SelectionPanel({ selectedId, layout, graphData, onClose 
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
           {info && (
             <span style={{
-              fontSize: 8, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+              fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
               padding: '2px 6px', borderRadius: 4, background: typeColor + '22', color: typeColor,
             }}>
               {info.type}
             </span>
           )}
           <span style={{
-            fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
+            fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
             fontFamily: colors.fontHeading, color: colors.muted,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
@@ -124,7 +124,7 @@ export default function SelectionPanel({ selectedId, layout, graphData, onClose 
         {info && (
           <button onClick={onClose} style={{
             background: 'none', border: 'none', color: colors.muted,
-            cursor: 'pointer', fontSize: 13, padding: '2px 4px', borderRadius: 4,
+            cursor: 'pointer', fontSize: 12, padding: '2px 4px', borderRadius: 4,
           }}>✕</button>
         )}
       </div>
@@ -137,7 +137,7 @@ export default function SelectionPanel({ selectedId, layout, graphData, onClose 
           </div>
           {Object.keys(info.properties).length > 0 && (
             <>
-              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: colors.muted, marginBottom: 5 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: colors.muted, marginBottom: 5 }}>
                 Properties
               </div>
               {Object.entries(info.properties).map(([key, val]) => (
@@ -151,14 +151,14 @@ export default function SelectionPanel({ selectedId, layout, graphData, onClose 
           {info.connections.length > 0 && (
             <>
               <div style={{ height: 1, background: colors.border, margin: '8px 0' }} />
-              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: colors.muted, marginBottom: 5 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: colors.muted, marginBottom: 5 }}>
                 Connections ({info.connections.length})
               </div>
               {info.connections.map((conn, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0', borderBottom: i < info.connections.length - 1 ? `1px solid ${colors.border}` : 'none' }}>
                   <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: TYPE_COLORS[conn.type] || colors.muted }} />
                   <span style={{ flex: 1, fontSize: 10, color: colors.text }}>{conn.name}</span>
-                  <span style={{ fontSize: 9, color: TYPE_COLORS[conn.type] || colors.muted }}>{conn.edgeType}</span>
+                  <span style={{ fontSize: 10, color: TYPE_COLORS[conn.type] || colors.muted }}>{conn.edgeType}</span>
                 </div>
               ))}
             </>

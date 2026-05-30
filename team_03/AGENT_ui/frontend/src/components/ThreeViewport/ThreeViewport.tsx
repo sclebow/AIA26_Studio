@@ -624,7 +624,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
               background: colors.panelBg,
               border: `1px solid ${colors.border}`,
               borderRadius: 8, padding: '5px 8px',
-              color: colors.muted, fontSize: 9, fontWeight: 600,
+              color: colors.muted, fontSize: 10, fontWeight: 600,
               letterSpacing: '0.04em', textTransform: 'uppercase',
               cursor: 'pointer', fontFamily: colors.font,
               transition: 'color 0.2s, border-color 0.2s',
@@ -648,7 +648,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
             border: `1px solid ${pathMode ? colors.accent + '44' : colors.border}`,
             borderRadius: 8, padding: '5px 10px',
             color: pathMode ? colors.accent : colors.muted,
-            fontSize: 9, fontWeight: 600, letterSpacing: '0.04em',
+            fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
             textTransform: 'uppercase', cursor: 'pointer',
             fontFamily: colors.font, transition: 'color 0.2s, border-color 0.2s',
           }}
@@ -672,7 +672,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
             border: `1px solid ${personMode ? colors.accent + '44' : colors.border}`,
             borderRadius: 8, padding: '5px 10px',
             color: personMode ? colors.accent : colors.muted,
-            fontSize: 9, fontWeight: 600, letterSpacing: '0.04em',
+            fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
             textTransform: 'uppercase', cursor: 'pointer',
             fontFamily: colors.font, transition: 'color 0.2s, border-color 0.2s',
           }}
@@ -694,7 +694,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
             border: `1px solid ${colors.border}`,
             borderRadius: 8, padding: '5px 10px',
             color: colors.muted,
-            fontSize: 9, fontWeight: 600, letterSpacing: '0.04em',
+            fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
             textTransform: 'uppercase', cursor: 'pointer',
             fontFamily: colors.font, transition: 'color 0.2s, border-color 0.2s',
           }}
@@ -719,7 +719,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
             border: `1px solid ${showLabels ? colors.accent + '44' : colors.border}`,
             borderRadius: 8, padding: '5px 10px',
             color: showLabels ? colors.accent : colors.muted,
-            fontSize: 9, fontWeight: 600, letterSpacing: '0.04em',
+            fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
             textTransform: 'uppercase', cursor: 'pointer',
             fontFamily: colors.font, transition: 'color 0.2s, border-color 0.2s',
           }}
@@ -759,7 +759,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
           boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
         }}>
           <div style={{
-            fontSize: 9,
+            fontSize: 10,
             fontWeight: 600,
             letterSpacing: '0.06em',
             textTransform: 'uppercase',
@@ -768,7 +768,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
           }}>
             Observer Path
           </div>
-          <div style={{ fontSize: 11, color: colors.text, marginBottom: 6 }}>
+          <div style={{ fontSize: 12, color: colors.text, marginBottom: 6 }}>
             {pathPoints.length} point{pathPoints.length !== 1 ? 's' : ''} placed
           </div>
           <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
@@ -782,7 +782,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
                   border: `1px solid ${colors.accent}`,
                   background: colors.accentDim,
                   color: colors.accent,
-                  fontSize: 9,
+                  fontSize: 10,
                   fontWeight: 600,
                   letterSpacing: '0.04em',
                   textTransform: 'uppercase',
@@ -803,7 +803,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
                   border: `1px solid ${colors.border}`,
                   background: 'transparent',
                   color: colors.muted,
-                  fontSize: 9,
+                  fontSize: 10,
                   fontWeight: 600,
                   letterSpacing: '0.04em',
                   textTransform: 'uppercase',
@@ -815,7 +815,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
               </button>
             )}
           </div>
-          <div style={{ fontSize: 8.5, color: colors.muted, letterSpacing: '0.02em' }}>
+          <div style={{ fontSize: 10, color: colors.muted, letterSpacing: '0.02em' }}>
             {pathPoints.length < 2
               ? 'Click to add points. Dbl-click or Done (min 2 pts).'
               : 'Click to add more. Dbl-click or Done to finish. Esc to cancel.'}
@@ -839,7 +839,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
           boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
         }}>
           <div style={{
-            fontSize: 9,
+            fontSize: 10,
             fontWeight: 600,
             letterSpacing: '0.06em',
             textTransform: 'uppercase',
@@ -850,7 +850,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
           </div>
           {personPos ? (
             <>
-              <div style={{ display: 'flex', gap: 12, fontSize: 11, color: colors.text, marginBottom: 6 }}>
+              <div style={{ display: 'flex', gap: 12, fontSize: 12, color: colors.text, marginBottom: 6 }}>
                 <span>X <b>{personPos.x.toFixed(2)}</b></span>
                 <span>Y <b>{personPos.y.toFixed(2)}</b></span>
                 <span style={{ color: colors.muted }}>h 1.70</span>
@@ -858,7 +858,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <code style={{
                   flex: 1,
-                  fontSize: 11,
+                  fontSize: 12,
                   padding: '4px 6px',
                   borderRadius: 6,
                   background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
@@ -887,12 +887,12 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
                   </svg>
                 </button>
               </div>
-              <div style={{ fontSize: 8.5, color: colors.muted, marginTop: 6, letterSpacing: '0.02em' }}>
+              <div style={{ fontSize: 10, color: colors.muted, marginTop: 6, letterSpacing: '0.02em' }}>
                 {placing ? 'Click on the floor to place.' : 'Drag the figure, or toggle again to re-place. Sent to MCP on release.'}
               </div>
             </>
           ) : (
-            <div style={{ fontSize: 11, color: colors.muted, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: 12, color: colors.muted, display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{
                 display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
                 background: colors.accent, boxShadow: `0 0 6px ${colors.accent}`,

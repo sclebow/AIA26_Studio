@@ -59,3 +59,13 @@ export const lightTheme: ThemeColors = {
 };
 
 export const theme = darkTheme;
+
+/**
+ * Standardized studio font scale — 3 sizes only.
+ *   label (10): captions, data values, section/panel headers (Orbitron caps), legend, log
+ *   body  (12): chat messages, descriptions, inputs, buttons, properties values
+ *   title (14): the app logo / brand
+ * Large dashboard numerals (score/grade, ~16–28) are intentional display figures,
+ * not part of the text scale. The welcome/onboarding pages keep their own sizes.
+ */
+export const fontSize = { label: 10, body: 12, title: 14 } as const;

@@ -115,7 +115,7 @@ const ProcessPanel: React.FC<ProcessPanelProps> = ({ nodeStatuses }) => {
         </svg>
         <span style={{
           color: colors.text,
-          fontSize: '11px',
+          fontSize: '12px',
           fontWeight: 600,
           letterSpacing: '0.12em',
           textTransform: 'uppercase',
@@ -149,7 +149,7 @@ const ProcessPanel: React.FC<ProcessPanelProps> = ({ nodeStatuses }) => {
                 {/* "parallel" micro-label */}
                 <div style={{
                   color: muteColor,
-                  fontSize: '8px',
+                  fontSize: '10px',
                   letterSpacing: '0.1em',
                   textTransform: 'uppercase',
                   textAlign: 'center',

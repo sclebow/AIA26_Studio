@@ -160,7 +160,7 @@ export default function App() {
 
   const sectionHeaderStyle: React.CSSProperties = {
     padding: '7px 12px',
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: 700,
     letterSpacing: '0.14em',
     textTransform: 'uppercase',
@@ -199,7 +199,7 @@ export default function App() {
   } : null;
 
   const noLayoutPlaceholder = (
-    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.muted, fontSize: 11, flexDirection: 'column', gap: 8 }}>
+    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.muted, fontSize: 12, flexDirection: 'column', gap: 8 }}>
       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={colors.accentDim} strokeWidth="1.5">
         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
         <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
@@ -224,7 +224,7 @@ export default function App() {
       }}>
 
         {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: colors.text, letterSpacing: '0.12em', fontFamily: colors.fontHeading, textTransform: 'uppercase' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: colors.text, letterSpacing: '0.12em', fontFamily: colors.fontHeading, textTransform: 'uppercase' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.accent} strokeWidth="2">
             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
             <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
@@ -253,7 +253,7 @@ export default function App() {
           <button onClick={() => setLogOpen(v => !v)} style={{
             padding: '3px 8px', borderRadius: 6,
             border: `1px solid ${logOpen ? colors.accent + '30' : 'transparent'}`,
-            fontSize: 9, fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase',
+            fontSize: 10, fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase',
             cursor: 'pointer', fontFamily: colors.font, transition: 'all 0.2s',
             background: logOpen ? colors.accentDim : 'transparent',
             color: logOpen ? colors.accent : colors.muted,
@@ -335,7 +335,7 @@ export default function App() {
                   )}
                 </div>
               ) : (
-                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, color: colors.muted, fontSize: 13 }}>
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, color: colors.muted, fontSize: 12 }}>
                   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={colors.accentDim} strokeWidth="1.5">
                     <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
                     <polyline points="3.27 6.96 12 12.01 20.73 6.96" />

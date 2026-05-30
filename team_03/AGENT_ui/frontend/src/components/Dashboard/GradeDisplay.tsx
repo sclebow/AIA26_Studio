@@ -68,7 +68,7 @@ const GradeDisplay: React.FC<GradeDisplayProps> = ({ grade, score }) => {
         </div>
         <div style={{
           color: colors.muted,
-          fontSize: 9,
+          fontSize: 10,
           letterSpacing: '0.1em',
           textTransform: 'uppercase',
           marginTop: 2,

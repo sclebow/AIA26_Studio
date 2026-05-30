@@ -66,7 +66,7 @@ const LayoutLoader: React.FC<LayoutLoaderProps> = ({
     borderRadius: '8px',
     padding: '9px 36px 9px 12px',
     color: selectedLayout ? colors.text : colors.muted,
-    fontSize: '13px',
+    fontSize: '12px',
     fontFamily: colors.font,
     cursor: 'pointer',
     outline: 'none',
@@ -90,7 +90,7 @@ const LayoutLoader: React.FC<LayoutLoaderProps> = ({
         </svg>
         <span style={{
           color: colors.text,
-          fontSize: '13px',
+          fontSize: '12px',
           fontWeight: 700,
           letterSpacing: '0.12em',
           textTransform: 'uppercase',
@@ -102,7 +102,7 @@ const LayoutLoader: React.FC<LayoutLoaderProps> = ({
         <div>
           <label style={{
             color: colors.muted,
-            fontSize: '11px',
+            fontSize: '12px',
             letterSpacing: '0.04em',
             marginBottom: '6px',
             display: 'block',

@@ -10,7 +10,7 @@ export interface ChatOptionsPanelProps {
 const MONO = '"Share Tech Mono", "SF Mono", "Fira Code", ui-monospace, monospace';
 
 const sectionLabel: (color: string) => React.CSSProperties = (color) => ({
-  fontSize: 8,
+  fontSize: 10,
   fontWeight: 700,
   letterSpacing: '0.16em',
   textTransform: 'uppercase',
@@ -107,14 +107,14 @@ const ChatOptionsPanel: React.FC<ChatOptionsPanelProps> = ({ checkpoint, onDecis
         <div style={{ marginBottom: 14 }}>
           <div style={sectionLabel(colors.accent)}>Memory rules</div>
           {checkpoint!.rules.length === 0 && (
-            <div style={{ fontSize: 9.5, color: colors.muted, fontFamily: MONO, marginBottom: 6 }}>
+            <div style={{ fontSize: 10, color: colors.muted, fontFamily: MONO, marginBottom: 6 }}>
               (no rules saved)
             </div>
           )}
           {checkpoint!.rules.map((r, i) => (
             <div key={i} style={{
               display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 5,
-              fontSize: 9.5, color: colors.text, fontFamily: MONO, lineHeight: 1.35,
+              fontSize: 10, color: colors.text, fontFamily: MONO, lineHeight: 1.35,
             }}>
               <span style={{ color: colors.accent, flexShrink: 0 }}>{i + 1}.</span>
               <span style={{ flex: 1 }}>{r}</span>
@@ -123,7 +123,7 @@ const ChatOptionsPanel: React.FC<ChatOptionsPanelProps> = ({ checkpoint, onDecis
                 title="Forget this rule"
                 style={{
                   flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer',
-                  color: colors.muted, fontSize: 11, lineHeight: 1, padding: '0 2px',
+                  color: colors.muted, fontSize: 12, lineHeight: 1, padding: '0 2px',
                 }}
               >×</button>
             </div>
@@ -137,7 +137,7 @@ const ChatOptionsPanel: React.FC<ChatOptionsPanelProps> = ({ checkpoint, onDecis
               style={{
                 flex: 1, minWidth: 0, background: colors.inputBg,
                 border: `1px solid ${colors.border}`, borderRadius: 6,
-                padding: '5px 7px', color: colors.text, fontSize: 9.5, fontFamily: MONO,
+                padding: '5px 7px', color: colors.text, fontSize: 10, fontFamily: MONO,
                 outline: 'none',
               }}
             />
@@ -145,7 +145,7 @@ const ChatOptionsPanel: React.FC<ChatOptionsPanelProps> = ({ checkpoint, onDecis
               style={{
                 flexShrink: 0, border: `1px solid ${colors.accent}55`, borderRadius: 6,
                 background: colors.accent + '1f', color: colors.accent, cursor: 'pointer',
-                fontSize: 11, padding: '0 8px', fontFamily: MONO,
+                fontSize: 12, padding: '0 8px', fontFamily: MONO,
               }}>+</button>
           </div>
         </div>

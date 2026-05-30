@@ -97,7 +97,7 @@ export default function Labels3D({ layout, isDark, center }: Labels3DProps) {
             color: typeColors[label.type] || (isDark ? '#aabbcc' : '#334455'),
             padding: '2px 6px',
             borderRadius: 4,
-            fontSize: 9,
+            fontSize: 10,
             fontWeight: 500,
             fontFamily: '-apple-system, system-ui, sans-serif',
             whiteSpace: 'nowrap',

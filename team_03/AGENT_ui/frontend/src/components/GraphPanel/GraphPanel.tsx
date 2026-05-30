@@ -128,7 +128,7 @@ function makeStyles(T: GraphTheme) {
     },
     legSection: {
       padding: '6px 12px 3px',
-      fontSize: 8,
+      fontSize: 10,
       fontWeight: 700,
       letterSpacing: '0.18em',
       textTransform: 'uppercase' as const,
@@ -146,7 +146,7 @@ function makeStyles(T: GraphTheme) {
       alignItems: 'center',
       gap: 8,
       padding: '3px 12px',
-      fontSize: 9,
+      fontSize: 10,
       letterSpacing: '0.08em',
       textTransform: 'uppercase' as const,
       fontFamily: MONO_FONT,
@@ -168,7 +168,7 @@ function makeStyles(T: GraphTheme) {
       letterSpacing: '0.08em',
     },
     legCount: {
-      fontSize: 9,
+      fontSize: 10,
       fontWeight: 600,
       fontFamily: MONO_FONT,
       color: T.accent,
@@ -216,7 +216,7 @@ function makeStyles(T: GraphTheme) {
       borderBottom: `1px solid ${T.panelBorder}`,
     },
     dpChip: (color: string): React.CSSProperties => ({
-      fontSize: 8,
+      fontSize: 10,
       fontWeight: 700,
       letterSpacing: '0.08em',
       textTransform: 'uppercase' as const,
@@ -229,7 +229,7 @@ function makeStyles(T: GraphTheme) {
       boxShadow: isDark ? `0 0 8px ${color}15` : 'none',
     }),
     dpName: {
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: 600,
       whiteSpace: 'nowrap' as const,
       overflow: 'hidden',
@@ -257,13 +257,13 @@ function makeStyles(T: GraphTheme) {
       scrollbarColor: `${T.panelBorder} transparent`,
     },
     dpDesc: {
-      fontSize: 9.5,
+      fontSize: 10,
       color: T.muted,
       lineHeight: '1.55',
       marginBottom: 8,
     },
     dpSection: {
-      fontSize: 8,
+      fontSize: 10,
       fontWeight: 700,
       letterSpacing: '0.12em',
       textTransform: 'uppercase' as const,
@@ -278,7 +278,7 @@ function makeStyles(T: GraphTheme) {
       marginBottom: 3,
     },
     dpLbl: {
-      fontSize: 9,
+      fontSize: 10,
       color: T.muted,
       minWidth: 80,
       flexShrink: 0,
@@ -313,10 +313,10 @@ function makeStyles(T: GraphTheme) {
     }),
     dpNname: {
       flex: 1,
-      fontSize: 9.5,
+      fontSize: 10,
     },
     dpEtype: (color: string): React.CSSProperties => ({
-      fontSize: 8.5,
+      fontSize: 10,
       color,
       fontWeight: 500,
     }),
@@ -664,7 +664,7 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
   if (!graphData) {
     return (
       <div style={{ ...styles.container, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ color: THEME.muted, fontSize: 13 }}>No graph data loaded</span>
+        <span style={{ color: THEME.muted, fontSize: 12 }}>No graph data loaded</span>
       </div>
     );
   }
@@ -801,7 +801,7 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
               );
             })}
             {(edgeIndex.get(detail.node.id) || []).length > 20 && (
-              <div style={{ fontSize: 9, color: THEME.muted, marginTop: 4 }}>
+              <div style={{ fontSize: 10, color: THEME.muted, marginTop: 4 }}>
                 +{(edgeIndex.get(detail.node.id) || []).length - 20} more
               </div>
             )}
