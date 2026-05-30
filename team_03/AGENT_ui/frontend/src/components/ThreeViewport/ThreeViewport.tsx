@@ -196,6 +196,33 @@ function FitController({ fitCommand, layout }: { fitCommand: string | null; layo
   return null
 }
 
+// ── Drag-to-orbit from the ViewCube — consumes the latest desired az/el each
+//    frame (via a ref, so no per-mousemove React renders) and orbits the camera
+//    around the current target, keeping its distance. ─────────────────────────
+function DragOrbitController({ cmdRef }: { cmdRef: React.MutableRefObject<{ az: number; el: number } | null> }) {
+  const { camera, controls } = useThree()
+  useFrame(() => {
+    const cmd = cmdRef.current
+    if (!cmd || !controls) return
+    cmdRef.current = null
+    const ctrl = controls as any
+    const target = ctrl.target as THREE.Vector3
+    const dist = camera.position.distanceTo(target) || 40
+    const { az, el } = cmd
+    // Same spherical convention as CameraTracker (azimuth = atan2(x, z)).
+    const dir = {
+      x: Math.cos(el) * Math.sin(az),
+      y: Math.sin(el),
+      z: Math.cos(el) * Math.cos(az),
+    }
+    camera.position.set(target.x + dir.x * dist, target.y + dir.y * dist, target.z + dir.z * dist)
+    camera.up.set(0, 1, 0)
+    camera.lookAt(target)
+    ctrl.update()
+  })
+  return null
+}
+
 // ── Ortho/Persp switch — modifies the camera in-place ──────────────────
 function OrthoController({ isOrtho }: { isOrtho: boolean }) {
   const { camera, gl, controls, set } = useThree()
@@ -438,6 +465,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
   const [viewCommand, setViewCommand] = useState<string | null>(null)
   const [fitCommand, setFitCommand] = useState<string | null>(null)
   const fitCounter = useRef(0)
+  const orbitCmdRef = useRef<{ az: number; el: number } | null>(null)
   const [personMode, setPersonMode] = useState(false)
   const [personPos, setPersonPos] = useState<{ x: number; y: number } | null>(null)
   const [placing, setPlacing] = useState(false)
@@ -611,6 +639,10 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
     setFitCommand('fit__' + fitCounter.current)
   }, [])
 
+  const handleCubeOrbit = useCallback((az: number, el: number) => {
+    orbitCmdRef.current = { az, el }
+  }, [])
+
   const handleToggleOrtho = useCallback(() => {
     setIsOrtho(prev => !prev)
   }, [])
@@ -635,6 +667,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
         <ViewportRefBridge threeRef={threeRef} />
         <CameraController viewCommand={viewCommand} />
         <FitController fitCommand={fitCommand} layout={layout} />
+        <DragOrbitController cmdRef={orbitCmdRef} />
         <OrthoController isOrtho={isOrtho} />
         <BoundsFitter layout={layout} lockView={isAgentRunning} />
         <SceneContent
@@ -850,6 +883,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
           isOrtho={isOrtho}
           onToggleOrtho={handleToggleOrtho}
           cameraAnglesRef={cameraAnglesRef}
+          onOrbitDrag={handleCubeOrbit}
         />
 
         {/* Render-mode switch (Rhino-style): Rendered / Shaded / Wireframe / Ghosted */}
