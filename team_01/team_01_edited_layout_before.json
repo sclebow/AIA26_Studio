@@ -1,580 +1,543 @@
 {
-  "layoutId": "Layout-2BHK-01",
+  "layoutId": "layout-1-large",
+  "apartment": {
+    "id": "layout-1-large",
+    "name": "Large Sample A - Family Rectangle",
+    "geometry": [
+      [
+        0,
+        0
+      ],
+      [
+        14,
+        0
+      ],
+      [
+        14,
+        10
+      ],
+      [
+        0,
+        10
+      ],
+      [
+        0,
+        0
+      ]
+    ],
+    "attributes": {
+      "area": 140.0
+    }
+  },
   "outline": [
     [
       0,
-      1.75
-    ],
-    [
-      3.2,
-      1.75
-    ],
-    [
-      3.2,
       0
     ],
     [
-      9.3,
+      14,
       0
     ],
     [
-      9.3,
-      1.5
-    ],
-    [
-      13.1,
-      1.5
-    ],
-    [
-      13.1,
-      3.2
-    ],
-    [
-      12.8,
-      3.2
-    ],
-    [
-      12.8,
-      7.3
-    ],
-    [
-      9.3,
-      7.3
-    ],
-    [
-      9.3,
-      6.25
-    ],
-    [
-      5.8,
-      6.25
-    ],
-    [
-      5.8,
-      7.3
-    ],
-    [
-      3.5,
-      7.3
-    ],
-    [
-      3.5,
-      5.5
+      14,
+      10
     ],
     [
       0,
-      5.5
+      10
     ],
     [
       0,
-      1.75
+      0
     ]
   ],
   "rooms": [
     {
-      "id": "Room-1",
-      "name": "Bedroom-1",
-      "geometry": [
-        [
-          0,
-          1.75
-        ],
-        [
-          3.5,
-          1.75
-        ],
-        [
-          3.5,
-          5.5
-        ],
-        [
-          0,
-          5.5
-        ],
-        [
-          0,
-          1.75
-        ]
-      ],
-      "attributes": {
-        "area": 13.12
-      }
-    },
-    {
-      "id": "Room-2",
-      "name": "Washroom-1",
-      "geometry": [
-        [
-          3.2,
-          0
-        ],
-        [
-          5.8,
-          0
-        ],
-        [
-          5.8,
-          1.75
-        ],
-        [
-          3.2,
-          1.75
-        ],
-        [
-          3.2,
-          0
-        ]
-      ],
-      "attributes": {
-        "area": 4.55
-      }
-    },
-    {
-      "id": "Room-3",
-      "name": "Circulation-1",
-      "geometry": [
-        [
-          3.5,
-          1.75
-        ],
-        [
-          5.8,
-          1.75
-        ],
-        [
-          5.8,
-          2.85
-        ],
-        [
-          3.5,
-          2.85
-        ],
-        [
-          3.5,
-          1.75
-        ]
-      ],
-      "attributes": {
-        "area": 2.53
-      }
-    },
-    {
-      "id": "Room-4",
-      "name": "Kitchen",
-      "geometry": [
-        [
-          3.5,
-          2.85
-        ],
-        [
-          5.8,
-          2.85
-        ],
-        [
-          5.8,
-          5.8
-        ],
-        [
-          3.5,
-          5.8
-        ],
-        [
-          3.5,
-          2.85
-        ]
-      ],
-      "attributes": {
-        "area": 6.78
-      }
-    },
-    {
-      "id": "Room-5",
-      "name": "Utility",
-      "geometry": [
-        [
-          3.5,
-          5.8
-        ],
-        [
-          5.8,
-          5.8
-        ],
-        [
-          5.8,
-          7.3
-        ],
-        [
-          3.5,
-          7.3
-        ],
-        [
-          3.5,
-          5.8
-        ]
-      ],
-      "attributes": {
-        "area": 3.45
-      }
-    },
-    {
-      "id": "Room-6",
+      "id": "room-1",
       "name": "Living Room",
       "geometry": [
         [
-          5.8,
+          0,
           0
         ],
         [
-          9.3,
+          5,
           0
         ],
         [
-          9.3,
-          6.25
+          5,
+          5
         ],
         [
-          5.8,
-          6.25
+          0,
+          5
         ],
         [
-          5.8,
+          0,
           0
         ]
       ],
       "attributes": {
-        "area": 21.88
+        "area": 25.0,
+        "program": "living"
       }
     },
     {
-      "id": "Room-7",
-      "name": "Circulation-2",
+      "id": "room-2",
+      "name": "Kitchen Dining",
       "geometry": [
         [
-          9.3,
-          1.5
+          0,
+          5
         ],
         [
-          10.5,
-          1.5
+          5,
+          5
         ],
         [
-          10.5,
-          3.2
+          5,
+          10
         ],
         [
-          9.3,
-          3.2
+          0,
+          10
         ],
         [
-          9.3,
-          1.5
+          0,
+          5
         ]
       ],
       "attributes": {
-        "area": 2.04
+        "area": 25.0,
+        "program": "kitchen_dining"
       }
     },
     {
-      "id": "Room-8",
-      "name": "Washroom-2",
+      "id": "room-3",
+      "name": "Central Hall",
       "geometry": [
         [
-          10.5,
-          1.5
+          5,
+          0
         ],
         [
-          13.1,
-          1.5
+          8,
+          0
         ],
         [
-          13.1,
-          3.2
+          8,
+          10
         ],
         [
-          10.5,
-          3.2
+          5,
+          10
         ],
         [
-          10.5,
-          1.5
+          5,
+          0
         ]
       ],
       "attributes": {
-        "area": 4.42
+        "area": 30.0,
+        "program": "circulation"
       }
     },
     {
-      "id": "Room-9",
-      "name": "Bedroom-2",
+      "id": "room-4",
+      "name": "Master Bedroom",
       "geometry": [
         [
-          9.3,
-          3.2
+          8,
+          0
         ],
         [
-          12.8,
-          3.2
+          14,
+          0
         ],
         [
-          12.8,
-          7.3
+          14,
+          4
         ],
         [
-          9.3,
-          7.3
+          8,
+          4
         ],
         [
-          9.3,
-          3.2
+          8,
+          0
         ]
       ],
       "attributes": {
-        "area": 14.35
+        "area": 24.0,
+        "program": "bedroom"
+      }
+    },
+    {
+      "id": "room-5",
+      "name": "Bathroom",
+      "geometry": [
+        [
+          8,
+          4
+        ],
+        [
+          11,
+          4
+        ],
+        [
+          11,
+          7
+        ],
+        [
+          8,
+          7
+        ],
+        [
+          8,
+          4
+        ]
+      ],
+      "attributes": {
+        "area": 9.0,
+        "program": "bathroom"
+      }
+    },
+    {
+      "id": "room-6",
+      "name": "Study Guest Room",
+      "geometry": [
+        [
+          11,
+          4
+        ],
+        [
+          14,
+          4
+        ],
+        [
+          14,
+          7
+        ],
+        [
+          11,
+          7
+        ],
+        [
+          11,
+          4
+        ]
+      ],
+      "attributes": {
+        "area": 9.0,
+        "program": "study_guest"
+      }
+    },
+    {
+      "id": "room-7",
+      "name": "Bedroom 2",
+      "geometry": [
+        [
+          8,
+          7
+        ],
+        [
+          14,
+          7
+        ],
+        [
+          14,
+          10
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          8,
+          7
+        ]
+      ],
+      "attributes": {
+        "area": 18.0,
+        "program": "bedroom"
       }
     }
   ],
   "doors": [
     {
-      "id": "Door-1",
-      "name": "Door-900",
+      "id": "door-1",
+      "name": "Door 1",
       "geometry": [
         [
-          3.5,
-          2.75
-        ],
-        [
-          3.5,
-          1.85
+          5,
+          2.5
         ]
       ],
       "attributes": {
         "connectsRooms": [
-          "Bedroom-1",
-          "Circulation-1"
+          "room-1",
+          "room-3"
         ]
       }
     },
     {
-      "id": "Door-2",
-      "name": "Door-750",
+      "id": "door-2",
+      "name": "Door 2",
       "geometry": [
         [
-          4.85,
-          1.75
-        ],
-        [
-          5.6,
-          1.75
+          5,
+          7.5
         ]
       ],
       "attributes": {
         "connectsRooms": [
-          "Washroom-1",
-          "Circulation-1"
+          "room-2",
+          "room-3"
         ]
       }
     },
     {
-      "id": "Door-3",
-      "name": "Door-800",
+      "id": "door-3",
+      "name": "Door 3",
       "geometry": [
         [
-          4.25,
-          2.85
-        ],
-        [
-          5.05,
-          2.85
+          8,
+          2.0
         ]
       ],
       "attributes": {
         "connectsRooms": [
-          "Circulation-1",
-          "Kitchen"
+          "room-3",
+          "room-4"
         ]
       }
     },
     {
-      "id": "Door-4",
-      "name": "Door-800",
+      "id": "door-4",
+      "name": "Door 4",
       "geometry": [
         [
-          4.25,
-          5.8
-        ],
-        [
-          5.05,
-          5.8
+          8,
+          5.5
         ]
       ],
       "attributes": {
         "connectsRooms": [
-          "Kitchen",
-          "Utility"
+          "room-3",
+          "room-5"
         ]
       }
     },
     {
-      "id": "Door-5",
-      "name": "Door-1000",
+      "id": "door-5",
+      "name": "Door 5",
       "geometry": [
         [
-          9.3,
-          1.25
-        ],
-        [
-          9.3,
-          0.25
+          11,
+          5.5
         ]
       ],
       "attributes": {
         "connectsRooms": [
-          "LivingRoom"
+          "room-5",
+          "room-6"
         ]
       }
     },
     {
-      "id": "Door-6",
-      "name": "Door-900",
+      "id": "door-6",
+      "name": "Door 6",
       "geometry": [
         [
-          9.3,
-          2.75
-        ],
-        [
-          9.3,
-          1.85
+          8,
+          8.5
         ]
       ],
       "attributes": {
         "connectsRooms": [
-          "LivingRoom",
-          "Circulation-2"
+          "room-3",
+          "room-7"
         ]
+      }
+    }
+  ],
+  "facades": [
+    {
+      "id": "facade-1",
+      "name": "Facade 1",
+      "geometry": [
+        [
+          0,
+          0
+        ],
+        [
+          14,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "length": 14.0
       }
     },
     {
-      "id": "Door-7",
-      "name": "Door-750",
+      "id": "facade-2",
+      "name": "Facade 2",
       "geometry": [
         [
-          10.5,
-          2.25
+          14,
+          0
         ],
         [
-          10.5,
-          3.0
+          14,
+          10
         ]
       ],
       "attributes": {
-        "connectsRooms": [
-          "Circulation-2",
-          "Washroom-2"
+        "type": "exterior",
+        "length": 10.0
+      }
+    },
+    {
+      "id": "facade-3",
+      "name": "Facade 3",
+      "geometry": [
+        [
+          14,
+          10
+        ],
+        [
+          0,
+          10
         ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "length": 14.0
+      }
+    },
+    {
+      "id": "facade-4",
+      "name": "Facade 4",
+      "geometry": [
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "length": 10.0
+      }
+    }
+  ],
+  "circulation": [
+    {
+      "id": "circulation-1",
+      "name": "Main hall spine",
+      "geometry": [
+        [
+          6.5,
+          0
+        ],
+        [
+          6.5,
+          10
+        ]
+      ],
+      "attributes": {
+        "type": "circulation_centerline",
+        "length": 10.0
       }
     }
   ],
   "windows": [
     {
-      "id": "Window-1",
-      "name": "Window-750",
+      "id": "window-1",
+      "name": "Window 1",
       "geometry": [
         [
-          3.2,
-          1.5
+          1,
+          0
         ],
         [
-          3.2,
-          0.75
+          4,
+          0
         ]
       ],
       "attributes": {
-        "roomID": "Washroom-1"
+        "connectsRooms": [
+          "room-1"
+        ],
+        "type": "exterior_window",
+        "length": 3.0
       }
     },
     {
-      "id": "Window-2",
-      "name": "Window-2000",
+      "id": "window-2",
+      "name": "Window 2",
       "geometry": [
         [
-          0.75,
-          5.5
+          1,
+          10
         ],
         [
-          2.75,
-          5.5
+          4,
+          10
         ]
       ],
       "attributes": {
-        "roomID": "Bedroom-1"
+        "connectsRooms": [
+          "room-2"
+        ],
+        "type": "exterior_window",
+        "length": 3.0
       }
     },
     {
-      "id": "Window-3",
-      "name": "Window-1750",
+      "id": "window-3",
+      "name": "Window 3",
       "geometry": [
         [
-          3.775,
-          7.3
+          10,
+          0
         ],
         [
-          5.525,
-          7.3
+          13,
+          0
         ]
       ],
       "attributes": {
-        "roomID": "Utility"
+        "connectsRooms": [
+          "room-4"
+        ],
+        "type": "exterior_window",
+        "length": 3.0
       }
     },
     {
-      "id": "Window-4",
-      "name": "Window-2500",
+      "id": "window-4",
+      "name": "Window 4",
       "geometry": [
         [
-          6.3,
-          6.25
+          10,
+          10
         ],
         [
-          8.8,
-          6.25
+          13,
+          10
         ]
       ],
       "attributes": {
-        "roomID": "Living Room"
-      }
-    },
-    {
-      "id": "Window-5",
-      "name": "Window-2000",
-      "geometry": [
-        [
-          10.05,
-          7.3
+        "connectsRooms": [
+          "room-7"
         ],
-        [
-          12.05,
-          7.3
-        ]
-      ],
-      "attributes": {
-        "roomID": "Bedroom-2"
-      }
-    },
-    {
-      "id": "Window-6",
-      "name": "Window-750",
-      "geometry": [
-        [
-          13.1,
-          2.95
-        ],
-        [
-          13.1,
-          2.2
-        ]
-      ],
-      "attributes": {
-        "roomID": "Washroom-2"
+        "type": "exterior_window",
+        "length": 3.0
       }
     }
   ],
@@ -582,12 +545,28 @@
   "mep": [],
   "structure": [
     {
+      "id": "A1",
+      "name": "Col_A1",
+      "geometry": [
+        [
+          0,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "material": "RCC_M",
+        "conflict": null,
+        "dimensions": "200x200"
+      }
+    },
+    {
       "id": "A3",
       "name": "Col_A3",
       "geometry": [
         [
           0,
-          1.75
+          5
         ]
       ],
       "attributes": {
@@ -603,7 +582,7 @@
       "geometry": [
         [
           0,
-          5.5
+          10
         ]
       ],
       "attributes": {
@@ -618,7 +597,7 @@
       "name": "Col_B1",
       "geometry": [
         [
-          3.2,
+          5,
           0
         ]
       ],
@@ -630,12 +609,60 @@
       }
     },
     {
+      "id": "B2",
+      "name": "Col_B2",
+      "geometry": [
+        [
+          5,
+          4
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "material": "RCC_M",
+        "conflict": null,
+        "dimensions": "200x200"
+      }
+    },
+    {
       "id": "B3",
       "name": "Col_B3",
       "geometry": [
         [
-          3.2,
-          1.75
+          5,
+          5
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "material": "RCC_M",
+        "conflict": null,
+        "dimensions": "200x200"
+      }
+    },
+    {
+      "id": "B4",
+      "name": "Col_B4",
+      "geometry": [
+        [
+          5,
+          7
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "material": "RCC_M",
+        "conflict": null,
+        "dimensions": "200x200"
+      }
+    },
+    {
+      "id": "B5",
+      "name": "Col_B5",
+      "geometry": [
+        [
+          5,
+          10
         ]
       ],
       "attributes": {
@@ -646,12 +673,44 @@
       }
     },
     {
-      "id": "C3",
-      "name": "Col_C3",
+      "id": "C1",
+      "name": "Col_C1",
       "geometry": [
         [
-          3.5,
-          1.75
+          8,
+          0
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "material": "RCC_M",
+        "conflict": null,
+        "dimensions": "200x200"
+      }
+    },
+    {
+      "id": "C2",
+      "name": "Col_C2",
+      "geometry": [
+        [
+          8,
+          4
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "material": "RCC_M",
+        "conflict": null,
+        "dimensions": "200x200"
+      }
+    },
+    {
+      "id": "C4",
+      "name": "Col_C4",
+      "geometry": [
+        [
+          8,
+          7
         ]
       ],
       "attributes": {
@@ -666,8 +725,8 @@
       "name": "Col_C5",
       "geometry": [
         [
-          3.5,
-          5.5
+          8,
+          10
         ]
       ],
       "attributes": {
@@ -678,28 +737,12 @@
       }
     },
     {
-      "id": "D1",
-      "name": "Col_D1",
+      "id": "D2",
+      "name": "Col_D2",
       "geometry": [
         [
-          5.8,
-          0
-        ]
-      ],
-      "attributes": {
-        "type": "perimeter",
-        "material": "RCC_M",
-        "conflict": null,
-        "dimensions": "200x200"
-      }
-    },
-    {
-      "id": "D3",
-      "name": "Col_D3",
-      "geometry": [
-        [
-          5.8,
-          1.75
+          11,
+          4
         ]
       ],
       "attributes": {
@@ -710,48 +753,16 @@
       }
     },
     {
-      "id": "D5",
-      "name": "Col_D5",
+      "id": "D4",
+      "name": "Col_D4",
       "geometry": [
         [
-          5.8,
-          5.5
+          11,
+          7
         ]
       ],
       "attributes": {
         "type": "internal",
-        "material": "RCC_M",
-        "conflict": null,
-        "dimensions": "200x200"
-      }
-    },
-    {
-      "id": "D6",
-      "name": "Col_D6",
-      "geometry": [
-        [
-          5.8,
-          6.25
-        ]
-      ],
-      "attributes": {
-        "type": "perimeter",
-        "material": "RCC_M",
-        "conflict": null,
-        "dimensions": "200x200"
-      }
-    },
-    {
-      "id": "D7",
-      "name": "Col_D7",
-      "geometry": [
-        [
-          5.8,
-          7.3
-        ]
-      ],
-      "attributes": {
-        "type": "perimeter",
         "material": "RCC_M",
         "conflict": null,
         "dimensions": "200x200"
@@ -762,7 +773,7 @@
       "name": "Col_E1",
       "geometry": [
         [
-          9.3,
+          14,
           0
         ]
       ],
@@ -778,28 +789,12 @@
       "name": "Col_E2",
       "geometry": [
         [
-          9.3,
-          1.5
+          14,
+          4
         ]
       ],
       "attributes": {
         "type": "perimeter",
-        "material": "RCC_M",
-        "conflict": null,
-        "dimensions": "200x200"
-      }
-    },
-    {
-      "id": "E3",
-      "name": "Col_E3",
-      "geometry": [
-        [
-          9.3,
-          1.75
-        ]
-      ],
-      "attributes": {
-        "type": "internal",
         "material": "RCC_M",
         "conflict": null,
         "dimensions": "200x200"
@@ -810,24 +805,8 @@
       "name": "Col_E4",
       "geometry": [
         [
-          9.3,
-          3.2
-        ]
-      ],
-      "attributes": {
-        "type": "internal",
-        "material": "RCC_M",
-        "conflict": null,
-        "dimensions": "200x200"
-      }
-    },
-    {
-      "id": "E6",
-      "name": "Col_E6",
-      "geometry": [
-        [
-          9.3,
-          6.25
+          14,
+          7
         ]
       ],
       "attributes": {
@@ -838,12 +817,12 @@
       }
     },
     {
-      "id": "E7",
-      "name": "Col_E7",
+      "id": "E5",
+      "name": "Col_E5",
       "geometry": [
         [
-          9.3,
-          7.3
+          14,
+          10
         ]
       ],
       "attributes": {
@@ -854,67 +833,51 @@
       }
     },
     {
-      "id": "F4",
-      "name": "Col_F4",
+      "id": "A1-A3",
+      "name": "Beam_A1-A3",
       "geometry": [
         [
-          12.8,
-          3.2
+          0,
+          0
+        ],
+        [
+          0,
+          5
         ]
       ],
       "attributes": {
         "type": "perimeter",
+        "length": 5.0,
+        "isWallAligned": null,
+        "structuralRole": null,
         "material": "RCC_M",
         "conflict": null,
-        "dimensions": "200x200"
+        "depth": "300",
+        "width": "200"
       }
     },
     {
-      "id": "F7",
-      "name": "Col_F7",
+      "id": "A1-B1",
+      "name": "Beam_A1-B1",
       "geometry": [
         [
-          12.8,
-          7.3
+          0,
+          0
+        ],
+        [
+          5,
+          0
         ]
       ],
       "attributes": {
         "type": "perimeter",
+        "length": 5.0,
+        "isWallAligned": null,
+        "structuralRole": null,
         "material": "RCC_M",
         "conflict": null,
-        "dimensions": "200x200"
-      }
-    },
-    {
-      "id": "G2",
-      "name": "Col_G2",
-      "geometry": [
-        [
-          13.1,
-          1.5
-        ]
-      ],
-      "attributes": {
-        "type": "perimeter",
-        "material": "RCC_M",
-        "conflict": null,
-        "dimensions": "200x200"
-      }
-    },
-    {
-      "id": "G4",
-      "name": "Col_G4",
-      "geometry": [
-        [
-          13.1,
-          3.2
-        ]
-      ],
-      "attributes": {
-        "type": "perimeter",
-        "material": "RCC_M",
-        "conflict": null,
-        "dimensions": "200x200"
+        "depth": "300",
+        "width": "200"
       }
     },
     {
@@ -923,16 +886,16 @@
       "geometry": [
         [
           0,
-          1.75
+          5
         ],
         [
           0,
-          5.5
+          10
         ]
       ],
       "attributes": {
         "type": "perimeter",
-        "length": 3.75,
+        "length": 5.0,
         "isWallAligned": null,
         "structuralRole": null,
         "material": "RCC_M",
@@ -947,16 +910,16 @@
       "geometry": [
         [
           0,
-          1.75
+          5
         ],
         [
-          3.2,
-          1.75
+          5,
+          5
         ]
       ],
       "attributes": {
-        "type": "perimeter",
-        "length": 3.2,
+        "type": "internal",
+        "length": 5.0,
         "isWallAligned": null,
         "structuralRole": null,
         "material": "RCC_M",
@@ -966,21 +929,21 @@
       }
     },
     {
-      "id": "A5-C5",
-      "name": "Beam_A5-C5",
+      "id": "A5-B5",
+      "name": "Beam_A5-B5",
       "geometry": [
         [
           0,
-          5.5
+          10
         ],
         [
-          3.5,
-          5.5
+          5,
+          10
         ]
       ],
       "attributes": {
         "type": "perimeter",
-        "length": 3.5,
+        "length": 5.0,
         "isWallAligned": null,
         "structuralRole": null,
         "material": "RCC_M",
@@ -990,69 +953,21 @@
       }
     },
     {
-      "id": "B1-B3",
-      "name": "Beam_B1-B3",
+      "id": "B1-B2",
+      "name": "Beam_B1-B2",
       "geometry": [
         [
-          3.2,
+          5,
           0
         ],
         [
-          3.2,
-          1.75
-        ]
-      ],
-      "attributes": {
-        "type": "perimeter",
-        "length": 1.75,
-        "isWallAligned": null,
-        "structuralRole": null,
-        "material": "RCC_M",
-        "conflict": null,
-        "depth": "300",
-        "width": "200"
-      }
-    },
-    {
-      "id": "B1-D1",
-      "name": "Beam_B1-D1",
-      "geometry": [
-        [
-          3.2,
-          0
-        ],
-        [
-          5.8,
-          0
-        ]
-      ],
-      "attributes": {
-        "type": "perimeter",
-        "length": 2.6,
-        "isWallAligned": null,
-        "structuralRole": null,
-        "material": "RCC_M",
-        "conflict": null,
-        "depth": "300",
-        "width": "200"
-      }
-    },
-    {
-      "id": "B3-C3",
-      "name": "Beam_B3-C3",
-      "geometry": [
-        [
-          3.2,
-          1.75
-        ],
-        [
-          3.5,
-          1.75
+          5,
+          4
         ]
       ],
       "attributes": {
         "type": "internal",
-        "length": 0.3,
+        "length": 4.0,
         "isWallAligned": null,
         "structuralRole": null,
         "material": "RCC_M",
@@ -1062,117 +977,21 @@
       }
     },
     {
-      "id": "C3-C5",
-      "name": "Beam_C3-C5",
+      "id": "B1-C1",
+      "name": "Beam_B1-C1",
       "geometry": [
         [
-          3.5,
-          1.75
-        ],
-        [
-          3.5,
-          5.5
-        ]
-      ],
-      "attributes": {
-        "type": "internal",
-        "length": 3.75,
-        "isWallAligned": null,
-        "structuralRole": null,
-        "material": "RCC_M",
-        "conflict": null,
-        "depth": "300",
-        "width": "200"
-      }
-    },
-    {
-      "id": "C3-D3",
-      "name": "Beam_C3-D3",
-      "geometry": [
-        [
-          3.5,
-          1.75
-        ],
-        [
-          5.8,
-          1.75
-        ]
-      ],
-      "attributes": {
-        "type": "internal",
-        "length": 2.3,
-        "isWallAligned": null,
-        "structuralRole": null,
-        "material": "RCC_M",
-        "conflict": null,
-        "depth": "300",
-        "width": "200"
-      }
-    },
-    {
-      "id": "C5-D5",
-      "name": "Beam_C5-D5",
-      "geometry": [
-        [
-          3.5,
-          5.5
-        ],
-        [
-          5.8,
-          5.5
-        ]
-      ],
-      "attributes": {
-        "type": "internal",
-        "length": 2.3,
-        "isWallAligned": null,
-        "structuralRole": null,
-        "material": "RCC_M",
-        "conflict": null,
-        "depth": "300",
-        "width": "200"
-      }
-    },
-    {
-      "id": "D1-D3",
-      "name": "Beam_D1-D3",
-      "geometry": [
-        [
-          5.8,
+          5,
           0
         ],
         [
-          5.8,
-          1.75
-        ]
-      ],
-      "attributes": {
-        "type": "internal",
-        "length": 1.75,
-        "isWallAligned": null,
-        "structuralRole": null,
-        "material": "RCC_M",
-        "conflict": null,
-        "depth": "300",
-        "width": "200"
-      }
-    },
-    {
-      "id": "D1-E1",
-      "name": "Beam_D1-E1",
-      "geometry": [
-        [
-          5.8,
-          0
-        ],
-        [
-          9.3,
+          8,
           0
         ]
       ],
       "attributes": {
         "type": "perimeter",
-        "length": 3.5,
+        "length": 3.0,
         "isWallAligned": null,
         "structuralRole": null,
         "material": "RCC_M",
@@ -1182,21 +1001,21 @@
       }
     },
     {
-      "id": "D3-D5",
-      "name": "Beam_D3-D5",
+      "id": "B2-B3",
+      "name": "Beam_B2-B3",
       "geometry": [
         [
-          5.8,
-          1.75
+          5,
+          4
         ],
         [
-          5.8,
-          5.5
+          5,
+          5
         ]
       ],
       "attributes": {
         "type": "internal",
-        "length": 3.75,
+        "length": 1.0,
         "isWallAligned": null,
         "structuralRole": null,
         "material": "RCC_M",
@@ -1206,21 +1025,21 @@
       }
     },
     {
-      "id": "D3-E3",
-      "name": "Beam_D3-E3",
+      "id": "B2-C2",
+      "name": "Beam_B2-C2",
       "geometry": [
         [
-          5.8,
-          1.75
+          5,
+          4
         ],
         [
-          9.3,
-          1.75
+          8,
+          4
         ]
       ],
       "attributes": {
         "type": "internal",
-        "length": 3.5,
+        "length": 3.0,
         "isWallAligned": null,
         "structuralRole": null,
         "material": "RCC_M",
@@ -1230,21 +1049,21 @@
       }
     },
     {
-      "id": "D5-D6",
-      "name": "Beam_D5-D6",
+      "id": "B3-B4",
+      "name": "Beam_B3-B4",
       "geometry": [
         [
-          5.8,
-          5.5
+          5,
+          5
         ],
         [
-          5.8,
-          6.25
+          5,
+          7
         ]
       ],
       "attributes": {
         "type": "internal",
-        "length": 0.75,
+        "length": 2.0,
         "isWallAligned": null,
         "structuralRole": null,
         "material": "RCC_M",
@@ -1254,21 +1073,69 @@
       }
     },
     {
-      "id": "D6-D7",
-      "name": "Beam_D6-D7",
+      "id": "B4-B5",
+      "name": "Beam_B4-B5",
       "geometry": [
         [
-          5.8,
-          6.25
+          5,
+          7
         ],
         [
-          5.8,
-          7.3
+          5,
+          10
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "length": 3.0,
+        "isWallAligned": null,
+        "structuralRole": null,
+        "material": "RCC_M",
+        "conflict": null,
+        "depth": "300",
+        "width": "200"
+      }
+    },
+    {
+      "id": "B4-C4",
+      "name": "Beam_B4-C4",
+      "geometry": [
+        [
+          5,
+          7
+        ],
+        [
+          8,
+          7
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "length": 3.0,
+        "isWallAligned": null,
+        "structuralRole": null,
+        "material": "RCC_M",
+        "conflict": null,
+        "depth": "300",
+        "width": "200"
+      }
+    },
+    {
+      "id": "B5-C5",
+      "name": "Beam_B5-C5",
+      "geometry": [
+        [
+          5,
+          10
+        ],
+        [
+          8,
+          10
         ]
       ],
       "attributes": {
         "type": "perimeter",
-        "length": 1.05,
+        "length": 3.0,
         "isWallAligned": null,
         "structuralRole": null,
         "material": "RCC_M",
@@ -1278,21 +1145,237 @@
       }
     },
     {
-      "id": "D6-E6",
-      "name": "Beam_D6-E6",
+      "id": "C1-C2",
+      "name": "Beam_C1-C2",
       "geometry": [
         [
-          5.8,
-          6.25
+          8,
+          0
         ],
         [
-          9.3,
-          6.25
+          8,
+          4
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "length": 4.0,
+        "isWallAligned": null,
+        "structuralRole": null,
+        "material": "RCC_M",
+        "conflict": null,
+        "depth": "300",
+        "width": "200"
+      }
+    },
+    {
+      "id": "C1-E1",
+      "name": "Beam_C1-E1",
+      "geometry": [
+        [
+          8,
+          0
+        ],
+        [
+          14,
+          0
         ]
       ],
       "attributes": {
         "type": "perimeter",
-        "length": 3.5,
+        "length": 6.0,
+        "isWallAligned": null,
+        "structuralRole": null,
+        "material": "RCC_M",
+        "conflict": null,
+        "depth": "300",
+        "width": "200"
+      }
+    },
+    {
+      "id": "C2-C4",
+      "name": "Beam_C2-C4",
+      "geometry": [
+        [
+          8,
+          4
+        ],
+        [
+          8,
+          7
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "length": 3.0,
+        "isWallAligned": null,
+        "structuralRole": null,
+        "material": "RCC_M",
+        "conflict": null,
+        "depth": "300",
+        "width": "200"
+      }
+    },
+    {
+      "id": "C2-D2",
+      "name": "Beam_C2-D2",
+      "geometry": [
+        [
+          8,
+          4
+        ],
+        [
+          11,
+          4
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "length": 3.0,
+        "isWallAligned": null,
+        "structuralRole": null,
+        "material": "RCC_M",
+        "conflict": null,
+        "depth": "300",
+        "width": "200"
+      }
+    },
+    {
+      "id": "C4-C5",
+      "name": "Beam_C4-C5",
+      "geometry": [
+        [
+          8,
+          7
+        ],
+        [
+          8,
+          10
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "length": 3.0,
+        "isWallAligned": null,
+        "structuralRole": null,
+        "material": "RCC_M",
+        "conflict": null,
+        "depth": "300",
+        "width": "200"
+      }
+    },
+    {
+      "id": "C4-D4",
+      "name": "Beam_C4-D4",
+      "geometry": [
+        [
+          8,
+          7
+        ],
+        [
+          11,
+          7
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "length": 3.0,
+        "isWallAligned": null,
+        "structuralRole": null,
+        "material": "RCC_M",
+        "conflict": null,
+        "depth": "300",
+        "width": "200"
+      }
+    },
+    {
+      "id": "C5-E5",
+      "name": "Beam_C5-E5",
+      "geometry": [
+        [
+          8,
+          10
+        ],
+        [
+          14,
+          10
+        ]
+      ],
+      "attributes": {
+        "type": "perimeter",
+        "length": 6.0,
+        "isWallAligned": null,
+        "structuralRole": null,
+        "material": "RCC_M",
+        "conflict": null,
+        "depth": "300",
+        "width": "200"
+      }
+    },
+    {
+      "id": "D2-D4",
+      "name": "Beam_D2-D4",
+      "geometry": [
+        [
+          11,
+          4
+        ],
+        [
+          11,
+          7
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "length": 3.0,
+        "isWallAligned": null,
+        "structuralRole": null,
+        "material": "RCC_M",
+        "conflict": null,
+        "depth": "300",
+        "width": "200"
+      }
+    },
+    {
+      "id": "D2-E2",
+      "name": "Beam_D2-E2",
+      "geometry": [
+        [
+          11,
+          4
+        ],
+        [
+          14,
+          4
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "length": 3.0,
+        "isWallAligned": null,
+        "structuralRole": null,
+        "material": "RCC_M",
+        "conflict": null,
+        "depth": "300",
+        "width": "200"
+      }
+    },
+    {
+      "id": "D4-E4",
+      "name": "Beam_D4-E4",
+      "geometry": [
+        [
+          11,
+          7
+        ],
+        [
+          14,
+          7
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "length": 3.0,
         "isWallAligned": null,
         "structuralRole": null,
         "material": "RCC_M",
@@ -1306,17 +1389,17 @@
       "name": "Beam_E1-E2",
       "geometry": [
         [
-          9.3,
+          14,
           0
         ],
         [
-          9.3,
-          1.5
+          14,
+          4
         ]
       ],
       "attributes": {
         "type": "perimeter",
-        "length": 1.5,
+        "length": 4.0,
         "isWallAligned": null,
         "structuralRole": null,
         "material": "RCC_M",
@@ -1326,45 +1409,21 @@
       }
     },
     {
-      "id": "E2-E3",
-      "name": "Beam_E2-E3",
+      "id": "E2-E4",
+      "name": "Beam_E2-E4",
       "geometry": [
         [
-          9.3,
-          1.5
+          14,
+          4
         ],
         [
-          9.3,
-          1.75
-        ]
-      ],
-      "attributes": {
-        "type": "internal",
-        "length": 0.25,
-        "isWallAligned": null,
-        "structuralRole": null,
-        "material": "RCC_M",
-        "conflict": null,
-        "depth": "300",
-        "width": "200"
-      }
-    },
-    {
-      "id": "E2-G2",
-      "name": "Beam_E2-G2",
-      "geometry": [
-        [
-          9.3,
-          1.5
-        ],
-        [
-          13.1,
-          1.5
+          14,
+          7
         ]
       ],
       "attributes": {
         "type": "perimeter",
-        "length": 3.8,
+        "length": 3.0,
         "isWallAligned": null,
         "structuralRole": null,
         "material": "RCC_M",
@@ -1374,189 +1433,21 @@
       }
     },
     {
-      "id": "E3-E4",
-      "name": "Beam_E3-E4",
+      "id": "E4-E5",
+      "name": "Beam_E4-E5",
       "geometry": [
         [
-          9.3,
-          1.75
+          14,
+          7
         ],
         [
-          9.3,
-          3.2
-        ]
-      ],
-      "attributes": {
-        "type": "internal",
-        "length": 1.45,
-        "isWallAligned": null,
-        "structuralRole": null,
-        "material": "RCC_M",
-        "conflict": null,
-        "depth": "300",
-        "width": "200"
-      }
-    },
-    {
-      "id": "E4-E6",
-      "name": "Beam_E4-E6",
-      "geometry": [
-        [
-          9.3,
-          3.2
-        ],
-        [
-          9.3,
-          6.25
-        ]
-      ],
-      "attributes": {
-        "type": "internal",
-        "length": 3.05,
-        "isWallAligned": null,
-        "structuralRole": null,
-        "material": "RCC_M",
-        "conflict": null,
-        "depth": "300",
-        "width": "200"
-      }
-    },
-    {
-      "id": "E4-F4",
-      "name": "Beam_E4-F4",
-      "geometry": [
-        [
-          9.3,
-          3.2
-        ],
-        [
-          12.8,
-          3.2
-        ]
-      ],
-      "attributes": {
-        "type": "internal",
-        "length": 3.5,
-        "isWallAligned": null,
-        "structuralRole": null,
-        "material": "RCC_M",
-        "conflict": null,
-        "depth": "300",
-        "width": "200"
-      }
-    },
-    {
-      "id": "E6-E7",
-      "name": "Beam_E6-E7",
-      "geometry": [
-        [
-          9.3,
-          6.25
-        ],
-        [
-          9.3,
-          7.3
+          14,
+          10
         ]
       ],
       "attributes": {
         "type": "perimeter",
-        "length": 1.05,
-        "isWallAligned": null,
-        "structuralRole": null,
-        "material": "RCC_M",
-        "conflict": null,
-        "depth": "300",
-        "width": "200"
-      }
-    },
-    {
-      "id": "E7-F7",
-      "name": "Beam_E7-F7",
-      "geometry": [
-        [
-          9.3,
-          7.3
-        ],
-        [
-          12.8,
-          7.3
-        ]
-      ],
-      "attributes": {
-        "type": "perimeter",
-        "length": 3.5,
-        "isWallAligned": null,
-        "structuralRole": null,
-        "material": "RCC_M",
-        "conflict": null,
-        "depth": "300",
-        "width": "200"
-      }
-    },
-    {
-      "id": "F4-F7",
-      "name": "Beam_F4-F7",
-      "geometry": [
-        [
-          12.8,
-          3.2
-        ],
-        [
-          12.8,
-          7.3
-        ]
-      ],
-      "attributes": {
-        "type": "perimeter",
-        "length": 4.1,
-        "isWallAligned": null,
-        "structuralRole": null,
-        "material": "RCC_M",
-        "conflict": null,
-        "depth": "300",
-        "width": "200"
-      }
-    },
-    {
-      "id": "F4-G4",
-      "name": "Beam_F4-G4",
-      "geometry": [
-        [
-          12.8,
-          3.2
-        ],
-        [
-          13.1,
-          3.2
-        ]
-      ],
-      "attributes": {
-        "type": "perimeter",
-        "length": 0.3,
-        "isWallAligned": null,
-        "structuralRole": null,
-        "material": "RCC_M",
-        "conflict": null,
-        "depth": "300",
-        "width": "200"
-      }
-    },
-    {
-      "id": "G2-G4",
-      "name": "Beam_G2-G4",
-      "geometry": [
-        [
-          13.1,
-          1.5
-        ],
-        [
-          13.1,
-          3.2
-        ]
-      ],
-      "attributes": {
-        "type": "perimeter",
-        "length": 1.7,
+        "length": 3.0,
         "isWallAligned": null,
         "structuralRole": null,
         "material": "RCC_M",
@@ -1565,5 +1456,13 @@
         "width": "200"
       }
     }
-  ]
+  ],
+  "rooms_summary": "1 bathroom, 2 bedroom, 1 circulation, 1 kitchen_dining, 1 living, 1 study_guest",
+  "attributes": {
+    "units": "meters",
+    "scale_assumption": "1 coordinate unit = 1 meter",
+    "minimum_exterior_wall_segment_m": 3.5,
+    "minimum_interior_wall_segment_m": 2.5,
+    "intended_use": "larger residential plot dataset samples"
+  }
 }

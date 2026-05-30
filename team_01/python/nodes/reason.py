@@ -28,6 +28,9 @@ TAG_AND_AUDIT TOOL:
 STRUCTURAL EVALUATION (evaluate, check structure, run loads, assess beams/columns, find minimum sections, upgrade sections, optimize structure, check if structure holds):
 Set action="final", final_response="" (empty string). The evaluate node handles all calculations and prompts automatically. NEVER answer the evaluation yourself — not even to say you cannot do it without running checks.
 
+ELEMENT REMOVAL (remove column X, delete beam Y, what if we remove X):
+Set action="final", final_response="" (empty string). The evaluate node simulates the removal, runs structural checks, and presents options. NEVER answer removal requests yourself.
+
 WHAT-IF QUESTIONS — two-step process, NEVER call a tool:
 Step 1: User asks "what if we remove X" → set action="final", final_response="" (empty string). The evaluate node runs the simulation automatically.
 Step 2: You receive a message starting with "STRUCTURAL FAIL after removing" → set action="final" and write the full response in final_response using this EXACT format, filling in values from the STRUCTURAL FAIL message:
@@ -82,10 +85,20 @@ def build_reason_node(llm):
         print(f"  NODE: REASON  (cycle {cycle})")
         print(f"{'='*50}")
 
-        # Evaluation already complete — skip LLM call (triggered after comparison → reason → END)
+        # If evaluation already ran, only skip LLM if the last message is from the system
+        # (evaluation or comparison output) — not a new user follow-up question
         if state.get("evaluation_result") is not None:
-            state["came_from"] = "reason"
-            return state
+            last_msg = state["messages"][-1].get("content", "") if state["messages"] else ""
+            is_system_msg = (
+                last_msg.startswith("Structural evaluation")
+                or last_msg.startswith("Comparison summary")
+                or last_msg.startswith("Tool ")
+            )
+            if is_system_msg:
+                state["came_from"] = "reason"
+                return state
+            # Otherwise a new user question arrived — let LLM respond
+            state["evaluation_result"] = None
 
         # Trim history to stay within token limit
         # First message is the layout context — give it a large window.

@@ -54,6 +54,8 @@ _EVAL_KEYWORDS = frozenset({
     "structure hold", "assess struct", "run structural",
     "is this safe", "is it safe", "is the structure",
     "will it hold", "can it support", "safe to",
+    "remove column", "remove beam", "delete column", "delete beam",
+    "what if", "what would happen", "if i remove", "if we remove",
 })
 
 
