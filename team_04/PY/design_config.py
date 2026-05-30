@@ -48,6 +48,18 @@ def _parse_bool_env(name: str, default: bool) -> bool:
     raise ValueError(f"Invalid value for {name}: {raw_value}. Allowed values are 'true' or 'false'.")
 
 
+def _resolve_mcp_json_path() -> Path:
+    repo_mcp_path = _repo_root() / "mcp.json"
+    if repo_mcp_path.exists():
+        return repo_mcp_path
+
+    team_mcp_path = Path(__file__).resolve().parent.parent / "mcp.json"
+    if team_mcp_path.exists():
+        return team_mcp_path
+
+    return repo_mcp_path
+
+
 def _load_mcp_server_from_json(config_path: Path) -> tuple[str, str]:
     if not config_path.exists():
         raise ValueError(f"MCP config file not found: {config_path}")
@@ -100,7 +112,7 @@ def load_design_settings() -> DesignSettings:
 
     load_dotenv(dotenv_path=env_path, override=True)
 
-    mcp_json_path = _repo_root() / "mcp.json"
+    mcp_json_path = _resolve_mcp_json_path()
     mcp_server_key, mcp_endpoint = _load_mcp_server_from_json(mcp_json_path)
 
     timeout_value = max(float(os.environ.get("REQUEST_TIMEOUT_SECONDS", "300")), 300.0)

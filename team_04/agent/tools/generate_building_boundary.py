@@ -6,7 +6,7 @@ from typing import Any
 
 
 DEFAULT_SITE_COVERAGE_RATIO = 0.35
-SUPPORTED_BUILDING_TYPES = ("I", "L", "T", "Y", "H", "X", "O")
+SUPPORTED_BUILDING_TYPES = ("I", "L", "T", "U", "Y", "H", "X", "O")
 
 
 TOOL_DEFINITION: dict[str, Any] = {
@@ -326,6 +326,21 @@ def _build_local_boundary(
                 (-1.4, 1.4),
                 (-3.0, 1.4),
                 (-1.4, 0.0),
+            ],
+        )
+
+    if building_type == "U":
+        return _scaled_template_polygon(
+            area,
+            [
+                (-3.0, -3.0),
+                (3.0, -3.0),
+                (3.0, 3.0),
+                (1.4, 3.0),
+                (1.4, -1.2),
+                (-1.4, -1.2),
+                (-1.4, 3.0),
+                (-3.0, 3.0),
             ],
         )
 

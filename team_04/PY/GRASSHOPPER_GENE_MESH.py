@@ -468,7 +468,7 @@ def run_generative_loop(
 
 
 try:
-    py_folder = r"D:\3rd sem\STUDIO\AIA26_Studio - Copy (2)\team_04\PY"
+    py_folder = r"C:\PROJECTS\1\AIA26_Studio\team_04\PY"
     if py_folder not in sys.path:
         sys.path.insert(0, py_folder)
 

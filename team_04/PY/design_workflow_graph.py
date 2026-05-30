@@ -265,4 +265,16 @@ def run_design_workflow(
         print("\nDesign workflow graph (ASCII):")
         app.get_graph().print_ascii()
 
+    # Append raw geometry data if available so the UI can parse vertices_3d/faces
+    last_tool_raw = final_state.get("last_tool_result", "")
+    if isinstance(last_tool_raw, str) and "vertices_3d" in last_tool_raw:
+        final_response = final_response + "\n\n" + last_tool_raw
+    else:
+        tool_results_list = final_state.get("tool_results", [])
+        if isinstance(tool_results_list, list):
+            for tr in reversed(tool_results_list):
+                if isinstance(tr, str) and "vertices_3d" in tr:
+                    final_response = final_response + "\n\n" + tr
+                    break
+
     return final_response
