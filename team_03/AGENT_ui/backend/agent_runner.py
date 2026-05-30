@@ -121,6 +121,10 @@ async def start_session(
             msg["data"] = data
         emit(msg)
 
+    # Tracks whether this turn produced any score, so a conversational reply that
+    # never ran the analysis tools can be backfilled deterministically (below).
+    scores_emitted = {"v": False}
+
     def emit_scores(overall: Any, grade: Any, breakdown: Dict[str, Any]) -> None:
         """Map a score + per-tool breakdown → the Dashboard ScoreData shape and
         push it as a state_update so the Analysis Dashboard reflects the score.
@@ -129,6 +133,7 @@ async def start_session(
         breakdown = breakdown or {}
         if not breakdown and not overall:
             return
+        scores_emitted["v"] = True
 
         def _sc(tool: str) -> float:
             return round(float((breakdown.get(tool) or {}).get("score", 0) or 0))
@@ -244,6 +249,24 @@ async def start_session(
                     "data": layout,
                     "proposal": False,
                 })
+
+            # Backfill: if the turn answered conversationally without running the
+            # analysis tools (no score emitted), compute the score deterministically
+            # so "Analyse the layout" still populates the Analysis Dashboard.
+            if not scores_emitted["v"]:
+                try:
+                    from adapters.analysis_adapter import run_all
+                    target = layout or (ctx.layout_data if ctx else None)
+                    if target:
+                        res = run_all(
+                            target,
+                            profile_config=(final_state or {}).get("profile_config"),
+                            space_config=(final_state or {}).get("space_config"),
+                        )
+                        sr = res.get("scoring_results") or {}
+                        emit_scores(sr.get("total_score"), sr.get("grade"), sr.get("breakdown") or {})
+                except Exception as exc:
+                    print(f"[analyze] deterministic backfill failed: {exc}")
         except _Aborted:
             # Client disconnected / superseded — unwind quietly, no chat error.
             pass

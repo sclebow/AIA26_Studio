@@ -29,6 +29,10 @@ export interface ScoreData {
 
 export interface DashboardProps {
   scores: ScoreData | null;
+  /** Run the deterministic analysis on the current layout and populate the dashboard. */
+  onAnalyze?: () => void;
+  /** True while an analysis request is in flight. */
+  analyzing?: boolean;
 }
 
 const TOOL_SCORES: Array<{
@@ -124,7 +128,7 @@ const EmptyState: React.FC = () => {
   );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ scores }) => {
+const Dashboard: React.FC<DashboardProps> = ({ scores, onAnalyze, analyzing }) => {
   const { colors } = useTheme();
 
   const panelStyle: React.CSSProperties = {
@@ -154,6 +158,31 @@ const Dashboard: React.FC<DashboardProps> = ({ scores }) => {
           textTransform: 'uppercase',
           fontFamily: colors.fontHeading,
         }}>Analysis Dashboard</span>
+        {onAnalyze && (
+          <button
+            onClick={onAnalyze}
+            disabled={analyzing}
+            title="Run analysis on the current layout"
+            style={{
+              marginLeft: 'auto',
+              display: 'flex', alignItems: 'center', gap: 5,
+              background: colors.accentDim ?? (colors.accent + '18'),
+              border: `1px solid ${colors.accent}55`,
+              borderRadius: 6, padding: '4px 10px',
+              color: colors.accent,
+              fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+              textTransform: 'uppercase', fontFamily: colors.font,
+              cursor: analyzing ? 'default' : 'pointer',
+              opacity: analyzing ? 0.6 : 1,
+              transition: 'opacity 0.2s',
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            {analyzing ? 'Analyzing…' : scores ? 'Re-analyze' : 'Analyze'}
+          </button>
+        )}
       </div>
 
       {!scores ? (

@@ -172,6 +172,9 @@ Update scoring results
 **POST** `/api/profile`  
 Persist the onboarding User/Space profile to the global `team_03/memory/user_profile.md`. `build_context` later merges it into the active layout's memory under `## User Rules`. See `team_03/CLAUDE.md` → Conversational Memory → "Onboarding profile → memory".
 
+**POST** `/api/analyze`  
+Run the 5 analysis tools + scoring on a layout (`{ layout, profile_config?, space_config? }`) via `adapters/analysis_adapter.run_all` and return Dashboard `ScoreData`. Deterministic — no LLM/MCP. Drives the Dashboard "Analyze" button; the chat path also backfills scores via this same `run_all` when a turn answers without running the tools (`agent_runner`).
+
 ### Do Not Modify
 
 - **team_03/python/**: Read-only. All pipeline code is imported via adapters.

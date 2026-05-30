@@ -139,6 +139,64 @@ async def save_profile(body: ProfilePayload):
 
 
 # ---------------------------------------------------------------------------
+# Analysis (deterministic — no LLM / MCP needed)
+# ---------------------------------------------------------------------------
+
+
+class AnalyzePayload(BaseModel):
+    layout: dict
+    profile_config: Optional[dict] = None
+    space_config: Optional[dict] = None
+
+
+def _scoredata_from_scoring(sr: dict) -> dict:
+    """Map nodes/scoring.py `scoring_results` → the Dashboard ScoreData shape."""
+    bd = sr.get("breakdown") or {}
+
+    def sc(tool: str) -> float:
+        return round(float((bd.get(tool) or {}).get("score", 0) or 0))
+
+    def wt(tool: str) -> float:
+        return float((bd.get(tool) or {}).get("weight", 0) or 0)
+
+    return {
+        "overall": round(float(sr.get("total_score") or 0)),
+        "grade": sr.get("grade") or "?",
+        "collision": sc("collision"),
+        "visibility": sc("visibility"),
+        "path": sc("path"),
+        "reachability": sc("reachability"),
+        "orientation": sc("orientation"),
+        "weights": {
+            "collision": wt("collision"),
+            "visibility": wt("visibility"),
+            "path": wt("path"),
+            "reachability": wt("reachability"),
+            "orientation": wt("orientation"),
+        },
+    }
+
+
+@router.post("/api/analyze")
+async def analyze_layout(body: AnalyzePayload):
+    """Run the 5 analysis tools + scoring on a layout and return Dashboard scores.
+    Deterministic (no LLM, no Rhino/MCP) — drives the Analysis Dashboard directly."""
+    from adapters.analysis_adapter import run_all
+
+    res = run_all(body.layout, profile_config=body.profile_config, space_config=body.space_config)
+    sr = res.get("scoring_results") or {}
+    if sr.get("error"):
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {sr['error']}")
+    scores = _scoredata_from_scoring(sr)
+    if _session is not None:
+        try:
+            _session.update_scores(scores)
+        except Exception:
+            pass
+    return scores
+
+
+# ---------------------------------------------------------------------------
 # Session
 # ---------------------------------------------------------------------------
 

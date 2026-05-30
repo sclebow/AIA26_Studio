@@ -50,6 +50,7 @@ export default function App() {
   const [layerVisibility, setLayerVisibility] = useState<LayerVisibility>(defaultVisibility);
   const [showLabels, setShowLabels] = useState(true);   // shared: 3D labels + graph labels
   const [layoutFitSignal, setLayoutFitSignal] = useState(0);  // bumps only on explicit layout pick → triggers viewport fit-to-screen
+  const [analyzing, setAnalyzing] = useState(false);          // Analysis Dashboard "Analyze" button in flight
   const [viewMode, setViewMode] = useState<ViewMode>('geometry');
   const [displayMode, setDisplayMode] = useState<ViewMode>('geometry');
   const [animPhase, setAnimPhase] = useState<'idle' | 'out' | 'in'>('idle');
@@ -140,6 +141,25 @@ export default function App() {
     await layoutState.uploadLayout(file);
     setLayoutFitSignal(n => n + 1);   // user uploaded → fit to screen
   }, [layoutState]);
+
+  // Deterministic analysis of the currently-displayed layout → populates the
+  // Analysis Dashboard without needing the LLM/MCP agent to run the tools.
+  const handleAnalyze = useCallback(async () => {
+    if (!layoutState.layout || analyzing) return;
+    setAnalyzing(true);
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ layout: layoutState.layout }),
+      });
+      if (res.ok) layoutState.setScores(await res.json());
+    } catch {
+      // ignore — leave the dashboard as-is on failure
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [layoutState, analyzing]);
 
   const handleViewportSelect = useCallback((id: string | null) => { select(id, 'viewport'); }, [select]);
   const handleGraphSelect    = useCallback((id: string | null) => { select(id, 'graph'); }, [select]);
@@ -414,7 +434,7 @@ export default function App() {
           <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', borderBottom: panelBorder, minHeight: 0 }}>
             <div style={sectionHeaderStyle}><span>Analysis</span></div>
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-              <Dashboard scores={layoutState.scores} />
+              <Dashboard scores={layoutState.scores} onAnalyze={handleAnalyze} analyzing={analyzing} />
             </div>
           </div>
 
