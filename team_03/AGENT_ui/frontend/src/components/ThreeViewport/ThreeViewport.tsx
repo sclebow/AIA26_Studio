@@ -144,6 +144,58 @@ function CameraController({ viewCommand }: { viewCommand: string | null }) {
   return null
 }
 
+// ── Fit-to-bounds — zoom + recenter so the whole layout fits the viewport,
+//    from the default iso angle. Works for both ortho (sets camera.zoom) and
+//    perspective (sets distance), using a rotation-invariant bounding sphere. ──
+function FitController({ fitCommand, layout }: { fitCommand: string | null; layout: LayoutJSON }) {
+  const { camera, controls, size } = useThree()
+
+  useEffect(() => {
+    if (!fitCommand || !controls) return
+    const ctrl = controls as any
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+    for (const [x, y] of layout.outline) {
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x)
+      minY = Math.min(minY, y); maxY = Math.max(maxY, y)
+    }
+    const cx = (minX + maxX) / 2
+    const cz = (minY + maxY) / 2
+    const w = maxX - minX
+    const h = maxY - minY
+    // Bounding-sphere radius of the footprint (+ a bit for wall height) so the
+    // fit holds from any view angle.
+    const r = 0.5 * Math.sqrt(w * w + h * h + 25)
+    const margin = 1.15
+
+    ctrl.target.set(cx, 0, cz)
+    camera.up.set(0, 1, 0)
+
+    const ortho = camera as THREE.OrthographicCamera
+    if (ortho.isOrthographicCamera) {
+      const dist = Math.max(w, h) || 40
+      camera.position.set(cx + dist * 0.577, dist * 0.577, cz + dist * 0.577)
+      camera.lookAt(cx, 0, cz)
+      const frustumH = ortho.top - ortho.bottom
+      const aspect = size.width / size.height
+      // visible height must cover the sphere both vertically and horizontally
+      const visH = Math.max(2 * r, (2 * r) / aspect) * margin
+      ortho.zoom = frustumH / visH
+      ortho.updateProjectionMatrix()
+    } else {
+      const persp = camera as THREE.PerspectiveCamera
+      const vFov = (persp.fov * Math.PI) / 180
+      const hFov = 2 * Math.atan(Math.tan(vFov / 2) * persp.aspect)
+      const dist = Math.max(r / Math.sin(vFov / 2), r / Math.sin(hFov / 2)) * margin
+      camera.position.set(cx + dist * 0.577, dist * 0.577, cz + dist * 0.577)
+      camera.lookAt(cx, 0, cz)
+    }
+    ctrl.update()
+  }, [fitCommand, camera, controls, layout, size])
+
+  return null
+}
+
 // ── Ortho/Persp switch — modifies the camera in-place ──────────────────
 function OrthoController({ isOrtho }: { isOrtho: boolean }) {
   const { camera, gl, controls, set } = useThree()
@@ -384,6 +436,8 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
   const [isOrtho, setIsOrtho] = useState(true)
   const [renderMode, setRenderMode] = useState<RenderMode>('rendered')
   const [viewCommand, setViewCommand] = useState<string | null>(null)
+  const [fitCommand, setFitCommand] = useState<string | null>(null)
+  const fitCounter = useRef(0)
   const [personMode, setPersonMode] = useState(false)
   const [personPos, setPersonPos] = useState<{ x: number; y: number } | null>(null)
   const [placing, setPlacing] = useState(false)
@@ -552,6 +606,11 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
     setViewCommand(view + '__' + viewCounter.current)
   }, [])
 
+  const handleFit = useCallback(() => {
+    fitCounter.current++
+    setFitCommand('fit__' + fitCounter.current)
+  }, [])
+
   const handleToggleOrtho = useCallback(() => {
     setIsOrtho(prev => !prev)
   }, [])
@@ -575,6 +634,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
         <CameraTracker anglesRef={cameraAnglesRef} />
         <ViewportRefBridge threeRef={threeRef} />
         <CameraController viewCommand={viewCommand} />
+        <FitController fitCommand={fitCommand} layout={layout} />
         <OrthoController isOrtho={isOrtho} />
         <BoundsFitter layout={layout} lockView={isAgentRunning} />
         <SceneContent
@@ -726,8 +786,8 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
 
         {/* Center/fit */}
         <button
-          onClick={() => handleViewChange('top-front-right')}
-          title="Center geometry"
+          onClick={handleFit}
+          title="Center & fit geometry"
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             background: colors.panelBg,
