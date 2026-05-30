@@ -9,6 +9,7 @@ import SenseSpaceGraph from "../components/SenseSpaceGraph.jsx";
 import TimelineStrip from "../components/TimelineStrip.jsx";
 import LayoutPicker from "../components/LayoutPicker.jsx";
 import { formatChatMessage } from "../lib/formatMessage.js";
+import { SI, SENSES } from "../lib/constants.js";
 
 function parse(s) { try { return s ? JSON.parse(s) : null; } catch { return null; } }
 
@@ -103,6 +104,7 @@ function SpaceInput({ pos, onSend, onClose }) {
 export default function LayoutModeScreen({ messages, turns, thinking, persona, layoutId, onSend }) {
   // "comfort" | "room-graph" | "sense-graph"
   const [centerMode,   setCenterMode]   = useState("comfort");
+  const [lens,         setLens]         = useState("overall");
   const [immersed,     setImmersed]     = useState(false);
   const [panelOpen,    setPanelOpen]    = useState(false);
   const [profileOpen,  setProfileOpen]  = useState(false);
@@ -246,6 +248,14 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
               <button className={"lm-mode-btn" + (centerMode === "room-graph"  ? " active" : "")} onClick={() => setCenterMode("room-graph")}>room graph</button>
               <button className={"lm-mode-btn" + (centerMode === "sense-graph" ? " active" : "")} onClick={() => setCenterMode("sense-graph")}>sense graph</button>
             </div>
+            {centerMode === "comfort" && (
+              <div className="lm-lens-row">
+                <button className={"lm-lens-btn" + (lens === "overall" ? " active" : "")} onClick={() => setLens("overall")} title="overall comfort">all</button>
+                {SENSES.map((s) => (
+                  <button key={s} className={"lm-lens-btn" + (lens === s ? " active" : "")} onClick={() => setLens(s)} title={s}>{SI[s]}</button>
+                ))}
+              </div>
+            )}
             <button
               className={"lm-immerse-btn" + (immersed ? " active" : "")}
               title={immersed ? "show chat (or press Space to type)" : "immersive mode"}
@@ -265,6 +275,7 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
                 layoutDiff={activeTurn?.layout_diff}
                 biophilicData={activeTurn?.biophilic_data}
                 showMode="comfort"
+                lens={lens}
                 showGraph={centerMode === "room-graph"}
                 graphData={activeTurn?.graph_data}
               />

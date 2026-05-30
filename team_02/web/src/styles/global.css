@@ -1577,3 +1577,16 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
   color: rgba(155,143,212,1.0);
   background: rgba(155,143,212,0.10);
 }
+
+/* per-sense comfort lens (comfort mode) */
+.lm-lens-row { display: flex; align-items: center; gap: 4px; }
+.lm-lens-btn {
+  background: rgba(var(--fg-rgb),.04);
+  border: 1px solid rgba(var(--fg-rgb),.10);
+  color: rgba(var(--fg-rgb), .45);
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+  padding: 4px 8px; border-radius: var(--r-pill);
+  cursor: pointer; line-height: 1; transition: all .15s;
+}
+.lm-lens-btn:hover { color: rgba(var(--fg-rgb), .75); border-color: rgba(var(--fg-rgb), .25); }
+.lm-lens-btn.active { background: rgba(var(--fg-rgb),.10); color: rgba(var(--fg-rgb), .90); border-color: rgba(var(--fg-rgb), .35); }

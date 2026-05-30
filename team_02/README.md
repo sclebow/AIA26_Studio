@@ -62,21 +62,45 @@ cd ..\..
 ```
 
 `npm run build` compiles the frontend into `team_02\web\dist`, which the backend
-serves directly — so you never need a second terminal for Vite.
+serves directly. You need this for the **single-process** mode (step 4) and must
+re-run it after every frontend change there. For **development** (step 3) you don't
+need to build at all — Vite serves `web/src` live.
 
-## 3. Run the app — single terminal
+## 3. Run the app — two terminals (development)
 
-From the `AIA26_Studio\` root:
+Use this mode while editing the frontend: Vite hot-reloads on every save, so you
+never rebuild. Both commands run from the `AIA26_Studio\` root.
+
+**Terminal 1 — backend (FastAPI on :8000):**
 
 ```powershell
+uvicorn api.server:app --app-dir team_02\python --reload --port 8000
+```
+
+**Terminal 2 — frontend (Vite dev server on :5173):**
+
+```powershell
+cd team_02\web
+npm run dev
+```
+
+Then open **http://localhost:5173** — *not* 8000. Vite serves `web/src` directly and
+proxies `/api` calls to the backend, so it behaves as one app. Anything you change in
+`web/src` shows up on save; restart uvicorn only if you change Python. Press `Ctrl+C`
+in each terminal to stop.
+
+## 4. Run as one process (preview / share)
+
+When you're **not** editing — to preview the built app or hand someone a single link —
+build the frontend once and let the backend serve it:
+
+```powershell
+cd team_02\web; npm run build; cd ..\..
 uvicorn api.server:app --app-dir team_02\python --port 8000
 ```
 
-Then open **http://localhost:8000**. The whole app — chat, analysis panel, 3D — is
-served from this one process. Press `Ctrl+C` to stop.
-
-> **If you change frontend code** (anything in `team_02\web\src`), re-run
-> `npm run build` to see it. The Python backend you can just restart.
+Then open **http://localhost:8000**. Re-run `npm run build` after any frontend change
+to refresh what's served here.
 
 ## Docker (single shareable container)
 
@@ -99,11 +123,6 @@ the FastAPI backend that serves it.
   errors (usually a bad/missing API key in `.env`).
 - **Port already in use** — change `--port 8000` to another port and use that in the
   URL.
-
-## Developing the frontend (optional two-terminal mode)
-
-Only needed if you're actively editing `web/src` and want instant live-reload
-instead of rebuilding each time. Terminal 1 runs the backend
-(`uvicorn api.server:app --app-dir team_02\python --port 8000`); terminal 2 runs
-`cd team_02\web; npm run dev` and you open **http://localhost:5173**, which proxies
-`/api` calls to the backend.
+- **Editing the frontend but changes don't show?** You're probably on **:8000**
+  (built mode). Use the two-terminal dev flow (step 3) and open **:5173** for live
+  reload, or re-run `npm run build`.

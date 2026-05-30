@@ -62,7 +62,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-29T15:25:09",
+          "timestamp": "2026-05-29T23:26:33",
           "overallScore": 0.63,
           "comfortScores": {
             "thermal": 0.45,
@@ -114,7 +114,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-29T15:25:09",
+          "timestamp": "2026-05-29T23:26:33",
           "overallScore": 0.42,
           "comfortScores": {
             "thermal": 0.25,
@@ -166,7 +166,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-29T15:25:09",
+          "timestamp": "2026-05-29T23:26:33",
           "overallScore": 0.6,
           "comfortScores": {
             "thermal": 0.45,
@@ -187,11 +187,11 @@
       "geometry": [
         [
           5,
-          4
+          5
         ],
         [
           10,
-          4
+          5
         ],
         [
           10,
@@ -203,11 +203,11 @@
         ],
         [
           5,
-          4
+          5
         ]
       ],
       "attributes": {
-        "area": 20.0,
+        "area": 15.0,
         "roomType": "bedroom",
         "height": 2.8,
         "orientation": "N",
@@ -218,13 +218,13 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-29T15:25:09",
-          "overallScore": 0.64,
+          "timestamp": "2026-05-29T23:26:33",
+          "overallScore": 0.62,
           "comfortScores": {
             "thermal": 0.45,
             "visual": 0.52,
             "acoustic": 0.55,
-            "spatial": 0.9,
+            "spatial": 0.77,
             "olfactory": 0.77,
             "tactile": 0.66
           },
@@ -270,7 +270,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-29T15:25:09",
+          "timestamp": "2026-05-29T23:26:33",
           "overallScore": 0.5,
           "comfortScores": {
             "thermal": 0.39,
@@ -322,7 +322,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-29T15:25:09",
+          "timestamp": "2026-05-29T23:26:33",
           "overallScore": 0.43,
           "comfortScores": {
             "thermal": 0.39,
@@ -386,12 +386,12 @@
       "name": "Hallway to Guest Bedroom",
       "geometry": [
         [
-          7,
-          4.5
+          8,
+          5
         ],
         [
-          7,
-          5.4
+          8.9,
+          5
         ]
       ],
       "attributes": {
@@ -429,11 +429,11 @@
       "geometry": [
         [
           10,
-          4.5
+          4.05
         ],
         [
           10,
-          5.4
+          4.95
         ]
       ],
       "attributes": {
@@ -751,23 +751,23 @@
       "geometry": [
         [
           5.5,
-          4.5
+          5.2
         ],
         [
           8.5,
-          4.5
+          5.2
         ],
         [
           8.5,
-          7
+          7.7
         ],
         [
           5.5,
-          7
+          7.7
         ],
         [
           5.5,
-          4.5
+          5.2
         ]
       ],
       "attributes": {
@@ -913,9 +913,9 @@
     "_source": "Sensi",
     "persona": "Neutral",
     "depth": "analyze",
-    "timestamp": "2026-05-29T15:25:09",
-    "overallScore": 0.5367,
-    "bestRoom": "room-4",
+    "timestamp": "2026-05-29T23:26:33",
+    "overallScore": 0.5333,
+    "bestRoom": "room-1",
     "worstRoom": "room-2"
   }
 }
