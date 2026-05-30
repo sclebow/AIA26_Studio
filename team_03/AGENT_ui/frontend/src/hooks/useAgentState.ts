@@ -62,6 +62,8 @@ export interface UseAgentStateReturn {
   handleAgentResponse: (response: AgentResponse) => void;
   handleAgentSay: (msg: AgentSay) => void;
   handleAgentCheckpoint: (cp: AgentCheckpoint) => void;
+  /** Force-mark pipeline nodes as completed (e.g. profile/space from onboarding). */
+  markNodesCompleted: (names: string[]) => void;
   resetChat: () => void;
   cancelLast: () => void;
 }
@@ -201,6 +203,16 @@ export function useAgentState(options?: UseAgentStateOptions): UseAgentStateRetu
     }
   }, [addLog]);
 
+  // Seed pipeline nodes as completed without a real agent event — used when the
+  // onboarding screens (User/Space profile) stand in for profile_agent /
+  // space_type_agent. A later real run overwrites these via handleAgentEvent.
+  const markNodesCompleted = useCallback((names: string[]) => {
+    setNodeStatuses(prev => ({
+      ...prev,
+      ...Object.fromEntries(names.map(n => [n, 'completed' as NodeStatus])),
+    }));
+  }, []);
+
   const resetChat = useCallback(() => {
     setMessages([]);
     setNodeStatuses({});
@@ -236,6 +248,7 @@ export function useAgentState(options?: UseAgentStateOptions): UseAgentStateRetu
     handleAgentResponse,
     handleAgentSay,
     handleAgentCheckpoint,
+    markNodesCompleted,
     resetChat,
     cancelLast,
   };

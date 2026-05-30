@@ -43,6 +43,51 @@ def _team_dir() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def _inject_user_profile(team_dir: Path, layout_name: str) -> None:
+    """Merge the global onboarding profile (memory/user_profile.md) into this
+    layout's memory file under the protected "## User Rules" block, so reason.py
+    injects it into the LLM context every turn. Idempotent (replaces stale profile
+    rules first). Never raises — a profile failure must not break chat startup."""
+    try:
+        profile_path = team_dir / "memory" / "user_profile.md"
+        if not profile_path.exists():
+            return
+
+        # Reuse the pipeline's own rule helpers (team_03/python is on sys.path).
+        from nodes.memory import load_memory, save_memory, add_user_rule, remove_user_rule
+
+        # Parse the profile bullets into prefixed rule lines.
+        section: Optional[str] = None
+        rules: list[str] = []
+        for raw in profile_path.read_text(encoding="utf-8").splitlines():
+            s = raw.strip()
+            low = s.lower()
+            if low.startswith("## user profile"):
+                section = "User profile"; continue
+            if low.startswith("## space profile"):
+                section = "Space profile"; continue
+            if s.startswith("## "):
+                section = None; continue
+            if section and s.startswith("- "):
+                item = s[2:].strip()
+                # Skip empty/placeholder bullets.
+                if item and item not in ("(skipped)",) and not item.endswith(": —"):
+                    rules.append(f"{section} — {item}")
+
+        mem_path = team_dir / "memory" / f"{layout_name}.md"
+        text = load_memory(mem_path)
+        # Drop any prior profile rules so re-onboarding doesn't accumulate stale lines.
+        text, _ = remove_user_rule(text, "User profile —")
+        text, _ = remove_user_rule(text, "Space profile —")
+        for r in rules:
+            text = add_user_rule(text, r)
+        save_memory(mem_path, text)
+        if rules:
+            print(f"[profile] Injected {len(rules)} profile rule(s) into {mem_path.name}")
+    except Exception as exc:
+        print(f"[profile] Could not inject user profile: {exc}")
+
+
 def _probe_mcp(endpoint: str, timeout: float = 3.0) -> None:
     """Fast TCP reachability check for the MCP/Swiftlet endpoint. Raises a clear
     ConnectionError if the host:port is not accepting connections, so a missing
@@ -93,6 +138,10 @@ def build_context(layout_name: str, progress: Optional[Callable[[str], None]] = 
     # Always start fresh from the base layout (base file is never modified).
     layout_data = create_session(resolved_layout, workspace_path)
     _say(f"Loaded layout '{name}'.")
+
+    # Merge the onboarding profile into this layout's memory BEFORE the MCP probe,
+    # so it's recorded even if Rhino/Swiftlet is down.
+    _inject_user_profile(team_dir, name)
 
     # Fail fast if Swiftlet/Rhino is unreachable (avoids a silent long hang).
     _say(f"Connecting to Grasshopper (MCP) at {settings.mcp_endpoint}…")

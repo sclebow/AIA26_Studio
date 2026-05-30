@@ -86,6 +86,59 @@ async def upload_layout(file: UploadFile = File(...)):
 
 
 # ---------------------------------------------------------------------------
+# User / Space profile (from the onboarding screens)
+# ---------------------------------------------------------------------------
+
+
+class ProfilePayload(BaseModel):
+    # User Profile (step 1)
+    role: str = ""
+    experience: str = ""
+    name: str = ""
+    # Space Profile (step 2) — labels already resolved by the frontend
+    layoutStatus: str = ""
+    workflowType: str = ""
+    workflowCustom: str = ""
+    spaceNotes: str = ""
+    skippedSpaceAgent: bool = False
+
+
+def _memory_dir() -> Path:
+    """team_03/memory/ — sibling of team_03/AGENT_ui, holds the agent memory files."""
+    return Path(__file__).resolve().parents[2] / "memory"
+
+
+def _build_profile_md(p: ProfilePayload) -> str:
+    """Render the onboarding answers as a readable, global user-memory file."""
+    dash = "—"  # em dash placeholder for empty optional fields
+    lines: list[str] = ["## User Profile",
+                        f"- Name: {p.name.strip() or dash}",
+                        f"- Role: {p.role.strip() or dash}",
+                        f"- Experience: {p.experience.strip() or dash}",
+                        ""]
+    lines.append("## Space Profile")
+    if p.skippedSpaceAgent:
+        lines.append("- (skipped)")
+    else:
+        workflow = p.workflowCustom.strip() if p.workflowType.strip().lower() == "custom" and p.workflowCustom.strip() else p.workflowType.strip()
+        lines.append(f"- Layout status: {p.layoutStatus.strip() or dash}")
+        lines.append(f"- Workflow type: {workflow or dash}")
+        lines.append(f"- Notes: {p.spaceNotes.strip() or dash}")
+    return "\n".join(lines).strip() + "\n"
+
+
+@router.post("/api/profile")
+async def save_profile(body: ProfilePayload):
+    """Persist the onboarding User/Space profile as a global user-memory file
+    (team_03/memory/user_profile.md). Overwrites on each submit."""
+    mem_dir = _memory_dir()
+    mem_dir.mkdir(parents=True, exist_ok=True)
+    path = mem_dir / "user_profile.md"
+    path.write_text(_build_profile_md(body), encoding="utf-8")
+    return {"status": "ok", "path": str(path)}
+
+
+# ---------------------------------------------------------------------------
 # Session
 # ---------------------------------------------------------------------------
 

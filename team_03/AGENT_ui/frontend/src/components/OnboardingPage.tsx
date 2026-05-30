@@ -27,7 +27,7 @@ const ICON = {
   strokeLinecap: "round" as const, strokeLinejoin: "round" as const,
 };
 
-const LAYOUT_STATUS = [
+export const LAYOUT_STATUS = [
   { id: "existing", label: "Existing layout with equipment", icon: (
     <svg {...ICON}><rect x="3" y="4" width="18" height="16" rx="1" /><rect x="6" y="7" width="4" height="4" /><rect x="14" y="13" width="4" height="4" /></svg>
   ) },
@@ -38,7 +38,7 @@ const LAYOUT_STATUS = [
     <svg {...ICON}><rect x="5" y="3" width="14" height="18" rx="1" /><path d="M12 9v6M9 12h6" /></svg>
   ) },
 ];
-const WORKFLOWS = [
+export const WORKFLOWS = [
   { id: "electronics", label: "Electronics Assembly", desc: "PCB lines, SMT, clean rooms", icon: (
     <svg {...ICON}><rect x="7" y="7" width="10" height="10" rx="1" /><path d="M10 7V4M14 7V4M10 20v-3M14 20v-3M7 10H4M7 14H4M20 10h-3M20 14h-3" /></svg>
   ) },

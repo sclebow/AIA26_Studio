@@ -16,7 +16,7 @@ import { useSelectionSync } from './hooks/useSelectionSync';
 import { useLayoutState } from './hooks/useLayoutState';
 import { useAgentState } from './hooks/useAgentState';
 import WelcomePage from "./components/WelcomePage";
-import OnboardingPage, { OnboardingData } from "./components/OnboardingPage";
+import OnboardingPage, { OnboardingData, LAYOUT_STATUS, WORKFLOWS } from "./components/OnboardingPage";
 import type { LayerVisibility, LayerName } from './types';
 
 const defaultVisibility: LayerVisibility = {
@@ -155,7 +155,30 @@ export default function App() {
 
   // ── Auth gates ────────────────────────────────────────────────────────────
   if (!loggedIn) return <WelcomePage onEnter={() => setLoggedIn(true)} />;
-  if (!onboarded) return <OnboardingPage onComplete={(data) => { setOnboardingData(data); setOnboarded(true); }} />;
+  if (!onboarded) return <OnboardingPage onComplete={(data) => {
+    // The onboarding screens stand in for the first two pipeline nodes — mark
+    // them completed (space_type_agent only if the Space step wasn't skipped).
+    const done = ['profile_agent'];
+    if (!data.skippedSpaceAgent && (data.layoutStatus || data.workflowType)) done.push('space_type_agent');
+    agentState.markNodesCompleted(done);
+    // Persist the profile as a global user-memory file (labels, not ids).
+    const layoutStatusLabel = LAYOUT_STATUS.find(l => l.id === data.layoutStatus)?.label ?? data.layoutStatus;
+    const workflowLabel = data.workflowType === 'custom'
+      ? (data.workflowCustom || 'Custom')
+      : (WORKFLOWS.find(w => w.id === data.workflowType)?.label ?? data.workflowType);
+    fetch('/api/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        role: data.role, experience: data.experience, name: data.name,
+        layoutStatus: layoutStatusLabel, workflowType: workflowLabel,
+        workflowCustom: data.workflowCustom, spaceNotes: data.spaceNotes,
+        skippedSpaceAgent: data.skippedSpaceAgent,
+      }),
+    }).catch(() => {});
+    setOnboardingData(data);
+    setOnboarded(true);
+  }} />;
 
   // ── Shared style tokens ───────────────────────────────────────────────────
   const sidebarBg = isDark ? 'rgba(13,9,24,0.98)' : 'rgba(248,249,251,0.98)';
