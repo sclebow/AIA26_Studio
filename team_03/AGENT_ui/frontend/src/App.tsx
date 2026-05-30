@@ -48,6 +48,7 @@ export default function App() {
 
   // UI state
   const [layerVisibility, setLayerVisibility] = useState<LayerVisibility>(defaultVisibility);
+  const [showLabels, setShowLabels] = useState(true);   // shared: 3D labels + graph labels
   const [viewMode, setViewMode] = useState<ViewMode>('geometry');
   const [displayMode, setDisplayMode] = useState<ViewMode>('geometry');
   const [animPhase, setAnimPhase] = useState<'idle' | 'out' | 'in'>('idle');
@@ -191,6 +192,8 @@ export default function App() {
     modifiedIds: layoutState.modifiedIds,
     onObserverPoint: handleObserverPoint,
     onObserverPath: handleObserverPath,
+    showLabels,
+    onToggleLabels: () => setShowLabels(v => !v),
   } : null;
 
   const noLayoutPlaceholder = (
@@ -340,7 +343,7 @@ export default function App() {
                 </div>
               )
             ) : (
-              <GraphPanel graphData={layoutState.graphData} selectedId={selectedId} onSelect={handleGraphSelect} fullscreen />
+              <GraphPanel graphData={layoutState.graphData} selectedId={selectedId} onSelect={handleGraphSelect} showLabels={showLabels} fullscreen />
             )}
           </div>
         </div>
@@ -362,7 +365,7 @@ export default function App() {
             <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: 0 }}>
               <div style={swapStyle}>
                 {displayMode === 'geometry' ? (
-                  <GraphPanel graphData={layoutState.graphData} selectedId={selectedId} onSelect={handleGraphSelect} />
+                  <GraphPanel graphData={layoutState.graphData} selectedId={selectedId} onSelect={handleGraphSelect} showLabels={showLabels} />
                 ) : (
                   viewportProps ? <ThreeViewport {...viewportProps} /> : noLayoutPlaceholder
                 )}

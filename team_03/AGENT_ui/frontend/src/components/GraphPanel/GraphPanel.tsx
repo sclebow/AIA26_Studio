@@ -21,6 +21,10 @@ interface GraphPanelProps {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   fullscreen?: boolean;
+  /** Shared with the 3D viewport's Labels toggle. When false, no node labels.
+   *  When true: fullscreen shows all labels; mini shows only the selected node's
+   *  label (avoids overlap on the small panel). */
+  showLabels?: boolean;
 }
 
 interface DetailInfo {
@@ -318,7 +322,7 @@ function makeStyles(T: GraphTheme) {
 
 // ── Component ───────────────────────────────────────────────────────────────
 
-const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect, fullscreen }) => {
+const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect, fullscreen, showLabels = true }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const networkRef = useRef<Network | null>(null);
   const nodesDSRef = useRef<DataSet<VisNode> | null>(null);
@@ -340,6 +344,20 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
   const openDetailRef = useRef<(nodeId: string) => void>(() => {});
+  const showLabelsRef = useRef(showLabels);
+  showLabelsRef.current = showLabels;
+  const fullscreenRef = useRef(fullscreen);
+  fullscreenRef.current = fullscreen;
+
+  // Which label (if any) a node should display:
+  //  - labels off            → none
+  //  - fullscreen + labels on → its full label
+  //  - mini + labels on       → only the selected node's label (avoids overlap)
+  const labelFor = useCallback((node: VisNode): string => {
+    if (!showLabelsRef.current) return '';
+    if (fullscreenRef.current) return (node as any).label ?? '';
+    return node.id === selectedIdRef.current ? ((node as any).label ?? '') : '';
+  }, []);
 
   // ── Derived data ────────────────────────────────────────────────
   const mapped = useMemo(() => {
@@ -402,7 +420,9 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
       networkRef.current = null;
     }
 
-    const nodesDS = new DataSet(mapped.nodes as any[]);
+    // Apply the initial label-visibility rule (mini starts with no labels).
+    const initialNodes = mapped.nodes.map(n => ({ ...n, label: labelFor(n) }));
+    const nodesDS = new DataSet(initialNodes as any[]);
     const edgesDS = new DataSet(mapped.edges as any[]);
     nodesDSRef.current = nodesDS;
     edgesDSRef.current = edgesDS;
@@ -451,6 +471,15 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
     // selection or callback-identity changes (those are read via refs).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapped]);
+
+  // ── Label visibility: toggle (shared with 3D) + mini = selected-only ──
+  useEffect(() => {
+    const nodesDS = nodesDSRef.current;
+    if (!nodesDS || !mapped) return;
+    // Source labels from mapped.nodes (the live DataSet may have label='' from a
+    // previous pass — never read the original back from it).
+    nodesDS.update(mapped.nodes.map(n => ({ id: n.id, label: labelFor(n) })) as any);
+  }, [mapped, showLabels, fullscreen, selectedId, labelFor]);
 
   // ── React to external selectedId changes ────────────────────────
   // Depends ONLY on selectedId — nodesById/openDetail are read via refs/current

@@ -25,6 +25,9 @@ interface ThreeViewportProps {
   onObserverPoint?: (x: number, y: number, height: number, pointStr: string) => void
   /** Push an ordered path of floor points to the backend on finish. */
   onObserverPath?: (points: Array<{ x: number; y: number }>) => void
+  /** Controlled labels toggle (shared with the graph). Falls back to internal state. */
+  showLabels?: boolean
+  onToggleLabels?: () => void
 }
 
 interface SceneProps extends ThreeViewportProps {
@@ -325,10 +328,13 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
   )
 }
 
-export default function ThreeViewport({ layout, selectedId, onSelect, layers, graphData, modifiedIds, onObserverPoint, onObserverPath }: ThreeViewportProps) {
+export default function ThreeViewport({ layout, selectedId, onSelect, layers, graphData, modifiedIds, onObserverPoint, onObserverPath, showLabels: showLabelsProp, onToggleLabels }: ThreeViewportProps) {
   const { theme, colors } = useTheme()
   const isDark = theme === 'dark'
-  const [showLabels, setShowLabels] = useState(true)
+  const [internalShowLabels, setInternalShowLabels] = useState(true)
+  // Controlled by App (shared with the graph) when provided; else internal.
+  const showLabels = showLabelsProp ?? internalShowLabels
+  const toggleLabels = onToggleLabels ?? (() => setInternalShowLabels(v => !v))
   const [isOrtho, setIsOrtho] = useState(true)
   const [viewCommand, setViewCommand] = useState<string | null>(null)
   const [personMode, setPersonMode] = useState(false)
@@ -697,7 +703,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
 
         {/* Labels toggle */}
         <button
-          onClick={() => setShowLabels(v => !v)}
+          onClick={toggleLabels}
           title={showLabels ? 'Hide labels' : 'Show labels'}
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
