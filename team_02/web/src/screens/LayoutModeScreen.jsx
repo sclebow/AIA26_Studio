@@ -32,7 +32,18 @@ function SpaceInput({ pos, onSend, onClose }) {
   );
 }
 
-const DEFAULT_LAYERS = { fill: true, signatures: true, flow: false, topology: false };
+// Two-tier canvas model:
+//   plan      — the architecture base (walls/rooms/openings/furniture). Toggle
+//               off to isolate a graph lens on the bare field.
+//   comfort   — the comfort read-out (room fill tint + per-room score ring).
+//   flow / topology — graph LENSES on the shared room-graph; mutually exclusive
+//               (you read one graph at a time). Data-gated (see availability).
+const DEFAULT_LAYERS = { plan: true, comfort: true, flow: false, topology: false };
+
+// What each lens needs computed before it can show anything real.
+const LAYER_REQUIRES = { plan: null, comfort: "scores", flow: "scores", topology: "graph" };
+// If a lens isn't available yet, clicking it asks Sensi to run the analysis.
+const LAYER_RUN_MSG = { comfort: "analyse the layout", flow: "analyse the layout", topology: "map the topology of the layout" };
 
 export default function LayoutModeScreen({ messages, turns, thinking, persona, layoutId, onSend }) {
   const [chatOpen,     setChatOpen]     = useState(true);
@@ -56,6 +67,12 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
   useEffect(() => {
     const rs = roomScores(activeTurn);
     if (rs.length) setActiveRoom(rs.reduce((a, b) => ((a.overallScore || 1) <= (b.overallScore || 1) ? a : b)).roomName);
+  }, [activeTurn?.id]); // eslint-disable-line
+
+  // auto-reveal the topology graph when a topology turn lands (its data is fresh,
+  // and graph lenses are mutually exclusive so flow steps aside).
+  useEffect(() => {
+    if (activeTurn?.action === "topologic") setLayers((l) => ({ ...l, topology: true, flow: false }));
   }, [activeTurn?.id]); // eslint-disable-line
 
   const rooms         = roomScores(activeTurn);
@@ -98,7 +115,19 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
     onSend(t);
   }, [draft, onSend]);
 
-  const toggleLayer = (k) => setLayers(l => ({ ...l, [k]: !l[k] }));
+  // Layer availability follows what's been computed; graph lenses are exclusive.
+  const dataReady = { scores: rooms.length > 0, graph: !!activeTurn?.graph_data?.nodes?.length };
+  const layerAvailable = (k) => LAYER_REQUIRES[k] == null || dataReady[LAYER_REQUIRES[k]];
+  const onLayer = (k) => {
+    if (!layerAvailable(k)) { onSend(LAYER_RUN_MSG[k]); return; }   // click-to-run
+    setLayers((l) => {
+      if (k === "flow" || k === "topology") {
+        const on = !l[k];
+        return { ...l, flow: k === "flow" && on, topology: k === "topology" && on };
+      }
+      return { ...l, [k]: !l[k] };
+    });
+  };
 
   return (
     <div className="layout-mode-screen">
@@ -145,12 +174,12 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
               {chatOpen ? "‹ chat" : "chat ›"}
             </button>
             <SenseMixer />
-            <LayerToggles layers={layers} onToggle={toggleLayer} />
+            <LayerToggles layers={layers} onToggle={onLayer} available={layerAvailable} />
             <button className={"layer-pill" + (graphOpen ? " active" : "")} onClick={() => setGraphOpen(true)} title="sense-coupling graph">sense graph ↗</button>
           </div>
 
           <div className="lm-viewer">
-            <SensePlan rooms={rooms} layoutId={layoutId} layers={layers} />
+            <SensePlan rooms={rooms} layoutId={layoutId} layers={layers} graphData={activeTurn?.graph_data} />
 
             {/* topology metric pills */}
             {metrics && (
@@ -158,6 +187,7 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
                 {metrics.most_connected && metrics.most_connected !== "none" && <span className="metric-pill">hub · {metrics.most_connected}</span>}
                 {metrics.bridge_rooms?.length > 0 && <span className="metric-pill">bridges · {metrics.bridge_rooms.join(", ")}</span>}
                 {metrics.isolated_rooms?.length > 0 && <span className="metric-pill warn">isolated · {metrics.isolated_rooms.join(", ")}</span>}
+                {metrics.num_components > 1 && <span className="metric-pill warn">detached · {metrics.num_components} zones</span>}
               </div>
             )}
 

@@ -144,9 +144,24 @@ body {
 .spln-furn-fill  { fill: rgba(var(--fg-rgb), 0.05); stroke: rgba(var(--fg-rgb), 0.4); stroke-width: 1; }
 .spln-furn-label { fill: rgba(var(--fg-rgb), 0.45); font-family: var(--font-mono); }
 
-/* compass */
-.spln-compass text    { fill: rgba(var(--fg-rgb), 0.85); font-family: var(--font-mono); }
-.spln-compass polygon { fill: rgba(var(--fg-rgb), 0.8); }
+/* transmissive-flow arrows — marching dash conveys direction of bleed */
+.spln-flow-arrow { stroke-dasharray: 5 4; animation: flow-march 0.9s linear infinite; }
+@keyframes flow-march { to { stroke-dashoffset: -9; } }
+
+/* comfort ring — arc fills/empties smoothly when the shown score changes */
+.spln-score-arc  { transition: stroke-dasharray var(--dur-slow) var(--ease-soft); }
+.spln-node-label { fill: rgba(var(--fg-rgb), 0.7); font-family: var(--font-mono); }
+
+/* hover inspection tooltip (rooms / furniture) */
+.plan-tooltip {
+  position: fixed; z-index: 50; pointer-events: none;
+  background: rgba(13, 13, 13, 0.95); border: 1px solid rgba(var(--fg-rgb), var(--o-faint));
+  border-radius: var(--r-sm); padding: 7px 9px; min-width: 120px;
+  font-family: var(--font-mono); font-size: 10px; color: rgba(var(--fg-rgb), 0.75);
+}
+.plan-tooltip-title { color: rgba(var(--fg-rgb), 0.95); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 4px; }
+.plan-tooltip-row   { display: flex; justify-content: space-between; gap: 14px; line-height: 1.5; }
+.plan-tooltip-row > span:first-child { color: rgba(var(--fg-rgb), 0.4); }
 
 /* ── focus card (per-room detail — the dissolved bars, reborn as HTML) ── */
 .focus-card {
@@ -190,6 +205,8 @@ body {
 }
 .layer-pill:hover  { color: rgba(var(--fg-rgb), 0.85); background: rgba(var(--fg-rgb), 0.06); }
 .layer-pill.active { color: rgba(var(--fg-rgb), 1); border-color: rgba(var(--fg-rgb), var(--o-soft)); background: rgba(var(--fg-rgb), 0.1); }
+/* lens whose data isn't computed yet — dimmed; clicking it asks Sensi to run it */
+.layer-pill.unavailable { opacity: 0.4; border-style: dashed; }
 
 /* ── legend (corner key) ── */
 .legend {
@@ -207,6 +224,13 @@ body {
 .legend-line  { display: inline-block; width: 14px; height: 0; border-top: 2px solid rgba(var(--fg-rgb), 0.8); margin: 0 2px 0 6px; }
 .legend-line.dashed { border-top-style: dashed; }
 .legend-line.dotted { border-top-style: dotted; }
+.legend-head  { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.legend-north { display: inline-flex; align-items: center; gap: 3px; color: rgba(var(--fg-rgb), 0.7); letter-spacing: .1em; }
+.legend-north svg { fill: rgba(var(--fg-rgb), 0.85); display: block; }
+.legend-dots  { display: inline-flex; gap: 3px; }
+.legend-dot   { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.legend-ring, .legend-arrow { display: block; flex-shrink: 0; }
+.legend-val   { color: rgba(var(--fg-rgb), 0.55); }
 
 /* ── sense-graph drawer ── */
 .graph-drawer {

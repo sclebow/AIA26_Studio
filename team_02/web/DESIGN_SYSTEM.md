@@ -73,13 +73,32 @@ that already has a token.
 | `SenseGraph` *(components/)* | sense-coupling ring graph | `rooms` |
 | `SensiAvatar` *(components/)* | concentric six-ring brand mark | `size`, `animate`, `strokeWidth?`, `centerR?` |
 
-### `canvas/` — the SVG floor-plan instrument
+### `canvas/` — the SVG floor-plan instrument (two-tier model)
 `SensePlan` is a thin **container** (loads layout, derives the view transform +
-per-room lookups) that composes presentational **layer** components, each gated
-by the `layers` toggle:
+per-room lookups, holds hover state) composing presentational layers in two tiers:
 
-`WallsLayer` · `RoomsLayer` · `OpeningsLayer` (doors + windows) · `FurnitureLayer`
-· `FlowLayer` (transmissive bleed) · `TopologyLayer` (room graph) · `Compass`.
+- **Base** (`layers.plan`): the architecture — `WallsLayer` · `RoomsLayer` (wall
+  outline + label + hit area) · `OpeningsLayer` · `FurnitureLayer`. Toggle off to
+  **isolate** a graph lens. Hovering a room/furniture raises a `PlanTooltip`.
+- **Lenses**:
+  - `comfort` — `RoomsLayer` fill tint + a per-room **comfort ring** (overall
+    score as an animated arc + number, top-right corner). The full 6-petal
+    `SenseSignature` now renders **only in the FocusCard** (an unreadable blob at
+    canvas scale).
+  - `flow` / `topology` — **mutually exclusive** graph lenses drawn on the shared
+    `RoomGraph` node substrate. `FlowLayer` = directional bleed arrows (worse→
+    better, severity thickness, glyph·score labels, animated). `TopologyLayer` =
+    adjacency edges driven by backend `graph_data`. When a graph lens is active
+    the base dims. North is docked in the `Legend`.
+
+**Layer control model.** Three orthogonal control *kinds*, kept visually distinct:
+the **sense selector** (`SenseMixer`, recolors the active lens), the **layer rail**
+(`LayerToggles`: plan / comfort / flow / topology), and **nav** (chat, sense
+graph). A lens declares what it `requires` (`scores` / `graph` — see
+`LAYER_REQUIRES` in `LayoutModeScreen`); the toggle derives *active / available /
+needs-run*, and clicking an unavailable lens **asks Sensi to run** that analysis
+(`LAYER_RUN_MSG`) instead of toggling an empty layer. The `Legend` is strictly
+per-active-lens.
 
 Pure geometry helpers live in `lib/geometry.js` (`polyPoints`, `centroid`,
 `dims`, `swingPath`); `failingTransmissive()` lives in `lib/senseModel.js`.

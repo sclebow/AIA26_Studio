@@ -6,27 +6,44 @@ import WallsLayer from "./WallsLayer.jsx";
 import RoomsLayer from "./RoomsLayer.jsx";
 import OpeningsLayer from "./OpeningsLayer.jsx";
 import FurnitureLayer from "./FurnitureLayer.jsx";
+import RoomGraph from "./RoomGraph.jsx";
 import FlowLayer from "./FlowLayer.jsx";
 import TopologyLayer from "./TopologyLayer.jsx";
-import Compass from "./Compass.jsx";
 
 /*
- * SensePlan — the floor plan as one bespoke SVG data-canvas.
- *
- * This is now a thin CONTAINER: it loads the layout, derives the view transform
- * + per-room lookups, and composes the presentational LAYER components below.
- * Each layer owns one concern and is gated by the `layers` toggle prop:
- *   - WallsLayer / OpeningsLayer / FurnitureLayer : the architecture
- *   - RoomsLayer       : room fill (hue + intensity = health) + sense signatures
- *   - FlowLayer        : transmissive bleed across doors (acoustic/olfactory/thermal)
- *   - TopologyLayer    : room-graph (centroid edges) + nodes
- * Interaction: hover = CSS-only; click = pin focus (bus activeRoom).
+ * SensePlan — the floor plan as one bespoke SVG data-canvas, in two tiers:
+ *   BASE   : the architecture (walls / rooms / openings / furniture), gated by
+ *            `layers.plan` — turn it off to isolate a graph lens. Hovering a
+ *            room or furniture piece raises its attributes.
+ *   LENSES : comfort (fill + score ring), and the mutually-exclusive graph
+ *            lenses flow / topology, drawn on the shared RoomGraph node substrate.
+ *   When a graph lens is active the base dims so the graph reads as its own thing.
  */
-const DEFAULT_LAYERS = { fill: true, signatures: true, flow: false, topology: false };
+const DEFAULT_LAYERS = { plan: true, comfort: true, flow: false, topology: false };
 
-export default function SensePlan({ rooms, layoutId, layers = DEFAULT_LAYERS }) {
+function PlanTooltip({ info }) {
+  if (!info) return null;
+  const a = info.attrs || {};
+  const pct = (v) => (v != null ? `${Math.round(v * 100)}%` : null);
+  const rows = info.kind === "room"
+    ? [["type", a.roomType], ["area", a.area && `${a.area} m²`], ["ceiling", a.ceilingHeight && `${a.ceilingHeight} m`],
+       ["facing", a.orientation], ["glazing", pct(a.glazingRatio)], ["vent", a.ventilationType],
+       ["floor", a.floorMaterial], ["score", info.score != null ? info.score.toFixed(2) : null]]
+    : [["type", a.type], ["material", a.material]];
+  return (
+    <div className="plan-tooltip" style={{ left: info.x + 14, top: info.y + 14 }}>
+      <div className="plan-tooltip-title">{info.title}</div>
+      {rows.filter(([, v]) => v).map(([k, v]) => (
+        <div className="plan-tooltip-row" key={k}><span>{k}</span><span>{v}</span></div>
+      ))}
+    </div>
+  );
+}
+
+export default function SensePlan({ rooms, layoutId, layers = DEFAULT_LAYERS, graphData = null }) {
   const [layout, setLayout] = useState(null);
   const [err, setErr] = useState("");
+  const [hover, setHover] = useState(null);
   const { focusSense, activeRoom, setActiveRoom } = useSelection();
 
   useEffect(() => {
@@ -50,10 +67,9 @@ export default function SensePlan({ rooms, layoutId, layers = DEFAULT_LAYERS }) 
     const span = Math.max(x1 - x0, y1 - y0);
     const pad = span * 0.07 + 0.5;
     return { vb: `${x0 - pad} ${y0 - pad} ${(x1 - x0) + 2 * pad} ${(y1 - y0) + 2 * pad}`,
-             fy: (y) => (y0 + y1) - y, span, x1, y1 };
+             fy: (y) => (y0 + y1) - y, span };
   }, [layout]);
 
-  // id → { name, centroid (layout coords), scored }
   const roomById = useMemo(() => {
     const m = {};
     (layout?.rooms || []).forEach((r) => {
@@ -68,17 +84,23 @@ export default function SensePlan({ rooms, layoutId, layers = DEFAULT_LAYERS }) 
 
   const { fy, span } = view;
   const u = span * 0.012;
+  const graphActive = layers.flow || layers.topology;
 
   return (
-    <svg className="sense-plan" viewBox={view.vb} preserveAspectRatio="xMidYMid meet">
-      <WallsLayer outline={layout.outline} structure={layout.structure} fy={fy} />
-      <RoomsLayer rooms={layout.rooms} scoredByName={scoredByName} activeRoom={activeRoom}
-        setActiveRoom={setActiveRoom} focusSense={focusSense} layers={layers} fy={fy} u={u} />
-      <OpeningsLayer doors={layout.doors} windows={layout.windows} fy={fy} />
-      <FurnitureLayer furniture={layout.furniture} fy={fy} u={u} />
-      {layers.flow && <FlowLayer doors={layout.doors} roomById={roomById} focusSense={focusSense} fy={fy} u={u} />}
-      {layers.topology && <TopologyLayer doors={layout.doors} roomById={roomById} fy={fy} u={u} />}
-      <Compass x1={view.x1} y1={view.y1} fy={fy} u={u} />
-    </svg>
+    <>
+      <svg className="sense-plan" viewBox={view.vb} preserveAspectRatio="xMidYMid meet">
+        <g opacity={graphActive ? 0.4 : 1}>
+          {layers.plan && <WallsLayer outline={layout.outline} structure={layout.structure} fy={fy} />}
+          <RoomsLayer rooms={layout.rooms} scoredByName={scoredByName} plan={layers.plan} comfort={layers.comfort}
+            activeRoom={activeRoom} setActiveRoom={setActiveRoom} focusSense={focusSense} fy={fy} u={u} onHover={setHover} />
+          {layers.plan && <OpeningsLayer doors={layout.doors} windows={layout.windows} fy={fy} />}
+          {layers.plan && <FurnitureLayer furniture={layout.furniture} fy={fy} u={u} onHover={setHover} />}
+        </g>
+        {graphActive && <RoomGraph roomById={roomById} graphData={layers.topology ? graphData : null} showLabels={!layers.plan} fy={fy} u={u} />}
+        {layers.flow && <FlowLayer doors={layout.doors} roomById={roomById} focusSense={focusSense} fy={fy} u={u} />}
+        {layers.topology && <TopologyLayer doors={layout.doors} roomById={roomById} graphData={graphData} fy={fy} />}
+      </svg>
+      <PlanTooltip info={hover} />
+    </>
   );
 }

@@ -1,28 +1,36 @@
 /*
- * LayerToggles — user-controlled on/off for the canvas data layers (hybrid control:
- * free toggles; the canvas auto-dims signatures when flow is loud). Separate from the
- * sense-solo mixer (which sets the lens).
+ * LayerToggles — the canvas layer rail (separate from the sense-solo mixer).
+ *   plan     : architecture base (toggle off to isolate a graph lens)
+ *   comfort  : fill tint + per-room score ring
+ *   flow / topology : graph lenses (mutually exclusive — handled by the parent)
+ * A lens whose data isn't computed yet renders greyed; clicking it asks Sensi to
+ * run the analysis (click-to-run) instead of toggling an empty layer.
  */
 const LAYERS = [
-  ["fill",       "comfort"],
-  ["signatures", "signatures"],
-  ["flow",       "flow"],
-  ["topology",   "topology"],
+  ["plan",     "plan"],
+  ["comfort",  "comfort"],
+  ["flow",     "flow"],
+  ["topology", "topology"],
 ];
 
-export default function LayerToggles({ layers, onToggle }) {
+export default function LayerToggles({ layers, onToggle, available = () => true }) {
   return (
-    <div className="layer-toggles" role="group" aria-label="data layers">
-      {LAYERS.map(([key, label]) => (
-        <button
-          key={key}
-          className={"layer-pill" + (layers[key] ? " active" : "")}
-          onClick={() => onToggle(key)}
-          aria-pressed={!!layers[key]}
-        >
-          {label}
-        </button>
-      ))}
+    <div className="layer-toggles" role="group" aria-label="canvas layers">
+      {LAYERS.map(([key, label]) => {
+        const ok = available(key);
+        const on = !!layers[key];
+        return (
+          <button
+            key={key}
+            className={"layer-pill" + (on ? " active" : "") + (ok ? "" : " unavailable")}
+            onClick={() => onToggle(key)}
+            aria-pressed={on}
+            title={ok ? label : `run ${label} analysis`}
+          >
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 }

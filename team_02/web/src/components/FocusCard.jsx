@@ -15,7 +15,7 @@ import SenseSignature from "./SenseSignature.jsx";
  * "Why" lives here as readable HTML — never in-SVG text.
  */
 export default function FocusCard({ turn, persona, onClose }) {
-  const { activeRoom } = useSelection();
+  const { activeRoom, focusSense, toggleSense } = useSelection();
 
   const room = roomByName(turn, activeRoom);
   if (!activeRoom || !room) return null;
@@ -50,7 +50,8 @@ export default function FocusCard({ turn, persona, onClose }) {
       {/* signature (detail) */}
       <div className="flex justify-center py-1">
         <svg width="120" height="120" viewBox="0 0 120 120">
-          <SenseSignature scores={eff} baseScores={base} size={120} showGlyphs title={activeRoom} />
+          <SenseSignature scores={eff} baseScores={base} size={120} showGlyphs title={activeRoom}
+            activeSense={focusSense} onSelectSense={toggleSense} />
         </svg>
       </div>
 
