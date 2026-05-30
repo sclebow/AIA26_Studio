@@ -175,6 +175,9 @@ Persist the onboarding User/Space profile to the global `team_03/memory/user_pro
 **POST** `/api/analyze`  
 Run the 5 analysis tools + scoring on a layout (`{ layout, profile_config?, space_config? }`) via `adapters/analysis_adapter.run_all` and return Dashboard `ScoreData`. Deterministic — no LLM/MCP. Drives the Dashboard "Analyze" button; the chat path also backfills scores via this same `run_all` when a turn answers without running the tools (`agent_runner`).
 
+**POST** `/api/layouts/{name}/reload`  
+Return the **live working layout** and update the session. The agent writes its placements to `team_03/workspace/session_active.json` (never the base file), so this prefers the workspace layout when it's the same layout (matching `layoutId`), falling back to the base file otherwise. The frontend polls this while the agent runs and once when it stops — reading the base file would drop just-added objects (e.g. a new desk), so they'd never appear in the viewport. New/moved elements are surfaced via the diff → `modifiedIds` → `PulseHighlight` accent-purple pulse.
+
 ### Do Not Modify
 
 - **team_03/python/**: Read-only. All pipeline code is imported via adapters.
@@ -228,7 +231,10 @@ the browser". No demo/stub anymore.
 - `agent_runner.start_session` builds a `Context` (`pipeline_bridge.build_context`)
   and runs `app.astream_events(version="v2")` in a worker thread, emitting
   `agent_event(node, started|completed|error)` per graph node → the **Pipeline panel
-  + Log show live progress**.
+  + Log show live progress**. The stream is run with `recursion_limit=100`
+  (`GRAPH_RECURSION_LIMIT` env) — LangGraph's default of 25 is too low for a full
+  placement run (reason↔tool loops + the 5-tool analysis fan-out + up to
+  `MAX_ADJUSTMENTS` re-placement loops) and aborts mid-run with a recursion error.
 - The checkpoint's blocking `input("Your decision: ")` is bridged to the WebSocket:
   a monkeypatched `input()` blocks on a per-session queue fed by `chat_message` /
   `chat_decision`. On each `input()` the printed menu is parsed (`CheckpointParser`)
