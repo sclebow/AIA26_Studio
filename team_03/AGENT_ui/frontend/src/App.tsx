@@ -223,14 +223,22 @@ export default function App() {
         borderBottom: panelBorder,
       }}>
 
-        {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: colors.text, letterSpacing: '0.12em', fontFamily: colors.fontHeading, textTransform: 'uppercase' }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.accent} strokeWidth="2">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-            <line x1="12" y1="22.08" x2="12" y2="12" />
-          </svg>
-          AGENT Studio
+        {/* Logo — matches the welcome page (logo.png + SPATIAL FLOW) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src="/logo.png" alt="logo" style={{
+            width: 30, height: 30, objectFit: 'contain',
+            filter: 'hue-rotate(200deg) saturate(1.3)',
+          }} />
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+            <span style={{
+              fontSize: 8, letterSpacing: '0.32em', color: 'rgba(167,139,250,0.55)',
+              textTransform: 'uppercase', fontFamily: colors.fontHeading,
+            }}>AIA Studio 2026</span>
+            <span style={{
+              fontSize: 14, fontWeight: 700, letterSpacing: '0.18em', color: '#e9d5ff',
+              textTransform: 'uppercase', fontFamily: colors.fontHeading,
+            }}>SPATIAL FLOW</span>
+          </div>
         </div>
 
         {/* View mode pills */}
