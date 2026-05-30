@@ -43,7 +43,7 @@ export default function Labels3D({ layout, isDark, center }: Labels3DProps) {
     // Rooms
     for (const room of layout.rooms) {
       const [cx, cy] = computeCenter(room.geometry)
-      items.push({ id: room.id, name: room.name, type: 'room', position: [cx - center.x, 0.3, cy - center.z] })
+      items.push({ id: room.id, name: room.name, type: 'room', position: [cx - center.x, 0.6, cy - center.z] })
     }
 
     // Doors
@@ -80,9 +80,13 @@ export default function Labels3D({ layout, isDark, center }: Labels3DProps) {
     window: isDark ? '#7A9DB8' : '#5a7a92',
   }
 
+  const roomLabels = labels.filter(l => l.type === 'room')
+  const elementLabels = labels.filter(l => l.type !== 'room')
+
   return (
     <group>
-      {labels.map(label => (
+      {/* Element tags — perspective-scaled (transform) so distant tags shrink. */}
+      {elementLabels.map(label => (
         <Html
           key={label.id}
           position={label.position}
@@ -106,6 +110,36 @@ export default function Labels3D({ layout, isDark, center }: Labels3DProps) {
             maxWidth: 120,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
+            userSelect: 'none',
+          }}>
+            {label.name}
+          </div>
+        </Html>
+      ))}
+
+      {/* Room titles — constant screen size (no transform) so they stay legible
+          at any zoom, and a touch larger/bolder than the element tags. */}
+      {roomLabels.map(label => (
+        <Html
+          key={label.id}
+          position={label.position}
+          center
+          zIndexRange={[100, 0]}
+          style={{ pointerEvents: 'none' }}
+        >
+          <div style={{
+            background: isDark ? 'rgba(22,24,32,0.88)' : 'rgba(255,255,255,0.92)',
+            color: typeColors.room,
+            padding: '4px 12px',
+            borderRadius: 6,
+            fontSize: 14,
+            fontWeight: 700,
+            fontFamily: '-apple-system, system-ui, sans-serif',
+            whiteSpace: 'nowrap',
+            letterSpacing: '0.07em',
+            textTransform: 'uppercase',
+            border: `1px solid ${isDark ? 'rgba(140,150,170,0.30)' : 'rgba(100,110,130,0.20)'}`,
+            boxShadow: isDark ? '0 2px 10px rgba(0,0,0,0.35)' : '0 2px 8px rgba(0,0,0,0.12)',
             userSelect: 'none',
           }}>
             {label.name}
