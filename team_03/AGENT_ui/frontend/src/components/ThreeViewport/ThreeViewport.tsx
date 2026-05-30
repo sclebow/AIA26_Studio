@@ -231,13 +231,15 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
       {isDark && <color attach="background" args={[bgColor]} />}
       <fog attach="fog" args={[bgColor, 120, 280]} />
 
-      {/* Lighting — sci-fi cool lavender tint for dark mode, pure white for light */}
-      <ambientLight intensity={isDark ? 0.5 : 0.9} color={isDark ? '#b9a8e8' : '#ffffff'} />
+      {/* Lighting — sci-fi cool lavender tint for dark mode, pure white for light.
+          Lower ambient + stronger key light so cast shadows read clearly. */}
+      <ambientLight intensity={isDark ? 0.38 : 0.9} color={isDark ? '#b9a8e8' : '#ffffff'} />
       <directionalLight
         position={[bounds.w * 0.4, bounds.maxDim * 1.5, bounds.h * 0.6]}
-        intensity={isDark ? 1.35 : 0.6}
+        intensity={isDark ? 1.7 : 0.9}
         color={isDark ? '#e9e2ff' : '#ffffff'}
-        castShadow={isDark}
+        castShadow
+        shadow-radius={4}
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
         shadow-camera-left={-bounds.maxDim}

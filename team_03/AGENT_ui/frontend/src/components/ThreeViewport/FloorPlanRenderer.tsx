@@ -263,12 +263,12 @@ function RoomMesh({ room, isSelected, onSelect, isDark }: {
   }, [room.geometry])
 
   return (
-    <mesh geometry={geo} userData={{ elementId: room.id, type: 'room', name: room.name }}
+    <mesh geometry={geo} receiveShadow userData={{ elementId: room.id, type: 'room', name: room.name }}
       onClick={(e) => { e.stopPropagation(); onSelect(room.id) }}>
       <meshStandardMaterial
         color={isDark ? ARCTIC.room.dark : ARCTIC.room.light}
-        transparent opacity={0.85} side={THREE.DoubleSide}
-        roughness={0.95} metalness={0}
+        side={THREE.DoubleSide}
+        roughness={0.82} metalness={0.04}
         emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
         emissiveIntensity={isSelected ? 0.35 : 0}
       />
@@ -325,22 +325,14 @@ function WallMesh({ wall, openings, isSelected, onSelect, isDark }: {
     <group userData={{ elementId: wall.id, type: 'structure', name: wall.name }}
       onClick={(e) => { e.stopPropagation(); onSelect(wall.id) }}>
       {geos.map((g, i) => (
-        <mesh key={i} geometry={g} castShadow
+        <mesh key={i} geometry={g} castShadow receiveShadow
           userData={{ elementId: wall.id, type: 'structure', name: wall.name }}>
-          {isDark ? (
-            <meshStandardMaterial
-              color={ARCTIC.wall.dark}
-              transparent opacity={0.80}
-              roughness={0.95} metalness={0}
-              emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
-              emissiveIntensity={isSelected ? 0.35 : 0}
-            />
-          ) : (
-            <meshBasicMaterial
-              color={isSelected ? '#d0d8e4' : ARCTIC.wall.light}
-              transparent opacity={0.80}
-            />
-          )}
+          <meshStandardMaterial
+            color={isDark ? ARCTIC.wall.dark : (isSelected ? '#d0d8e4' : ARCTIC.wall.light)}
+            roughness={0.7} metalness={0.12}
+            emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
+            emissiveIntensity={isSelected ? 0.3 : 0}
+          />
           <Edges threshold={15} color={isDark ? EDGE_DARK.wall : ARCTIC.wall.edge} />
         </mesh>
       ))}
@@ -377,16 +369,15 @@ function DoorMesh({ door, isSelected, onSelect, isDark }: {
   }, [door.geometry])
 
   return (
-    <mesh position={position} rotation={rotation} castShadow
+    <mesh position={position} rotation={rotation} castShadow receiveShadow
       userData={{ elementId: door.id, type: 'door', name: door.name }}
       onClick={(e) => { e.stopPropagation(); onSelect(door.id) }}>
       <boxGeometry args={size} />
       <meshStandardMaterial
         color={isDark ? ARCTIC.door.dark : ARCTIC.door.light}
-        transparent opacity={0.92}
-        roughness={0.95} metalness={0}
+        roughness={0.6} metalness={0.1}
         emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
-        emissiveIntensity={isSelected ? 0.35 : 0}
+        emissiveIntensity={isSelected ? 0.3 : 0}
       />
       <Edges threshold={15} color={isDark ? EDGE_DARK.door : ARCTIC.door.edge} />
     </mesh>
@@ -422,16 +413,17 @@ function WindowMesh({ win, isSelected, onSelect, isDark }: {
   }, [win.geometry])
 
   return (
-    <mesh position={position} rotation={rotation} castShadow
+    <mesh position={position} rotation={rotation} castShadow receiveShadow
       userData={{ elementId: win.id, type: 'window', name: win.name }}
       onClick={(e) => { e.stopPropagation(); onSelect(win.id) }}>
       <boxGeometry args={size} />
+      {/* Glassy, reflective material for windows */}
       <meshStandardMaterial
         color={isDark ? ARCTIC.window.dark : ARCTIC.window.light}
-        transparent opacity={0.78}
-        roughness={0.95} metalness={0}
+        transparent opacity={0.55}
+        roughness={0.12} metalness={0.2}
         emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
-        emissiveIntensity={isSelected ? 0.35 : 0}
+        emissiveIntensity={isSelected ? 0.3 : 0}
       />
       <Edges threshold={15} color={isDark ? EDGE_DARK.window : ARCTIC.window.edge} />
     </mesh>
@@ -463,14 +455,13 @@ function FurnitureMesh({ item, isSelected, onSelect, isDark }: {
   }, [item.geometry, height])
 
   return (
-    <mesh geometry={geo} castShadow userData={{ elementId: item.id, type: 'furniture', name: item.name }}
+    <mesh geometry={geo} castShadow receiveShadow userData={{ elementId: item.id, type: 'furniture', name: item.name }}
       onClick={(e) => { e.stopPropagation(); onSelect(item.id) }}>
       <meshStandardMaterial
         color={isDark ? ARCTIC.furniture.dark : ARCTIC.furniture.light}
-        roughness={0.95} metalness={0}
+        roughness={0.55} metalness={0.18}
         emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
-        emissiveIntensity={isSelected ? 0.35 : 0}
-        transparent opacity={0.92}
+        emissiveIntensity={isSelected ? 0.3 : 0}
       />
       <Edges threshold={15} color={isDark ? EDGE_DARK.furniture : ARCTIC.furniture.edge} />
     </mesh>
@@ -502,14 +493,14 @@ function MEPMesh({ item, isSelected, onSelect, isDark }: {
   }, [item.geometry, height])
 
   return (
-    <mesh geometry={geo} castShadow userData={{ elementId: item.id, type: 'mep', name: item.name }}
+    <mesh geometry={geo} castShadow receiveShadow userData={{ elementId: item.id, type: 'mep', name: item.name }}
       onClick={(e) => { e.stopPropagation(); onSelect(item.id) }}>
+      {/* Metallic look for MEP (ducts/equipment) */}
       <meshStandardMaterial
         color={isDark ? ARCTIC.mep.dark : ARCTIC.mep.light}
-        roughness={0.95} metalness={0}
+        roughness={0.4} metalness={0.35}
         emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
-        emissiveIntensity={isSelected ? 0.35 : 0}
-        transparent opacity={0.92}
+        emissiveIntensity={isSelected ? 0.3 : 0}
       />
       <Edges threshold={15} color={isDark ? EDGE_DARK.mep : ARCTIC.mep.edge} />
     </mesh>
