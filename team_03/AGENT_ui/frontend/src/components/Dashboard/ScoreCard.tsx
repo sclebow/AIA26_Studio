@@ -18,8 +18,8 @@ const ScoreCard: React.FC<ScoreCardProps> = ({ name, score, weight, maxScore = 1
   const { colors, theme } = useTheme();
   const isDark = theme === 'dark';
 
-  const size = 56;
-  const strokeWidth = 3.5;
+  const size = 44;
+  const strokeWidth = 3;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const clampedScore = Math.max(0, Math.min(maxScore, score));
@@ -34,8 +34,11 @@ const ScoreCard: React.FC<ScoreCardProps> = ({ name, score, weight, maxScore = 1
       alignItems: 'center',
       gap: '2px',
       fontFamily: colors.font,
-      padding: '4px 2px',
+      padding: '4px 1px',
       borderRadius: '8px',
+      width: '100%',
+      minWidth: 0,
+      boxSizing: 'border-box',
       background: isDark ? 'rgba(139, 92, 246, 0.02)' : 'rgba(0,0,0,0.02)',
       border: `1px solid ${isDark ? 'rgba(139, 92, 246, 0.06)' : 'rgba(0,0,0,0.04)'}`,
       transition: 'background 0.2s, border-color 0.2s',
@@ -74,23 +77,26 @@ const ScoreCard: React.FC<ScoreCardProps> = ({ name, score, weight, maxScore = 1
       </div>
       <div style={{
         color: colors.text,
-        fontSize: 10,
+        fontSize: 9,
         fontWeight: 600,
-        letterSpacing: '0.08em',
+        letterSpacing: '0.04em',
         textTransform: 'uppercase',
         textAlign: 'center',
         opacity: 0.9,
+        width: '100%',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
       }}>
         {name}
       </div>
       <div style={{
         color: colors.muted,
-        fontSize: 10,
+        fontSize: 9,
         textAlign: 'center',
-        letterSpacing: '0.04em',
-        textTransform: 'uppercase',
+        letterSpacing: '0.02em',
       }}>
-        {Math.round(weight * 100)}% weight
+        {Math.round(weight * 100)}%
       </div>
     </div>
   );

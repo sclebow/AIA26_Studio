@@ -7,6 +7,7 @@ import ChatPanel from './components/ChatPanel/ChatPanel';
 import Dashboard from './components/Dashboard/Dashboard';
 import ProcessPanel from './components/ProcessPanel/ProcessPanel';
 import LayoutLoader from './components/LayoutLoader/LayoutLoader';
+import AILayoutGenerator from './components/AILayoutGenerator';
 import SelectionPanel from './components/ThreeViewport/SelectionPanel';
 import ReasoningLog from './components/ReasoningLog/ReasoningLog';
 import ThemeToggle, { useTheme } from './components/common/ThemeToggle';
@@ -55,6 +56,7 @@ export default function App() {
   const [displayMode, setDisplayMode] = useState<ViewMode>('geometry');
   const [animPhase, setAnimPhase] = useState<'idle' | 'out' | 'in'>('idle');
   const [logOpen, setLogOpen] = useState(false);
+  const [generatorMode, setGeneratorMode] = useState(false);   // left panel → AI Layout Generator
   const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasRunningRef = useRef(false);
 
@@ -140,6 +142,27 @@ export default function App() {
   const handleLayoutUpload = useCallback(async (file: File) => {
     await layoutState.uploadLayout(file);
     setLayoutFitSignal(n => n + 1);   // user uploaded → fit to screen
+  }, [layoutState]);
+
+  // ── AI Layout Generator ────────────────────────────────────────────────
+  // Preview a candidate in the viewport (null restores the committed layout).
+  const handleGeneratorPreview = useCallback((l: typeof layoutState.layout) => {
+    if (l) layoutState.previewLayout(l);
+    else layoutState.endPreview();
+  }, [layoutState]);
+
+  // Persist a candidate to AI_GENERATED + load it as active (panel stays open so
+  // the user can keep several). Returns the saved name (or null on failure).
+  const handleGeneratorSave = useCallback(async (name: string, l: NonNullable<typeof layoutState.layout>) => {
+    const saved = await layoutState.saveAndLoadGenerated(name, l);
+    if (saved) setLayoutFitSignal(n => n + 1);
+    return saved;
+  }, [layoutState]);
+
+  // Close the generator → restore the committed (last accepted) layout, exit mode.
+  const handleGeneratorClose = useCallback(() => {
+    layoutState.endPreview();
+    setGeneratorMode(false);
   }, [layoutState]);
 
   // Deterministic analysis of the currently-displayed layout → populates the
@@ -278,11 +301,11 @@ export default function App() {
           }} />
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
             <span style={{
-              fontSize: 8, letterSpacing: '0.32em', color: 'rgba(167,139,250,0.55)',
+              fontSize: 8, letterSpacing: '0.32em', color: isDark ? 'rgba(167,139,250,0.55)' : colors.muted,
               textTransform: 'uppercase', fontFamily: colors.fontHeading,
             }}>AIA Studio 2026</span>
             <span style={{
-              fontSize: 14, fontWeight: 700, letterSpacing: '0.18em', color: '#e9d5ff',
+              fontSize: 14, fontWeight: 700, letterSpacing: '0.18em', color: isDark ? '#e9d5ff' : colors.accent,
               textTransform: 'uppercase', fontFamily: colors.fontHeading,
             }}>SPATIAL FLOW</span>
           </div>
@@ -330,7 +353,7 @@ export default function App() {
       <div style={{
         flex: 1, minHeight: 0,
         display: 'grid',
-        gridTemplateColumns: '220px 1fr 320px',
+        gridTemplateColumns: '320px 1fr 320px',
         gridTemplateRows: '1fr 260px',
         overflow: 'hidden',
       }}>
@@ -342,6 +365,14 @@ export default function App() {
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}>
 
+          {generatorMode ? (
+            <AILayoutGenerator
+              onPreview={handleGeneratorPreview}
+              onSave={handleGeneratorSave}
+              onClose={handleGeneratorClose}
+            />
+          ) : (
+          <>
           {/* Layout Loader */}
           <div style={{ flexShrink: 0 }}>
             <div style={sectionHeaderStyle}><span>Layout Loader</span></div>
@@ -352,6 +383,27 @@ export default function App() {
                 onSelect={handleLayoutSelect}
                 onUpload={handleLayoutUpload}
               />
+              {/* AI Layout Generator launcher — swaps the whole left panel */}
+              <button
+                onClick={() => setGeneratorMode(true)}
+                disabled={agentState.isAgentRunning}
+                title={agentState.isAgentRunning ? 'Unavailable while the agent is running' : 'Generate floor plans with AI'}
+                style={{
+                  width: '100%', marginTop: 4, padding: '9px 12px', borderRadius: 8,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  cursor: agentState.isAgentRunning ? 'not-allowed' : 'pointer',
+                  background: agentState.isAgentRunning ? colors.inputBg : colors.accentDim,
+                  border: `1px solid ${agentState.isAgentRunning ? colors.border : colors.accent}`,
+                  color: agentState.isAgentRunning ? colors.muted : colors.accent,
+                  fontSize: 12, fontWeight: 600, fontFamily: colors.font,
+                  letterSpacing: '0.04em', transition: 'all 0.15s',
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l2.5 6.5L22 12l-6.5 2.5L13 21l-2.5-6.5L4 12l6.5-2.5z" />
+                </svg>
+                AI Layout Generator
+              </button>
             </div>
           </div>
 
@@ -376,6 +428,8 @@ export default function App() {
               onClose={() => select(null, 'viewport')}
             />
           </div>
+          </>
+          )}
         </div>
 
         {/* ── CENTER (col 2, row 1) ─────────────────────────────────────── */}

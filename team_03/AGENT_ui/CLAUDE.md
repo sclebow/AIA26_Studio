@@ -175,13 +175,30 @@ Persist the onboarding User/Space profile to the global `team_03/memory/user_pro
 **POST** `/api/analyze`  
 Run the 5 analysis tools + scoring on a layout (`{ layout, profile_config?, space_config? }`) via `adapters/analysis_adapter.run_all` and return Dashboard `ScoreData`. Deterministic — no LLM/MCP. Drives the Dashboard "Analyze" button; the chat path also backfills scores via this same `run_all` when a turn answers without running the tools (`agent_runner`).
 
+**POST** `/api/layouts/generate`  
+**AI Layout Generator** — generate ONE floor plan with **Anthropic Sonnet** from the
+panel form (`{ layoutType, areaMin, areaMax, programs:[{name,count}], brief, variantIndex }`)
+and return `{ layout }`. The frontend calls this once per "Generate" click and accumulates
+results into its in-memory library (max 4). The system prompt is
+`backend/prompts/layout_generator_context.txt` (the schema/context doc) plus an industrial
+addendum and a strict output contract; see `backend/layout_generator.py`. Model is
+`LAYOUT_GEN_MODEL` (default `claude-sonnet-4-6`).
+
+**POST** `/api/layouts/generated/save`  
+Persist an accepted generated layout (`{ name, layout }`) to
+`team_03/layout/AI_GENERATED/<name>.json` (`layout_loader.save_generated_layout`), so it
+appears in the Layout Loader dropdown under the **AI_GENERATED** group. The user can save
+several. `layoutId` is set to the sanitized file stem.
+
 **POST** `/api/layouts/{name}/reload`  
 Return the **live working layout** and update the session. The agent writes its placements to `team_03/workspace/session_active.json` (never the base file), so this prefers the workspace layout when it's the same layout (matching `layoutId`), falling back to the base file otherwise. The frontend polls this while the agent runs and once when it stops — reading the base file would drop just-added objects (e.g. a new desk), so they'd never appear in the viewport. New/moved elements are surfaced via the diff → `modifiedIds` → `PulseHighlight` accent-purple pulse.
 
 ### Do Not Modify
 
 - **team_03/python/**: Read-only. All pipeline code is imported via adapters.
-- **team_03/layout/**: Read-only. Layouts are discovered and loaded, not written.
+- **team_03/layout/**: Read-only **except** the `AI_GENERATED/` subfolder, where the AI
+  Layout Generator writes accepted plans (`/api/layouts/generated/save`). The existing
+  layouts (`industrial_100/`, `residential_100/`, …) are discovered and loaded, not written.
 - **Rhino/MCP integration**: Kept intact; runs in background.
 
 ### File Structure Notes
@@ -253,7 +270,29 @@ the browser". No demo/stub anymore.
 **Run the dev backend as a single process** (`python -m uvicorn server:app
 --port 3000`); uvicorn `--reload` can leave stale workers serving old code.
 
+## AI Layout Generator (UI)
+
+A full-panel tool that swaps the entire left sidebar (button under the Layout Loader,
+`App.tsx` `generatorMode`). Frontend in `frontend/src/components/AILayoutGenerator/`
+(`AILayoutGenerator.tsx` + `MiniPlan.tsx` SVG thumbnails).
+
+- **Form**: layout type (residential/industrial segmented control), an **ideal total
+  area** dual-thumb range slider (single track, start/end handles — `.dual-range` in
+  `styles/index.css`), program **pills** with per-item counts (+ user-added pills), and a
+  free-text brief.
+- **Generate** → `POST /api/layouts/generate` (one Sonnet call per click). Each result is
+  appended to an in-memory **library capped at 4**; at 4/4 Generate is disabled until a
+  candidate is discarded. A shimmer + spinner loading card shows while generating.
+- Clicking a library card **previews it live** in the ThreeViewport
+  (`useLayoutState.previewLayout` / `endPreview`). **Accept & use** → `saveAndLoadGenerated`
+  → `POST /api/layouts/generated/save` writes `team_03/layout/AI_GENERATED/<name>.json`,
+  refreshes the dropdown, and loads it as the active project layout. Several can be saved.
+- **Theme**: solid accent fills in dark mode; translucent accent (matching the Analyze
+  button / view pills) in light mode. The nav brand title is theme-aware too.
+
 ---
 
-**Last updated**: 2026-05-29  
+**Last updated**: 2026-05-30  
 **Status**: Chat wired to the real pipeline; live progress + options panel; Haiku-forced.
+AI Layout Generator panel (Sonnet) → generates plans one at a time, library of 4, live
+preview, saves accepted plans to AI_GENERATED; light-mode button + brand theming.

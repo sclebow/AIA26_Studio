@@ -64,12 +64,14 @@ const EmptyState: React.FC = () => {
         display: 'grid',
         gridTemplateColumns: 'repeat(5, 1fr)',
         gap: '4px',
+        width: '100%',
       }}>
         {TOOL_SCORES.map(tool => (
           <div key={tool.key} style={{
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
+            minWidth: 0,
             padding: '8px 2px',
             borderRadius: '8px',
             background: isDark ? 'rgba(139, 92, 246, 0.02)' : 'rgba(0,0,0,0.02)',
@@ -83,12 +85,16 @@ const EmptyState: React.FC = () => {
               letterSpacing: '-0.03em',
             }}>--</span>
             <span style={{
-              fontSize: 10,
+              fontSize: 9,
               fontWeight: 600,
-              letterSpacing: '0.08em',
+              letterSpacing: '0.04em',
               textTransform: 'uppercase',
               color: colors.muted,
               opacity: 0.5,
+              maxWidth: '100%',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
             }}>{tool.label}</span>
           </div>
         ))}
@@ -135,7 +141,8 @@ const Dashboard: React.FC<DashboardProps> = ({ scores, onAnalyze, analyzing }) =
     display: 'flex',
     flexDirection: 'column',
     height: '100%',
-    overflow: 'auto',
+    overflowY: 'auto',
+    overflowX: 'hidden',
   };
 
   return (
@@ -193,9 +200,10 @@ const Dashboard: React.FC<DashboardProps> = ({ scores, onAnalyze, analyzing }) =
             display: 'grid',
             gridTemplateColumns: 'repeat(5, 1fr)',
             gap: '4px',
+            width: '100%',
           }}>
             {TOOL_SCORES.map(tool => (
-              <div key={tool.key} style={{ display: 'flex', justifyContent: 'center' }}>
+              <div key={tool.key} style={{ display: 'flex', justifyContent: 'center', minWidth: 0 }}>
                 <ScoreCard
                   name={tool.label}
                   score={scores[tool.key] as number}

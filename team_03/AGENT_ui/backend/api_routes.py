@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 import layout_loader
+import layout_generator
 from session_manager import SessionManager
 from adapters.graph_adapter import build_graph
 
@@ -82,6 +83,72 @@ async def upload_layout(file: UploadFile = File(...)):
         "tmp_path": tmp.name,
         "name": Path(file.filename).stem,
         "layout": data,
+    }
+
+
+# ---------------------------------------------------------------------------
+# AI Layout Generator (Sonnet — independent of the chat pipeline's Haiku policy)
+# ---------------------------------------------------------------------------
+
+
+class ProgramItem(BaseModel):
+    name: str
+    count: int = 1
+
+
+class GenerateLayoutPayload(BaseModel):
+    layoutType: str = "residential"
+    areaMin: float = 0.0
+    areaMax: float = 0.0
+    programs: List[ProgramItem] = []
+    brief: str = ""
+    variantIndex: int = 0
+
+
+@router.post("/api/layouts/generate")
+async def generate_layout(body: GenerateLayoutPayload):
+    """Generate ONE layout with Anthropic Sonnet from the panel's form.
+
+    Returns {"layout": <LayoutJSON>}. The frontend calls this once per "Generate"
+    click and accumulates results into its in-memory library (max 4)."""
+    req = {
+        "layoutType": body.layoutType,
+        "areaMin": body.areaMin,
+        "areaMax": body.areaMax,
+        "programs": [p.model_dump() for p in body.programs],
+        "brief": body.brief,
+    }
+    try:
+        layout = await layout_generator.generate_one(req, body.variantIndex)
+    except RuntimeError as exc:
+        # Configuration problems (e.g. missing API key) → 503.
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:  # parse / validation / model errors
+        raise HTTPException(status_code=502, detail=f"Layout generation failed: {exc}") from exc
+    return {"layout": layout}
+
+
+class SaveGeneratedPayload(BaseModel):
+    name: str
+    layout: dict
+
+
+@router.post("/api/layouts/generated/save")
+async def save_generated(body: SaveGeneratedPayload):
+    """Persist an accepted generated layout to team_03/layout/AI_GENERATED/<name>.json
+    so it shows up in the Layout Loader dropdown under the 'AI_GENERATED' group."""
+    layout = dict(body.layout)
+    if not layout_loader.validate_layout(layout):
+        raise HTTPException(status_code=422, detail="Invalid layout JSON.")
+
+    stem = layout_loader._sanitize_name(body.name)
+    layout["layoutId"] = stem  # keep id stable / matching the saved file name
+    path = layout_loader.save_generated_layout(stem, layout)
+    return {
+        "status": "ok",
+        "name": stem,
+        "path": str(path),
+        "category": path.parent.name,
     }
 
 
