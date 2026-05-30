@@ -194,7 +194,7 @@ function FitController({ fitCommand, layout, lockView }: { fitCommand: string | 
   const anim = useRef<FitAnim | null>(null)
   const pending = useRef<{ animated: boolean } | null>(null)
   const lastFit = useRef<string | null>(null)
-  const lastLayout = useRef<LayoutJSON | null>(null)
+  const lastLayoutId = useRef<string | null>(null)
 
   const requestFit = useCallback((animated: boolean) => { pending.current = { animated } }, [])
 
@@ -205,15 +205,19 @@ function FitController({ fitCommand, layout, lockView }: { fitCommand: string | 
     requestFit(true)
   }, [fitCommand, requestFit])
 
-  // Layout change — snap on the first layout (mount), animate subsequent ones.
-  // Don't yank the view while the agent is running.
+  // Fit only when a *different* layout is loaded (its layoutId changes) — i.e.
+  // an explicit pick in the Layout Loader. In-place edits from the agent/chat,
+  // path/person actions and reloads keep the same layoutId, so the view is left
+  // untouched. Snap on the first layout (mount), animate later switches; never
+  // yank the view while the agent is running.
   useEffect(() => {
-    if (lastLayout.current === layout) return
-    const isFirst = lastLayout.current === null
-    lastLayout.current = layout
+    const id = layout.layoutId
+    if (lastLayoutId.current === id) return
+    const isFirst = lastLayoutId.current === null
+    lastLayoutId.current = id
     if (lockView) return
     requestFit(!isFirst)
-  }, [layout, lockView, requestFit])
+  }, [layout.layoutId, lockView, requestFit])
 
   useFrame((_, delta) => {
     if (!controls) return
