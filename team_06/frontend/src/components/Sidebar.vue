@@ -68,4 +68,81 @@ const emit = defineEmits(['change'])
   </aside>
 </template>
 
+<style scoped>
+.sidebar {
+  width: 320px;
+  min-width: 320px;
+  background: var(--color-grey-bg);
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--color-border);
+  height: 100vh;
+}
+
+
+.sidebar-content {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 24px 20px 24px 20px;
+  overflow-y: auto;
+}
+
+.sidebar-section {
+  margin-bottom: 12px;
+}
+
+.sidebar-section-title {
+  display: flex;
+  align-items: center;
+  font-size: var(--font-size-nav);
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--color-text-secondary);
+  gap: 8px;
+}
+
+.sidebar-list {
+  margin: 0 0 0 24px;
+  padding: 0;
+  list-style: none;
+  color: var(--color-text);
+  font-size: var(--font-size-standard);
+}
+
+.sidebar-brief {
+  background: var(--color-white);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  font-size: var(--font-size-standard);
+  color: var(--color-text-secondary);
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-card);
+}
+.create-layout-btn {
+  margin-top: auto;
+  background: var(--gradient-btn);
+  color: var(--color-white);
+  font-weight: 600;
+  font-size: var(--font-size-standard);
+  border: none;
+  border-radius: var(--radius);
+  width: 180px;
+  height: 44px;
+  min-width: 180px;
+  min-height: 44px;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(33, 118, 255, 0.10);
+  transition: box-shadow 0.2s;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+.create-layout-btn:hover {
+  box-shadow: 0 4px 16px rgba(33, 118, 255, 0.18);
+}
+</style>
+
 

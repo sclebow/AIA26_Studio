@@ -19,3 +19,46 @@ defineProps({ tab: String })
   </nav>
 </template>
 
+<style scoped>
+.nav-tab {
+  width: 68px;
+  background: var(--color-grey-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 24px;
+  border-right: 1px solid var(--color-border);
+}
+
+.nav-header {
+  font-size: var(--font-size-title);
+  font-weight: 700;
+  color: var(--color-blue);
+  margin-bottom: 32px;
+  letter-spacing: -1px;
+}
+
+.nav-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.nav-tab-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-nav);
+  transition: color 0.2s;
+}
+
+.nav-tab-btn.active {
+  color: var(--color-blue);
+}
+</style>
