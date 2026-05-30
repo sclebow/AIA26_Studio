@@ -64,42 +64,6 @@ function ViewportRefBridge({ threeRef }: { threeRef: React.MutableRefObject<{ ca
   return null
 }
 
-// ── Auto-fit: center camera on layout change ───────────────────────────
-// `lockView` (agent running) suppresses the camera move so live layout reloads
-// during a chat run don't yank the view; the reloaded layout is still marked as
-// "fitted" so no deferred jump happens when the run ends.
-function BoundsFitter({ layout, lockView }: { layout: LayoutJSON; lockView?: boolean }) {
-  const { camera, controls } = useThree()
-  const fittedRef = useRef<object | null>(null)
-
-  useEffect(() => {
-    if (fittedRef.current === layout) return
-    fittedRef.current = layout
-    if (lockView) return   // keep current camera; just record this layout as fitted
-
-    const pts = layout.outline
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
-    for (const [x, y] of pts) {
-      minX = Math.min(minX, x); maxX = Math.max(maxX, x)
-      minY = Math.min(minY, y); maxY = Math.max(maxY, y)
-    }
-    const cx = (minX + maxX) / 2
-    const cz = (minY + maxY) / 2
-    const maxDim = Math.max(maxX - minX, maxY - minY)
-    const dist = maxDim * 1.0
-
-    if (!controls) return
-    const ctrl = controls as any
-    ctrl.target.set(cx, 0, cz)
-    camera.position.set(cx + dist * 0.577, dist * 0.577, cz + dist * 0.577)
-    camera.up.set(0, 1, 0)
-    camera.lookAt(cx, 0, cz)
-    ctrl.update()
-  })
-
-  return null
-}
-
 // ── Camera view controller — receives view commands from ViewCube ───────
 function CameraController({ viewCommand }: { viewCommand: string | null }) {
   const { camera, controls } = useThree()
@@ -144,54 +108,148 @@ function CameraController({ viewCommand }: { viewCommand: string | null }) {
   return null
 }
 
-// ── Fit-to-bounds — zoom + recenter so the whole layout fits the viewport,
-//    from the default iso angle. Works for both ortho (sets camera.zoom) and
-//    perspective (sets distance), using a rotation-invariant bounding sphere. ──
-function FitController({ fitCommand, layout }: { fitCommand: string | null; layout: LayoutJSON }) {
-  const { camera, controls, size } = useThree()
+const easeInOutCubic = (t: number) =>
+  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
 
+interface FitTarget { toTarget: THREE.Vector3; toPos: THREE.Vector3; toZoom: number }
+
+// Tight fit from the *actual* world-space bounds of the rendered floor-plan
+// meshes (the geometry is offset to the origin, so layout coords can't be used
+// directly). Projects the AABB corners onto the camera's screen axes so the
+// geometry just fills the viewport, keeping the current view direction. Returns
+// null if no geometry is mounted yet. Handles ortho (zoom) + perspective (dist).
+function computeFitTarget(
+  camera: THREE.Camera,
+  scene: THREE.Scene,
+  size: { width: number; height: number },
+): FitTarget | null {
+  const box = new THREE.Box3()
+  const tmp = new THREE.Box3()
+  scene.traverse(obj => {
+    const m = obj as THREE.Mesh
+    if (m.isMesh && m.userData && m.userData.elementId) {
+      tmp.setFromObject(m)
+      if (!tmp.isEmpty() && isFinite(tmp.min.x)) box.union(tmp)
+    }
+  })
+  if (box.isEmpty()) return null
+
+  const target = box.getCenter(new THREE.Vector3())
+
+  // Keep the current view direction; fall back to the default iso angle.
+  const dir = camera.position.clone().sub(target)
+  if (dir.lengthSq() < 1e-6) dir.set(0.577, 0.577, 0.577)
+  dir.normalize()
+
+  // Camera screen basis (right/up) for the kept direction.
+  const f = dir.clone().negate()
+  const worldUp = Math.abs(f.y) > 0.999 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0)
+  const right = new THREE.Vector3().crossVectors(f, worldUp).normalize()
+  const up = new THREE.Vector3().crossVectors(right, f) // unit (right ⟂ f)
+
+  // Half-extents of the AABB projected onto the screen axes (relative to center).
+  let halfR = 0, halfU = 0
+  const c = new THREE.Vector3()
+  const { min, max } = box
+  for (const xx of [min.x, max.x]) {
+    for (const yy of [min.y, max.y]) {
+      for (const zz of [min.z, max.z]) {
+        c.set(xx - target.x, yy - target.y, zz - target.z)
+        halfR = Math.max(halfR, Math.abs(c.dot(right)))
+        halfU = Math.max(halfU, Math.abs(c.dot(up)))
+      }
+    }
+  }
+
+  const margin = 1.08 // just barely covers the viewport
+  const aspect = size.width / size.height
+  const ortho = camera as THREE.OrthographicCamera
+  if (ortho.isOrthographicCamera) {
+    const frustumH = ortho.top - ortho.bottom
+    const visH = Math.max(2 * halfU, (2 * halfR) / aspect) * margin
+    const toZoom = frustumH / visH
+    const dist = Math.max(max.x - min.x, max.z - min.z, 10) // clip planes only
+    return { toTarget: target, toPos: target.clone().add(dir.multiplyScalar(dist)), toZoom }
+  }
+  const persp = camera as THREE.PerspectiveCamera
+  const tanV = Math.tan((persp.fov * Math.PI) / 180 / 2)
+  const tanH = tanV * persp.aspect
+  const dist = Math.max(halfU / tanV, halfR / tanH) * margin
+  return { toTarget: target, toPos: target.clone().add(dir.multiplyScalar(dist)), toZoom: persp.zoom }
+}
+
+interface FitAnim {
+  t: number; dur: number; ortho: boolean
+  fromPos: THREE.Vector3; toPos: THREE.Vector3
+  fromTarget: THREE.Vector3; toTarget: THREE.Vector3
+  fromZoom: number; toZoom: number
+}
+
+// ── Fit-to-screen — smoothly centers + zooms the layout to just fill the
+//    viewport. Runs on the Center button (fitCommand), on layout change, and on
+//    the initial mount (snapped). The actual bounds computation is deferred to
+//    the next frame so freshly-loaded geometry is mounted first. ──
+function FitController({ fitCommand, layout, lockView }: { fitCommand: string | null; layout: LayoutJSON; lockView?: boolean }) {
+  const { camera, controls, size, scene } = useThree()
+  const anim = useRef<FitAnim | null>(null)
+  const pending = useRef<{ animated: boolean } | null>(null)
+  const lastFit = useRef<string | null>(null)
+  const lastLayout = useRef<LayoutJSON | null>(null)
+
+  const requestFit = useCallback((animated: boolean) => { pending.current = { animated } }, [])
+
+  // Center button.
   useEffect(() => {
-    if (!fitCommand || !controls) return
+    if (!fitCommand || lastFit.current === fitCommand) return
+    lastFit.current = fitCommand
+    requestFit(true)
+  }, [fitCommand, requestFit])
+
+  // Layout change — snap on the first layout (mount), animate subsequent ones.
+  // Don't yank the view while the agent is running.
+  useEffect(() => {
+    if (lastLayout.current === layout) return
+    const isFirst = lastLayout.current === null
+    lastLayout.current = layout
+    if (lockView) return
+    requestFit(!isFirst)
+  }, [layout, lockView, requestFit])
+
+  useFrame((_, delta) => {
+    if (!controls) return
     const ctrl = controls as any
 
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
-    for (const [x, y] of layout.outline) {
-      minX = Math.min(minX, x); maxX = Math.max(maxX, x)
-      minY = Math.min(minY, y); maxY = Math.max(maxY, y)
+    // Kick off a fit once the (possibly new) geometry is mounted.
+    if (pending.current) {
+      const fit = computeFitTarget(camera, scene, size)
+      if (fit) {
+        const animated = pending.current.animated
+        pending.current = null
+        anim.current = {
+          t: 0, dur: animated ? 0.6 : 0.0001, ortho: (camera as THREE.OrthographicCamera).isOrthographicCamera,
+          fromPos: camera.position.clone(), toPos: fit.toPos,
+          fromTarget: ctrl.target.clone(), toTarget: fit.toTarget,
+          fromZoom: (camera as any).zoom ?? 1, toZoom: fit.toZoom,
+        }
+      }
+      // else: geometry not ready yet — try again next frame.
     }
-    const cx = (minX + maxX) / 2
-    const cz = (minY + maxY) / 2
-    const w = maxX - minX
-    const h = maxY - minY
-    // Bounding-sphere radius of the footprint (+ a bit for wall height) so the
-    // fit holds from any view angle.
-    const r = 0.5 * Math.sqrt(w * w + h * h + 25)
-    const margin = 1.15
 
-    ctrl.target.set(cx, 0, cz)
+    const a = anim.current
+    if (!a) return
+    a.t = Math.min(1, a.t + delta / a.dur)
+    const e = easeInOutCubic(a.t)
+    camera.position.lerpVectors(a.fromPos, a.toPos, e)
+    ctrl.target.lerpVectors(a.fromTarget, a.toTarget, e)
+    if (a.ortho) {
+      ;(camera as THREE.OrthographicCamera).zoom = a.fromZoom + (a.toZoom - a.fromZoom) * e
+      camera.updateProjectionMatrix()
+    }
     camera.up.set(0, 1, 0)
-
-    const ortho = camera as THREE.OrthographicCamera
-    if (ortho.isOrthographicCamera) {
-      const dist = Math.max(w, h) || 40
-      camera.position.set(cx + dist * 0.577, dist * 0.577, cz + dist * 0.577)
-      camera.lookAt(cx, 0, cz)
-      const frustumH = ortho.top - ortho.bottom
-      const aspect = size.width / size.height
-      // visible height must cover the sphere both vertically and horizontally
-      const visH = Math.max(2 * r, (2 * r) / aspect) * margin
-      ortho.zoom = frustumH / visH
-      ortho.updateProjectionMatrix()
-    } else {
-      const persp = camera as THREE.PerspectiveCamera
-      const vFov = (persp.fov * Math.PI) / 180
-      const hFov = 2 * Math.atan(Math.tan(vFov / 2) * persp.aspect)
-      const dist = Math.max(r / Math.sin(vFov / 2), r / Math.sin(hFov / 2)) * margin
-      camera.position.set(cx + dist * 0.577, dist * 0.577, cz + dist * 0.577)
-      camera.lookAt(cx, 0, cz)
-    }
+    camera.lookAt(ctrl.target)
     ctrl.update()
-  }, [fitCommand, camera, controls, layout, size])
+    if (a.t >= 1) anim.current = null
+  })
 
   return null
 }
@@ -666,10 +724,9 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
         <CameraTracker anglesRef={cameraAnglesRef} />
         <ViewportRefBridge threeRef={threeRef} />
         <CameraController viewCommand={viewCommand} />
-        <FitController fitCommand={fitCommand} layout={layout} />
+        <FitController fitCommand={fitCommand} layout={layout} lockView={isAgentRunning} />
         <DragOrbitController cmdRef={orbitCmdRef} />
         <OrthoController isOrtho={isOrtho} />
-        <BoundsFitter layout={layout} lockView={isAgentRunning} />
         <SceneContent
           layout={layout}
           selectedId={selectedId}
