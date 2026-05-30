@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import GlassPanel from '../common/GlassPanel';
 import { useTheme } from '../common/ThemeToggle';
 import MessageBubble, { Message } from './MessageBubble';
+import ChatOptionsPanel from './ChatOptionsPanel';
+import type { CheckpointState } from '../../hooks/useAgentState';
 
 export type { Message };
 
@@ -11,6 +12,8 @@ export interface ChatPanelProps {
   isAgentRunning: boolean;
   onReset: () => void;
   onCancel: () => void;
+  checkpoint?: CheckpointState | null;
+  onDecision?: (value: string) => void;
 }
 
 const TypingIndicator: React.FC = () => {
@@ -73,7 +76,7 @@ const StopIcon: React.FC = () => (
   </svg>
 );
 
-const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSend, isAgentRunning, onReset, onCancel }) => {
+const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSend, isAgentRunning, onReset, onCancel, checkpoint, onDecision }) => {
   const { colors } = useTheme();
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -254,44 +257,53 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSend, isAgentRunning,
           </div>
         </div>
 
-        <div className="chat-messages" style={messagesAreaStyle}>
-          {messages.length === 0 ? (
-            <div style={emptyStateStyle}>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={colors.accentDim} strokeWidth="1.5">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-              <span>Send a message to start</span>
+        {/* Body row: conversation column (left) + options panel (right) */}
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row' }}>
+          {/* Conversation column */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <div className="chat-messages" style={messagesAreaStyle}>
+              {messages.length === 0 ? (
+                <div style={emptyStateStyle}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={colors.accentDim} strokeWidth="1.5">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                  <span>Send a message to start</span>
+                </div>
+              ) : (
+                messages.map(msg => (
+                  <MessageBubble key={msg.id} message={msg} />
+                ))
+              )}
+              {isAgentRunning && <TypingIndicator />}
+              <div ref={messagesEndRef} />
             </div>
-          ) : (
-            messages.map(msg => (
-              <MessageBubble key={msg.id} message={msg} />
-            ))
-          )}
-          {isAgentRunning && <TypingIndicator />}
-          <div ref={messagesEndRef} />
-        </div>
 
-        <div style={inputAreaStyle}>
-          <textarea
-            ref={inputRef}
-            className="chat-textarea"
-            style={textareaStyle}
-            value={inputValue}
-            onChange={e => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={isAgentRunning ? 'Agent is running...' : 'Message the agent... (Enter to send)'}
-            disabled={isAgentRunning}
-            rows={1}
-          />
-          <button
-            style={sendButtonStyle}
-            onClick={handleSend}
-            disabled={isAgentRunning || !inputValue.trim()}
-            title="Send message"
-            aria-label="Send message"
-          >
-            <SendIcon />
-          </button>
+            <div style={inputAreaStyle}>
+              <textarea
+                ref={inputRef}
+                className="chat-textarea"
+                style={textareaStyle}
+                value={inputValue}
+                onChange={e => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={isAgentRunning ? 'Agent is running...' : 'Message the agent... (Enter to send)'}
+                disabled={isAgentRunning}
+                rows={1}
+              />
+              <button
+                style={sendButtonStyle}
+                onClick={handleSend}
+                disabled={isAgentRunning || !inputValue.trim()}
+                title="Send message"
+                aria-label="Send message"
+              >
+                <SendIcon />
+              </button>
+            </div>
+          </div>
+
+          {/* Right-side options panel (suggestions / memory / actions) */}
+          {onDecision && <ChatOptionsPanel checkpoint={checkpoint ?? null} onDecision={onDecision} />}
         </div>
       </div>
     </>

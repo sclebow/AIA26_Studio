@@ -26,7 +26,7 @@ from fastapi.staticfiles import StaticFiles
 
 import api_routes
 import mcp_bridge
-from agent_runner import run_agent
+import agent_runner
 from session_manager import SessionManager
 from websocket_manager import ConnectionManager, MessageType
 
@@ -66,22 +66,28 @@ app.include_router(api_routes.router)
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
     await manager.connect(websocket)
+    loop = asyncio.get_running_loop()
     try:
         while True:
             data = await websocket.receive_json()
             msg_type = data.get("type")
 
             if msg_type == "chat_message":
-                # Run agent pipeline in background so the WS loop stays responsive.
-                asyncio.create_task(
-                    run_agent(
-                        data.get("content", ""),
-                        session.get_session(),
-                        manager,
-                        websocket,
-                        session=session,
+                content = data.get("content", "")
+                if agent_runner.is_active():
+                    # A run is in progress → feed the message to the checkpoint.
+                    agent_runner.submit_decision(content)
+                else:
+                    # Start a new real-pipeline session for the selected layout.
+                    sess = session.get_session() or {}
+                    layout_name = sess.get("layout_name")
+                    await agent_runner.start_session(
+                        content, layout_name, manager, websocket, loop,
                     )
-                )
+
+            elif msg_type == "chat_decision":
+                # Chip click from the options panel (s1, yes, end, "rule: ...").
+                agent_runner.submit_decision(str(data.get("value", "")))
 
             elif msg_type == "selection_sync":
                 # Broadcast the selection change to all connected clients.

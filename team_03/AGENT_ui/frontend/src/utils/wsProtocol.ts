@@ -11,6 +11,34 @@ export interface AgentResponse {
   tool_calls?: ToolCallCardProps[];
 }
 
+/** A chat line from the agent (narrative / streamed text). */
+export interface AgentSay {
+  type: 'agent_say';
+  content: string;
+}
+
+export interface CheckpointSuggestion {
+  key: string;   // "s1".."s5"
+  label: string;
+}
+
+/** Structured checkpoint payload that drives the right-side options panel. */
+export interface AgentCheckpoint {
+  type: 'agent_checkpoint';
+  agentMessage: string;
+  score?: number | null;
+  grade?: string | null;
+  suggestions: CheckpointSuggestion[];
+  rules: string[];
+  actions: { approve: boolean; end: boolean; yes: boolean };
+}
+
+/** A decision selected from the options panel (chip token), sent to the agent. */
+export interface ChatDecision {
+  type: 'chat_decision';
+  value: string;
+}
+
 export interface AgentEvent {
   type: 'agent_event';
   node: string;
@@ -48,8 +76,11 @@ export interface ObserverPathMessage {
 export type WSMessage =
   | ChatMessage
   | AgentResponse
+  | AgentSay
+  | AgentCheckpoint
   | AgentEvent
   | StateUpdate
   | SelectionSync
   | ObserverPoint
-  | ObserverPathMessage;
+  | ObserverPathMessage
+  | ChatDecision;

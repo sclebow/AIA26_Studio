@@ -1,115 +1,144 @@
 """
-Stub agent runner — simulates the full LangGraph pipeline.
-Agent B will replace this with real LangGraph integration.
+Real LangGraph pipeline runner for the AGENT_ui backend.
+
+Runs the EXACT pipeline from team_03/python/ (graph.build_graph + app.invoke) in
+a worker thread, bridging the checkpoint's blocking `input("Your decision: ")` to
+WebSocket decisions and turning the checkpoint's printed menu into a structured
+payload for the UI.
+
+A single chat session = one app.invoke() call (the graph loops at user_checkpoint
+until the user approves/ends). The first chat_message starts the session; further
+chat_message / chat_decision values are fed into the checkpoint's input queue.
 """
 from __future__ import annotations
 
 import asyncio
+import builtins
+import contextlib
+import queue
+import threading
 from typing import Any, Dict, Optional
 
 from websocket_manager import ConnectionManager, MessageType
-from layout_loader import load_layout
-
-# Ordered list of pipeline nodes, matching the real LangGraph graph.
-PIPELINE_NODES = [
-    "profile_agent",
-    "space_type_agent",
-    "reason",
-    "add_objects",
-    "collision",
-    "visibility",
-    "path_analysis",
-    "reachability",
-    "orientation",
-    "scoring",
-    "checkpoint",
-    "explain",
-]
+from pipeline_bridge import (
+    build_context,
+    StdoutTee,
+    CheckpointParser,
+    read_session_layout,
+)
 
 
-async def run_agent(
+class _Session:
+    def __init__(self) -> None:
+        self.thread: Optional[threading.Thread] = None
+        self.input_queue: "queue.Queue[str]" = queue.Queue()
+        self.active: bool = False
+
+
+# Single active session (local single-user backend).
+_session = _Session()
+_session_lock = threading.Lock()
+
+
+def is_active() -> bool:
+    return _session.active
+
+
+def submit_decision(value: str) -> None:
+    """Feed a decision (chip token or free text) to the blocked checkpoint input()."""
+    if _session.active:
+        _session.input_queue.put(value)
+
+
+async def start_session(
     prompt: str,
-    session_state: Optional[Dict[str, Any]],
-    ws_manager: ConnectionManager,
+    layout_name: Optional[str],
+    manager: ConnectionManager,
     websocket: Any,
-    session: Any = None,
+    loop: asyncio.AbstractEventLoop,
 ) -> None:
-    """
-    Simulate the agent pipeline by emitting started/completed events for each
-    node, then a final agent_response summary.
+    """Start a real pipeline run in a worker thread. Returns immediately; all
+    further communication happens over WebSocket via the thread's callbacks."""
+    with _session_lock:
+        if _session.active:
+            # Already running — treat the message as a decision instead.
+            submit_decision(prompt)
+            return
+        _session.active = True
+        _session.input_queue = queue.Queue()
 
-    After the pipeline completes, re-reads the layout JSON from disk and
-    broadcasts a state_update so the frontend viewport refreshes.
+    def emit(msg: Dict[str, Any]) -> None:
+        """Send a WS message from the worker thread to the main event loop."""
+        try:
+            asyncio.run_coroutine_threadsafe(manager.send_personal(websocket, msg), loop)
+        except Exception:
+            pass
 
-    Replace the body of this function with real LangGraph calls when ready.
-    """
-    layout_name = "unknown"
-    if isinstance(session_state, dict):
-        layout_name = session_state.get("layout_name", "unknown")
+    def run() -> None:
+        parser = CheckpointParser()
+        ctx = None
 
-    # Emit events for each pipeline node
-    for node in PIPELINE_NODES:
-        # started
-        await ws_manager.send_personal(
-            websocket,
-            {
-                "type": MessageType.agent_event.value,
-                "node": node,
-                "status": "started",
-            },
-        )
-        await asyncio.sleep(1.0)
+        def on_line(line: str) -> None:
+            parser.feed(line)
 
-        # completed with simulated data
-        await ws_manager.send_personal(
-            websocket,
-            {
-                "type": MessageType.agent_event.value,
-                "node": node,
-                "status": "completed",
-                "data": f"{node} analysis finished",
-            },
-        )
+        # Patched input(): the call itself signals "menu printed, awaiting decision".
+        def patched_input(prompt_text: str = "") -> str:
+            payload = parser.take_checkpoint()
+            emit(payload)
+            # Refresh the viewport with the latest workspace layout.
+            if ctx is not None:
+                layout = read_session_layout(ctx.workspace_path)
+                if layout:
+                    emit({
+                        "type": MessageType.state_update.value,
+                        "field": "layout",
+                        "data": layout,
+                        "proposal": False,
+                    })
+            return _session.input_queue.get()
 
-    # ── Re-read the layout from disk (the agent may have modified it) ────
-    if layout_name and layout_name != "unknown":
-        fresh_layout = load_layout(layout_name)
-        if fresh_layout:
-            # Store as pending — only committed to session when user accepts
-            if session is not None:
-                session.set_pending_layout(fresh_layout)
-            # Broadcast as a proposal so the frontend shows a preview
-            await ws_manager.broadcast(
-                {
+        import sys
+        tee = StdoutTee(sys.stdout, on_line)
+        real_input = builtins.input
+        try:
+            ctx = build_context(layout_name or "")
+            from graph import build_graph, _build_initial_state
+
+            app = build_graph(ctx)
+            initial_state = _build_initial_state(prompt, ctx)
+
+            builtins.input = patched_input
+            with contextlib.redirect_stdout(tee):
+                final_state = app.invoke(initial_state)
+
+            final_response = (final_state or {}).get("final_response") or "Session complete."
+            emit({"type": MessageType.agent_response.value, "content": str(final_response)})
+
+            layout = read_session_layout(ctx.workspace_path)
+            if layout:
+                emit({
                     "type": MessageType.state_update.value,
                     "field": "layout",
-                    "data": fresh_layout,
-                    "proposal": True,
-                }
-            )
+                    "data": layout,
+                    "proposal": False,
+                })
+        except Exception as exc:  # noqa: BLE001 — surface any failure in chat
+            emit({
+                "type": MessageType.agent_response.value,
+                "content": (
+                    f"**Pipeline error:** {exc}\n\n"
+                    "Check that Rhino + Swiftlet (MCP on :3002) are running and the "
+                    "LLM provider keys are set in the repo-root .env."
+                ),
+            })
+        finally:
+            builtins.input = real_input
+            if ctx is not None:
+                try:
+                    ctx.mcp_client.close()
+                except Exception:
+                    pass
+            _session.active = False
 
-    # Final agent response
-    await ws_manager.send_personal(
-        websocket,
-        {
-            "type": MessageType.agent_response.value,
-            "content": (
-                f"Analysis complete for layout '{layout_name}'.\n\n"
-                f"**Prompt**: \"{prompt}\"\n\n"
-                "All 12 pipeline nodes ran successfully:\n"
-                "- Profile Agent: identified space requirements\n"
-                "- Space Type Agent: classified zones\n"
-                "- Reasoning: determined optimal placement strategy\n"
-                "- Add Objects: placed furniture and equipment\n"
-                "- Collision/Visibility/Orientation: spatial analysis passed\n"
-                "- Path/Reachability: connectivity verified\n"
-                "- Scoring: layout scored and graded\n\n"
-                "*This is a simulated response. Connect the LangGraph pipeline for real analysis.*"
-            ),
-            "tool_calls": [
-                {"name": "collision_check", "status": "completed", "args": {"threshold": 0.3}, "result": "No collisions detected"},
-                {"name": "visibility_analysis", "status": "completed", "args": {"sightlines": True}, "result": "All zones visible"},
-                {"name": "scoring", "status": "completed", "args": {"weights": "default"}, "result": "Score: 82/100 (B)"},
-            ],
-        },
-    )
+    _session.thread = threading.Thread(target=run, daemon=True)
+    _session.thread.start()

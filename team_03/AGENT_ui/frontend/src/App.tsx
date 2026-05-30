@@ -60,10 +60,12 @@ export default function App() {
     if (!ws.lastMessage) return;
     const msg = ws.lastMessage;
     switch (msg.type) {
-      case 'agent_event':    agentState.handleAgentEvent(msg);    break;
-      case 'agent_response': agentState.handleAgentResponse(msg); break;
-      case 'state_update':   layoutState.updateFromWS(msg);       break;
-      case 'selection_sync': applyRemoteSelection(msg.elementId, msg.source); break;
+      case 'agent_event':      agentState.handleAgentEvent(msg);      break;
+      case 'agent_response':   agentState.handleAgentResponse(msg);   break;
+      case 'agent_say':        agentState.handleAgentSay(msg);        break;
+      case 'agent_checkpoint': agentState.handleAgentCheckpoint(msg); break;
+      case 'state_update':     layoutState.updateFromWS(msg);         break;
+      case 'selection_sync':   applyRemoteSelection(msg.elementId, msg.source); break;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ws.lastMessage]);
@@ -112,8 +114,14 @@ export default function App() {
 
   const handleChatSend = useCallback((content: string) => {
     agentState.addUserMessage(content);
-    agentState.runDemoSimulation(content);
-  }, [agentState]);
+    ws.send({ type: 'chat_message', content });
+  }, [agentState, ws]);
+
+  // A chip from the options panel (s1, yes, end, "rule: ...") — sent as a decision.
+  const handleChatDecision = useCallback((value: string) => {
+    agentState.beginAwaitingResponse();
+    ws.send({ type: 'chat_decision', value });
+  }, [agentState, ws]);
 
   const handleChatReset  = useCallback(() => { agentState.resetChat(); }, [agentState]);
   const handleChatCancel = useCallback(() => { agentState.cancelLast(); }, [agentState]);
@@ -389,6 +397,8 @@ export default function App() {
             isAgentRunning={agentState.isAgentRunning}
             onReset={handleChatReset}
             onCancel={handleChatCancel}
+            checkpoint={agentState.checkpoint}
+            onDecision={handleChatDecision}
           />
         </div>
       </div>
