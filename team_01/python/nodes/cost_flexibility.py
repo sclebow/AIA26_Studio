@@ -1,14 +1,15 @@
 """
 cost_flexibility.py — Independent Cost + Flexibility evaluation node.
 
-Positioned between modify and evaluate in the graph:
-    modify → cost_flexibility → evaluate
+Runs after every evaluate:
+    generate_grid → evaluate → cost_flexibility → END
+    evaluate      →            cost_flexibility → END
+    modify        → evaluate → cost_flexibility → comparison → END
 
-Reads the structural diff between layout_before_change and layout_json_string,
+Reads the structural diff between original_layout_json_string and layout_json_string,
 computes material cost and flexibility score, and writes state["cost_flexibility"].
-
-Does NOT overwrite state["came_from"] — the routing logic in _route_from_evaluate
-depends on came_from remaining exactly as modify set it.
+Skips silently when there is no before-snapshot or no structural diff.
+Does NOT overwrite state["came_from"] — routing in _route_from_cost_flexibility depends on it.
 """
 from __future__ import annotations
 import json
@@ -325,21 +326,10 @@ def _spatial_penalty(added: list[dict], outline: list) -> float:
 # ── Node builder ──────────────────────────────────────────────────────────────
 
 def build_cost_flexibility_node():
-    """Returns cost_flexibility_node for registration in the StateGraph.
-
-    Inserted between modify and evaluate:
-        modify → cost_flexibility → evaluate
-
-    Reads layout_before_change and layout_json_string, writes state["cost_flexibility"].
-    Does NOT overwrite came_from so routing in _route_from_evaluate is unaffected.
-    """
     def cost_flexibility_node(state: dict) -> dict:
         print(f"\n{'='*50}")
         print(f"  NODE: COST & FLEXIBILITY")
         print(f"{'='*50}")
-
-        if state.get("came_from") == "tag_and_audit":
-            return state
 
         layout_str = state.get("layout_json_string", "")
         before_str = (

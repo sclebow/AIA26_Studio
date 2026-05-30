@@ -9,6 +9,7 @@ from nodes.modify import build_modify_node, DEFAULT_SECTIONS, BEAM_SECTION_UPGRA
 from nodes.evaluate import build_evaluate_node, evaluate_structure, SETTINGS_PATH, _get_user_request
 from nodes.comparison import build_comparison_node
 from nodes.cost_flexibility import build_cost_flexibility_node
+from nodes.tag_and_audit import generate_structure as _generate_structure
 
 EXAMPLE_LAYOUTS_DIR = Path(__file__).parent / "example_layouts"
 OTHER_LAYOUTS_DIR   = Path(__file__).parent.parent / "gh" / "other layouts"
@@ -67,63 +68,127 @@ def _looks_like_eval(state: AgentState) -> bool:
 
 def _route_from_reason(state: AgentState) -> str:
     if state.get("pending_tool_calls") and state.get("cycle", 0) < 2:
-        # Guard: never let tag_and_audit run when the user asked for evaluation
         calls = [tc.get("name") for tc in (state.get("pending_tool_calls") or [])]
-        if calls == ["tag_and_audit"] and _looks_like_eval(state):
+        if "tag_and_audit" in calls:
+            return "generate_grid"
+        if _looks_like_eval(state):
             state["pending_tool_calls"] = None
             return "evaluate"
         return "modify"
     if state.get("cycle", 0) >= 2:
         return END
     if state.get("evaluation_result") is not None:
-        return END  # evaluate already ran — done
+        return END
     if state.get("final_response"):
-        # If the user asked for evaluation/computation, force it even if LLM answered directly
         if _looks_like_eval(state):
             return "evaluate"
-        return END  # genuine Q&A — use LLM's direct answer
+        return END
     return "evaluate"
 
 
 def _route_from_evaluate(state: AgentState) -> str:
-    if state.get("came_from") == "tag_and_audit":
-        return END
     if state.get("pending_structural_change"):
         return "modify"
-    if state.get("came_from") in ("modify", "structural_change"):
-        return "comparison"
     if state.get("evaluation_result") is not None:
-        return END  # plain evaluation done — skip the redundant reason call
+        return "cost_flexibility"
     return "reason"
 
 
-def _route_from_modify(state: AgentState) -> str:
-    if state.get("came_from") == "tag_and_audit":
-        return "evaluate"
-    return "cost_flexibility"
+def _route_from_cost_flexibility(state: AgentState) -> str:
+    if state.get("came_from") in ("modify", "structural_change"):
+        return "comparison"
+    return END
+
+
+def build_generate_grid_node(edited_layout_path):
+    from _runtime.llm import write_tool_result
+
+    def generate_grid_node(state: dict) -> dict:
+        print(f"\n{'='*50}")
+        print(f"  NODE: GENERATE GRID")
+        print(f"{'='*50}")
+
+        if not state.get("original_layout_json_string"):
+            state["original_layout_json_string"] = state["layout_json_string"]
+
+        # Save original snapshot (layout without structure) — never overwritten by modify
+        original_path = edited_layout_path.with_stem(edited_layout_path.stem + "_original")
+        original_path.write_text(state["layout_json_string"], encoding="utf-8")
+        # Also initialise before to the same state so first comparison has a valid baseline
+        before_path = edited_layout_path.with_stem(edited_layout_path.stem + "_before")
+        before_path.write_text(state["layout_json_string"], encoding="utf-8")
+
+        layout_data = json.loads(state["layout_json_string"])
+        options = _generate_structure(layout_data)
+
+        if not options:
+            print("[generate_grid] No options returned — layout unchanged.")
+            state["came_from"] = "generate_grid"
+            state["pending_tool_calls"] = None
+            return state
+
+        if len(options) == 1:
+            chosen = options[0]
+        else:
+            print(f"\n{len(options)} layout options generated:")
+            for i, opt in enumerate(options):
+                struct  = opt.get("structure", [])
+                n_cols  = sum(1 for s in struct if len(s["geometry"]) == 1)
+                n_beams = sum(1 for s in struct if len(s["geometry"]) == 2)
+                max_span = max(
+                    (s["attributes"]["length"] for s in struct
+                     if len(s["geometry"]) == 2 and s["attributes"].get("length")),
+                    default=0,
+                )
+                print(f"  {i+1}. {n_cols} columns · {n_beams} beams · max span {round(max_span, 2)}m")
+            while True:
+                raw = input(f"Choose option [1-{len(options)}, Enter=1]: ").strip()
+                if not raw:
+                    chosen = options[0]
+                    print("[generate_grid] Using option 1")
+                    break
+                if raw.isdigit() and 1 <= int(raw) <= len(options):
+                    chosen = options[int(raw) - 1]
+                    print(f"[generate_grid] Using option {raw}")
+                    break
+
+        n = len(chosen.get("structure", []))
+        print(f"Structural grid ready — {n} elements placed.")
+
+        state["layout_json_string"] = json.dumps(chosen)
+        state["came_from"] = "generate_grid"
+        state["pending_tool_calls"] = None
+        write_tool_result(json.dumps(chosen), edited_layout_path)
+        return state
+
+    return generate_grid_node
 
 
 def build_graph(ctx: Any) -> Any:
-    reason = build_reason_node(ctx.llm)
-    modify = build_modify_node(ctx.mcp_client, ctx.tools, ctx.edited_layout_path, evaluate_fn=evaluate_structure)
-    evaluate = build_evaluate_node(ctx.llm)
-    comparison = build_comparison_node(ctx.llm)
-    cost_flex = build_cost_flexibility_node()
+    reason       = build_reason_node(ctx.llm)
+    generate_grid = build_generate_grid_node(ctx.edited_layout_path)
+    modify       = build_modify_node(ctx.mcp_client, ctx.tools, ctx.edited_layout_path, evaluate_fn=evaluate_structure)
+    evaluate     = build_evaluate_node(ctx.llm)
+    cost_flex    = build_cost_flexibility_node()
+    comparison   = build_comparison_node(ctx.llm)
 
     graph = StateGraph(AgentState)
-    graph.add_node("reason", reason)
-    graph.add_node("modify", modify)
+    graph.add_node("reason",        reason)
+    graph.add_node("generate_grid", generate_grid)
+    graph.add_node("modify",        modify)
+    graph.add_node("evaluate",      evaluate)
     graph.add_node("cost_flexibility", cost_flex)
-    graph.add_node("evaluate", evaluate)
-    graph.add_node("comparison", comparison)
+    graph.add_node("comparison",    comparison)
 
     graph.add_edge(START, "reason")
-    graph.add_conditional_edges("reason", _route_from_reason, {"modify": "modify", "evaluate": "evaluate", END: END})
-    # Fix 2: skip cost_flexibility for tag_and_audit (no before/after diff available)
-    graph.add_conditional_edges("modify", _route_from_modify, {"cost_flexibility": "cost_flexibility", "evaluate": "evaluate"})
-    graph.add_edge("cost_flexibility", "evaluate")
-    graph.add_conditional_edges("evaluate", _route_from_evaluate, {"reason": "reason", "comparison": "comparison", "modify": "modify", END: END})
-    # Fix 1: comparison goes directly to END — no reason bounce needed
+    graph.add_conditional_edges("reason", _route_from_reason,
+        {"generate_grid": "generate_grid", "modify": "modify", "evaluate": "evaluate", END: END})
+    graph.add_edge("generate_grid", "evaluate")
+    graph.add_edge("modify",        "evaluate")
+    graph.add_conditional_edges("evaluate", _route_from_evaluate,
+        {"modify": "modify", "cost_flexibility": "cost_flexibility", "reason": "reason"})
+    graph.add_conditional_edges("cost_flexibility", _route_from_cost_flexibility,
+        {"comparison": "comparison", END: END})
     graph.add_edge("comparison", END)
 
     return graph.compile()
@@ -131,10 +196,6 @@ def build_graph(ctx: Any) -> Any:
 
 def run_agent(prompt: str, ctx: Any) -> str:
     app = build_graph(ctx)
-    # Snapshot the layout before this run so before/after comparison is always available
-    if ctx.edited_layout_path.exists():
-        before_path = ctx.edited_layout_path.with_stem(ctx.edited_layout_path.stem + "_before")
-        before_path.write_text(ctx.edited_layout_path.read_text(encoding="utf-8"), encoding="utf-8")
     initial_state = _build_initial_state(prompt, ctx)
     final_state = app.invoke(initial_state)
 
@@ -188,26 +249,7 @@ def run_agent(prompt: str, ctx: Any) -> str:
                 )
                 print(f"Layout saved — {material} applied to {count} elements.")
 
-    _cf = final_state.get("cost_flexibility")
-    if _cf:
-        _added = _cf.get("cost_added_usd", 0)
-        _saved = _cf.get("cost_saved_usd", 0)
-        _net   = _cf.get("net_cost_usd", _cf.get("material_cost_usd", 0))
-        if _added and _saved:
-            _cost_str = f"Added: +${_added:,.0f}  Saved: -${abs(_saved):,.0f}  Net: ${_net:+,.0f}"
-        elif _added:
-            _cost_str = f"Cost: +${_added:,.0f}"
-        elif _saved:
-            _cost_str = f"Saved: -${abs(_saved):,.0f}"
-        else:
-            _cost_str = "Cost: $0"
-        print(
-            f"[cost-flex]  {_cost_str}"
-            f"  |  Flexibility: {_cf.get('flexibility_score', 0):.1f}/10"
-            f" ({_cf.get('flexibility_label', 'N/A')})"
-            f"  |  Disruption: {_cf.get('disruption_score', 0)}/10"
-            f" ({_cf.get('disruption_label', 'N/A')})"
-        )
+
 
     print("\nWorkflow graph:")
     app.get_graph().print_ascii()

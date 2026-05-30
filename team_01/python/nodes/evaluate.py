@@ -700,13 +700,17 @@ For UNDERUTILISED columns (<70%): use the removal_hints to say specifically what
 
 For UNDERUTILISED beams (<70%): suggest the architect could remove or relocate a wall, or ask whether that span is actually needed.
 
-Structure your response:
-- Line 1: one sentence — overall verdict
-- 2-3 bullets: most important observations (use element IDs and numbers)
-- 1 closing line: the single most actionable next step
+Structure your response as a conversation, not a report:
+- Line 1: one sentence — overall verdict in plain language
+- 2-3 bullets: most important observations (use element IDs and numbers but explain what they mean spatially — "column B2 sits in the middle of the living room" not just "column B2")
+- 1 closing question: ask the architect ONE specific spatial question based on what you see in the layout — something that moves the design forward. Examples:
+  "The bedroom corridor has three columns within 3m of each other — do you need all of them, or is there a wall that could be removed?"
+  "Column E5 is carrying almost no load — is the corner it sits in important to keep, or could that space open up?"
+  "The longest span is beam C1-E1 at 6m — is that an open-plan space, and if so, would you want to keep it column-free?"
 
-If everything is in the 70–85% range: say so — it means the structure is well-proportioned.
-If all pass and some are over-engineered: end with "Type 'right-size sections' or pick option 1 in the menu to find the minimum that still works."
+CRITICAL: The closing question must reference actual element IDs and room names from the evaluation data. Never ask a generic question. Make it specific to this layout.
+
+If everything passes and some elements are over-engineered: end with "Type 'right-size sections' or pick option 1 in the menu to find the minimum that still works." then still ask the spatial question.
 
 Reply with JSON only: {"action":"final","final_response":"<your advisory>","tool_calls":[]}"""
 
@@ -738,8 +742,25 @@ def _precompute_removal_hints(
     Returns {"columns": [...], "beams": [...]} each capped at 3 entries.
     """
     # ── COLUMNS ──────────────────────────────────────────────────────────────
+    # Build a set of perimeter column ids from the layout so we never suggest removing them
+    _perimeter_ids: set[str] = set()
+    if layout_str:
+        try:
+            _layout_tmp = json.loads(layout_str)
+            _perimeter_ids = {
+                el["id"] for el in _layout_tmp.get("structure", [])
+                if len(el.get("geometry", [])) == 1
+                and el.get("attributes", {}).get("type") == "perimeter"
+            }
+        except Exception:
+            pass
+
     col_candidates = sorted(
-        [c for c in result.get("columns", []) if _col_utilisation(c) < UTIL_OVERENGINEERED],
+        [
+            c for c in result.get("columns", [])
+            if _col_utilisation(c) < UTIL_OVERENGINEERED
+            and c["id"] not in _perimeter_ids
+        ],
         key=_col_utilisation,
     )
     col_hints = []

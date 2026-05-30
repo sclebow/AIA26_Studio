@@ -419,6 +419,10 @@ def build_modify_node(mcp_client, allowed_tools, edited_layout_path, evaluate_fn
         if not state.get("original_layout_json_string"):
             state["original_layout_json_string"] = state["layout_json_string"]
 
+        # Save before-snapshot of current layout before applying any change
+        before_path = edited_layout_path.with_stem(edited_layout_path.stem + "_before")
+        before_path.write_text(state["layout_json_string"], encoding="utf-8")
+
         # ── Structural change from evaluate failure menu ───────────────────────
         change = state.get("pending_structural_change")
         if change:
@@ -577,49 +581,14 @@ def build_modify_node(mcp_client, allowed_tools, edited_layout_path, evaluate_fn
             if "layout_json" in tool_args:
                 tool_args["layout_json"] = state["layout_json_string"]
 
-            if tool_name == "tag_and_audit":
-                from nodes.tag_and_audit import generate_structure as _gen_structure
-                try:
-                    layout_data = json.loads(state["layout_json_string"])
-                    options = _gen_structure(layout_data)
-                    if len(options) == 1:
-                        chosen = options[0]
-                    else:
-                        print(f"\n{len(options)} layout options generated:")
-                        for i, opt in enumerate(options):
-                            struct = opt.get("structure", [])
-                            n_cols  = sum(1 for s in struct if len(s["geometry"]) == 1)
-                            n_beams = sum(1 for s in struct if len(s["geometry"]) == 2)
-                            max_span = max((s["attributes"]["length"] for s in struct
-                                           if len(s["geometry"]) == 2
-                                           and s["attributes"].get("length")), default=0)
-                            print(f"  {i+1}. {n_cols} columns · {n_beams} beams · max span {round(max_span, 2)}m")
-                        while True:
-                            raw = input(f"Choose option [1-{len(options)}, Enter=1]: ").strip()
-                            if not raw:
-                                chosen = options[0]
-                                print(f"[tag_and_audit] Using option 1")
-                                break
-                            if raw.isdigit() and 1 <= int(raw) <= len(options):
-                                chosen = options[int(raw) - 1]
-                                print(f"[tag_and_audit] Using option {raw}")
-                                break
-                    tool_output = json.dumps(chosen)
-                    n = len(chosen.get("structure", []))
-                    print(f"Structural grid ready — {n} elements placed.")
-                except Exception as e:
-                    print(f"Grid generation failed ({e}) — falling back to simple grid.")
-                    spacing = float(tool_args.get("grid_spacing", 4.0))
-                    tool_output = _generate_column_grid(state["layout_json_string"], spacing)
-            else:
-                try:
-                    tool_output = mcp_client.call_tool(tool_name, tool_args)
-                except Exception as e:
-                    print(f"[modify] MCP call failed ({type(e).__name__}) — treating as empty output.")
-                    tool_output = ""
+            try:
+                tool_output = mcp_client.call_tool(tool_name, tool_args)
+            except Exception as e:
+                print(f"[modify] MCP call failed ({type(e).__name__}) — treating as empty output.")
+                tool_output = ""
 
-                if not tool_output or not tool_output.strip():
-                    print(f"[modify] WARNING: {tool_name} returned empty output — layout unchanged.")
+            if not tool_output or not tool_output.strip():
+                print(f"[modify] WARNING: {tool_name} returned empty output — layout unchanged.")
 
             try:
                 _parsed = json.loads(tool_output.strip())
@@ -649,7 +618,7 @@ def build_modify_node(mcp_client, allowed_tools, edited_layout_path, evaluate_fn
             print(f"Tool result: {tool_output[:200]}..." if len(tool_output) > 200 else f"Tool result: {tool_output}")
 
         state["pending_tool_calls"] = None
-        state["came_from"] = "tag_and_audit" if last_tool == "tag_and_audit" else "modify"
+        state["came_from"] = "modify"
         return state
 
     return modify_node
