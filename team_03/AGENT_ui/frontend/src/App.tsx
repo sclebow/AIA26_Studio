@@ -49,6 +49,7 @@ export default function App() {
   // UI state
   const [layerVisibility, setLayerVisibility] = useState<LayerVisibility>(defaultVisibility);
   const [showLabels, setShowLabels] = useState(true);   // shared: 3D labels + graph labels
+  const [layoutFitSignal, setLayoutFitSignal] = useState(0);  // bumps only on explicit layout pick → triggers viewport fit-to-screen
   const [viewMode, setViewMode] = useState<ViewMode>('geometry');
   const [displayMode, setDisplayMode] = useState<ViewMode>('geometry');
   const [animPhase, setAnimPhase] = useState<'idle' | 'out' | 'in'>('idle');
@@ -132,10 +133,12 @@ export default function App() {
 
   const handleLayoutSelect = useCallback(async (name: string) => {
     await layoutState.loadLayout(name);
+    setLayoutFitSignal(n => n + 1);   // user explicitly picked → fit to screen
   }, [layoutState]);
 
   const handleLayoutUpload = useCallback(async (file: File) => {
     await layoutState.uploadLayout(file);
+    setLayoutFitSignal(n => n + 1);   // user uploaded → fit to screen
   }, [layoutState]);
 
   const handleViewportSelect = useCallback((id: string | null) => { select(id, 'viewport'); }, [select]);
@@ -196,6 +199,7 @@ export default function App() {
     showLabels,
     onToggleLabels: () => setShowLabels(v => !v),
     isAgentRunning: agentState.isAgentRunning,
+    fitSignal: layoutFitSignal,
   } : null;
 
   const noLayoutPlaceholder = (

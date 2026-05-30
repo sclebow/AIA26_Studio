@@ -30,6 +30,8 @@ interface ThreeViewportProps {
   onToggleLabels?: () => void
   /** When true (agent running), suppress auto-recenter on layout reloads. */
   isAgentRunning?: boolean
+  /** Bumps when the user explicitly picks/uploads a layout → triggers fit-to-screen. */
+  fitSignal?: number
 }
 
 interface SceneProps extends ThreeViewportProps {
@@ -189,12 +191,14 @@ interface FitAnim {
 //    viewport. Runs on the Center button (fitCommand), on layout change, and on
 //    the initial mount (snapped). The actual bounds computation is deferred to
 //    the next frame so freshly-loaded geometry is mounted first. ──
-function FitController({ fitCommand, layout, lockView }: { fitCommand: string | null; layout: LayoutJSON; lockView?: boolean }) {
+function FitController({ fitCommand, layout, lockView, fitSignal }: { fitCommand: string | null; layout: LayoutJSON; lockView?: boolean; fitSignal?: number }) {
   const { camera, controls, size, scene } = useThree()
   const anim = useRef<FitAnim | null>(null)
   const pending = useRef<{ animated: boolean } | null>(null)
   const lastFit = useRef<string | null>(null)
-  const lastLayoutId = useRef<string | null>(null)
+  const lastSignal = useRef<number | undefined>(fitSignal)
+  const armed = useRef(false)        // a user layout pick is waiting for its geometry
+  const didInitialFit = useRef(false)
 
   const requestFit = useCallback((animated: boolean) => { pending.current = { animated } }, [])
 
@@ -205,19 +209,27 @@ function FitController({ fitCommand, layout, lockView }: { fitCommand: string | 
     requestFit(true)
   }, [fitCommand, requestFit])
 
-  // Fit only when a *different* layout is loaded (its layoutId changes) — i.e.
-  // an explicit pick in the Layout Loader. In-place edits from the agent/chat,
-  // path/person actions and reloads keep the same layoutId, so the view is left
-  // untouched. Snap on the first layout (mount), animate later switches; never
-  // yank the view while the agent is running.
+  // Explicit Layout-Loader pick → arm a fit. The actual fit runs when the new
+  // geometry arrives (layout-object effect below), so we measure the right thing.
   useEffect(() => {
-    const id = layout.layoutId
-    if (lastLayoutId.current === id) return
-    const isFirst = lastLayoutId.current === null
-    lastLayoutId.current = id
+    if (fitSignal === lastSignal.current) return
+    lastSignal.current = fitSignal
+    armed.current = true
+  }, [fitSignal])
+
+  // The layout object changes for many reasons (agent edits, chat replies,
+  // path/person, periodic reloads). Only fit on the initial mount, or when a
+  // user pick is armed — never for in-place updates. Skip while the agent runs.
+  useEffect(() => {
     if (lockView) return
-    requestFit(!isFirst)
-  }, [layout.layoutId, lockView, requestFit])
+    if (!didInitialFit.current) {
+      didInitialFit.current = true
+      requestFit(false)            // snap to fit on first load
+    } else if (armed.current) {
+      armed.current = false
+      requestFit(true)             // animate the user's explicit switch
+    }
+  }, [layout, lockView, requestFit])
 
   useFrame((_, delta) => {
     if (!controls) return
@@ -515,7 +527,7 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
   )
 }
 
-export default function ThreeViewport({ layout, selectedId, onSelect, layers, graphData, modifiedIds, onObserverPoint, onObserverPath, showLabels: showLabelsProp, onToggleLabels, isAgentRunning }: ThreeViewportProps) {
+export default function ThreeViewport({ layout, selectedId, onSelect, layers, graphData, modifiedIds, onObserverPoint, onObserverPath, showLabels: showLabelsProp, onToggleLabels, isAgentRunning, fitSignal }: ThreeViewportProps) {
   const { theme, colors } = useTheme()
   const isDark = theme === 'dark'
   const [internalShowLabels, setInternalShowLabels] = useState(true)
@@ -728,7 +740,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
         <CameraTracker anglesRef={cameraAnglesRef} />
         <ViewportRefBridge threeRef={threeRef} />
         <CameraController viewCommand={viewCommand} />
-        <FitController fitCommand={fitCommand} layout={layout} lockView={isAgentRunning} />
+        <FitController fitCommand={fitCommand} layout={layout} lockView={isAgentRunning} fitSignal={fitSignal} />
         <DragOrbitController cmdRef={orbitCmdRef} />
         <OrthoController isOrtho={isOrtho} />
         <SceneContent
