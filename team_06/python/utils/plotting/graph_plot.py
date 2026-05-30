@@ -46,7 +46,8 @@ for layout_idx, layout in enumerate(layouts):
     for node in G.nodes():
         program = room_program_map.get(node, '')
         color = color_map.get(program, 'lightgray')
-        print(f"Node: {node}, Program: '{program}', Color: {color}")
+        betweenness_centrality = G.nodes[node].get('betweenness_centrality', 0)
+        print(f"Node: {node}, Program: '{program}', Color: {color}, Betweenness Centrality: {betweenness_centrality:.3f}")
         node_colors.append(color)
 
     # Debug: Print edge information
@@ -57,7 +58,7 @@ for layout_idx, layout in enumerate(layouts):
         print(f"  {u} -- {v}: types={edge_types}")
 
     nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=2000)
-    nx.draw_networkx_labels(G, pos, labels={node: f"{G.nodes[node]['name']}\n{G.nodes[node]['size']}" for node in G.nodes()}, font_size=8)
+    nx.draw_networkx_labels(G, pos, labels={node: f"{G.nodes[node]['name']}\n{G.nodes[node]['area']}\nBC: {G.nodes[node].get('betweenness_centrality', 0):.2f}" for node in G.nodes()}, font_size=7)
     
     # Draw edges by type
     access_edges = [(u, v) for u, v, d in G.edges(data=True) if 'access' in d.get('edge_types', [])]
