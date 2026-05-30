@@ -87,11 +87,59 @@ body {
 .sidebar {
   width: 260px;
   background: var(--color-grey-bg);
-  padding: 32px 20px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--color-border);
+  height: 100vh;
+  min-width: 260px;
+}
+
+.sidebar-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 28px 20px 0 20px;
+  min-height: 64px;
+  background: var(--color-grey-bg);
+  border-bottom: 1px solid var(--color-border);
+}
+.sidebar-app-name {
+  font-size: var(--font-size-title);
+  font-weight: 700;
+  color: var(--color-blue);
+  letter-spacing: -1px;
+  margin-bottom: 18px;
+}
+.sidebar-nav-tabs {
+  display: flex;
+  flex-direction: row;
+  gap: 18px;
+  width: 100%;
+}
+.sidebar-nav-tab-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-nav);
+  font-weight: 600;
+  padding: 0 6px;
+  height: 36px;
+  min-width: 60px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+}
+.sidebar-nav-tab-btn.active {
+  color: var(--color-blue);
+  background: var(--color-white);
+}
+.sidebar-content {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   gap: 28px;
-  border-right: 1px solid var(--color-border);
+  padding: 24px 20px 24px 20px;
+  overflow-y: auto;
 }
 
 .sidebar-section {
@@ -134,11 +182,17 @@ body {
   font-size: var(--font-size-standard);
   border: none;
   border-radius: var(--radius);
-  padding: 12px 0;
-  width: 100%;
+  width: 180px;
+  height: 44px;
+  min-width: 180px;
+  min-height: 44px;
+  padding: 0;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(33, 118, 255, 0.10);
   transition: box-shadow 0.2s;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
 }
 .create-layout-btn:hover {
   box-shadow: 0 4px 16px rgba(33, 118, 255, 0.18);
@@ -250,11 +304,17 @@ body {
   font-size: var(--font-size-standard);
   border: none;
   border-radius: var(--radius);
-  padding: 12px 0;
-  width: 100%;
+  width: 180px;
+  height: 44px;
+  min-width: 180px;
+  min-height: 44px;
+  padding: 0;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(33, 118, 255, 0.10);
   transition: box-shadow 0.2s;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
 }
 .save-layout-btn:hover {
   box-shadow: 0 4px 16px rgba(33, 118, 255, 0.18);
