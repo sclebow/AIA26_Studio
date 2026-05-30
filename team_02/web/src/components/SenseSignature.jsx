@@ -118,7 +118,7 @@ export default function SenseSignature({
                 fill={SC[s]}
                 fillOpacity={dim ? 0.3 : 0.85}
                 fontSize={size * 0.13}
-                fontFamily="'IBM Plex Mono', monospace"
+                fontFamily="var(--font-mono)"
                 textAnchor="middle"
                 dominantBaseline="central"
               >{SI[s]}</text>

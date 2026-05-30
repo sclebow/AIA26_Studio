@@ -1,28 +1,17 @@
-// Shared constants — ported from the S/SC/SI/SENSES/etc. globals in index.html.
+// Barrel for shared constants. The sense-encoding source of truth now lives in
+// lib/senses.js; this file re-exports it (so existing imports keep working) and
+// adds the non-visual UI copy (onboarding steps, role implications, overlay
+// phrases) that has no reason to live in the encoding registry.
 
-export const SC = {
-  thermal: "#E8836A", visual: "#D4B96A", acoustic: "#9B8FD4",
-  spatial: "#6AB8C8", olfactory: "#8BB88A", tactile: "#C4A882",
-};
-
-export const SI = {
-  thermal: "△", visual: "○", acoustic: "∿",
-  spatial: "□", olfactory: "≈", tactile: "∶",
-};
-
-export const SENSES = ["thermal", "visual", "acoustic", "spatial", "olfactory", "tactile"];
+export {
+  SC, SI, SENSES, BASELINES, STATUS, INTENSITY, scoreColor, scoreOpacity,
+} from "./senses.js";
 
 export const STEPS = ["hello", "role", "space", "senses", "life", "feel"];
 
 export const STEP_LABELS = {
   hello: "welcome", role: "your role", space: "your space",
   senses: "senses", life: "lifestyle", feel: "how you feel",
-};
-
-// Research baselines (mirrors _COMFORT_BASELINES in persona_compiler.py)
-export const BASELINES = {
-  thermal: 0.70, visual: 0.60, acoustic: 0.65,
-  spatial: 0.50, olfactory: 0.40, tactile: 0.35,
 };
 
 // Role-aware implications for the top-3 priority cards
@@ -43,25 +32,3 @@ export const OVERLAY_PHRASES = {
   "building your comfort profile...": ["building your comfort profile...", "mapping your sensory world...", "putting it all together..."],
   "starting sensi...":                ["starting sensi...", "waking up..."],
 };
-
-// Status palette - distinct from the six sense hues (option B). For score health only.
-export const STATUS = { pass: "#3FB97A", warn: "#E0A92E", fail: "#E0524A" };
-
-// One source of truth for the score -> color thresholds (was duplicated across files).
-export function scoreColor(score) {
-  const s = typeof score === "number" ? score : 0;
-  return s < 0.5 ? STATUS.fail : s < 0.65 ? STATUS.warn : STATUS.pass;
-}
-
-// Principle: hue = sense, intensity = health. Maps a 0..1 score to an opacity
-// rung — mirror of the --i-0..--i-4 tokens in global.css (keep the two in sync).
-// Used to render a sense at its own hue while health reads as how vivid it is.
-export const INTENSITY = [0.10, 0.24, 0.42, 0.66, 0.92];
-export function scoreOpacity(score) {
-  const s = typeof score === "number" ? score : 0;
-  if (s < 0.40) return INTENSITY[0];
-  if (s < 0.50) return INTENSITY[1];
-  if (s < 0.65) return INTENSITY[2];
-  if (s < 0.80) return INTENSITY[3];
-  return INTENSITY[4];
-}

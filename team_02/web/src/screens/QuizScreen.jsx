@@ -1,42 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import SensiAvatar from "../components/SensiAvatar.jsx";
-import Thinking from "../components/Thinking.jsx";
+import { useEffect, useState } from "react";
+import ChatThread from "../ui/ChatThread.jsx";
+import TopBar from "../ui/TopBar.jsx";
 import { STEPS, STEP_LABELS, SI } from "../lib/constants.js";
-
-// ── Thread (shared shape with chat, but quiz bubbles are plain text) ──────
-function QuizThread({ messages, thinking }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    const t = setTimeout(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, 50);
-    return () => clearTimeout(t);
-  }, [messages, thinking]);
-
-  // Only the last Sensi message keeps an animated avatar.
-  let lastSensiId = null;
-  messages.forEach((m) => { if (m.role === "s") lastSensiId = m.id; });
-
-  return (
-    <div className="thread" ref={ref}>
-      <div className="thread-inner">
-        {messages.map((m) =>
-          m.role === "s" ? (
-            <div className="bubble-wrap" key={m.id}>
-              {m.id === lastSensiId && !thinking ? (
-                <SensiAvatar size={28} />
-              ) : (
-                <div className="sensi-avatar-static" />
-              )}
-              <div className="bubble-s" style={{ marginBottom: 0 }}>{m.text}</div>
-            </div>
-          ) : (
-            <div className="bubble-u" key={m.id}>{m.text}</div>
-          )
-        )}
-        {thinking && <Thinking />}
-      </div>
-    </div>
-  );
-}
 
 // ── Per-step input ────────────────────────────────────────────────────────
 function QuizInput({ step, onSubmit }) {
@@ -185,21 +150,17 @@ export default function QuizScreen({ messages, step, thinking, onSubmit }) {
 
   return (
     <div className="screen active">
-      <div className="top-bar">
-        <div className="top-bar-pill">
-          <SensiAvatar size={26} className="" />
-          <span className="top-bar-label">sensi</span>
-          <span className="top-bar-sep">|</span>
-          <span className="top-bar-section">onboarding</span>
-          <span className="top-bar-sep">|</span>
-          <div className="top-bar-step">
-            <div className="top-bar-step-dot" />
-            <span className="top-bar-step-text">{`${idx + 1} of ${STEPS.length} · ${label}`}</span>
-          </div>
+      <TopBar>
+        <span className="top-bar-sep">|</span>
+        <span className="top-bar-section">onboarding</span>
+        <span className="top-bar-sep">|</span>
+        <div className="top-bar-step">
+          <div className="top-bar-step-dot" />
+          <span className="top-bar-step-text">{`${idx + 1} of ${STEPS.length} · ${label}`}</span>
         </div>
-      </div>
+      </TopBar>
 
-      <QuizThread messages={messages} thinking={thinking} />
+      <ChatThread messages={messages} thinking={thinking} />
 
       <div className="input-area">
         {!thinking && <QuizInput step={step} onSubmit={onSubmit} />}

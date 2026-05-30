@@ -57,9 +57,9 @@ export default function SenseGraph({ rooms }) {
             <circle cx={x} cy={y} r={r} fill={SC[s]} fillOpacity={0.18 + frac * 0.5}
               stroke={SC[s]} strokeWidth={active ? 3 : 1.5} />
             <text x={x} y={y} textAnchor="middle" dominantBaseline="central"
-              fontFamily="'IBM Plex Mono', monospace" fontSize="13" fill="rgba(var(--fg-rgb),0.95)">{SI[s]}</text>
+              fontFamily="var(--font-mono)" fontSize="13" fill="rgba(var(--fg-rgb),0.95)">{SI[s]}</text>
             <text x={x} y={y + r + 11} textAnchor="middle"
-              fontFamily="'IBM Plex Mono', monospace" fontSize="9" fill="rgba(var(--fg-rgb),0.6)">{s}</text>
+              fontFamily="var(--font-mono)" fontSize="9" fill="rgba(var(--fg-rgb),0.6)">{s}</text>
           </g>
         );
       })}

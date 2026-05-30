@@ -1,11 +1,11 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
 import { SC, SI, SENSES, scoreColor, scoreOpacity } from "../lib/constants.js";
 import { useSelection } from "../lib/selection.jsx";
 import { thresholdFromWeight, BASIS_ICON, basisBorder } from "../lib/senseModel.js";
+import { roomByName, suggestionsFor } from "../lib/turn.js";
+import { DUR, EASE } from "../lib/motion.js";
+import Collapsible from "../ui/Collapsible.jsx";
 import SenseSignature from "./SenseSignature.jsx";
-
-const parse = (s) => { try { return s ? JSON.parse(s) : null; } catch { return null; } };
 
 /*
  * FocusCard — the per-room detail, replacing the generic bars/radar panel.
@@ -16,10 +16,8 @@ const parse = (s) => { try { return s ? JSON.parse(s) : null; } catch { return n
  */
 export default function FocusCard({ turn, persona, onClose }) {
   const { activeRoom } = useSelection();
-  const [showWhy, setShowWhy] = useState(false);
 
-  const scores = parse(turn?.scores_json);
-  const room = scores?.rooms?.find((r) => r.roomName === activeRoom);
+  const room = roomByName(turn, activeRoom);
   if (!activeRoom || !room) return null;
 
   const weights = persona?.comfort_weights || {};
@@ -28,8 +26,7 @@ export default function FocusCard({ turn, persona, onClose }) {
   const adjustments = room.adjustments || [];
   const overall = room.overallScore ?? 0;
 
-  const suggestions = parse(turn?.suggestions_json);
-  const roomSugg = suggestions?.improvements?.find((r) => r.roomName === activeRoom)?.suggestions || [];
+  const roomSugg = suggestionsFor(turn, activeRoom);
 
   const thr = (s) => thresholdFromWeight(weights[s] ?? 0.5);
   const failing = SENSES.filter((s) => (eff[s] ?? 1) < thr(s));
@@ -41,7 +38,7 @@ export default function FocusCard({ turn, persona, onClose }) {
       initial={{ opacity: 0, x: 16 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 16 }}
-      transition={{ duration: 0.22, ease: [0.22, 0.61, 0.36, 1] }}
+      transition={{ duration: DUR.base, ease: EASE.out }}
     >
       {/* header */}
       <div className="flex items-center gap-2 mb-2">
@@ -118,16 +115,18 @@ export default function FocusCard({ turn, persona, onClose }) {
       {/* narrative (collapsible) */}
       {(turn?.score_interpretation || turn?.conflict_reasoning) && (
         <div className="fc-why">
-          <button className="fc-why-toggle" onClick={() => setShowWhy((o) => !o)}>
-            {showWhy ? "▾" : "▸"} what this means
-          </button>
-          {showWhy && (
-            <div className="fc-why-body">
-              {turn.score_interpretation && <p>{turn.score_interpretation}</p>}
-              {turn.conflict_reasoning && <p className="mt-2">{turn.conflict_reasoning}</p>}
-              {turn.suggestion_critique && <p className="mt-2">{turn.suggestion_critique}</p>}
-            </div>
-          )}
+          <Collapsible
+            bodyClassName="fc-why-body"
+            trigger={(open, toggle) => (
+              <button className="fc-why-toggle" onClick={toggle}>
+                {open ? "▾" : "▸"} what this means
+              </button>
+            )}
+          >
+            {turn.score_interpretation && <p>{turn.score_interpretation}</p>}
+            {turn.conflict_reasoning && <p className="mt-2">{turn.conflict_reasoning}</p>}
+            {turn.suggestion_critique && <p className="mt-2">{turn.suggestion_critique}</p>}
+          </Collapsible>
         </div>
       )}
     </motion.div>

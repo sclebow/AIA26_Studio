@@ -1,14 +1,20 @@
 import { useState } from "react";
+import { SC, SI } from "../lib/constants.js";
 
 // Capabilities modal — ported from the static cap-overlay markup in index.html.
-const SENSE_ROWS = [
-  { sym: "∿", name: "aco", sc: "#9B8FD4", pills: [["slive", "◈ score"], ["slive", "× conflicts"], ["slive", "▷ suggest"], ["crefine", "⊙ topology"], ["crefine", "⊡ furniture"], ["soon", "◨ material"]] },
-  { sym: "△", name: "thm", sc: "#E8836A", pills: [["slive", "◈ score"], ["slive", "× conflicts"], ["slive", "▷ suggest"], ["crefine", "⊙ topology"], ["soon", "◨ material"], ["soon", "⊟ glazing"]] },
-  { sym: "○", name: "vis", sc: "#D4B96A", pills: [["slive", "◈ score"], ["slive", "× conflicts"], ["slive", "▷ suggest"], ["slive", "◎ inspire"], ["crefine", "⊡ furniture"], ["soon", "◨ material"], ["soon", "⊟ glazing"]] },
-  { sym: "□", name: "spt", sc: "#6AB8C8", pills: [["slive", "◈ score"], ["slive", "× conflicts"], ["slive", "▷ suggest"], ["slive", "⊞ areas"], ["slive", "≡ overview"], ["crefine", "⊙ topology"], ["crefine", "⊡ furniture"], ["road", "⇄ compare versions"], ["road", "⇅ compare personas"], ["road", "⊗ multiagent"]] },
-  { sym: "≈", name: "olf", sc: "#8BB88A", pills: [["slive", "◈ score"], ["slive", "× conflicts"], ["slive", "▷ suggest"], ["crefine", "⊡ furniture"], ["soon", "◨ material"], ["road", "∾ biophilic audit"]] },
-  { sym: "∶", name: "tac", sc: "#C4A882", pills: [["slive", "◈ score"], ["slive", "× conflicts"], ["slive", "▷ suggest"], ["crefine", "⊡ furniture"], ["soon", "◨ material"]] },
-];
+// Only the per-sense capability pills + short label live here; the glyph and hue
+// come from the sense registry (lib/senses.js) so there's no second color copy.
+const SENSE_CAPS = {
+  acoustic:  { abbr: "aco", pills: [["slive", "◈ score"], ["slive", "× conflicts"], ["slive", "▷ suggest"], ["crefine", "⊙ topology"], ["crefine", "⊡ furniture"], ["soon", "◨ material"]] },
+  thermal:   { abbr: "thm", pills: [["slive", "◈ score"], ["slive", "× conflicts"], ["slive", "▷ suggest"], ["crefine", "⊙ topology"], ["soon", "◨ material"], ["soon", "⊟ glazing"]] },
+  visual:    { abbr: "vis", pills: [["slive", "◈ score"], ["slive", "× conflicts"], ["slive", "▷ suggest"], ["slive", "◎ inspire"], ["crefine", "⊡ furniture"], ["soon", "◨ material"], ["soon", "⊟ glazing"]] },
+  spatial:   { abbr: "spt", pills: [["slive", "◈ score"], ["slive", "× conflicts"], ["slive", "▷ suggest"], ["slive", "⊞ areas"], ["slive", "≡ overview"], ["crefine", "⊙ topology"], ["crefine", "⊡ furniture"], ["road", "⇄ compare versions"], ["road", "⇅ compare personas"], ["road", "⊗ multiagent"]] },
+  olfactory: { abbr: "olf", pills: [["slive", "◈ score"], ["slive", "× conflicts"], ["slive", "▷ suggest"], ["crefine", "⊡ furniture"], ["soon", "◨ material"], ["road", "∾ biophilic audit"]] },
+  tactile:   { abbr: "tac", pills: [["slive", "◈ score"], ["slive", "× conflicts"], ["slive", "▷ suggest"], ["crefine", "⊡ furniture"], ["soon", "◨ material"]] },
+};
+const SENSE_ROWS = Object.entries(SENSE_CAPS).map(([key, c]) => ({
+  key, sym: SI[key], name: c.abbr, sc: SC[key], pills: c.pills,
+}));
 const ACTION_ROWS = [
   { title: "◈  analyze", pills: [["slive", "◈ score"], ["slive", "× conflicts"], ["slive", "▷ suggest"]] },
   { title: "⊠  modify", pills: [["crefine", "⊡ furniture"], ["soon", "◨ material"], ["soon", "⊟ glazing"]] },

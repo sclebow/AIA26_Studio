@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import SensiAvatar from "../components/SensiAvatar.jsx";
-import Thinking from "../components/Thinking.jsx";
+import ChatThread from "../ui/ChatThread.jsx";
+import TopBar from "../ui/TopBar.jsx";
 import ProfilePanel from "../components/ProfilePanel.jsx";
 import Capabilities from "../components/Capabilities.jsx";
-import SensePlan from "../components/SensePlan.jsx";
+import SensePlan from "../canvas/SensePlan.jsx";
 import SenseGraph from "../components/SenseGraph.jsx";
 import FocusCard from "../components/FocusCard.jsx";
 import LayerToggles from "../components/LayerToggles.jsx";
@@ -14,33 +14,8 @@ import LayoutPicker from "../components/LayoutPicker.jsx";
 import SenseMixer from "../components/SenseMixer.jsx";
 import { formatChatMessage } from "../lib/formatMessage.js";
 import { useSelection } from "../lib/selection.jsx";
-
-function parse(s) { try { return s ? JSON.parse(s) : null; } catch { return null; } }
-
-function ChatThread({ messages, thinking }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    const t = setTimeout(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, 50);
-    return () => clearTimeout(t);
-  }, [messages, thinking]);
-  let lastSensiId = null;
-  messages.forEach(m => { if (m.role === "s") lastSensiId = m.id; });
-  return (
-    <div className="thread" ref={ref}>
-      <div className="thread-inner">
-        {messages.map(m =>
-          m.role === "s" ? (
-            <div className="bubble-wrap" key={m.id}>
-              {m.id === lastSensiId && !thinking ? <SensiAvatar size={28} /> : <div className="sensi-avatar-static" />}
-              <div className="bubble-s"><div dangerouslySetInnerHTML={{ __html: formatChatMessage(m.text) }} /></div>
-            </div>
-          ) : (<div className="bubble-u" key={m.id}>{m.text}</div>)
-        )}
-        {thinking && <Thinking />}
-      </div>
-    </div>
-  );
-}
+import { roomScores, conflictCount } from "../lib/turn.js";
+import { EASE } from "../lib/motion.js";
 
 function SpaceInput({ pos, onSend, onClose }) {
   const [val, setVal] = useState("");
@@ -79,16 +54,13 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
 
   // auto-focus the worst room when a fresh analysis lands
   useEffect(() => {
-    if (!activeTurn?.scores_json) return;
-    try {
-      const rs = JSON.parse(activeTurn.scores_json).rooms || [];
-      if (rs.length) setActiveRoom(rs.reduce((a, b) => ((a.overallScore || 1) <= (b.overallScore || 1) ? a : b)).roomName);
-    } catch { /* noop */ }
+    const rs = roomScores(activeTurn);
+    if (rs.length) setActiveRoom(rs.reduce((a, b) => ((a.overallScore || 1) <= (b.overallScore || 1) ? a : b)).roomName);
   }, [activeTurn?.id]); // eslint-disable-line
 
-  const rooms         = parse(activeTurn?.scores_json)?.rooms || [];
+  const rooms         = roomScores(activeTurn);
   const avg           = rooms.length ? rooms.reduce((a, r) => a + (r.overallScore || 0), 0) / rooms.length : null;
-  const conflictCount = parse(activeTurn?.conflicts_json)?.flaggedRooms?.length || 0;
+  const conflicts     = conflictCount(activeTurn);
   const ringClass     = avg == null ? "" : avg >= 0.65 ? "score-pass" : avg >= 0.45 ? "score-warn" : "score-fail";
   const initial       = persona?.name?.charAt(0).toUpperCase() || "";
   const metrics       = layers.topology ? activeTurn?.graph_data?.metrics : null;
@@ -131,21 +103,17 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
   return (
     <div className="layout-mode-screen">
 
-      <div className="top-bar">
-        <div className="top-bar-pill top-bar-pill--wide">
-          <SensiAvatar size={26} />
-          <span className="top-bar-label">sensi</span>
-          <span className="top-bar-sep">|</span>
-          <LayoutPicker layoutId={layoutId} onSelect={(id) => onSend(`load layout ${id}`)} onUpload={(id) => onSend(`analyse layout ${id}`)} />
-          <div className="top-bar-status-group">
-            {conflictCount > 0 && <span className="top-bar-conflict-badge">{conflictCount} {conflictCount === 1 ? "conflict" : "conflicts"}</span>}
-            {avg != null && <span className={"top-bar-score-ring " + ringClass}>{avg.toFixed(2)}</span>}
-            {persona && initial && (
-              <button className="top-bar-user-avatar" onClick={() => setProfileOpen(true)} title="your comfort profile">{initial}</button>
-            )}
-          </div>
+      <TopBar wide>
+        <span className="top-bar-sep">|</span>
+        <LayoutPicker layoutId={layoutId} onSelect={(id) => onSend(`load layout ${id}`)} onUpload={(id) => onSend(`analyse layout ${id}`)} />
+        <div className="top-bar-status-group">
+          {conflicts > 0 && <span className="top-bar-conflict-badge">{conflicts} {conflicts === 1 ? "conflict" : "conflicts"}</span>}
+          {avg != null && <span className={"top-bar-score-ring " + ringClass}>{avg.toFixed(2)}</span>}
+          {persona && initial && (
+            <button className="top-bar-user-avatar" onClick={() => setProfileOpen(true)} title="your comfort profile">{initial}</button>
+          )}
         </div>
-      </div>
+      </TopBar>
 
       <Capabilities open={capOpen} onClose={() => setCapOpen(false)} />
 
@@ -155,8 +123,8 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
           {chatOpen && (
             <motion.div className="lm-chat-sidebar"
               initial={{ x: -40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -40, opacity: 0 }}
-              transition={{ duration: 0.2, ease: [0.22, 0.61, 0.36, 1] }}>
-              <ChatThread messages={messages} thinking={thinking} />
+              transition={{ duration: 0.2, ease: EASE.out }}>
+              <ChatThread messages={messages} thinking={thinking} format={formatChatMessage} />
               <div className="lm-input-area">
                 <button className={"cap-btn" + (capOpen ? " on" : "")} onClick={() => setCapOpen(o => !o)} title="capabilities">⊞</button>
                 <div className="send-row" style={{ flex: 1 }}>
@@ -182,7 +150,7 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
           </div>
 
           <div className="lm-viewer">
-            <SensePlan rooms={rooms} layoutId={layoutId} layers={layers} graphData={activeTurn?.graph_data} />
+            <SensePlan rooms={rooms} layoutId={layoutId} layers={layers} />
 
             {/* topology metric pills */}
             {metrics && (
@@ -216,7 +184,7 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
             <motion.div className="graph-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setGraphOpen(false)} />
             <motion.div className="graph-drawer"
-              initial={{ x: 380 }} animate={{ x: 0 }} exit={{ x: 380 }} transition={{ duration: 0.24, ease: [0.22, 0.61, 0.36, 1] }}>
+              initial={{ x: 380 }} animate={{ x: 0 }} exit={{ x: 380 }} transition={{ duration: 0.24, ease: EASE.out }}>
               <div className="flex items-center justify-between">
                 <span className="graph-drawer-title">sense coupling</span>
                 <button className="fc-close" onClick={() => setGraphOpen(false)}>×</button>

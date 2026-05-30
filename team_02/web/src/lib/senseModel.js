@@ -16,6 +16,12 @@ export const SENSE_SENSE = [
 
 export const TRANSMISSIVE = ["acoustic", "olfactory", "thermal"];
 
+// Which transmissive senses are failing (< 0.5) for a scored room — drives the
+// canvas flow + topology layers (bleed lines, conflict-colored edges).
+export function failingTransmissive(scored) {
+  return TRANSMISSIVE.filter((s) => (scored?.comfortScores?.[s] ?? 1) < 0.5);
+}
+
 // Provenance encoding (line-style + evocative icon) — one language everywhere.
 export const BASIS_ICON = { research: "❝", physics: "⚛", personality: "☺" };
 export const BASIS_LABEL = { research: "research", physics: "physics", personality: "personality" };
