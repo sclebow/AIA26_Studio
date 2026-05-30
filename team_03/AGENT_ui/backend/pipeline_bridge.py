@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import re
 import json
+import socket
+from urllib.parse import urlparse
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -41,14 +43,38 @@ def _team_dir() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def build_context(layout_name: str) -> Context:
+def _probe_mcp(endpoint: str, timeout: float = 3.0) -> None:
+    """Fast TCP reachability check for the MCP/Swiftlet endpoint. Raises a clear
+    ConnectionError if the host:port is not accepting connections, so a missing
+    Rhino/Swiftlet fails in seconds instead of hanging on the long HTTP timeout."""
+    parsed = urlparse(endpoint)
+    host = parsed.hostname or "localhost"
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return
+    except OSError as exc:
+        raise ConnectionError(
+            f"Cannot reach the MCP server (Swiftlet) at {host}:{port} — "
+            f"is Rhino 8 + Swiftlet running? ({exc})"
+        ) from exc
+
+
+def build_context(layout_name: str, progress: Optional[Callable[[str], None]] = None) -> Context:
     """Construct a pipeline Context for the given layout, non-interactively.
 
     Mirrors _runtime/bootstrap.bootstrap() but: takes the layout name as an
-    argument (no argparse), and always starts a FRESH session from the base
-    layout (no "resume?" stdin prompt). Raises on missing layout / settings so
-    the caller can surface the error in chat.
+    argument (no argparse), always starts a FRESH session from the base layout
+    (no "resume?" stdin prompt), and probes the MCP endpoint first so a down
+    Swiftlet fails fast. `progress(msg)` (optional) reports setup steps.
     """
+    def _say(m: str) -> None:
+        if progress:
+            try:
+                progress(m)
+            except Exception:
+                pass
+
     settings = load_settings()
     team_dir = _team_dir()
 
@@ -66,11 +92,18 @@ def build_context(layout_name: str) -> Context:
 
     # Always start fresh from the base layout (base file is never modified).
     layout_data = create_session(resolved_layout, workspace_path)
+    _say(f"Loaded layout '{name}'.")
+
+    # Fail fast if Swiftlet/Rhino is unreachable (avoids a silent long hang).
+    _say(f"Connecting to Grasshopper (MCP) at {settings.mcp_endpoint}…")
+    _probe_mcp(settings.mcp_endpoint)
 
     mcp_client = McpClient(settings.mcp_endpoint, settings.request_timeout_seconds)
     mcp_client.initialize()
     tools = mcp_client.list_tools()
+    _say(f"MCP connected — {len(tools)} tool(s) available.")
 
+    _say(f"Initializing LLM ({settings.llm_model})…")
     llm = create_chat_llm(
         api_key=settings.api_key,
         base_url=settings.base_url,
@@ -78,6 +111,7 @@ def build_context(layout_name: str) -> Context:
         timeout_seconds=settings.request_timeout_seconds,
         model_kwargs=get_llm_response_format(tools),
     )
+    _say("LLM ready — starting the agent…")
 
     knowledge_dir = team_dir / "python" / "knowledge"
 

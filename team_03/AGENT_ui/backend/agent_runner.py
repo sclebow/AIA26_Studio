@@ -35,11 +35,21 @@ _NODE_ALIAS = {
 }
 
 
+# Sentinel pushed into the input queue to abort a blocked checkpoint so the
+# worker thread can unwind cleanly (e.g. when its client disconnects/refreshes).
+_ABORT = "\x00__ABORT__\x00"
+
+
+class _Aborted(Exception):
+    pass
+
+
 class _Session:
     def __init__(self) -> None:
         self.thread: Optional[threading.Thread] = None
         self.input_queue: "queue.Queue[str]" = queue.Queue()
         self.active: bool = False
+        self.owner: Any = None   # the websocket that started this session
 
 
 # Single active session (local single-user backend).
@@ -51,10 +61,28 @@ def is_active() -> bool:
     return _session.active
 
 
+def owns_active(websocket: Any) -> bool:
+    return _session.active and _session.owner is websocket
+
+
 def submit_decision(value: str) -> None:
     """Feed a decision (chip token or free text) to the blocked checkpoint input()."""
     if _session.active:
         _session.input_queue.put(value)
+
+
+def abort_session(websocket: Any = None) -> None:
+    """Abort the active session (e.g. on client disconnect). If `websocket` is
+    given, only abort when it owns the session. Unblocks the checkpoint input()
+    and frees the slot so a fresh session can start."""
+    with _session_lock:
+        if not _session.active:
+            return
+        if websocket is not None and _session.owner is not websocket:
+            return
+        _session.active = False
+        _session.owner = None
+        _session.input_queue.put(_ABORT)
 
 
 async def start_session(
@@ -68,10 +96,14 @@ async def start_session(
     further communication happens over WebSocket via the thread's callbacks."""
     with _session_lock:
         if _session.active:
-            # Already running — treat the message as a decision instead.
-            submit_decision(prompt)
-            return
+            if _session.owner is websocket:
+                # Same client, run in progress → treat as a checkpoint decision.
+                _session.input_queue.put(prompt)
+                return
+            # A different/stale client owns the slot → abort it and take over.
+            _session.input_queue.put(_ABORT)
         _session.active = True
+        _session.owner = websocket
         _session.input_queue = queue.Queue()
 
     def emit(msg: Dict[str, Any]) -> None:
@@ -110,7 +142,10 @@ async def start_session(
                         "data": layout,
                         "proposal": False,
                     })
-            return _session.input_queue.get()
+            token = _session.input_queue.get()
+            if token == _ABORT:
+                raise _Aborted()
+            return token
 
         import sys
         tee = StdoutTee(sys.stdout, on_line)
@@ -141,7 +176,12 @@ async def start_session(
 
         agent_loop = asyncio.new_event_loop()
         try:
-            ctx = build_context(layout_name or "")
+            # Immediate feedback + setup progress (visible in the Log).
+            emit_event("setup", "started")
+            ctx = build_context(
+                layout_name or "",
+                progress=lambda m: emit_event("setup", "completed", m),
+            )
             from graph import build_graph, _build_initial_state
 
             app = build_graph(ctx)
@@ -163,6 +203,9 @@ async def start_session(
                     "data": layout,
                     "proposal": False,
                 })
+        except _Aborted:
+            # Client disconnected / superseded — unwind quietly, no chat error.
+            pass
         except Exception as exc:  # noqa: BLE001 — surface any failure in chat + panel
             cur = state.get("current_node")
             if cur:
@@ -188,7 +231,12 @@ async def start_session(
                     ctx.mcp_client.close()
                 except Exception:
                     pass
-            _session.active = False
+            # Only release the slot if this run still owns it (a takeover may
+            # have already reassigned owner to a newer session).
+            with _session_lock:
+                if _session.owner is websocket or _session.owner is None:
+                    _session.active = False
+                    _session.owner = None
 
     _session.thread = threading.Thread(target=run, daemon=True)
     _session.thread.start()

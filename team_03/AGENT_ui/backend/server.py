@@ -121,6 +121,10 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+        # Free any agent session this client owned so the next connection
+        # (e.g. a page refresh) can start a fresh run instead of routing its
+        # messages into an orphaned, blocked session.
+        agent_runner.abort_session(websocket)
 
 
 # ---------------------------------------------------------------------------
