@@ -120,4 +120,8 @@ const count = ref(0)
   color: var(--color-blue);
   font-size: 1.2rem;
 }
+.chat-search-bar {
+  padding: 10px 32px 0 32px;
+  background: var(--color-white);
+}
 </style>

@@ -22,39 +22,6 @@ import downloadIcon from '../assets/download.svg'
   gap: 18px;
   margin: 0;
 }
-.toolbar-save-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 18px;
-  justify-content: flex-end;
-  margin: 16px 32px 16px 0;
-}
-.toolbar-inline {
-  margin: 0;
-}
-
-.toolbar-inline {
-  margin: 0;
-}
-.toolbar-save-group {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-}
-.toolbar-card {
-  background: var(--color-white);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-card);
-  margin: 16px auto 16px auto;
-  padding: 10px 18px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: fit-content;
-  min-width: 0;
-}
 .layout-input-btn {
   background: none !important;
   border: none !important;
@@ -62,6 +29,7 @@ import downloadIcon from '../assets/download.svg'
   padding: 0 6px;
   display: flex;
   align-items: center;
+  font-size: 1.2rem;
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -72,4 +40,6 @@ import downloadIcon from '../assets/download.svg'
   background: none;
   box-shadow: none;
 }
+
+
 </style>
