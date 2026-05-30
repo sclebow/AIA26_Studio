@@ -45,16 +45,9 @@
           5.0
         ]
       ],
-      "rate_per_m2": 3271.4,
+      "rate_per_m2": 3200,
       "area_m2": 47.5,
-      "total_cost": 155391.5,
-      "color_hex": "#BD0026",
-      "color_rgb": [
-        189,
-        0,
-        38
-      ],
-      "heat_t": 1.0
+      "total_cost": 152000
     },
     {
       "id": "dining",
@@ -80,14 +73,7 @@
       ],
       "rate_per_m2": 2800,
       "area_m2": 22.5,
-      "total_cost": 63000,
-      "color_hex": "#DF4519",
-      "color_rgb": [
-        223,
-        69,
-        25
-      ],
-      "heat_t": 0.8333
+      "total_cost": 63000
     },
     {
       "id": "corridor",
@@ -113,14 +99,7 @@
       ],
       "rate_per_m2": 1500,
       "area_m2": 21.0,
-      "total_cost": 31500,
-      "color_hex": "#FEE298",
-      "color_rgb": [
-        254,
-        226,
-        152
-      ],
-      "heat_t": 0.1667
+      "total_cost": 31500
     },
     {
       "id": "master_bed",
@@ -144,16 +123,9 @@
           11.0
         ]
       ],
-      "rate_per_m2": 2878.24,
+      "rate_per_m2": 2800,
       "area_m2": 20.25,
-      "total_cost": 58284.36,
-      "color_hex": "#FEB24C",
-      "color_rgb": [
-        254,
-        178,
-        76
-      ],
-      "heat_t": 0.5
+      "total_cost": 56700
     },
     {
       "id": "bedroom_2",
@@ -177,16 +149,9 @@
           11.0
         ]
       ],
-      "rate_per_m2": 2238.0,
+      "rate_per_m2": 2200,
       "area_m2": 15.75,
-      "total_cost": 35248.5,
-      "color_hex": "#FECC68",
-      "color_rgb": [
-        254,
-        204,
-        104
-      ],
-      "heat_t": 0.3333
+      "total_cost": 34650
     },
     {
       "id": "bedroom_3",
@@ -212,14 +177,7 @@
       ],
       "rate_per_m2": 2200,
       "area_m2": 13.5,
-      "total_cost": 29700,
-      "color_hex": "#FFF5DC",
-      "color_rgb": [
-        255,
-        245,
-        220
-      ],
-      "heat_t": 0.0
+      "total_cost": 29700
     },
     {
       "id": "bathroom",
@@ -245,14 +203,7 @@
       ],
       "rate_per_m2": 4500,
       "area_m2": 13.5,
-      "total_cost": 60750,
-      "color_hex": "#F48126",
-      "color_rgb": [
-        244,
-        129,
-        38
-      ],
-      "heat_t": 0.6667
+      "total_cost": 60750
     }
   ],
   "openings": [
@@ -913,101 +864,5 @@
     "openings_total": 43600,
     "structure_total": 47000,
     "grand_total": 518900
-  },
-  "heatmap": {
-    "ranges": {
-      "rooms": {
-        "min": 29700,
-        "max": 155391.5
-      },
-      "doors": {
-        "min": 1800,
-        "max": 4500
-      },
-      "windows": {
-        "min": 1800,
-        "max": 5500
-      },
-      "columns": {
-        "min": 4000,
-        "max": 11000
-      }
-    },
-    "ramps": {
-      "rooms": [
-        {
-          "t": 0.0,
-          "hex": "#FFF5DC"
-        },
-        {
-          "t": 0.25,
-          "hex": "#FED976"
-        },
-        {
-          "t": 0.5,
-          "hex": "#FEB24C"
-        },
-        {
-          "t": 0.75,
-          "hex": "#F06913"
-        },
-        {
-          "t": 1.0,
-          "hex": "#BD0026"
-        }
-      ],
-      "doors": [
-        {
-          "t": 0.0,
-          "hex": "#E8CDAA"
-        },
-        {
-          "t": 0.5,
-          "hex": "#B27A41"
-        },
-        {
-          "t": 1.0,
-          "hex": "#643719"
-        }
-      ],
-      "windows": [
-        {
-          "t": 0.0,
-          "hex": "#D2E8F0"
-        },
-        {
-          "t": 0.5,
-          "hex": "#5AA0CD"
-        },
-        {
-          "t": 1.0,
-          "hex": "#194B91"
-        }
-      ],
-      "columns": [
-        {
-          "t": 0.0,
-          "hex": "#C8C8C8"
-        },
-        {
-          "t": 0.5,
-          "hex": "#828282"
-        },
-        {
-          "t": 1.0,
-          "hex": "#323232"
-        }
-      ]
-    },
-    "seed": null,
-    "notes": "Rank-based per category: each distinct cost gets a distinct ramp position; ties share a color. color_hex / color_rgb / heat_t / cost_rank stored on each room, opening and column."
-  },
-  "totals": {
-    "currency": "USD",
-    "rooms": 433874.36,
-    "doors": 15700,
-    "windows": 27900,
-    "columns": 47000,
-    "grand": 524474.36
   }
 }

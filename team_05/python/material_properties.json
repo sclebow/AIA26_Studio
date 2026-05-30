@@ -1,0 +1,576 @@
+{
+  "_meta": {
+    "notes": "Static material properties for architectural advice. GWP fallback values are reference averages from EPD literature (kgCO2e per declared unit). Fire ratings follow EN 13501-1 for finishes (A1/A2/B/C/D) and REI minutes for structural elements. Life cycle years follow ISO 15686 reference service life. ec3_category maps to Building Transparency EC3 API category names.",
+    "sources": "EN 13501-1, ISO 15686, RICS service life data, ICE Database v3, typical EPD averages"
+  },
+
+  "slab_materials": {
+    "rc_solid": {
+      "fire_rating": "REI 120",
+      "life_cycle_years": 75,
+      "gwp_fallback_kgco2e": 300,
+      "gwp_unit": "kgCO2e/m³",
+      "ec3_category": "ReadyMix Concrete"
+    },
+    "rc_waffle": {
+      "fire_rating": "REI 90",
+      "life_cycle_years": 75,
+      "gwp_fallback_kgco2e": 255,
+      "gwp_unit": "kgCO2e/m³",
+      "ec3_category": "ReadyMix Concrete"
+    },
+    "rc_ribbed": {
+      "fire_rating": "REI 90",
+      "life_cycle_years": 75,
+      "gwp_fallback_kgco2e": 265,
+      "gwp_unit": "kgCO2e/m³",
+      "ec3_category": "ReadyMix Concrete"
+    },
+    "post_tensioned": {
+      "fire_rating": "REI 120",
+      "life_cycle_years": 75,
+      "gwp_fallback_kgco2e": 320,
+      "gwp_unit": "kgCO2e/m³",
+      "ec3_category": "ReadyMix Concrete"
+    },
+    "hollow_core": {
+      "fire_rating": "REI 60",
+      "life_cycle_years": 60,
+      "gwp_fallback_kgco2e": 200,
+      "gwp_unit": "kgCO2e/m³",
+      "ec3_category": "Precast Concrete"
+    },
+    "composite_steel": {
+      "fire_rating": "REI 60",
+      "life_cycle_years": 60,
+      "gwp_fallback_kgco2e": 350,
+      "gwp_unit": "kgCO2e/m³",
+      "ec3_category": "Steel"
+    },
+    "precast": {
+      "fire_rating": "REI 120",
+      "life_cycle_years": 75,
+      "gwp_fallback_kgco2e": 280,
+      "gwp_unit": "kgCO2e/m³",
+      "ec3_category": "Precast Concrete"
+    },
+    "timber_joist": {
+      "fire_rating": "REI 30",
+      "life_cycle_years": 40,
+      "gwp_fallback_kgco2e": 48,
+      "gwp_unit": "kgCO2e/m³",
+      "ec3_category": "Wood"
+    }
+  },
+
+  "floor_finishes": {
+    "porcelain_tile": {
+      "fire_rating": "A1",
+      "life_cycle_years": 50,
+      "gwp_fallback_kgco2e": 12.5,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Ceramic Tile"
+    },
+    "ceramic_tile": {
+      "fire_rating": "A1",
+      "life_cycle_years": 50,
+      "gwp_fallback_kgco2e": 10.2,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Ceramic Tile"
+    },
+    "marble": {
+      "fire_rating": "A1",
+      "life_cycle_years": 75,
+      "gwp_fallback_kgco2e": 18.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Stone"
+    },
+    "granite": {
+      "fire_rating": "A1",
+      "life_cycle_years": 75,
+      "gwp_fallback_kgco2e": 22.4,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Stone"
+    },
+    "natural_stone": {
+      "fire_rating": "A1",
+      "life_cycle_years": 75,
+      "gwp_fallback_kgco2e": 15.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Stone"
+    },
+    "engineered_wood": {
+      "fire_rating": "C",
+      "life_cycle_years": 25,
+      "gwp_fallback_kgco2e": 8.3,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Wood"
+    },
+    "solid_wood": {
+      "fire_rating": "D",
+      "life_cycle_years": 40,
+      "gwp_fallback_kgco2e": 5.1,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Wood"
+    },
+    "laminate": {
+      "fire_rating": "C",
+      "life_cycle_years": 15,
+      "gwp_fallback_kgco2e": 14.8,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Wood"
+    },
+    "vinyl": {
+      "fire_rating": "C",
+      "life_cycle_years": 15,
+      "gwp_fallback_kgco2e": 9.2,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Resilient Flooring"
+    },
+    "epoxy": {
+      "fire_rating": "B",
+      "life_cycle_years": 12,
+      "gwp_fallback_kgco2e": 6.4,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Coatings"
+    },
+    "polished_concrete": {
+      "fire_rating": "A1",
+      "life_cycle_years": 50,
+      "gwp_fallback_kgco2e": 3.8,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "ReadyMix Concrete"
+    },
+    "carpet": {
+      "fire_rating": "C",
+      "life_cycle_years": 10,
+      "gwp_fallback_kgco2e": 10.5,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Carpet"
+    },
+    "terrazzo": {
+      "fire_rating": "A1",
+      "life_cycle_years": 60,
+      "gwp_fallback_kgco2e": 19.8,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Stone"
+    }
+  },
+
+  "wall_finishes": {
+    "paint": {
+      "fire_rating": "A2",
+      "life_cycle_years": 7,
+      "gwp_fallback_kgco2e": 1.2,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Coatings"
+    },
+    "emulsion_paint": {
+      "fire_rating": "A2",
+      "life_cycle_years": 7,
+      "gwp_fallback_kgco2e": 1.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Coatings"
+    },
+    "gypsum_paint": {
+      "fire_rating": "A2",
+      "life_cycle_years": 8,
+      "gwp_fallback_kgco2e": 1.8,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Gypsum"
+    },
+    "wallpaper": {
+      "fire_rating": "C",
+      "life_cycle_years": 10,
+      "gwp_fallback_kgco2e": 3.5,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Coatings"
+    },
+    "wood_panel": {
+      "fire_rating": "D",
+      "life_cycle_years": 25,
+      "gwp_fallback_kgco2e": 9.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Wood"
+    },
+    "veneer": {
+      "fire_rating": "C",
+      "life_cycle_years": 20,
+      "gwp_fallback_kgco2e": 7.5,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Wood"
+    },
+    "exposed_concrete": {
+      "fire_rating": "A1",
+      "life_cycle_years": 50,
+      "gwp_fallback_kgco2e": 3.8,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "ReadyMix Concrete"
+    },
+    "stucco": {
+      "fire_rating": "A2",
+      "life_cycle_years": 20,
+      "gwp_fallback_kgco2e": 5.2,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Gypsum"
+    },
+    "cladding": {
+      "fire_rating": "A2",
+      "life_cycle_years": 30,
+      "gwp_fallback_kgco2e": 22.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Cladding"
+    }
+  },
+
+  "ceiling_materials": {
+    "gypsum_board": {
+      "fire_rating": "A2",
+      "life_cycle_years": 30,
+      "gwp_fallback_kgco2e": 3.5,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Gypsum"
+    },
+    "gypsum_painted": {
+      "fire_rating": "A2",
+      "life_cycle_years": 30,
+      "gwp_fallback_kgco2e": 4.2,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Gypsum"
+    },
+    "suspended_gypsum": {
+      "fire_rating": "A2",
+      "life_cycle_years": 25,
+      "gwp_fallback_kgco2e": 5.8,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Gypsum"
+    },
+    "acoustic_tile": {
+      "fire_rating": "A2",
+      "life_cycle_years": 25,
+      "gwp_fallback_kgco2e": 4.5,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Acoustical Ceiling Tiles"
+    },
+    "metal_panel": {
+      "fire_rating": "A1",
+      "life_cycle_years": 40,
+      "gwp_fallback_kgco2e": 12.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Steel"
+    },
+    "wood_slat": {
+      "fire_rating": "D",
+      "life_cycle_years": 25,
+      "gwp_fallback_kgco2e": 8.5,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Wood"
+    },
+    "paint_on_slab": {
+      "fire_rating": "A2",
+      "life_cycle_years": 7,
+      "gwp_fallback_kgco2e": 1.2,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Coatings"
+    },
+    "stretch_ceiling": {
+      "fire_rating": "B",
+      "life_cycle_years": 20,
+      "gwp_fallback_kgco2e": 6.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Coatings"
+    }
+  },
+
+  "door_leaf_materials": {
+    "solid_wood": {
+      "fire_rating": "D",
+      "life_cycle_years": 40,
+      "gwp_fallback_kgco2e": 25.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Wood"
+    },
+    "engineered_wood": {
+      "fire_rating": "C",
+      "life_cycle_years": 30,
+      "gwp_fallback_kgco2e": 18.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Wood"
+    },
+    "mdf_painted": {
+      "fire_rating": "C",
+      "life_cycle_years": 20,
+      "gwp_fallback_kgco2e": 22.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Wood"
+    },
+    "mdf_veneer": {
+      "fire_rating": "C",
+      "life_cycle_years": 20,
+      "gwp_fallback_kgco2e": 20.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Wood"
+    },
+    "hdf_laminate": {
+      "fire_rating": "C",
+      "life_cycle_years": 20,
+      "gwp_fallback_kgco2e": 28.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Wood"
+    },
+    "flush_hollow_core": {
+      "fire_rating": "C",
+      "life_cycle_years": 20,
+      "gwp_fallback_kgco2e": 15.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Wood"
+    },
+    "steel": {
+      "fire_rating": "A1",
+      "life_cycle_years": 50,
+      "gwp_fallback_kgco2e": 45.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Steel"
+    },
+    "aluminum": {
+      "fire_rating": "A1",
+      "life_cycle_years": 45,
+      "gwp_fallback_kgco2e": 38.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Aluminum"
+    },
+    "upvc": {
+      "fire_rating": "C",
+      "life_cycle_years": 30,
+      "gwp_fallback_kgco2e": 32.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Plastic"
+    },
+    "glass_frameless": {
+      "fire_rating": "A1",
+      "life_cycle_years": 30,
+      "gwp_fallback_kgco2e": 20.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Glass"
+    },
+    "fire_rated_60": {
+      "fire_rating": "EI 60",
+      "life_cycle_years": 40,
+      "gwp_fallback_kgco2e": 55.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Steel"
+    },
+    "fire_rated_120": {
+      "fire_rating": "EI 120",
+      "life_cycle_years": 40,
+      "gwp_fallback_kgco2e": 68.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Steel"
+    }
+  },
+
+  "door_frame_materials": {
+    "wood": {
+      "fire_rating": "D",
+      "life_cycle_years": 35,
+      "gwp_fallback_kgco2e": 12.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Wood"
+    },
+    "hardwood": {
+      "fire_rating": "D",
+      "life_cycle_years": 50,
+      "gwp_fallback_kgco2e": 10.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Wood"
+    },
+    "steel": {
+      "fire_rating": "A1",
+      "life_cycle_years": 50,
+      "gwp_fallback_kgco2e": 40.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Steel"
+    },
+    "aluminum": {
+      "fire_rating": "A1",
+      "life_cycle_years": 45,
+      "gwp_fallback_kgco2e": 35.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Aluminum"
+    },
+    "upvc": {
+      "fire_rating": "C",
+      "life_cycle_years": 30,
+      "gwp_fallback_kgco2e": 28.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Plastic"
+    }
+  },
+
+  "window_materials": {
+    "aluminum_single": {
+      "fire_rating": "A1",
+      "life_cycle_years": 35,
+      "gwp_fallback_kgco2e": 30.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Aluminum"
+    },
+    "aluminum_double": {
+      "fire_rating": "A1",
+      "life_cycle_years": 40,
+      "gwp_fallback_kgco2e": 38.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Aluminum"
+    },
+    "thermal_aluminum_double": {
+      "fire_rating": "A1",
+      "life_cycle_years": 40,
+      "gwp_fallback_kgco2e": 42.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Aluminum"
+    },
+    "thermal_aluminum_low_e": {
+      "fire_rating": "A1",
+      "life_cycle_years": 40,
+      "gwp_fallback_kgco2e": 44.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Aluminum"
+    },
+    "upvc_double": {
+      "fire_rating": "C",
+      "life_cycle_years": 30,
+      "gwp_fallback_kgco2e": 28.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Plastic"
+    },
+    "upvc_double_low_e": {
+      "fire_rating": "C",
+      "life_cycle_years": 30,
+      "gwp_fallback_kgco2e": 30.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Plastic"
+    },
+    "wood_double": {
+      "fire_rating": "D",
+      "life_cycle_years": 30,
+      "gwp_fallback_kgco2e": 22.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Wood"
+    },
+    "wood_clad_aluminum": {
+      "fire_rating": "A1",
+      "life_cycle_years": 40,
+      "gwp_fallback_kgco2e": 35.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Aluminum"
+    },
+    "steel_single": {
+      "fire_rating": "A1",
+      "life_cycle_years": 40,
+      "gwp_fallback_kgco2e": 40.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Steel"
+    },
+    "steel_double": {
+      "fire_rating": "A1",
+      "life_cycle_years": 40,
+      "gwp_fallback_kgco2e": 48.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Steel"
+    },
+    "curtain_wall": {
+      "fire_rating": "A1",
+      "life_cycle_years": 35,
+      "gwp_fallback_kgco2e": 55.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Glazing"
+    }
+  },
+
+  "column_finishes": {
+    "paint": {
+      "fire_rating": "A2",
+      "life_cycle_years": 7,
+      "gwp_fallback_kgco2e": 1.2,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Coatings"
+    },
+    "plaster_paint": {
+      "fire_rating": "A2",
+      "life_cycle_years": 10,
+      "gwp_fallback_kgco2e": 2.5,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Gypsum"
+    },
+    "exposed_concrete": {
+      "fire_rating": "A1",
+      "life_cycle_years": 50,
+      "gwp_fallback_kgco2e": 3.8,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "ReadyMix Concrete"
+    },
+    "fair_face_concrete": {
+      "fire_rating": "A1",
+      "life_cycle_years": 50,
+      "gwp_fallback_kgco2e": 4.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "ReadyMix Concrete"
+    },
+    "gypsum_paint": {
+      "fire_rating": "A2",
+      "life_cycle_years": 8,
+      "gwp_fallback_kgco2e": 1.8,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Gypsum"
+    },
+    "ceramic_tile": {
+      "fire_rating": "A1",
+      "life_cycle_years": 50,
+      "gwp_fallback_kgco2e": 10.2,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Ceramic Tile"
+    },
+    "porcelain_tile": {
+      "fire_rating": "A1",
+      "life_cycle_years": 50,
+      "gwp_fallback_kgco2e": 12.5,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Ceramic Tile"
+    },
+    "marble_clad": {
+      "fire_rating": "A1",
+      "life_cycle_years": 75,
+      "gwp_fallback_kgco2e": 18.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Stone"
+    },
+    "natural_stone": {
+      "fire_rating": "A1",
+      "life_cycle_years": 75,
+      "gwp_fallback_kgco2e": 15.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Stone"
+    },
+    "wood_clad": {
+      "fire_rating": "D",
+      "life_cycle_years": 25,
+      "gwp_fallback_kgco2e": 9.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Wood"
+    },
+    "metal_clad": {
+      "fire_rating": "A1",
+      "life_cycle_years": 40,
+      "gwp_fallback_kgco2e": 18.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "Steel"
+    },
+    "grc_clad": {
+      "fire_rating": "A1",
+      "life_cycle_years": 40,
+      "gwp_fallback_kgco2e": 14.0,
+      "gwp_unit": "kgCO2e/m²",
+      "ec3_category": "ReadyMix Concrete"
+    }
+  }
+}

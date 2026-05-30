@@ -1,0 +1,190 @@
+{
+  "_meta": {
+    "currency": "USD",
+    "units": "meters",
+    "notes": "Edit these numbers to update the heatmap and the JSON exporter. Rooms use rate_per_m2 (multiplied by surface area). Doors/windows/columns use lump-sum cost per element. Lookup order: id -> subtype -> category -> default.",
+    "room_finishes_notes": "Per-material/finish supply+install rates. Floor/wall/ceiling rates are USD per m2 of the relevant surface. SLAB rates are USD per m3 (multiplied by slab area * thickness). Join keys are the room user-text values: floor-finish, wall-finish, ceiling-material, slab-material. Lookup is case-insensitive; spaces, '-' and '_' are interchangeable. Falls back to 'default' when the material is missing or unknown. Rates only - no per-room totals."
+  },
+  "room_finishes": {
+    "floor_finish": {
+      "default": 49,
+      "by_material": {
+        "porcelain_tile": 60,
+        "ceramic_tile": 41,
+        "marble": 150,
+        "granite": 122,
+        "natural_stone": 109,
+        "engineered_wood": 87,
+        "solid_wood": 130,
+        "laminate": 44,
+        "vinyl": 33,
+        "epoxy": 54,
+        "polished_concrete": 38,
+        "carpet": 35,
+        "terrazzo": 103
+      }
+    },
+    "wall_finish": {
+      "default": 24,
+      "by_material": {
+        "paint": 19,
+        "emulsion_paint": 19,
+        "gypsum_paint": 26,
+        "wallpaper": 33,
+        "ceramic_tile": 49,
+        "porcelain_tile": 63,
+        "marble": 141,
+        "natural_stone": 103,
+        "wood_panel": 95,
+        "veneer": 82,
+        "exposed_concrete": 30,
+        "stucco": 38,
+        "cladding": 71
+      }
+    },
+    "ceiling_material": {
+      "default": 35,
+      "by_material": {
+        "gypsum_board": 41,
+        "gypsum_painted": 46,
+        "suspended_gypsum": 52,
+        "acoustic_tile": 49,
+        "metal_panel": 71,
+        "wood_slat": 92,
+        "exposed_concrete": 22,
+        "paint_on_slab": 16,
+        "stretch_ceiling": 76
+      }
+    },
+    "slab_material": {
+      "unit": "USD/m3",
+      "default": 435,
+      "by_material": {
+        "rc_solid": 476,
+        "rc_waffle": 571,
+        "rc_ribbed": 544,
+        "post_tensioned": 652,
+        "hollow_core": 408,
+        "composite_steel": 611,
+        "precast": 516,
+        "timber_joist": 354
+      }
+    }
+  },
+  "element_finishes_notes": "Per-material/finish supply+install rates for openings and columns. Doors/windows are USD per m2 of opening area (leaf + frame + glazing + ironmongery). Column finishes are USD per m2 of exposed column surface (cladding/paint/plaster). Join keys are user-text on the Rhino objects: door-material/door-finish, frame-material, glazing, window-material, column-finish/column-cladding. Lookup is case-insensitive and tolerant of spaces/'-'/'_'. Falls back to 'default' when missing or unknown. Rates only - no per-element totals.",
+  "door_finishes": {
+    "leaf_material": {
+      "default": 435,
+      "by_material": {
+        "solid_wood": 870,
+        "engineered_wood": 489,
+        "mdf_painted": 326,
+        "mdf_veneer": 408,
+        "hdf_laminate": 299,
+        "flush_hollow_core": 244,
+        "steel": 652,
+        "aluminum": 598,
+        "upvc": 381,
+        "glass_frameless": 1033,
+        "fire_rated_60": 815,
+        "fire_rated_120": 1142
+      }
+    },
+    "frame_material": {
+      "default": 95,
+      "by_material": {
+        "wood": 109,
+        "hardwood": 177,
+        "steel": 136,
+        "aluminum": 149,
+        "upvc": 114,
+        "no_frame": 0
+      }
+    }
+  },
+  "window_finishes": {
+    "default": 435,
+    "by_material": {
+      "aluminum_single": 394,
+      "aluminum_double": 489,
+      "thermal_aluminum_double": 598,
+      "thermal_aluminum_low_e": 679,
+      "upvc_double": 421,
+      "upvc_double_low_e": 489,
+      "wood_double": 652,
+      "wood_clad_aluminum": 815,
+      "steel_single": 544,
+      "steel_double": 707,
+      "curtain_wall": 761
+    }
+  },
+  "column_finishes": {
+    "default": 33,
+    "by_material": {
+      "paint": 19,
+      "plaster_paint": 30,
+      "exposed_concrete": 16,
+      "fair_face_concrete": 38,
+      "gypsum_paint": 35,
+      "ceramic_tile": 49,
+      "porcelain_tile": 63,
+      "marble_clad": 177,
+      "natural_stone": 122,
+      "wood_clad": 103,
+      "metal_clad": 114,
+      "grc_clad": 82
+    }
+  },
+  "rooms": {
+    "default": 544,
+    "by_category": {
+      "common": 870,
+      "bedroom": 680,
+      "wet": 1223,
+      "circulation": 408,
+      "service": 489,
+      "kitchen": 952
+    },
+    "by_id": {
+      "living": 870,
+      "dining": 761,
+      "corridor": 408,
+      "master_bed": 761,
+      "bedroom_2": 598,
+      "bedroom_3": 598,
+      "bathroom": 1223,
+      "kitchen": 952
+    }
+  },
+  "doors": {
+    "default": 489,
+    "by_subtype": {
+      "exterior_entrance": 1223,
+      "interior_standard": 489,
+      "interior_wet": 598,
+      "sliding": 1033
+    },
+    "by_id": {}
+  },
+  "windows": {
+    "default": 761,
+    "by_subtype": {
+      "picture_large": 1495,
+      "standard_large": 1088,
+      "standard": 761,
+      "small_obscured": 489
+    },
+    "by_id": {}
+  },
+  "columns": {
+    "default": 408,
+    "by_subtype": {
+      "corner": 489,
+      "edge": 544,
+      "interior": 598
+    },
+    "by_id": {
+      "col_interior_main": 952
+    }
+  }
+}

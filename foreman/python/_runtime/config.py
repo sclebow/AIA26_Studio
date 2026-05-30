@@ -54,15 +54,12 @@ def _load_mcp_server_from_json(config_path: Path) -> tuple[str, str]:
 
     parsed = json.loads(raw)
 
-    if "mcpServers" in parsed:
-        servers = parsed["mcpServers"]
-    elif "servers" in parsed:
-        servers = parsed["servers"]
-    else:
-        raise ValueError("mcp.json missing 'mcpServers' or 'servers' object")
+    if "mcpServers" not in parsed:
+        raise ValueError("mcp.json missing 'mcpServers' object")
 
+    servers = parsed["mcpServers"]
     if not isinstance(servers, dict) or not servers:
-        raise ValueError("mcp.json servers object must be a non-empty object")
+        raise ValueError("mcp.json 'mcpServers' must be a non-empty object")
 
     server_key = next(iter(servers))
     server_config = servers[server_key]
@@ -85,13 +82,15 @@ def _load_mcp_server_from_json(config_path: Path) -> tuple[str, str]:
             raise ValueError("mcp.json server args[0] must be a non-empty string endpoint")
         endpoint = first_arg
     else:
-        raise ValueError("mcp.json server entry missing supported endpoint field. Expected 'url' or 'args[0]'.")
+        raise ValueError(
+            "mcp.json server entry missing supported endpoint field. Expected 'url' or 'args[0]'."
+        )
 
     return server_key, endpoint
 
 
 def load_settings() -> Settings:
-    load_dotenv(dotenv_path=_repo_root() / ".env", override=True)
+    load_dotenv(dotenv_path=_repo_root() / ".env", override=False)
 
     mcp_json_path = _repo_root() / "mcp.json"
     mcp_server_key, mcp_endpoint = _load_mcp_server_from_json(mcp_json_path)
@@ -123,13 +122,11 @@ def load_settings() -> Settings:
 
     elif llm_provider == "anthropic":
         api_key = _required_env("ANTHROPIC_API_KEY")
-        base_url = None
+        base_url = "https://api.anthropic.com/v1/"
         llm_model = _required_env("ANTHROPIC_MODEL")
 
     else:
         raise ValueError(f"Unsupported LLM_PROVIDER: {llm_provider}")
-
-    print(f"[settings] provider={llm_provider} model={llm_model} base_url={base_url} key={api_key[:12]}...")
 
     return Settings(
         llm_provider=llm_provider,

@@ -1,11 +1,10 @@
 from __future__ import annotations
 from copy import deepcopy
 import json
+import os
 from pathlib import Path
-from typing import Any, Union
-from langchain_anthropic import ChatAnthropic
+from typing import Any
 from langchain_openai import ChatOpenAI
-
 
 
 # ---------------------------------------------------------------------------
@@ -18,61 +17,16 @@ def create_chat_llm(
     llm_model: str,
     timeout_seconds: float,
     model_kwargs: dict[str, Any] | None = None,
-) -> Union[ChatAnthropic, ChatOpenAI]:
-    model_name = llm_model.lower()
+) -> ChatOpenAI:
+    return ChatOpenAI(
+        api_key=api_key,
+        base_url=base_url,
+        model=llm_model,
+        timeout=timeout_seconds,
+        temperature=0,
+        model_kwargs=model_kwargs or {},
+    )
 
-    if "claude" in llm_model.lower():
-        return ChatAnthropic(
-            api_key=api_key,
-            base_url=base_url,
-            model=llm_model,
-            timeout=timeout_seconds,
-            temperature=0,
-            model_kwargs=model_kwargs or {},
-            max_tokens=2000
-        )
-    elif "gpt" in model_name or "gemini" in model_name:
-        return ChatOpenAI(
-            api_key=api_key,
-            base_url=base_url,
-            model=llm_model,
-            timeout=timeout_seconds,
-            temperature=0,
-            model_kwargs=model_kwargs or {},
-            max_tokens=2000
-        )
-    
-    elif "ChatAnthropic" in llm_model:
-        return ChatAnthropic(
-            api_key=api_key,
-            base_url=base_url,
-            model=llm_model,
-            timeout=timeout_seconds,
-            temperature=0,
-            model_kwargs=model_kwargs or {},
-            max_tokens=2000
-        )
-    
-    elif "local" in llm_model:
-        return ChatOpenAI(
-            base_url=base_url or "http://localhost:1234/v1",
-            api_key="lm-studio",  # dummy key (LM Studio ignore eder)
-            model=llm_model,
-            temperature=0,
-            timeout=timeout_seconds,
-            max_tokens=2000,
-            model_kwargs=model_kwargs or {},
-        )
-    else:
-        return ChatOpenAI(
-            api_key=api_key,
-            base_url=base_url,
-            model=llm_model,
-            timeout=timeout_seconds,
-            temperature=0,
-            model_kwargs=model_kwargs or {},
-            max_tokens=2000)
-    
 
 # ---------------------------------------------------------------------------
 # Structured-output schema builders
@@ -180,25 +134,8 @@ def _strip_markdown_code_fence(content: str) -> str:
     return "\n".join(lines[1:-1]).strip()
 
 
-def _extract_json_object(content: str) -> str:
-    """Find and return the first complete {...} block in content."""
-    start = content.find("{")
-    if start == -1:
-        return content
-    depth = 0
-    for i, ch in enumerate(content[start:], start):
-        if ch == "{":
-            depth += 1
-        elif ch == "}":
-            depth -= 1
-            if depth == 0:
-                return content[start : i + 1]
-    return content[start:]
-
-
 def _parse_llm_json(content: str) -> dict[str, Any]:
     content = _strip_markdown_code_fence(content)
-    content = _extract_json_object(content)
     try:
         parsed = json.loads(content)
         if not isinstance(parsed, dict):
@@ -212,102 +149,117 @@ def _parse_llm_json(content: str) -> dict[str, Any]:
     if not lines:
         raise RuntimeError("LLM response was empty")
 
-    tool_calls: list[dict[str, Any]] = []
-    for line in lines:
-        parsed_line = json.loads(line)
-        if not isinstance(parsed_line, dict):
-            raise RuntimeError("Each JSON line must be an object")
-        tool_call = parsed_line.get("tool_call")
-        if not isinstance(tool_call, dict):
-            raise RuntimeError("Each JSON line must contain 'tool_call'")
-        tool_calls.append(tool_call)
-
-    return {"tool_calls": tool_calls}
+    raise RuntimeError(
+        "LLM response must be a single JSON object matching the decision schema"
+    )
 
 
 def _normalize_llm_decision(parsed: dict[str, Any]) -> dict[str, Any]:
     action = parsed.get("action")
 
     if action == "final":
-        return {"action": "final", "final_response": parsed["final_response"]}
+        return {"action": "final", "agent_calls": [], "response": parsed.get("response", "")}
+    elif action == "agent":
+        return {"action": "agent", "agent_calls": parsed.get("agent_calls", []), "response": ""}
+    elif action == "further_thought":
+        return {"action": "further_thought", "agent_calls": [], "response": parsed.get("response", "")}
 
-    if action == "tool":
-        tool_calls = parsed.get("tool_calls")
-        if not isinstance(tool_calls, list) or not tool_calls:
-            raise RuntimeError("LLM tool decision must include a non-empty 'tool_calls' array")
-        return {
-            "action": "tool",
-            "tool_calls": [{"name": t["name"], "arguments": t["arguments"]} for t in tool_calls],
-        }
+    raise RuntimeError("LLM response must include either 'final', 'agent', or 'further_thought'")
 
-    if "final_response" in parsed:
-        return {"action": "final", "final_response": parsed["final_response"]}
 
-    tool_call = parsed.get("tool_call")
-    if isinstance(tool_call, dict):
-        return {
-            "action": "tool",
-            "tool_calls": [{"name": tool_call["name"], "arguments": tool_call["arguments"]}],
-        }
+def _required_env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise ValueError(f"Missing or empty required environment variable: {name}")
+    return value
 
-    tool_calls = parsed.get("tool_calls")
-    if isinstance(tool_calls, list) and tool_calls:
-        return {
-            "action": "tool",
-            "tool_calls": [{"name": t["name"], "arguments": t["arguments"]} for t in tool_calls],
-        }
 
-    raise RuntimeError("LLM response must include either 'final_response' or 'tool_call'")
+def _resolve_llm_connection(
+    provider: str,
+    model: str | None,
+) -> tuple[str, str, str]:
+    normalized_provider = provider.strip().lower()
+
+    if normalized_provider == "local":
+        api_key = "No API Key Required"
+        base_url = _required_env("LOCAL_LLM_ENDPOINT")
+        resolved_model = model or "local"
+
+    elif normalized_provider == "cloudflare":
+        api_key = _required_env("CF_API_TOKEN")
+        account_id = _required_env("CF_ACCOUNT_ID")
+        base_url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1"
+        resolved_model = model or _required_env("CF_MODEL")
+
+    elif normalized_provider == "openai":
+        api_key = _required_env("OPENAI_API_KEY")
+        base_url = "https://api.openai.com/v1"
+        resolved_model = model or _required_env("OPENAI_MODEL")
+
+    elif normalized_provider == "google":
+        api_key = _required_env("GOOGLE_API_KEY")
+        base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
+        resolved_model = model or _required_env("GOOGLE_MODEL")
+
+    elif normalized_provider == "anthropic":
+        api_key = _required_env("ANTHROPIC_API_KEY")
+        base_url = "https://api.anthropic.com/v1/"
+        resolved_model = model or _required_env("ANTHROPIC_MODEL")
+
+    else:
+        raise ValueError(f"Unsupported provider override: {provider}")
+
+    return api_key, base_url, resolved_model
+
+
+def _resolve_timeout_seconds(llm: Any) -> float:
+    timeout = getattr(llm, "timeout", None)
+    if isinstance(timeout, (int, float)) and timeout > 0:
+        return float(timeout)
+    return 30.0
 
 
 # ---------------------------------------------------------------------------
 # Public convenience function used by reason nodes
 # ---------------------------------------------------------------------------
 
-_JSON_INSTRUCTION = """
-IMPORTANT: You must respond with ONLY a valid JSON object — no prose, no markdown, no XML.
-Use exactly this schema:
-
-To call a tool:
-{"action": "tool", "final_response": "", "tool_calls": [{"name": "<tool_name>", "arguments": {<key>: <value>}}]}
-
-To give a final answer:
-{"action": "final", "final_response": "<your answer here>", "tool_calls": []}
-
-Do not include any text outside the JSON object.
-"""
-
-
 def call_llm(
     llm: Any,
     system_prompt: str,
     messages: list[dict[str, str]],
-    tool_catalog: str,
+    provider: str | None = None,
+    model: str | None = None,
 ) -> dict[str, Any]:
     """Invoke the LLM and return a parsed decision dict.
 
-    Returns one of:
-      {"action": "final", "final_response": "<text>"}
-      {"action": "tool",  "tool_calls": [{"name": "<tool>", "arguments": {...}}]}
+    provider and model are optional per-call overrides for .env defaults.
     """
-    formatted_prompt = system_prompt.format(tool_catalog=tool_catalog) + _JSON_INSTRUCTION
-    llm_messages = [{"role": "system", "content": formatted_prompt}] + messages
+    
+    llm_messages = [{"role": "system", "content": system_prompt}] + messages
 
-    try:
-      result = llm.invoke(llm_messages)
-    except Exception as e:
-       print(f"[llm] Error: {e}")
-       print(f"[llm] Last response object: {getattr(e, 'completion', None)}")
-       raise
-    content = result.content
-    if isinstance(content, list):
-        # ChatAnthropic returns a list of content blocks; extract text parts
-        content = " ".join(
-            block["text"] for block in content
-            if isinstance(block, dict) and block.get("type") == "text" and block.get("text")
+    active_llm = llm
+    if provider is not None or model is not None:
+        resolved_provider = provider or os.environ.get("LLM_PROVIDER", "")
+        if not resolved_provider:
+            raise RuntimeError("LLM_PROVIDER is required when using call_llm overrides")
+
+        api_key, base_url, resolved_model = _resolve_llm_connection(resolved_provider, model)
+        model_kwargs = getattr(llm, "model_kwargs", {})
+        if not isinstance(model_kwargs, dict):
+            model_kwargs = {}
+
+        active_llm = create_chat_llm(
+            api_key=api_key,
+            base_url=base_url,
+            llm_model=resolved_model,
+            timeout_seconds=_resolve_timeout_seconds(llm),
+            model_kwargs=model_kwargs,
         )
+
+    result = active_llm.invoke(llm_messages)
+    content = result.content
     if not isinstance(content, str):
-        raise RuntimeError(f"LLM response content must be a string, got: {type(content)}")
+        raise RuntimeError("LLM response content must be a string")
 
     try:
         return _normalize_llm_decision(_parse_llm_json(content))
