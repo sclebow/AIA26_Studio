@@ -15,7 +15,8 @@ AGENT_ui/
 │   ├── api_routes.py          REST endpoints for layouts, sessions
 │   ├── websocket_manager.py    WebSocket ConnectionManager
 │   ├── session_manager.py      In-memory session state
-│   ├── agent_runner.py         Stub LangGraph pipeline runner
+│   ├── agent_runner.py         Real LangGraph runner (threaded app.astream_events + input() bridge)
+│   ├── pipeline_bridge.py      build_context (Haiku-forced), StdoutTee, CheckpointParser, MCP probe
 │   ├── layout_loader.py        Loads layout JSONs from team_03/layout/
 │   ├── adapters/
 │   │   ├── graph_adapter.py    Wraps spatial_graph.py from team_03/python/
@@ -213,13 +214,34 @@ Each item's `geometry` is a list of [x, y] coordinate pairs (2D).
 - **Frontend dev**: 5173 (proxied to backend on 3000)
 - **Frontend prod**: Served from backend on 3000
 
-## Integration Notes (Phase 2)
+## Chat ↔ real pipeline (wired)
 
-- **Agent B**: Replace `agent_runner.py` with real LangGraph pipeline.
-- **Agent F**: Complete WebSocket/frontend integration tests.
-- **Adapter maintenance**: As new analysis nodes are added, expand adapters in backend/.
+The chat runs the **real** `team_03/python/` LangGraph pipeline — "the terminal, in
+the browser". No demo/stub anymore.
+
+- `agent_runner.start_session` builds a `Context` (`pipeline_bridge.build_context`)
+  and runs `app.astream_events(version="v2")` in a worker thread, emitting
+  `agent_event(node, started|completed|error)` per graph node → the **Pipeline panel
+  + Log show live progress**.
+- The checkpoint's blocking `input("Your decision: ")` is bridged to the WebSocket:
+  a monkeypatched `input()` blocks on a per-session queue fed by `chat_message` /
+  `chat_decision`. On each `input()` the printed menu is parsed (`CheckpointParser`)
+  into `agent_checkpoint` (agent message + score + suggestions + memory rules +
+  actions) for the chat's right-side options panel.
+- **One `app.invoke`/stream = one multi-turn session.** Session is owned by the
+  websocket; on disconnect/refresh `abort_session()` unblocks the checkpoint
+  (`_ABORT` sentinel) so the next connection starts fresh (no orphaned session).
+- `build_context` does a fast TCP `_probe_mcp` and emits setup progress, so a
+  down Swiftlet/Rhino fails fast with a clear chat error instead of hanging.
+
+**LLM model — cost policy:** `build_context` hard-forces **`claude-haiku-4-5`**
+(cheapest Anthropic model) for the `anthropic` provider, regardless of
+`ANTHROPIC_MODEL` in `.env`. See `team_03/CLAUDE.md` → Configuration.
+
+**Run the dev backend as a single process** (`python -m uvicorn server:app
+--port 3000`); uvicorn `--reload` can leave stale workers serving old code.
 
 ---
 
-**Last updated**: 2026-05-23  
-**Status**: Phase 1 Complete — Framework ready for integration
+**Last updated**: 2026-05-29  
+**Status**: Chat wired to the real pipeline; live progress + options panel; Haiku-forced.

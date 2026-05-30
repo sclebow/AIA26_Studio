@@ -376,11 +376,21 @@ The output string also appears live in a viewport HUD (bottom-left, with copy bu
 | Variable | Description | Default |
 |---------|-------------|---------|
 | `LLM_PROVIDER` | `openai`, `anthropic`, `local`, `google`, `cloudflare` | required |
+| `ANTHROPIC_MODEL` | Model id when provider is `anthropic` | `claude-haiku-4-5` |
+| `OPENAI_MODEL` / `GOOGLE_MODEL` / `CF_MODEL` | Model id for the matching provider | per provider |
 | `LOCAL_LLM_ENDPOINT` | e.g. `http://localhost:1234/v1/` | required if local |
 | `REQUEST_TIMEOUT_SECONDS` | HTTP timeout for MCP + LLM | `120` |
 | `MAX_ITERATIONS` | Max tool call cycles | `100` |
 | `DEBUG_GRAPH` | Print graph debug info | `false` |
 | `LAYOUT_FILE` | Layout name (env alt to `--layout`) | — |
+
+**Cost policy — use the cheapest model (Haiku):** the model is read from `.env`
+(`ANTHROPIC_MODEL`, etc.); there is no hardcoded default in `_runtime/config.py`.
+The agent is standardized on **`claude-haiku-4-5`** (Haiku 4.5 — the cheapest
+Anthropic model). The terminal (`main.py`) follows `.env`; the **AGENT_ui backend
+hard-forces Haiku** for the `anthropic` provider in `pipeline_bridge.build_context`
+so the web agent can never run a pricier Claude (Opus/Sonnet) even if `.env` is
+changed. Keep `ANTHROPIC_MODEL = "claude-haiku-4-5"` in `.env` for the terminal too.
 
 **Important:** Grasshopper tool calls can take >2 minutes. Set `REQUEST_TIMEOUT_SECONDS=300` or higher.
 

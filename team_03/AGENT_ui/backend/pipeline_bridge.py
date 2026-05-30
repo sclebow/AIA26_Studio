@@ -103,11 +103,21 @@ def build_context(layout_name: str, progress: Optional[Callable[[str], None]] = 
     tools = mcp_client.list_tools()
     _say(f"MCP connected — {len(tools)} tool(s) available.")
 
-    _say(f"Initializing LLM ({settings.llm_model})…")
+    # Cost control: force the cheapest Anthropic model (Haiku) regardless of what
+    # ANTHROPIC_MODEL is set to in .env, so the UI agent never runs a pricier
+    # Claude (Opus/Sonnet) by accident. Other providers keep their configured
+    # model (their defaults — gpt-5-nano, gemini-flash-lite — are already cheap).
+    HAIKU = "claude-haiku-4-5"
+    model = settings.llm_model
+    if settings.llm_provider == "anthropic" and model != HAIKU:
+        model = HAIKU
+        _say(f"Cost control: overriding Anthropic model → {HAIKU}.")
+
+    _say(f"Initializing LLM ({model})…")
     llm = create_chat_llm(
         api_key=settings.api_key,
         base_url=settings.base_url,
-        llm_model=settings.llm_model,
+        llm_model=model,
         timeout_seconds=settings.request_timeout_seconds,
         model_kwargs=get_llm_response_format(tools),
     )
