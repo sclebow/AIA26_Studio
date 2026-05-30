@@ -169,6 +169,9 @@ Get current scoring results
 **POST** `/api/scores`  
 Update scoring results
 
+**POST** `/api/profile`  
+Persist the onboarding User/Space profile to the global `team_03/memory/user_profile.md`. `build_context` later merges it into the active layout's memory under `## User Rules`. See `team_03/CLAUDE.md` → Conversational Memory → "Onboarding profile → memory".
+
 ### Do Not Modify
 
 - **team_03/python/**: Read-only. All pipeline code is imported via adapters.

@@ -163,6 +163,13 @@ User Rules are presented to the reason LLM as **binding constraints** (`MEMORY_C
 
 Helpers live in `nodes/memory.py`: `split_rules`, `compose_memory`, `add_user_rule`, `remove_user_rule`, `list_user_rules`. Legacy `## User notes` headings are recognized and migrated to `## User Rules`.
 
+### Onboarding profile → memory (AGENT_ui)
+The AGENT_ui welcome flow (`OnboardingPage.tsx`) collects **User Profile** (role, experience, name) and **Space Profile** (layout status, workflow type, notes — button picks *and* free text). On completion the frontend `POST`s to **`/api/profile`** (`AGENT_ui/backend/api_routes.py`), which writes a single **global** file `team_03/memory/user_profile.md` (`## User Profile` + `## Space Profile`, labels resolved, overwritten each submit). It is global because onboarding happens before any layout is chosen.
+
+On chat session start, `build_context` (`AGENT_ui/backend/pipeline_bridge.py`, `_inject_user_profile`) merges that profile into the **active layout's** `memory/<layout>.md` under the protected `## User Rules` block as `User profile — …` / `Space profile — …` lines — reusing the `nodes/memory.py` helpers, deduped, replacing any stale profile lines first. So the profile is recalled like any binding User Rule. It runs **before** the MCP probe and is wrapped in try/except, so it persists even if Rhino/Swiftlet is down and never breaks startup. (`team_03/python` is read-only; only its helpers are imported.)
+
+Completing onboarding also marks the first two pipeline nodes done in the UI: `profile_agent` always, and `space_type_agent` only when the Space step wasn't skipped (`useAgentState.markNodesCompleted`). A later real pipeline run overwrites these via `agent_event`.
+
 ### Agent chat message
 The reason LLM's human-readable narrative is captured every turn as `state["agent_message"]` — `final_response` on a `final` turn, or the prose surrounding the JSON on a `tool`/placement turn (extracted by `_extract_narrative` in `_runtime/llm.py`). The checkpoint renders it as an indented **"Agent:"** block right above the `Your decision:` prompt, so the agent's message is visible without scrolling up to the truncated `[anthropic] Raw response preview`.
 
