@@ -195,6 +195,7 @@ export default function App() {
     onObserverPath: handleObserverPath,
     showLabels,
     onToggleLabels: () => setShowLabels(v => !v),
+    isAgentRunning: agentState.isAgentRunning,
   } : null;
 
   const noLayoutPlaceholder = (
@@ -344,7 +345,7 @@ export default function App() {
                 </div>
               )
             ) : (
-              <GraphPanel graphData={layoutState.graphData} selectedId={selectedId} onSelect={handleGraphSelect} showLabels={showLabels} fullscreen />
+              <GraphPanel graphData={layoutState.graphData} selectedId={selectedId} onSelect={handleGraphSelect} showLabels={showLabels} isAgentRunning={agentState.isAgentRunning} fullscreen />
             )}
           </div>
         </div>
@@ -366,7 +367,7 @@ export default function App() {
             <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: 0 }}>
               <div style={swapStyle}>
                 {displayMode === 'geometry' ? (
-                  <GraphPanel graphData={layoutState.graphData} selectedId={selectedId} onSelect={handleGraphSelect} showLabels={showLabels} />
+                  <GraphPanel graphData={layoutState.graphData} selectedId={selectedId} onSelect={handleGraphSelect} showLabels={showLabels} isAgentRunning={agentState.isAgentRunning} />
                 ) : (
                   viewportProps ? <ThreeViewport {...viewportProps} /> : noLayoutPlaceholder
                 )}

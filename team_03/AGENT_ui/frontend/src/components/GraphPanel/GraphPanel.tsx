@@ -25,6 +25,9 @@ interface GraphPanelProps {
    *  When true: fullscreen shows all labels; mini shows only the selected node's
    *  label (avoids overlap on the small panel). */
   showLabels?: boolean;
+  /** When true (agent running), preserve pan/zoom across graph data reloads
+   *  instead of re-fitting, so the graph doesn't jump while the chat runs. */
+  isAgentRunning?: boolean;
 }
 
 interface DetailInfo {
@@ -322,7 +325,7 @@ function makeStyles(T: GraphTheme) {
 
 // ── Component ───────────────────────────────────────────────────────────────
 
-const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect, fullscreen, showLabels = true }) => {
+const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect, fullscreen, showLabels = true, isAgentRunning }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const networkRef = useRef<Network | null>(null);
   const nodesDSRef = useRef<DataSet<VisNode> | null>(null);
@@ -346,6 +349,10 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
   const openDetailRef = useRef<(nodeId: string) => void>(() => {});
   const showLabelsRef = useRef(showLabels);
   showLabelsRef.current = showLabels;
+  // Preserve pan/zoom across rebuilds while the agent runs (avoid view jumps).
+  const lockViewRef = useRef(isAgentRunning);
+  lockViewRef.current = isAgentRunning;
+  const prevViewRef = useRef<{ position: { x: number; y: number }; scale: number } | null>(null);
   const fullscreenRef = useRef(fullscreen);
   fullscreenRef.current = fullscreen;
 
@@ -416,6 +423,14 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
     if (!containerRef.current || !mapped) return;
 
     if (networkRef.current) {
+      // Remember the current pan/zoom so we can restore it after the rebuild
+      // (prevents the graph from jumping when data reloads during a chat run).
+      try {
+        prevViewRef.current = {
+          position: networkRef.current.getViewPosition(),
+          scale: networkRef.current.getScale(),
+        };
+      } catch { /* ignore */ }
       networkRef.current.destroy();
       networkRef.current = null;
     }
@@ -436,7 +451,16 @@ const GraphPanel: React.FC<GraphPanelProps> = ({ graphData, selectedId, onSelect
     networkRef.current = network;
 
     network.once('afterDrawing', () => {
-      network.fit({ animation: false });
+      // While the agent runs, keep the user's current pan/zoom across reloads;
+      // otherwise fit the new graph to view.
+      if (lockViewRef.current && prevViewRef.current) {
+        network.moveTo({
+          position: prevViewRef.current.position,
+          scale: prevViewRef.current.scale,
+        });
+      } else {
+        network.fit({ animation: false });
+      }
     });
 
     network.on('click', (params: any) => {

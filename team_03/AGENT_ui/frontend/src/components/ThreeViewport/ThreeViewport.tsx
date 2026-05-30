@@ -28,6 +28,8 @@ interface ThreeViewportProps {
   /** Controlled labels toggle (shared with the graph). Falls back to internal state. */
   showLabels?: boolean
   onToggleLabels?: () => void
+  /** When true (agent running), suppress auto-recenter on layout reloads. */
+  isAgentRunning?: boolean
 }
 
 interface SceneProps extends ThreeViewportProps {
@@ -62,13 +64,17 @@ function ViewportRefBridge({ threeRef }: { threeRef: React.MutableRefObject<{ ca
 }
 
 // ── Auto-fit: center camera on layout change ───────────────────────────
-function BoundsFitter({ layout }: { layout: LayoutJSON }) {
+// `lockView` (agent running) suppresses the camera move so live layout reloads
+// during a chat run don't yank the view; the reloaded layout is still marked as
+// "fitted" so no deferred jump happens when the run ends.
+function BoundsFitter({ layout, lockView }: { layout: LayoutJSON; lockView?: boolean }) {
   const { camera, controls } = useThree()
   const fittedRef = useRef<object | null>(null)
 
   useEffect(() => {
     if (fittedRef.current === layout) return
     fittedRef.current = layout
+    if (lockView) return   // keep current camera; just record this layout as fitted
 
     const pts = layout.outline
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
@@ -330,7 +336,7 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
   )
 }
 
-export default function ThreeViewport({ layout, selectedId, onSelect, layers, graphData, modifiedIds, onObserverPoint, onObserverPath, showLabels: showLabelsProp, onToggleLabels }: ThreeViewportProps) {
+export default function ThreeViewport({ layout, selectedId, onSelect, layers, graphData, modifiedIds, onObserverPoint, onObserverPath, showLabels: showLabelsProp, onToggleLabels, isAgentRunning }: ThreeViewportProps) {
   const { theme, colors } = useTheme()
   const isDark = theme === 'dark'
   const [internalShowLabels, setInternalShowLabels] = useState(true)
@@ -531,7 +537,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
         <ViewportRefBridge threeRef={threeRef} />
         <CameraController viewCommand={viewCommand} />
         <OrthoController isOrtho={isOrtho} />
-        <BoundsFitter layout={layout} />
+        <BoundsFitter layout={layout} lockView={isAgentRunning} />
         <SceneContent
           layout={layout}
           selectedId={selectedId}
