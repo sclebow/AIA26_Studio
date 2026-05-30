@@ -13,4 +13,4 @@ Get-ChildItem -Path 'C:\\geolib' -Recurse | Unblock-File
 ```
 
 # Grasshopper plugin
-The MCP tool daylight_06 requires Ladybug to be installed and available in the environment.- 
+The MCP tool daylight_06 requires Ladybug to be installed and available in the environment.
