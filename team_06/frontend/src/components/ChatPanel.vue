@@ -16,8 +16,10 @@ import sendIcon from '../assets/send.svg'
         <img :src="menuIcon" alt="Menu" width="22" height="22" />
       </button>
       <span class="chat-header-title">Chat History</span>
-      <input class="chat-search" type="text" placeholder="Search..." v-model="search" />
     </header>
+    <div class="chat-search-bar">
+      <input class="chat-search" type="text" placeholder="Search..." v-model="search" />
+    </div>
     <ul v-if="search" class="chat-history-list">
       <li>Apartment for a young couple</li>
       <li>Daylight analysis</li>

@@ -1,3 +1,19 @@
+.toolbar-card {
+  background: var(--color-white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  margin: 16px auto 16px auto;
+  padding: 10px 18px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: fit-content;
+  min-width: 0;
+}
+.chat-search-bar {
+  padding: 10px 32px 0 32px;
+  background: var(--color-white);
+}
 /* style.css: All app styles centralized here */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
@@ -85,13 +101,13 @@ body {
 }
 
 .sidebar {
-  width: 260px;
+  width: 320px;
+  min-width: 320px;
   background: var(--color-grey-bg);
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--color-border);
   height: 100vh;
-  min-width: 260px;
 }
 
 .sidebar-header {
@@ -122,16 +138,28 @@ body {
   color: var(--color-text-secondary);
   font-size: var(--font-size-nav);
   font-weight: 600;
-  padding: 0 6px;
+  padding: 0 10px;
   height: 36px;
-  min-width: 60px;
-  border-radius: 8px;
+  border-radius: 0;
+  position: relative;
   cursor: pointer;
-  transition: color 0.2s, background 0.2s;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
 }
 .sidebar-nav-tab-btn.active {
   color: var(--color-blue);
-  background: var(--color-white);
+}
+.sidebar-nav-tab-btn.active::after {
+  content: '';
+  display: block;
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  height: 2.5px;
+  background: var(--color-blue);
+  border-radius: 2px;
 }
 .sidebar-content {
   flex: 1 1 auto;
@@ -199,12 +227,12 @@ body {
 }
 
 .center-panel {
-  flex: 1 1 0;
+  width: 380px;
+  min-width: 380px;
   background: var(--color-white);
   display: flex;
   flex-direction: column;
-  min-width: 0;
-  padding: 0 0 0 0;
+  padding: 0;
 }
 
 .chat-header {
@@ -222,7 +250,7 @@ body {
 
 .chat-search {
   flex: 2;
-  max-width: 320px;
+  max-width: 300px;
   border-radius: var(--radius);
   border: 1px solid var(--color-border);
   padding: 7px 14px;
@@ -259,6 +287,7 @@ body {
 
 .chat-input {
   flex: 1;
+  min-width: 180px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   padding: 10px 16px;
@@ -279,7 +308,8 @@ body {
 }
 
 .right-panel {
-  width: 370px;
+  flex: 1 1 0;
+  min-width: 0;
   background: var(--color-grey-bg);
   display: flex;
   flex-direction: column;
@@ -290,10 +320,26 @@ body {
 
 .right-header {
   display: flex;
-  align-items: center;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
   padding: 28px 32px 0 32px;
+  gap: 0;
+  position: relative;
+}
+.right-header-avatar {
+  display: flex;
+  align-items: center;
   gap: 10px;
+  margin-bottom: 8px;
+}
+.save-layout-btn.right {
+  margin: 0 0 0 auto;
+  width: 140px;
+  min-width: 120px;
+  height: 38px;
+  font-size: 1rem;
+  position: relative;
+  right: 0;
 }
 
 .save-layout-btn {
@@ -325,7 +371,7 @@ body {
   justify-content: center;
   align-items: center;
   gap: 18px;
-  margin: 24px 0 0 0;
+  margin: 0;
 }
 
 .canvas-area {

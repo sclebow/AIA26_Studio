@@ -10,15 +10,19 @@ import downloadIcon from '../assets/download.svg'
 <template>
   <aside class="right-panel">
     <header class="right-header">
-      <img :src="userIcon" alt="User" width="32" height="32" style="border-radius:50%;background:#e0e3ea;" />
-      <img :src="chevronIcon" alt="Chevron" width="18" height="18" />
+      <div class="right-header-avatar">
+        <img :src="userIcon" alt="User" width="32" height="32" style="border-radius:50%;background:#e0e3ea;" />
+        <img :src="chevronIcon" alt="Chevron" width="18" height="18" />
+      </div>
+      <button class="save-layout-btn right">Save Layout</button>
     </header>
-    <button class="save-layout-btn">Save Layout</button>
-    <div class="toolbar">
-      <button class="chat-input-btn"><img :src="uploadIcon" alt="Upload" width="22" height="22" /></button>
-      <button class="chat-input-btn"><img :src="editIcon" alt="Edit" width="22" height="22" /></button>
-      <button class="chat-input-btn"><img :src="rotateIcon" alt="Rotate" width="22" height="22" /></button>
-      <button class="chat-input-btn"><img :src="downloadIcon" alt="Download" width="22" height="22" /></button>
+    <div class="toolbar-card">
+      <div class="toolbar">
+        <button class="chat-input-btn"><img :src="uploadIcon" alt="Upload" width="22" height="22" /></button>
+        <button class="chat-input-btn"><img :src="editIcon" alt="Edit" width="22" height="22" /></button>
+        <button class="chat-input-btn"><img :src="rotateIcon" alt="Rotate" width="22" height="22" /></button>
+        <button class="chat-input-btn"><img :src="downloadIcon" alt="Download" width="22" height="22" /></button>
+      </div>
     </div>
     <div class="canvas-area">
       <div class="canvas">Canvas Area</div>
