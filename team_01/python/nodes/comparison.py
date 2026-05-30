@@ -101,6 +101,9 @@ def build_comparison_node(llm):
 
         diff_text = _slim_diff_for_llm(original, state["layout_json_string"])
         context_message = f"Structural change summary:\n{diff_text}"
+        _cf = state.get("cost_flexibility")
+        if _cf and _cf.get("summary"):
+            context_message += f"\n\nCost & Flexibility: {_cf['summary']}"
         messages = [{"role": "user", "content": context_message}]
 
         result = None

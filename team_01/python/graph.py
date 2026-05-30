@@ -8,6 +8,7 @@ from nodes.reason import build_reason_node
 from nodes.modify import build_modify_node, DEFAULT_SECTIONS, BEAM_SECTION_UPGRADE, COL_SECTION_UPGRADE
 from nodes.evaluate import build_evaluate_node, evaluate_structure, SETTINGS_PATH, _get_user_request
 from nodes.comparison import build_comparison_node
+from nodes.cost_flexibility import build_cost_flexibility_node
 
 EXAMPLE_LAYOUTS_DIR = Path(__file__).parent / "example_layouts"
 OTHER_LAYOUTS_DIR   = Path(__file__).parent.parent / "gh" / "other layouts"
@@ -43,6 +44,7 @@ class AgentState(TypedDict):
     live_load_kNm2: float | None
     sdl_kNm2: float | None
     find_minimum_done: bool | None
+    cost_flexibility: dict | None
 
 
 _EVAL_KEYWORDS = frozenset({
@@ -88,23 +90,34 @@ def _route_from_evaluate(state: AgentState) -> str:
     return "reason"
 
 
+def _route_from_modify(state: AgentState) -> str:
+    if state.get("came_from") == "tag_and_audit":
+        return "evaluate"
+    return "cost_flexibility"
+
+
 def build_graph(ctx: Any) -> Any:
     reason = build_reason_node(ctx.llm)
     modify = build_modify_node(ctx.mcp_client, ctx.tools, ctx.edited_layout_path, evaluate_fn=evaluate_structure)
     evaluate = build_evaluate_node(ctx.llm)
     comparison = build_comparison_node(ctx.llm)
+    cost_flex = build_cost_flexibility_node()
 
     graph = StateGraph(AgentState)
     graph.add_node("reason", reason)
     graph.add_node("modify", modify)
+    graph.add_node("cost_flexibility", cost_flex)
     graph.add_node("evaluate", evaluate)
     graph.add_node("comparison", comparison)
 
     graph.add_edge(START, "reason")
     graph.add_conditional_edges("reason", _route_from_reason, {"modify": "modify", "evaluate": "evaluate", END: END})
-    graph.add_edge("modify", "evaluate")
+    # Fix 2: skip cost_flexibility for tag_and_audit (no before/after diff available)
+    graph.add_conditional_edges("modify", _route_from_modify, {"cost_flexibility": "cost_flexibility", "evaluate": "evaluate"})
+    graph.add_edge("cost_flexibility", "evaluate")
     graph.add_conditional_edges("evaluate", _route_from_evaluate, {"reason": "reason", "comparison": "comparison", "modify": "modify", END: END})
-    graph.add_edge("comparison", "reason")
+    # Fix 1: comparison goes directly to END — no reason bounce needed
+    graph.add_edge("comparison", END)
 
     return graph.compile()
 
@@ -170,6 +183,18 @@ def run_agent(prompt: str, ctx: Any) -> str:
                 )
                 print(f"JSON updated: {material} applied to {count} elements → {ctx.edited_layout_path.name}")
 
+    _cf = final_state.get("cost_flexibility")
+    if _cf:
+        print(
+            f"[cost-flex]"
+            f"  Cost: ${_cf.get('material_cost_usd', 0):,.0f}"
+            f"  |  Spatial Penalty: {_cf.get('spatial_penalty', 0):.2f}"
+            f"  |  Flexibility: {_cf.get('flexibility_score', 0):.1f}/10"
+            f" ({_cf.get('flexibility_label', 'N/A')})"
+            f"  |  Disruption: {_cf.get('disruption_score', 0)}/10"
+            f" ({_cf.get('disruption_label', 'N/A')})"
+        )
+
     print("\nWorkflow graph:")
     app.get_graph().print_ascii()
 
@@ -196,6 +221,7 @@ def run_agent(prompt: str, ctx: Any) -> str:
         eval_json=final_state.get("evaluation_result"),
         comparison=final_state.get("comparison_result"),
         report_path=ctx.edited_layout_path.parent / "team_01_evaluation_report.md",
+        cost_flexibility=final_state.get("cost_flexibility"),
     )
 
     return final_response
@@ -206,6 +232,7 @@ def _write_evaluation_report(
     eval_json: str | None,
     comparison: str | None,
     report_path: Path,
+    cost_flexibility: dict | None = None,
 ) -> None:
     import datetime
     lines = [
@@ -227,6 +254,19 @@ def _write_evaluation_report(
         lines.append("## Change Summary")
         lines.append("")
         lines.append(comparison)
+        lines.append("")
+    if cost_flexibility:
+        cf = cost_flexibility
+        lines.append("## Cost & Flexibility Analysis")
+        lines.append("")
+        lines.append("| Metric | Value |")
+        lines.append("|--------|-------|")
+        lines.append(f"| Material Cost | ${cf['material_cost_usd']:,.0f} |")
+        lines.append(f"| Disruption | {cf['disruption_label']} ({cf['disruption_score']}/10) |")
+        lines.append(f"| Spatial Penalty | {cf['spatial_penalty']:.2f} |")
+        lines.append(f"| Flexibility | {cf['flexibility_score']:.1f}/10 — {cf['flexibility_label']} |")
+        lines.append("")
+        lines.append(f"> {cf['summary']}")
         lines.append("")
     report_path.write_text("\n".join(lines), encoding="utf-8")
     print(f"[report] saved {report_path.name}")
@@ -406,6 +446,7 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
         "live_load_kNm2": _settings_load(SETTINGS_PATH, "live_load_kNm2"),
         "sdl_kNm2": _settings_load(SETTINGS_PATH, "sdl_kNm2"),
         "find_minimum_done": False,
+        "cost_flexibility": None,
     }
 
 

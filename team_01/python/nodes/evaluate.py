@@ -684,8 +684,91 @@ def _ask_sdl_ll(state: dict) -> None:
         pass
 
 
-def build_evaluate_node(_):
-    """Structural first-principles check node — unused arg kept for graph API compatibility."""
+_INTERPRET_SYSTEM = """You are a structural engineering advisor helping an architect understand calculation results.
+
+Given a structural evaluation summary with utilisation percentages (100% = at the limit), write a concise advisory note:
+- Line 1: one sentence — overall status and the single most critical observation
+- 2-3 bullet points: most interesting elements by utilisation (use exact IDs and numbers)
+- 1-2 specific, actionable suggestions the architect could explore next
+
+If elements FAIL: focus on what failed and offer 2 concrete fix options.
+If all PASS: highlight the elements nearest their limits AND the most over-engineered ones (candidates for downsizing or removal via what-if).
+
+Speak like a trusted structural consultant. Be specific with IDs. No jargon overload.
+Reply with JSON only: {"action":"final","final_response":"<your advisory>","tool_calls":[]}"""
+
+
+def _beam_utilisation(b: dict) -> float:
+    return max(
+        b.get("sigma_bend_MPa",  0) / max(b.get("allow_bend_MPa",  0.001), 0.001),
+        b.get("tau_MPa",         0) / max(b.get("allow_shear_MPa", 0.001), 0.001),
+        b.get("delta_LL_mm",     0) / max(b.get("limit_LL_mm",     0.001), 0.001),
+        b.get("delta_total_mm",  0) / max(b.get("limit_TL_mm",     0.001), 0.001),
+    )
+
+
+def _col_utilisation(c: dict) -> float:
+    return max(
+        c.get("sigma_comp_MPa", 0) / max(c.get("allow_comp_MPa", 0.001), 0.001),
+        3.0 / max(c.get("SF_buckling", 99), 0.001),
+    )
+
+
+def _interpret_evaluation(llm, result: dict) -> str:
+    """LLM-generated plain-language interpretation of the evaluation results."""
+    beams   = result.get("beams",   [])
+    columns = result.get("columns", [])
+    overall = result.get("summary", {}).get("overall_PASS", True)
+
+    beams_ranked   = sorted(beams,   key=_beam_utilisation, reverse=True)
+    columns_ranked = sorted(columns, key=_col_utilisation,  reverse=True)
+
+    summary = {
+        "overall_PASS": overall,
+        "n_beams": len(beams),
+        "n_columns": len(columns),
+        "critical_beams": [
+            {
+                "id": b["id"], "span_m": b["span_m"], "section": b["section_mm"],
+                "utilisation_pct": round(_beam_utilisation(b) * 100, 1),
+                "fails": [k for k in ["bend_PASS", "shear_PASS", "defl_LL_PASS", "defl_TL_PASS"]
+                          if not b.get(k, True)],
+            }
+            for b in beams_ranked[:4]
+        ],
+        "critical_columns": [
+            {
+                "id": c["id"], "section": c["section_mm"],
+                "load_kN": c["P_total_kN"],
+                "utilisation_pct": round(_col_utilisation(c) * 100, 1),
+                "fails": [k for k in ["stress_PASS", "buckling_PASS"] if not c.get(k, True)],
+            }
+            for c in columns_ranked[:4]
+        ],
+        "lowest_utilisation_beams": [
+            {"id": b["id"], "utilisation_pct": round(_beam_utilisation(b) * 100, 1)}
+            for b in beams_ranked[-3:]
+        ],
+        "lowest_utilisation_columns": [
+            {"id": c["id"], "load_kN": c["P_total_kN"], "utilisation_pct": round(_col_utilisation(c) * 100, 1)}
+            for c in columns_ranked[-3:]
+        ],
+    }
+
+    try:
+        raw = llm.invoke([
+            {"role": "system", "content": _INTERPRET_SYSTEM},
+            {"role": "user",   "content": f"Structural evaluation:\n{json.dumps(summary, indent=2)}"},
+        ])
+        data = json.loads(raw.content)
+        return data.get("final_response", "")
+    except Exception as e:
+        print(f"[interpret] LLM unavailable ({e})")
+        return ""
+
+
+def build_evaluate_node(llm):
+    """Structural first-principles check node."""
 
     def evaluate_node(state: dict) -> dict:
         print(f"\n{'='*50}")
@@ -945,6 +1028,13 @@ def build_evaluate_node(_):
             "role":    "user",
             "content": f"Structural evaluation (first principles):\n{eval_text}",
         })
+
+        # ── Advisor: LLM interprets the numbers and suggests next steps ───────
+        interpretation = _interpret_evaluation(llm, result)
+        if interpretation:
+            print(f"\n[Advisor]\n{interpretation}\n")
+            state["final_response"] = interpretation
+        # ─────────────────────────────────────────────────────────────────────
 
         main_fail = not summary.get("overall_PASS", True)
 
