@@ -38,12 +38,22 @@ def build_analyze_node(mcp_client):
         # Pass custom comfort weights from onboarding if available
         weights_override = persona_profile.get("comfort_weights")
 
-        print(f"[analyze] compute_comfort_scores (persona={persona_label}, room_ids={room_ids}, custom_weights={bool(weights_override)})")
+        # Personality / arousal axis (introvert −1 … extrovert +1); neutral until onboarding captures it.
+        pers = persona_profile.get("personality", 0)
+        if isinstance(pers, str):
+            pers = {"introvert": -1.0, "extrovert": 1.0}.get(pers.strip().lower(), 0.0)
+        try:
+            personality = float(pers or 0)
+        except (TypeError, ValueError):
+            personality = 0.0
+
+        print(f"[analyze] compute_comfort_scores (persona={persona_label}, room_ids={room_ids}, custom_weights={bool(weights_override)}, personality={personality})")
 
         args = {
             "layout_json": layout_json,
             "persona":     persona_label,
             "room_ids":    room_ids,
+            "personality": personality,
         }
         if weights_override:
             args["weights_override"] = json.dumps(weights_override)

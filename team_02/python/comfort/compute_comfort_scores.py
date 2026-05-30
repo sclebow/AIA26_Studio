@@ -5,8 +5,14 @@ Fixed: accepts weights_override dict so onboarding-derived custom weights are us
 
 import json
 
+# Canonical coupling model is the single source of truth for aggregation + couplings.
+try:
+    from comfort.sense_model import aggregate_comfort, apply_cross_modal, apply_personality
+except ImportError:  # when loaded as a same-dir module rather than the comfort package
+    from sense_model import aggregate_comfort, apply_cross_modal, apply_personality
 
-def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_override=None):
+
+def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_override=None, personality=0.0):
     layout = None
     try:
         layout = json.loads(layout_json)
@@ -37,14 +43,6 @@ def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_ove
         "circulation":16.2,"dining":40.5,"utility":10.8,"study":32.4,"office":40.5
     }
 
-    PERSONA_W = {
-        "Elderly 65+":      {"thermal":1.2,"visual":1.1,"acoustic":1.3,"spatial":1.0,"olfactory":1.0,"tactile":1.1},
-        "Child under 12":   {"thermal":1.0,"visual":1.0,"acoustic":1.1,"spatial":1.2,"olfactory":0.9,"tactile":1.2},
-        "Sensory Sensitive":{"thermal":1.3,"visual":1.2,"acoustic":1.4,"spatial":1.1,"olfactory":1.3,"tactile":1.3},
-        "Young Active":     {"thermal":0.9,"visual":1.0,"acoustic":0.9,"spatial":1.1,"olfactory":0.9,"tactile":0.9},
-        "Neutral":          {"thermal":1.0,"visual":1.0,"acoustic":1.0,"spatial":1.0,"olfactory":1.0,"tactile":1.0},
-    }
-
     MATERIAL_SCORE = {
         "metal":0.10,"glass":0.20,"concrete":0.25,"stone":0.30,
         "ceramic":0.35,"brick":0.50,"plaster":0.55,"cork":0.70,
@@ -56,20 +54,18 @@ def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_ove
         "N":-0.03,"NE":-0.02,"NW":-0.02
     }
 
-    # Use weights_override (from onboarding) if provided, else hardcoded table
+    # Contribution weights = the REAL onboarding comfort_weights. No persona
+    # categories: the only fallback is a uniform 0.5 baseline ("no preferences
+    # expressed yet"), used before onboarding produces a profile.
+    senses = ("thermal", "visual", "acoustic", "spatial", "olfactory", "tactile")
+    weights = {s: 0.5 for s in senses}
     if weights_override:
         try:
             raw_w = json.loads(weights_override) if isinstance(weights_override, str) else weights_override
-            # Validate keys and normalise to multipliers around 1.0
-            senses = ("thermal","visual","acoustic","spatial","olfactory","tactile")
             if all(s in raw_w for s in senses):
                 weights = {s: float(raw_w[s]) for s in senses}
-            else:
-                weights = PERSONA_W.get(persona_str, PERSONA_W["Neutral"])
         except Exception:
-            weights = PERSONA_W.get(persona_str, PERSONA_W["Neutral"])
-    else:
-        weights = PERSONA_W.get(persona_str, PERSONA_W["Neutral"])
+            pass
 
     # Door adjacency map
     adj = {}
@@ -126,6 +122,13 @@ def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_ove
         noisy = sum(1 for x in adj.get(rid, []) if rtype.get(x) in ["kitchen", "living"])
         if noisy:
             sc["acoustic"] = round(max(0.1, sc["acoustic"] - 0.15 * noisy), 2)
+        # ACOUSTIC: reverberation — larger volume with hard (less absorptive) surfaces
+        # raises RT60 (Sabine: RT60 = 0.161·V/A). Couples spatial(volume)+tactile(material)→acoustic.
+        vol = area * height
+        reverb_risk = max(0.0, (vol / VOLUME_NORMS.get(rt, 40.5)) - 1.0)
+        absorption  = MATERIAL_SCORE.get(floor_mat.lower(), 0.5) if floor_mat else 0.5
+        if reverb_risk > 0:
+            sc["acoustic"] = round(max(0.1, sc["acoustic"] - 0.12 * reverb_risk * (1.0 - absorption)), 2)
 
         # THERMAL: orientation + glazing type
         thermal_delta = ORIENTATION_BONUS.get(orientation, 0)
@@ -136,6 +139,13 @@ def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_ove
             elif gt == "triple":
                 thermal_delta += 0.05
         sc["thermal"] = round(max(0.0, min(1.0, sc["thermal"] + thermal_delta)), 2)
+        # THERMAL: glazing ratio also drives thermal (solar gain / winter heat loss).
+        # Larger glazing → bigger thermal swing. Mirrors glazing→visual so the lever
+        # feeds BOTH senses (the visual↔thermal coupling via glazing).
+        if glaz_ratio >= 0.25:
+            sc["thermal"] = round(max(0.0, sc["thermal"] - 0.06), 2)
+        elif glaz_ratio >= 0.15:
+            sc["thermal"] = round(max(0.0, sc["thermal"] - 0.03), 2)
 
         # VISUAL: glazing ratio
         if glaz_ratio < 0.10:
@@ -146,6 +156,10 @@ def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_ove
         # OLFACTORY: ventilation type
         vent_delta = {"natural":0.05,"mixed":0.0,"mechanical":-0.05}.get(vent_type, 0)
         sc["olfactory"] = round(max(0.0, min(1.0, sc["olfactory"] + vent_delta)), 2)
+        # OLFACTORY: odor/contaminant migration from adjacent kitchens/bathrooms (transmissive)
+        wet_neighbours = sum(1 for x in adj.get(rid, []) if rtype.get(x) in ["kitchen", "bathroom"])
+        if wet_neighbours:
+            sc["olfactory"] = round(max(0.1, sc["olfactory"] - 0.10 * wet_neighbours), 2)
 
         # PLANTS: biophilic bonus
         furn_in_room = furniture_by_room.get(rid, [])
@@ -186,10 +200,19 @@ def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_ove
             else:
                 sc["tactile"] = round(min(1.0, sc["tactile"]*0.80 + avg_wall_mat*0.20), 2)
 
-        # PERSONA WEIGHTS
-        scores  = {s: round(min(1.0, v * weights.get(s, 1.0)), 2) for s, v in sc.items()}
-        overall = round(sum(scores.values()) / 6.0, 2)
-        low     = [s for s, v in scores.items() if v < 0.5]
+        # Per-sense scores stay OBJECTIVE (no persona inflation). Persona/preference
+        # weights apply at aggregation instead — and overall comfort is NON-ADDITIVE
+        # (one-vote veto + negativity bias), so we blend the weighted mean with the
+        # worst sense via aggregate_comfort() rather than averaging. (sense_model.py)
+        base = {s: round(min(1.0, max(0.0, v)), 2) for s, v in sc.items()}
+        # Cross-modal moderation (both tiers, each adjustment tagged research/physics),
+        # then the personality/arousal fit. comfortScores = the EFFECTIVE (felt) scores;
+        # baseScores keep the design-only values; adjustments explain every delta.
+        eff, cm_adj = apply_cross_modal(base)
+        eff, p_adj  = apply_personality(eff, personality)
+        adjustments = cm_adj + p_adj
+        overall = aggregate_comfort(eff, weights)
+        low     = [s for s, v in eff.items() if v < 0.5]
         narrative = (
             f"Room {room.get('name')} scores {overall:.2f}. Low comfort in: {', '.join(low)}."
             if low else
@@ -199,7 +222,9 @@ def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_ove
             "roomId":        rid,
             "roomName":      room.get("name"),
             "persona":       persona_str,
-            "comfortScores": scores,
+            "comfortScores": eff,           # effective / felt scores (after cross-modal + personality)
+            "baseScores":    base,          # design-only scores, before moderation
+            "adjustments":   adjustments,   # labelled deltas: {sense, delta, from, mechanism, basis}
             "overallScore":  overall,
             "narrative":     narrative,
         })

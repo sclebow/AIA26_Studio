@@ -6,6 +6,7 @@ import LayoutModeScreen from "./screens/LayoutModeScreen.jsx";
 import InspireScreen from "./screens/InspireScreen.jsx";
 import PersonaScreen from "./screens/PersonaScreen.jsx";
 import ProfileChatScreen from "./screens/ProfileChatScreen.jsx";
+import { SelectionProvider } from "./lib/selection.jsx";
 
 let _mid = 0;
 const nextId = () => ++_mid;
@@ -184,14 +185,16 @@ export default function App() {
         <ProfileChatScreen persona={persona} onConfirm={confirmPersona} />
       )}
       {screen === "chat" && (
-        <LayoutModeScreen
-          messages={chatMessages}
-          turns={turns}
-          thinking={thinking}
-          persona={persona}
-          layoutId={layoutId}
-          onSend={sendChat}
-        />
+        <SelectionProvider>
+          <LayoutModeScreen
+            messages={chatMessages}
+            turns={turns}
+            thinking={thinking}
+            persona={persona}
+            layoutId={layoutId}
+            onSend={sendChat}
+          />
+        </SelectionProvider>
       )}
     </>
   );

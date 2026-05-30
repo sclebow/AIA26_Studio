@@ -8,13 +8,24 @@ output variable `a` became the return value.
 
 import json
 
+try:
+    from comfort.sense_model import SENSES, threshold_from_weight
+except ImportError:  # same-dir fallback
+    from sense_model import SENSES, threshold_from_weight
 
-def detect_sensorial_conflicts(scores_json, persona=None):
-    """Return a JSON string of rooms whose senses fall below persona thresholds.
+
+def detect_sensorial_conflicts(scores_json, persona=None, weights_override=None):
+    """Return a JSON string of rooms whose senses fall below the user's thresholds.
+
+    Thresholds come from the REAL onboarding comfort weights when provided
+    (weights_override), via sense_model.threshold_from_weight — so detection is
+    personalised, not bucketed into a category. The per-category table is only a
+    fallback when no weights are available.
 
     Args:
         scores_json: the JSON string returned by compute_comfort_scores.
-        persona: persona label; defaults to "Neutral".
+        persona: persona label (fallback labelling only); defaults to "Neutral".
+        weights_override: dict or JSON string of the user's per-sense comfort weights.
 
     Returns:
         JSON string: {"layoutId", "persona", "totalFlagged", "flaggedRooms": [...]}.
@@ -25,16 +36,22 @@ def detect_sensorial_conflicts(scores_json, persona=None):
     except Exception:
         return json.dumps({"error": "Invalid scores_json -- must be the output from compute_comfort_scores"})
 
-    persona_str = str(persona).strip() if persona else "Neutral"
+    persona_str = str(persona).strip() if persona else "you"
 
-    THRESHOLDS = {
-        "Elderly 65+":      {"thermal":0.60,"visual":0.60,"acoustic":0.65,"spatial":0.50,"olfactory":0.55,"tactile":0.55},
-        "Child under 12":   {"thermal":0.50,"visual":0.50,"acoustic":0.55,"spatial":0.60,"olfactory":0.45,"tactile":0.60},
-        "Sensory Sensitive":{"thermal":0.65,"visual":0.65,"acoustic":0.70,"spatial":0.55,"olfactory":0.65,"tactile":0.65},
-        "Young Active":     {"thermal":0.35,"visual":0.35,"acoustic":0.35,"spatial":0.35,"olfactory":0.35,"tactile":0.35},
-        "Neutral":          {"thermal":0.45,"visual":0.45,"acoustic":0.45,"spatial":0.45,"olfactory":0.45,"tactile":0.45},
-    }
-    thresholds = THRESHOLDS.get(persona_str, THRESHOLDS["Neutral"])
+    # Thresholds are derived from the REAL onboarding weights. No persona
+    # categories: with no profile, every sense defaults to weight 0.5 → a uniform
+    # neutral threshold (~0.55).
+    weights = None
+    if weights_override:
+        try:
+            raw = json.loads(weights_override) if isinstance(weights_override, str) else weights_override
+            if all(s in raw for s in SENSES):
+                weights = {s: float(raw[s]) for s in SENSES}
+        except Exception:
+            weights = None
+    if weights is None:
+        weights = {s: 0.5 for s in SENSES}
+    thresholds = {s: threshold_from_weight(weights[s]) for s in SENSES}
 
     flagged = []
     for room in scores_data.get("rooms", []):

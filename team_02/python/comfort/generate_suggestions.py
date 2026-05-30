@@ -12,8 +12,13 @@ works without modification.
 
 import json
 
+try:
+    from comfort.sense_model import SENSES, priority_order
+except ImportError:  # same-dir fallback
+    from sense_model import SENSES, priority_order
 
-def generate_suggestions(conflicts, persona=None):
+
+def generate_suggestions(conflicts, persona=None, weights_override=None):
     """Return a JSON string of prioritised suggestions for each flagged room.
 
     Args:
@@ -64,14 +69,19 @@ def generate_suggestions(conflicts, persona=None):
             "Add textured wall treatments"
         ],
     }
-    PRIORITY = {
-        "Elderly 65+":      ["acoustic","thermal","visual","spatial","tactile","olfactory"],
-        "Child under 12":   ["spatial","tactile","acoustic","visual","thermal","olfactory"],
-        "Sensory Sensitive":["acoustic","olfactory","tactile","visual","thermal","spatial"],
-        "Young Active":     ["spatial","visual","acoustic","thermal","olfactory","tactile"],
-        "Neutral":          ["acoustic","thermal","visual","spatial","olfactory","tactile"],
-    }
-    priority = PRIORITY.get(persona_str, PRIORITY["Neutral"])
+
+    # Priority = the user's senses ranked by their real onboarding weights
+    # (highest first). No persona categories: with no profile, priority_order()
+    # falls back to the canonical SENSES order.
+    weights = None
+    if weights_override:
+        try:
+            raw = json.loads(weights_override) if isinstance(weights_override, str) else weights_override
+            if all(s in raw for s in SENSES):
+                weights = {s: float(raw[s]) for s in SENSES}
+        except Exception:
+            weights = None
+    priority = priority_order(weights)
 
     results = []
     for flagged in flagged_rooms:

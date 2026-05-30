@@ -52,3 +52,16 @@ export function scoreColor(score) {
   const s = typeof score === "number" ? score : 0;
   return s < 0.5 ? STATUS.fail : s < 0.65 ? STATUS.warn : STATUS.pass;
 }
+
+// Principle: hue = sense, intensity = health. Maps a 0..1 score to an opacity
+// rung — mirror of the --i-0..--i-4 tokens in global.css (keep the two in sync).
+// Used to render a sense at its own hue while health reads as how vivid it is.
+export const INTENSITY = [0.10, 0.24, 0.42, 0.66, 0.92];
+export function scoreOpacity(score) {
+  const s = typeof score === "number" ? score : 0;
+  if (s < 0.40) return INTENSITY[0];
+  if (s < 0.50) return INTENSITY[1];
+  if (s < 0.65) return INTENSITY[2];
+  if (s < 0.80) return INTENSITY[3];
+  return INTENSITY[4];
+}

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
 import { SC, SI, SENSES, scoreColor } from "../lib/constants.js";
+import SenseSignature from "../components/SenseSignature.jsx";
+import { useSelection } from "../lib/selection.jsx";
 
 // Topology removed — the room network now lives in the center viewer (SenseSpaceGraph).
 // This panel: room chips, bars/radar, conflicts, suggestions, specialist blocks.
@@ -116,6 +118,7 @@ export default function AnalysisPanel({ data, open, onClose, selectedRoom, onSel
   const rooms  = (scores && scores.rooms)               || [];
   const flagged = (conflicts && conflicts.flaggedRooms)  || [];
 
+  const { focusSense, toggleSense } = useSelection();
   const [view,     setView]     = useState("bars");
   const [allRooms, setAllRooms] = useState(false);
 
@@ -179,6 +182,16 @@ export default function AnalysisPanel({ data, open, onClose, selectedRoom, onSel
               <div className="ap-section-label">scores</div>
               {selectedRoom && !allRooms && focusRoom ? (
                 <>
+                  <div className="ap-signature-wrap">
+                    <SenseSignature
+                      scores={focusRoom.comfortScores}
+                      size={108}
+                      showGlyphs
+                      activeSense={focusSense}
+                      onSelectSense={toggleSense}
+                      title={focusRoom.roomName}
+                    />
+                  </div>
                   <RoomBars room={focusRoom} />
                   <button className="ap-all-rooms-toggle" onClick={() => setAllRooms(true)}>↓  all rooms</button>
                 </>
