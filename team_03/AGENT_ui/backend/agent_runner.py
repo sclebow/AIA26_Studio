@@ -121,6 +121,39 @@ async def start_session(
             msg["data"] = data
         emit(msg)
 
+    def emit_scores(overall: Any, grade: Any, breakdown: Dict[str, Any]) -> None:
+        """Map a score + per-tool breakdown → the Dashboard ScoreData shape and
+        push it as a state_update so the Analysis Dashboard reflects the score.
+        Works from the scoring node (placement runs) AND from the parsed checkpoint
+        breakdown (analysis/query runs where the scoring node never executes)."""
+        breakdown = breakdown or {}
+        if not breakdown and not overall:
+            return
+
+        def _sc(tool: str) -> float:
+            return round(float((breakdown.get(tool) or {}).get("score", 0) or 0))
+
+        def _wt(tool: str) -> float:
+            return float((breakdown.get(tool) or {}).get("weight", 0) or 0)
+
+        scores = {
+            "overall": round(float(overall or 0)),
+            "grade": grade or "?",
+            "collision": _sc("collision"),
+            "visibility": _sc("visibility"),
+            "path": _sc("path"),
+            "reachability": _sc("reachability"),
+            "orientation": _sc("orientation"),
+            "weights": {
+                "collision": _wt("collision"),
+                "visibility": _wt("visibility"),
+                "path": _wt("path"),
+                "reachability": _wt("reachability"),
+                "orientation": _wt("orientation"),
+            },
+        }
+        emit({"type": MessageType.state_update.value, "field": "scores", "data": scores})
+
     def run() -> None:
         parser = CheckpointParser()
         ctx = None
@@ -133,6 +166,10 @@ async def start_session(
         def patched_input(prompt_text: str = "") -> str:
             payload = parser.take_checkpoint()
             emit(payload)
+            # Reflect the checkpoint score in the Analysis Dashboard (the scoring
+            # node doesn't run on analysis/query paths, so use the parsed breakdown).
+            if payload.get("breakdown") or payload.get("score") is not None:
+                emit_scores(payload.get("score"), payload.get("grade"), payload.get("breakdown") or {})
             if ctx is not None:
                 layout = read_session_layout(ctx.workspace_path)
                 if layout:
@@ -170,6 +207,10 @@ async def start_session(
                     out = (ev.get("data") or {}).get("output")
                     if isinstance(out, dict):
                         final_state.update(out)
+                        # When scoring finishes, push the breakdown to the Dashboard.
+                        sr = out.get("scoring_results")
+                        if isinstance(sr, dict):
+                            emit_scores(sr.get("total_score"), sr.get("grade"), sr.get("breakdown") or {})
                 elif etype == "on_chain_error" and node:
                     emit_event(node, "error", str((ev.get("data") or {}).get("error", "")))
             return final_state

@@ -200,6 +200,8 @@ class CheckpointParser:
     _SUG_RE = re.compile(r"^\s*(s\d)\s*=\s*(.+?)\s*$")
     _RULE_RE = re.compile(r"^\s*\d+\.\s+(.*\S)\s*$")
     _AGENT_SEP_RE = re.compile(r"^[─\-]{10,}$")  # ──── or ----
+    # "  collision        85.2/100  (weight 0.40, +34.10) ..."
+    _BREAKDOWN_RE = re.compile(r"^\s*([A-Za-z_]+)\s+([\d.]+)\s*/\s*100\s+\(weight\s+([\d.]+)")
 
     def __init__(self) -> None:
         self.reset()
@@ -209,9 +211,10 @@ class CheckpointParser:
         self._grade: Optional[str] = None
         self._suggestions: list[dict] = []
         self._rules: list[str] = []
+        self._breakdown: dict[str, dict] = {}   # tool -> {score, weight}
         self._actions = {"approve": True, "end": True, "yes": False}
         self._agent_lines: list[str] = []
-        self._mode: Optional[str] = None  # 'suggestions' | 'rules' | 'agent'
+        self._mode: Optional[str] = None  # 'suggestions' | 'rules' | 'agent' | 'breakdown'
         self._ready = False
 
     def feed(self, line: str) -> None:
@@ -227,6 +230,9 @@ class CheckpointParser:
             return
 
         # Section headers
+        if stripped.startswith("Score breakdown:"):
+            self._mode = "breakdown"
+            return
         if stripped.startswith("Suggestions:"):
             self._mode = "suggestions"
             return
@@ -268,6 +274,22 @@ class CheckpointParser:
             if stripped == "":
                 return
 
+        if self._mode == "breakdown":
+            bm = self._BREAKDOWN_RE.match(line)
+            if bm:
+                try:
+                    self._breakdown[bm.group(1).lower()] = {
+                        "score": float(bm.group(2)),
+                        "weight": float(bm.group(3)),
+                    }
+                except ValueError:
+                    pass
+                return
+            if stripped == "":
+                return
+            # any other non-blank line ends the breakdown section
+            self._mode = None
+
         # Detect 'yes' availability from the actions hints
         if "proceed to next zone" in stripped:
             self._actions["yes"] = True
@@ -286,6 +308,7 @@ class CheckpointParser:
             "grade": self._grade,
             "suggestions": list(self._suggestions),
             "rules": list(self._rules),
+            "breakdown": dict(self._breakdown),
             "actions": dict(self._actions),
         }
         self.reset()
