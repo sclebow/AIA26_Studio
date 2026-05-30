@@ -69,7 +69,7 @@ export interface VisNode {
   };
   shape: string;
   size: number;
-  title: string;
+  title?: string;
   font: { color: string; size: number };
   borderWidth: number;
   ntype: string;
@@ -84,7 +84,7 @@ export interface VisEdge {
   dashes: boolean | number[];
   width: number;
   smooth: { type: string; roundness: number };
-  title: string;
+  title?: string;
   etype: string;
 }
 
@@ -262,7 +262,8 @@ export function mapGraphData(
       color: buildNodeColor(node.ntype, theme),
       shape: NODE_SHAPES[node.ntype] || 'dot',
       size: NODE_SIZES[node.ntype] || 10,
-      title: buildNodeTooltip(node, theme),
+      // No `title` → no vis.js hover tooltip (it rendered raw HTML as a white
+      // banner). Node details are shown in the detail panel on click instead.
       font: { color: theme.nodeFontColor, size: 10 },
       borderWidth: 2,
       shadow: isDark ? {
@@ -325,7 +326,7 @@ export function mapGraphData(
       dashes: EDGE_DASHES[etype] ?? false,
       width: isStructural ? 1.5 : 1.0,
       smooth: { type: 'continuous', roundness: 0.3 },
-      title: buildEdgeTooltip(link, nodesById, theme),
+      // No `title` → no hover tooltip banner.
       etype,
     };
   });
