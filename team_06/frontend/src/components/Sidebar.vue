@@ -56,7 +56,7 @@ const emit = defineEmits(['change'])
             For the user, natural light is more important than the size of the room...
           </div>
         </section>
-        <button class="create-layout-btn">Create Layout</button>
+       
       </template>
       <template v-else-if="props.tab==='explore'">
         <div class="sidebar-section-title">Explore (placeholder)</div>
@@ -65,6 +65,7 @@ const emit = defineEmits(['change'])
         <div class="sidebar-section-title">History (placeholder)</div>
       </template>
     </div>
+     <button class="create-layout-btn layout-btn ">Create Layout</button>
   </aside>
 </template>
 
@@ -78,14 +79,12 @@ const emit = defineEmits(['change'])
   border-right: 1px solid var(--color-border);
   height: 100vh;
 }
-
-
 .sidebar-content {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 28px;
-  padding: 24px 20px 24px 20px;
+  gap: 32px;
+  padding: 38px 20px 0px 20px;
   overflow-y: auto;
 }
 
@@ -96,16 +95,16 @@ const emit = defineEmits(['change'])
 .sidebar-section-title {
   display: flex;
   align-items: center;
-  font-size: var(--font-size-nav);
+  font-size: var(--font-size-bold);
   font-weight: 600;
-  margin-bottom: 8px;
-  color: var(--color-text-secondary);
+  margin-bottom: 24px;
+  color: var(--color-text-primary);
   gap: 8px;
 }
 
 .sidebar-list {
-  margin: 0 0 0 24px;
-  padding: 0;
+  margin: 0 0 0 28px;
+  padding:0;
   list-style: none;
   color: var(--color-text);
   font-size: var(--font-size-standard);
@@ -118,31 +117,12 @@ const emit = defineEmits(['change'])
   font-size: var(--font-size-standard);
   color: var(--color-text-secondary);
   margin-bottom: 12px;
-  box-shadow: var(--shadow-card);
+  border: 1px solid var(--color-border);
 }
-.create-layout-btn {
-  margin-top: auto;
-  background: var(--gradient-btn);
-  color: var(--color-white);
-  font-weight: 600;
-  font-size: var(--font-size-standard);
-  border: none;
-  border-radius: var(--radius);
-  width: 180px;
-  height: 44px;
-  min-width: 180px;
-  min-height: 44px;
-  padding: 0;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(33, 118, 255, 0.10);
-  transition: box-shadow 0.2s;
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
+.create-layout-btn{
+    margin-bottom: 28px;
 }
-.create-layout-btn:hover {
-  box-shadow: 0 4px 16px rgba(33, 118, 255, 0.18);
-}
+
 </style>
 
 

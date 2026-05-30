@@ -40,8 +40,7 @@ defineProps({ tab: String })
   background: none;
   border: none;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-nav);
-  font-weight: 600;
+  font-size: var(--font-size-subtitle);
   padding: 0 10px;
   height: 36px;
   border-radius: 0;
@@ -58,12 +57,11 @@ defineProps({ tab: String })
   content: '';
   display: block;
   position: absolute;
-  left: 8px;
-  right: 8px;
+  left: 0px;
+  right: 0px;
   bottom: 0;
   height: 2.5px;
   background: var(--color-blue);
-  border-radius: 2px;
 }
 </style>
 

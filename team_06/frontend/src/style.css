@@ -6,18 +6,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
 
 :root {
-  --color-blue: #2176ff;
-  --color-marine: #1a4fa0;
-  --color-grey-bg: #f5f6fa;
+  --color-blue: #0067B5;
+  --color-marine: #00E0CD;
+  --color-grey-bg: #F5F5F5;
   --color-white: #fff;
   --color-text: #222;
   --color-text-secondary: #666;
-  --color-border: #e0e3ea;
+  --color-border: #D9D9D9;
+  --color-text-error: #ff4d4f;
   --radius: 14px;
   --radius-card: 18px;
   --font-family: 'Inter', sans-serif;
   --font-size-title: 2.2rem;
-  --font-size-nav: 1.1rem;
+  --font-size-subtitle: 1.2rem;
   --font-size-standard: 1rem;
   --font-size-bold: 1rem;
   --shadow-card: 0 2px 12px rgba(33, 118, 255, 0.07);
@@ -27,9 +28,32 @@
 body {
   font-family: var(--font-family);
   background: var(--color-grey-bg);
-  color: var(--color-text);
   margin: 0;
   padding: 0;
+}
+
+.layout-btn {
+  margin: 18px 32px 0 32px;
+  background: var(--gradient-btn);
+  color: var(--color-white);
+  font-weight: 600;
+  font-size: var(--font-size-standard);
+  border: none;
+  border-radius: var(--radius);
+  width: 140px;
+  height: 44px;
+  min-width: 140px;
+  min-height: 44px;
+  padding: 0;
+  cursor: pointer; 
+  border: 1px solid var(--color-border);
+  transition: box-shadow 0.2s;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+.layout-btn:hover {
+  background: var(--color-marine);
 }
 
 #app {

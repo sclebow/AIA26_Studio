@@ -3,11 +3,11 @@
     <input class="chatbox-input" type="text" placeholder="What do you want to create next?" />
     <div class="chatbox-bottom-row">
       <div class="chatbox-btns">
-        <button class="chatbox-btn"><img :src="imgIcon" alt="Image" width="24" height="24" /></button>
-        <button class="chatbox-btn"><img :src="codeIcon" alt="Code" width="24" height="24" /></button>
-        <button class="chatbox-btn"><img :src="micIcon" alt="Mic" width="24" height="24" /></button>
+        <button class="chatbox-btn"><img :src="imgIcon" alt="Image" width="20" height="20" /></button>
+        <button class="chatbox-btn"><img :src="codeIcon" alt="Code" width="20" height="20" /></button>
+        <button class="chatbox-btn"><img :src="micIcon" alt="Mic" width="20" height="20" /></button>
       </div>
-      <button class="chatbox-send-btn"><img :src="sendIcon" alt="Send" width="20" height="20" /></button>
+      <button class="chatbox-send-btn"><img :src="sendIcon" alt="Send" width="16" height="16" /></button>
     </div>
   </div>
 </template>
@@ -26,19 +26,17 @@ import sendIcon from '../assets/send.svg'
   align-items: stretch;
   background: var(--color-white);
   border-radius: var(--radius-card);
-  box-shadow: 0 2px 8px rgba(33, 118, 255, 0.10);
+  border: 1px solid var(--color-border);
   padding: 32px 32px 24px 32px;
   width: 100%;
-  min-height: 120px;
   position: relative;
 }
 .chatbox-input {
   border: none;
-  
   outline: none;
   background: transparent;
   font-size: var(--font-size-standard);
-  color: #aaa;
+  color: var(--color-text-secondary);
   padding: 0;
   margin-bottom: 24px;
   width: 100%;
@@ -62,7 +60,7 @@ import sendIcon from '../assets/send.svg'
   padding: 0;
   display: flex;
   align-items: center;
-  color: #888;
+  color: var(--color-text-secondary);
   font-size: 1.8rem;
   cursor: pointer;
   border-radius: 8px;
@@ -85,8 +83,8 @@ import sendIcon from '../assets/send.svg'
   justify-content: center;
   border-radius: 50%;
   height: 32px;
-  min-width: 48px;
-  min-height: 48px;
+  min-width: 38px;
+  min-height: 38px;
   margin-left: auto;
   transition: background 0.15s, border 0.15s;
 }
