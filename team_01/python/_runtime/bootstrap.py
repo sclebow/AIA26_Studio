@@ -61,7 +61,6 @@ def bootstrap() -> Context:
     # print(f"Discovered MCP tools: {[t.get('name') for t in tools]}")
     mcp_client = _NoMcpClient()
     tools = [_TAG_AND_AUDIT_TOOL]
-    print(f"[no-MCP] Available tools: {[t['name'] for t in tools]}")
     # ─────────────────────────────────────────────────────────────────────────────
 
     # Build the LLM with a structured-output schema tailored to the available tools

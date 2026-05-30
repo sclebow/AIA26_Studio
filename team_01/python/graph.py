@@ -65,6 +65,11 @@ def _looks_like_eval(state: AgentState) -> bool:
 
 def _route_from_reason(state: AgentState) -> str:
     if state.get("pending_tool_calls") and state.get("cycle", 0) < 2:
+        # Guard: never let tag_and_audit run when the user asked for evaluation
+        calls = [tc.get("name") for tc in (state.get("pending_tool_calls") or [])]
+        if calls == ["tag_and_audit"] and _looks_like_eval(state):
+            state["pending_tool_calls"] = None
+            return "evaluate"
         return "modify"
     if state.get("cycle", 0) >= 2:
         return END
@@ -128,13 +133,11 @@ def run_agent(prompt: str, ctx: Any) -> str:
     if ctx.edited_layout_path.exists():
         before_path = ctx.edited_layout_path.with_stem(ctx.edited_layout_path.stem + "_before")
         before_path.write_text(ctx.edited_layout_path.read_text(encoding="utf-8"), encoding="utf-8")
-        print(f"[snapshot] saved {before_path.name}")
     initial_state = _build_initial_state(prompt, ctx)
     final_state = app.invoke(initial_state)
 
     # Persist material override to JSON after graph completes (survives multiple modify cycles)
     material = final_state.get("material_override")
-    print(f"[material] final material_override = {material!r}")
     if material:
         from nodes.modify import DEFAULT_SECTIONS, BEAM_SECTION_UPGRADE, COL_SECTION_UPGRADE
         sec = DEFAULT_SECTIONS.get(material)
@@ -181,14 +184,23 @@ def run_agent(prompt: str, ctx: Any) -> str:
                 ctx.edited_layout_path.write_text(
                     json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
                 )
-                print(f"JSON updated: {material} applied to {count} elements → {ctx.edited_layout_path.name}")
+                print(f"Layout saved — {material} applied to {count} elements.")
 
     _cf = final_state.get("cost_flexibility")
     if _cf:
+        _added = _cf.get("cost_added_usd", 0)
+        _saved = _cf.get("cost_saved_usd", 0)
+        _net   = _cf.get("net_cost_usd", _cf.get("material_cost_usd", 0))
+        if _added and _saved:
+            _cost_str = f"Added: +${_added:,.0f}  Saved: -${abs(_saved):,.0f}  Net: ${_net:+,.0f}"
+        elif _added:
+            _cost_str = f"Cost: +${_added:,.0f}"
+        elif _saved:
+            _cost_str = f"Saved: -${abs(_saved):,.0f}"
+        else:
+            _cost_str = "Cost: $0"
         print(
-            f"[cost-flex]"
-            f"  Cost: ${_cf.get('material_cost_usd', 0):,.0f}"
-            f"  |  Spatial Penalty: {_cf.get('spatial_penalty', 0):.2f}"
+            f"[cost-flex]  {_cost_str}"
             f"  |  Flexibility: {_cf.get('flexibility_score', 0):.1f}/10"
             f" ({_cf.get('flexibility_label', 'N/A')})"
             f"  |  Disruption: {_cf.get('disruption_score', 0)}/10"
@@ -222,6 +234,9 @@ def run_agent(prompt: str, ctx: Any) -> str:
         comparison=final_state.get("comparison_result"),
         report_path=ctx.edited_layout_path.parent / "team_01_evaluation_report.md",
         cost_flexibility=final_state.get("cost_flexibility"),
+        material=final_state.get("material_override"),
+        sdl_kNm2=final_state.get("sdl_kNm2"),
+        live_load_kNm2=final_state.get("live_load_kNm2"),
     )
 
     return final_response
@@ -233,6 +248,9 @@ def _write_evaluation_report(
     comparison: str | None,
     report_path: Path,
     cost_flexibility: dict | None = None,
+    material: str | None = None,
+    sdl_kNm2: float | None = None,
+    live_load_kNm2: float | None = None,
 ) -> None:
     import datetime
     lines = [
@@ -242,6 +260,21 @@ def _write_evaluation_report(
         f"**Prompt:** {prompt}",
         f"",
     ]
+    # Analysis parameters summary
+    if material or sdl_kNm2 or live_load_kNm2:
+        lines.append("## Analysis Parameters")
+        lines.append("")
+        lines.append("| Parameter | Value |")
+        lines.append("|-----------|-------|")
+        if material:
+            lines.append(f"| Material | {material} |")
+        if sdl_kNm2 is not None:
+            lines.append(f"| Floor build-up (SDL) | {sdl_kNm2} kN/m² |")
+        if live_load_kNm2 is not None:
+            lines.append(f"| Live load | {live_load_kNm2} kN/m² |")
+        if sdl_kNm2 is not None and live_load_kNm2 is not None:
+            lines.append(f"| Total applied load | {round(sdl_kNm2 + live_load_kNm2, 2)} kN/m² |")
+        lines.append("")
     eval_table = _format_evaluation(eval_json)
     if eval_table:
         lines.append("## Structural Checks")
@@ -261,7 +294,12 @@ def _write_evaluation_report(
         lines.append("")
         lines.append("| Metric | Value |")
         lines.append("|--------|-------|")
-        lines.append(f"| Material Cost | ${cf['material_cost_usd']:,.0f} |")
+        if cf.get("cost_added_usd") is not None:
+            lines.append(f"| Material added | +${cf['cost_added_usd']:,.0f} |")
+            lines.append(f"| Material saved | -${abs(cf['cost_saved_usd']):,.0f} |")
+            lines.append(f"| Net cost change | ${cf['net_cost_usd']:+,.0f} |")
+        else:
+            lines.append(f"| Net cost change | ${cf.get('material_cost_usd', 0):+,.0f} |")
         lines.append(f"| Disruption | {cf['disruption_label']} ({cf['disruption_score']}/10) |")
         lines.append(f"| Spatial Penalty | {cf['spatial_penalty']:.2f} |")
         lines.append(f"| Flexibility | {cf['flexibility_score']:.1f}/10 — {cf['flexibility_label']} |")

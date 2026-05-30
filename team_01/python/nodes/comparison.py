@@ -4,7 +4,7 @@ import time
 from collections import Counter
 
 
-SYSTEM_PROMPT = """You are a structural design analyst. Given a change summary, write 2-3 sentences: what changed and whether it achieved its goal. Reply with JSON: {"action":"final","final_response":"<summary>","tool_calls":[]}"""
+SYSTEM_PROMPT = """You are a structural advisor summarising a design change for an architect. Given what changed and any cost/flexibility data, write 2-3 plain sentences: what was done, what it means for the design, and one concrete suggestion for what to explore next. Speak like a colleague, not a report. Reply with JSON: {"action":"final","final_response":"<summary>","tool_calls":[]}"""
 
 
 def print_diff(before: str, after: str) -> None:

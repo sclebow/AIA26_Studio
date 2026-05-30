@@ -143,27 +143,41 @@ def _detect_changes(before_str: str, after_str: str) -> dict[str, Any]:
 
 def _material_cost_usd(
     added: list[dict],
+    removed: list[dict],
     changed_after: list[dict],
     changed_before: list[dict],
-) -> float:
-    """Net material cost in USD for added and upgraded elements."""
-    total = 0.0
+) -> tuple[float, float, float]:
+    """
+    Returns (cost_added, cost_saved, net_cost).
+    cost_added ≥ 0 (new material), cost_saved ≤ 0 (removed material), net = sum of both.
+    """
+    cost_added = 0.0
+    cost_saved = 0.0
 
     for el in added:
         mat = el.get("attributes", {}).get("material", "RCC").upper()
         key = next((k for k in _COST_PER_M3_USD if k in mat), "RCC")
-        total += _element_volume_m3(el) * _COST_PER_M3_USD[key]
+        cost_added += _element_volume_m3(el) * _COST_PER_M3_USD[key]
+
+    for el in removed:
+        mat = el.get("attributes", {}).get("material", "RCC").upper()
+        key = next((k for k in _COST_PER_M3_USD if k in mat), "RCC")
+        cost_saved -= _element_volume_m3(el) * _COST_PER_M3_USD[key]
 
     for el_a, el_b in zip(changed_after, changed_before):
         mat_a = el_a.get("attributes", {}).get("material", "RCC").upper()
         mat_b = el_b.get("attributes", {}).get("material", "RCC").upper()
         key_a = next((k for k in _COST_PER_M3_USD if k in mat_a), "RCC")
         key_b = next((k for k in _COST_PER_M3_USD if k in mat_b), "RCC")
-        cost_a = _element_volume_m3(el_a) * _COST_PER_M3_USD[key_a]
-        cost_b = _element_volume_m3(el_b) * _COST_PER_M3_USD[key_b]
-        total += max(0.0, cost_a - cost_b)
+        delta = _element_volume_m3(el_a) * _COST_PER_M3_USD[key_a] \
+              - _element_volume_m3(el_b) * _COST_PER_M3_USD[key_b]
+        if delta >= 0:
+            cost_added += delta
+        else:
+            cost_saved += delta
 
-    return round(total, 2)
+    net = cost_added + cost_saved
+    return round(cost_added, 2), round(cost_saved, 2), round(net, 2)
 
 
 # ── Flexibility scoring ───────────────────────────────────────────────────────
@@ -353,7 +367,7 @@ def build_cost_flexibility_node():
             state["cost_flexibility"] = None
             return state
 
-        cost    = _material_cost_usd(added, changed_after, changed_before)
+        cost_added, cost_saved, net_cost = _material_cost_usd(added, removed, changed_after, changed_before)
         flex    = _aggregate_flexibility(added, removed, changed_after, changed_before, outline)
         disrupt = _disruption_score(added, removed, changed_after, outline)
         penalty = _spatial_penalty(added, outline)
@@ -366,9 +380,19 @@ def build_cost_flexibility_node():
         if changed_after: parts.append(f"{len(changed_after)} upgraded")
         change_desc = ", ".join(parts) or "no changes"
 
+        # Cost breakdown string
+        if cost_added and cost_saved:
+            cost_str = f"Added: +${cost_added:,.0f} | Saved: -${abs(cost_saved):,.0f} | Net: ${net_cost:+,.0f}"
+        elif cost_added:
+            cost_str = f"Cost: +${cost_added:,.0f}"
+        elif cost_saved:
+            cost_str = f"Saved: -${abs(cost_saved):,.0f}"
+        else:
+            cost_str = "Cost: $0"
+
         summary = (
             f"{change_desc} | "
-            f"Cost: ${cost:,.0f} | "
+            f"{cost_str} | "
             f"Flexibility: {flex:.1f}/10 ({flex_lbl}) | "
             f"Disruption: {disrupt}/10 ({dis_lbl})"
         )
@@ -377,7 +401,9 @@ def build_cost_flexibility_node():
             print(f"  Spatial penalty: {penalty:.2f}  (mid-room column intrusion detected)")
 
         state["cost_flexibility"] = {
-            "material_cost_usd": cost,
+            "cost_added_usd":    cost_added,
+            "cost_saved_usd":    cost_saved,
+            "net_cost_usd":      net_cost,
             "disruption_score":  disrupt,
             "disruption_label":  dis_lbl,
             "spatial_penalty":   penalty,

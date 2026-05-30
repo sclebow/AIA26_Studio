@@ -302,7 +302,7 @@ def generate_structure(layout: dict, save_outputs: bool = False, output_dir: str
         return layout
 
     input_stem = layout.get("layoutId", "layout").replace("/", "_").replace(" ", "_")
-    print(f"\n[tag_and_audit] Processing: {input_stem}")
+    print(f"\nAnalysing floor plan: {input_stem}")
 
     if save_outputs and output_dir:
         os.makedirs(output_dir, exist_ok=True)
@@ -325,7 +325,7 @@ def generate_structure(layout: dict, save_outputs: bool = False, output_dir: str
             if outline_poly.contains(pt) or outline_poly.boundary.distance(pt) < TOLERANCE:
                 candidate_columns.append((x, y))
 
-    print(f"  Unique X: {len(unique_x)}  Unique Y: {len(unique_y)}  Candidates: {len(candidate_columns)}")
+    # print(f"  Unique X: {len(unique_x)}  Unique Y: {len(unique_y)}  Candidates: {len(candidate_columns)}")
 
     # ── COLUMN CLASSIFICATION ─────────────────────────────────────────────────
     room_corners = set(key(pt) for room in layout["rooms"] for pt in room["geometry"][:-1])
@@ -600,7 +600,7 @@ def generate_structure(layout: dict, save_outputs: bool = False, output_dir: str
         for grid_idx, grid_opt in enumerate(run_grid_culling(wall_opt)):
             all_layout_options.append((wall_idx, grid_idx, wall_opt, grid_opt))
 
-    print(f"  Layout combinations: {len(all_layout_options)}")
+    # print(f"  Layout combinations: {len(all_layout_options)}")
 
     # ── COLUMN CULLING + FINALISATION ─────────────────────────────────────────
     perimeter_node_set = set()
@@ -674,7 +674,7 @@ def generate_structure(layout: dict, save_outputs: bool = False, output_dir: str
             'culled_cols': col_cull,
         })
 
-    print(f"  Final layouts: {len(final_layouts)}")
+    # print(f"  Final layouts: {len(final_layouts)}")
 
     if not final_layouts:
         print("[tag_and_audit] No layouts generated — returning unchanged")
@@ -786,7 +786,7 @@ def generate_structure(layout: dict, save_outputs: bool = False, output_dir: str
                 json.dump(output_json, f, indent=2)
             print(f"  Saved: {png_path}  ({n_cols}c · {n_beams}b)")
 
-    print(f"[tag_and_audit] Done — {len(all_outputs)} options for {input_stem}")
+    print(f"  {len(all_outputs)} structural option(s) ready for {input_stem}")
     return all_outputs
 
 
