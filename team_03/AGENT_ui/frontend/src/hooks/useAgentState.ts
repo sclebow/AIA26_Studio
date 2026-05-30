@@ -5,6 +5,39 @@ import type { AgentEvent, AgentResponse, AgentSay, AgentCheckpoint } from '../ut
 import type { LogEntry } from '../components/ReasoningLog/ReasoningLog';
 import type { ScoreData } from '../components/Dashboard/Dashboard';
 
+// Friendly "what the agent is doing now" phrases keyed by graph node name.
+// Shown under the "Agent is thinking…" indicator so the long pipeline run
+// doesn't feel frozen.
+const NODE_PHRASES: Record<string, string> = {
+  setup: 'Connecting to Grasshopper and the LLM, please wait…',
+  profile_agent: 'Identifying the movement profile…',
+  space_type_agent: 'Detecting the space type…',
+  populate_check: 'Planning the approach…',
+  populate_agent: 'Planning a zone-by-zone layout…',
+  memory: 'Recalling memory and your rules…',
+  reason: 'Reasoning about the layout — this can take a moment…',
+  tool: 'Running a Grasshopper tool…',
+  add_objects: 'Placing objects in the layout…',
+  next_zone: 'Moving to the next zone…',
+  collision: 'Checking clearances and collisions…',
+  visibility: 'Analyzing visibility and sightlines…',
+  orientation: 'Checking furniture orientation…',
+  path: 'Computing circulation paths…',
+  path_analysis: 'Computing circulation paths…',
+  reachability: 'Checking reachability…',
+  enrich_graph: 'Updating the spatial graph…',
+  scoring: 'Scoring the layout…',
+  checkpoint: 'Preparing the results…',
+  user_checkpoint: 'Preparing the results…',
+  query_agent: 'Analyzing the layout…',
+  explain: 'Writing the summary…',
+  output: 'Saving the final layout…',
+};
+
+function phraseForNode(node: string): string {
+  return NODE_PHRASES[node] || `Working on ${node.replace(/_/g, ' ')}…`;
+}
+
 /** Active checkpoint options shown in the chat's right-side panel. */
 export interface CheckpointState {
   agentMessage: string;
@@ -21,6 +54,8 @@ export interface UseAgentStateReturn {
   isAgentRunning: boolean;
   logEntries: LogEntry[];
   checkpoint: CheckpointState | null;
+  /** Discrete "what the agent is doing now" line under the typing indicator. */
+  currentStatus: string | null;
   addUserMessage: (content: string) => void;
   beginAwaitingResponse: () => void;
   handleAgentEvent: (event: AgentEvent) => void;
@@ -44,6 +79,7 @@ export function useAgentState(options?: UseAgentStateOptions): UseAgentStateRetu
   const [isAgentRunning, setIsAgentRunning] = useState(false);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [checkpoint, setCheckpoint] = useState<CheckpointState | null>(null);
+  const [currentStatus, setCurrentStatus] = useState<string | null>(null);
   void options; // onScoresReady reserved for future real-score wiring
 
   const addLog = useCallback((type: LogEntry['type'], message: string, node?: string, data?: unknown) => {
@@ -67,6 +103,7 @@ export function useAgentState(options?: UseAgentStateOptions): UseAgentStateRetu
     setMessages(prev => [...prev, msg]);
     setIsAgentRunning(true);
     setCheckpoint(null);   // a new instruction supersedes the old options
+    setCurrentStatus('Starting the agent…');
     addLog('info', `User prompt: "${content.length > 80 ? content.slice(0, 80) + '...' : content}"`);
   }, [addLog]);
 
@@ -74,6 +111,7 @@ export function useAgentState(options?: UseAgentStateOptions): UseAgentStateRetu
   const beginAwaitingResponse = useCallback(() => {
     setIsAgentRunning(true);
     setCheckpoint(null);
+    setCurrentStatus('Applying your decision…');
   }, []);
 
   const handleAgentEvent = useCallback((event: AgentEvent) => {
@@ -90,10 +128,17 @@ export function useAgentState(options?: UseAgentStateOptions): UseAgentStateRetu
 
     if (event.status === 'started') {
       setIsAgentRunning(true);
+      setCurrentStatus(phraseForNode(event.node));
       addLog('node_start', 'Started', event.node);
     } else if (event.status === 'completed') {
+      // The `setup` node streams granular progress as completed-with-data
+      // ("MCP connected — N tools", "LLM ready…") — surface those verbatim.
+      if (event.node === 'setup' && typeof event.data === 'string' && event.data) {
+        setCurrentStatus(event.data);
+      }
       addLog('node_complete', event.data ? `Completed — ${typeof event.data === 'string' ? event.data : JSON.stringify(event.data).slice(0, 120)}` : 'Completed', event.node, event.data);
     } else if (event.status === 'error') {
+      setCurrentStatus(`Error at ${event.node.replace(/_/g, ' ')}`);
       addLog('node_error', event.data ? `Error: ${event.data}` : 'Error occurred', event.node, event.data);
     }
   }, [addLog]);
@@ -109,6 +154,7 @@ export function useAgentState(options?: UseAgentStateOptions): UseAgentStateRetu
     setMessages(prev => [...prev, msg]);
     setIsAgentRunning(false);
     setCheckpoint(null);   // final response ends the session
+    setCurrentStatus(null);
 
     if (response.tool_calls?.length) {
       response.tool_calls.forEach(tc => {
@@ -149,6 +195,7 @@ export function useAgentState(options?: UseAgentStateOptions): UseAgentStateRetu
       actions: cp.actions || { approve: true, end: true, yes: false },
     });
     setIsAgentRunning(false);
+    setCurrentStatus(null);
     if (cp.score != null) {
       addLog('info', `Checkpoint — score ${cp.score}/100${cp.grade ? ` (${cp.grade})` : ''}`);
     }
@@ -160,6 +207,7 @@ export function useAgentState(options?: UseAgentStateOptions): UseAgentStateRetu
     setIsAgentRunning(false);
     setLogEntries([]);
     setCheckpoint(null);
+    setCurrentStatus(null);
     addLog('info', 'Chat reset');
   }, [addLog]);
 
@@ -171,6 +219,7 @@ export function useAgentState(options?: UseAgentStateOptions): UseAgentStateRetu
       return prev.slice(0, lastUserIdx);
     });
     setIsAgentRunning(false);
+    setCurrentStatus(null);
     addLog('info', 'Last message cancelled');
   }, [addLog]);
 
@@ -180,6 +229,7 @@ export function useAgentState(options?: UseAgentStateOptions): UseAgentStateRetu
     isAgentRunning,
     logEntries,
     checkpoint,
+    currentStatus,
     addUserMessage,
     beginAwaitingResponse,
     handleAgentEvent,

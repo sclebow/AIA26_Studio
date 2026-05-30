@@ -56,9 +56,12 @@ export default function App() {
   const wasRunningRef = useRef(false);
 
   // ── WebSocket dispatcher ──────────────────────────────────────────────────
-  useEffect(() => {
-    if (!ws.lastMessage) return;
-    const msg = ws.lastMessage;
+  // Subscribe to EVERY message (not ws.lastMessage, which coalesces bursts and
+  // would drop e.g. an agent_response that is immediately followed by a
+  // state_update). dispatchRef holds the latest handlers to avoid re-subscribing.
+  const dispatchRef = useRef<(msg: typeof ws.lastMessage) => void>(() => {});
+  dispatchRef.current = (msg) => {
+    if (!msg) return;
     switch (msg.type) {
       case 'agent_event':      agentState.handleAgentEvent(msg);      break;
       case 'agent_response':   agentState.handleAgentResponse(msg);   break;
@@ -67,8 +70,8 @@ export default function App() {
       case 'state_update':     layoutState.updateFromWS(msg);         break;
       case 'selection_sync':   applyRemoteSelection(msg.elementId, msg.source); break;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ws.lastMessage]);
+  };
+  useEffect(() => ws.subscribe((msg) => dispatchRef.current(msg)), [ws]);
 
   // ── Auto-load layout ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -399,6 +402,7 @@ export default function App() {
             onCancel={handleChatCancel}
             checkpoint={agentState.checkpoint}
             onDecision={handleChatDecision}
+            statusText={agentState.currentStatus}
           />
         </div>
       </div>

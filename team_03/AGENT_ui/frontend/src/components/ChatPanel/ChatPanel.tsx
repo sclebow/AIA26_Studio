@@ -14,15 +14,17 @@ export interface ChatPanelProps {
   onCancel: () => void;
   checkpoint?: CheckpointState | null;
   onDecision?: (value: string) => void;
+  /** Discrete "what the agent is doing now" line under the typing indicator. */
+  statusText?: string | null;
 }
 
-const TypingIndicator: React.FC = () => {
+const TypingIndicator: React.FC<{ statusText?: string | null }> = ({ statusText }) => {
   const { colors } = useTheme();
   return (
     <div style={{
       display: 'flex',
-      alignItems: 'center',
-      gap: '6px',
+      flexDirection: 'column',
+      gap: '3px',
       padding: '8px 0 4px 8px',
     }}>
       <style>{`
@@ -30,25 +32,44 @@ const TypingIndicator: React.FC = () => {
           0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
           40% { transform: translateY(-4px); opacity: 1; }
         }
+        @keyframes statusFade { from { opacity: 0; } to { opacity: 1; } }
       `}</style>
-      {[0, 1, 2].map(i => (
-        <span key={i} style={{
-          display: 'inline-block',
-          width: '6px',
-          height: '6px',
-          borderRadius: '50%',
-          background: colors.accent,
-          animation: `typingBounce 1.2s ease-in-out ${i * 0.2}s infinite`,
-        }} />
-      ))}
-      <span style={{
-        color: colors.muted,
-        fontSize: '12px',
-        marginLeft: '4px',
-        fontFamily: colors.font,
-      }}>
-        Agent is thinking
-      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {[0, 1, 2].map(i => (
+          <span key={i} style={{
+            display: 'inline-block',
+            width: '6px',
+            height: '6px',
+            borderRadius: '50%',
+            background: colors.accent,
+            animation: `typingBounce 1.2s ease-in-out ${i * 0.2}s infinite`,
+          }} />
+        ))}
+        <span style={{
+          color: colors.muted,
+          fontSize: '12px',
+          marginLeft: '4px',
+          fontFamily: colors.font,
+        }}>
+          Agent is thinking
+        </span>
+      </div>
+      {statusText && (
+        <span
+          key={statusText}
+          style={{
+            color: colors.accent,
+            fontSize: '11px',
+            marginLeft: '8px',
+            fontFamily: colors.font,
+            opacity: 0.85,
+            fontStyle: 'italic',
+            animation: 'statusFade 0.3s ease',
+          }}
+        >
+          {statusText}
+        </span>
+      )}
     </div>
   );
 };
@@ -76,7 +97,7 @@ const StopIcon: React.FC = () => (
   </svg>
 );
 
-const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSend, isAgentRunning, onReset, onCancel, checkpoint, onDecision }) => {
+const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSend, isAgentRunning, onReset, onCancel, checkpoint, onDecision, statusText }) => {
   const { colors } = useTheme();
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -274,7 +295,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSend, isAgentRunning,
                   <MessageBubble key={msg.id} message={msg} />
                 ))
               )}
-              {isAgentRunning && <TypingIndicator />}
+              {isAgentRunning && <TypingIndicator statusText={statusText} />}
               <div ref={messagesEndRef} />
             </div>
 
