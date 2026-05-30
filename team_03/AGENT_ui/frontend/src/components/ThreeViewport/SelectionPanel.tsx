@@ -98,13 +98,13 @@ export default function SelectionPanel({ selectedId, layout, graphData, onClose 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* Header */}
+      {/* Header — matches App's sectionHeaderStyle (same size/font as Layers/Pipeline) */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '6px 12px', borderBottom: `1px solid ${colors.border}`,
+        padding: '7px 12px', borderBottom: `1px solid ${colors.border}`,
         flexShrink: 0,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
           {info && (
             <span style={{
               fontSize: 8, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
@@ -113,7 +113,11 @@ export default function SelectionPanel({ selectedId, layout, graphData, onClose 
               {info.type}
             </span>
           )}
-          <span style={{ fontSize: 11, fontWeight: 600, color: colors.text }}>
+          <span style={{
+            fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
+            fontFamily: colors.fontHeading, color: colors.muted,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
             {info ? info.name : 'Properties'}
           </span>
         </div>

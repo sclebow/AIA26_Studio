@@ -129,20 +129,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSend, isAgentRunning,
     overflow: 'hidden',
   };
 
+  // Header sized to match App's sectionHeaderStyle (Layers/Pipeline/Properties).
   const headerStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    padding: '14px 16px 12px',
+    padding: '7px 12px',
     borderBottom: `1px solid ${colors.border}`,
     flexShrink: 0,
   };
 
   const headerTitleStyle: React.CSSProperties = {
-    color: colors.text,
-    fontSize: '13px',
+    color: colors.muted,
+    fontSize: '9px',
     fontWeight: 700,
-    letterSpacing: '0.12em',
+    letterSpacing: '0.14em',
     textTransform: 'uppercase',
     fontFamily: colors.fontHeading,
   };
@@ -162,9 +163,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSend, isAgentRunning,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '26px',
-    height: '26px',
-    borderRadius: '6px',
+    width: '20px',
+    height: '20px',
+    borderRadius: '5px',
     border: `1px solid ${enabled ? (danger ? colors.warning + '55' : colors.border) : colors.border}`,
     background: 'transparent',
     color: enabled ? (danger ? colors.warning : colors.muted) : colors.border,
