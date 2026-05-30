@@ -214,7 +214,7 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
 
   const center = useMemo(() => ({ x: bounds.cx, z: bounds.cz }), [bounds])
 
-  const bgColor = isDark ? '#1a1b24' : '#ffffff'
+  const bgColor = isDark ? '#0a0612' : '#ffffff'
 
   return (
     <>
@@ -225,12 +225,12 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
       {isDark && <color attach="background" args={[bgColor]} />}
       <fog attach="fog" args={[bgColor, 120, 280]} />
 
-      {/* Lighting — neutral colors, strong directional for dark mode, pure white for light */}
-      <ambientLight intensity={isDark ? 0.45 : 0.9} color={isDark ? '#b0b4bc' : '#ffffff'} />
+      {/* Lighting — sci-fi cool lavender tint for dark mode, pure white for light */}
+      <ambientLight intensity={isDark ? 0.5 : 0.9} color={isDark ? '#b9a8e8' : '#ffffff'} />
       <directionalLight
         position={[bounds.w * 0.4, bounds.maxDim * 1.5, bounds.h * 0.6]}
-        intensity={isDark ? 1.4 : 0.6}
-        color={isDark ? '#e8e6ef' : '#ffffff'}
+        intensity={isDark ? 1.35 : 0.6}
+        color={isDark ? '#e9e2ff' : '#ffffff'}
         castShadow={isDark}
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
@@ -244,22 +244,22 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
       />
       <directionalLight
         position={[-bounds.w * 0.3, bounds.maxDim * 0.5, -bounds.h * 0.5]}
-        intensity={isDark ? 0.25 : 0.3}
-        color={isDark ? '#8892a0' : '#ffffff'}
+        intensity={isDark ? 0.3 : 0.3}
+        color={isDark ? '#8b5cf6' : '#ffffff'}
       />
 
-      {/* Accent point lights — only for dark mode */}
+      {/* Accent point lights — purple glow, only for dark mode */}
       <pointLight
         position={[0, bounds.maxDim * 0.4, 0]}
-        intensity={isDark ? 0.20 : 0}
-        color={isDark ? '#a0a8b8' : '#ffffff'}
+        intensity={isDark ? 0.28 : 0}
+        color={isDark ? '#a78bfa' : '#ffffff'}
         distance={bounds.maxDim * 2.5}
         decay={2}
       />
       <pointLight
         position={[bounds.w * 0.3, 1, bounds.h * 0.3]}
-        intensity={isDark ? 0.15 : 0}
-        color={isDark ? '#b0a898' : '#ffffff'}
+        intensity={isDark ? 0.18 : 0}
+        color={isDark ? '#c4b5fd' : '#ffffff'}
         distance={bounds.maxDim * 2}
         decay={2}
       />
@@ -283,10 +283,10 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
         args={[200, 200]}
         cellSize={1}
         cellThickness={0.5}
-        cellColor={isDark ? '#1e2028' : '#e0e2e6'}
+        cellColor={isDark ? '#241a3a' : '#e0e2e6'}
         sectionSize={5}
         sectionThickness={1}
-        sectionColor={isDark ? '#282a34' : '#d0d2d6'}
+        sectionColor={isDark ? '#3a2b5c' : '#d0d2d6'}
         fadeDistance={100}
         fadeStrength={2.0}
         infiniteGrid
@@ -516,7 +516,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
   }, [onSelect])
 
 
-  const bgColor = isDark ? '#1a1b24' : '#ffffff'
+  const bgColor = isDark ? '#0a0612' : '#ffffff'
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>

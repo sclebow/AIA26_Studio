@@ -155,16 +155,17 @@ export default function App() {
   if (!onboarded) return <OnboardingPage onComplete={(data) => { setOnboardingData(data); setOnboarded(true); }} />;
 
   // ── Shared style tokens ───────────────────────────────────────────────────
-  const sidebarBg = isDark ? 'rgba(12,13,18,0.98)' : 'rgba(248,249,251,0.98)';
+  const sidebarBg = isDark ? 'rgba(13,9,24,0.98)' : 'rgba(248,249,251,0.98)';
   const panelBorder = `1px solid ${colors.border}`;
 
   const sectionHeaderStyle: React.CSSProperties = {
     padding: '7px 12px',
     fontSize: 9,
-    fontWeight: 600,
-    letterSpacing: '0.1em',
+    fontWeight: 700,
+    letterSpacing: '0.14em',
     textTransform: 'uppercase',
     color: colors.muted,
+    fontFamily: colors.fontHeading,
     borderBottom: panelBorder,
     display: 'flex',
     alignItems: 'center',
@@ -217,12 +218,12 @@ export default function App() {
         height: 44, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 16px', zIndex: 250,
-        background: isDark ? 'rgba(18,19,26,0.96)' : 'rgba(245,245,247,0.97)',
+        background: isDark ? 'rgba(13,9,24,0.96)' : 'rgba(245,245,247,0.97)',
         borderBottom: panelBorder,
       }}>
 
         {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: colors.text, letterSpacing: '0.02em' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: colors.text, letterSpacing: '0.12em', fontFamily: colors.fontHeading, textTransform: 'uppercase' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.accent} strokeWidth="2">
             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
             <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
@@ -395,7 +396,7 @@ export default function App() {
           gridColumn: '2', gridRow: '2',
           borderTop: panelBorder,
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
-          background: isDark ? 'rgba(10,11,16,0.98)' : 'rgba(250,251,253,0.98)',
+          background: isDark ? 'rgba(11,7,20,0.98)' : 'rgba(250,251,253,0.98)',
         }}>
           <ChatPanel
             messages={agentState.messages}

@@ -117,9 +117,9 @@ const ProcessPanel: React.FC<ProcessPanelProps> = ({ nodeStatuses }) => {
           color: colors.text,
           fontSize: '11px',
           fontWeight: 600,
-          letterSpacing: '0.06em',
+          letterSpacing: '0.12em',
           textTransform: 'uppercase',
-          fontFamily: colors.font,
+          fontFamily: colors.fontHeading,
         }}>
           Pipeline
         </span>

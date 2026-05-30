@@ -141,10 +141,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSend, isAgentRunning,
   const headerTitleStyle: React.CSSProperties = {
     color: colors.text,
     fontSize: '13px',
-    fontWeight: 600,
-    letterSpacing: '0.04em',
+    fontWeight: 700,
+    letterSpacing: '0.12em',
     textTransform: 'uppercase',
-    fontFamily: colors.font,
+    fontFamily: colors.fontHeading,
   };
 
   const statusDotStyle: React.CSSProperties = {

@@ -205,14 +205,27 @@ type DarkProp = { isDark: boolean }
 // ── Arctic palette — muted Scandinavian tones matching layer dot colors ──
 // Outline #6B7B9E  Rooms #B5A898  Walls #8B8F96  Doors #C4896E
 // Windows #7A9DB8  Furniture #9888AD  MEP #7EA68B
+// Dark variants carry a sci-fi purple tint (welcome aesthetic) while keeping a
+// distinct hue per layer for legibility; light mode unchanged.
 const ARCTIC = {
-  room:      { dark: '#2a2c36', light: '#eae6e2', edge: '#d4cec8' },   // warm sand tint
-  wall:      { dark: '#4a4f58', light: '#c5c7cb', edge: '#a0a3a8' },   // cool gray
-  door:      { dark: '#8a7060', light: '#edddd0', edge: '#d4b8a0' },   // terracotta tint
-  window:    { dark: '#607088', light: '#dce8f0', edge: '#b0c8d8' },   // steel blue tint
-  furniture: { dark: '#5a5060', light: '#e6e0ec', edge: '#c4b8d0' },   // dusty lavender
-  mep:       { dark: '#4a5850', light: '#deeae2', edge: '#b0c8b8' },   // sage tint
+  room:      { dark: '#262035', light: '#eae6e2', edge: '#d4cec8' },   // indigo-tinted floor
+  wall:      { dark: '#46415e', light: '#c5c7cb', edge: '#a0a3a8' },   // slate-purple
+  door:      { dark: '#8a667c', light: '#edddd0', edge: '#d4b8a0' },   // warm orchid (contrast)
+  window:    { dark: '#5a6a96', light: '#dce8f0', edge: '#b0c8d8' },   // lavender-steel
+  furniture: { dark: '#665a86', light: '#e6e0ec', edge: '#c4b8d0' },   // violet
+  mep:       { dark: '#46685e', light: '#deeae2', edge: '#b0c8b8' },   // cool teal-green
 }
+
+// Sci-fi edge/selection accents (dark mode).
+const EDGE_DARK = {
+  outline:   '#8b5cf6',
+  wall:      '#8b7bd0',
+  door:      '#e0a0c4',
+  window:    '#8aa0e0',
+  furniture: '#a78bfa',
+  mep:       '#5eead4',
+}
+const SELECT_EMISSIVE = '#a78bfa'
 
 // ── Outline ────────────────────────────────────────────────────────────
 function OutlineLayer({ outline, isDark }: { outline: [number, number][]; selectedId: string | null; isDark: boolean }) {
@@ -220,7 +233,7 @@ function OutlineLayer({ outline, isDark }: { outline: [number, number][]; select
   const geo = useMemo(() => new THREE.BufferGeometry().setFromPoints(points), [points])
   return (
     <lineLoop geometry={geo}>
-      <lineBasicMaterial color={isDark ? '#6B7B9E' : '#9aa8bc'} linewidth={1.5} />
+      <lineBasicMaterial color={isDark ? EDGE_DARK.outline : '#9aa8bc'} linewidth={1.5} />
     </lineLoop>
   )
 }
@@ -256,7 +269,7 @@ function RoomMesh({ room, isSelected, onSelect, isDark }: {
         color={isDark ? ARCTIC.room.dark : ARCTIC.room.light}
         transparent opacity={0.85} side={THREE.DoubleSide}
         roughness={0.95} metalness={0}
-        emissive={isSelected ? '#6B7B9E' : '#000000'}
+        emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
         emissiveIntensity={isSelected ? 0.35 : 0}
       />
     </mesh>
@@ -319,7 +332,7 @@ function WallMesh({ wall, openings, isSelected, onSelect, isDark }: {
               color={ARCTIC.wall.dark}
               transparent opacity={0.80}
               roughness={0.95} metalness={0}
-              emissive={isSelected ? '#6B7B9E' : '#000000'}
+              emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
               emissiveIntensity={isSelected ? 0.35 : 0}
             />
           ) : (
@@ -328,7 +341,7 @@ function WallMesh({ wall, openings, isSelected, onSelect, isDark }: {
               transparent opacity={0.80}
             />
           )}
-          <Edges threshold={15} color={isDark ? '#6B7B9E' : ARCTIC.wall.edge} />
+          <Edges threshold={15} color={isDark ? EDGE_DARK.wall : ARCTIC.wall.edge} />
         </mesh>
       ))}
     </group>
@@ -372,10 +385,10 @@ function DoorMesh({ door, isSelected, onSelect, isDark }: {
         color={isDark ? ARCTIC.door.dark : ARCTIC.door.light}
         transparent opacity={0.92}
         roughness={0.95} metalness={0}
-        emissive={isSelected ? '#6B7B9E' : '#000000'}
+        emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
         emissiveIntensity={isSelected ? 0.35 : 0}
       />
-      <Edges threshold={15} color={isDark ? '#C4896E' : ARCTIC.door.edge} />
+      <Edges threshold={15} color={isDark ? EDGE_DARK.door : ARCTIC.door.edge} />
     </mesh>
   )
 }
@@ -417,10 +430,10 @@ function WindowMesh({ win, isSelected, onSelect, isDark }: {
         color={isDark ? ARCTIC.window.dark : ARCTIC.window.light}
         transparent opacity={0.78}
         roughness={0.95} metalness={0}
-        emissive={isSelected ? '#6B7B9E' : '#000000'}
+        emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
         emissiveIntensity={isSelected ? 0.35 : 0}
       />
-      <Edges threshold={15} color={isDark ? '#7A9DB8' : ARCTIC.window.edge} />
+      <Edges threshold={15} color={isDark ? EDGE_DARK.window : ARCTIC.window.edge} />
     </mesh>
   )
 }
@@ -455,11 +468,11 @@ function FurnitureMesh({ item, isSelected, onSelect, isDark }: {
       <meshStandardMaterial
         color={isDark ? ARCTIC.furniture.dark : ARCTIC.furniture.light}
         roughness={0.95} metalness={0}
-        emissive={isSelected ? '#6B7B9E' : '#000000'}
+        emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
         emissiveIntensity={isSelected ? 0.35 : 0}
         transparent opacity={0.92}
       />
-      <Edges threshold={15} color={isDark ? '#9888AD' : ARCTIC.furniture.edge} />
+      <Edges threshold={15} color={isDark ? EDGE_DARK.furniture : ARCTIC.furniture.edge} />
     </mesh>
   )
 }
@@ -494,11 +507,11 @@ function MEPMesh({ item, isSelected, onSelect, isDark }: {
       <meshStandardMaterial
         color={isDark ? ARCTIC.mep.dark : ARCTIC.mep.light}
         roughness={0.95} metalness={0}
-        emissive={isSelected ? '#6B7B9E' : '#000000'}
+        emissive={isSelected ? SELECT_EMISSIVE : '#000000'}
         emissiveIntensity={isSelected ? 0.35 : 0}
         transparent opacity={0.92}
       />
-      <Edges threshold={15} color={isDark ? '#7EA68B' : ARCTIC.mep.edge} />
+      <Edges threshold={15} color={isDark ? EDGE_DARK.mep : ARCTIC.mep.edge} />
     </mesh>
   )
 }

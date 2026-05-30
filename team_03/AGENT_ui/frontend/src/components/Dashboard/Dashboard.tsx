@@ -150,9 +150,9 @@ const Dashboard: React.FC<DashboardProps> = ({ scores }) => {
           color: colors.text,
           fontSize: 11,
           fontWeight: 600,
-          letterSpacing: '0.06em',
+          letterSpacing: '0.12em',
           textTransform: 'uppercase',
-          fontFamily: colors.font,
+          fontFamily: colors.fontHeading,
         }}>Analysis Dashboard</span>
       </div>
 

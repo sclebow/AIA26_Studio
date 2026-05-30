@@ -91,9 +91,10 @@ const LayoutLoader: React.FC<LayoutLoaderProps> = ({
         <span style={{
           color: colors.text,
           fontSize: '13px',
-          fontWeight: 600,
-          letterSpacing: '0.04em',
+          fontWeight: 700,
+          letterSpacing: '0.12em',
           textTransform: 'uppercase',
+          fontFamily: colors.fontHeading,
         }}>Layout Loader</span>
       </div>
 

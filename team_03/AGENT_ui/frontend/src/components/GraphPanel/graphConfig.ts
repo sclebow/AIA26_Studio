@@ -137,16 +137,16 @@ export interface GraphTheme {
 }
 
 const DARK_THEME: GraphTheme = {
-  panelBg: 'rgba(20, 16, 32, 0.72)',
-  panelBorder: 'rgba(255, 255, 255, 0.06)',
-  text: '#F5F5F7',
-  muted: '#86868B',
-  accent: '#8B5CF6',
-  ok: '#34D399',
-  fail: '#F87171',
-  warn: '#FBBF24',
-  canvasBg: '#08080C',
-  nodeFontColor: '#F5F5F7',
+  panelBg: 'rgba(15, 9, 30, 0.92)',
+  panelBorder: 'rgba(139, 92, 246, 0.22)',
+  text: '#f5f3ff',
+  muted: '#9a8cc8',
+  accent: '#a78bfa',
+  ok: '#5eead4',
+  fail: '#fb7185',
+  warn: '#fbbf24',
+  canvasBg: '#0a0612',
+  nodeFontColor: '#f5f3ff',
 };
 
 const LIGHT_THEME: GraphTheme = {

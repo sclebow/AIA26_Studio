@@ -74,7 +74,7 @@ function EdgeGlyph({ etype, color }: { etype: string; color: string }) {
 }
 
 function makeStyles(T: GraphTheme) {
-  const isDark = T.canvasBg === '#08080C';
+  const isDark = T.canvasBg === '#0a0612';
 
   const glassPanel: React.CSSProperties = {
     background: T.panelBg,
