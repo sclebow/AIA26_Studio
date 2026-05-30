@@ -207,7 +207,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       transition: "all 0.2s",
       boxShadow: active ? "0 0 20px rgba(139,92,246,0.15)" : "none",
     }),
-    workflowIcon: { marginBottom: "8px", display: "flex", justifyContent: "center", color: "#c4b5fd" } as React.CSSProperties,
+    workflowIcon: { marginBottom: "8px", display: "flex", justifyContent: "flex-start", color: "#c4b5fd" } as React.CSSProperties,
     workflowLabel: (active: boolean): React.CSSProperties => ({
       fontSize: "11px", letterSpacing: "0.15em",
       color: active ? "rgb(255, 255, 255)" : "rgb(255, 255, 255)",
