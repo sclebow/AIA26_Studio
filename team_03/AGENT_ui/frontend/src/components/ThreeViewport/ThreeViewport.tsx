@@ -214,7 +214,7 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
 
   const center = useMemo(() => ({ x: bounds.cx, z: bounds.cz }), [bounds])
 
-  const bgColor = isDark ? '#0a0612' : '#ffffff'
+  const bgColor = isDark ? '#15101f' : '#ffffff'
 
   return (
     <>
@@ -516,7 +516,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
   }, [onSelect])
 
 
-  const bgColor = isDark ? '#0a0612' : '#ffffff'
+  const bgColor = isDark ? '#15101f' : '#ffffff'
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>

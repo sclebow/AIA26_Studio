@@ -145,7 +145,7 @@ const DARK_THEME: GraphTheme = {
   ok: '#5eead4',
   fail: '#fb7185',
   warn: '#fbbf24',
-  canvasBg: '#0a0612',
+  canvasBg: '#15101f',
   nodeFontColor: '#f5f3ff',
 };
 
