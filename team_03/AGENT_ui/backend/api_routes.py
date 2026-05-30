@@ -256,16 +256,35 @@ async def get_graph():
     return graph
 
 
+def _workspace_layout() -> Optional[dict]:
+    """Read the live agent working layout (latest placements) from
+    team_03/workspace/session_active.json, or None if it doesn't exist."""
+    try:
+        f = Path(__file__).resolve().parents[2] / "workspace" / "session_active.json"
+        if f.exists():
+            return json.loads(f.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return None
+
+
 @router.post("/api/layouts/{name}/reload")
 async def reload_layout(name: str):
     """
-    Re-read the layout JSON from disk and update the session.
-    Use this after the agent has modified the layout file externally.
+    Re-read the CURRENT working layout and update the session.
+
+    The agent writes its placements to team_03/workspace/session_active.json, not
+    the base file — so a plain re-read of the base file would drop everything the
+    agent added (e.g. a newly placed desk). Prefer the workspace layout when it is
+    the same layout (matching layoutId); otherwise fall back to the base file.
     Returns the fresh layout data.
     """
-    data = layout_loader.load_layout(name)
-    if data is None:
+    base = layout_loader.load_layout(name)
+    if base is None:
         raise HTTPException(status_code=404, detail=f"Layout '{name}' not found.")
+
+    ws = _workspace_layout()
+    data = ws if (ws and ws.get("layoutId") == base.get("layoutId")) else base
 
     if _session is not None:
         _session.update_layout(data)
