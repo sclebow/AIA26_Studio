@@ -20,7 +20,7 @@ defineProps({ tab: String })
   align-items: flex-start;
   padding: 28px 20px 0 20px;
   min-height: 64px;
-  background: var(--color-grey-bg);
+  background: white;
   border-bottom: 1px solid var(--color-border);
 }
 .sidebar-app-name {

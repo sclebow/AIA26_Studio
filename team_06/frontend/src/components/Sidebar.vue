@@ -1,9 +1,9 @@
 
 <script setup>
-import userIcon from '../assets/user.svg'
-import clockIcon from '../assets/clock.svg'
-import boxIcon from '../assets/box.svg'
-import messageIcon from '../assets/message.svg'
+import userIcon from '../assets/icons/user.svg'
+import clockIcon from '../assets/icons/clock.svg'
+import boxIcon from '../assets/icons/box.svg'
+import messageIcon from '../assets/icons/message.svg'
 import SidebarHeader from './SidebarHeader.vue'
 const props = defineProps({ tab: String })
 const emit = defineEmits(['change'])
@@ -73,10 +73,9 @@ const emit = defineEmits(['change'])
 .sidebar {
   width: 320px;
   min-width: 320px;
-  background: var(--color-grey-bg);
+  background: white;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--color-border);
   height: 100vh;
 }
 .sidebar-content {
