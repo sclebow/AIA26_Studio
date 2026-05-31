@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import { Stage, Layer, Group, Line, Text } from 'vue-konva'
 const props = defineProps({
   layout: {
@@ -19,41 +19,61 @@ const roomColors = {
   extra: '#7A8FA3',
 }
 
-const scale = 60; // 1 meter = 60 pixels
 
-// Compute bounding box for all rooms
-function getAllPoints() {
+// --- Watcher-based geometry/scaling logic ---
+const allPoints = ref([])
+const minX = ref(0)
+const maxX = ref(0)
+const minY = ref(0)
+const maxY = ref(0)
+const layoutWidth = ref(0)
+const layoutHeight = ref(0)
+const scale = ref(60)
+const offset = ref({ x: 0, y: 0 })
+
+function recalcGeometry() {
   const rooms = props.layout?.rooms || [];
-  const points = rooms.flatMap(room => room.geometry);
-  console.log('LayoutCanvas DEBUG:', {
-    layout: props.layout,
-    rooms,
-    points
+  allPoints.value = rooms.flatMap(room => room.geometry);
+  if (allPoints.value.length > 0) {
+    const xs = allPoints.value.map(pt => pt[0]);
+    const ys = allPoints.value.map(pt => pt[1]);
+    minX.value = Math.min(...xs);
+    maxX.value = Math.max(...xs);
+    minY.value = Math.min(...ys);
+    maxY.value = Math.max(...ys);
+    layoutWidth.value = maxX.value - minX.value;
+    layoutHeight.value = maxY.value - minY.value;
+    if (layoutWidth.value === 0 || layoutHeight.value === 0) {
+      scale.value = 60;
+      offset.value = { x: 0, y: 0 };
+      console.warn('LayoutCanvas: degenerate geometry (line or point), using scale=60 and offset=0');
+    } else {
+      const scaleX = (stageConfig.value.width - 40) / layoutWidth.value;
+      const scaleY = (stageConfig.value.height - 40) / layoutHeight.value;
+      scale.value = Math.min(scaleX, scaleY, 60);
+      offset.value = {
+        x: (stageConfig.value.width - layoutWidth.value * scale.value) / 2 - minX.value * scale.value,
+        y: (stageConfig.value.height - layoutHeight.value * scale.value) / 2 - minY.value * scale.value
+      };
+    }
+  } else {
+    minX.value = maxX.value = minY.value = maxY.value = layoutWidth.value = layoutHeight.value = 0;
+    scale.value = 60;
+    offset.value = { x: 0, y: 0 };
+    console.warn('LayoutCanvas: no geometry points found');
+  }
+  console.log('LayoutCanvas DEBUG', {
+    minX: minX.value, maxX: maxX.value, minY: minY.value, maxY: maxY.value,
+    layoutWidth: layoutWidth.value, layoutHeight: layoutHeight.value,
+    scale: scale.value, offset: offset.value, allPoints: allPoints.value
   });
-  return points;
 }
-const allPoints = getAllPoints();
-let minX = 0, maxX = 0, minY = 0, maxY = 0, layoutWidth = 0, layoutHeight = 0;
-if (allPoints.length > 0) {
-  const xs = allPoints.map(pt => pt[0]);
-  const ys = allPoints.map(pt => pt[1]);
-  minX = Math.min(...xs);
-  maxX = Math.max(...xs);
-  minY = Math.min(...ys);
-  maxY = Math.max(...ys);
-  layoutWidth = (maxX - minX) * scale;
-  layoutHeight = (maxY - minY) * scale;
-}
-const stageWidth = stageConfig.value.width;
-const stageHeight = stageConfig.value.height;
-const offset = allPoints.length > 0 ? {
-  x: (stageWidth - layoutWidth) / 2 - minX * scale,
-  y: (stageHeight - layoutHeight) / 2 - minY * scale
-} : { x: 0, y: 0 };
+
+watch(() => props.layout, recalcGeometry, { immediate: true, deep: true })
 
 function flattenAndScale(geometry) {
   // Converts [[x, y], ...] to [x*scale+offset, y*scale+offset, ...]
-  return geometry.flatMap(([x, y]) => [x * scale + offset.x, y * scale + offset.y]);
+  return geometry.flatMap(([x, y]) => [x * scale.value + offset.value.x, y * scale.value + offset.value.y]);
 }
 
 function getCentroid(geometry) {
@@ -75,11 +95,11 @@ function getCentroid(geometry) {
 function getLabelX(geometry) {
   // Center label at centroid
   const [cx, cy] = getCentroid(geometry);
-  return cx * scale + offset.x;
+  return cx * scale.value + offset.value.x;
 }
 function getLabelY(geometry) {
   const [cx, cy] = getCentroid(geometry);
-  return cy * scale + offset.y;
+  return cy * scale.value + offset.value.y;
 }
 function getTextWidth(text, fontSize) {
   if (!text) return 0;
