@@ -1,28 +1,25 @@
-"""
-boundary_embedding_matcher.py
-
-This module creates dense, fixed-size embeddings directly from floorplan
-boundary geometry and uses cosine similarity for retrieval.
-
-Design goal
-- Keep the tool fully self-contained and deterministic.
-- Avoid dependency on external geometry engines and heavy ML frameworks.
-- Produce vectors that can be indexed later in FAISS (or similar ANN indexes).
-
-High-level pipeline
-1) Read boundary coordinates (`outline`) and optional circulation polyline.
-2) Extract an anchor point from `circulation` (prefer "Front Door" semantics).
-3) Re-order the polygon so the boundary starts at the anchor projection.
-4) Build an ordered cycle graph with:
-    - normalized edge lengths
-    - signed turning angle at each vertex
-5) Resample graph signature and turning function to fixed lengths.
-6) Concatenate features and L2-normalize to obtain one embedding vector.
-7) Compare vectors with cosine similarity for retrieval.
-
-This tool is lightweight (numpy-only) and intended for quick indexing/prototyping
-before moving to FAISS or a learned fusion model.
-"""
+# ============================================================================
+# boundary_embedding_matcher.py
+#
+# Create dense, fixed-size embeddings directly from floorplan boundary
+# geometry and use cosine similarity for retrieval.
+#
+# Design goals:
+# - Keep the tool fully self-contained and deterministic.
+# - Avoid dependency on external geometry engines and heavy ML frameworks.
+# - Produce vectors that can be indexed later in FAISS (or similar ANN indexes).
+#
+# High-level pipeline:
+# 1) Read boundary coordinates (`outline`) and optional circulation polyline.
+# 2) Extract an anchor point from `circulation` (prefer "Front Door" semantics).
+# 3) Re-order the polygon so the boundary starts at the anchor projection.
+# 4) Build an ordered cycle graph with normalized edge lengths and signed turning angles.
+# 5) Resample graph signature and turning function to fixed lengths.
+# 6) Concatenate features and L2-normalize to obtain one embedding vector.
+# 7) Compare vectors with cosine similarity for retrieval.
+#
+# Lightweight: numpy-only implementation intended for quick indexing/prototyping.
+# ============================================================================
 
 from __future__ import annotations
 import json
@@ -37,25 +34,23 @@ TURNING_SAMPLES = 64
 
 
 def _is_closed_polygon(coords: List[List[float]]) -> bool:
-    """Return True when the polygon explicitly repeats the first point as last point."""
+    # Return True when the polygon explicitly repeats the first point as last point.
     return len(coords) > 1 and coords[0] == coords[-1]
 
 
 def _open_polygon(coords: List[List[float]]) -> List[List[float]]:
-    """Return polygon without duplicated closing vertex for easier cyclic processing."""
+    # Return polygon without duplicated closing vertex for easier cyclic processing.
     return coords[:-1] if _is_closed_polygon(coords) else coords[:]
 
 
 def _points_close(point_a: List[float], point_b: List[float], tolerance: float = 1e-6) -> bool:
-    """Numerical safety check to compare 2D points with tolerance."""
+    # Numerical safety check to compare 2D points with tolerance.
     return abs(point_a[0] - point_b[0]) <= tolerance and abs(point_a[1] - point_b[1]) <= tolerance
 
 
 def _project_point_to_segment(point: List[float], start: List[float], end: List[float]) -> tuple[List[float], float]:
-    """Project a point onto a segment and return (projected_point, euclidean_distance).
-
-    Used to find where the circulation anchor falls on the polygon boundary.
-    """
+    # Project a point onto a segment and return (projected_point, euclidean_distance).
+    # Used to find where the circulation anchor falls on the polygon boundary.
     point_vec = np.array(point, dtype=float)
     start_vec = np.array(start, dtype=float)
     end_vec = np.array(end, dtype=float)
@@ -74,12 +69,10 @@ def _project_point_to_segment(point: List[float], start: List[float], end: List[
 
 
 def _polygon_perimeter(coords: List[List[float]]) -> float:
-    """Compute perimeter of an open polygon vertex sequence.
-
-    Notes:
-    - `coords` is expected to be open (no duplicated last vertex).
-    - We still use cyclic roll so last vertex connects back to first.
-    """
+    # Compute perimeter of an open polygon vertex sequence.
+    # Notes:
+    # - `coords` is expected to be open (no duplicated last vertex).
+    # - We still use cyclic roll so last vertex connects back to first.
     coords_array = np.array(coords)
     shifted = np.roll(coords_array, -1, axis=0)
     distances = np.sqrt(np.sum((coords_array - shifted) ** 2, axis=1))
@@ -87,19 +80,15 @@ def _polygon_perimeter(coords: List[List[float]]) -> float:
 
 
 def extract_circulation_anchor_point(layout: Dict[str, Any]) -> List[float] | None:
-    """Extract the geometric anchor that defines boundary start orientation.
-
-    Strategy:
-    - Search `layout['circulation']` for an item whose name suggests door access
-      (contains "front door" or "door").
-    - Fallback to the first circulation item when no preferred name exists.
-    - Use the midpoint of the first segment (`geometry[0]` to `geometry[1]`) to
-      reduce sensitivity to arbitrary polyline direction/order in exports.
-    - If only one point exists, use that point directly.
-
-    Returns:
-    - [x, y] anchor point, or None when circulation is unavailable.
-    """
+        # Extract the geometric anchor that defines boundary start orientation.
+        # Strategy:
+        # - Search `layout['circulation']` for an item whose name suggests door access
+        #   (contains "front door" or "door").
+        # - Fallback to the first circulation item when no preferred name exists.
+        # - Use the midpoint of the first segment (`geometry[0]` to `geometry[1]`) to
+        #   reduce sensitivity to arbitrary polyline direction/order in exports.
+        # - If only one point exists, use that point directly.
+        # Returns: [x, y] anchor point, or None when circulation is unavailable.
     circulation_items = layout.get("circulation", [])
     if not circulation_items:
         return None
@@ -125,17 +114,14 @@ def extract_circulation_anchor_point(layout: Dict[str, Any]) -> List[float] | No
 
 
 def _align_outline_to_anchor(coords: List[List[float]], anchor_point: List[float] | None) -> Dict[str, Any]:
-    """Cyclically rotate the boundary so traversal starts at the anchor location.
-
-    This removes cyclic-shift ambiguity: the same polygon can be encoded with
-    different start vertices. By anchoring to circulation, shape descriptors and
-    embeddings become consistent across layouts.
-
-    Behavior:
-    - If anchor is None: return polygon closed from its current first vertex.
-    - If anchor exists: project it to closest polygon segment and insert that
-      projected point as start when needed.
-    """
+        # Cyclically rotate the boundary so traversal starts at the anchor location.
+        # This removes cyclic-shift ambiguity: the same polygon can be encoded with
+        # different start vertices. By anchoring to circulation, shape descriptors
+        # and embeddings become consistent across layouts.
+        # Behavior:
+        # - If anchor is None: return polygon closed from its current first vertex.
+        # - If anchor exists: project it to closest polygon segment and insert that
+        #   projected point as start when needed.
     open_coords = _open_polygon(coords)
     if not open_coords:
         return {
@@ -182,10 +168,8 @@ def _align_outline_to_anchor(coords: List[List[float]], anchor_point: List[float
 
 
 def _signed_turn_angle(prev_point: List[float], current_point: List[float], next_point: List[float]) -> float:
-    """Return signed turn angle (radians) at `current_point`.
-
-    Positive/negative sign is determined by 2D cross product orientation.
-    """
+    # Return signed turn angle (radians) at `current_point`.
+    # Positive/negative sign is determined by 2D cross product orientation.
     incoming = np.array(prev_point, dtype=float) - np.array(current_point, dtype=float)
     outgoing = np.array(next_point, dtype=float) - np.array(current_point, dtype=float)
     cross = float(incoming[0] * outgoing[1] - incoming[1] * outgoing[0])
@@ -194,15 +178,12 @@ def _signed_turn_angle(prev_point: List[float], current_point: List[float], next
 
 
 def build_boundary_graph(coords: List[List[float]], anchor_point: List[float] | None = None) -> Dict[str, Any]:
-    """Encode polygon boundary into an ordered cycle graph signature.
-
-    Output fields:
-    - nodes: per-vertex coordinates and turn angles
-    - edges: per-edge lengths and normalized lengths
-    - signature: compact ordered list [[edge_len_norm, turn_over_pi], ...]
-
-    The signature is the core signal used later to build fixed-size embeddings.
-    """
+    # Encode polygon boundary into an ordered cycle graph signature.
+    # Output fields:
+    # - nodes: per-vertex coordinates and turn angles
+    # - edges: per-edge lengths and normalized lengths
+    # - signature: compact ordered list [[edge_len_norm, turn_over_pi], ...]
+    # The signature is the core signal used later to build fixed-size embeddings.
     aligned = _align_outline_to_anchor(coords, anchor_point)
     graph_coords = aligned["coordinates"]
     open_coords = _open_polygon(graph_coords)
@@ -264,13 +245,11 @@ def build_boundary_graph(coords: List[List[float]], anchor_point: List[float] | 
 
 
 def _resample_cyclic_signature(signature: List[List[float]], sample_count: int = GRAPH_SIGNATURE_SAMPLES) -> np.ndarray:
-    """Resample variable-length cyclic signature to fixed shape (sample_count, 2).
-
-    Why this matters:
-    - Different floorplans have different vertex counts.
-    - Retrieval/indexing requires fixed-size vectors.
-    - Interpolation over normalized cycle position keeps descriptors comparable.
-    """
+    # Resample variable-length cyclic signature to fixed shape (sample_count, 2).
+    # Why this matters:
+    # - Different floorplans have different vertex counts.
+    # - Retrieval/indexing requires fixed-size vectors.
+    # - Interpolation over normalized cycle position keeps descriptors comparable.
     if not signature:
         return np.zeros((sample_count, 2), dtype=float)
 
@@ -290,15 +269,12 @@ def _resample_cyclic_signature(signature: List[List[float]], sample_count: int =
 
 
 def _compute_turning_samples_from_graph(graph: Dict[str, Any], sample_count: int = TURNING_SAMPLES) -> np.ndarray:
-    """Compute uniformly sampled turning-function from graph signature.
-
-    Steps:
-    1) Read normalized edge lengths and turn angles from `signature`.
-    2) Convert turning to cumulative turning along normalized perimeter.
-    3) Normalize by 2*pi and interpolate to `sample_count` points.
-
-    Result is a compact 1D curve describing global boundary turning behavior.
-    """
+    # Compute uniformly sampled turning-function from graph signature.
+    # Steps:
+    # 1) Read normalized edge lengths and turn angles from `signature`.
+    # 2) Convert turning to cumulative turning along normalized perimeter.
+    # 3) Normalize by 2*pi and interpolate to `sample_count` points.
+    # Result is a compact 1D curve describing global boundary turning behavior.
     sig = graph.get("signature", [])
     if not sig:
         return np.zeros(sample_count, dtype=float)
@@ -320,15 +296,12 @@ def _compute_turning_samples_from_graph(graph: Dict[str, Any], sample_count: int
 
 
 def _vector_from_graph(graph: Dict[str, Any], sig_samples: int = GRAPH_SIGNATURE_SAMPLES, turning_samples: int = TURNING_SAMPLES) -> np.ndarray:
-    """Produce final embedding vector from boundary graph.
-
-    Feature layout:
-    - Signature branch: (sig_samples, 2) -> flattened size 2*sig_samples
-    - Turning branch: size turning_samples
-    - Final vector size: 2*sig_samples + turning_samples
-
-    The vector is L2-normalized so cosine similarity equals dot product.
-    """
+    # Produce final embedding vector from boundary graph.
+    # Feature layout:
+    # - Signature branch: (sig_samples, 2) -> flattened size 2*sig_samples
+    # - Turning branch: size turning_samples
+    # - Final vector size: 2*sig_samples + turning_samples
+    # The vector is L2-normalized so cosine similarity equals dot product.
     sig_resampled = _resample_cyclic_signature(graph.get("signature", []), sample_count=sig_samples)
     # sig_resampled: (sig_samples, 2)
     sig_flat = sig_resampled.flatten()
@@ -349,30 +322,14 @@ def match_boundaries(
     top_k: int = 3,
     min_score: float = 0.5
 ) -> Dict[str, Any]:
-    """Retrieve similar layouts using cosine similarity in boundary-embedding space.
-
-    Query modes:
-    - `input_graph`: use a precomputed graph directly.
-    - `input_coords`: build the graph from raw coordinates.
-
-    Dataset expectations:
-    - JSON array where each item has at least `outline`.
-    - `circulation` is optional but recommended for anchor consistency.
-
-    Args:
-        input_coords: raw polygon coordinates (if provided, used to build graph)
-        input_graph: precomputed boundary_graph (preferred)
-        dataset_path: path to dataset JSON (array of layouts with 'outline')
-        top_k: number of top matches to return
-        min_score: minimum cosine similarity to include
-
-    Returns:
-        Dict with:
-        - matches: sorted list of top results (descending score)
-        - query: retrieval mode label
-        - count: number of returned matches
-        - error: optional message when inputs are invalid
-    """
+    # Retrieve similar layouts using cosine similarity in boundary-embedding space.
+    # Query modes:
+    # - `input_graph`: use a precomputed graph directly.
+    # - `input_coords`: build the graph from raw coordinates.
+    # Dataset expectations:
+    # - JSON array where each item has at least `outline`.
+    # - `circulation` is optional but recommended for anchor consistency.
+    # Returns a dict with matches, query label, count, and optional error.
     if input_graph is None:
         if input_coords is None:
             return {"error": "Either input_graph or input_coords must be provided", "matches": [], "count": 0}
