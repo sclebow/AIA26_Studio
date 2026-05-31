@@ -1,59 +1,6 @@
 """
-Boundary Analyzer
------------------
-
-This module implements a deterministic, geometric boundary matching tool
-designed for the Team06 layout dataset (and similar JSON layout exports).
-
-Main purpose
- - Given an input apartment boundary (polygon) find similar layouts from a
-     dataset by combining explicit geometric measures:
-         * area similarity (Shoelace area)
-         * IoU between polygons (grid-sampled for concave shapes)
-         * topology similarity (vertex count, perimeter, compactness)
-         * turning-function distance (boundary shape anchored at the front door)
-         * optional boundary-graph signature refinement (edge length + vertex turning)
-
-Why these measures?
- - Area and IoU capture scale and overlap.
- - Topology captures coarse vertex/perimeter/compactness similarities.
- - Turning-function is sensitive to door placement and ordered boundary detail
-     (useful when two shapes have similar area/IoU but different entrance position).
- - The boundary-graph provides an ordered, anchored cycle encoding that can be
-     used as an additional robust signature for ranking.
-
-How it works (high-level)
- 1. Load input polygon: either provided as `input_boundary` or read from an
-        `input_layout_path` JSON file (uses the `outline` field).
- 2. Extract a circulation anchor point from the layout's `circulation` entries
-        (prefer items named like "Front Door Axis") and use that point as the
-        canonical start location on the polygon boundary.
- 3. For each candidate layout in the dataset (expected to have an `outline`):
-        - compute geometric stats (area, perimeter, compactness)
-        - compute IoU (grid-based sampling; rotation-invariant by testing 0/90/180/270°)
-        - build an anchored boundary graph: ordered vertex list, edge lengths,
-            signed turning angles, and a compact signature
-        - compute a turning-function signature (cumulative turning across
-            normalized perimeter) and compare it to the input's turning function
-        - combine the measures into a composite score (weighted sum)
-        - optionally refine the score using the boundary-graph similarity
- 4. Return the top N matches and a comparison SVG for the best match.
-
-Notes and design choices
- - The algorithm prefers transparent, interpretable geometric measures over
-     black-box embeddings. Learned embeddings can be added later as extra
-     features but should not replace these explicit metrics without evaluation.
- - IoU uses grid sampling (CONFIGURABLE via `GRID_RESOLUTION`) to support
-     concave polygons without relying on heavy geometry libraries.
- - The turning-function is anchored using the `circulation` entry so that
-     door placement becomes part of the descriptor (this resolves cyclic-shift
-     ambiguity for retrieval).
-
-Required fields in layout JSON
- - `outline` : ordered polygon coordinates [[x,y], ...]
- - `circulation` (optional) : polylines describing circulation axes; the
-        first point of the preferred `circulation` feature is used as the anchor.
-
+Boundary Analyzer Tool - Matches input boundaries against reference dataset
+Uses area, IoU, and topology scoring with SVG visualization output.
 """
 
 import json
@@ -72,25 +19,14 @@ from utils.svg_utils import generate_boundary_comparison_svg
 
 # Scoring weights (must sum to 1.0)
 WEIGHT_AREA = 0.2
-WEIGHT_IOU = 0.45
-WEIGHT_TOPOLOGY = 0.25
-# Turning-function weight (part of base composite score)
-WEIGHT_TURNING = 0.10
-
-# Boundary graph refinement weight applied after the base composite score.
-GRAPH_REFINEMENT_WEIGHT = 0.2
+WEIGHT_IOU = 0.5
+WEIGHT_TOPOLOGY = 0.3
 
 # Grid-based IoU sampling resolution
 GRID_RESOLUTION = 100
 
 # Rotation angles to test (degrees)
 ROTATION_ANGLES = [0, 90, 180, 270]
-
-# Number of samples used when comparing boundary graph signatures.
-GRAPH_SIGNATURE_SAMPLES = 64
-
-# Turning-function sampling count (same idea as graph signature sampling)
-TURNING_SAMPLES = 64
 
 # Default number of top matches to return
 DEFAULT_TOP_N = 5
@@ -104,7 +40,7 @@ def get_boundary_analyzer_schema() -> Dict[str, Any]:
     """Return the MCP tool schema for boundary_analyzer."""
     return {
         "name": "boundary_analyzer",
-        "description": "Analyzes input boundary against dataset to find best matches using area, IoU, topology, and circulation-anchored boundary graph scoring",
+        "description": "Analyzes input boundary against dataset to find best matches using area, IoU, and topology scoring",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -120,12 +56,12 @@ def get_boundary_analyzer_schema() -> Dict[str, Any]:
                 },
                 "input_layout_path": {
                     "type": "string",
-                    "description": "Path to input layout JSON file (will use 'outline' field as boundary and 'circulation' to anchor the start point)",
+                    "description": "Path to input layout JSON file (will use 'outline' field as boundary)",
                     "default": "team_06/team_06_input_layout.json"
                 },
                 "dataset_path": {
                     "type": "string",
-                    "description": "Path to layout dataset JSON file (optional, layouts should expose 'outline' and 'circulation')",
+                    "description": "Path to layout dataset JSON file (optional)",
                     "default": "team_06/layout_inputs/sample_layouts.json"
                 },
                 "top_n_results": {
@@ -180,263 +116,6 @@ def normalize_to_origin(coords: List[List[float]]) -> List[List[float]]:
     """Translate polygon so its bounding box starts at (0, 0)."""
     min_x, _, min_y, _ = get_bounding_box(coords)
     return [[x - min_x, y - min_y] for x, y in coords]
-
-
-def _is_closed_polygon(coords: List[List[float]]) -> bool:
-    return len(coords) > 1 and coords[0] == coords[-1]
-
-
-def _open_polygon(coords: List[List[float]]) -> List[List[float]]:
-    return coords[:-1] if _is_closed_polygon(coords) else coords[:]
-
-
-def _points_close(point_a: List[float], point_b: List[float], tolerance: float = 1e-6) -> bool:
-    return abs(point_a[0] - point_b[0]) <= tolerance and abs(point_a[1] - point_b[1]) <= tolerance
-
-
-def _project_point_to_segment(point: List[float], start: List[float], end: List[float]) -> Tuple[List[float], float]:
-    """Project a point onto a segment and return the projected point plus distance."""
-    point_vec = np.array(point, dtype=float)
-    start_vec = np.array(start, dtype=float)
-    end_vec = np.array(end, dtype=float)
-    segment_vec = end_vec - start_vec
-    segment_length_sq = float(np.dot(segment_vec, segment_vec))
-
-    if segment_length_sq == 0.0:
-        projected = start_vec
-    else:
-        t = float(np.dot(point_vec - start_vec, segment_vec) / segment_length_sq)
-        t = max(0.0, min(1.0, t))
-        projected = start_vec + t * segment_vec
-
-    distance = float(np.linalg.norm(point_vec - projected))
-    return projected.tolist(), distance
-
-
-def extract_circulation_anchor_point(layout: Dict[str, Any]) -> List[float] | None:
-    """Return the first point of the best circulation line, preferring the front-door axis."""
-    circulation_items = layout.get("circulation", [])
-    if not circulation_items:
-        return None
-
-    preferred_item = None
-    for item in circulation_items:
-        name = str(item.get("name", "")).lower()
-        if "front door" in name or "door" in name:
-            preferred_item = item
-            break
-
-    item = preferred_item or circulation_items[0]
-    geometry = item.get("geometry", [])
-    if not geometry:
-        return None
-
-    return list(geometry[0])
-
-
-def align_outline_to_anchor(coords: List[List[float]], anchor_point: List[float] | None) -> Dict[str, Any]:
-    """Rotate the boundary so the outline starts near the circulation anchor point."""
-    open_coords = _open_polygon(coords)
-    if not open_coords:
-        return {
-            "coordinates": coords[:],
-            "start_vertex_index": 0,
-            "anchor_point": anchor_point,
-        }
-
-    if anchor_point is None:
-        return {
-            "coordinates": open_coords + [open_coords[0]],
-            "start_vertex_index": 0,
-            "anchor_point": None,
-        }
-
-    best_index = 0
-    best_projection = open_coords[0]
-    best_distance = float("inf")
-    vertex_count = len(open_coords)
-
-    for index in range(vertex_count):
-        segment_start = open_coords[index]
-        segment_end = open_coords[(index + 1) % vertex_count]
-        projected_point, distance = _project_point_to_segment(anchor_point, segment_start, segment_end)
-        if distance < best_distance:
-            best_distance = distance
-            best_index = index
-            best_projection = projected_point
-
-    next_vertex = open_coords[(best_index + 1) % vertex_count]
-    if _points_close(best_projection, next_vertex):
-        rotated_open = open_coords[(best_index + 1) % vertex_count:] + open_coords[:best_index + 1]
-    else:
-        rotated_open = [best_projection] + open_coords[(best_index + 1) % vertex_count:] + open_coords[:best_index + 1]
-
-    if not _points_close(rotated_open[0], rotated_open[-1]):
-        rotated_open = rotated_open + [rotated_open[0]]
-
-    return {
-        "coordinates": rotated_open,
-        "start_vertex_index": 0,
-        "anchor_point": anchor_point,
-    }
-
-
-def _signed_turn_angle(prev_point: List[float], current_point: List[float], next_point: List[float]) -> float:
-    """Return the signed turning angle in radians for a polygon vertex."""
-    incoming = np.array(prev_point, dtype=float) - np.array(current_point, dtype=float)
-    outgoing = np.array(next_point, dtype=float) - np.array(current_point, dtype=float)
-    cross = float(incoming[0] * outgoing[1] - incoming[1] * outgoing[0])
-    dot = float(np.dot(incoming, outgoing))
-    return float(np.arctan2(cross, dot))
-
-
-def build_boundary_graph(coords: List[List[float]], anchor_point: List[float] | None = None) -> Dict[str, Any]:
-    """Encode a boundary as an ordered cycle graph anchored to the circulation line when available."""
-    aligned = align_outline_to_anchor(coords, anchor_point)
-    graph_coords = aligned["coordinates"]
-    open_coords = _open_polygon(graph_coords)
-    perimeter = polygon_perimeter(open_coords)
-
-    if not open_coords:
-        return {
-            "anchor_point": anchor_point,
-            "start_vertex_index": 0,
-            "perimeter": 0.0,
-            "vertex_count": 0,
-            "edge_count": 0,
-            "nodes": [],
-            "edges": [],
-            "signature": [],
-        }
-
-    vertex_count = len(open_coords)
-    nodes = []
-    edges = []
-    signature = []
-
-    for index in range(vertex_count):
-        current_point = open_coords[index]
-        next_point = open_coords[(index + 1) % vertex_count]
-        previous_point = open_coords[(index - 1) % vertex_count]
-
-        edge_length = float(np.linalg.norm(np.array(next_point, dtype=float) - np.array(current_point, dtype=float)))
-        turn_angle = _signed_turn_angle(previous_point, current_point, next_point)
-
-        nodes.append({
-            "index": index,
-            "point": [round(current_point[0], 6), round(current_point[1], 6)],
-            "turn_angle_radians": round(turn_angle, 6),
-            "turn_angle_normalized": round(turn_angle / math.pi, 6),
-        })
-        edges.append({
-            "index": index,
-            "from": index,
-            "to": (index + 1) % vertex_count,
-            "length": round(edge_length, 6),
-            "normalized_length": round(edge_length / perimeter, 6) if perimeter else 0.0,
-        })
-        signature.append([
-            edge_length / perimeter if perimeter else 0.0,
-            turn_angle / math.pi,
-        ])
-
-    return {
-        "anchor_point": anchor_point,
-        "start_vertex_index": aligned["start_vertex_index"],
-        "perimeter": round(perimeter, 6),
-        "vertex_count": vertex_count,
-        "edge_count": len(edges),
-        "nodes": nodes,
-        "edges": edges,
-        "signature": signature,
-    }
-
-
-def _resample_cyclic_signature(signature: List[List[float]], sample_count: int = GRAPH_SIGNATURE_SAMPLES) -> np.ndarray:
-    if not signature:
-        return np.zeros((sample_count, 2), dtype=float)
-
-    samples = np.array(signature, dtype=float)
-    if len(samples) == 1:
-        return np.repeat(samples, sample_count, axis=0)
-
-    positions = np.linspace(0.0, 1.0, num=len(samples), endpoint=False)
-    positions_extended = np.append(positions, 1.0)
-    samples_extended = np.vstack([samples, samples[0]])
-    target_positions = np.linspace(0.0, 1.0, num=sample_count, endpoint=False)
-
-    resampled = np.column_stack([
-        np.interp(target_positions, positions_extended, samples_extended[:, 0]),
-        np.interp(target_positions, positions_extended, samples_extended[:, 1]),
-    ])
-    return resampled
-
-
-def calculate_graph_score(graph1: Dict[str, Any], graph2: Dict[str, Any], sample_count: int = GRAPH_SIGNATURE_SAMPLES) -> float:
-    """Compare two boundary graphs using their resampled edge-length and turning-angle signatures."""
-    signature1 = _resample_cyclic_signature(graph1.get("signature", []), sample_count)
-    signature2 = _resample_cyclic_signature(graph2.get("signature", []), sample_count)
-
-    if signature1.size == 0 or signature2.size == 0:
-        return 0.0
-
-    length_diff = np.abs(signature1[:, 0] - signature2[:, 0])
-    angle_diff = np.abs(signature1[:, 1] - signature2[:, 1])
-
-    length_score = max(0.0, 1.0 - float(np.mean(length_diff)))
-    angle_score = max(0.0, 1.0 - float(np.mean(angle_diff) / 2.0))
-
-    return round(0.6 * length_score + 0.4 * angle_score, 6)
-
-
-def _compute_turning_samples_from_graph(graph: Dict[str, Any], sample_count: int = TURNING_SAMPLES) -> np.ndarray:
-    """Compute a resampled turning-function (cumulative turning normalized by 2π)
-    from a `build_boundary_graph` output.
-    Returns a 1D numpy array of length `sample_count` with values in roughly [-1,1].
-    """
-    sig = graph.get('signature', [])
-    if not sig:
-        return np.zeros(sample_count, dtype=float)
-
-    samples = np.array(sig, dtype=float)
-    # signature: [normalized_edge_length, turn_angle/pi]
-    normalized_edge_lengths = samples[:, 0]
-    turn_angle_over_pi = samples[:, 1]
-    turn_radians = turn_angle_over_pi * math.pi
-
-    # positions along perimeter at vertex points (fraction)
-    positions = np.concatenate(([0.0], np.cumsum(normalized_edge_lengths)))[:-1]
-    # cumulative turning at each vertex (radians)
-    cumulative_turn = np.cumsum(turn_radians)
-    # normalize by full-turn (2π)
-    cumulative_turn_norm = cumulative_turn / (2.0 * math.pi)
-
-    # Resample onto uniform positions 0..1
-    target_positions = np.linspace(0.0, 1.0, num=sample_count, endpoint=False)
-    # extend positions to include endpoint 1.0 for interpolation convenience
-    pos_ext = np.append(positions, 1.0)
-    turn_ext = np.append(cumulative_turn_norm, cumulative_turn_norm[0] if len(cumulative_turn_norm) else 0.0)
-
-    resampled = np.interp(target_positions, pos_ext, turn_ext)
-    return resampled
-
-
-def calculate_turning_score(graph1: Dict[str, Any], graph2: Dict[str, Any], sample_count: int = TURNING_SAMPLES) -> float:
-    """Compute a similarity score in [0,1] from two boundary graphs' turning functions.
-    1. Resample both turning functions to `sample_count` points.
-    2. Compute mean absolute difference and normalize by 2 (max possible difference).
-    3. Return 1 - normalized_mean_diff.
-    """
-    t1 = _compute_turning_samples_from_graph(graph1, sample_count)
-    t2 = _compute_turning_samples_from_graph(graph2, sample_count)
-
-    if t1.size == 0 or t2.size == 0:
-        return 0.0
-
-    mean_abs_diff = float(np.mean(np.abs(t1 - t2)))
-    # Differences are in units of full-turns; divide by 2 to map max diff->1.0
-    normalized = min(1.0, mean_abs_diff / 2.0)
-    return round(max(0.0, 1.0 - normalized), 6)
 
 
 def rotate_polygon(coords: List[List[float]], angle_degrees: float) -> List[List[float]]:
@@ -571,24 +250,11 @@ def calculate_topology_score(stats1: Dict, stats2: Dict) -> float:
     return (vertex_sim + perimeter_sim + compactness_sim) / 3.0
 
 
-def calculate_composite_score(area_score: float, iou_score: float, topology_score: float, turning_score: float | None = None, graph_score: float | None = None) -> float:
-    """Calculate weighted composite score using predefined weights, optionally refined by the boundary graph."""
-    # Build base score including turning (if provided)
-    if turning_score is None:
-        turning_val = 0.0
-    else:
-        turning_val = turning_score
-
-    base_score = (WEIGHT_AREA * area_score +
-                  WEIGHT_IOU * iou_score +
-                  WEIGHT_TOPOLOGY * topology_score +
-                  WEIGHT_TURNING * turning_val)
-
-    if graph_score is None:
-        return base_score
-
-    return ((1.0 - GRAPH_REFINEMENT_WEIGHT) * base_score +
-            GRAPH_REFINEMENT_WEIGHT * graph_score)
+def calculate_composite_score(area_score: float, iou_score: float, topology_score: float) -> float:
+    """Calculate weighted composite score using predefined weights."""
+    return (WEIGHT_AREA * area_score + 
+            WEIGHT_IOU * iou_score + 
+            WEIGHT_TOPOLOGY * topology_score)
 
 
 def compute_boundary_stats(coords: List[List[float]]) -> Dict[str, float]:
@@ -629,9 +295,6 @@ def boundary_analyzer(input_boundary: List[List[float]] = None,
         Dictionary with analysis results, scores, and SVG visualization
     """
     
-    input_layout = None
-    input_anchor_point = None
-
     # Load input boundary from file if path provided
     if input_layout_path is not None:
         input_layout_path = Path(input_layout_path)
@@ -651,7 +314,6 @@ def boundary_analyzer(input_boundary: List[List[float]] = None,
             input_layout = json.load(f)
         
         input_boundary = input_layout.get('outline', [])
-        input_anchor_point = extract_circulation_anchor_point(input_layout)
         if not input_boundary:
             return {
                 "status": "error",
@@ -688,7 +350,6 @@ def boundary_analyzer(input_boundary: List[List[float]] = None,
         dataset = json.load(f)
     
     input_stats = compute_boundary_stats(input_boundary)
-    input_graph = build_boundary_graph(input_boundary, input_anchor_point)
     
     results = []
     
@@ -699,18 +360,13 @@ def boundary_analyzer(input_boundary: List[List[float]] = None,
         
         if not candidate_coords:
             continue
-
-        candidate_anchor_point = extract_circulation_anchor_point(layout)
             
         candidate_stats = compute_boundary_stats(candidate_coords)
-        candidate_graph = build_boundary_graph(candidate_coords, candidate_anchor_point)
         
         area_score = calculate_area_score(input_stats['area'], candidate_stats['area'])
         iou_score = calculate_iou_with_rotation(input_boundary, candidate_coords)
         topology_score = calculate_topology_score(input_stats, candidate_stats)
-        graph_score = calculate_graph_score(input_graph, candidate_graph)
-        turning_score = calculate_turning_score(input_graph, candidate_graph)
-        composite_score = calculate_composite_score(area_score, iou_score, topology_score, turning_score, graph_score)
+        composite_score = calculate_composite_score(area_score, iou_score, topology_score)
         
         # Extract layout info
         layout_id = layout.get('layoutId', 'unknown')
@@ -724,11 +380,8 @@ def boundary_analyzer(input_boundary: List[List[float]] = None,
             "area_score": round(area_score, 3),
             "iou_score": round(iou_score, 3),
             "topology_score": round(topology_score, 3),
-            "graph_score": round(graph_score, 3),
-            "turning_score": round(turning_score, 3),
             "coordinates": candidate_coords,
-            "stats": candidate_stats,
-            "boundary_graph": candidate_graph
+            "stats": candidate_stats
         })
     
     results.sort(key=lambda x: x['composite_score'], reverse=True)
@@ -745,8 +398,7 @@ def boundary_analyzer(input_boundary: List[List[float]] = None,
                 'composite': best_match['composite_score'],
                 'area': best_match['area_score'],
                 'iou': best_match['iou_score'],
-                'topology': best_match['topology_score'],
-                'turning': best_match.get('turning_score')
+                'topology': best_match['topology_score']
             },
             {
                 'id': best_match['boundary_id'],
@@ -766,7 +418,6 @@ def boundary_analyzer(input_boundary: List[List[float]] = None,
         return {
             "status": "success",
             "input_boundary_stats": input_stats,
-            "input_boundary_graph": input_graph,
             "top_matches": [
                 {
                     "rank": i + 1,
@@ -776,10 +427,7 @@ def boundary_analyzer(input_boundary: List[List[float]] = None,
                     "composite_score": m['composite_score'],
                     "area_score": m['area_score'],
                     "iou_score": m['iou_score'],
-                    "topology_score": m['topology_score'],
-                    "graph_score": m['graph_score'],
-                    "turning_score": m.get('turning_score'),
-                    "boundary_graph": m['boundary_graph']
+                    "topology_score": m['topology_score']
                 }
                 for i, m in enumerate(top_matches)
             ],
