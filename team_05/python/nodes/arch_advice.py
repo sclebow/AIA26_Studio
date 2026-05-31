@@ -626,3 +626,43 @@ def build_architectural_advice_node():
         return {"architectural_advice": advice_text}
 
     return _architectural_advice_node
+
+
+# ... (all your other functions)
+
+def get_room_carbon_data(layout: dict) -> list[dict]:
+    """Returns a list of dicts for plotting."""
+    results = []
+    rooms = layout.get("rooms", [])
+    for room in rooms:
+        materials = room.get("materials", []) 
+        gwp_sum = sum(float(mat.get("gwp", 0)) for mat in materials)
+        results.append({
+            "name": room.get("name", "Unknown"),
+            "cost": float(room.get("total_cost", 0)),
+            "gwp": float(gwp_sum)
+        })
+
+    return results
+
+def get_room_optimization_tips(room: dict, all_rooms: list[dict]) -> str:
+    """
+    Analyzes room cost vs project average and generates a optimization hint.
+    """
+    if not all_rooms:
+        return "No project average data available."
+    
+    # Calculate project average cost per m2
+    total_rates = sum(float(r.get("rate_per_m2", 0)) for r in all_rooms)
+    avg_rate = total_rates / len(all_rooms)
+    room_rate = float(room.get("rate_per_m2", 0))
+    
+    # Logic: If 20% above average, trigger a specific recommendation
+    if room_rate > (avg_rate * 1.2):
+        delta = int((room_rate / avg_rate - 1) * 100)
+        return (f"**Optimization Alert:** This room is {delta}% above the project average cost. "
+                "Consider downgrading the finish material or simplifying the geometric complexity of the facade.")
+    elif room_rate < (avg_rate * 0.8):
+        return "This room is highly cost-efficient. Consider if the material quality meets your design aspirations."
+    
+    return "This room is within the expected cost range for this project."

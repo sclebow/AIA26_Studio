@@ -13,6 +13,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
+from nodes.arch_advice import get_room_carbon_data
 
 from langgraph_agent import LangGraphAgent
 
@@ -660,39 +661,40 @@ def build_gh_legend(layout: dict) -> str:
 
 
 # ── cost table ────────────────────────────────────────────────────────────────
-# ── cost table ────────────────────────────────────────────────────────────────
 def build_cost_df(layout: dict) -> pd.DataFrame:
-    currency = layout.get("project", {}).get("currency", "USD")
+    # 1. Read sensitivity values from sliders
+    labor_mult = st.session_state.get("labor", 1.0)
+    inflation = 1 + (st.session_state.get("inflation", 0) / 100)
+    tax = st.session_state.get("carbon_tax", 0)
     
-    # 1. SMART ROUTING: Detect if we are looking at a Heatmap or a Standard Layout
-    if "costs" in layout and "rooms" in layout["costs"]:
-        # This is the Agent's generated Heatmap JSON
-        raw_rooms = layout["costs"]["rooms"].get("rooms", {})
-        # Convert the dictionary of rooms into a list
-        rooms_list = raw_rooms.values() if isinstance(raw_rooms, dict) else raw_rooms
-    else:
-        # This is the Standard Uploaded JSON
-        rooms_list = layout.get("rooms", [])
+    currency = layout.get("project", {}).get("currency", "USD")
+    rooms_list = layout.get("rooms", [])
 
-    # 2. Extract the Data
     rows = []
     for r in rooms_list:
-        # Heatmap Generator outputs 'cost_per_m2', Standard Layout uses 'rate_per_m2'
-        rate = r.get("rate_per_m2") or r.get("cost_per_m2") or 0
-        cost = r.get("total_cost") or 0
-        area = r.get("area_m2") or 0
+        # 2. Extract base values
+        base_rate = float(r.get("rate_per_m2", 0))
+        base_cost = float(r.get("total_cost", 0))
+        
+        # We assume you have a 'gwp' key in your room data. 
+        # If not, it defaults to 0 for the carbon tax calculation.
+        gwp = float(r.get("gwp", 0)) 
+        
+        # 3. Apply Sensitivity Logic
+        adj_rate = base_rate * labor_mult * inflation
+        adj_cost = (base_cost * labor_mult * inflation) + (gwp * tax)
         
         rows.append({
             "Room": r.get("name", "Unknown"), 
             "Category": r.get("category", "Space").capitalize(),
-            "Area (m²)": round(float(area), 1),
-            f"Rate ({currency}/m²)": int(float(rate)),
-            f"Cost ({currency})": int(float(cost))
+            "Area (m²)": round(float(r.get("area_m2", 0)), 1),
+            f"Rate ({currency}/m²)": int(adj_rate),
+            f"Cost ({currency})": int(adj_cost)
         })
         
     df = pd.DataFrame(rows)
     
-    # 3. Calculate and Append the 'TOTAL' Row
+    # 4. Add Total Row
     if not df.empty:
         totals = {
             "Room": "TOTAL",
@@ -704,7 +706,6 @@ def build_cost_df(layout: dict) -> pd.DataFrame:
         df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
         
     return df
-
 
 # ── room card ─────────────────────────────────────────────────────────────────
 def render_room_card(room: dict, currency: str) -> None:
@@ -750,14 +751,19 @@ def _render_element_panel() -> None:
         c1.metric("Cost", f"{cost:,.0f} {currency}")
         c2.metric("Area", f"{el.get('area', 0):.1f} m²")
         c3.metric("Rate", f"{el.get('rate', 0):,.0f} {currency}/m²")
-        if el.get("category"):
-            st.caption(f"Category · {el['category'].capitalize()}")
-        if st.button("Ask agent about this room", key="ask_agent_panel", use_container_width=True):
+        
+        # --- NEW OPTIMIZATION BUTTON ---
+        from nodes.arch_advice import get_room_optimization_tips
+        all_rooms = st.session_state.layout.get("rooms", [])
+        
+        # Find the full room object
+        current_room = next((r for r in all_rooms if r.get("id") == el.get("id")), {})
+        
+        if st.button("✨ Generate Optimization Strategy", use_container_width=True):
+            tip = get_room_optimization_tips(current_room, all_rooms)
             st.session_state.pending_prompt = (
-                f"Analyse the cost of the {name} "
-                f"({el.get('area', 0):.1f} m² at "
-                f"{el.get('rate', 0):,.0f} {currency}/m²). "
-                "How does it compare to similar rooms and how could it be reduced?"
+                f"I am analyzing the {name}. {tip} "
+                "Can you provide 3 specific material or design strategies to optimize this?"
             )
             st.session_state.selected_element = None
             st.rerun()
@@ -773,19 +779,34 @@ def render_chat() -> None:
             st.markdown(msg["content"])
 
 
-# =============================================================================
-# SIDEBAR — layout upload is the ONLY source of truth for the layout
-# =============================================================================
+
+# SIDEBAR
 with st.sidebar:
     st.markdown("### Load Layouts")
-    st.caption("Upload up to 5 layout JSON files, keep them, and choose which one to analyze.")
     uploads = st.file_uploader(
         "Layout JSON files",
         type=["json"],
         accept_multiple_files=True,
         label_visibility="collapsed",
+        key="layout_uploader_main"
     )
 
+    # 1. Global Sensitivity Engine (Top-level, stable location)
+    st.divider()
+    st.markdown("### Global Sensitivity Engine")
+    
+    st.slider("Labor Cost Multiplier", 0.8, 1.5, 1.0, 0.05, key="labor")
+    st.slider("Material Inflation (%)", 0, 20, 0, 1, key="inflation")
+    st.slider("Carbon Tax ($/tCO2e)", 0, 200, 0, 5, key="carbon_tax")
+
+    # Update sensitivity dict automatically based on slider keys
+    st.session_state.sensitivity = {
+        "labor": st.session_state.labor,
+        "inflation": 1 + (st.session_state.inflation / 100),
+        "carbon_tax": st.session_state.carbon_tax
+    }
+
+    # 2. File Processing
     if uploads:
         uploaded_ids = set(st.session_state._uploaded_ids)
         added_count = 0
@@ -793,8 +814,7 @@ with st.sidebar:
         
         for uploaded in uploads:
             file_uid = getattr(uploaded, "file_id", uploaded.name)
-            if file_uid in uploaded_ids:
-                continue
+            if file_uid in uploaded_ids: continue
             try:
                 loaded_layout = json.load(uploaded)
                 plan_key = _unique_plan_key(st.session_state.layouts, uploaded.name)
@@ -805,7 +825,6 @@ with st.sidebar:
                 failed_names.append(uploaded.name)
 
         st.session_state._uploaded_ids = list(uploaded_ids)
-
         if added_count:
             if st.session_state.selected_plan_key not in st.session_state.layouts:
                 st.session_state.selected_plan_key = next(iter(st.session_state.layouts))
@@ -813,87 +832,60 @@ with st.sidebar:
         if failed_names:
             st.error("Failed to parse: " + ", ".join(failed_names[:3]))
 
+    # 3. Plan Selection & Analysis
+    st.divider()
     if st.session_state.layouts:
         plan_keys = list(st.session_state.layouts.keys())
-        selected_key = st.session_state.selected_plan_key
-        if selected_key not in st.session_state.layouts:
-            selected_key = plan_keys[0]
-            st.session_state.selected_plan_key = selected_key
+        # Safety check for active plan selection
+        current_selection = st.session_state.selected_plan_key
+        if current_selection not in st.session_state.layouts:
+            current_selection = plan_keys[0]
+            st.session_state.selected_plan_key = current_selection
 
-        selected_idx = plan_keys.index(selected_key)
-        chosen_key = st.selectbox("Active plan", options=plan_keys, index=selected_idx)
+        chosen_key = st.selectbox("Active plan", options=plan_keys, index=plan_keys.index(current_selection))
+        
         if chosen_key != st.session_state.selected_plan_key:
             st.session_state.selected_plan_key = chosen_key
             st.session_state.selected_room = None
-            st.session_state.pending_prompt = ""
+            st.rerun()
 
         st.session_state.layout = st.session_state.layouts[st.session_state.selected_plan_key]
 
-        proj     = st.session_state.layout.get("project", {})
-        rooms    = st.session_state.layout.get("rooms", [])
+        # Display Metrics
+        proj = st.session_state.layout.get("project", {})
+        rooms = st.session_state.layout.get("rooms", [])
         currency = proj.get("currency", "")
-        totals   = st.session_state.layout.get("totals", {})
-        room_total = totals.get("rooms", sum(r.get("total_cost",0) for r in rooms))
-        grand      = totals.get("grand", room_total)
-
+        totals = st.session_state.layout.get("totals", {})
+        room_total = totals.get("rooms", sum(r.get("total_cost", 0) for r in rooms))
+        
         st.markdown(f"**{proj.get('name','')}**")
         c1, c2 = st.columns(2)
         c1.metric("Rooms", len(rooms))
-        c2.metric("Footprint", f"{proj.get('footprint_m2',0):.0f} m²")
+        c2.metric("Footprint", f"{proj.get('footprint_m2', 0):.0f} m²")
         st.metric("Room construction", f"{room_total:,.0f} {currency}")
-        if grand != room_total:
-            st.metric("Grand total", f"{grand:,.0f} {currency}")
 
-        st.divider()
-        
         if st.button("Analyze All Saved Plans", use_container_width=True):
             from swiftlet_mcp import push_layout_to_grasshopper
-            updated_counter = 0
-            with st.spinner("Analyzing all saved plans via Grasshopper..."):
+            with st.spinner("Analyzing plans..."):
                 for name, layout in list(st.session_state.layouts.items()):
                     try:
                         result = push_layout_to_grasshopper(layout)
-                        if result.get("ok") and result.get("gh_layout"):
+                        if result.get("ok"):
                             st.session_state.layouts[name] = _merge_gh_colors(layout, result["gh_layout"])
-                            updated_counter += 1
-                    except Exception:
-                        pass
-
-            st.session_state.layout = st.session_state.layouts.get(
-                st.session_state.selected_plan_key,
-                st.session_state.layout,
-            )
-            st.success(f"Analyzed {updated_counter} / {len(st.session_state.layouts)} plans.")
+                    except: pass
+            st.rerun()
 
         if st.button("Remove Active Plan", use_container_width=True):
             key_to_remove = st.session_state.selected_plan_key
-            if key_to_remove in st.session_state.layouts:
-                st.session_state.layouts.pop(key_to_remove)
-                if st.session_state.layouts:
-                    st.session_state.selected_plan_key = next(iter(st.session_state.layouts))
-                    st.session_state.layout = st.session_state.layouts[st.session_state.selected_plan_key]
-                else:
-                    st.session_state.selected_plan_key = None
-                    st.session_state.layout = None
-                st.session_state.selected_room = None
-                st.rerun()
-
-        st.divider()
-        st.markdown("### Quick Prompts")
-        for qp in [
-            "What is the total project cost?",
-            "Which room is most expensive?",
-            "Which room has the highest rate per m²?",
-            "How can I reduce the bathroom cost?",
-            "Compare the living room and master bedroom",
-        ]:
-            if st.button(qp, key=f"qp_{qp[:18]}", use_container_width=True):
-                st.session_state.pending_prompt = qp
-                st.rerun()
+            st.session_state.layouts.pop(key_to_remove)
+            if st.session_state.layouts:
+                st.session_state.selected_plan_key = next(iter(st.session_state.layouts))
+            else:
+                st.session_state.selected_plan_key = None
+                st.session_state.layout = None
+            st.rerun()
     else:
-        st.session_state.layout = None
-        st.info("Upload one or more layout JSON files to begin.")
-
+        st.info("Upload JSON files to begin.")
 
 # =============================================================================
 # MAIN — floor plan (left) + chat (right)
@@ -902,7 +894,61 @@ st.markdown("## AIA Studio · Cost Advisor · Team 05")
 st.caption("Upload plans in the sidebar · choose an active plan · compare up to 5 plans")
 st.divider()
 
-tab_floor, tab_advice = st.tabs(["Floor Plan & Chat", "Architectural Advice"])
+# ── Sustainability Tab Logic ──────────────────────────────────────────────────
+def render_sustainability_tab():
+    st.markdown("#### Carbon vs. Cost Efficiency Comparison")
+    st.caption("Comparing carbon intensity vs. cost per m² across all loaded plans.")
+    
+    from nodes.arch_advice import get_room_carbon_data
+    
+    # Check if any layouts exist
+    if not st.session_state.layouts:
+        st.info("Upload layouts in the sidebar to see the comparison.")
+        return
+
+    # Use the same color palette as your spider chart for consistency
+    _palette = ["#ef4444", "#f59e0b", "#3b82f6", "#10b981", "#8b5cf6"]
+    plan_names = list(st.session_state.layouts.keys())
+
+    for idx, (name, layout) in enumerate(st.session_state.layouts.items()):
+        st.divider()
+        st.subheader(f"Plan: {name}")
+        
+        data = get_room_carbon_data(layout)
+        df = pd.DataFrame(data)
+        
+        if not df.empty:
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=df['cost'], 
+                y=df['gwp'],
+                mode='markers+text',
+                text=df['name'],
+                textposition="top center",
+                marker=dict(
+                    size=14, 
+                    color=_palette[idx % len(_palette)], # Use consistent color per plan
+                    opacity=0.8,
+                    line=dict(width=1, color="#fff")
+                )
+            ))
+            
+            fig.update_layout(
+                xaxis_title="Construction Cost per m² ($)",
+                yaxis_title="Embodied Carbon (kgCO2e/m²)",
+                paper_bgcolor="#ffffff",
+                plot_bgcolor="#f7f7f7",
+                height=400,
+                margin=dict(l=20, r=20, t=20, b=20)
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.caption(f"No finish material data available for {name}.")
+
+tab_floor, tab_advice, tab_sustainability = st.tabs(["Floor Plan & Chat", "Architectural Advice", "Sustainability Analysis"])
+
+with tab_sustainability:
+    render_sustainability_tab()
 
 # ─────────────────────────── FLOOR PLAN & CHAT TAB ───────────────────────────
 with tab_floor:
@@ -1036,9 +1082,12 @@ with tab_floor:
 
             # --- COST TABLE (FIXED FORMATTING) ---
             with st.expander("Cost Breakdown Table", expanded=True):
+                                
                 df = build_cost_df(st.session_state.layout)
                 
+                
                 if not df.empty:
+                    
                     # Dynamically format columns that actually exist to prevent silent crashes
                     fmt = {}
                     for col in df.columns:
@@ -1333,8 +1382,6 @@ with tab_advice:
             mime="text/csv",
         )
 
-<<<<<<< HEAD
-=======
     # ── Carbon Budget Tracker ─────────────────────────────────────────────────
     st.divider()
     st.markdown("#### Carbon Budget Tracker")
@@ -1475,129 +1522,7 @@ with tab_advice:
     else:
         st.info("Upload a layout to enable the cost × carbon matrix.")
 
-# ── cost pie charts (full-width row below both columns) ───────────────────────
-if st.session_state.layout:
-    _layout   = st.session_state.layout
-    _currency = _layout.get("project", {}).get("currency", "")
-    _rooms    = _layout.get("rooms", [])
-    _openings = _layout.get("openings", [])
-    _cols     = _layout.get("columns", [])
-    _doors    = [o for o in _openings if (o.get("type") or "").lower() == "door"]
-    _windows  = [o for o in _openings if (o.get("type") or "").lower() == "window"]
 
-    st.divider()
-    st.markdown("#### Cost Breakdown")
-
-    pie_r, pie_d, pie_w, pie_c = st.columns(4, gap="large")
-
-    def _pie_legend(labels, colors):
-        items = "".join(
-            f'<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'
-            f'<div style="width:10px;height:10px;border-radius:2px;background:{c};flex-shrink:0"></div>'
-            f'<span style="font-size:11px;color:#444;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{l}</span>'
-            f'</div>'
-            for l, c in zip(labels, colors)
-        )
-        return f'<div style="padding-top:4px">{items}</div>'
-
-    _PIE_LAYOUT = dict(
-        margin=dict(l=5, r=5, t=30, b=5),
-        paper_bgcolor="#ffffff",
-        showlegend=False,
-        height=220,
-    )
-
-    with pie_r:
-        if _rooms:
-            labels = [r.get("name", "") for r in _rooms]
-            values = [r.get("total_cost", 0) or 0 for r in _rooms]
-            room_min = min(values) if values else 0
-            room_max = max(values) if values else 1
-            room_span = (room_max - room_min) or 1
-            colors = [
-                r.get("color_hex")
-                or _lerp_color(((r.get("total_cost", 0) or 0) - room_min) / room_span)
-                for r in _rooms
-            ]
-            fig_r = go.Figure(go.Pie(
-                labels=labels, values=values,
-                marker=dict(colors=colors, line=dict(color="#fff", width=1)),
-                textinfo="percent",
-                hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
-                hole=0.4,
-            ))
-            fig_r.update_layout(title=dict(text="Rooms", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
-            st.plotly_chart(fig_r, use_container_width=True)
-            st.markdown(_pie_legend(labels, colors), unsafe_allow_html=True)
-
-    with pie_d:
-        if _doors:
-            d_labels = [d.get("subtype") or d.get("id") or "Door" for d in _doors]
-            d_values = [d.get("cost", 0) or 0 for d in _doors]
-            d_colors = [
-                d.get("color_hex")
-                or _cost_color_for_category(_layout, "doors", d.get("cost", 0) or 0, "#B27A41")
-                for d in _doors
-            ]
-            fig_d = go.Figure(go.Pie(
-                labels=d_labels, values=d_values,
-                marker=dict(colors=d_colors, line=dict(color="#fff", width=1)),
-                textinfo="percent",
-                hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
-                hole=0.4,
-            ))
-            fig_d.update_layout(title=dict(text="Doors", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
-            st.plotly_chart(fig_d, use_container_width=True)
-            st.markdown(_pie_legend(d_labels, d_colors), unsafe_allow_html=True)
-        else:
-            st.caption("No door data")
-
-    with pie_w:
-        if _windows:
-            w_labels = [w.get("subtype") or w.get("id") or "Window" for w in _windows]
-            w_values = [w.get("cost", 0) or 0 for w in _windows]
-            w_colors = [
-                w.get("color_hex")
-                or _cost_color_for_category(_layout, "windows", w.get("cost", 0) or 0, "#5AA0CD")
-                for w in _windows
-            ]
-            fig_w = go.Figure(go.Pie(
-                labels=w_labels, values=w_values,
-                marker=dict(colors=w_colors, line=dict(color="#fff", width=1)),
-                textinfo="percent",
-                hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
-                hole=0.4,
-            ))
-            fig_w.update_layout(title=dict(text="Windows", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
-            st.plotly_chart(fig_w, use_container_width=True)
-            st.markdown(_pie_legend(w_labels, w_colors), unsafe_allow_html=True)
-        else:
-            st.caption("No window data")
-
-    with pie_c:
-        if _cols:
-            c_labels = [c.get("subtype") or c.get("id") or "Column" for c in _cols]
-            c_values = [c.get("cost", 0) or 0 for c in _cols]
-            c_colors = [
-                c.get("color_hex")
-                or _cost_color_for_category(_layout, "columns", c.get("cost", 0) or 0, "#828282")
-                for c in _cols
-            ]
-            fig_c = go.Figure(go.Pie(
-                labels=c_labels, values=c_values,
-                marker=dict(colors=c_colors, line=dict(color="#fff", width=1)),
-                textinfo="percent",
-                hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
-                hole=0.4,
-            ))
-            fig_c.update_layout(title=dict(text="Columns", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
-            st.plotly_chart(fig_c, use_container_width=True)
-            st.markdown(_pie_legend(c_labels, c_colors), unsafe_allow_html=True)
-        else:
-            st.caption("No column data")
-
-
->>>>>>> 3d9ae69b8b25a473454b770bb05769d1e92b3428
 # ── multi-plan comparison (all saved plans) ─────────────────────────────────
 if len(st.session_state.layouts) >= 2:
     st.divider()
