@@ -1,0 +1,8 @@
+{
+  "layoutId": "L_L6.0_W9.0_de3_dp0.4_wp4",
+  "description": "1 double bedroom, 1 shower bathroom, open plan living-kitchen-dining, 1 storage room. Double-aspect apartment \u2014 windows on top and bottom facade(s). Kitchen is adjacent to a window \u2014 well-lit cooking position. 1 double bedroom (no walk-in wardrobe, no en-suite), 0 single bedroom(s). Single bedrooms can each function as bedroom, home office, hobby room or guest room. Kitchen: galley, no island. Cook faces the wall, back to the living and dining area. No wall separates kitchen from dining and living \u2014 fully open plan. Living area arrangement: linear kitchen-dining-living. Dining table visible, approximately 4 seats. Bathroom config: 1 shower-only bathroom(s). Single bathroom \u2014 sequential morning routine. Largest bedroom accessed via corridor. Storage room in entry or private zone, not adjacent to kitchen \u2014 suitable for coats, shoes, bikes, laundry or utility storage, not as kitchen pantry. Entry area has space for coat and shoe storage. From entry: kitchen is short corridor, living area is short corridor. No door between entry and living/kitchen \u2014 relevant where local regulations require separation. Suits: singles or couples.",
+  "not_suitable_for": [
+    "jurisdictions requiring door separation between entry and kitchen"
+  ],
+  "rooms_summary": "1 bedroom, 1 bathroom, 1 living (open plan), 1 storage"
+}

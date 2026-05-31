@@ -12,11 +12,10 @@ Skips layouts that already have a description — safe to re-run after crashes.
 Delete pf_descriptions/ to regenerate everything from scratch.
 """
 
-import json, time, os, io
+import json, time, os, io, base64
 from pathlib import Path
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
+import anthropic
 from PIL import Image
 import numpy as np
 
@@ -36,11 +35,11 @@ SCREENS_CROP_DIR.mkdir(exist_ok=True)
 # API client
 # ---------------------------------------------------------------------------
 load_dotenv(REPO_ROOT / ".env")
-API_KEY = os.environ.get("GOOGLE_API_KEY")
+API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 if not API_KEY:
-    raise ValueError("GOOGLE_API_KEY not found in repo root .env")
-client = genai.Client(api_key=API_KEY)
-MODEL  = os.environ.get("GOOGLE_MODEL", "gemini-2.5-flash-lite")
+    raise ValueError("ANTHROPIC_API_KEY not found in repo root .env")
+client = anthropic.Anthropic(api_key=API_KEY)
+MODEL  = "claude-sonnet-4-6"
 
 # ---------------------------------------------------------------------------
 # Step 1 — deterministic extraction from JSON (no LLM, no cost)
@@ -182,6 +181,7 @@ Return a single valid JSON object with exactly these keys. No prose, no explanat
 Context (from JSON data): {context}
 
 {{
+  "kitchen_shape":                  "single-wall / L-shaped / U-shaped / galley / island-only / island-and-wall / unclear",
   "kitchen_island":                 "yes / no",
   "hob_location":                   "island / wall / unclear",
   "sink_location":                  "island / wall / unclear",
@@ -205,7 +205,9 @@ Context (from JSON data): {context}
   "entry_proximity_to_living":      "immediate / short corridor / long corridor",
   "sleeping_area_separation":       "none / partial partition / alcove / fully open / na",
   "bed_type_studio":                "single / double / sofa bed / unclear / na",
-  "kitchen_near_window":            "yes / no / unclear"
+  "kitchen_near_window":            "yes / no / unclear",
+  "bedroom_through_room":           "yes / no",
+  "bedroom_through_room_detail":    "through living / through another bedroom / through kitchen / na"
 }}
 """
 
@@ -223,17 +225,28 @@ def call_vision_llm(png_path: Path, context: dict) -> dict:
     prompt   = (
         QUESTIONNAIRE.replace("{context}", json.dumps(context))
         + f"\n\nSpatial reference: the entry door is on the {entry} side of the image. "
-          f"Use this to determine which wall the TV is on, cook orientation, etc."
+          f"Use this to determine cook orientation, TV position, etc."
     )
 
-    response = client.models.generate_content(
+    response = client.messages.create(
         model=MODEL,
-        contents=[
-            types.Part.from_bytes(data=img_data, mime_type="image/png"),
-            types.Part.from_text(text=prompt),
-        ]
+        max_tokens=1024,
+        messages=[{
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": base64.b64encode(img_data).decode()
+                    }
+                },
+                {"type": "text", "text": prompt}
+            ]
+        }]
     )
-    raw = response.text.strip()
+    raw = response.content[0].text.strip()
     if raw.startswith("```"):
         raw = raw.split("```")[1]
         if raw.startswith("json"):
@@ -249,10 +262,14 @@ def assemble(ctx: dict, vis: dict, layout_id: str) -> dict:
     cook_faces   = vis.get("cook_faces_room", "")
     desk_count   = 0
 
+    def _int(val, default=0):
+        try: return int(val)
+        except (ValueError, TypeError): return default
+
     # --- Room list opening ---
-    n_bathtub_pre = int(vis.get("bathrooms_with_bathtub", 0) or 0)
-    n_shower_pre  = int(vis.get("bathrooms_with_shower_only", 0) or 0)
-    n_wc_pre      = int(vis.get("wc_only_rooms", 0) or 0)
+    n_bathtub_pre = _int(vis.get("bathrooms_with_bathtub", 0))
+    n_shower_pre  = _int(vis.get("bathrooms_with_shower_only", 0))
+    n_wc_pre      = _int(vis.get("wc_only_rooms", 0))
 
     rl = []
     if ctx["space_type"] == "studio":
@@ -318,13 +335,14 @@ def assemble(ctx: dict, vis: dict, layout_id: str) -> dict:
         parts.append(f"Walk-in wardrobe: {vis.get('walk_in_wardrobe_type', 'open wardrobe area')}.")
 
     # Kitchen
-    island = vis.get("kitchen_island") == "yes"
+    k_shape = vis.get("kitchen_shape", "unclear")
+    island  = vis.get("kitchen_island") == "yes"
     if island:
         hob  = vis.get("hob_location",  "unclear")
         sink = vis.get("sink_location", "unclear")
-        parts.append(f"Kitchen island present — hob on {hob}, sink on {sink}.")
+        parts.append(f"Kitchen: {k_shape}, island present — hob on {hob}, sink on {sink}.")
     else:
-        parts.append("No kitchen island — single countertop kitchen.")
+        parts.append(f"Kitchen: {k_shape}, no island.")
 
     if cook_faces == "yes":
         parts.append(
@@ -366,9 +384,9 @@ def assemble(ctx: dict, vis: dict, layout_id: str) -> dict:
         )
 
     # Bathrooms — per type counts
-    n_bathtub = int(vis.get("bathrooms_with_bathtub", 0) or 0)
-    n_shower  = int(vis.get("bathrooms_with_shower_only", 0) or 0)
-    n_wc      = int(vis.get("wc_only_rooms", 0) or 0)
+    n_bathtub = _int(vis.get("bathrooms_with_bathtub", 0))
+    n_shower  = _int(vis.get("bathrooms_with_shower_only", 0))
+    n_wc      = _int(vis.get("wc_only_rooms", 0))
     bath_notes = []
     if n_bathtub:
         bath_notes.append(f"{n_bathtub} bathroom(s) with bathtub")
@@ -402,6 +420,14 @@ def assemble(ctx: dict, vis: dict, layout_id: str) -> dict:
             )
         else:
             parts.append(f"{suite_label.capitalize()} accessed via corridor.")
+
+    # Bedroom access through another room
+    if vis.get("bedroom_through_room") == "yes":
+        detail = vis.get("bedroom_through_room_detail", "another room")
+        parts.append(
+            f"At least one bedroom is only accessible by passing through {detail} — "
+            f"no direct corridor access, least private position in the apartment."
+        )
 
     # Secondary bedrooms + configuration matrix
     n_single = ctx["secondary_count"]
