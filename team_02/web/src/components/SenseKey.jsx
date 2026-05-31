@@ -16,6 +16,7 @@ export default function SenseKey({ rooms }) {
       {open && (
         <div className="sense-key-body">
           <SenseGraph rooms={rooms} size={150} />
+          <div className="sense-key-hint">bigger node = more rooms fail this sense (score &lt; 0.5); smaller = fewer</div>
           <div className="sense-key-hint">solid research · dashed physics · click to solo</div>
         </div>
       )}
