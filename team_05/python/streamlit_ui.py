@@ -330,7 +330,13 @@ def _merge_gh_colors(base: dict, gh: dict) -> dict:
         src = (gh_by_id.get(room.get("id"))
                or gh_by_name.get((room.get("name") or "").lower()))
         if src:
-            for key in ("color_hex", "color_rgb", "heat_t", "total_cost", "rate_per_m2"):
+            for key in (
+                "color_hex", "color_rgb", "heat_t", "total_cost", "rate_per_m2",
+                "floor_finish", "floor-finish",
+                "wall_finish", "wall-finish",
+                "ceiling_material", "ceiling-material", "ceiling-finish",
+                "slab_material", "slab-material",
+            ):
                 if key in src:
                     room[key] = src[key]
     if "heatmap" in gh:
@@ -1209,10 +1215,14 @@ with tab_advice:
         extract_materials_from_layout as _extract_layout_mats,
         extract_materials_from_messages as _extract_msg_mats,
         generate_advice_table_data as _gen_table,
+        generate_carbon_matrix_data as _gen_matrix,
+        calculate_carbon_budget as _calc_budget,
         FIRE_STANDARDS,
         DEFAULT_STANDARD,
         GWP_REGIONS,
         DEFAULT_REGION,
+        CARBON_BUDGETS,
+        DEFAULT_BUILDING_TYPE,
     )
     from nodes.bt_client import has_api_key as _bt_has_key
 
@@ -1323,6 +1333,271 @@ with tab_advice:
             mime="text/csv",
         )
 
+<<<<<<< HEAD
+=======
+    # ── Carbon Budget Tracker ─────────────────────────────────────────────────
+    st.divider()
+    st.markdown("#### Carbon Budget Tracker")
+    st.caption("RIBA 2030 Climate Challenge targets. Only rooms with finish materials assigned via chat contribute.")
+
+    _bldg_col, _ = st.columns([2, 3])
+    _bldg_type = _bldg_col.selectbox(
+        "Building type",
+        options=list(CARBON_BUDGETS.keys()),
+        index=list(CARBON_BUDGETS.keys()).index(DEFAULT_BUILDING_TYPE),
+        key="building_type_select",
+    )
+
+    if st.session_state.layout:
+        _budget = _calc_budget(st.session_state.layout, _bldg_type, _selected_region, st.session_state.messages)
+        _pct    = _budget["pct_of_budget"]
+
+        b1, b2, b3, b4 = st.columns(4)
+        b1.metric("Total Embodied Carbon", f"{_budget['total_kgco2e']:,.0f} kgCO2e")
+        b2.metric("Normalised", f"{_budget['per_m2']:.1f} kgCO2e/m²")
+        b3.metric("RIBA 2030 Target", f"{_budget['target_per_m2']:.0f} kgCO2e/m²")
+        _delta_val = round(_pct - 100, 1)
+        b4.metric(
+            "Budget Used",
+            f"{_pct:.1f}%",
+            delta=f"{_delta_val:+.1f}%" if _pct > 0 else None,
+            delta_color="inverse",
+        )
+
+        _bar_color = "#27ae60" if _pct < 70 else "#f39c12" if _pct < 100 else "#c0392b"
+        st.markdown(
+            f'<div style="background:#eee;border-radius:6px;height:18px;margin:6px 0">'
+            f'<div style="background:{_bar_color};width:{min(_pct,100):.1f}%;'
+            f'height:100%;border-radius:6px;transition:width 0.4s"></div></div>',
+            unsafe_allow_html=True,
+        )
+        _status = "under budget" if _pct < 100 else "OVER budget"
+        st.caption(
+            f"{_status.upper()} — {_budget['coverage_pct']:.0f}% of floor area has assigned finishes "
+            f"({_budget['assigned_area_m2']:.0f} / {_budget['total_area_m2']:.0f} m²)"
+        )
+
+        if _budget["breakdown"]:
+            with st.expander("Room breakdown", expanded=True):
+                _th_s = "text-align:left;padding:6px 12px;border-bottom:2px solid #ddd;color:#555;font-size:0.8rem;font-weight:600"
+                _td_s = "padding:6px 12px;border-bottom:1px solid #eee;font-size:0.85rem;color:#111"
+                _cols = ["Room", "Finish", "Material", "Area (m²)", "kgCO2e/m²", "Total kgCO2e"]
+                _head = "".join(f'<th style="{_th_s}">{c}</th>' for c in _cols)
+                _rows = ""
+                for _b in _budget["breakdown"]:
+                    _rows += (
+                        f'<tr>'
+                        f'<td style="{_td_s}">{_b.get("Room","")}</td>'
+                        f'<td style="{_td_s}">{_b.get("Finish","")}</td>'
+                        f'<td style="{_td_s};font-weight:600">{_b.get("Material","")}</td>'
+                        f'<td style="{_td_s}">{_b.get("Area (m²)","")}</td>'
+                        f'<td style="{_td_s}">{_b.get("kgCO2e/m²","")}</td>'
+                        f'<td style="{_td_s}">{_b.get("Total kgCO2e","")}</td>'
+                        f'</tr>'
+                    )
+                st.markdown(
+                    f'<table style="width:100%;border-collapse:collapse">'
+                    f'<thead><tr>{_head}</tr></thead>'
+                    f'<tbody>{_rows}</tbody></table>',
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.info("Assign finish materials to rooms via chat (e.g. 'living room floor finish marble') to track carbon.")
+    else:
+        st.info("Upload a layout to enable the carbon budget tracker.")
+
+    # ── Cost × Carbon Matrix ──────────────────────────────────────────────────
+    st.divider()
+    st.markdown("#### Cost × Carbon Matrix")
+    st.caption(
+        "Each dot is a room with an assigned finish. "
+        "Dot size = floor area. Bottom-left = cheap & low carbon (ideal). "
+        "Top-right = expensive & high carbon (avoid)."
+    )
+
+    if st.session_state.layout:
+        _matrix = _gen_matrix(st.session_state.layout, _selected_region, st.session_state.messages)
+        if _matrix:
+            _is_estimated = any(p.get("estimated") for p in _matrix)
+            if _is_estimated:
+                st.caption("Showing estimated positions based on chat-detected materials + average room stats. Assign finishes to specific rooms via chat for precise data.")
+            _mx_by_mat: dict[str, list] = {}
+            for _pt in _matrix:
+                _mx_by_mat.setdefault(_pt["material"], []).append(_pt)
+
+            _mx_fig = go.Figure()
+            for _mat_label, _pts in _mx_by_mat.items():
+                _mx_fig.add_trace(go.Scatter(
+                    x=[p["cost_per_m2"] for p in _pts],
+                    y=[p["gwp"] for p in _pts],
+                    mode="markers+text",
+                    name=_mat_label,
+                    text=[f"{p['room']}<br>({p['finish_type']})" for p in _pts],
+                    textposition="top center",
+                    textfont=dict(size=9),
+                    marker=dict(
+                        size=[max(12, p["area_m2"] * 0.6) for p in _pts],
+                        opacity=0.82,
+                        line=dict(width=1, color="#fff"),
+                    ),
+                    hovertemplate=(
+                        "<b>%{text}</b><br>"
+                        f"Material: {_mat_label}<br>"
+                        "Cost: %{x:,.0f}/m²<br>"
+                        "Carbon: %{y:.2f} kgCO2e/m²"
+                        "<extra></extra>"
+                    ),
+                ))
+
+            # Average reference lines
+            _all_costs = [p["cost_per_m2"] for p in _matrix]
+            _all_gwps  = [p["gwp"] for p in _matrix]
+            _avg_cost  = sum(_all_costs) / len(_all_costs)
+            _avg_gwp   = sum(_all_gwps)  / len(_all_gwps)
+            _mx_fig.add_hline(y=_avg_gwp,  line_dash="dot", line_color="#aaa",
+                              annotation_text=f"avg {_avg_gwp:.1f} kgCO2e/m²", annotation_position="right")
+            _mx_fig.add_vline(x=_avg_cost, line_dash="dot", line_color="#aaa",
+                              annotation_text=f"avg {_avg_cost:,.0f}/m²", annotation_position="top")
+
+            _mx_fig.update_layout(
+                xaxis_title="Construction cost per m²",
+                yaxis_title="Embodied carbon (kgCO2e/m²)",
+                paper_bgcolor="#ffffff",
+                plot_bgcolor="#f7f7f7",
+                font=dict(color="#111"),
+                height=420,
+                margin=dict(l=10, r=10, t=20, b=10),
+                legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5),
+            )
+            st.plotly_chart(_mx_fig, use_container_width=True)
+        else:
+            st.info("Assign finish materials to rooms via chat to populate the matrix.")
+    else:
+        st.info("Upload a layout to enable the cost × carbon matrix.")
+
+# ── cost pie charts (full-width row below both columns) ───────────────────────
+if st.session_state.layout:
+    _layout   = st.session_state.layout
+    _currency = _layout.get("project", {}).get("currency", "")
+    _rooms    = _layout.get("rooms", [])
+    _openings = _layout.get("openings", [])
+    _cols     = _layout.get("columns", [])
+    _doors    = [o for o in _openings if (o.get("type") or "").lower() == "door"]
+    _windows  = [o for o in _openings if (o.get("type") or "").lower() == "window"]
+
+    st.divider()
+    st.markdown("#### Cost Breakdown")
+
+    pie_r, pie_d, pie_w, pie_c = st.columns(4, gap="large")
+
+    def _pie_legend(labels, colors):
+        items = "".join(
+            f'<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'
+            f'<div style="width:10px;height:10px;border-radius:2px;background:{c};flex-shrink:0"></div>'
+            f'<span style="font-size:11px;color:#444;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{l}</span>'
+            f'</div>'
+            for l, c in zip(labels, colors)
+        )
+        return f'<div style="padding-top:4px">{items}</div>'
+
+    _PIE_LAYOUT = dict(
+        margin=dict(l=5, r=5, t=30, b=5),
+        paper_bgcolor="#ffffff",
+        showlegend=False,
+        height=220,
+    )
+
+    with pie_r:
+        if _rooms:
+            labels = [r.get("name", "") for r in _rooms]
+            values = [r.get("total_cost", 0) or 0 for r in _rooms]
+            room_min = min(values) if values else 0
+            room_max = max(values) if values else 1
+            room_span = (room_max - room_min) or 1
+            colors = [
+                r.get("color_hex")
+                or _lerp_color(((r.get("total_cost", 0) or 0) - room_min) / room_span)
+                for r in _rooms
+            ]
+            fig_r = go.Figure(go.Pie(
+                labels=labels, values=values,
+                marker=dict(colors=colors, line=dict(color="#fff", width=1)),
+                textinfo="percent",
+                hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
+                hole=0.4,
+            ))
+            fig_r.update_layout(title=dict(text="Rooms", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
+            st.plotly_chart(fig_r, use_container_width=True)
+            st.markdown(_pie_legend(labels, colors), unsafe_allow_html=True)
+
+    with pie_d:
+        if _doors:
+            d_labels = [d.get("subtype") or d.get("id") or "Door" for d in _doors]
+            d_values = [d.get("cost", 0) or 0 for d in _doors]
+            d_colors = [
+                d.get("color_hex")
+                or _cost_color_for_category(_layout, "doors", d.get("cost", 0) or 0, "#B27A41")
+                for d in _doors
+            ]
+            fig_d = go.Figure(go.Pie(
+                labels=d_labels, values=d_values,
+                marker=dict(colors=d_colors, line=dict(color="#fff", width=1)),
+                textinfo="percent",
+                hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
+                hole=0.4,
+            ))
+            fig_d.update_layout(title=dict(text="Doors", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
+            st.plotly_chart(fig_d, use_container_width=True)
+            st.markdown(_pie_legend(d_labels, d_colors), unsafe_allow_html=True)
+        else:
+            st.caption("No door data")
+
+    with pie_w:
+        if _windows:
+            w_labels = [w.get("subtype") or w.get("id") or "Window" for w in _windows]
+            w_values = [w.get("cost", 0) or 0 for w in _windows]
+            w_colors = [
+                w.get("color_hex")
+                or _cost_color_for_category(_layout, "windows", w.get("cost", 0) or 0, "#5AA0CD")
+                for w in _windows
+            ]
+            fig_w = go.Figure(go.Pie(
+                labels=w_labels, values=w_values,
+                marker=dict(colors=w_colors, line=dict(color="#fff", width=1)),
+                textinfo="percent",
+                hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
+                hole=0.4,
+            ))
+            fig_w.update_layout(title=dict(text="Windows", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
+            st.plotly_chart(fig_w, use_container_width=True)
+            st.markdown(_pie_legend(w_labels, w_colors), unsafe_allow_html=True)
+        else:
+            st.caption("No window data")
+
+    with pie_c:
+        if _cols:
+            c_labels = [c.get("subtype") or c.get("id") or "Column" for c in _cols]
+            c_values = [c.get("cost", 0) or 0 for c in _cols]
+            c_colors = [
+                c.get("color_hex")
+                or _cost_color_for_category(_layout, "columns", c.get("cost", 0) or 0, "#828282")
+                for c in _cols
+            ]
+            fig_c = go.Figure(go.Pie(
+                labels=c_labels, values=c_values,
+                marker=dict(colors=c_colors, line=dict(color="#fff", width=1)),
+                textinfo="percent",
+                hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
+                hole=0.4,
+            ))
+            fig_c.update_layout(title=dict(text="Columns", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
+            st.plotly_chart(fig_c, use_container_width=True)
+            st.markdown(_pie_legend(c_labels, c_colors), unsafe_allow_html=True)
+        else:
+            st.caption("No column data")
+
+
+>>>>>>> 3d9ae69b8b25a473454b770bb05769d1e92b3428
 # ── multi-plan comparison (all saved plans) ─────────────────────────────────
 if len(st.session_state.layouts) >= 2:
     st.divider()

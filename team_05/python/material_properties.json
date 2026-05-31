@@ -155,7 +155,8 @@
       "life_cycle_years": 50,
       "gwp_fallback_kgco2e": 10.2,
       "gwp_unit": "kgCO2e/m²",
-      "ec3_category": "Ceramic Tile"
+      "ec3_category": "Ceramic Tile",
+      "alternatives": ["polished_concrete", "vinyl"]
     },
     "marble": {
       "fire_rating": {
@@ -1052,7 +1053,8 @@
       "life_cycle_years": 50,
       "gwp_fallback_kgco2e": 10.2,
       "gwp_unit": "kgCO2e/m²",
-      "ec3_category": "Ceramic Tile"
+      "ec3_category": "Ceramic Tile",
+      "alternatives": ["polished_concrete", "vinyl"]
     },
     "porcelain_tile": {
       "fire_rating": {
