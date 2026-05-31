@@ -14,7 +14,7 @@
         <button class="chatbox-btn"><img :src="micIcon" alt="Mic" width="20" height="20" /></button>
       </div>
       <button class="chatbox-send-btn" @click="sendMessage" :disabled="!inputMsg.trim()">
-        <img :src="sendIcon" alt="Send" width="16" height="16" />
+        <img :src="sendWhiteIcon" alt="Send" width="16" height="16" />
       </button>
     </div>
   </div>
@@ -25,7 +25,7 @@ import { ref } from 'vue'
 import imgIcon from '../assets/icons/img.svg'
 import codeIcon from '../assets/icons/code.svg'
 import micIcon from '../assets/icons/mic.svg'
-import sendIcon from '../assets/icons/send.svg'
+import sendWhiteIcon from '../assets/icons/send-white.svg'
 
 const emit = defineEmits(['send'])
 const inputMsg = ref('')
@@ -49,7 +49,7 @@ function sendMessage() {
   padding: 12px 16px 8px 16px;
   width: 100%;
   position: relative;
-  min-height: 0;
+  min-height: 120px;
   box-sizing: border-box;
 }
 .chatbox-input {
@@ -58,8 +58,8 @@ function sendMessage() {
   background: transparent;
   font-size: var(--font-size-standard);
   color: var(--color-text-secondary);
-  padding: 0;
-  margin-bottom: 8px;
+  padding: 8px;
+  margin-bottom: 18px;
   width: 100%;
   min-height: 0;
   box-sizing: border-box;
@@ -68,6 +68,7 @@ function sendMessage() {
   display: flex;
   flex-direction: row;
   align-items: flex-end;
+  padding: 8px;
   width: 100%;
   margin-bottom: 0;
 }

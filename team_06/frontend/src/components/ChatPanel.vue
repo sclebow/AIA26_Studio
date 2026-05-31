@@ -55,7 +55,7 @@ watch(() => props.chat.length, () => {
       <li>Apartment for a young couple</li>
       <li>Daylight analysis</li>
     </ul>
-    <div class="chat-area" ref="chatArea" style="overflow-y:auto; max-height:400px;">
+    <div class="chat-area" ref="chatArea" style="overflow-y:auto;">
       <div v-for="msg in chat" :key="msg.id" :class="['chat-msg', msg.role]">
         <span>{{ msg.text }}</span>
       </div>
@@ -82,8 +82,8 @@ watch(() => props.chat.length, () => {
   margin-bottom: 8px;
 }
 .chat-panel {
-  width: 420px;
-  min-width: 420px;
+  width: 400px;
+  min-width: 400px;
   background: var(--color-white);
   border-left: 1px solid var(--color-border);
   display: flex;
@@ -171,5 +171,35 @@ watch(() => props.chat.length, () => {
   align-items: center;
   color: var(--color-blue);
   font-size: 1.2rem;
+}
+.chat-msg {
+  max-width: 75%;
+  margin: 6px 0;
+  padding: 10px 16px;
+  border-radius: 16px;
+  font-size: var(--font-size-standard);
+  word-break: break-word;
+  display: inline-block;
+}
+.chat-msg.user {
+  align-self: flex-end;
+  background: var(--color-light-blue);
+  color: var(--color-text-primary);
+  border: 1.5px solid var(--color-blue);
+  margin-left: auto;
+  margin-right: 0;
+  text-align: right;
+}
+.chat-msg.agent {
+  align-self: flex-start;
+  background: transparent;
+  color: var(--color-text-primary);
+  border: none;
+  margin-right: auto;
+  margin-left: 0;
+  text-align: left;
+  padding: 0;
+  font-size: var(--font-size-standard);
+  box-shadow: none;
 }
 </style>
