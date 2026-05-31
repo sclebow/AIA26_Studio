@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { SC, SI, SENSES, scoreColor, scoreOpacity } from "../lib/constants.js";
 import { useSelection } from "../lib/selection.jsx";
-import { thresholdFromWeight, BASIS_ICON, basisBorder } from "../lib/senseModel.js";
+import { thresholdFromWeight, BASIS_ICON, basisBorder, LEVER_SENSE } from "../lib/senseModel.js";
 import { roomByName, suggestionsFor } from "../lib/turn.js";
 import { DUR, EASE } from "../lib/motion.js";
 import Collapsible from "../ui/Collapsible.jsx";
@@ -14,7 +14,18 @@ import SenseSignature from "./SenseSignature.jsx";
  * with provenance), conflicts, suggestions, and a collapsible narrative.
  * "Why" lives here as readable HTML — never in-SVG text.
  */
-export default function FocusCard({ turn, persona, onClose }) {
+// Levers a user can actually act on, mapped to a natural-language what-if the
+// agent can route (modify_glazing / change_material / add_furniture). The "lever
+// bridge": a failing sense → its positive levers → one click to a real edit.
+const EDITABLE_LEVERS = {
+  "glazing ratio":    (r) => `add more glazing to the ${r}`,
+  "glazing type":     (r) => `upgrade the glazing in the ${r}`,
+  "ventilation":      (r) => `improve ventilation in the ${r}`,
+  "surface material": (r) => `use softer surface materials in the ${r}`,
+  "plants":           (r) => `add plants to the ${r}`,
+};
+
+export default function FocusCard({ turn, persona, onClose, onFix }) {
   const { activeRoom, focusSense, toggleSense } = useSelection();
 
   const room = roomByName(turn, activeRoom);
@@ -31,6 +42,15 @@ export default function FocusCard({ turn, persona, onClose }) {
   const thr = (s) => thresholdFromWeight(weights[s] ?? 0.5);
   const failing = SENSES.filter((s) => (eff[s] ?? 1) < thr(s));
   const adjBySense = (s) => adjustments.filter((a) => a.sense === s);
+
+  // lever bridge: positive, editable levers that fix the failing senses (deduped)
+  const fixes = (() => {
+    const seen = new Set(), out = [];
+    failing.forEach((s) => LEVER_SENSE.forEach(([lever, sense, sign]) => {
+      if (sense === s && sign === "+" && EDITABLE_LEVERS[lever] && !seen.has(lever)) { seen.add(lever); out.push({ lever, sense: s }); }
+    }));
+    return out;
+  })();
 
   return (
     <motion.div
@@ -93,6 +113,20 @@ export default function FocusCard({ turn, persona, onClose }) {
           <div className="flex flex-wrap gap-1.5">
             {failing.map((s) => (
               <span key={s} className="fc-flag" data-sense={s} style={{ color: SC[s], borderColor: SC[s] }}>{SI[s]} {s}</span>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* lever bridge — one click runs a what-if edit that improves a failing sense */}
+      {onFix && fixes.length > 0 && (
+        <>
+          <div className="fc-section-label">fix it — run a what-if</div>
+          <div className="flex flex-wrap gap-1.5">
+            {fixes.map((f) => (
+              <button key={f.lever} className="fc-fix" style={{ borderColor: SC[f.sense], color: SC[f.sense] }}
+                onClick={() => onFix(EDITABLE_LEVERS[f.lever](activeRoom))}
+                title={EDITABLE_LEVERS[f.lever](activeRoom)}>⚒ {f.lever}</button>
             ))}
           </div>
         </>

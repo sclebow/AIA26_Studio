@@ -1,23 +1,23 @@
 {
-  "layoutId": "Layout-201",
-  "name": "City Apartment — Thermal & Acoustic Conflicts",
-  "description": "A modern 2-bedroom city apartment. The north-facing kitchen suffers from poor thermal comfort and olfactory issues. The guest bedroom's acoustic isolation is compromised by its proximity to both the kitchen and living room. A good layout for demonstrating material changes and glazing modifications.",
+  "layoutId": "Layout-202",
+  "name": "Studio Loft — Acoustic & Olfactory Conflicts",
+  "description": "A compact loft where the kitchen sits between the living area and bedroom, creating acoustic conflict in both. All mechanical ventilation, hard surfaces, zero plants. Perfect demo for: detect, full analysis, add_furniture (plants), biophilic audit, change_material (floor).",
   "outline": [
     [
       0,
       0
     ],
     [
-      12,
+      10,
       0
     ],
     [
-      12,
-      8
+      10,
+      7
     ],
     [
       0,
-      8
+      7
     ],
     [
       0,
@@ -27,23 +27,23 @@
   "rooms": [
     {
       "id": "room-1",
-      "name": "Living Room",
+      "name": "Living Area",
       "geometry": [
         [
           0,
           0
         ],
         [
-          7,
+          6,
           0
         ],
         [
-          7,
-          5
+          6,
+          4
         ],
         [
           0,
-          5
+          4
         ],
         [
           0,
@@ -51,26 +51,26 @@
         ]
       ],
       "attributes": {
-        "area": 35.0,
+        "area": 24.0,
         "roomType": "living",
-        "height": 2.8,
-        "orientation": "W",
-        "glazingRatio": 0.25,
-        "ventilationType": "natural",
-        "floorMaterial": "wood",
+        "height": 3.2,
+        "orientation": "S",
+        "glazingRatio": 0.3,
+        "ventilationType": "mechanical",
+        "floorMaterial": "concrete",
         "analysis": {
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T00:11:26",
-          "overallScore": 0.55,
+          "timestamp": "2026-05-30T22:09:06",
+          "overallScore": 0.51,
           "comfortScores": {
-            "thermal": 0.61,
-            "visual": 0.87,
-            "acoustic": 0.39,
-            "spatial": 0.94,
-            "olfactory": 0.73,
-            "tactile": 0.68
+            "thermal": 0.59,
+            "visual": 0.82,
+            "acoustic": 0.4,
+            "spatial": 0.89,
+            "olfactory": 0.55,
+            "tactile": 0.47
           },
           "conflicts": [],
           "suggestions": []
@@ -82,47 +82,47 @@
       "name": "Kitchen",
       "geometry": [
         [
-          7,
+          6,
           0
         ],
         [
-          12,
+          10,
           0
         ],
         [
-          12,
+          10,
           4
         ],
         [
-          7,
+          6,
           4
         ],
         [
-          7,
+          6,
           0
         ]
       ],
       "attributes": {
-        "area": 20.0,
+        "area": 16.0,
         "roomType": "kitchen",
-        "height": 2.8,
-        "orientation": "N",
-        "glazingRatio": 0.25,
+        "height": 3.2,
+        "orientation": "S",
+        "glazingRatio": 0.12,
         "ventilationType": "mechanical",
         "floorMaterial": "ceramic",
         "analysis": {
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T00:11:26",
-          "overallScore": 0.34,
+          "timestamp": "2026-05-30T22:09:06",
+          "overallScore": 0.33,
           "comfortScores": {
-            "thermal": 0.36,
-            "visual": 0.72,
-            "acoustic": 0.19,
+            "thermal": 0.37,
+            "visual": 0.64,
+            "acoustic": 0.2,
             "spatial": 0.94,
             "olfactory": 0.3,
-            "tactile": 0.42
+            "tactile": 0.35
           },
           "conflicts": [],
           "suggestions": []
@@ -131,50 +131,50 @@
     },
     {
       "id": "room-3",
-      "name": "Master Bedroom",
+      "name": "Bedroom",
       "geometry": [
         [
           0,
-          5
+          4
         ],
         [
-          5,
-          5
+          7,
+          4
         ],
         [
-          5,
-          8
-        ],
-        [
-          0,
-          8
+          7,
+          7
         ],
         [
           0,
-          5
+          7
+        ],
+        [
+          0,
+          4
         ]
       ],
       "attributes": {
-        "area": 15.0,
+        "area": 21.0,
         "roomType": "bedroom",
-        "height": 2.8,
+        "height": 3.2,
         "orientation": "N",
-        "glazingRatio": 0.18,
-        "ventilationType": "natural",
-        "floorMaterial": "wood",
+        "glazingRatio": 0.14,
+        "ventilationType": "mechanical",
+        "floorMaterial": "concrete",
         "analysis": {
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T00:11:26",
-          "overallScore": 0.64,
+          "timestamp": "2026-05-30T22:09:06",
+          "overallScore": 0.48,
           "comfortScores": {
-            "thermal": 0.69,
-            "visual": 0.65,
-            "acoustic": 0.55,
-            "spatial": 0.86,
-            "olfactory": 0.85,
-            "tactile": 0.71
+            "thermal": 0.54,
+            "visual": 0.59,
+            "acoustic": 0.37,
+            "spatial": 0.94,
+            "olfactory": 0.65,
+            "tactile": 0.48
           },
           "conflicts": [],
           "suggestions": []
@@ -183,50 +183,50 @@
     },
     {
       "id": "room-4",
-      "name": "Guest Bedroom",
+      "name": "Study",
       "geometry": [
         [
-          5,
-          5
+          7,
+          4
         ],
         [
           10,
-          5
+          4
         ],
         [
           10,
-          8
+          6
         ],
         [
-          5,
-          8
+          7,
+          6
         ],
         [
-          5,
-          5
+          7,
+          4
         ]
       ],
       "attributes": {
-        "area": 15.0,
-        "roomType": "bedroom",
-        "height": 2.8,
-        "orientation": "N",
-        "glazingRatio": 0.12,
-        "ventilationType": "natural",
-        "floorMaterial": "carpet",
+        "area": 6.0,
+        "roomType": "study",
+        "height": 3.2,
+        "orientation": "E",
+        "glazingRatio": 0.08,
+        "ventilationType": "mechanical",
+        "floorMaterial": "concrete",
         "analysis": {
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T00:11:26",
-          "overallScore": 0.7,
+          "timestamp": "2026-05-30T22:09:06",
+          "overallScore": 0.44,
           "comfortScores": {
-            "thermal": 0.72,
-            "visual": 0.65,
-            "acoustic": 0.7,
-            "spatial": 0.86,
-            "olfactory": 0.85,
-            "tactile": 0.73
+            "thermal": 0.59,
+            "visual": 0.5,
+            "acoustic": 0.65,
+            "spatial": 0.59,
+            "olfactory": 0.55,
+            "tactile": 0.35
           },
           "conflicts": [],
           "suggestions": []
@@ -238,30 +238,30 @@
       "name": "Bathroom",
       "geometry": [
         [
-          10,
-          4
-        ],
-        [
-          12,
-          4
-        ],
-        [
-          12,
-          8
+          7,
+          6
         ],
         [
           10,
-          8
+          6
         ],
         [
           10,
-          4
+          7
+        ],
+        [
+          7,
+          7
+        ],
+        [
+          7,
+          6
         ]
       ],
       "attributes": {
-        "area": 8.0,
+        "area": 3.0,
         "roomType": "bathroom",
-        "height": 2.8,
+        "height": 3.2,
         "orientation": "E",
         "glazingRatio": 0.0,
         "ventilationType": "mechanical",
@@ -270,67 +270,15 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T00:11:26",
-          "overallScore": 0.5,
+          "timestamp": "2026-05-30T22:09:06",
+          "overallScore": 0.48,
           "comfortScores": {
             "thermal": 0.62,
             "visual": 0.4,
-            "acoustic": 0.65,
-            "spatial": 1.0,
+            "acoustic": 0.7,
+            "spatial": 0.71,
             "olfactory": 0.4,
-            "tactile": 0.56
-          },
-          "conflicts": [],
-          "suggestions": []
-        }
-      }
-    },
-    {
-      "id": "room-6",
-      "name": "Hallway",
-      "geometry": [
-        [
-          7,
-          4
-        ],
-        [
-          10,
-          4
-        ],
-        [
-          10,
-          5
-        ],
-        [
-          7,
-          5
-        ],
-        [
-          7,
-          4
-        ]
-      ],
-      "attributes": {
-        "area": 3.0,
-        "roomType": "circulation",
-        "height": 2.8,
-        "orientation": "N",
-        "glazingRatio": 0.0,
-        "ventilationType": "mechanical",
-        "floorMaterial": "ceramic",
-        "analysis": {
-          "_source": "Sensi",
-          "persona": "Neutral",
-          "depth": "analyze",
-          "timestamp": "2026-05-31T00:11:26",
-          "overallScore": 0.46,
-          "comfortScores": {
-            "thermal": 0.62,
-            "visual": 0.4,
-            "acoustic": 0.5,
-            "spatial": 0.52,
-            "olfactory": 0.55,
-            "tactile": 0.5
+            "tactile": 0.52
           },
           "conflicts": [],
           "suggestions": []
@@ -344,11 +292,11 @@
       "name": "Living to Kitchen",
       "geometry": [
         [
-          7,
+          6,
           2
         ],
         [
-          7,
+          6,
           2.9
         ]
       ],
@@ -362,15 +310,15 @@
     },
     {
       "id": "door-2",
-      "name": "Living to Master Bedroom",
+      "name": "Living to Bedroom",
       "geometry": [
         [
-          3,
-          5
+          2,
+          4
         ],
         [
-          3.9,
-          5
+          2.9,
+          4
         ]
       ],
       "attributes": {
@@ -383,62 +331,62 @@
     },
     {
       "id": "door-3",
-      "name": "Hallway to Guest Bedroom",
+      "name": "Kitchen to Bedroom",
       "geometry": [
         [
-          8,
-          5
+          6,
+          4
         ],
         [
-          8.9,
-          5
+          6.9,
+          4
         ]
       ],
       "attributes": {
         "connectsRooms": [
-          "room-6",
-          "room-4"
+          "room-2",
+          "room-3"
         ],
         "width": 0.9
       }
     },
     {
       "id": "door-4",
-      "name": "Living to Hallway",
+      "name": "Bedroom to Study",
       "geometry": [
         [
           7,
-          4
+          5
         ],
         [
           7,
-          4.9
+          5.9
         ]
       ],
       "attributes": {
         "connectsRooms": [
-          "room-1",
-          "room-6"
+          "room-3",
+          "room-4"
         ],
-        "width": 0.9
+        "width": 0.8
       }
     },
     {
       "id": "door-5",
-      "name": "Hallway to Bathroom",
+      "name": "Study to Bathroom",
       "geometry": [
         [
-          10,
-          4.05
+          8,
+          6
         ],
         [
-          10,
-          4.95
+          8.9,
+          6
         ]
       ],
       "attributes": {
         "connectsRooms": [
-          "room-6",
+          "room-4",
           "room-5"
         ],
         "width": 0.8
@@ -448,109 +396,140 @@
   "windows": [
     {
       "id": "window-1",
-      "name": "Living Room West Window",
+      "name": "Living South Window",
       "geometry": [
         [
-          0,
-          2
+          1,
+          0
         ],
         [
-          0,
-          4
+          4,
+          0
         ]
       ],
       "attributes": {
         "roomId": "room-1",
-        "area": 3.0,
-        "orientation": "W",
+        "area": 3.5,
+        "orientation": "S",
         "glazingType": "double"
       }
     },
     {
       "id": "window-2",
-      "name": "Kitchen North Window",
+      "name": "Kitchen South Window",
       "geometry": [
         [
-          8,
+          7,
           0
         ],
         [
-          9.5,
+          9,
           0
         ]
       ],
       "attributes": {
         "roomId": "room-2",
         "area": 1.5,
-        "orientation": "N",
-        "glazingType": "triple"
+        "orientation": "S",
+        "glazingType": "single"
       }
     },
     {
       "id": "window-3",
-      "name": "Master Bedroom Window",
+      "name": "Bedroom North Window",
       "geometry": [
         [
-          0,
-          6
+          1,
+          7
         ],
         [
-          0,
-          7.5
+          4,
+          7
         ]
       ],
       "attributes": {
         "roomId": "room-3",
-        "area": 2.0,
+        "area": 2.5,
         "orientation": "N",
-        "glazingType": "double"
+        "glazingType": "single"
       }
     },
     {
       "id": "window-4",
-      "name": "Guest Bedroom Window",
+      "name": "Study East Window",
       "geometry": [
         [
-          6,
-          8
+          10,
+          4.5
         ],
         [
-          8,
-          8
+          10,
+          5.5
         ]
       ],
       "attributes": {
         "roomId": "room-4",
-        "area": 2.0,
-        "orientation": "N",
-        "glazingType": "double"
+        "area": 0.8,
+        "orientation": "E",
+        "glazingType": "single"
       }
     }
   ],
   "furniture": [
     {
       "id": "furn-1",
-      "name": "Living Sofa",
+      "name": "Dining Table",
       "geometry": [
         [
-          1,
-          1
+          0.5,
+          0.5
         ],
         [
-          4,
-          1
+          3.5,
+          0.5
         ],
         [
-          4,
+          3.5,
+          2
+        ],
+        [
+          0.5,
+          2
+        ],
+        [
+          0.5,
+          0.5
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-1",
+        "type": "table",
+        "material": "glass"
+      }
+    },
+    {
+      "id": "furn-2",
+      "name": "Sofa",
+      "geometry": [
+        [
+          0.5,
           2.5
         ],
         [
-          1,
+          4.5,
           2.5
         ],
         [
-          1,
-          1
+          4.5,
+          3.5
+        ],
+        [
+          0.5,
+          3.5
+        ],
+        [
+          0.5,
+          2.5
         ]
       ],
       "attributes": {
@@ -560,65 +539,34 @@
       }
     },
     {
-      "id": "furn-2",
-      "name": "Coffee Table",
-      "geometry": [
-        [
-          2,
-          3
-        ],
-        [
-          3.5,
-          3
-        ],
-        [
-          3.5,
-          4
-        ],
-        [
-          2,
-          4
-        ],
-        [
-          2,
-          3
-        ]
-      ],
-      "attributes": {
-        "roomId": "room-1",
-        "type": "table",
-        "material": "wood"
-      }
-    },
-    {
       "id": "furn-3",
-      "name": "Living Room Plant",
+      "name": "Kitchen Counter",
       "geometry": [
         [
           6,
-          4
+          0
         ],
         [
-          6.5,
-          4
+          10,
+          0
         ],
         [
-          6.5,
-          4.5
-        ],
-        [
-          6,
-          4.5
+          10,
+          0.8
         ],
         [
           6,
-          4
+          0.8
+        ],
+        [
+          6,
+          0
         ]
       ],
       "attributes": {
-        "roomId": "room-1",
-        "type": "plant",
-        "material": "natural"
+        "roomId": "room-2",
+        "type": "counter",
+        "material": "stone"
       }
     },
     {
@@ -626,69 +574,77 @@
       "name": "Kitchen Island",
       "geometry": [
         [
-          8,
-          1
+          6.5,
+          1.5
         ],
         [
-          10.5,
-          1
+          9.5,
+          1.5
         ],
         [
-          10.5,
-          2.5
+          9.5,
+          2.8
         ],
         [
-          8,
-          2.5
+          6.5,
+          2.8
         ],
         [
-          8,
-          1
+          6.5,
+          1.5
         ]
       ],
       "attributes": {
         "roomId": "room-2",
         "type": "island",
-        "material": "stone"
+        "material": "metal"
       }
     },
     {
       "id": "furn-5",
-      "name": "Kitchen Counter",
+      "name": "Bed",
       "geometry": [
         [
-          7,
-          3
+          0.5,
+          4.5
         ],
         [
-          11.5,
-          3
+          3.5,
+          4.5
         ],
         [
-          11.5,
-          3.5
+          3.5,
+          6.5
         ],
         [
-          7,
-          3.5
+          0.5,
+          6.5
         ],
         [
-          7,
-          3
+          0.5,
+          4.5
         ]
       ],
       "attributes": {
-        "roomId": "room-2",
-        "type": "counter",
-        "material": "ceramic"
+        "roomId": "room-3",
+        "type": "bed",
+        "material": "fabric"
       }
     },
     {
       "id": "furn-6",
-      "name": "Master Bed",
+      "name": "Bedside Table",
       "geometry": [
         [
-          0.5,
+          3.5,
+          4.5
+        ],
+        [
+          4.5,
+          4.5
+        ],
+        [
+          4.5,
           5.5
         ],
         [
@@ -697,167 +653,128 @@
         ],
         [
           3.5,
-          7.5
-        ],
-        [
-          0.5,
-          7.5
-        ],
-        [
-          0.5,
-          5.5
+          4.5
         ]
       ],
       "attributes": {
         "roomId": "room-3",
-        "type": "bed",
-        "material": "fabric"
+        "type": "table",
+        "material": "metal"
       }
     },
     {
       "id": "furn-7",
-      "name": "Master Wardrobe",
+      "name": "Study Desk",
       "geometry": [
         [
-          4,
-          5.5
+          7.5,
+          4.5
         ],
         [
-          5,
-          5.5
+          9.5,
+          4.5
         ],
         [
-          5,
-          7.5
+          9.5,
+          5.3
         ],
         [
-          4,
-          7.5
+          7.5,
+          5.3
         ],
         [
-          4,
-          5.5
-        ]
-      ],
-      "attributes": {
-        "roomId": "room-3",
-        "type": "dresser",
-        "material": "wood"
-      }
-    },
-    {
-      "id": "furn-8",
-      "name": "Guest Bed",
-      "geometry": [
-        [
-          5.5,
-          5.2
-        ],
-        [
-          8.5,
-          5.2
-        ],
-        [
-          8.5,
-          7.7
-        ],
-        [
-          5.5,
-          7.7
-        ],
-        [
-          5.5,
-          5.2
-        ]
-      ],
-      "attributes": {
-        "roomId": "room-4",
-        "type": "bed",
-        "material": "fabric"
-      }
-    },
-    {
-      "id": "furn-9",
-      "name": "Guest Desk",
-      "geometry": [
-        [
-          8.5,
-          7
-        ],
-        [
-          10,
-          7
-        ],
-        [
-          10,
-          8
-        ],
-        [
-          8.5,
-          8
-        ],
-        [
-          8.5,
-          7
+          7.5,
+          4.5
         ]
       ],
       "attributes": {
         "roomId": "room-4",
         "type": "desk",
-        "material": "wood"
+        "material": "metal"
+      }
+    },
+    {
+      "id": "furn-8",
+      "name": "Bookshelf",
+      "geometry": [
+        [
+          7.5,
+          5.5
+        ],
+        [
+          9,
+          5.5
+        ],
+        [
+          9,
+          6
+        ],
+        [
+          7.5,
+          6
+        ],
+        [
+          7.5,
+          5.5
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-4",
+        "type": "bookshelf",
+        "material": "metal"
       }
     }
   ],
   "structure": [
     {
       "id": "wall-1",
-      "name": "Kitchen Partition",
+      "name": "Kitchen-Living Partition",
       "geometry": [
         [
-          7,
+          6,
           0
         ],
         [
-          7,
-          5
+          6,
+          4
         ]
       ],
       "attributes": {
-        "material": "plaster"
+        "material": "concrete"
       }
     },
     {
       "id": "wall-2",
-      "name": "Bedroom Partition",
+      "name": "Sleeping Zone Wall",
       "geometry": [
         [
-          5,
+          0,
           4
         ],
         [
-          5,
-          8
+          7,
+          4
         ]
       ],
       "attributes": {
-        "material": "plaster"
+        "material": "concrete"
       }
     },
     {
       "id": "wall-3",
-      "name": "Bathroom Wall",
+      "name": "Study-Bathroom Wall",
       "geometry": [
         [
-          10,
+          7,
           4
         ],
         [
-          10,
-          8
+          7,
+          7
         ]
       ],
       "attributes": {
-        "material": "ceramic tile"
+        "material": "concrete"
       }
     }
   ],
@@ -867,12 +784,24 @@
       "name": "Kitchen Exhaust",
       "geometry": [
         [
-          12,
-          3
+          9,
+          0
         ],
         [
-          12,
-          3.5
+          10,
+          0
+        ],
+        [
+          10,
+          0.5
+        ],
+        [
+          9,
+          0.5
+        ],
+        [
+          9,
+          0
         ]
       ],
       "attributes": {
@@ -881,31 +810,31 @@
     },
     {
       "id": "mep-2",
-      "name": "Bathroom Fan",
+      "name": "HVAC Unit",
       "geometry": [
         [
-          11,
-          7
+          5,
+          3.5
         ],
         [
-          11.5,
-          7
+          6,
+          3.5
         ],
         [
-          11.5,
-          7.3
+          6,
+          4
         ],
         [
-          11,
-          7.3
+          5,
+          4
         ],
         [
-          11,
-          7
+          5,
+          3.5
         ]
       ],
       "attributes": {
-        "system": "ventilation"
+        "system": "hvac"
       }
     }
   ],
@@ -913,9 +842,9 @@
     "_source": "Sensi",
     "persona": "Neutral",
     "depth": "analyze",
-    "timestamp": "2026-05-31T00:11:26",
-    "overallScore": 0.5317,
-    "bestRoom": "room-4",
+    "timestamp": "2026-05-30T22:09:06",
+    "overallScore": 0.448,
+    "bestRoom": "room-1",
     "worstRoom": "room-2"
   }
 }

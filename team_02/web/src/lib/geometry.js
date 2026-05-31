@@ -25,3 +25,20 @@ export function swingPath(A, B, fy) {
   for (let i = 0; i <= n; i++) { const t = t0 + (Math.PI / 2) * (i / n); pts.push([A[0] + r * Math.cos(t), A[1] + r * Math.sin(t)]); }
   return polyPoints(pts, fy);
 }
+
+// Quadratic-Bézier arc between two screen-space points. Returns the path `d`, the
+// end-tangent unit vector (for arrowheads), and the curve midpoint (for labels).
+// `k` is curvature: the control point is offset perpendicular to the chord by k·|chord|.
+export function arc(ax, ay, bx, by, k = 0.18) {
+  const mx = (ax + bx) / 2, my = (ay + by) / 2;
+  const dx = bx - ax, dy = by - ay;
+  const cx = mx - dy * k, cy = my + dx * k;            // control point
+  const tx = bx - cx, ty = by - cy;                     // end tangent (control → B)
+  const tl = Math.hypot(tx, ty) || 1;
+  return {
+    d: `M ${ax} ${ay} Q ${cx} ${cy} ${bx} ${by}`,
+    edx: tx / tl, edy: ty / tl,                          // unit end-direction
+    midx: 0.25 * ax + 0.5 * cx + 0.25 * bx,              // Bézier point at t=0.5
+    midy: 0.25 * ay + 0.5 * cy + 0.25 * by,
+  };
+}

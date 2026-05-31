@@ -14,6 +14,27 @@ export const SENSE_SENSE = [
   ["tactile",  "thermal",   "both", "±", "inferred", "material effusivity → contact thermal"],
 ];
 
+// Design-lever → sense couplings (CAUSAL — what an edit moves). Mirror of
+// LEVER_SENSE in python/comfort/sense_model.py. [lever, sense, sign, tier, mechanism]
+export const LEVER_SENSE = [
+  ["glazing ratio",   "visual",    "+", "verified", "daylight admission"],
+  ["glazing ratio",   "thermal",   "±", "inferred", "solar gain / winter heat loss"],
+  ["glazing type",    "thermal",   "+", "inferred", "triple > double > single insulation"],
+  ["glazing ratio",   "acoustic",  "-", "verified", "more glazing weakens facade sound insulation"],
+  ["orientation",     "thermal",   "±", "inferred", "solar orientation (S warm, N cool)"],
+  ["ventilation",     "olfactory", "+", "verified", "dilution / removal of contaminants"],
+  ["ventilation",     "acoustic",  "-", "verified", "open-window ventilation lowers insulation"],
+  ["room volume",     "spatial",   "+", "inferred", "spaciousness rises with volume / ceiling"],
+  ["room volume",     "acoustic",  "-", "inferred", "larger volume lengthens reverberation (Sabine)"],
+  ["surface material","tactile",   "+", "inferred", "low-effusivity (wood/cork) feels warm"],
+  ["surface material","acoustic",  "+", "inferred", "soft/porous materials absorb sound"],
+  ["surface material","thermal",   "±", "inferred", "material effusivity shifts contact thermal"],
+  ["noisy adjacency", "acoustic",  "-", "verified", "flanking from kitchen & living"],
+  ["wet adjacency",   "olfactory", "-", "verified", "odor migration from kitchen & bathroom"],
+  ["plants",          "olfactory", "+", "inferred", "weak/optional evidence"],
+  ["plants",          "visual",    "+", "inferred", "biophilic — weak evidence"],
+];
+
 export const TRANSMISSIVE = ["acoustic", "olfactory", "thermal"];
 
 // Which transmissive senses are failing (< 0.5) for a scored room — drives the

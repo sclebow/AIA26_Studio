@@ -5,6 +5,7 @@ export const EXAMPLE_LAYOUTS = [
   { id: "201", name: "City Apartment",  subtitle: "Thermal & Acoustic Conflicts" },
   { id: "202", name: "Studio Loft",     subtitle: "Acoustic & Olfactory Conflicts" },
   { id: "203", name: "Family Villa",    subtitle: "Multi-Sense Conflicts" },
+  { id: "204", name: "Garden House",    subtitle: "Multi-Zone Flanking · 13 rooms" },
 ];
 
 export default function LayoutPicker({ layoutId, onSelect, onUpload }) {

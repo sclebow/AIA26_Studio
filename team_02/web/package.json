@@ -16,10 +16,13 @@
     "@radix-ui/react-toggle-group": "^1.1.11",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tailwindcss/vite": "^4.3.0",
+    "3d-force-graph": "^1.80.0",
     "framer-motion": "^12.40.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "tailwindcss": "^4.3.0"
+    "tailwindcss": "^4.3.0",
+    "three": "^0.184.0",
+    "three-spritetext": "^1.10.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",

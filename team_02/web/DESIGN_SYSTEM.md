@@ -85,11 +85,32 @@ per-room lookups, holds hover state) composing presentational layers in two tier
     score as an animated arc + number, top-right corner). The full 6-petal
     `SenseSignature` now renders **only in the FocusCard** (an unreadable blob at
     canvas scale).
-  - `flow` / `topology` — **mutually exclusive** graph lenses drawn on the shared
-    `RoomGraph` node substrate. `FlowLayer` = directional bleed arrows (worse→
-    better, severity thickness, glyph·score labels, animated). `TopologyLayer` =
-    adjacency edges driven by backend `graph_data`. When a graph lens is active
-    the base dims. North is docked in the `Legend`.
+  - `graph` — ONE unified room-relationship graph (gated on the topology run):
+    `GraphEdges` draws **one arc per room-pair** (neutral = healthy · colored
+    animated directional arrow = transmissive bleed, worse→better; detail on
+    hover). `RoomGraph` nodes surface **all** topology data — size = degree, halo =
+    bridge, hollow = isolated, glow = betweenness, fill = zone (components); **click
+    a node to toggle its `SenseHub` constellation** (multi; hover = preview;
+    expand-all control). Toggle `plan` off to isolate the graph. The universal
+    sense-coupling model is the docked `SenseKey` (bottom-right, click to solo).
+
+**Relationship layer (the graph lift, phase 1).** Edges across the canvas share one
+primitive, `canvas/GraphEdge` (glowing Bézier arc + optional arrowhead + provenance
+dash + hover-march), and one grammar, `lib/relationships` (valence = glyph + tint via
+`VALENCE`; provenance = `basisDash`; magnitude = `edgeWidth`). On room focus,
+`canvas/SenseHub` draws that room's *realized* cross-modal `adjustments` as a 6-sense
+constellation (hue = sense, size = score, edge = which sense pulled which, hover = the
+mechanism/"why"). Flow + topology edges now render through `GraphEdge` too.
+
+### `galaxy/` — the Relationship Galaxy (3D explore mode)
+`RelationshipGalaxy` is a **lazy-loaded** full-screen 3D force-directed view (three.js +
+`3d-force-graph` + `three-spritetext` + UnrealBloom) of the *whole* relationship system:
+nodes = senses + rooms + design levers; links = sense↔sense couplings · room→room
+transmission · room→sense problems · lever→sense fixes. Data comes from the pure builder
+`lib/relationshipGraph` (complexity tiers L1/L2/L3). Interactions: orbit/zoom/pan,
+hover-to-highlight + tooltip, click-to-fly, directional particles, bloom. The three.js
+weight is **code-split** (dynamic `import()`), so it never enters the initial bundle. See
+`docs/adr-relationship-galaxy.md`.
 
 **Layer control model.** Three orthogonal control *kinds*, kept visually distinct:
 the **sense selector** (`SenseMixer`, recolors the active lens), the **layer rail**

@@ -11,9 +11,9 @@ import { useSelection } from "../lib/selection.jsx";
  */
 const tierBasis = (tier) => (tier === "verified" ? "research" : "physics");
 
-export default function SenseGraph({ rooms }) {
+export default function SenseGraph({ rooms, size = 320 }) {
   const { focusSense, toggleSense } = useSelection();
-  const size = 320, cx = size / 2, cy = size / 2, R = size * 0.34;
+  const cx = size / 2, cy = size / 2, R = size * 0.34;
 
   const pos = useMemo(() => {
     const m = {};

@@ -75,7 +75,7 @@ You are a routing assistant for an architectural comfort analysis copilot.
 Read the user's message and return a JSON object:
 {{
   "action": "<one of the actions below>",
-  "layout_id": "201" | "202" | "203" | null,
+  "layout_id": "201" | "202" | "203" | "204" | null,
   "target_room": "<room name mentioned, or null>",
   "material": "<material mentioned (wood/concrete/fabric/etc.), or null>"
 }}
@@ -171,7 +171,7 @@ def build_action_classifier_node(llm):
                 print(f"[action_classifier] Unknown '{candidate}' — fallback: {action}")
 
             extracted_id = parsed.get("layout_id")
-            if extracted_id in ("201", "202", "203"):
+            if extracted_id in ("201", "202", "203", "204"):
                 layout_id = extracted_id
 
             target_room = parsed.get("target_room")
@@ -182,7 +182,7 @@ def build_action_classifier_node(llm):
         except Exception as exc:
             action = _keyword_fallback(raw_prompt, has_prior_analysis)
             if layout_id is None:
-                for lid in ("201", "202", "203"):
+                for lid in ("201", "202", "203", "204"):
                     if lid in raw_prompt:
                         layout_id = lid
                         break

@@ -144,8 +144,9 @@ body {
 .spln-furn-fill  { fill: rgba(var(--fg-rgb), 0.05); stroke: rgba(var(--fg-rgb), 0.4); stroke-width: 1; }
 .spln-furn-label { fill: rgba(var(--fg-rgb), 0.45); font-family: var(--font-mono); }
 
-/* transmissive-flow arrows — marching dash conveys direction of bleed */
-.spln-flow-arrow { stroke-dasharray: 5 4; animation: flow-march 0.9s linear infinite; }
+/* relationship edges — marching dash conveys direction / liveness */
+.spln-flow-arrow,
+.graph-edge.is-live { stroke-dasharray: 5 4; animation: flow-march 0.9s linear infinite; }
 @keyframes flow-march { to { stroke-dashoffset: -9; } }
 
 /* comfort ring — arc fills/empties smoothly when the shown score changes */
@@ -162,6 +163,60 @@ body {
 .plan-tooltip-title { color: rgba(var(--fg-rgb), 0.95); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 4px; }
 .plan-tooltip-row   { display: flex; justify-content: space-between; gap: 14px; line-height: 1.5; }
 .plan-tooltip-row > span:first-child { color: rgba(var(--fg-rgb), 0.4); }
+.plan-tooltip-why   { margin-top: 5px; line-height: 1.5; color: rgba(var(--fg-rgb), 0.6); font-style: italic; white-space: normal; }
+
+/* docked sense-coupling key (bottom-right) */
+.sense-key-corner { position: absolute; bottom: var(--space-3); right: var(--space-3); z-index: 15; }
+.sense-key {
+  font-family: var(--font-mono); font-size: 10px;
+  background: rgba(16, 16, 16, 0.9); border: 1px solid rgba(var(--fg-rgb), var(--o-hairline));
+  border-radius: var(--r-sm); padding: 8px 10px;
+}
+.sense-key-body { width: 150px; margin-top: 4px; }
+.sense-key-hint { color: rgba(var(--fg-rgb), 0.4); margin-top: 4px; line-height: 1.4; }
+
+/* graph expand-all / collapse-all (top centre, graph lens only) */
+.graph-expand-all {
+  position: absolute; top: var(--space-3); left: 50%; transform: translateX(-50%); z-index: 15;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+  padding: var(--space-1) var(--space-3); border: 1px solid rgba(var(--fg-rgb), var(--o-faint));
+  border-radius: var(--r-pill); background: rgba(16, 16, 16, 0.85); color: rgba(var(--fg-rgb), 0.7); cursor: pointer;
+}
+.graph-expand-all:hover { color: rgba(var(--fg-rgb), 1); border-color: rgba(var(--fg-rgb), var(--o-soft)); }
+
+/* ── Relationship Galaxy (3D explore overlay) ─────────────────────────────── */
+.galaxy-overlay { position: fixed; inset: 0; z-index: 100; background: #0D0D0D; }
+.galaxy-canvas  { position: absolute; inset: 0; }
+.galaxy-loading { display: flex; align-items: center; justify-content: center;
+  color: rgba(var(--fg-rgb), 0.6); font-family: var(--font-mono); letter-spacing: .14em; text-transform: uppercase; }
+.galaxy-top   { position: absolute; top: var(--space-4); left: var(--space-4); right: var(--space-4);
+  display: flex; align-items: center; gap: var(--space-4); z-index: 2; }
+.galaxy-title { font-family: var(--font-mono); font-size: 12px; letter-spacing: .2em; text-transform: uppercase; color: rgba(var(--fg-rgb), 0.85); }
+.galaxy-levels { display: flex; gap: var(--space-2); }
+.galaxy-lv    { font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  padding: var(--space-1) var(--space-3); border: 1px solid rgba(var(--fg-rgb), var(--o-faint));
+  border-radius: var(--r-pill); background: rgba(16, 16, 16, 0.7); color: rgba(var(--fg-rgb), 0.6); cursor: pointer; }
+.galaxy-lv.on { color: rgba(var(--fg-rgb), 1); border-color: rgba(var(--fg-rgb), var(--o-soft)); background: rgba(var(--fg-rgb), 0.1); }
+.galaxy-close { margin-left: auto; background: none; border: none; color: rgba(var(--fg-rgb), 0.6); font-size: 22px; line-height: 1; cursor: pointer; }
+.galaxy-close:hover { color: rgba(var(--fg-rgb), 1); }
+.galaxy-legend { position: absolute; bottom: var(--space-4); left: var(--space-4); z-index: 2; max-width: 290px;
+  font-family: var(--font-mono); font-size: 10px; color: rgba(var(--fg-rgb), 0.55);
+  background: rgba(13, 13, 13, 0.7); border: 1px solid rgba(var(--fg-rgb), var(--o-hairline)); border-radius: var(--r-sm); padding: 10px 12px; }
+.galaxy-legend-row { display: flex; gap: 10px; line-height: 1.6; }
+.galaxy-legend-key { color: rgba(var(--fg-rgb), 0.9); min-width: 84px; }
+.galaxy-hint  { margin-top: 8px; color: rgba(var(--fg-rgb), 0.35); }
+/* 3d-force-graph's built-in hover tooltip */
+.graph-tooltip { font-family: var(--font-mono) !important; font-size: 11px !important;
+  background: rgba(13, 13, 13, 0.95) !important; border: 1px solid rgba(var(--fg-rgb), 0.12);
+  border-radius: var(--r-sm); padding: 6px 9px !important; }
+.gx-tip { color: rgba(var(--fg-rgb), 0.7); line-height: 1.5; }
+.gx-tip b { color: rgba(var(--fg-rgb), 0.95); }
+
+/* lever-bridge "fix it" chips in the focus card */
+.fc-fix { font-family: var(--font-mono); font-size: 11px; letter-spacing: .04em;
+  padding: 3px 9px; border: 1px solid; border-radius: var(--r-pill);
+  background: rgba(var(--fg-rgb), 0.04); cursor: pointer; transition: background var(--dur-fast) var(--ease-out); }
+.fc-fix:hover { background: rgba(var(--fg-rgb), 0.12); }
 
 /* ── focus card (per-room detail — the dissolved bars, reborn as HTML) ── */
 .focus-card {

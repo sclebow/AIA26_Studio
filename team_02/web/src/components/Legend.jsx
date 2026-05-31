@@ -52,26 +52,23 @@ export default function Legend({ layers = {} }) {
             </>
           )}
 
-          {layers.flow && (
-            <div className="legend-row">
-              <span className="legend-key">arrow</span>
-              <svg className="legend-arrow" width="26" height="10" viewBox="0 0 26 10" aria-hidden="true">
-                <line x1="1" y1="5" x2="19" y2="5" stroke={SC.acoustic} strokeWidth="2.5" strokeDasharray="4 3" strokeLinecap="round" />
-                <polygon points="25,5 18,2 18,8" fill={SC.acoustic} />
-              </svg>
-              <span className="legend-val">bleed worse→better · thicker = worse · label = sense·score</span>
-            </div>
-          )}
-
-          {layers.topology && (
+          {layers.graph && (
             <>
               <div className="legend-row">
                 <span className="legend-key">node</span>
-                <span className="legend-val">= room · size = doors it connects</span>
+                <span className="legend-val">= room (click to focus) · size = doors</span>
+              </div>
+              <div className="legend-row">
+                <span className="legend-key">arrow</span>
+                <svg className="legend-arrow" width="26" height="10" viewBox="0 0 26 10" aria-hidden="true">
+                  <line x1="1" y1="5" x2="19" y2="5" stroke={SC.acoustic} strokeWidth="2.5" strokeDasharray="4 3" strokeLinecap="round" />
+                  <polygon points="25,5 18,2 18,8" fill={SC.acoustic} />
+                </svg>
+                <span className="legend-val">sense bleeding worse→better · thicker = worse</span>
               </div>
               <div className="legend-row">
                 <span className="legend-key">halo</span>
-                <span className="legend-val">= structural — removing it splits the plan</span>
+                <span className="legend-val">= structural room — removing it splits the plan</span>
               </div>
             </>
           )}
