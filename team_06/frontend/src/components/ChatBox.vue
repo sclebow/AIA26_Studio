@@ -1,22 +1,41 @@
 <template>
   <div class="chatbox">
-    <input class="chatbox-input" type="text" placeholder="What do you want to create next?" />
+    <input
+      class="chatbox-input"
+      type="text"
+      v-model="inputMsg"
+      @keyup.enter="sendMessage"
+      placeholder="What do you want to create next?"
+    />
     <div class="chatbox-bottom-row">
       <div class="chatbox-btns">
         <button class="chatbox-btn"><img :src="imgIcon" alt="Image" width="20" height="20" /></button>
         <button class="chatbox-btn"><img :src="codeIcon" alt="Code" width="20" height="20" /></button>
         <button class="chatbox-btn"><img :src="micIcon" alt="Mic" width="20" height="20" /></button>
       </div>
-      <button class="chatbox-send-btn"><img :src="sendIcon" alt="Send" width="16" height="16" /></button>
+      <button class="chatbox-send-btn" @click="sendMessage" :disabled="!inputMsg.trim()">
+        <img :src="sendWhiteIcon" alt="Send" width="16" height="16" />
+      </button>
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import imgIcon from '../assets/icons/img.svg'
 import codeIcon from '../assets/icons/code.svg'
 import micIcon from '../assets/icons/mic.svg'
-import sendIcon from '../assets/icons/send.svg'
+import sendWhiteIcon from '../assets/icons/send-white.svg'
+
+const emit = defineEmits(['send'])
+const inputMsg = ref('')
+
+function sendMessage() {
+  if (inputMsg.value.trim()) {
+    emit('send', inputMsg.value)
+    inputMsg.value = ''
+  }
+}
 </script>
 
 <style scoped>
@@ -27,9 +46,11 @@ import sendIcon from '../assets/icons/send.svg'
   background: var(--color-white);
   border-radius: var(--radius-card);
   border: 1px solid var(--color-border);
-  padding: 32px 32px 24px 32px;
+  padding: 12px 16px 8px 16px;
   width: 100%;
   position: relative;
+  min-height: 120px;
+  box-sizing: border-box;
 }
 .chatbox-input {
   border: none;
@@ -37,15 +58,19 @@ import sendIcon from '../assets/icons/send.svg'
   background: transparent;
   font-size: var(--font-size-standard);
   color: var(--color-text-secondary);
-  padding: 0;
-  margin-bottom: 24px;
+  padding: 8px;
+  margin-bottom: 18px;
   width: 100%;
+  min-height: 0;
+  box-sizing: border-box;
 }
 .chatbox-bottom-row {
   display: flex;
   flex-direction: row;
   align-items: flex-end;
+  padding: 8px;
   width: 100%;
+  margin-bottom: 0;
 }
 .chatbox-btns {
   display: flex;

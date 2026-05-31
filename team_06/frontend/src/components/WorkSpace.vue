@@ -5,6 +5,19 @@ import chevronIcon from '../assets/icons/chevron.svg'
 import ToolBar from './ToolBar.vue'
 import LayoutCanvas from './LayoutCanvas.vue'
 import LayoutCard from './LayoutCard.vue'
+
+import { watch } from 'vue'
+const props = defineProps({
+  agentState: {
+    type: Object,
+    default: null
+  }
+})
+watch(() => props.agentState, (val) => {
+  console.log('WorkSpace agentState changed:', val)
+})
+console.log('WorkSpace received agentState:', props.agentState);
+console.log('WorkSpace agentState:', props.agentState);
 </script>
 
 <template>
@@ -17,9 +30,9 @@ import LayoutCard from './LayoutCard.vue'
       </div>
       <div class="canvas-area">
         <div class="canvas-container">
-          <LayoutCanvas />
+          <LayoutCanvas :layout="props.agentState" />
         </div>
-         <LayoutCard />
+        <LayoutCard :layout="props.agentState" />
       </div>
   </aside>
 </template>

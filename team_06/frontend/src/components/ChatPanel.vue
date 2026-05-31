@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import menuIcon from '../assets/icons/menu.svg'
 import sendIcon from '../assets/icons/send.svg'
 import searchIcon from '../assets/icons/search.svg'
@@ -7,7 +7,29 @@ import userIcon from '../assets/icons/user.svg'
 import chevronIcon from '../assets/icons/chevron.svg'
 import ChatBox from './ChatBox.vue'
 const search = ref('')
-const count = ref(0)
+
+
+const props = defineProps({
+  chat: {
+    type: Array,
+    default: () => []
+  },
+  index: {
+    type: Number,
+    default: 0
+  }
+})
+const emit = defineEmits(['send'])
+
+const chatArea = ref(null)
+
+
+// Auto-scroll to bottom when chat updates
+watch(() => props.chat.length, () => {
+  nextTick(() => {
+    if (chatArea.value) chatArea.value.scrollTop = chatArea.value.scrollHeight
+  })
+})
 </script>
 
 <template>
@@ -19,12 +41,12 @@ const count = ref(0)
       </div>
     </header>
     <div class="chat-title">AI Copilot</div>
-     <section class="chat-history">
-          <div class="chat-history-title">
-            <img :src="menuIcon" alt="Chat History" width="20" height="20" />
-            Chat History
-          </div>
-          </section>
+    <section class="chat-history">
+      <div class="chat-history-title">
+        <img :src="menuIcon" alt="Chat History" width="20" height="20" />
+        Chat History
+      </div>
+    </section>
     <div class="chat-search-bar">
       <input class="chat-search" type="text" placeholder="Search..." v-model="search" />
       <img class="chat-search-icon" :src="searchIcon" alt="Search" />
@@ -33,11 +55,13 @@ const count = ref(0)
       <li>Apartment for a young couple</li>
       <li>Daylight analysis</li>
     </ul>
-    <div class="chat-area">
-      <!-- Placeholder for chat messages -->
+    <div class="chat-area" ref="chatArea" style="overflow-y:auto;">
+      <div v-for="msg in chat" :key="msg.id" :class="['chat-msg', msg.role]">
+        <span>{{ msg.text }}</span>
+      </div>
     </div>
     <footer class="chat-box-bar">
-      <ChatBox />
+      <ChatBox @send="msg => emit('send', msg)" />
     </footer>
   </section>
 </template>
@@ -58,8 +82,8 @@ const count = ref(0)
   margin-bottom: 8px;
 }
 .chat-panel {
-  width: 420px;
-  min-width: 420px;
+  width: 400px;
+  min-width: 400px;
   background: var(--color-white);
   border-left: 1px solid var(--color-border);
   display: flex;
@@ -147,5 +171,35 @@ const count = ref(0)
   align-items: center;
   color: var(--color-blue);
   font-size: 1.2rem;
+}
+.chat-msg {
+  max-width: 75%;
+  margin: 6px 0;
+  padding: 10px 16px;
+  border-radius: 16px;
+  font-size: var(--font-size-standard);
+  word-break: break-word;
+  display: inline-block;
+}
+.chat-msg.user {
+  align-self: flex-end;
+  background: var(--color-light-blue);
+  color: var(--color-text-primary);
+  border: 1.5px solid var(--color-blue);
+  margin-left: auto;
+  margin-right: 0;
+  text-align: right;
+}
+.chat-msg.agent {
+  align-self: flex-start;
+  background: transparent;
+  color: var(--color-text-primary);
+  border: none;
+  margin-right: auto;
+  margin-left: 0;
+  text-align: left;
+  padding: 0;
+  font-size: var(--font-size-standard);
+  box-shadow: none;
 }
 </style>
