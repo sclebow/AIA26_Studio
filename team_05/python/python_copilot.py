@@ -113,6 +113,14 @@ def _route(user_input: str, layout: dict) -> str:
     if _mentions_finish(lower):
         return _recalculate_with_finish(user_input, lower, rooms, currency)
 
+    # 1c. window-cost analysis must be checked before generic "lower/save" routing.
+    if _mentions_window_query(lower):
+        return _window_cost_analysis(user_input, lower, layout, currency)
+
+    # 1d. door-cost analysis must be checked before generic "lower/save" routing.
+    if _mentions_door_query(lower):
+        return _door_cost_analysis(user_input, lower, layout, currency)
+
     # 2. cost-reduction advice
     if any(k in lower for k in ("reduce", "save", "cut", "lower", "cheaper", "how to")):
         return _cost_reduction_advice(user_input, rooms, currency)
@@ -374,6 +382,174 @@ def _total_cost(rooms: list, currency: str, layout: dict) -> str:
         lines.append(f"  Columns           : {col_total:>12,.0f} {currency}")
     if grand != room_total:
         lines.append(f"  **Grand total**   : {grand:>12,.0f} {currency}")
+    return "\n".join(lines)
+
+
+def _mentions_window_query(lower: str) -> bool:
+    text = lower.replace("widows", "windows")
+    has_window_word = any(k in text for k in ("window", "windows"))
+    if not has_window_word:
+        return False
+    return any(
+        k in text for k in (
+            "cost", "total", "price", "breakdown", "alternative", "alternatives",
+            "option", "options", "premium", "cheaper", "lower-cost", "lower cost"
+        )
+    )
+
+
+def _mentions_door_query(lower: str) -> bool:
+    text = lower
+    has_door_word = any(k in text for k in ("door", "doors"))
+    if not has_door_word:
+        return False
+    return any(
+        k in text for k in (
+            "cost", "total", "price", "breakdown", "alternative", "alternatives",
+            "option", "options", "premium", "cheaper", "lower-cost", "lower cost"
+        )
+    )
+
+
+def _window_cost_analysis(user_input: str, lower: str, layout: dict, currency: str) -> str:
+    openings = layout.get("openings", [])
+    windows = [o for o in openings if (o.get("type") or "").lower() == "window"]
+    if not windows:
+        return "No windows were found in the current layout."
+
+    cur = currency or "USD"
+    current_total = float(sum((w.get("cost", 0) or 0) for w in windows))
+
+    totals = layout.get("totals", {})
+    current_grand = float(
+        totals.get(
+            "grand",
+            sum((r.get("total_cost", 0) or 0) for r in layout.get("rooms", []))
+            + sum((o.get("cost", 0) or 0) for o in openings)
+            + sum((c.get("cost", 0) or 0) for c in layout.get("columns", [])),
+        )
+    )
+
+    lines = [
+        f"**Window cost breakdown ({cur})**",
+        "",
+        f"| # | Window ID | Subtype | Linked room(s) | Cost ({cur}) |",
+        "|---|---|---|---|---|",
+    ]
+    for idx, w in enumerate(windows, 1):
+        rooms = ", ".join(w.get("linked_rooms", [])) or "-"
+        lines.append(
+            f"| {idx} | {w.get('id', '-')} | {w.get('subtype', '-')} | {rooms} | {float(w.get('cost', 0) or 0):,.0f} |"
+        )
+
+    lines += [
+        "",
+        f"**Current window total: {current_total:,.0f} {cur}**",
+        f"Current project grand total: {current_grand:,.0f} {cur}",
+    ]
+
+    ask_alternatives = any(
+        k in lower for k in ("alternative", "alternatives", "option", "options", "premium", "lower", "cheaper")
+    )
+    if not ask_alternatives:
+        return "\n".join(lines)
+
+    pic_sum = float(sum((w.get("cost", 0) or 0) for w in windows if str(w.get("subtype", "")).lower() == "picture_large"))
+    opt1_window = current_total - (pic_sum * 0.30)
+    opt2_window = current_total * 0.85
+    opt3_window = current_total * 1.20
+
+    alt_rows = [
+        ("Option A (lower cost)", "Replace picture_large with standard where possible", opt1_window),
+        ("Option B (lower cost)", "Reduce glazing spec one tier on all windows", opt2_window),
+        ("Option C (premium)", "Upgrade all windows to premium performance package", opt3_window),
+    ]
+
+    lines += [
+        "",
+        f"**Alternatives (window total + project delta):**",
+        "",
+        f"| Scenario | Assumption | Updated window total ({cur}) | Project grand total delta ({cur}) |",
+        "|---|---|---|---|",
+    ]
+
+    for label, assumption, new_window_total in alt_rows:
+        delta = new_window_total - current_total
+        lines.append(
+            f"| {label} | {assumption} | {new_window_total:,.0f} | {delta:+,.0f} |"
+        )
+
+    return "\n".join(lines)
+
+
+def _door_cost_analysis(user_input: str, lower: str, layout: dict, currency: str) -> str:
+    openings = layout.get("openings", [])
+    doors = [o for o in openings if (o.get("type") or "").lower() == "door"]
+    if not doors:
+        return "No doors were found in the current layout."
+
+    cur = currency or "USD"
+    current_total = float(sum((d.get("cost", 0) or 0) for d in doors))
+
+    totals = layout.get("totals", {})
+    current_grand = float(
+        totals.get(
+            "grand",
+            sum((r.get("total_cost", 0) or 0) for r in layout.get("rooms", []))
+            + sum((o.get("cost", 0) or 0) for o in openings)
+            + sum((c.get("cost", 0) or 0) for c in layout.get("columns", [])),
+        )
+    )
+
+    lines = [
+        f"**Door cost breakdown ({cur})**",
+        "",
+        f"| # | Door ID | Subtype | Linked room(s) | Cost ({cur}) |",
+        "|---|---|---|---|---|",
+    ]
+    for idx, d in enumerate(doors, 1):
+        rooms = ", ".join(d.get("linked_rooms", [])) or "-"
+        lines.append(
+            f"| {idx} | {d.get('id', '-')} | {d.get('subtype', '-')} | {rooms} | {float(d.get('cost', 0) or 0):,.0f} |"
+        )
+
+    lines += [
+        "",
+        f"**Current door total: {current_total:,.0f} {cur}**",
+        f"Current project grand total: {current_grand:,.0f} {cur}",
+    ]
+
+    ask_alternatives = any(
+        k in lower for k in ("alternative", "alternatives", "option", "options", "premium", "lower", "cheaper")
+    )
+    if not ask_alternatives:
+        return "\n".join(lines)
+
+    interior_sum = float(sum((d.get("cost", 0) or 0) for d in doors if str(d.get("subtype", "")).lower().startswith("interior")))
+    opt1_door = current_total - (interior_sum * 0.15)
+    opt2_door = current_total * 0.90
+    opt3_door = current_total * 1.20
+
+    alt_rows = [
+        ("Option A (lower cost)", "Switch interior doors to standard economy spec", opt1_door),
+        ("Option B (lower cost)", "Apply one-tier downspec to all door sets", opt2_door),
+        ("Option C (premium)", "Upgrade all doors to premium acoustic/fire-rated package", opt3_door),
+    ]
+
+    lines += [
+        "",
+        f"**Alternatives (door total + project delta):**",
+        "",
+        f"| Scenario | Assumption | Updated door total ({cur}) | Project grand total delta ({cur}) |",
+        "|---|---|---|---|",
+    ]
+
+    for label, assumption, new_door_total in alt_rows:
+        delta = new_door_total - current_total
+        lines.append(
+            f"| {label} | {assumption} | {new_door_total:,.0f} | {delta:+,.0f} |"
+        )
+
     return "\n".join(lines)
 
 
