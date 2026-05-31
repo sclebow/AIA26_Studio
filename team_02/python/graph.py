@@ -152,6 +152,7 @@ class AgentState(TypedDict, total=False):
     layout_id:          str | None
     layout_json_string: str
     target_room_id:     str | None
+    layout_not_found:   bool   # set by load_layout when a requested id has no file
 
     # ── Analysis results (cached across turns) ───────────────────────────────
     has_analysis_results:  bool
@@ -230,6 +231,10 @@ def _route_after_inspire(state: AgentState) -> str:
 def _route_after_load_layout(state: AgentState) -> str:
     action     = state.get("action", "analyze")
     has_scores = bool(state.get("last_scores_json", "").strip())
+
+    # Requested layout doesn't exist — load_layout already wrote the message.
+    if state.get("layout_not_found"):
+        return END
 
     if action == "overview":
         return "overview_respond"
@@ -411,6 +416,7 @@ def build_graph(ctx: Any) -> Any:
         "topologic_analysis": "topologic_analysis",
         "biophilic_audit":   "biophilic_audit",
         "persona_comparison": "persona_comparison",
+        END:                 END,            # requested layout not found
     })
     g.add_edge("overview_respond", "what_next")
 
@@ -506,6 +512,7 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
         "target_room_hint":       "",
         "material_hint":          "",
         "target_room_id":         None,
+        "layout_not_found":       False,
         "pending_comparison":     False,
         "original_scores_json":   "",
         "layout_diff":            {},
@@ -534,8 +541,11 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
     edit_actions = {"change_material", "modify_glazing", "add_furniture"}
     print(f"[run_agent] action={action} | scores_ready={scores_ready} | layout_updated={final_state.get('layout_updated', False)}")
 
-    # Post-graph: write output JSON
-    if action in ("analyze", "detect", "full", *edit_actions) and scores_ready:
+    # Post-graph: write output JSON. Skip when the requested layout wasn't found —
+    # otherwise we'd persist stale scores under the (nonexistent) layout's name.
+    if (action in ("analyze", "detect", "full", *edit_actions)
+            and scores_ready
+            and not final_state.get("layout_not_found")):
         try:
             write_analysis_to_layout(final_state, ctx.layout_output_dir)
         except Exception as exc:

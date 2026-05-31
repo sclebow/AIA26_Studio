@@ -22,7 +22,9 @@ Actions:
 
 from __future__ import annotations
 import json
+import re
 from _runtime.llm import call_llm_simple
+from nodes._shared.utils import layout_digits
 
 
 # ── Keyword fallback ──────────────────────────────────────────────────────────
@@ -50,7 +52,9 @@ _KEYWORD_MAP = [
     ("detect",           ("detect", "conflict", "problem", "issue", "what is wrong",
                           "failing", "fails", "poor", "bad score")),
     ("follow_up",        ("why is", "why does", "what does", "tell me more", "explain",
-                          "how does", "what causes", "which room", "priorit")),
+                          "how does", "what causes", "which room", "priorit",
+                          "tell me about", "what about", "how is", "how's",
+                          "what can you tell", "tell me more about")),
 ]
 
 
@@ -75,7 +79,7 @@ You are a routing assistant for an architectural comfort analysis copilot.
 Read the user's message and return a JSON object:
 {{
   "action": "<one of the actions below>",
-  "layout_id": "201" | "202" | "203" | "204" | null,
+  "layout_id": "<layout number mentioned (e.g. 201, 204), or null>",
   "target_room": "<room name mentioned, or null>",
   "material": "<material mentioned (wood/concrete/fabric/etc.), or null>"
 }}
@@ -170,8 +174,8 @@ def build_action_classifier_node(llm):
                 action = _keyword_fallback(raw_prompt, has_prior_analysis)
                 print(f"[action_classifier] Unknown '{candidate}' — fallback: {action}")
 
-            extracted_id = parsed.get("layout_id")
-            if extracted_id in ("201", "202", "203", "204"):
+            extracted_id = layout_digits(parsed.get("layout_id"))
+            if extracted_id:
                 layout_id = extracted_id
 
             target_room = parsed.get("target_room")
@@ -182,11 +186,37 @@ def build_action_classifier_node(llm):
         except Exception as exc:
             action = _keyword_fallback(raw_prompt, has_prior_analysis)
             if layout_id is None:
-                for lid in ("201", "202", "203", "204"):
-                    if lid in raw_prompt:
-                        layout_id = lid
-                        break
+                m = re.search(r"\blayout\s*[-_ ]?(\d+)\b", raw_prompt, re.IGNORECASE)
+                if not m:
+                    m = re.search(r"\b(\d{3,})\b", raw_prompt)  # bare layout number
+                if m:
+                    layout_id = m.group(1)
             print(f"[action_classifier] LLM error ({exc}) — fallback: {action}")
+
+        # Guard: a question about a specific room or sense AFTER an analysis has run
+        # is a follow_up (answered from cached data by detail_respond). The small
+        # routing model is inconsistent here — it has labelled "tell me about the
+        # study room" as both 'chitchat' (generic boilerplate) and 'overview' (lists
+        # ALL rooms). Both are wrong once scores exist, so we deterministically
+        # upgrade them to follow_up when a concrete subject is referenced.
+        if action in ("chitchat", "overview") and has_prior_analysis:
+            pl = raw_prompt.lower()
+            is_question = ("?" in raw_prompt) or any(
+                w in pl for w in ("what", "how", "why", "which", "tell me", "explain", "about")
+            )
+            # 'overview' only counts as misrouted when a SPECIFIC room/sense is named
+            # (a bare "list the rooms" should stay overview); chitchat upgrades on a
+            # named subject too.
+            names_specific = bool(target_room) or any(
+                s in pl for s in (
+                    "kitchen", "bedroom", "living", "bathroom", "study", "dining",
+                    "hallway", "pantry", "thermal", "visual", "acoustic", "spatial",
+                    "olfactory", "tactile",
+                )
+            )
+            if is_question and names_specific:
+                print(f"[action_classifier] upgraded {action} -> follow_up (specific room/sense question w/ prior analysis)")
+                action = "follow_up"
 
         return {
             **state,

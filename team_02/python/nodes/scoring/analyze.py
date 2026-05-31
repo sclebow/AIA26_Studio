@@ -1,24 +1,14 @@
 """
-ANALYZE node — calls compute_comfort_scores for all 6 senses.
-Fixed: uses actual persona weights from onboarding (not always "Neutral").
+ANALYZE node — computes comfort scores for all 6 senses.
+
+Scoring runs purely on the onboarding comfort_weights (weights_override); there are
+no more persona category buckets. `persona` is now only a display label echoed into
+the output, so we pass the user's real name/role rather than a hardcoded bucket.
 """
 
 from __future__ import annotations
 import json
-from nodes._shared.utils import unwrap_mcp_result
-
-
-def _persona_label_from_profile(persona_profile: dict) -> str:
-    """Map persona_profile to the closest hardcoded persona label."""
-    if not persona_profile:
-        return "Neutral"
-    # If the profile has a persona_type field (set by persona_compiler), use it
-    pt = persona_profile.get("persona_type", "")
-    valid = {"Elderly 65+", "Child under 12", "Sensory Sensitive", "Young Active", "Neutral"}
-    if pt in valid:
-        return pt
-    # Fall back to Neutral — custom weights will be passed as weights_override
-    return "Neutral"
+from nodes._shared.utils import unwrap_mcp_result, persona_display_label
 
 
 def build_analyze_node(mcp_client):
@@ -33,7 +23,7 @@ def build_analyze_node(mcp_client):
             raise RuntimeError("[analyze] No layout loaded — cannot compute comfort scores.")
 
         room_ids = target_room_id if target_room_id else "all"
-        persona_label = _persona_label_from_profile(persona_profile)
+        persona_label = persona_display_label(persona_profile)
 
         # Pass custom comfort weights from onboarding if available
         weights_override = persona_profile.get("comfort_weights")

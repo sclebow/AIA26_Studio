@@ -51,7 +51,7 @@ const LAYER_REQUIRES = { plan: null, comfort: "scores", graph: "topology" };
 // If a lens isn't available yet, clicking it asks Sensi to run the analysis.
 const LAYER_RUN_MSG = { comfort: "analyse the layout", graph: "map the topology of the layout" };
 
-export default function LayoutModeScreen({ messages, turns, thinking, persona, layoutId, onSend }) {
+export default function LayoutModeScreen({ messages, turns, thinking, persona, layoutId, layoutVersion = 0, onSend }) {
   const [chatOpen,     setChatOpen]     = useState(true);
   const [profileOpen,  setProfileOpen]  = useState(false);
   const [capOpen,      setCapOpen]      = useState(false);
@@ -180,7 +180,7 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
           </div>
 
           <div className="lm-viewer">
-            <SensePlan rooms={rooms} layoutId={layoutId} layers={layers} graphData={activeTurn?.graph_data} />
+            <SensePlan rooms={rooms} layoutId={layoutId} layoutVersion={layoutVersion} layers={layers} graphData={activeTurn?.graph_data} />
 
             {/* topology metric pills */}
             {metrics && (

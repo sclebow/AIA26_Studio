@@ -8,6 +8,7 @@ No length restriction — answers as thoroughly as the question requires.
 from __future__ import annotations
 import json
 from _runtime.llm import call_llm_simple
+from nodes._shared.utils import grounded_facts
 
 
 _SYSTEM_PROMPT = """\
@@ -21,6 +22,9 @@ Rules:
   - Answer ONLY what was asked. Do not re-summarise the whole analysis.
   - Use ONLY the data provided. Never invent scores, room names, or suggestions.
   - Reference specific values and room names when they are relevant to the answer.
+  - NEVER claim a room or sense is the "lowest/highest/worst/best of all rooms" or
+    "lower than other rooms" unless that exact ranking is in GROUNDED FACTS below.
+    Describe the room's own values without ranking them against others otherwise.
   - Length: as long as the answer needs — not capped at 2-3 sentences.
   - If the user asks "why", use the conflict root-cause reasoning below.
   - If the user asks "what should I do", use the suggestion critique below.
@@ -50,26 +54,22 @@ def _safe_format(json_str: str, label: str) -> str:
 def _format_persona(persona_profile: dict) -> str:
     if not persona_profile:
         return "no profile"
-    # Flat schema (persona_compiler v2)
-    if "name" in persona_profile or "role" in persona_profile:
-        parts = []
-        desc = persona_profile.get("description", "")
-        name = persona_profile.get("name", "")
-        role = persona_profile.get("role", "")
-        if desc:
-            parts.append(desc)
-        elif name and role:
-            parts.append(f"{name}, {role}")
-        prio = persona_profile.get("sensory_priorities", [])
-        sens = persona_profile.get("sensory_sensitivities", [])
-        if prio:
-            parts.append(f"priorities: {', '.join(prio)}")
-        if sens:
-            parts.append(f"sensitivities: {', '.join(sens)}")
-        return "; ".join(parts) if parts else "no profile"
-    # Legacy nested schema
-    primary = persona_profile.get("primary_user", {})
-    return primary.get("description", "no profile")
+    # Flat persona_compiler v2 schema.
+    parts = []
+    desc = persona_profile.get("description", "")
+    name = persona_profile.get("name", "")
+    role = persona_profile.get("role", "")
+    if desc:
+        parts.append(desc)
+    elif name and role:
+        parts.append(f"{name}, {role}")
+    prio = persona_profile.get("sensory_priorities", [])
+    sens = persona_profile.get("sensory_sensitivities", [])
+    if prio:
+        parts.append(f"priorities: {', '.join(prio)}")
+    if sens:
+        parts.append(f"sensitivities: {', '.join(sens)}")
+    return "; ".join(parts) if parts else "no profile"
 
 
 def build_detail_respond_node(llm):
@@ -91,6 +91,8 @@ def build_detail_respond_node(llm):
 
         sections = [
             "User question: " + raw_prompt,
+            "",
+            grounded_facts(state.get("last_scores_json", "")) or "GROUNDED FACTS: (none available)",
             "",
             "--- SCORES ---",
             _safe_format(state.get("last_scores_json", ""), "scores"),

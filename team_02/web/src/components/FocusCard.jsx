@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { SC, SI, SENSES, scoreColor, scoreOpacity } from "../lib/constants.js";
 import { useSelection } from "../lib/selection.jsx";
 import { thresholdFromWeight, BASIS_ICON, basisBorder, LEVER_SENSE } from "../lib/senseModel.js";
-import { roomByName, suggestionsFor } from "../lib/turn.js";
+import { roomByName, suggestionsFor, narrativeBullets } from "../lib/turn.js";
 import { DUR, EASE } from "../lib/motion.js";
 import Collapsible from "../ui/Collapsible.jsx";
 import SenseSignature from "./SenseSignature.jsx";
@@ -15,14 +15,20 @@ import SenseSignature from "./SenseSignature.jsx";
  * "Why" lives here as readable HTML — never in-SVG text.
  */
 // Levers a user can actually act on, mapped to a natural-language what-if the
-// agent can route (modify_glazing / change_material / add_furniture). The "lever
-// bridge": a failing sense → its positive levers → one click to a real edit.
+// agent can route to a REAL edit tool (modify_glazing / change_material /
+// add_furniture). The "lever bridge": a failing sense → its positive levers →
+// one click to a real edit.
+//
+// IMPORTANT: the phrasing must route to an edit, NOT a full analysis. Words like
+// "improve"/"fix"/"enhance" are full-analysis triggers in the action classifier,
+// so we phrase each as a concrete edit instruction. "ventilation" is intentionally
+// omitted — there is no ventilation edit tool in the backend, so it can't be a
+// one-click fix (olfactory is still addressable via the "plants" lever).
 const EDITABLE_LEVERS = {
-  "glazing ratio":    (r) => `add more glazing to the ${r}`,
-  "glazing type":     (r) => `upgrade the glazing in the ${r}`,
-  "ventilation":      (r) => `improve ventilation in the ${r}`,
-  "surface material": (r) => `use softer surface materials in the ${r}`,
-  "plants":           (r) => `add plants to the ${r}`,
+  "glazing ratio":    (r) => `increase the window size in the ${r}`,   // → modify_glazing
+  "glazing type":     (r) => `upgrade to triple glazing in the ${r}`,  // → modify_glazing
+  "surface material": (r) => `change the floor to a soft material in the ${r}`, // → change_material
+  "plants":           (r) => `add a plant to the ${r}`,                // → add_furniture
 };
 
 export default function FocusCard({ turn, persona, onClose, onFix }) {
@@ -38,6 +44,7 @@ export default function FocusCard({ turn, persona, onClose, onFix }) {
   const overall = room.overallScore ?? 0;
 
   const roomSugg = suggestionsFor(turn, activeRoom);
+  const whyBullets = narrativeBullets(turn, activeRoom);
 
   const thr = (s) => thresholdFromWeight(weights[s] ?? 0.5);
   const failing = SENSES.filter((s) => (eff[s] ?? 1) < thr(s));
@@ -147,8 +154,8 @@ export default function FocusCard({ turn, persona, onClose, onFix }) {
         </>
       )}
 
-      {/* narrative (collapsible) */}
-      {(turn?.score_interpretation || turn?.conflict_reasoning) && (
+      {/* narrative (collapsible) — short, room-specific bullet points */}
+      {whyBullets.length > 0 && (
         <div className="fc-why">
           <Collapsible
             bodyClassName="fc-why-body"
@@ -158,9 +165,11 @@ export default function FocusCard({ turn, persona, onClose, onFix }) {
               </button>
             )}
           >
-            {turn.score_interpretation && <p>{turn.score_interpretation}</p>}
-            {turn.conflict_reasoning && <p className="mt-2">{turn.conflict_reasoning}</p>}
-            {turn.suggestion_critique && <p className="mt-2">{turn.suggestion_critique}</p>}
+            <ul className="fc-why-list">
+              {whyBullets.map((b, i) => (
+                <li key={i}>{b}</li>
+              ))}
+            </ul>
           </Collapsible>
         </div>
       )}

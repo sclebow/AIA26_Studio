@@ -7,11 +7,11 @@ export {
   SC, SI, SENSES, BASELINES, STATUS, INTENSITY, scoreColor, scoreOpacity,
 } from "./senses.js";
 
-export const STEPS = ["hello", "role", "space", "senses", "life", "feel"];
+export const STEPS = ["hello", "role", "space", "senses", "life", "feel", "energy"];
 
 export const STEP_LABELS = {
   hello: "welcome", role: "your role", space: "your space",
-  senses: "senses", life: "lifestyle", feel: "how you feel",
+  senses: "senses", life: "lifestyle", feel: "how you feel", energy: "social energy",
 };
 
 // Role-aware implications for the top-3 priority cards

@@ -1,6 +1,7 @@
 """
-COMPARE_VERSIONS placeholder — computes before/after score delta after a layout modification.
-TODO: Wire to MCP compare_layout_versions tool.
+COMPARE_VERSIONS — computes the before/after per-sense score delta after a layout
+edit (what-if), in-process from original_scores_json vs last_scores_json. Feeds the
+edit summary in respond.py.
 """
 
 from __future__ import annotations
@@ -14,11 +15,10 @@ def build_compare_versions_node():
         new_scores_json: str = state.get("last_scores_json", "")
         original_scores_json: str = state.get("original_scores_json", "")
 
-        print("[compare_versions] PLACEHOLDER — computing score delta")
+        print("[compare_versions] computing before/after score delta")
 
         delta_summary = "(no comparison available)"
 
-        # Mock: compute delta from raw JSONs
         try:
             original = json.loads(original_scores_json) if original_scores_json else {}
             new = json.loads(new_scores_json) if new_scores_json else {}

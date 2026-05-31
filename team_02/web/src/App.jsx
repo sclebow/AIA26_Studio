@@ -44,6 +44,7 @@ export default function App() {
   const [overlay, setOverlay]     = useState("starting sensi...");
   const [persona, setPersona]     = useState(null);
   const [layoutId, setLayoutId]   = useState(null);
+  const [layoutVersion, setLayoutVersion] = useState(0); // bumped after edits to force a plan re-fetch
   const [thinking, setThinking]   = useState(false);
 
   // Quiz
@@ -77,6 +78,9 @@ export default function App() {
     } else if (data.screen === "chat") {
       const newLayoutId = data.layout_id || null;
       setLayoutId(newLayoutId);
+      // An edit tool mutated the layout (e.g. added furniture) — force the plan
+      // canvas to re-fetch so the change actually renders.
+      if (data.layout_updated) setLayoutVersion((v) => v + 1);
       setScreen("chat");
 
       // Always push to flat chat thread
@@ -192,6 +196,7 @@ export default function App() {
             thinking={thinking}
             persona={persona}
             layoutId={layoutId}
+            layoutVersion={layoutVersion}
             onSend={sendChat}
           />
         </SelectionProvider>

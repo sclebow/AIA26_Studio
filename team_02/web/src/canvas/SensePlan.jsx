@@ -78,7 +78,7 @@ function PlanTooltip({ info }) {
   );
 }
 
-export default function SensePlan({ rooms, layoutId, layers = DEFAULT_LAYERS, graphData = null }) {
+export default function SensePlan({ rooms, layoutId, layoutVersion = 0, layers = DEFAULT_LAYERS, graphData = null }) {
   const [layout, setLayout] = useState(null);
   const [err, setErr] = useState("");
   const [hover, setHover] = useState(null);
@@ -93,7 +93,7 @@ export default function SensePlan({ rooms, layoutId, layers = DEFAULT_LAYERS, gr
       .then((d) => { if (alive) { setLayout(d.layout || null); setErr(d.layout ? "" : "no layout loaded yet"); } })
       .catch(() => { if (alive) setErr("could not load layout"); });
     return () => { alive = false; };
-  }, [layoutId]);
+  }, [layoutId, layoutVersion]);
 
   const scoredByName = useMemo(() => {
     const m = {}; (rooms || []).forEach((r) => { m[r.roomName] = r; }); return m;

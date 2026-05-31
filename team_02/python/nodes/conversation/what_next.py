@@ -30,13 +30,10 @@ def _extract_worst_finding(scores_json: str) -> str:
 def _format_persona(persona_profile: dict) -> str:
     if not persona_profile:
         return "no specific persona"
-    if "name" in persona_profile or "role" in persona_profile:
-        desc = persona_profile.get("description", "")
-        name = persona_profile.get("name", "")
-        role = persona_profile.get("role", "")
-        return desc or (f"{name}, {role}" if name else role or "no profile")
-    primary = persona_profile.get("primary_user", {})
-    return primary.get("description", "no specific persona")
+    desc = persona_profile.get("description", "")
+    name = persona_profile.get("name", "")
+    role = persona_profile.get("role", "")
+    return desc or (f"{name}, {role}" if name else role or "no profile")
 
 
 _SYSTEM_PROMPT = """\

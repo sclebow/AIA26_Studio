@@ -39,7 +39,7 @@ export default function SenseHub({ room, cx, cy, R, u, activeSense, onSelectSens
         return (
           <g key={i} opacity={dim ? 0.15 : 1}>
             <GraphEdge ax={ax} ay={ay} bx={bx} by={by} color={SC[adj.from]} width={edgeWidth(adj.delta)}
-              dash={basisDash(adj.basis)} arrow headSize={u * 0.95} curvature={0.18}
+              dash={basisDash(adj.basis)} arrow headSize={u * 0.95} curvature={0.18} hitWidth={6}
               onHover={(e) => onHoverEdge && onHoverEdge({ x: e.clientX, y: e.clientY, kind: "edge", adj, sign })}
               onLeave={() => onHoverEdge && onHoverEdge(null)} />
             <text x={a.midx} y={a.midy} textAnchor="middle" dominantBaseline="central"

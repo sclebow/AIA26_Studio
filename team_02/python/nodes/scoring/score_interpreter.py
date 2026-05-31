@@ -7,6 +7,7 @@ Output feeds CONFLICT_REASONER and RESPOND.
 from __future__ import annotations
 import json
 from _runtime.llm import call_llm_simple
+from nodes._shared.utils import grounded_facts
 
 
 _SYSTEM_PROMPT = """\
@@ -25,6 +26,10 @@ Rules:
   - Skip rooms or senses that are unremarkable for this persona
   - Do NOT suggest fixes. Do NOT mention conflicts. Just interpret meaning.
   - Plain language. No jargon. No markdown. No JSON.
+  - NEVER state that a score is the "lowest/highest/worst/best of all rooms" or
+    "across the layout" unless that exact ranking appears in GROUNDED FACTS below.
+    Every number you cite must be copied exactly from SCORES. Do not compute or
+    invent comparisons.
 
 Format:
   [Room Name]
@@ -33,6 +38,8 @@ Format:
 
 PERSONA:
 {persona_summary}
+
+{grounded}
 
 SCORES:
 {scores_summary}
@@ -58,54 +65,28 @@ def _format_scores(scores_json: str) -> str:
 
 
 def _format_persona(persona_profile: dict) -> str:
-    """
-    Handles both the current flat schema (from persona_compiler v2) and the
-    legacy nested schema (primary_user/secondary_user) for backward compat.
-    """
+    """Summarise the flat persona_compiler v2 profile for the interpreter prompt."""
     if not persona_profile:
         return "neutral adult, no specific sensory sensitivities"
     try:
-        # -- Current flat schema (persona_compiler v2) ----------------------
-        if "name" in persona_profile or "role" in persona_profile:
-            parts = []
-            name = persona_profile.get("name", "")
-            role = persona_profile.get("role", "")
-            desc = persona_profile.get("description", "")
-            if desc:
-                parts.append(desc)
-            elif name and role:
-                parts.append(f"{name}, {role}")
-            if persona_profile.get("age_group"):
-                parts.append(f"age group: {persona_profile['age_group']}")
-            if persona_profile.get("household_type"):
-                parts.append(f"household: {persona_profile['household_type']}")
-            if persona_profile.get("sensory_priorities"):
-                parts.append(f"sensory priorities: {', '.join(persona_profile['sensory_priorities'])}")
-            if persona_profile.get("sensory_sensitivities"):
-                parts.append(f"sensitivities: {', '.join(persona_profile['sensory_sensitivities'])}")
-            if persona_profile.get("key_requirements"):
-                parts.append(f"non-negotiables: {'; '.join(persona_profile['key_requirements'])}")
-            return "; ".join(parts) if parts else "no profile"
-
-        # -- Legacy nested schema (backward compat) -------------------------
-        primary = persona_profile.get("primary_user", {})
         parts = []
-        if primary.get("description"):
-            parts.append(primary["description"])
-        if primary.get("age_group"):
-            parts.append(f"age group: {primary['age_group']}")
-        if primary.get("sensory_priorities"):
-            parts.append(f"sensory priorities: {', '.join(primary['sensory_priorities'])}")
-        if primary.get("sensory_sensitivities"):
-            parts.append(f"sensitivities: {', '.join(primary['sensory_sensitivities'])}")
-        secondary = persona_profile.get("secondary_user")
-        if secondary:
-            sec_parts = []
-            if secondary.get("description"):
-                sec_parts.append(secondary["description"])
-            if secondary.get("sensory_priorities"):
-                sec_parts.append(f"priorities: {', '.join(secondary['sensory_priorities'])}")
-            parts.append(f"second occupant: {'; '.join(sec_parts)}")
+        name = persona_profile.get("name", "")
+        role = persona_profile.get("role", "")
+        desc = persona_profile.get("description", "")
+        if desc:
+            parts.append(desc)
+        elif name and role:
+            parts.append(f"{name}, {role}")
+        if persona_profile.get("age_group"):
+            parts.append(f"age group: {persona_profile['age_group']}")
+        if persona_profile.get("household_type"):
+            parts.append(f"household: {persona_profile['household_type']}")
+        if persona_profile.get("sensory_priorities"):
+            parts.append(f"sensory priorities: {', '.join(persona_profile['sensory_priorities'])}")
+        if persona_profile.get("sensory_sensitivities"):
+            parts.append(f"sensitivities: {', '.join(persona_profile['sensory_sensitivities'])}")
+        if persona_profile.get("key_requirements"):
+            parts.append(f"non-negotiables: {'; '.join(persona_profile['key_requirements'])}")
         return "; ".join(parts) if parts else "no profile"
     except Exception:
         return str(persona_profile)
@@ -122,9 +103,11 @@ def build_score_interpreter_node(llm):
 
         scores_summary  = _format_scores(scores_json)
         persona_summary = _format_persona(persona_profile)
+        grounded        = grounded_facts(scores_json) or "GROUNDED FACTS: (none available)"
 
         system = _SYSTEM_PROMPT.format(
             persona_summary=persona_summary,
+            grounded=grounded,
             scores_summary=scores_summary,
         )
 

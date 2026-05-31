@@ -72,34 +72,17 @@ def _format_persona_priorities(persona_profile: dict) -> str:
 
     parts = []
 
-    # --- Flat schema (v4, persona_compiler v2) --------------------------------
-    if "sensory_priorities" in persona_profile or "sensory_sensitivities" in persona_profile:
-        priorities    = persona_profile.get("sensory_priorities", [])
-        sensitivities = persona_profile.get("sensory_sensitivities", [])
-        if priorities:
-            parts.append(f"Top senses: {', '.join(priorities)}")
-        if sensitivities:
-            parts.append(f"Sensitivities: {', '.join(sensitivities)}")
-        weights = persona_profile.get("comfort_weights", {})
-        if weights:
-            top_w = sorted(weights, key=weights.get, reverse=True)[:3]
-            parts.append(f"Highest weighted: {', '.join(top_w)}")
-        return "; ".join(parts) if parts else "no specific priorities"
-
-    # --- Legacy nested schema (backward compat) --------------------------------
-    primary = persona_profile.get("primary_user", {})
-    priorities = primary.get("sensory_priorities", [])
-    sensitivities = primary.get("sensory_sensitivities", [])
+    # Flat persona_compiler v2 schema.
+    priorities    = persona_profile.get("sensory_priorities", [])
+    sensitivities = persona_profile.get("sensory_sensitivities", [])
     if priorities:
         parts.append(f"Top senses: {', '.join(priorities)}")
     if sensitivities:
         parts.append(f"Sensitivities: {', '.join(sensitivities)}")
-    secondary = persona_profile.get("secondary_user")
-    if secondary:
-        sec_p = secondary.get("sensory_priorities", [])
-        if sec_p:
-            parts.append(f"Second occupant top senses: {', '.join(sec_p)}")
-
+    weights = persona_profile.get("comfort_weights", {})
+    if weights:
+        top_w = sorted(weights, key=weights.get, reverse=True)[:3]
+        parts.append(f"Highest weighted: {', '.join(top_w)}")
     return "; ".join(parts) if parts else "no specific priorities"
 
 

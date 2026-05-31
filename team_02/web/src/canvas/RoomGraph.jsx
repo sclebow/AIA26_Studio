@@ -31,8 +31,8 @@ export default function RoomGraph({ roomById, graphData = null, showLabels = fal
     return (
       <g key={"node" + i} className="spln-gnode" style={onToggleRoom ? { cursor: "pointer" } : undefined}
         onClick={() => onToggleRoom && onToggleRoom(rm.name)} onMouseMove={hoverInfo} onMouseLeave={() => onHoverNode && onHoverNode(null)}>
-        {bet > 0 && <circle cx={x} cy={y} r={r + u * (0.8 + bet * 3)} fill={fill} fillOpacity={0.08 + bet * 0.3} />}
-        {bridge && <circle cx={x} cy={y} r={r + u * 0.55} fill="none" stroke="rgb(var(--fg-rgb))" strokeOpacity={0.4} strokeWidth={1} strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />}
+        {bet > 0 && <circle cx={x} cy={y} r={r + u * (0.8 + bet * 3)} fill={fill} fillOpacity={0.08 + bet * 0.3} pointerEvents="none" />}
+        {bridge && <circle cx={x} cy={y} r={r + u * 0.55} fill="none" stroke="rgb(var(--fg-rgb))" strokeOpacity={0.4} strokeWidth={1} strokeDasharray="2 2" vectorEffect="non-scaling-stroke" pointerEvents="none" />}
         <circle cx={x} cy={y} r={r + u * 1.1} fill="transparent" />
         <circle cx={x} cy={y} r={r} fill={isolated ? "none" : fill} fillOpacity={isolated ? 0 : (expanded ? 0.9 : 0.55)}
           stroke={zoneCol || "rgb(var(--fg-rgb))"} strokeOpacity={expanded ? 1 : (isolated ? 0.6 : 0.4)}

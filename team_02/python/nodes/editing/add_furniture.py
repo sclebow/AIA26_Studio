@@ -51,7 +51,11 @@ def build_add_furniture_node():
 
         out["layout_json_string"] = _edits.dump(layout)
         out["layout_diff"]        = diff
-        out["layout_updated"]     = True
+        # Only report an update when a room actually received furniture, so the
+        # frontend doesn't trigger a (no-op) re-render for an unmatched target.
+        out["layout_updated"]     = room is not None
+        if room is None:
+            print("[add_furniture] no target room matched — nothing added")
         return out
 
     return add_furniture_node

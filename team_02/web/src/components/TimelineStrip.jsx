@@ -21,7 +21,11 @@ function MiniRing({ score, conflicts }) {
   return (
     <span className="tl-mini-ring" style={{ borderColor: color, color }}>
       {score.toFixed(2)}
-      {conflicts > 0 && <span className="tl-conflict-dot">{conflicts}</span>}
+      {conflicts > 0 && (
+        <span className="tl-conflict-dot" title={`${conflicts} ${conflicts === 1 ? "room has" : "rooms have"} a comfort conflict`}>
+          {conflicts}
+        </span>
+      )}
     </span>
   );
 }

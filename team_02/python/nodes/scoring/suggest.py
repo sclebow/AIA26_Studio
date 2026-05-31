@@ -1,25 +1,20 @@
 """
-SUGGEST node — calls generate_suggestions on conflicts from DETECT.
+SUGGEST node — generates prioritised fixes from the conflicts found in DETECT.
+
+Suggestion priority comes from the onboarding comfort_weights (weights_override) via
+priority_order — no persona category buckets. `persona` is a display label only.
 """
 
 from __future__ import annotations
 import json
-from nodes._shared.utils import unwrap_mcp_result
-
-
-def _persona_label(persona_profile: dict) -> str:
-    if not persona_profile:
-        return "Neutral"
-    pt = persona_profile.get("persona_type", "")
-    valid = {"Elderly 65+", "Child under 12", "Sensory Sensitive", "Young Active", "Neutral"}
-    return pt if pt in valid else "Neutral"
+from nodes._shared.utils import unwrap_mcp_result, persona_display_label
 
 
 def build_suggest_node(mcp_client):
     def suggest_node(state: dict) -> dict:
         conflicts_json  = state.get("last_conflicts_json", "")
         persona_profile = state.get("persona_profile") or {}
-        persona_label   = _persona_label(persona_profile)
+        persona_label   = persona_display_label(persona_profile)
         weights_override = persona_profile.get("comfort_weights")
 
         if not conflicts_json:

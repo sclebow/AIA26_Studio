@@ -52,6 +52,29 @@ function QuizInput({ step, onSubmit }) {
     );
   }
 
+  if (step === 6) {
+    // Personality / arousal axis (Eysenck): introvert prefers low stimulation,
+    // extrovert high. Feeds persona_profile.personality → apply_personality scoring.
+    const opts = [
+      { val: "introvert", label: "🌙  a calm space to myself", text: "After a demanding day I recharge best in a calm space to myself." },
+      { val: "mixed", label: "⚖  a balance of both", text: "After a demanding day I recharge with a balance of quiet and company." },
+      { val: "extrovert", label: "☀  people and activity", text: "After a demanding day I recharge around people and activity." },
+    ];
+    return (
+      <div className="pill-group">
+        {opts.map((o) => (
+          <div
+            key={o.val}
+            className={"pill" + (role === o.val ? " selected" : "")}
+            onClick={() => { setRole(o.val); setTimeout(() => onSubmit(o.text), 220); }}
+          >
+            {o.label}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   if (step === 2 || step === 5) {
     const placeholder = step === 2
       ? "could be anywhere — a room, a café, a corner of the world..."
