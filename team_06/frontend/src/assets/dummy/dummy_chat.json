@@ -1,0 +1,8 @@
+[
+  { "id": 1, "role": "user", "text": "I live with my partner Sarah, we cook a lot.", "timestamp": "..." },
+  { "id": 2, "role": "agent", "text": "How many bedrooms do you need?", "timestamp": "..." },
+  { "id": 3, "role": "user", "text": "One bedroom, please.", "timestamp": "..." },
+  { "id": 4, "role": "agent", "text": "Here is a layout suggestion. Are you happy with this layout, or would you like to explore more options?", "timestamp": "..." },
+  { "id": 5, "role": "user", "text": "I would like an extra room for homeoffice.", "timestamp": "..." },
+  { "id": 6, "role": "agent", "text": "Added a home office. Anything else to change?", "timestamp": "..." }
+]

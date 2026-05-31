@@ -21,8 +21,8 @@
 <script setup>
 import layoutData from '../assets/dummy/team_06_edited_layout.json'
 
-const layoutId = layoutData.layoutId || 'Layout'
-const rooms = layoutData.rooms || []
+const layoutId = layoutData[0].layoutId || 'Layout'
+const rooms = layoutData[0].rooms || []
 const totalArea = rooms.reduce((sum, r) => sum + (r.attributes?.area || 0), 0).toFixed(2)
 // Example: you can add logic to compute issues if needed
 const issues = []

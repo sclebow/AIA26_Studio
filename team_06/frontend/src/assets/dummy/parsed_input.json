@@ -1,0 +1,103 @@
+[
+{
+  "households": [
+    {
+      "name": "Me",
+      "age": "int",
+      "special_need": "string (optional)",
+      "relationship": "me"
+    },
+    {
+      "name": "Sarah",
+      "age": "int",
+      "special_need": "string (optional)",
+      "relationship": "partner"
+    }
+  ],
+  "activities": [
+    {
+      "id": "routine-1",
+      "type": "cook"
+    }
+  ],
+  "rooms": [
+    {
+      "id": "room-1",
+      "type": "kitchen"
+    }
+  ]
+},
+{
+  "households": [
+    {
+      "name": "Me",
+      "age": "int",
+      "special_need": "string (optional)",
+      "relationship": "me"
+    },
+    {
+      "name": "Sarah",
+      "age": "int",
+      "special_need": "string (optional)",
+      "relationship": "partner"
+    }
+  ],
+  "activities": [
+    {
+      "id": "routine-1",
+      "type": "cook"
+    }
+  ],
+  "rooms": [
+    {
+      "id": "room-1",
+      "type": "kitchen"
+    },
+     {
+      "id": "room-2",
+      "type": "bedroom"
+    }
+  ]
+},
+{
+  "households": [
+    {
+      "name": "Me",
+      "age": "int",
+      "special_need": "string (optional)",
+      "relationship": "me"
+    },
+    {
+      "name": "Sarah",
+      "age": "int",
+      "special_need": "string (optional)",
+      "relationship": "partner"
+    }
+  ],
+  "activities": [
+    {
+      "id": "routine-1",
+      "type": "cook"
+    },
+    {
+      "id": "routine-2",
+      "type": "work"
+    }
+  ],
+  "rooms": [
+    {
+      "id": "room-1",
+      "type": "kitchen"
+    },
+     {
+      "id": "room-2",
+      "type": "bedroom"
+    }
+    ,
+     {
+      "id": "room-3",
+      "type": "extra"
+    }
+  ]
+}
+]

@@ -1,4 +1,3 @@
-
 <template>
   <v-stage :config="stageConfig">
     <v-layer>
@@ -41,7 +40,7 @@ import { Stage, Layer, Group, Line, Text } from 'vue-konva'
 import layoutData from '../assets/dummy/team_06_edited_layout.json'
 
 const stageConfig = ref({ width: 600, height: 600 })
-const rooms = ref(layoutData.rooms)
+const rooms = ref(layoutData[0].rooms)
 
 const roomColors = {
   bed: '#4A7CA8',
