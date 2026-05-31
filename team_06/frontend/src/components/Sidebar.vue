@@ -13,7 +13,6 @@ const props = defineProps({
   }
 })
 const emit = defineEmits(['change'])
-const input = props.parsedInput
 </script>
 
 <template>
@@ -27,7 +26,7 @@ const input = props.parsedInput
             Households
           </div>
           <ul class="sidebar-list">
-            <li v-if="input && input.households && input.households.length" v-for="(h, i) in input.households" :key="i">
+            <li v-if="props.parsedInput && props.parsedInput.households && props.parsedInput.households.length" v-for="(h, i) in props.parsedInput.households" :key="i">
               {{ h.name }}<span v-if="h.age && h.age !== 'int'"> - {{ h.age }}</span>
               <span v-if="h.relationship"> - {{ h.relationship }}</span>
             </li>
@@ -40,7 +39,7 @@ const input = props.parsedInput
             Routine
           </div>
           <ul class="sidebar-list">
-            <li v-if="input && input.activities && input.activities.length" v-for="(a, i) in input.activities" :key="i">
+            <li v-if="props.parsedInput && props.parsedInput.activities && props.parsedInput.activities.length" v-for="(a, i) in props.parsedInput.activities" :key="i">
               {{ a.type }}<span v-if="a.time && a.time !== 'int'"> - {{ a.time }}</span>
             </li>
             <li v-else>No input yet</li>
@@ -52,8 +51,8 @@ const input = props.parsedInput
             Rooms
           </div>
           <ul class="sidebar-list">
-            <li v-if="input && input.rooms && input.rooms.length" v-for="(r, i) in input.rooms" :key="i">
-              {{ r.type }}
+            <li v-if="props.parsedInput && props.parsedInput.rooms && props.parsedInput.rooms.length" v-for="(r, i) in props.parsedInput.rooms" :key="i">
+              {{ r.name || r.attributes?.program || 'Room ' + r.id }}<span v-if="r.size"> - {{ r.size }}</span>
             </li>
             <li v-else>No input yet</li>
           </ul>
@@ -64,7 +63,7 @@ const input = props.parsedInput
             Brief
           </div>
           <div class="sidebar-brief">
-            <span v-if="input && input.brief">{{ input.brief }}</span>
+            <span v-if="props.parsedInput && props.parsedInput.brief">{{ props.parsedInput.brief }}</span>
             <span v-else>No input yet</span>
           </div>
         </section>

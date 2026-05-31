@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <div class="app-layout">
-      <Sidebar :tab="tab" @change="tab = $event" :index="currentIndex" />
+      <Sidebar :tab="tab" @change="tab = $event" :parsedInput="parsedInput" />
       <WorkSpace :index="currentIndex" />
       <ChatPanel :chat="chatHistory" @send="handleUserMessage" :index="currentIndex" />
     </div>
@@ -44,8 +44,10 @@ function mockAgentResponse(messages) {
         activities: [
           { type: 'Cooking', time: 'often' }
         ],
-        rooms: [],
-        brief: 'John and Sarah, a couple who cook a lot.'
+        rooms: [
+          { id: 1, name: 'Kitchen' , size: 'large' }
+        ],
+        brief: 'John and Sarah area a couple and cook a lot.'
       }
     };
   }
@@ -54,9 +56,9 @@ function mockAgentResponse(messages) {
       text: 'Here is a layout suggestion. Are you happy with this layout, or would you like to explore more options?',
       layout: {
         rooms: [
-          { id: 1, geometry: [[0,0],[0,40],[40,40],[40,0]], attributes: { program: 'Bedroom 1', area: 16 } },
-          { id: 2, geometry: [[50,0],[50,40],[90,40],[90,0]], attributes: { program: 'Bedroom 2', area: 16 } },
-          { id: 3, geometry: [[0,50],[0,90],[90,90],[90,50]], attributes: { program: 'Living/Kitchen', area: 36 } }
+          { id: 1, geometry: [[0,0],[0,40],[40,40],[40,0]], attributes: { program: 'bedroom', area: 16 } },
+          { id: 2, geometry: [[50,0],[50,40],[90,40],[90,0]], attributes: { program: 'kitchen', area: 16 } },
+          { id: 3, geometry: [[0,50],[0,90],[90,90],[90,50]], attributes: { program: 'living', area: 36 } }
         ]
       },
       parsedInput: {
@@ -68,10 +70,10 @@ function mockAgentResponse(messages) {
           { type: 'Cooking', time: 'often' }
         ],
         rooms: [
-          { type: 'bedroom' },
-          { type: 'bedroom' }
+          { id: 1, name: 'Kitchen' , size: 'large' },
+          { id: 2, name: 'Bedroom' , size: 'double'}
         ],
-        brief: 'John and Sarah want 2 bedrooms and a large kitchen/living area.'
+        brief: 'John and Sarah area a couple and cook a lot. They want one bedroom.'
       }
     };
   }
@@ -80,10 +82,10 @@ function mockAgentResponse(messages) {
     text: 'Here is an updated layout with a workspace. Anything else to add?',
     layout: {
       rooms: [
-        { id: 1, geometry: [[0,0],[0,40],[40,40],[40,0]], attributes: { program: 'Bedroom 1', area: 16 } },
-        { id: 2, geometry: [[50,0],[50,40],[90,40],[90,0]], attributes: { program: 'Bedroom 2', area: 16 } },
-        { id: 3, geometry: [[0,50],[0,90],[90,90],[90,50]], attributes: { program: 'Living/Kitchen', area: 36 } },
-        { id: 4, geometry: [[100,0],[100,30],[130,30],[130,0]], attributes: { program: 'Workspace', area: 9 } }
+        { id: 1, geometry: [[0,0],[0,40],[40,40],[40,0]], attributes: { program: 'bedroom', area: 16 } },
+        { id: 2, geometry: [[50,0],[50,40],[90,40],[90,0]], attributes: { program: 'kitchen', area: 16 } },
+        { id: 3, geometry: [[0,50],[0,90],[90,90],[90,50]], attributes: { program: 'living', area: 36 } },
+        { id: 4, geometry: [[100,0],[100,30],[130,30],[130,0]], attributes: { program: 'workspace', area: 9 } }
       ]
     },
     parsedInput: {
@@ -93,14 +95,14 @@ function mockAgentResponse(messages) {
       ],
       activities: [
         { type: 'Cooking', time: 'often' },
-        { type: 'Work from home', time: 'weekdays' }
+        { type: 'Work', time: 'weekdays' }
       ],
       rooms: [
-        { type: 'bedroom' },
-        { type: 'bedroom' },
-        { type: 'workspace' }
+        { id: 1, name: 'Kitchen' , size: 'large' },
+        { id: 2, name: 'Bedroom' , size: 'double'},
+        { id: 3, name: 'Workspace' , size: 'medium'}
       ],
-      brief: 'John and Sarah want 2 bedrooms, a large kitchen/living area, and a workspace.'
+      brief: 'John and Sarah area a couple and cook a lot. They want one bedroom and a workspace.'
     }
   };
 }
