@@ -3,6 +3,7 @@
 import userIcon from '../assets/icons/user.svg'
 import chevronIcon from '../assets/icons/chevron.svg'
 import ToolBar from './ToolBar.vue'
+import LayoutCanvas from './LayoutCanvas.vue'
 </script>
 
 <template>
@@ -13,9 +14,11 @@ import ToolBar from './ToolBar.vue'
       <div class="toolbar-card toolbar-inline">
         <ToolBar />
       </div>
-    <div class="canvas-area">
-      <div class="canvas">Canvas Area</div>
-    </div>
+      <div class="canvas-area">
+        <div class="canvas">
+          <LayoutCanvas />
+        </div>
+      </div>
   </aside>
 </template>
 
