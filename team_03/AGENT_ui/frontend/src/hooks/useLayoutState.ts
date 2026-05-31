@@ -172,22 +172,35 @@ export function useLayoutState(): UseLayoutStateReturn {
   /** Force re-read the current layout from disk (via backend reload endpoint) */
   const reloadLayout = useCallback(async () => {
     if (!selectedLayoutName) return;
-    try {
-      const res = await fetch(`${API_BASE}/layouts/${encodeURIComponent(selectedLayoutName)}/reload`, {
-        method: 'POST',
-      });
-      if (res.ok) {
-        const freshData = await res.json();
-        setLayoutWithDiff(freshData);
+    const enc = encodeURIComponent(selectedLayoutName);
+
+    const applyFresh = async (freshData: LayoutJSON) => {
+      // Did objects get added/moved? Only then refresh the (heavier) graph.
+      const changed = diffLayoutIds(layoutRef.current, freshData).size > 0;
+      setLayoutWithDiff(freshData);
+      if (changed) {
+        // The backend rebuilds the spatial graph on reload — pull it so newly
+        // placed furniture + relations appear in the Spatial Graph panel.
+        try {
+          const g = await fetch(`${API_BASE}/graph`);
+          if (g.ok) {
+            const gd = await g.json();
+            if (gd) setGraphData(normalizeGraphData(gd));
+          }
+        } catch {
+          // Graph endpoint unavailable — keep the existing graph
+        }
       }
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/layouts/${enc}/reload`, { method: 'POST' });
+      if (res.ok) await applyFresh(await res.json());
     } catch {
       // Reload endpoint not available, try GET
       try {
-        const res = await fetch(`${API_BASE}/layouts/${encodeURIComponent(selectedLayoutName)}`);
-        if (res.ok) {
-          const freshData = await res.json();
-          setLayoutWithDiff(freshData);
-        }
+        const res = await fetch(`${API_BASE}/layouts/${enc}`);
+        if (res.ok) await applyFresh(await res.json());
       } catch {
         // Ignore
       }

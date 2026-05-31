@@ -73,6 +73,14 @@ export interface ObserverPathMessage {
   height: number;
 }
 
+/** Result of a set_observer run: the visibility isovist polygon to draw. */
+export interface ObserverResult {
+  type: 'observer_result';
+  mode: 'person' | 'path';
+  status: string;
+  isovist: [number, number][] | null; // closed polygon in layout metres
+}
+
 export type WSMessage =
   | ChatMessage
   | AgentResponse
@@ -83,4 +91,5 @@ export type WSMessage =
   | SelectionSync
   | ObserverPoint
   | ObserverPathMessage
+  | ObserverResult
   | ChatDecision;

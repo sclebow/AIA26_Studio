@@ -51,13 +51,16 @@ export default function App() {
   const [layerVisibility, setLayerVisibility] = useState<LayerVisibility>(defaultVisibility);
   const [showLabels, setShowLabels] = useState(true);   // shared: 3D labels + graph labels
   const [layoutFitSignal, setLayoutFitSignal] = useState(0);  // bumps only on explicit layout pick → triggers viewport fit-to-screen
+  const [isovist, setIsovist] = useState<[number, number][] | null>(null);  // visibility surface from set_observer
   const [analyzing, setAnalyzing] = useState(false);          // Analysis Dashboard "Analyze" button in flight
   const [viewMode, setViewMode] = useState<ViewMode>('geometry');
   const [displayMode, setDisplayMode] = useState<ViewMode>('geometry');
   const [animPhase, setAnimPhase] = useState<'idle' | 'out' | 'in'>('idle');
   const [logOpen, setLogOpen] = useState(false);
   const [generatorMode, setGeneratorMode] = useState(false);   // left panel → AI Layout Generator
+  const [memState, setMemState] = useState<'idle' | 'confirm' | 'cleared'>('idle'); // Clear-memory button
   const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const memTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasRunningRef = useRef(false);
 
   // ── WebSocket dispatcher ──────────────────────────────────────────────────
@@ -74,6 +77,7 @@ export default function App() {
       case 'agent_checkpoint': agentState.handleAgentCheckpoint(msg); break;
       case 'state_update':     layoutState.updateFromWS(msg);         break;
       case 'selection_sync':   applyRemoteSelection(msg.elementId, msg.source); break;
+      case 'observer_result':  setIsovist(msg.status === 'ok' ? msg.isovist : null); break;
     }
   };
   useEffect(() => ws.subscribe((msg) => dispatchRef.current(msg)), [ws]);
@@ -113,7 +117,10 @@ export default function App() {
     }, 180);
   }, [viewMode, animPhase]);
 
-  useEffect(() => () => { if (animTimerRef.current) clearTimeout(animTimerRef.current); }, []);
+  useEffect(() => () => {
+    if (animTimerRef.current) clearTimeout(animTimerRef.current);
+    if (memTimerRef.current) clearTimeout(memTimerRef.current);
+  }, []);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleToggleLayer = useCallback((layer: LayerName) => {
@@ -135,6 +142,7 @@ export default function App() {
   const handleChatCancel = useCallback(() => { agentState.cancelLast(); }, [agentState]);
 
   const handleLayoutSelect = useCallback(async (name: string) => {
+    setIsovist(null);                 // drop any visibility surface from the previous layout
     await layoutState.loadLayout(name);
     setLayoutFitSignal(n => n + 1);   // user explicitly picked → fit to screen
   }, [layoutState]);
@@ -164,6 +172,20 @@ export default function App() {
     layoutState.endPreview();
     setGeneratorMode(false);
   }, [layoutState]);
+
+  // Clear ALL agent memory (team_03/memory/*.md) — two-click confirm in the nav.
+  const handleClearMemory = useCallback(async () => {
+    if (memTimerRef.current) clearTimeout(memTimerRef.current);
+    if (memState !== 'confirm') {
+      setMemState('confirm');
+      memTimerRef.current = setTimeout(() => setMemState('idle'), 3000);
+      return;
+    }
+    setMemState('idle');
+    try { await fetch('/api/memory', { method: 'DELETE' }); } catch { /* ignore */ }
+    setMemState('cleared');
+    memTimerRef.current = setTimeout(() => setMemState('idle'), 1800);
+  }, [memState]);
 
   // Deterministic analysis of the currently-displayed layout → populates the
   // Analysis Dashboard without needing the LLM/MCP agent to run the tools.
@@ -262,6 +284,8 @@ export default function App() {
     modifiedIds: layoutState.modifiedIds,
     onObserverPoint: handleObserverPoint,
     onObserverPath: handleObserverPath,
+    isovist,
+    onObserverChanged: () => setIsovist(null),
     showLabels,
     onToggleLabels: () => setShowLabels(v => !v),
     isAgentRunning: agentState.isAgentRunning,
@@ -326,8 +350,28 @@ export default function App() {
           ))}
         </div>
 
-        {/* Right: Log + WS dot + Theme */}
+        {/* Right: Clear memory + Log + WS dot + Theme */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={handleClearMemory}
+            title="Delete ALL agent memory (learned rules + onboarding profile). The agent starts fresh."
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '3px 8px', borderRadius: 6,
+              border: `1px solid ${memState === 'confirm' ? colors.error + '55' : memState === 'cleared' ? colors.success + '55' : 'transparent'}`,
+              fontSize: 10, fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase',
+              cursor: 'pointer', fontFamily: colors.font, transition: 'all 0.2s',
+              background: memState === 'confirm' ? colors.error + '18' : memState === 'cleared' ? colors.success + '18' : 'transparent',
+              color: memState === 'confirm' ? colors.error : memState === 'cleared' ? colors.success : colors.muted,
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              <line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
+            </svg>
+            {memState === 'confirm' ? 'Clear all?' : memState === 'cleared' ? 'Cleared' : 'Memory'}
+          </button>
           <button onClick={() => setLogOpen(v => !v)} style={{
             padding: '3px 8px', borderRadius: 6,
             border: `1px solid ${logOpen ? colors.accent + '30' : 'transparent'}`,

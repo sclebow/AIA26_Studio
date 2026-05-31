@@ -7,6 +7,7 @@ import PulseHighlight from './PulseHighlight'
 import Labels3D from './Labels3D'
 import ViewCube from './ViewCube'
 import ObserverMarker from './ObserverMarker'
+import IsovistSurface from './IsovistSurface'
 import { useTheme } from '../common/ThemeToggle'
 import { LayoutJSON, LayerVisibility } from '../../types'
 import type { NodeLinkData } from '../GraphPanel/graphDataMapper'
@@ -25,6 +26,10 @@ interface ThreeViewportProps {
   onObserverPoint?: (x: number, y: number, height: number, pointStr: string) => void
   /** Push an ordered path of floor points to the backend on finish. */
   onObserverPath?: (points: Array<{ x: number; y: number }>) => void
+  /** Visibility isovist polygon (layout metres) returned by set_observer — drawn on the floor. */
+  isovist?: [number, number][] | null
+  /** Fired when the observer changes (place/move/draw/clear) so a stale isovist can be cleared. */
+  onObserverChanged?: () => void
   /** Controlled labels toggle (shared with the graph). Falls back to internal state. */
   showLabels?: boolean
   onToggleLabels?: () => void
@@ -527,7 +532,7 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
   )
 }
 
-export default function ThreeViewport({ layout, selectedId, onSelect, layers, graphData, modifiedIds, onObserverPoint, onObserverPath, showLabels: showLabelsProp, onToggleLabels, isAgentRunning, fitSignal }: ThreeViewportProps) {
+export default function ThreeViewport({ layout, selectedId, onSelect, layers, graphData, modifiedIds, onObserverPoint, onObserverPath, isovist, onObserverChanged, showLabels: showLabelsProp, onToggleLabels, isAgentRunning, fitSignal }: ThreeViewportProps) {
   const { theme, colors } = useTheme()
   const isDark = theme === 'dark'
   const [internalShowLabels, setInternalShowLabels] = useState(true)
@@ -545,6 +550,9 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
   const [placing, setPlacing] = useState(false)
   const [pathMode, setPathMode] = useState(false)
   const [pathPoints, setPathPoints] = useState<Array<{ x: number; y: number }>>([])
+  // When the user picks the other mode while one observer is already armed, we ask
+  // which of the two to keep. `switchPrompt` = the mode they're trying to switch TO.
+  const [switchPrompt, setSwitchPrompt] = useState<'person' | 'path' | null>(null)
   const threeRef = useRef<{ camera: THREE.Camera; gl: THREE.WebGLRenderer } | null>(null)
   const cameraAnglesRef = useRef({ azimuth: 0.75, elevation: 0.6 })
   const containerRef = useRef<HTMLDivElement>(null)
@@ -580,20 +588,30 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
     ? `${personPos.x.toFixed(2)},${personPos.y.toFixed(2)},${PERSON_HEIGHT.toFixed(2)}`
     : ''
 
-  const sendObserver = useCallback((x: number, y: number) => {
-    const str = `${x.toFixed(2)},${y.toFixed(2)},${PERSON_HEIGHT.toFixed(2)}`
-    onObserverPoint?.(x, y, PERSON_HEIGHT, str)
-  }, [onObserverPoint])
+  // Observer readiness — only ONE observer (PERSON or PATH) is armed at a time.
+  const hasPerson = personPos !== null
+  const hasPath = pathPoints.length > 0
+  const personReady = hasPerson
+  const pathReady = pathPoints.length >= 2
+  const activeMode: 'person' | 'path' | null = personReady ? 'person' : pathReady ? 'path' : null
+
+  // Run the visibility analysis on demand (explicit button — no auto-run on place).
+  // PERSON → static visibility at the point; PATH → traverse + visibility.
+  const runAnalysis = useCallback(() => {
+    if (personPos) {
+      const str = `${personPos.x.toFixed(2)},${personPos.y.toFixed(2)},${PERSON_HEIGHT.toFixed(2)}`
+      onObserverPoint?.(personPos.x, personPos.y, PERSON_HEIGHT, str)
+    } else if (pathPoints.length >= 2) {
+      onObserverPath?.(pathPoints)
+    }
+  }, [personPos, pathPoints, onObserverPoint, onObserverPath])
 
   const handleTogglePerson = useCallback(() => {
-    setPersonMode(prev => {
-      const next = !prev
-      // Turning it on enters placement mode (click the floor to place);
-      // turning it off hides the marker.
-      setPlacing(next)
-      return next
-    })
-  }, [])
+    if (personMode) { setPersonMode(false); setPlacing(false); return }  // exit edit (keep ghost)
+    if (hasPath) { setSwitchPrompt('person'); return }                   // ask before discarding the path
+    setPathMode(false)
+    setPersonMode(true); setPlacing(true)
+  }, [personMode, hasPath])
 
   const raycastFloor = useCallback((e: React.MouseEvent): { x: number; y: number } | null => {
     const t = threeRef.current
@@ -614,20 +632,20 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
   const handlePlacementClick = useCallback((e: React.MouseEvent) => {
     const pt = raycastFloor(e)
     if (pt) {
-      setPersonPos(pt)
-      sendObserver(pt.x, pt.y)
+      setPersonPos(pt)        // armed — analysis runs via the Run button
       setPlacing(false)
+      onObserverChanged?.()   // discard any isovist from a previous run
     }
-  }, [raycastFloor, sendObserver])
+  }, [raycastFloor, onObserverChanged])
 
   const handleObserverMove = useCallback((x: number, y: number) => {
     setPersonPos({ x, y })
   }, [])
 
   const handleObserverRelease = useCallback((x: number, y: number) => {
-    setPersonPos({ x, y })
-    sendObserver(x, y)
-  }, [sendObserver])
+    setPersonPos({ x, y })   // armed — analysis runs via the Run button
+    onObserverChanged?.()
+  }, [onObserverChanged])
 
   // While dragging the person, suppress geometry selection — otherwise the
   // synthesized click on pointer-up (over a room) would open its detail panel.
@@ -652,47 +670,49 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
   }, [onSelect])
 
   const finishPath = useCallback(() => {
-    if (pathPoints.length >= 2) onObserverPath?.(pathPoints)
-    setPathMode(false)   // keep points → ghost remains visible
-  }, [pathPoints, onObserverPath])
+    setPathMode(false)   // finish drawing; keep points (run via the Run button)
+  }, [])
 
   const handlePathClick = useCallback((e: React.MouseEvent) => {
     if (e.detail > 1) return
     const pt = raycastFloor(e)
-    if (pt) setPathPoints(prev => [...prev, pt])
-  }, [raycastFloor])
+    if (pt) { setPathPoints(prev => [...prev, pt]); onObserverChanged?.() }
+  }, [raycastFloor, onObserverChanged])
 
-  const handlePathDoubleClick = useCallback((e: React.MouseEvent) => {
+  const handlePathDoubleClick = useCallback(() => {
     if (pathPoints.length >= 2) {
-      onObserverPath?.(pathPoints)
-      setPathMode(false) // keep points → ghost remains visible
+      setPathMode(false) // finish drawing; run via the Run button
     }
-  }, [pathPoints, onObserverPath])
+  }, [pathPoints])
 
   const handleTogglePath = useCallback(() => {
-    setPathMode(prev => {
-      const next = !prev
-      if (next) {
-        setPersonMode(false)
-        setPlacing(false)
-        // Keep existing pathPoints so user resumes where they left off
-      }
-      // Turning OFF: keep points so ghost persists
-      return next
-    })
-  }, [])
+    if (pathMode) { setPathMode(false); return }       // pause drawing (keep points)
+    if (hasPerson) { setSwitchPrompt('path'); return } // ask before discarding the person
+    setPersonMode(false); setPlacing(false)
+    setPathMode(true)
+  }, [pathMode, hasPerson])
+
+  // Confirm a mode switch: discard the OTHER observer and arm the chosen one.
+  const confirmSwitch = useCallback((target: 'person' | 'path') => {
+    if (target === 'person') {
+      setPathPoints([]); setPathMode(false)
+      setPersonMode(true); setPlacing(true)
+    } else {
+      setPersonPos(null); setPersonMode(false); setPlacing(false)
+      setPathMode(true)
+    }
+    setSwitchPrompt(null)
+    onObserverChanged?.()
+  }, [onObserverChanged])
 
   const handleUpdatePathPoint = useCallback((index: number, x: number, y: number) => {
     setPathPoints(prev => prev.map((pt, i) => i === index ? { x, y } : pt))
   }, [])
 
   const handleReleasePathPoint = useCallback((index: number, x: number, y: number) => {
-    setPathPoints(prev => {
-      const updated = prev.map((pt, i) => i === index ? { x, y } : pt)
-      if (updated.length >= 2) onObserverPath?.(updated)
-      return updated
-    })
-  }, [onObserverPath])
+    setPathPoints(prev => prev.map((pt, i) => i === index ? { x, y } : pt))
+    onObserverChanged?.()
+  }, [onObserverChanged])
 
   useEffect(() => {
     if (!pathMode) return
@@ -753,6 +773,14 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
           renderMode={renderMode}
           modifiedIds={modifiedIds}
         />
+        {isovist && isovist.length >= 3 && (
+          <IsovistSurface
+            points={isovist}
+            center={geoCenter}
+            color={isDark ? '#ffe082' : '#f59e0b'}
+            opacity={0.25}
+          />
+        )}
         {personPos && (
           <ObserverMarker
             center={geoCenter}
@@ -809,6 +837,51 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
         />
       )}
 
+      {/* Observer mode switch prompt — only ONE observer (PERSON or PATH) at a time */}
+      {switchPrompt && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 40,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.35)',
+        }}>
+          <div style={{
+            background: colors.panelBg, border: `1px solid ${colors.border}`,
+            borderRadius: 12, padding: 18, width: 300, maxWidth: '80%',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.45)', fontFamily: colors.font,
+            backdropFilter: 'blur(8px)',
+          }}>
+            <div style={{
+              fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+              color: colors.text, fontFamily: colors.fontHeading, marginBottom: 8,
+            }}>Choose observer</div>
+            <div style={{ fontSize: 12, color: colors.muted, lineHeight: 1.5, marginBottom: 14 }}>
+              You already have a {switchPrompt === 'person' ? 'PATH' : 'PERSON'} observer ready.
+              Only one can be active — which do you want to use? The other is discarded.
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {(['person', 'path'] as const).map(m => {
+                const isTarget = m === switchPrompt
+                return (
+                  <button key={m} onClick={() => confirmSwitch(m)} style={{
+                    flex: 1, padding: '8px 0', borderRadius: 8, cursor: 'pointer',
+                    fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+                    fontFamily: colors.font,
+                    background: isTarget ? colors.accent : 'transparent',
+                    color: isTarget ? (isDark ? '#0a0612' : '#ffffff') : colors.muted,
+                    border: `1px solid ${isTarget ? colors.accent : colors.border}`,
+                  }}>{m}</button>
+                )
+              })}
+            </div>
+            <button onClick={() => setSwitchPrompt(null)} style={{
+              marginTop: 10, width: '100%', padding: '6px 0', borderRadius: 8, cursor: 'pointer',
+              background: 'transparent', border: 'none', color: colors.muted,
+              fontSize: 11, fontFamily: colors.font,
+            }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
       {/* Compact controls row — top-right, left of ViewCube */}
       <div style={{
         position: 'absolute',
@@ -823,7 +896,7 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
         {/* Clear path — only visible when path exists */}
         {pathPoints.length > 0 && (
           <button
-            onClick={() => setPathPoints([])}
+            onClick={() => { setPathPoints([]); onObserverChanged?.() }}
             title="Clear path"
             style={{
               display: 'flex', alignItems: 'center', gap: 4,
@@ -889,6 +962,29 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
           </svg>
           {personMode ? 'Person ON' : 'Person'}
         </button>
+
+        {/* Run visibility analysis (explicit trigger → MCP set_observer) */}
+        {activeMode && (
+          <button
+            onClick={runAnalysis}
+            title={`Run ${activeMode} visibility analysis`}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: colors.accent,
+              border: `1px solid ${colors.accent}`,
+              borderRadius: 8, padding: '5px 10px',
+              color: isDark ? '#0a0612' : '#ffffff',
+              fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
+              textTransform: 'uppercase', cursor: 'pointer',
+              fontFamily: colors.font, transition: 'all 0.2s',
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+              <polygon points="6 4 20 12 6 20 6 4" />
+            </svg>
+            Run {activeMode}
+          </button>
+        )}
 
         {/* Center/fit */}
         <button

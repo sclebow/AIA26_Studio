@@ -205,6 +205,23 @@ async def save_profile(body: ProfilePayload):
     return {"status": "ok", "path": str(path)}
 
 
+@router.delete("/api/memory")
+async def clear_memory():
+    """Delete ALL agent memory files (team_03/memory/*.md): the onboarding
+    user_profile and every per-layout rules file. The agent then starts fresh
+    (no learned rules / preferences) on the next chat run."""
+    mem_dir = _memory_dir()
+    deleted: List[str] = []
+    if mem_dir.exists():
+        for f in mem_dir.glob("*.md"):
+            try:
+                f.unlink()
+                deleted.append(f.name)
+            except Exception:
+                pass
+    return {"status": "ok", "deleted": deleted, "count": len(deleted)}
+
+
 # ---------------------------------------------------------------------------
 # Analysis (deterministic — no LLM / MCP needed)
 # ---------------------------------------------------------------------------
@@ -281,11 +298,33 @@ async def get_session():
     return JSONResponse(content=state)
 
 
+def _write_session_active(data: dict) -> None:
+    """Mirror the selected layout into team_03/workspace/session_active.json — the
+    LIVE working layout that Grasshopper, the observer (set_observer) and the
+    /reload endpoint all read. Selecting a layout in the dropdown must update this
+    file; otherwise GH and the chat keep running on the previously loaded plan
+    (it is only rewritten by the chat pipeline's build_context otherwise)."""
+    try:
+        f = Path(__file__).resolve().parents[2] / "workspace" / "session_active.json"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
+
+
 @router.post("/api/session")
 async def create_session(body: SessionCreate):
-    """Create a new session by loading the named layout and building the graph."""
+    """Create a new session by loading the named layout and building the graph.
+
+    Picking a layout in the dropdown (incl. AI-generated) also: (a) mirrors it into
+    the live workspace file Grasshopper/observer/reload use, and (b) resets any
+    in-flight chat run when the layout changes, so the next message rebuilds the
+    pipeline on the newly-selected layout instead of the previous one."""
     if _session is None:
         raise HTTPException(status_code=500, detail="Session manager not initialised.")
+
+    prev = _session.get_session()
+    prev_name = prev.get("layout_name") if prev else None
 
     data = layout_loader.load_layout(body.layout_name)
     if data is None:
@@ -300,6 +339,18 @@ async def create_session(body: SessionCreate):
     if "error" not in graph_data:
         _session.update_graph(graph_data)
         state["graph"] = graph_data
+
+    # Make the selected layout the live working layout (Grasshopper / observer / reload).
+    _write_session_active(data)
+
+    # If the layout actually changed, abort any active chat session so the next
+    # message starts fresh on the new layout (build_context re-copies it).
+    if body.layout_name != prev_name:
+        try:
+            import agent_runner
+            agent_runner.abort_session()
+        except Exception:
+            pass
 
     return state
 
@@ -355,6 +406,16 @@ async def reload_layout(name: str):
 
     if _session is not None:
         _session.update_layout(data)
+        # Rebuild the spatial graph so newly placed objects + their relations
+        # (near / contained_in / blocks …) show up in the Spatial Graph panel.
+        # Without this the graph stays frozen at the base layout while the agent
+        # populates the floor.
+        try:
+            graph_data = build_graph(data)
+            if "error" not in graph_data:
+                _session.update_graph(graph_data)
+        except Exception:
+            pass
 
     return data
 
