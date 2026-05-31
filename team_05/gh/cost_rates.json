@@ -1,0 +1,67 @@
+{
+  "room_finishes": {
+    "floor_finish": {
+      "default": 180,
+      "by_material": {
+        "polished concrete": 80,
+        "vinyl":             95,
+        "laminate":         110,
+        "carpet":           125,
+        "ceramic":          145,
+        "epoxy":            160,
+        "terrazzo":         180,
+        "porcelain":        205,
+        "engineered wood":  230,
+        "natural stone":    295,
+        "granite":          335,
+        "solid wood":       355,
+        "marble":           385
+      }
+    },
+    "wall_finish": {
+      "default": 90,
+      "by_material": {
+        "paint":         35,
+        "stucco":        52,
+        "wallpaper":     68,
+        "gypsum board":  82,
+        "ceramic":       98,
+        "acoustic tile": 115,
+        "wood slat":     130,
+        "veneer":        150,
+        "wood panel":    165,
+        "metal panel":   185
+      }
+    },
+    "ceiling_material": {
+      "default": 130,
+      "by_material": {
+        "paint":         48,
+        "gypsum board":  88,
+        "acoustic tile": 118,
+        "wood slat":     138,
+        "metal panel":   165
+      }
+    },
+    "slab_material": {
+      "default": 435,
+      "by_material": {
+        "hollow core":      280,
+        "hollow_core":      280,
+        "timber joist":     315,
+        "timber_joist":     315,
+        "rc ribbed":        375,
+        "rc_ribbed":        375,
+        "rc waffle":        415,
+        "rc_waffle":        415,
+        "rc solid":         435,
+        "rc_solid":         435,
+        "composite steel":  495,
+        "composite_steel":  495,
+        "post tensioned":   525,
+        "post_tensioned":   525,
+        "precast":          465
+      }
+    }
+  }
+}

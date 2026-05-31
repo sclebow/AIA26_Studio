@@ -902,7 +902,7 @@ st.markdown("## AIA Studio · Cost Advisor · Team 05")
 st.caption("Upload plans in the sidebar · choose an active plan · compare up to 5 plans")
 st.divider()
 
-tab_floor, tab_advice = st.tabs(["Floor Plan & Chat", "Architectural Advice"])
+tab_floor, tab_advice, tab_match = st.tabs(["Floor Plan & Chat", "Architectural Advice", "Cost Matching"])
 
 # ─────────────────────────── FLOOR PLAN & CHAT TAB ───────────────────────────
 with tab_floor:
@@ -1126,13 +1126,18 @@ with tab_floor:
             st.session_state.messages = []
             st.rerun()
 
+<<<<<<< HEAD
     # ── COST BREAKDOWN TREEMAP (FULL WIDTH IN FLOOR PLAN TAB) ─────────────────
+=======
+    # ── cost pie charts (inside Floor Plan tab) ───────────────────────────────
+>>>>>>> mf
     if st.session_state.layout:
         _layout   = st.session_state.layout
         _currency = _layout.get("project", {}).get("currency", "")
         _rooms    = _layout.get("rooms", [])
         _openings = _layout.get("openings", [])
         _cols     = _layout.get("columns", [])
+<<<<<<< HEAD
 
         st.divider()
         st.markdown("#### Economic Spatial Distribution")
@@ -1210,6 +1215,123 @@ with tab_floor:
         st.plotly_chart(fig_tree, use_container_width=True)
 
 # ────────────────────────────── ARCHITECTURAL ADVICE TAB ──────────────────────
+=======
+        _doors    = [o for o in _openings if (o.get("type") or "").lower() == "door"]
+        _windows  = [o for o in _openings if (o.get("type") or "").lower() == "window"]
+
+        st.divider()
+        st.markdown("#### Cost Breakdown")
+
+        pie_r, pie_d, pie_w, pie_c = st.columns(4, gap="large")
+
+        def _pie_legend(labels, colors):
+            items = "".join(
+                f'<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'
+                f'<div style="width:10px;height:10px;border-radius:2px;background:{c};flex-shrink:0"></div>'
+                f'<span style="font-size:11px;color:#444;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{l}</span>'
+                f'</div>'
+                for l, c in zip(labels, colors)
+            )
+            return f'<div style="padding-top:4px">{items}</div>'
+
+        _PIE_LAYOUT = dict(
+            margin=dict(l=5, r=5, t=30, b=5),
+            paper_bgcolor="#ffffff",
+            showlegend=False,
+            height=220,
+        )
+
+        with pie_r:
+            if _rooms:
+                labels = [r.get("name", "") for r in _rooms]
+                values = [r.get("total_cost", 0) or 0 for r in _rooms]
+                room_min = min(values) if values else 0
+                room_max = max(values) if values else 1
+                room_span = (room_max - room_min) or 1
+                colors = [
+                    r.get("color_hex")
+                    or _lerp_color(((r.get("total_cost", 0) or 0) - room_min) / room_span)
+                    for r in _rooms
+                ]
+                fig_r = go.Figure(go.Pie(
+                    labels=labels, values=values,
+                    marker=dict(colors=colors, line=dict(color="#fff", width=1)),
+                    textinfo="percent",
+                    hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
+                    hole=0.4,
+                ))
+                fig_r.update_layout(title=dict(text="Rooms", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
+                st.plotly_chart(fig_r, use_container_width=True)
+                st.markdown(_pie_legend(labels, colors), unsafe_allow_html=True)
+
+        with pie_d:
+            if _doors:
+                d_labels = [d.get("subtype") or d.get("id") or "Door" for d in _doors]
+                d_values = [d.get("cost", 0) or 0 for d in _doors]
+                d_colors = [
+                    d.get("color_hex")
+                    or _cost_color_for_category(_layout, "doors", d.get("cost", 0) or 0, "#B27A41")
+                    for d in _doors
+                ]
+                fig_d = go.Figure(go.Pie(
+                    labels=d_labels, values=d_values,
+                    marker=dict(colors=d_colors, line=dict(color="#fff", width=1)),
+                    textinfo="percent",
+                    hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
+                    hole=0.4,
+                ))
+                fig_d.update_layout(title=dict(text="Doors", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
+                st.plotly_chart(fig_d, use_container_width=True)
+                st.markdown(_pie_legend(d_labels, d_colors), unsafe_allow_html=True)
+            else:
+                st.caption("No door data")
+
+        with pie_w:
+            if _windows:
+                w_labels = [w.get("subtype") or w.get("id") or "Window" for w in _windows]
+                w_values = [w.get("cost", 0) or 0 for w in _windows]
+                w_colors = [
+                    w.get("color_hex")
+                    or _cost_color_for_category(_layout, "windows", w.get("cost", 0) or 0, "#5AA0CD")
+                    for w in _windows
+                ]
+                fig_w = go.Figure(go.Pie(
+                    labels=w_labels, values=w_values,
+                    marker=dict(colors=w_colors, line=dict(color="#fff", width=1)),
+                    textinfo="percent",
+                    hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
+                    hole=0.4,
+                ))
+                fig_w.update_layout(title=dict(text="Windows", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
+                st.plotly_chart(fig_w, use_container_width=True)
+                st.markdown(_pie_legend(w_labels, w_colors), unsafe_allow_html=True)
+            else:
+                st.caption("No window data")
+
+        with pie_c:
+            if _cols:
+                c_labels = [c.get("subtype") or c.get("id") or "Column" for c in _cols]
+                c_values = [c.get("cost", 0) or 0 for c in _cols]
+                c_colors = [
+                    c.get("color_hex")
+                    or _cost_color_for_category(_layout, "columns", c.get("cost", 0) or 0, "#828282")
+                    for c in _cols
+                ]
+                fig_c = go.Figure(go.Pie(
+                    labels=c_labels, values=c_values,
+                    marker=dict(colors=c_colors, line=dict(color="#fff", width=1)),
+                    textinfo="percent",
+                    hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
+                    hole=0.4,
+                ))
+                fig_c.update_layout(title=dict(text="Columns", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
+                st.plotly_chart(fig_c, use_container_width=True)
+                st.markdown(_pie_legend(c_labels, c_colors), unsafe_allow_html=True)
+            else:
+                st.caption("No column data")
+
+# ────────────────────────────── ARCHITECTURAL ADVICE ─────────────────────────
+>>>>>>> mf
 with tab_advice:
     from nodes.arch_advice import (
         extract_materials_from_layout as _extract_layout_mats,
@@ -1475,126 +1597,192 @@ with tab_advice:
     else:
         st.info("Upload a layout to enable the cost × carbon matrix.")
 
-# ── cost pie charts (full-width row below both columns) ───────────────────────
-if st.session_state.layout:
-    _layout   = st.session_state.layout
-    _currency = _layout.get("project", {}).get("currency", "")
-    _rooms    = _layout.get("rooms", [])
-    _openings = _layout.get("openings", [])
-    _cols     = _layout.get("columns", [])
-    _doors    = [o for o in _openings if (o.get("type") or "").lower() == "door"]
-    _windows  = [o for o in _openings if (o.get("type") or "").lower() == "window"]
-
-    st.divider()
-    st.markdown("#### Cost Breakdown")
-
-    pie_r, pie_d, pie_w, pie_c = st.columns(4, gap="large")
-
-    def _pie_legend(labels, colors):
-        items = "".join(
-            f'<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'
-            f'<div style="width:10px;height:10px;border-radius:2px;background:{c};flex-shrink:0"></div>'
-            f'<span style="font-size:11px;color:#444;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{l}</span>'
-            f'</div>'
-            for l, c in zip(labels, colors)
-        )
-        return f'<div style="padding-top:4px">{items}</div>'
-
-    _PIE_LAYOUT = dict(
-        margin=dict(l=5, r=5, t=30, b=5),
-        paper_bgcolor="#ffffff",
-        showlegend=False,
-        height=220,
+# ──────────────────────────── COST MATCHING ──────────────────────────────────
+with tab_match:
+    st.markdown("### Cost Matching")
+    st.caption(
+        "Enter your target budget — the advisor will suggest material and finish "
+        "changes per room to reach your cost as closely as possible."
     )
 
-    with pie_r:
-        if _rooms:
-            labels = [r.get("name", "") for r in _rooms]
-            values = [r.get("total_cost", 0) or 0 for r in _rooms]
-            room_min = min(values) if values else 0
-            room_max = max(values) if values else 1
-            room_span = (room_max - room_min) or 1
-            colors = [
-                r.get("color_hex")
-                or _lerp_color(((r.get("total_cost", 0) or 0) - room_min) / room_span)
-                for r in _rooms
-            ]
-            fig_r = go.Figure(go.Pie(
-                labels=labels, values=values,
-                marker=dict(colors=colors, line=dict(color="#fff", width=1)),
-                textinfo="percent",
-                hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
-                hole=0.4,
-            ))
-            fig_r.update_layout(title=dict(text="Rooms", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
-            st.plotly_chart(fig_r, use_container_width=True)
-            st.markdown(_pie_legend(labels, colors), unsafe_allow_html=True)
+    if not st.session_state.layout:
+        st.info("Upload a layout in the sidebar to enable cost matching.")
+    else:
+        _cm_layout   = st.session_state.layout
+        _cm_currency = _cm_layout.get("project", {}).get("currency", "USD")
+        _cm_rooms    = _cm_layout.get("rooms", [])
+        _cm_summary  = _cm_layout.get("summary") or _cm_layout.get("totals") or {}
+        _cm_room_sum = sum(r.get("total_cost", 0) for r in _cm_rooms)
+        _cm_non_room = (
+            (_cm_summary.get("doors_total")   or _cm_summary.get("doors")   or 0) +
+            (_cm_summary.get("windows_total") or _cm_summary.get("windows") or 0) +
+            (_cm_summary.get("columns_total") or _cm_summary.get("columns") or 0)
+        )
+        _cm_grand = _cm_room_sum + _cm_non_room
 
-    with pie_d:
-        if _doors:
-            d_labels = [d.get("subtype") or d.get("id") or "Door" for d in _doors]
-            d_values = [d.get("cost", 0) or 0 for d in _doors]
-            d_colors = [
-                d.get("color_hex")
-                or _cost_color_for_category(_layout, "doors", d.get("cost", 0) or 0, "#B27A41")
-                for d in _doors
-            ]
-            fig_d = go.Figure(go.Pie(
-                labels=d_labels, values=d_values,
-                marker=dict(colors=d_colors, line=dict(color="#fff", width=1)),
-                textinfo="percent",
-                hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
-                hole=0.4,
-            ))
-            fig_d.update_layout(title=dict(text="Doors", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
-            st.plotly_chart(fig_d, use_container_width=True)
-            st.markdown(_pie_legend(d_labels, d_colors), unsafe_allow_html=True)
-        else:
-            st.caption("No door data")
+        _col_in, _col_cur = st.columns([2, 1])
+        with _col_in:
+            _cm_target = st.number_input(
+                f"Your target total cost ({_cm_currency})",
+                min_value=0,
+                value=int(_cm_grand),
+                step=1000,
+                format="%d",
+                key="cm_target_input",
+            )
+        with _col_cur:
+            st.metric("Current grand total", f"{_cm_grand:,.0f} {_cm_currency}")
 
-    with pie_w:
-        if _windows:
-            w_labels = [w.get("subtype") or w.get("id") or "Window" for w in _windows]
-            w_values = [w.get("cost", 0) or 0 for w in _windows]
-            w_colors = [
-                w.get("color_hex")
-                or _cost_color_for_category(_layout, "windows", w.get("cost", 0) or 0, "#5AA0CD")
-                for w in _windows
-            ]
-            fig_w = go.Figure(go.Pie(
-                labels=w_labels, values=w_values,
-                marker=dict(colors=w_colors, line=dict(color="#fff", width=1)),
-                textinfo="percent",
-                hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
-                hole=0.4,
-            ))
-            fig_w.update_layout(title=dict(text="Windows", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
-            st.plotly_chart(fig_w, use_container_width=True)
-            st.markdown(_pie_legend(w_labels, w_colors), unsafe_allow_html=True)
-        else:
-            st.caption("No window data")
+        if st.button("Match Cost", type="primary", key="cm_run_btn"):
+            from python_copilot import cost_match as _cost_match
+            st.session_state.cm_result = _cost_match(_cm_layout, float(_cm_target))
 
-    with pie_c:
-        if _cols:
-            c_labels = [c.get("subtype") or c.get("id") or "Column" for c in _cols]
-            c_values = [c.get("cost", 0) or 0 for c in _cols]
-            c_colors = [
-                c.get("color_hex")
-                or _cost_color_for_category(_layout, "columns", c.get("cost", 0) or 0, "#828282")
-                for c in _cols
+        _cm_res = st.session_state.get("cm_result")
+        if _cm_res:
+            st.divider()
+            _pct   = _cm_res["match_pct"]
+            _adj   = _cm_res["adjusted_total"]
+            _tgt   = _cm_res["target"]
+            _delta = _adj - _cm_res["current_grand"]
+            _cur   = _cm_currency
+
+            # KPI row
+            _k1, _k2, _k3, _k4 = st.columns(4)
+            _k1.metric("Target",         f"{_tgt:,.0f} {_cur}")
+            _k2.metric("Adjusted total", f"{_adj:,.0f} {_cur}",
+                       delta=f"{_delta:+,.0f}")
+            _k3.metric("Gap remaining",  f"{abs(_tgt - _adj):,.0f} {_cur}")
+            _k4.metric("Similarity",     f"{_pct:.1f}%",
+                       delta=f"{'On target' if _pct >= 99 else 'Approx match'}")
+
+            # similarity bar
+            _bar_color = "#2ecc71" if _pct >= 90 else "#f39c12" if _pct >= 70 else "#e74c3c"
+            st.markdown(
+                f'<div style="background:#e9e9e9;border-radius:8px;height:18px;margin:6px 0 14px">'
+                f'<div style="background:{_bar_color};width:{min(_pct,100):.1f}%;height:100%;'
+                f'border-radius:8px;transition:width 0.5s"></div></div>',
+                unsafe_allow_html=True,
+            )
+
+            _sugg = _cm_res["suggestions"]
+            if not _sugg:
+                st.success("Plan is already at your target — no changes needed.")
+            else:
+                st.markdown(f"#### Suggested finish changes ({len(_sugg)} adjustment{'s' if len(_sugg)!=1 else ''})")
+
+                # header
+                _th = "".join(
+                    f'<th style="padding:6px 10px;text-align:left;background:#f0f0f0;'
+                    f'border-bottom:2px solid #ccc;white-space:nowrap">{h}</th>'
+                    for h in ["Room", "Surface", "From", f"Rate ({_cur}/m²)",
+                              "To", f"Rate ({_cur}/m²)", "Area m²",
+                              f"Delta ({_cur})", f"New room total ({_cur})"]
+                )
+                _rows_html = ""
+                for i, s in enumerate(_sugg):
+                    _bg  = "#ffffff" if i % 2 == 0 else "#f9f9f9"
+                    _d   = s["delta_cost"]
+                    _dc  = "#c0392b" if _d > 0 else "#27ae60"
+                    def _td(v, bold=False, color=None):
+                        _st = f'padding:5px 10px;white-space:nowrap;'
+                        if color: _st += f'color:{color};'
+                        if bold:  _st += 'font-weight:600;'
+                        return f'<td style="{_st}">{v}</td>'
+                    _rows_html += (
+                        f'<tr style="background:{_bg}">'
+                        + _td(s["room"], bold=True)
+                        + _td(s["surface"].capitalize())
+                        + _td(s["from_material"])
+                        + _td(f"{s['from_rate']:,.0f}")
+                        + _td(f"<b>{s['to_material']}</b>", bold=True)
+                        + _td(f"{s['to_rate']:,.0f}", bold=True)
+                        + _td(f"{s['area']:.1f}")
+                        + _td(f"{_d:+,.0f}", bold=True, color=_dc)
+                        + _td(f"{s['new_room_total']:,.0f}", bold=True)
+                        + "</tr>"
+                    )
+                st.markdown(
+                    f'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'
+                    f'<thead><tr>{_th}</tr></thead><tbody>{_rows_html}</tbody></table></div>',
+                    unsafe_allow_html=True,
+                )
+
+                # summary footer
+                _total_delta = sum(s["delta_cost"] for s in _sugg)
+                _dc_total = "#c0392b" if _total_delta > 0 else "#27ae60"
+                st.markdown(
+                    f'<p style="margin-top:10px;font-size:13px;color:#555">'
+                    f'Total adjustment: <b style="color:{_dc_total}">{_total_delta:+,.0f} {_cur}</b> '
+                    f'across {len(_sugg)} room{"s" if len(_sugg)!=1 else ""}. '
+                    f'Non-room costs (doors, windows, columns) are fixed at '
+                    f'<b>{_cm_non_room:,.0f} {_cur}</b>.</p>',
+                    unsafe_allow_html=True,
+                )
+
+            # ── Before / After bar chart ──────────────────────────────
+            st.divider()
+            st.markdown("#### Room Cost — Before vs After")
+            st.caption("Each room shows its original cost and the adjusted cost after suggested finish changes.")
+
+            _all_rooms   = _cm_layout.get("rooms", [])
+            _room_names  = [r.get("name", "") for r in _all_rooms]
+            _orig_costs  = [r.get("total_cost", 0) or 0 for r in _all_rooms]
+
+            # build adjusted costs map from suggestions
+            _adj_map = {r.get("name"): r.get("total_cost", 0) or 0 for r in _all_rooms}
+            if _sugg:
+                for _s in _sugg:
+                    _adj_map[_s["room"]] = _s["new_room_total"]
+            _adj_costs = [_adj_map.get(n, 0) for n in _room_names]
+
+            _bar_colors = [
+                "#27ae60" if _adj_map.get(n, 0) < (r.get("total_cost", 0) or 0)
+                else "#c0392b" if _adj_map.get(n, 0) > (r.get("total_cost", 0) or 0)
+                else "#95a5a6"
+                for n, r in zip(_room_names, _all_rooms)
             ]
-            fig_c = go.Figure(go.Pie(
-                labels=c_labels, values=c_values,
-                marker=dict(colors=c_colors, line=dict(color="#fff", width=1)),
-                textinfo="percent",
-                hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
-                hole=0.4,
+
+            _fig_bar = go.Figure()
+            _fig_bar.add_trace(go.Bar(
+                name="Current cost",
+                x=_room_names,
+                y=_orig_costs,
+                marker_color="#aab4c8",
+                text=[f"{v:,.0f}" for v in _orig_costs],
+                textposition="outside",
+                hovertemplate="<b>%{x}</b><br>Current: %{y:,.0f} " + _cur + "<extra></extra>",
             ))
-            fig_c.update_layout(title=dict(text="Columns", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
-            st.plotly_chart(fig_c, use_container_width=True)
-            st.markdown(_pie_legend(c_labels, c_colors), unsafe_allow_html=True)
-        else:
-            st.caption("No column data")
+            _fig_bar.add_trace(go.Bar(
+                name="Adjusted cost",
+                x=_room_names,
+                y=_adj_costs,
+                marker_color=_bar_colors,
+                text=[f"{v:,.0f}" for v in _adj_costs],
+                textposition="outside",
+                hovertemplate="<b>%{x}</b><br>Adjusted: %{y:,.0f} " + _cur + "<extra></extra>",
+            ))
+            # target line
+            _fig_bar.add_hline(
+                y=_tgt / max(len(_room_names), 1),
+                line_dash="dot", line_color="#e67e22", line_width=1.5,
+                annotation_text=f"Target avg/room: {_tgt/max(len(_room_names),1):,.0f}",
+                annotation_position="top right",
+            )
+            _fig_bar.update_layout(
+                barmode="group",
+                paper_bgcolor="#ffffff",
+                plot_bgcolor="#f7f7f7",
+                font=dict(color="#111"),
+                height=380,
+                margin=dict(l=10, r=10, t=30, b=10),
+                legend=dict(orientation="h", yanchor="bottom", y=-0.25,
+                            xanchor="center", x=0.5),
+                yaxis=dict(title=f"Cost ({_cur})", gridcolor="#e5e5e5"),
+                xaxis=dict(tickangle=-20),
+            )
+            st.plotly_chart(_fig_bar, use_container_width=True)
+
+
 
 
 >>>>>>> 3d9ae69b8b25a473454b770bb05769d1e92b3428
