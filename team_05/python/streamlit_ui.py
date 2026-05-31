@@ -914,13 +914,18 @@ with tab_floor:
             st.session_state.messages = []
             st.rerun()
 
+<<<<<<< Updated upstream
     # ── cost pie charts (inside Floor Plan tab) ───────────────────────────────
+=======
+    # ── COST BREAKDOWN TREEMAP (FULL WIDTH IN FLOOR PLAN TAB) ─────────────────
+>>>>>>> Stashed changes
     if st.session_state.layout:
         _layout   = st.session_state.layout
         _currency = _layout.get("project", {}).get("currency", "")
         _rooms    = _layout.get("rooms", [])
         _openings = _layout.get("openings", [])
         _cols     = _layout.get("columns", [])
+<<<<<<< Updated upstream
         _doors    = [o for o in _openings if (o.get("type") or "").lower() == "door"]
         _windows  = [o for o in _openings if (o.get("type") or "").lower() == "window"]
 
@@ -1034,6 +1039,83 @@ with tab_floor:
                 st.markdown(_pie_legend(c_labels, c_colors), unsafe_allow_html=True)
             else:
                 st.caption("No column data")
+=======
+
+        st.divider()
+        st.markdown("#### Economic Spatial Distribution")
+        st.caption("Hierarchical mapping of project budget across all architectural systems. Click a block to zoom in.")
+
+        # Data arrays for Plotly Treemap
+        ids = ["Total Project", "Rooms", "Doors", "Windows", "Columns"]
+        labels = ["Project Total", "Rooms", "Doors", "Windows", "Columns"]
+        parents = ["", "Total Project", "Total Project", "Total Project", "Total Project"]
+        values = [0, 0, 0, 0, 0]
+
+        room_total = sum(r.get("total_cost", 0) for r in _rooms)
+        doors = [o for o in _openings if (o.get("type") or "").lower() == "door"]
+        windows = [o for o in _openings if (o.get("type") or "").lower() == "window"]
+        door_total = sum(d.get("cost", 0) for d in doors)
+        window_total = sum(w.get("cost", 0) for w in windows)
+        col_total = sum(c.get("cost", 0) for c in _cols)
+
+        # Set parent node totals
+        values[0] = room_total + door_total + window_total + col_total
+        values[1] = room_total
+        values[2] = door_total
+        values[3] = window_total
+        values[4] = col_total
+
+        # Populate leaf nodes
+        for r in _rooms:
+            ids.append(f"room_{r.get('id', len(ids))}")
+            labels.append(r.get("name", "Room"))
+            parents.append("Rooms")
+            values.append(r.get("total_cost", 0))
+
+        for i, d in enumerate(doors):
+            ids.append(f"door_{i}")
+            labels.append(d.get("subtype", "Door").capitalize())
+            parents.append("Doors")
+            values.append(d.get("cost", 0))
+
+        for i, w in enumerate(windows):
+            ids.append(f"win_{i}")
+            labels.append(w.get("subtype", "Window").capitalize())
+            parents.append("Windows")
+            values.append(w.get("cost", 0))
+
+        for i, c in enumerate(_cols):
+            ids.append(f"col_{i}")
+            labels.append(c.get("subtype", "Column").capitalize())
+            parents.append("Columns")
+            values.append(c.get("cost", 0))
+
+        # Build the Treemap
+        fig_tree = go.Figure(go.Treemap(
+            ids=ids,
+            labels=labels,
+            parents=parents,
+            values=values,
+            branchvalues="total",
+            textinfo="label+percent parent",
+            hovertemplate="<b>%{label}</b><br>Cost: %{value:,.0f} " + _currency + "<br>Share of %{parent}: %{percentParent:.1%}<extra></extra>",
+            marker=dict(
+                colors=values,
+                colorscale="YlOrRd", # Warm heatmap colors to match the 3D model
+                showscale=False
+            ),
+            pathbar=dict(visible=True)
+        ))
+
+        fig_tree.update_layout(
+            margin=dict(t=10, l=10, r=10, b=10),
+            height=450,
+            paper_bgcolor="#ffffff",
+            font=dict(color="#111111")
+        )
+        
+        st.plotly_chart(fig_tree, use_container_width=True)
+>>>>>>> Stashed changes
 
 # ────────────────────────────── ARCHITECTURAL ADVICE ─────────────────────────
 with tab_advice:
@@ -1484,9 +1566,12 @@ with tab_match:
             )
             st.plotly_chart(_fig_bar, use_container_width=True)
 
+<<<<<<< Updated upstream
 
 
 
+=======
+>>>>>>> Stashed changes
 # ── multi-plan comparison (all saved plans) ─────────────────────────────────
 if len(st.session_state.layouts) >= 2:
     st.divider()
