@@ -1,0 +1,9 @@
+{
+  "layoutId": "L_L10.5_W15.0_de1_dp0.4_wp5",
+  "description": "1 master suite (en-suite bathroom), 2 single bedrooms, 1 shared full bathroom, open plan living-kitchen-dining, 1 storage room. Double-aspect apartment, windows on two facades. En-suite bathroom (10.3sqm) directly accessible from very large master bedroom (28.4sqm). Kitchen at top of open plan space, wall counter, no kitchen island. Cook faces wall, back to dining area. Living arrangement: dining top-center, kitchen top-right, seating top-left. Dining table visible, approximately 6 seats. Bathroom config: 1 en-suite bathroom (10.3sqm); 1 shared full bathroom (5.9sqm). No separate WC. 2 single bedrooms (16sqm and 15.4sqm) both large enough for bunk bed. No door between living area and private zone, open flow throughout apartment. Possible configurations, mutually exclusive: (1) two children's bedrooms; (2) one children's bedroom and one home office; (3) two home offices; (4) one or both as guest rooms; (5) bunk bed arrangement. Storage room in entry zone, suitable for coats, bikes, laundry or utility storage. Entry from right. Suits families with one or two children, households prioritising a large master bedroom.",
+  "not_suitable_for": [
+    "two children's bedrooms and home office simultaneously without bunk bed",
+    "household requiring acoustic separation between living and private zone"
+  ],
+  "rooms_summary": "3 bedroom, 2 bathroom, 1 living (open plan), 1 storage"
+}

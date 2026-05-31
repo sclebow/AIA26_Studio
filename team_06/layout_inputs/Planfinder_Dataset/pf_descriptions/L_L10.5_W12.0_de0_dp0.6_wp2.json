@@ -1,0 +1,9 @@
+{
+  "layoutId": "L_L10.5_W12.0_de0_dp0.6_wp2",
+  "description": "1 double bedroom, 1 single bedroom, 1 full bathroom, 1 WC, open plan living-kitchen-dining, 1 storage room. Single-aspect apartment, windows on right facade. Kitchen at top-right corner of open plan space, wall counter along right wall, no kitchen island. Cook faces the wall, back to dining and living area. Kitchen is adjacent to the facade wall, well-lit cooking position. Living arrangement: split, seating area on left, dining and kitchen on right. Dining table visible, approximately 6 seats. TV visible on interior wall; diners do not face TV directly; cook cannot see TV. Bathroom config: 1 full bathroom; 1 WC-only room. Parallel morning routines possible. Both bedrooms accessed from corridor, no en-suite. Single bedroom large enough for bunk bed. Possible configurations for single bedroom: (1) children's bedroom; (2) home office or hobby room; (3) guest room; (4) bunk bed for two children. Storage room adjacent to kitchen zone, usable as kitchen pantry, laundry room or general storage. Entry from bottom via corridor. Door separates entry corridor from living area. Suits couples needing a spare room, people working from home.",
+  "not_suitable_for": [
+    "en-suite requirement",
+    "families with two or more children"
+  ],
+  "rooms_summary": "2 bedroom, 2 bathroom, 1 living (open plan), 1 storage"
+}
