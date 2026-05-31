@@ -12,8 +12,11 @@ from pathlib import Path
 import numpy as np
 from typing import List
 
-from tools.boundary_embedding_matcher import _vector_from_graph
-from tools.boundary_analyzer import build_boundary_graph, extract_circulation_anchor_point
+from tools.boundary_embedding_matcher import (
+    _vector_from_graph,
+    build_boundary_graph,
+    extract_circulation_anchor_point,
+)
 
 
 def find_planfinder_jsons(root: Path) -> List[Path]:
