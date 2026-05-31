@@ -1,4 +1,5 @@
 from __future__ import annotations
+import csv
 import json
 import pathlib
 from typing import Any
@@ -200,6 +201,70 @@ def _resolve_fire_rating(static: dict, standard_key: str) -> str:
     return str(fire) if fire else "—"
 
 
+def _resolve_material_gwp(material_key: str, region: str = DEFAULT_REGION) -> float | None:
+    live = get_gwp_regional(material_key, region)
+    if isinstance(live, (int, float)):
+        return live
+    static = _lookup_static(material_key)
+    if static is None:
+        return None
+    gwp = static.get("gwp_fallback_kgco2e")
+    if isinstance(gwp, (int, float)):
+        return float(gwp)
+    return None
+
+
+def _lookup_alternatives(material_key: str) -> list[str]:
+    static = _lookup_static(material_key)
+    if not isinstance(static, dict):
+        return []
+    alternatives = static.get("alternatives")
+    if not isinstance(alternatives, list):
+        return []
+    normalised: list[str] = []
+    for alt in alternatives:
+        if not alt:
+            continue
+        key = str(alt).lower().replace(" ", "_").replace("-", "_")
+        normalised.append(key)
+    return normalised
+
+
+def _choose_best_alternative(
+    material_key: str,
+    region: str = DEFAULT_REGION,
+    standard_key: str = "EN_13501",
+) -> tuple[str | None, str | None]:
+    alternatives = _lookup_alternatives(material_key)
+    if not alternatives:
+        return None, None
+
+    current_gwp = _resolve_material_gwp(material_key, region)
+    best_alt: str | None = None
+    best_gwp: float | None = None
+
+    for alt_key in alternatives:
+        alt_gwp = _resolve_material_gwp(alt_key, region)
+        if alt_gwp is None:
+            continue
+        if best_gwp is None or alt_gwp < best_gwp:
+            best_gwp = alt_gwp
+            best_alt = alt_key
+
+    if best_alt is None or best_gwp is None:
+        return None, None
+
+    if current_gwp is None:
+        return best_alt, "This suggested alternative has a known lower carbon footprint."
+
+    if best_gwp < current_gwp * 0.9:
+        delta = int(round((current_gwp - best_gwp) / current_gwp * 100))
+        label = material_key.replace("_", " ").title()
+        return best_alt, f"Lower embodied carbon by {delta}% compared to {label}."
+
+    return None, None
+
+
 def _format_material_advice(material_key: str, live_gwp: float | None, standard_key: str = "EN_13501") -> str:
     static = _lookup_static(material_key)
     label = material_key.replace("_", " ").title()
@@ -219,11 +284,18 @@ def _format_material_advice(material_key: str, live_gwp: float | None, standard_
     else:
         gwp_display = "N/A"
 
+    alt_key, alt_reason = _choose_best_alternative(material_key, DEFAULT_REGION, standard_key)
+    alt_line = ""
+    if alt_key:
+        alt_label = alt_key.replace("_", " ").title()
+        alt_line = f"  • Suggested alternative: {alt_label}\n  • Recommendation: {alt_reason}\n"
+
     return (
         f"**{label}**\n"
         f"  • Carbon footprint: {gwp_display}\n"
         f"  • Fire rating: {fire}\n"
         f"  • Expected lifespan: {life} years\n"
+        f"{alt_line}"
     )
 
 # ---------------------------------------------------------------------------
@@ -327,6 +399,9 @@ def generate_advice_table_data(
             gwp_display = None
             gwp_source = "—"
 
+        alt_key, alt_reason = _choose_best_alternative(mat, region, standard_key)
+        alt_label = alt_key.replace("_", " ").title() if alt_key else "—"
+
         rows.append({
             "Material": label,
             "Carbon Footprint": gwp_display,
@@ -334,9 +409,48 @@ def generate_advice_table_data(
             "GWP Source": gwp_source,
             "Fire Rating": _resolve_fire_rating(static, standard_key) if static else "—",
             "Lifespan (yrs)": static.get("life_cycle_years", "—") if static else "—",
+            "Alternative": alt_label,
+            "Recommendation": alt_reason or "—",
             "In DB": "yes" if static else "no",
         })
     return rows
+
+
+def advice_rows_to_csv(rows: list[dict], file_path: pathlib.Path | str) -> pathlib.Path:
+    """Write architectural advice rows to a CSV file and return the path."""
+    path = pathlib.Path(file_path)
+    if not rows:
+        path.write_text("", encoding="utf-8")
+        return path
+
+    fieldnames = [
+        "Material",
+        "Carbon Footprint",
+        "Unit",
+        "GWP Source",
+        "Fire Rating",
+        "Lifespan (yrs)",
+        "Alternative",
+        "Recommendation",
+        "In DB",
+    ]
+    with path.open("w", encoding="utf-8", newline="") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({k: row.get(k, "") for k in fieldnames})
+    return path
+
+
+def generate_advice_table_csv(
+    materials: list[str],
+    file_path: pathlib.Path | str,
+    standard: str = DEFAULT_STANDARD,
+    region: str = DEFAULT_REGION,
+) -> pathlib.Path:
+    """Generate architectural advice table data and export it to a CSV file."""
+    rows = generate_advice_table_data(materials, standard, region)
+    return advice_rows_to_csv(rows, file_path)
 
 
 def build_architectural_advice_node():

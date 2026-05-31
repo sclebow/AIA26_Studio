@@ -983,21 +983,26 @@ with tab_advice:
             "border-bottom:2px solid #ddd;color:#555;font-size:0.82rem;font-weight:600"
         )
         _td = "padding:8px 14px;border-bottom:1px solid #eee;font-size:0.88rem;color:#111"
-        _headers = ["Material", "Carbon Footprint", "Fire Rating", "Lifespan (yrs)"]
+        _headers = ["Material", "Carbon Footprint", "Fire Rating", "Lifespan (yrs)", "Lower-Carbon Alternative", "Recommendation"]
         _head_html = "".join(f'<th style="{_th}">{h}</th>' for h in _headers)
         _body_html = ""
+        _td_alt = _td + ";color:#1a7a3a;font-style:italic"
         for _r in _adv_rows:
             _fire = str(_r.get("Fire Rating", "—"))
             _fc   = _FIRE_COLOR.get(_fire, "#111")
             _gwp  = _r.get("Carbon Footprint")
             _unit = _r.get("Unit", "")
             _gwp_s = f"{_gwp:,.2f} {_unit}" if isinstance(_gwp, (int, float)) else "—"
+            _alt  = _r.get("Alternative", "—") or "—"
+            _rec  = _r.get("Recommendation", "—") or "—"
             _body_html += (
                 f'<tr>'
                 f'<td style="{_td};font-weight:600">{_r.get("Material","")}</td>'
                 f'<td style="{_td}">{_gwp_s}</td>'
                 f'<td style="{_td};color:{_fc};font-weight:600">{_fire}</td>'
                 f'<td style="{_td}">{_r.get("Lifespan (yrs)","—")}</td>'
+                f'<td style="{_td_alt}">{_alt}</td>'
+                f'<td style="{_td};color:#555;font-size:0.82rem">{_rec}</td>'
                 f'</tr>'
             )
         st.markdown(
@@ -1006,6 +1011,21 @@ with tab_advice:
             f'<tbody>{_body_html}</tbody>'
             f'</table>',
             unsafe_allow_html=True,
+        )
+
+        # ── CSV export ────────────────────────────────────────────────────────
+        import csv, io as _io
+        _csv_buf = _io.StringIO()
+        _csv_fields = ["Material", "Carbon Footprint", "Unit", "Fire Rating",
+                       "Lifespan (yrs)", "Alternative", "Recommendation"]
+        _writer = csv.DictWriter(_csv_buf, fieldnames=_csv_fields, extrasaction="ignore")
+        _writer.writeheader()
+        _writer.writerows(_adv_rows)
+        st.download_button(
+            label="Export CSV",
+            data=_csv_buf.getvalue(),
+            file_name="architectural_advice.csv",
+            mime="text/csv",
         )
 
 # ── cost pie charts (full-width row below both columns) ───────────────────────

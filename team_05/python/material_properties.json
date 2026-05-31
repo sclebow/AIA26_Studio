@@ -25,7 +25,8 @@
       "life_cycle_years": 75,
       "gwp_fallback_kgco2e": 300,
       "gwp_unit": "kgCO2e/m³",
-      "ec3_category": "ReadyMix Concrete"
+      "ec3_category": "ReadyMix Concrete",
+      "alternatives": ["hollow_core", "precast"]
     },
     "rc_waffle": {
       "fire_rating": {
@@ -168,7 +169,8 @@
       "life_cycle_years": 75,
       "gwp_fallback_kgco2e": 18.0,
       "gwp_unit": "kgCO2e/m²",
-      "ec3_category": "Stone"
+      "ec3_category": "Stone",
+      "alternatives": ["polished_concrete", "porcelain_tile"]
     },
     "granite": {
       "fire_rating": {
@@ -182,7 +184,8 @@
       "life_cycle_years": 75,
       "gwp_fallback_kgco2e": 22.4,
       "gwp_unit": "kgCO2e/m²",
-      "ec3_category": "Stone"
+      "ec3_category": "Stone",
+      "alternatives": ["porcelain_tile", "polished_concrete"]
     },
     "natural_stone": {
       "fire_rating": {
@@ -196,7 +199,8 @@
       "life_cycle_years": 75,
       "gwp_fallback_kgco2e": 15.0,
       "gwp_unit": "kgCO2e/m²",
-      "ec3_category": "Stone"
+      "ec3_category": "Stone",
+      "alternatives": ["porcelain_tile", "polished_concrete"]
     },
     "engineered_wood": {
       "fire_rating": {
@@ -210,7 +214,8 @@
       "life_cycle_years": 25,
       "gwp_fallback_kgco2e": 8.3,
       "gwp_unit": "kgCO2e/m²",
-      "ec3_category": "Wood"
+      "ec3_category": "Wood",
+      "alternatives": ["solid_wood", "laminate"]
     },
     "solid_wood": {
       "fire_rating": {
@@ -224,7 +229,8 @@
       "life_cycle_years": 40,
       "gwp_fallback_kgco2e": 5.1,
       "gwp_unit": "kgCO2e/m²",
-      "ec3_category": "Wood"
+      "ec3_category": "Wood",
+      "alternatives": ["engineered_wood"]
     },
     "laminate": {
       "fire_rating": {
@@ -238,7 +244,8 @@
       "life_cycle_years": 15,
       "gwp_fallback_kgco2e": 14.8,
       "gwp_unit": "kgCO2e/m²",
-      "ec3_category": "Wood"
+      "ec3_category": "Wood",
+      "alternatives": ["engineered_wood", "solid_wood"]
     },
     "vinyl": {
       "fire_rating": {
@@ -252,7 +259,8 @@
       "life_cycle_years": 15,
       "gwp_fallback_kgco2e": 9.2,
       "gwp_unit": "kgCO2e/m²",
-      "ec3_category": "Resilient Flooring"
+      "ec3_category": "Resilient Flooring",
+      "alternatives": ["engineered_wood", "porcelain_tile"]
     },
     "epoxy": {
       "fire_rating": {
@@ -294,7 +302,8 @@
       "life_cycle_years": 10,
       "gwp_fallback_kgco2e": 10.5,
       "gwp_unit": "kgCO2e/m²",
-      "ec3_category": "Carpet"
+      "ec3_category": "Carpet",
+      "alternatives": ["engineered_wood", "polished_concrete"]
     },
     "terrazzo": {
       "fire_rating": {
@@ -367,7 +376,8 @@
       "life_cycle_years": 10,
       "gwp_fallback_kgco2e": 3.5,
       "gwp_unit": "kgCO2e/m²",
-      "ec3_category": "Coatings"
+      "ec3_category": "Coatings",
+      "alternatives": ["paint", "gypsum_paint"]
     },
     "wood_panel": {
       "fire_rating": {
@@ -381,7 +391,8 @@
       "life_cycle_years": 25,
       "gwp_fallback_kgco2e": 9.0,
       "gwp_unit": "kgCO2e/m²",
-      "ec3_category": "Wood"
+      "ec3_category": "Wood",
+      "alternatives": ["paint", "veneer"]
     },
     "veneer": {
       "fire_rating": {
@@ -395,7 +406,8 @@
       "life_cycle_years": 20,
       "gwp_fallback_kgco2e": 7.5,
       "gwp_unit": "kgCO2e/m²",
-      "ec3_category": "Wood"
+      "ec3_category": "Wood",
+      "alternatives": ["paint", "gypsum_paint"]
     },
     "exposed_concrete": {
       "fire_rating": {
