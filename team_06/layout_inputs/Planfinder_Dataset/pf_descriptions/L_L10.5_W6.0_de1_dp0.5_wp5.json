@@ -1,0 +1,10 @@
+{
+  "layoutId": "L_L10.5_W6.0_de1_dp0.5_wp5",
+  "description": "1 double bedroom, 1 full bathroom with bathtub, 1 small storage room, open plan living-kitchen-dining. Double-aspect apartment, windows on two facades. Compact layout. Kitchen at bottom-left of living area, wall counter, hob visible, no kitchen island. Kitchen adjacent to left facade window, well-lit cooking position. Cook faces the wall. Living area combines seating, compact dining and kitchen in one open space. Circular dining table visible, seating for approximately 2 to 4 people. Bathroom (7.1sqm) accessible from corridor, generous size with bathtub visible in plan. No separate WC, single bathroom serves the whole household. No corridor door separating living and bedroom zones, open flow throughout. Bedroom (12.1sqm) with double bed at far end from entry. Small storage room (5.3sqm) near entry, suitable for coats and shoes. Entry from right. Suits single person or couple.",
+  "not_suitable_for": [
+    "families with children",
+    "more than two occupants",
+    "household requiring separate WC and shower"
+  ],
+  "rooms_summary": "1 bedroom, 1 bathroom, 1 living (open plan), 1 storage"
+}

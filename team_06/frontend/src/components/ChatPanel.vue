@@ -58,8 +58,8 @@ const count = ref(0)
   margin-bottom: 8px;
 }
 .chat-panel {
-  width: 400px;
-  min-width: 400px;
+  width: 420px;
+  min-width: 420px;
   background: var(--color-white);
   border-left: 1px solid var(--color-border);
   display: flex;
@@ -68,7 +68,6 @@ const count = ref(0)
 }
 .chat-title {
   font-size: var(--font-size-subtitle);
-  font-weight: 600;
   color: var(--color-blue);
   padding: 28px 32px 28px 32px;
 }
@@ -79,7 +78,7 @@ const count = ref(0)
   display: flex;
   align-items: center;
   font-size: var(--font-size-bold);
-  font-weight: 600;
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   gap: 8px;
   margin-left: 32px;
