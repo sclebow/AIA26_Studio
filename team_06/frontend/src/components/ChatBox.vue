@@ -69,13 +69,10 @@ import sendIcon from '../assets/send.svg'
 .chatbox-btn:focus {
   outline: none;
 }
-.chatbox-btn:hover {
-  background: #f0f4fa;
-  color: var(--color-blue);
-}
+
 .chatbox-send-btn {
-  background: #e9f0fa;
-  border: 2px solid #bbb;
+  background:var(--color-blue);
+  border: 0px;
   box-shadow: none;
   padding: 0;
   display: flex;
@@ -89,7 +86,6 @@ import sendIcon from '../assets/send.svg'
   transition: background 0.15s, border 0.15s;
 }
 .chatbox-send-btn:hover {
-  background: var(--color-blue);
-  border: 2px solid var(--color-blue);
+  background: var(--color-marine);
 }
 </style>

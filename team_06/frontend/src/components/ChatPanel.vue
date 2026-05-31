@@ -3,22 +3,28 @@ import { ref } from 'vue'
 import menuIcon from '../assets/menu.svg'
 import sendIcon from '../assets/send.svg'
 import searchIcon from '../assets/search.svg'
+import userIcon from '../assets/user.svg'
+import chevronIcon from '../assets/chevron.svg'
 import ChatBox from './ChatBox.vue'
 const search = ref('')
 const count = ref(0)
 </script>
 
 <template>
-  <section class="center-panel">
-    <div class="center-panel-header-spacer">
-        <span class="chat-title">AI Copilot</span>
-    </div>
+  <section class="chat-panel">
     <header class="chat-header">
-      <button class="chat-history-btn" style="margin-right:8px;">
-        <img :src="menuIcon" alt="Menu" width="20" height="20" />
-      </button>
-      <span class="chat-header-title">Chat History</span>
+      <div class="chat-header-avatar">
+        <img :src="userIcon" alt="User" width="32" height="32" style="border-radius:50%;background:#e0e3ea;" />
+        <img :src="chevronIcon" alt="Chevron" width="18" height="18" />
+      </div>
     </header>
+    <div class="chat-title">AI Copilot</div>
+     <section class="chat-history">
+          <div class="chat-history-title">
+            <img :src="menuIcon" alt="Chat History" width="20" height="20" />
+            Chat History
+          </div>
+          </section>
     <div class="chat-search-bar">
       <input class="chat-search" type="text" placeholder="Search..." v-model="search" />
       <img class="chat-search-icon" :src="searchIcon" alt="Search" />
@@ -37,15 +43,25 @@ const count = ref(0)
 </template>
 
 <style scoped>
-.center-panel-header-spacer {
-    margin-top: 96px;
-    margin-bottom: 16px;
-  width: 100%;
+.chat-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: 28px 32px 0 0;
+  gap: 0;
+  position: relative;
 }
-.center-panel {
-  width: 420px;
-  min-width: 420px;
+.chat-header-avatar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.chat-panel {
+  width: 400px;
+  min-width: 400px;
   background: var(--color-white);
+  border-left: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   padding: 0;
@@ -56,18 +72,17 @@ const count = ref(0)
   color: var(--color-blue);
   padding: 28px 32px 28px 32px;
 }
-.chat-header {
+.chat-history {
+  margin-bottom: 12px;
+}
+.chat-history-title {
   display: flex;
   align-items: center;
-  padding: 28px 32px 0 32px;
-  gap: 16px;
-}
-
-.chat-header-title {
   font-size: var(--font-size-bold);
   font-weight: 600;
   color: var(--color-text-primary);
-  flex: 1;
+  gap: 8px;
+  margin-left: 32px;
 }
 .chat-search {
   display: flex;
@@ -102,7 +117,7 @@ const count = ref(0)
   opacity: 0.7;
 }
 .chat-history-list {
-  margin: 18px 32px 0 32px;
+  margin: 18px 28px 0 28px;
   padding: 0;
   list-style: none;
   color: var(--color-text-secondary);
@@ -114,13 +129,13 @@ const count = ref(0)
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  margin: 0 32px;
+  margin: 0 28px;
 }
 .chat-box-bar {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 18px 32px 28px 32px;
+  padding: 18px 28px 28px 28px;
   background: var(--color-white);
 }
 .chat-history-btn {

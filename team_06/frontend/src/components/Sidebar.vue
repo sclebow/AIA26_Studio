@@ -73,10 +73,9 @@ const emit = defineEmits(['change'])
 .sidebar {
   width: 320px;
   min-width: 320px;
-  background: var(--color-grey-bg);
+  background: white;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--color-border);
   height: 100vh;
 }
 .sidebar-content {

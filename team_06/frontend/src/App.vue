@@ -4,8 +4,8 @@
   <div id="app">
     <div class="app-layout">
       <Sidebar :tab="tab" @change="tab = $event" />
+      <WorkSpace />
       <ChatPanel />
-      <RightPanel />
     </div>
   </div>
 </template>
@@ -14,7 +14,7 @@
 import { ref } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import ChatPanel from './components/ChatPanel.vue'
-import RightPanel from './components/RightPanel.vue'
+import WorkSpace from './components/WorkSpace.vue'
 
 const tab = ref('create')
 </script>

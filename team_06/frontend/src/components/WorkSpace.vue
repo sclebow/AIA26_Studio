@@ -6,19 +6,13 @@ import ToolBar from './ToolBar.vue'
 </script>
 
 <template>
-  <aside class="right-panel">
-    <header class="right-header">
-      <div class="right-header-avatar">
-        <img :src="userIcon" alt="User" width="32" height="32" style="border-radius:50%;background:#e0e3ea;" />
-        <img :src="chevronIcon" alt="Chevron" width="18" height="18" />
-      </div>
+  <aside class="work-panel">
+    <header class="work-header">
+      <button class="layout-btn save-layout-btn ">Save Layout</button>
     </header>
-    <div class="toolbar-save-row">
       <div class="toolbar-card toolbar-inline">
         <ToolBar />
       </div>
-      <button class="layout-btn save-layout-btn right">Save Layout</button>
-    </div>
     <div class="canvas-area">
       <div class="canvas">Canvas Area</div>
     </div>
@@ -26,7 +20,7 @@ import ToolBar from './ToolBar.vue'
 </template>
 
 <style scoped> 
-.right-panel {
+.work-panel {
   flex: 1 1 0;
   min-width: 0;
   background: var(--color-grey-bg);
@@ -35,29 +29,25 @@ import ToolBar from './ToolBar.vue'
   align-items: stretch;
   padding: 0 0 0 0;
   border-left: 1px solid var(--color-border);
+  border-right-width: 1px solid var(--color-border);
 }
-.right-header {
+.work-header {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  padding: 28px 32px 0 0;
   gap: 0;
   position: relative;
 }
-.right-header-avatar {
+.work-header-avatar {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 8px;
 }
-.save-layout-btn.right {
-  margin: 0;
-  position: static;
-  align-self: flex-start;
-}
 .save-layout-btn {
-  margin-left: auto;
-  margin-right: auto;
+  margin-right: 24px;
+  margin-top: 28px;
+  margin-bottom: 12px;
 }
 .canvas-area {
   flex: 1 1 auto;
@@ -78,19 +68,7 @@ import ToolBar from './ToolBar.vue'
   align-items: center;
   justify-content: center;
 }
-.toolbar-save-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-end;
-  margin: 16px 32px 0 0;
-}
-.toolbar-save-group {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-}
+
 .toolbar-card {
     margin-left: auto;
   margin-right: auto;
