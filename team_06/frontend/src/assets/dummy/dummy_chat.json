@@ -1,5 +1,5 @@
 [
-  { "id": 1, "role": "user", "text": "I live with my partner Sarah, we cook a lot.", "timestamp": "..." },
+  { "id": 1, "role": "user", "text": "I am John, I live with my partner Sarah, we cook a lot.", "timestamp": "..." },
   { "id": 2, "role": "agent", "text": "How many bedrooms do you need?", "timestamp": "..." },
   { "id": 3, "role": "user", "text": "One bedroom, please.", "timestamp": "..." },
   { "id": 4, "role": "agent", "text": "Here is a layout suggestion. Are you happy with this layout, or would you like to explore more options?", "timestamp": "..." },

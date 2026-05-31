@@ -2,7 +2,7 @@
 {
   "households": [
     {
-      "name": "Me",
+      "name": "John",
       "age": "int",
       "special_need": "string (optional)",
       "relationship": "me"
@@ -25,12 +25,13 @@
       "id": "room-1",
       "type": "kitchen"
     }
-  ]
+  ],
+  "brief": "I am John, I live with my partner Sarah, we cook a lot. We need a kitchen and a bedroom."
 },
 {
   "households": [
     {
-      "name": "Me",
+      "name": "John",
       "age": "int",
       "special_need": "string (optional)",
       "relationship": "me"
@@ -57,12 +58,13 @@
       "id": "room-2",
       "type": "bedroom"
     }
-  ]
+  ],
+    "brief": "I am John, I live with my partner Sarah, we cook a lot. We need a kitchen and a bedroom."
 },
 {
   "households": [
     {
-      "name": "Me",
+      "name": "John",
       "age": "int",
       "special_need": "string (optional)",
       "relationship": "me"
@@ -98,6 +100,7 @@
       "id": "room-3",
       "type": "extra"
     }
-  ]
+  ],
+    "brief": "I am John, I live with my partner Sarah, we cook a lot. We need a kitchen and a bedroom. I also work from home, so I need an extra room for my home office."
 }
 ]

@@ -5,8 +5,11 @@ import clockIcon from '../assets/icons/clock.svg'
 import boxIcon from '../assets/icons/box.svg'
 import messageIcon from '../assets/icons/message.svg'
 import SidebarHeader from './SidebarHeader.vue'
+import parsedInput from '../assets/dummy/parsed_input.json'
+
 const props = defineProps({ tab: String })
 const emit = defineEmits(['change'])
+const input = Array.isArray(parsedInput) && parsedInput.length > 0 ? parsedInput[0] : null
 </script>
 
 <template>
@@ -20,9 +23,11 @@ const emit = defineEmits(['change'])
             Households
           </div>
           <ul class="sidebar-list">
-            <li>Mark - 36</li>
-            <li>Sara - 32</li>
-            <li>Johnny - 2</li>
+            <li v-if="input && input.households && input.households.length" v-for="(h, i) in input.households" :key="i">
+              {{ h.name }}<span v-if="h.age && h.age !== 'int'"> - {{ h.age }}</span>
+              <span v-if="h.relationship"> - {{ h.relationship }}</span>
+            </li>
+            <li v-else>No input yet</li>
           </ul>
         </section>
         <section class="sidebar-section">
@@ -31,9 +36,10 @@ const emit = defineEmits(['change'])
             Routine
           </div>
           <ul class="sidebar-list">
-            <li>Morning - work</li>
-            <li>Afternoon - work</li>
-            <li>Evening - cook</li>
+            <li v-if="input && input.activities && input.activities.length" v-for="(a, i) in input.activities" :key="i">
+              {{ a.type }}<span v-if="a.time && a.time !== 'int'"> - {{ a.time }}</span>
+            </li>
+            <li v-else>No input yet</li>
           </ul>
         </section>
         <section class="sidebar-section">
@@ -42,9 +48,10 @@ const emit = defineEmits(['change'])
             Rooms
           </div>
           <ul class="sidebar-list">
-            <li>Bedroom - large</li>
-            <li>Bathroom - small</li>
-            <li>Foyer</li>
+            <li v-if="input && input.rooms && input.rooms.length" v-for="(r, i) in input.rooms" :key="i">
+              {{ r.type }}
+            </li>
+            <li v-else>No input yet</li>
           </ul>
         </section>
         <section class="sidebar-section">
@@ -53,10 +60,10 @@ const emit = defineEmits(['change'])
             Brief
           </div>
           <div class="sidebar-brief">
-            For the user, natural light is more important than the size of the room...
+            <span v-if="input && input.brief">{{ input.brief }}</span>
+            <span v-else>No input yet</span>
           </div>
         </section>
-       
       </template>
       <template v-else-if="props.tab==='explore'">
         <div class="sidebar-section-title">Explore (placeholder)</div>
@@ -65,7 +72,7 @@ const emit = defineEmits(['change'])
         <div class="sidebar-section-title">History (placeholder)</div>
       </template>
     </div>
-     <button class="create-layout-btn layout-btn ">Create Layout</button>
+    <button class="create-layout-btn layout-btn">Create Layout</button>
   </aside>
 </template>
 
@@ -95,7 +102,7 @@ const emit = defineEmits(['change'])
   display: flex;
   align-items: center;
   font-size: var(--font-size-bold);
-  font-weight: var(--font-weight-bold);
+  font-weight: 600;
   margin-bottom: 24px;
   color: var(--color-text-primary);
   gap: 8px;
