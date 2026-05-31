@@ -6,7 +6,7 @@ from pathlib import Path
 def _load_layout_by_id(layout_id: str, repo_root: Path) -> dict | None:
     """Try RPLAN sample_layouts.json first, then Planfinder_Dataset folder."""
     layouts_path = repo_root / "layout_inputs" / "sample_layouts.json"
-    all_layouts = json.loads(layouts_path.read_text(encoding="utf-8"))
+    all_layouts = json.loads(layouts_path.read_text(encoding="utf-8-sig"))
     layout = next((l for l in all_layouts if l.get("layoutId") == layout_id), None)
     if layout:
         return layout

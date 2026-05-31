@@ -62,9 +62,10 @@ class AgentState(TypedDict, total=False):
 def _route_after_preprocessing(state: AgentState) -> str:
     result = state.get("preprocess_result")
     search_mode = state.get("search_mode", "boundary_only")
-    if search_mode == "boundary_only" and result == "topology":
+    if search_mode == "boundary_only" and result in {"topology", "search"}:
         return "search"
     return {
+        "search": "search",
         "topology": "topology",
         "select": "select",
         "modify": "modify",
@@ -167,6 +168,7 @@ def build_graph(ctx: Any) -> Any:
     
     # Add edges
     workflow.add_conditional_edges("preprocess", _route_after_preprocessing, {
+        "search": "search",
         "reason": "reason",
         "select": "select",
         "evaluate": "evaluate",
