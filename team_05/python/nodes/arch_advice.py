@@ -76,6 +76,7 @@ _MATERIAL_ALIASES: dict[str, str] = {
     "reinforced_concrete": "rc_solid",
     "glass":            "glass_frameless",
     "glazing":          "curtain_wall",
+    "ceramic":          "ceramic_tile",
     "tile":             "ceramic_tile",
     "tiles":            "ceramic_tile",
     "stone":            "natural_stone",
@@ -173,6 +174,25 @@ GWP_REGIONS: dict[str, dict] = {
 }
 DEFAULT_REGION = "Europe (Ökobaudat)"
 
+# RIBA 2030 Climate Challenge whole-life embodied carbon targets (kgCO2e/m²)
+CARBON_BUDGETS: dict[str, float] = {
+    "Residential":       500.0,
+    "Commercial Office": 600.0,
+    "Education":         550.0,
+    "Healthcare":        600.0,
+    "Retail":            750.0,
+    "Mixed Use":         625.0,
+}
+DEFAULT_BUILDING_TYPE = "Residential"
+
+# Finish key → human-readable label for matrix/budget breakdown
+_FINISH_LABEL: dict[str, str] = {
+    "floor_finish": "Floor", "floor-finish": "Floor",
+    "wall_finish": "Wall",   "wall-finish": "Wall",
+    "ceiling_material": "Ceiling", "ceiling-material": "Ceiling", "ceiling-finish": "Ceiling",
+    "slab_material": "Slab",       "slab-material": "Slab",
+}
+
 
 def get_gwp_regional(material_key: str, region: str = DEFAULT_REGION) -> float | None:
     """Return GWP A1-A3 for a material using the appropriate regional database.
@@ -203,10 +223,12 @@ def _resolve_fire_rating(static: dict, standard_key: str) -> str:
 
 def _resolve_material_gwp(material_key: str, region: str = DEFAULT_REGION) -> float | None:
     live = get_gwp_regional(material_key, region)
-    if isinstance(live, (int, float)):
+    # Use live value only if positive — negative live GWP (biogenic timber) is
+    # technically valid but misleading for upfront embodied carbon budgeting.
+    if isinstance(live, (int, float)) and live >= 0:
         return live
     static = _lookup_static(material_key)
-    if static is None:
+    if not static:
         return None
     gwp = static.get("gwp_fallback_kgco2e")
     if isinstance(gwp, (int, float)):
@@ -362,6 +384,135 @@ def extract_materials_from_layout(layout: dict) -> list[str]:
                 materials.append(key)
     seen: set[str] = set()
     return [m for m in materials if not (m in seen or seen.add(m))]  # type: ignore[func-returns-value]
+
+
+def generate_carbon_matrix_data(
+    layout: dict,
+    region: str = DEFAULT_REGION,
+    messages: list[dict] | None = None,
+) -> list[dict]:
+    """Return one entry per (room, finish_type) that has an assigned material.
+
+    Primary source: rooms in the layout that have finish fields set via the agent.
+    Fallback: when no room assignments exist, uses materials detected from chat
+    messages paired with average room cost/area so the chart is always populated.
+    Estimated entries are flagged with estimated=True.
+    """
+    points: list[dict] = []
+    for room in layout.get("rooms", []):
+        room_name = room.get("name", "Room")
+        area = float(room.get("area_m2") or 0)
+        rate = float(room.get("rate_per_m2") or 0)
+        if area <= 0:
+            continue
+        for finish_key in _ROOM_FINISH_KEYS:
+            val = room.get(finish_key)
+            if not val:
+                continue
+            mat_key = str(val).lower().replace(" ", "_").replace("-", "_")
+            mat_key = _MATERIAL_ALIASES.get(mat_key, mat_key)
+            gwp = _resolve_material_gwp(mat_key, region)
+            if gwp is None:
+                continue
+            points.append({
+                "room":         room_name,
+                "finish_type":  _FINISH_LABEL.get(finish_key, finish_key),
+                "material_key": mat_key,
+                "material":     mat_key.replace("_", " ").title(),
+                "gwp":          float(gwp),
+                "cost_per_m2":  rate,
+                "area_m2":      area,
+                "estimated":    False,
+            })
+
+    # Fallback: use chat-detected materials with average room stats
+    if not points and messages:
+        mat_keys = extract_materials_from_messages(messages)
+        rooms = layout.get("rooms", [])
+        if rooms:
+            avg_area = sum(float(r.get("area_m2") or 0) for r in rooms) / len(rooms)
+            avg_rate = sum(float(r.get("rate_per_m2") or 0) for r in rooms) / len(rooms)
+        else:
+            avg_area, avg_rate = 20.0, 1000.0
+        valid = [(mk, _resolve_material_gwp(mk, region)) for mk in mat_keys[:_MAX_MATERIALS]]
+        valid = [(mk, g) for mk, g in valid if g is not None]
+        # Spread x slightly so dots don't stack on identical cost values
+        spread = avg_rate * 0.04
+        step = spread / max(len(valid) - 1, 1)
+        for i, (mat_key, gwp) in enumerate(valid):
+            points.append({
+                "room":         "Estimated",
+                "finish_type":  "Floor",
+                "material_key": mat_key,
+                "material":     mat_key.replace("_", " ").title(),
+                "gwp":          float(gwp),
+                "cost_per_m2":  avg_rate - spread / 2 + i * step,
+                "area_m2":      avg_area,
+                "estimated":    True,
+            })
+
+    return points
+
+
+def calculate_carbon_budget(
+    layout: dict,
+    building_type: str = DEFAULT_BUILDING_TYPE,
+    region: str = DEFAULT_REGION,
+    messages: list[dict] | None = None,
+) -> dict:
+    """Calculate embodied carbon vs. the RIBA 2030 target for the selected building type.
+
+    Only rooms with explicitly assigned finish materials contribute to the total.
+    Returns totals, target, per-m² figure, budget percentage, and a room breakdown.
+    """
+    target = CARBON_BUDGETS.get(building_type, 500.0)
+
+    # Total floor area: prefer project-level footprint, fall back to summing rooms
+    total_area = float((layout.get("project") or {}).get("footprint_m2") or 0)
+    if total_area <= 0:
+        total_area = sum(float(r.get("area_m2") or 0) for r in layout.get("rooms", []))
+
+    points = generate_carbon_matrix_data(layout, region, messages)
+
+    total_carbon = 0.0
+    assigned_area = 0.0
+    breakdown: list[dict] = []
+    seen: set[tuple] = set()
+
+    for pt in points:
+        # For estimated entries, include material_key so each material is counted separately
+        key = (pt["room"], pt["finish_type"], pt["material_key"] if pt.get("estimated") else "")
+        if key in seen:
+            continue
+        seen.add(key)
+        contribution = pt["gwp"] * pt["area_m2"]
+        total_carbon += contribution
+        assigned_area += pt["area_m2"]
+        breakdown.append({
+            "Room":          pt["room"],
+            "Finish":        pt["finish_type"],
+            "Material":      pt["material"],
+            "Area (m²)":     round(pt["area_m2"], 1),
+            "kgCO2e/m²":     round(pt["gwp"], 2),
+            "Total kgCO2e":  round(contribution, 1),
+        })
+
+    per_m2 = (total_carbon / total_area) if total_area > 0 else 0.0
+    pct    = (per_m2 / target * 100) if target > 0 else 0.0
+    coverage = (assigned_area / total_area * 100) if total_area > 0 else 0.0
+
+    return {
+        "building_type":    building_type,
+        "standard":         "RIBA 2030 Climate Challenge",
+        "target_per_m2":    target,
+        "total_kgco2e":     round(total_carbon, 1),
+        "per_m2":           round(per_m2, 1),
+        "pct_of_budget":    round(pct, 1),
+        "total_area_m2":    round(total_area, 1),
+        "assigned_area_m2": round(assigned_area, 1),
+        "coverage_pct":     round(coverage, 1),
+        "breakdown":        sorted(breakdown, key=lambda x: x["Total kgCO2e"], reverse=True),
+    }
 
 
 def generate_advice_for_materials(materials: list[str]) -> str:
