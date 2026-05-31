@@ -140,6 +140,14 @@ def build_reason_node(llm):
         if result is None:
             raise RuntimeError(f"LLM failed after 3 attempts: {last_error}")
 
+        # Prevent model from short-circuiting removal queries — must go through evaluate node
+        if result["action"] == "final" and result.get("final_response"):
+            user_msgs = [m for m in state["messages"] if m.get("role") == "user"]
+            if user_msgs:
+                last_user = user_msgs[-1].get("content", "").lower()
+                if any(kw in last_user for kw in ("remov", "delet", "what if", "without")):
+                    result = {"action": "final", "final_response": ""}
+
         if result["action"] == "final":
             state["final_response"] = result["final_response"]
             state["pending_tool_calls"] = None

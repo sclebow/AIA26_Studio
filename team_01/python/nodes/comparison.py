@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import re
 import time
 from collections import Counter
 
@@ -94,7 +95,9 @@ def _slim_diff_for_llm(original_json: str, modified_json: str) -> str:
             if sec_b != sec_a:
                 patterns[f"{sec_b}→{sec_a}"] += 1
             else:
-                mat_b, mat_a = b.get("material", ""), a.get("material", "")
+                _attrs_b = orig[k].get("attributes", {})
+                _attrs_a = mod[k].get("attributes", {})
+                mat_b, mat_a = _attrs_b.get("material", ""), _attrs_a.get("material", "")
                 if mat_b != mat_a:
                     patterns[f"material {mat_b}→{mat_a}"] += 1
                 else:
@@ -141,10 +144,15 @@ def build_comparison_node(llm):
         last_error = None
         for attempt in range(3):
             try:
-                llm_messages = [{"role": "user", "content": f"{SYSTEM_PROMPT}\n\n{context_message}"}]
+                llm_messages = [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": context_message},
+                ]
                 raw = llm.invoke(llm_messages)
                 data = json.loads(raw.content)
                 result = data.get("final_response", raw.content)
+                # Strip any XML/HTML tags that small models sometimes echo back
+                result = re.sub(r"<[^>]+>", "", result).strip()
                 break
             except Exception as e:
                 last_error = e
