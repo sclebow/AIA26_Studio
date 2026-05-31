@@ -10,7 +10,6 @@ import networkx as nx
 # Import graph builders
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils.parser.schema_to_graph import create_graph_from_layout
 from utils.graph_embedder import RuleBasedEmbedder
 
 # ============================================================================
