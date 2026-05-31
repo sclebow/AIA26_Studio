@@ -346,7 +346,7 @@ def match_boundaries(
     if not dataset_path.exists():
         return {"error": f"Dataset not found at {dataset_path}", "matches": [], "count": 0}
 
-    with open(dataset_path, 'r', encoding='utf-8') as f:
+    with open(dataset_path, 'r', encoding='utf-8-sig') as f:
         dataset = json.load(f)
 
     results = []
