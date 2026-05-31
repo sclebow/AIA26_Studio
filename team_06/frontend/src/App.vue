@@ -16,7 +16,7 @@ import Sidebar from './components/Sidebar.vue'
 import ChatPanel from './components/ChatPanel.vue'
 import WorkSpace from './components/WorkSpace.vue'
 
-const tab = ref('create')
+const tab = ref('brief')
 </script>
 
 <style src="./style.css"></style>

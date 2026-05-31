@@ -16,7 +16,7 @@ const input = Array.isArray(parsedInput) && parsedInput.length > 0 ? parsedInput
   <aside class="sidebar">
     <SidebarHeader :tab="props.tab" @change="emit('change', $event)" />
     <div class="sidebar-content">
-      <template v-if="props.tab==='create'">
+      <template v-if="props.tab==='brief'">
         <section class="sidebar-section">
           <div class="sidebar-section-title">
             <img :src="userIcon" alt="Households" width="20" height="20" />
@@ -72,14 +72,14 @@ const input = Array.isArray(parsedInput) && parsedInput.length > 0 ? parsedInput
         <div class="sidebar-section-title">History (placeholder)</div>
       </template>
     </div>
-    <button class="create-layout-btn layout-btn">Create Layout</button>
+    <button class="update-brief-btn layout-btn">Update Brief</button>
   </aside>
 </template>
 
 <style scoped>
 .sidebar {
-  width: 320px;
-  min-width: 320px;
+  width: 300px;
+  min-width: 300px;
   background: white;
   display: flex;
   flex-direction: column;
@@ -125,7 +125,7 @@ const input = Array.isArray(parsedInput) && parsedInput.length > 0 ? parsedInput
   margin-bottom: 12px;
   border: 1px solid var(--color-border);
 }
-.create-layout-btn{
+.update-brief-btn{
     margin-bottom: 28px;
 }
 
