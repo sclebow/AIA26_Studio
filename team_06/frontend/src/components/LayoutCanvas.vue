@@ -11,15 +11,25 @@
           :strokeWidth="2"
         />
         <v-text
-            :x="getLabelX(room.geometry)"
-            :y="getLabelY(room.geometry)"
-            :text="room.attributes.program"
-            fontFamily="Inter"
-            fontSize="18"
-            fill="#222"
-            :offsetX="getTextWidth(room.attributes.program, 18) / 2"
-            :offsetY="18 / 2"
-            />
+          :x="getLabelX(room.geometry)"
+          :y="getLabelY(room.geometry)"
+          :text="room.attributes.program"
+          fontFamily="Inter"
+          fontSize="18"
+          fill="#222"
+          :offsetX="getTextWidth(room.attributes.program, 18) / 2"
+          :offsetY="18 / 2"
+        />
+        <v-text
+          :x="getLabelX(room.geometry)"
+          :y="getLabelY(room.geometry) + 16"
+          :text="room.attributes.area ? `${room.attributes.area.toFixed(1)} m²` : ''"
+          fontFamily="Inter"
+          fontSize="14"
+          fill="#222"
+          :offsetX="getTextWidth(room.attributes.area ? `${room.attributes.area.toFixed(1)} m²` : '', 14) / 2"
+          :offsetY="14 / 2"
+        />
       </v-group>
     </v-layer>
   </v-stage>
