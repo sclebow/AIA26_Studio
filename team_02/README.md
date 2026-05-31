@@ -6,6 +6,10 @@ conflicts, and suggests/edits changes. A **FastAPI** backend exposes the agent a
 also serves the **React + Vite** frontend (chat, analysis panel with bars / radar /
 2D plan / 3D, and the persona screens).
 
+> **Concept / vision:** the overall number isn't a grade to inflate, it's the weakest
+> teacher in the system — the real lesson lives in the edges: *how a change to one sense
+> ripples to another*. See [`docs/concept-the-ripple.md`](docs/concept-the-ripple.md).
+
 ```
 team_02/
 ├── python/            # FastAPI backend + LangGraph agent

@@ -8,6 +8,18 @@ export function roomScores(turn) {
   return parse(turn?.scores_json)?.rooms || [];
 }
 
+// Layout headline score. NON-ADDITIVE, mirroring the per-room veto: a flat average
+// buries one bad/improved room under N, so fixing the worst room never moves the
+// number. Blend the mean with the worst room (0.6 mean + 0.4 worst) so the headline
+// responds to the room actually holding the layout back. Single source of truth so
+// the live screen and the per-turn history can't drift apart.
+export function layoutScore(rooms) {
+  if (!rooms?.length) return null;
+  const mean  = rooms.reduce((a, r) => a + (r.overallScore || 0), 0) / rooms.length;
+  const worst = Math.min(...rooms.map((r) => r.overallScore || 0));
+  return 0.6 * mean + 0.4 * worst;
+}
+
 export function roomByName(turn, name) {
   return roomScores(turn).find((r) => r.roomName === name) || null;
 }

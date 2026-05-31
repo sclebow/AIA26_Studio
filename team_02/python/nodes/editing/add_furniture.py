@@ -27,26 +27,10 @@ def build_add_furniture_node():
 
         room  = _edits.find_target_room(layout, raw_prompt, original_scores, room_hint)
         ftype = _edits.detect_furniture_type(raw_prompt)
-        mat   = ("natural" if ftype == "plant" else
-                 "fabric"  if ftype in _edits.SOFT_FURNITURE else "wood")
+        mat   = _edits.furniture_material_for(ftype)
 
-        diff = {}
+        diff = _edits.apply_add_furniture(layout, room, ftype, mat)
         if room:
-            cx, cy = _edits.centroid(room.get("geometry", []))
-            h = 0.4
-            geo = [[cx - h, cy - h], [cx + h, cy - h], [cx + h, cy + h],
-                   [cx - h, cy + h], [cx - h, cy - h]]
-            new_id = _edits.next_id(layout, "furniture", "furn")
-            layout.setdefault("furniture", []).append({
-                "id": new_id,
-                "name": f"Added {ftype}",
-                "geometry": geo,
-                "attributes": {"roomId": room.get("id"), "type": ftype, "material": mat},
-            })
-            sense = "olfactory+visual" if ftype == "plant" else "tactile"
-            diff = _edits.make_layout_diff(
-                room, "furniture", "none", f"added {ftype} ({mat})", sense
-            )
             print(f"[add_furniture] {ftype} ({mat}) → {room.get('name')}")
 
         out["layout_json_string"] = _edits.dump(layout)

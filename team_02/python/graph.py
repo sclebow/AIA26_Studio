@@ -101,6 +101,7 @@ from nodes.editing.change_material  import build_change_material_node
 from nodes.editing.modify_glazing   import build_modify_glazing_node
 from nodes.editing.add_furniture    import build_add_furniture_node
 from nodes.editing.compare_versions import build_compare_versions_node
+from nodes.editing.preview          import build_preview_node
 
 # ── Insight tools ─────────────────────────────────────────────────────────────
 from nodes.insights.topologic_analysis import build_topologic_analysis_node
@@ -170,6 +171,10 @@ class AgentState(TypedDict, total=False):
     pending_comparison:           bool
     layout_diff:                  dict   # {room_id, room_name, attribute, old_value, new_value, sense_affected}
     layout_updated:               bool   # True when layout JSON was mutated this turn
+    # Predictive preview ("what if") — scored on a CLONE, never committed.
+    preview_scores_json:          str    # hypothetical scores; NOT the canonical cache
+    preview_diff:                 dict   # the hypothetical edit's diff
+    preview_summary:              str    # predicted per-sense delta, human-readable
     adjacency_graph:              dict
     graph_data:                   dict   # {nodes, edges, metrics} for Cytoscape/D3
     compare_versions_summary:     str
@@ -238,6 +243,10 @@ def _route_after_load_layout(state: AgentState) -> str:
 
     if action == "overview":
         return "overview_respond"
+
+    # Predictive preview ("what if") — score a hypothetical without committing.
+    if action == "preview":
+        return "preview"
 
     # Edit tools
     if action == "change_material":
@@ -337,6 +346,7 @@ def build_graph(ctx: Any) -> Any:
     modify_glazing   = build_modify_glazing_node()
     add_furniture    = build_add_furniture_node()
     compare_versions = build_compare_versions_node()
+    preview          = build_preview_node(ctx.mcp_client)
 
     # Insight tools
     topologic_analysis = build_topologic_analysis_node()
@@ -368,6 +378,7 @@ def build_graph(ctx: Any) -> Any:
     g.add_node("modify_glazing",    modify_glazing)
     g.add_node("add_furniture",     add_furniture)
     g.add_node("compare_versions",  compare_versions)
+    g.add_node("preview",           preview)
     g.add_node("topologic_analysis", topologic_analysis)
     g.add_node("biophilic_audit",   biophilic_audit)
     g.add_node("persona_comparison", persona_comparison)
@@ -413,6 +424,7 @@ def build_graph(ctx: Any) -> Any:
         "change_material":   "change_material",
         "modify_glazing":    "modify_glazing",
         "add_furniture":     "add_furniture",
+        "preview":           "preview",
         "topologic_analysis": "topologic_analysis",
         "biophilic_audit":   "biophilic_audit",
         "persona_comparison": "persona_comparison",
@@ -442,6 +454,10 @@ def build_graph(ctx: Any) -> Any:
     g.add_edge("change_material", "analyze")
     g.add_edge("modify_glazing",  "analyze")
     g.add_edge("add_furniture",   "analyze")
+
+    # Preview is terminal: it self-produces its predicted-ripple message (no re-score
+    # of the real layout, no commit) and goes straight to the next-step offer.
+    g.add_edge("preview", "what_next")
 
     # Insight tools
     g.add_edge("topologic_analysis", "respond")
@@ -517,6 +533,9 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
         "original_scores_json":   "",
         "layout_diff":            {},
         "layout_updated":         False,
+        "preview_scores_json":    "",
+        "preview_diff":           {},
+        "preview_summary":        "",
         "compare_versions_summary": "",
         "biophilic_summary":      "",
         "biophilic_plants_needed": False,
@@ -580,6 +599,9 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
         # Per-turn fields (cleared next turn — used by server to build response payload)
         "layout_updated":         final_state.get("layout_updated", False),
         "layout_diff":            final_state.get("layout_diff", {}),
+        "preview_scores_json":    final_state.get("preview_scores_json", ""),
+        "preview_diff":           final_state.get("preview_diff", {}),
+        "preview_summary":        final_state.get("preview_summary", ""),
         "graph_data":             final_state.get("graph_data", {}),
         "biophilic_data":         final_state.get("biophilic_data", {}),
         "persona_comparison_data": final_state.get("persona_comparison_data", {}),

@@ -7,6 +7,7 @@ import InspireScreen from "./screens/InspireScreen.jsx";
 import PersonaScreen from "./screens/PersonaScreen.jsx";
 import ProfileChatScreen from "./screens/ProfileChatScreen.jsx";
 import { SelectionProvider } from "./lib/selection.jsx";
+import { layoutScore } from "./lib/turn.js";
 
 let _mid = 0;
 const nextId = () => ++_mid;
@@ -27,11 +28,8 @@ const ACTION_LABELS = {
 };
 
 function avgScore(scores_json) {
-  try {
-    const rooms = JSON.parse(scores_json).rooms || [];
-    if (!rooms.length) return null;
-    return rooms.reduce((a, r) => a + (r.overallScore || 0), 0) / rooms.length;
-  } catch { return null; }
+  try { return layoutScore(JSON.parse(scores_json).rooms || []); }
+  catch { return null; }
 }
 
 function conflictCount(conflicts_json) {
@@ -87,7 +85,7 @@ export default function App() {
       setChatMessages((m) => [...m, { id: nextId(), role: "s", text: data.message, data }]);
 
       // Push to structured turn history when this turn has analysis data
-      if (data.scores_json || data.graph_data || data.biophilic_data || data.layout_diff) {
+      if (data.scores_json || data.graph_data || data.biophilic_data || data.layout_diff || data.preview_scores_json) {
         setTurns((prev) => [...prev, {
           id:             nextId(),
           action:         data.action || "",
@@ -99,6 +97,9 @@ export default function App() {
           conflict_reasoning:   data.conflict_reasoning   || "",
           suggestion_critique:  data.suggestion_critique  || "",
           layout_diff:    data.layout_diff    || {},
+          preview_scores_json: data.preview_scores_json || "",
+          preview_diff:   data.preview_diff   || {},
+          preview_summary: data.preview_summary || "",
           graph_data:     data.graph_data     || {},
           biophilic_data: data.biophilic_data || {},
           persona_comparison_data: data.persona_comparison_data || {},

@@ -41,6 +41,10 @@ def agent_response_payload(message: str, sess: dict, final_state: dict | None = 
         # Edit tool feedback
         "layout_updated":       fs.get("layout_updated", False),
         "layout_diff":          fs.get("layout_diff", {}),
+        # Predictive preview ("what if") — hypothetical, never committed to the canvas
+        "preview_scores_json":  fs.get("preview_scores_json", ""),
+        "preview_diff":         fs.get("preview_diff", {}),
+        "preview_summary":      fs.get("preview_summary", ""),
         # Insight tool data for frontend rendering
         "graph_data":           fs.get("graph_data", {}),
         "biophilic_data":       fs.get("biophilic_data", {}),

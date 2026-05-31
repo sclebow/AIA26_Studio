@@ -26,35 +26,11 @@ def build_modify_glazing_node():
             return out
 
         room = _edits.find_target_room(layout, raw_prompt, original_scores, room_hint)
-        p    = raw_prompt.lower()
-        gtype = ("triple" if "triple" in p else
-                 "single" if "single" in p else
-                 "double" if "double" in p else None)
+        gtype, wants_more = _edits.resolve_glazing(raw_prompt)
 
-        diff = {}
+        diff = _edits.apply_modify_glazing(layout, room, gtype, wants_more)
         if room:
-            attrs   = room.setdefault("attributes", {})
-            old_gr  = float(attrs.get("glazingRatio", 0.10))
-            wants_more = any(k in p for k in
-                ["more light", "bigger", "larger", "brighter", "window", "light", "glazing", "skylight"])
-            new_gr = round(max(old_gr, 0.25), 2) if (wants_more or gtype is None) else old_gr
-            attrs["glazingRatio"] = new_gr
-
-            applied_gt = gtype or "triple"
-            rid = room.get("id")
-            old_gt = "double"
-            for win in layout.get("windows", []):
-                if win.get("attributes", {}).get("roomId") == rid:
-                    old_gt = win.get("attributes", {}).get("glazingType", "double")
-                    win.setdefault("attributes", {})["glazingType"] = applied_gt
-
-            diff = _edits.make_layout_diff(
-                room, "glazingRatio",
-                f"ratio={old_gr:.2f}, type={old_gt}",
-                f"ratio={new_gr:.2f}, type={applied_gt}",
-                "visual+thermal"
-            )
-            print(f"[modify_glazing] {room.get('name')}: ratio {old_gr:.2f}→{new_gr:.2f}, type→{applied_gt}")
+            print(f"[modify_glazing] {room.get('name')}: {diff.get('new_value', '')}")
 
         out["layout_json_string"] = _edits.dump(layout)
         out["layout_diff"]        = diff

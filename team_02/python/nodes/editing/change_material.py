@@ -31,41 +31,8 @@ def build_change_material_node():
         material = _edits.detect_material(raw_prompt, material_hint) or "wood"
         surface  = _edits.detect_surface_target(raw_prompt)
 
-        diff = {}
-
-        if surface == "floor" and room:
-            # Set floorMaterial on the room's attributes
-            attrs    = room.setdefault("attributes", {})
-            old_val  = attrs.get("floorMaterial", "unset")
-            attrs["floorMaterial"] = material
-            diff = _edits.make_layout_diff(room, "floorMaterial", old_val, material, "tactile")
-            print(f"[change_material] {room.get('name')} floorMaterial: {old_val} → {material}")
-
-        elif surface == "wall":
-            # Set material on all structure elements (global wall material)
-            old_vals = [w.get("attributes", {}).get("material", "plaster")
-                        for w in layout.get("structure", [])]
-            old_val  = old_vals[0] if old_vals else "plaster"
-            for w in layout.get("structure", []):
-                w.setdefault("attributes", {})["material"] = material
-            diff = _edits.make_layout_diff(room, "wallMaterial", old_val, material, "tactile")
-            print(f"[change_material] wall material: {old_val} → {material}")
-
-        else:
-            # Furniture material in target room
-            if room:
-                rid     = room.get("id")
-                changed = False
-                old_val = material  # default if nothing found
-                for f in layout.get("furniture", []):
-                    if f.get("attributes", {}).get("roomId") == rid:
-                        old_val = f.get("attributes", {}).get("material", "unknown")
-                        f.setdefault("attributes", {})["material"] = material
-                        changed = True
-                diff = _edits.make_layout_diff(
-                    room, "furnitureMaterial", old_val if changed else "none", material, "tactile"
-                )
-                print(f"[change_material] furniture in {room.get('name')}: → {material}")
+        diff = _edits.apply_change_material(layout, room, surface, material)
+        print(f"[change_material] {surface} → {material} in {room.get('name') if room else '?'}")
 
         out["layout_json_string"] = _edits.dump(layout)
         out["layout_diff"]        = diff

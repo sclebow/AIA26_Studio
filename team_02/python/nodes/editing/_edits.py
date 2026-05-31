@@ -135,3 +135,107 @@ def make_layout_diff(room: Optional[dict], attribute: str,
         "new_value":     new_value,
         "sense_affected": sense_affected,
     }
+
+
+# ── Pure mutators ─────────────────────────────────────────────────────────────
+# The mutation core of each edit, factored OUT of the graph nodes so it can run on
+# either the canonical layout (commit path) or a throwaway clone (preview path).
+# Each mutates `layout` in place and returns the structured diff — no state, no
+# persistence, no flags. The edit nodes wrap these with the state plumbing; the
+# preview node calls them on a clone and never persists.
+
+def furniture_material_for(ftype: str) -> str:
+    """Default material for an added furniture type (matches add_furniture)."""
+    return ("natural" if ftype == "plant" else
+            "fabric"  if ftype in SOFT_FURNITURE else "wood")
+
+
+def resolve_glazing(prompt: str) -> tuple[Optional[str], bool]:
+    """Prompt → (glazing_type|None, wants_more_light). Detection only; the mutation
+    is apply_modify_glazing. Shared so commit and preview read intent identically."""
+    p = (prompt or "").lower()
+    gtype = ("triple" if "triple" in p else
+             "single" if "single" in p else
+             "double" if "double" in p else None)
+    wants_more = any(k in p for k in
+        ["more light", "bigger", "larger", "brighter", "window", "light", "glazing", "skylight"])
+    return gtype, wants_more
+
+
+def apply_change_material(layout: dict, room: Optional[dict],
+                          surface: str, material: str) -> dict:
+    """Set floor / wall / furniture material on `layout`. Returns the diff."""
+    if surface == "floor" and room:
+        attrs   = room.setdefault("attributes", {})
+        old_val = attrs.get("floorMaterial", "unset")
+        attrs["floorMaterial"] = material
+        return make_layout_diff(room, "floorMaterial", old_val, material, "tactile")
+
+    if surface == "wall":
+        old_vals = [w.get("attributes", {}).get("material", "plaster")
+                    for w in layout.get("structure", [])]
+        old_val  = old_vals[0] if old_vals else "plaster"
+        for w in layout.get("structure", []):
+            w.setdefault("attributes", {})["material"] = material
+        return make_layout_diff(room, "wallMaterial", old_val, material, "tactile")
+
+    if room:
+        rid     = room.get("id")
+        changed = False
+        old_val = material
+        for f in layout.get("furniture", []):
+            if f.get("attributes", {}).get("roomId") == rid:
+                old_val = f.get("attributes", {}).get("material", "unknown")
+                f.setdefault("attributes", {})["material"] = material
+                changed = True
+        return make_layout_diff(
+            room, "furnitureMaterial", old_val if changed else "none", material, "tactile"
+        )
+
+    return {}
+
+
+def apply_add_furniture(layout: dict, room: Optional[dict],
+                        ftype: str, material: str) -> dict:
+    """Append a furniture/plant element to `room` in `layout`. Returns the diff."""
+    if not room:
+        return {}
+    cx, cy = centroid(room.get("geometry", []))
+    h = 0.4
+    geo = [[cx - h, cy - h], [cx + h, cy - h], [cx + h, cy + h],
+           [cx - h, cy + h], [cx - h, cy - h]]
+    new_id = next_id(layout, "furniture", "furn")
+    layout.setdefault("furniture", []).append({
+        "id": new_id,
+        "name": f"Added {ftype}",
+        "geometry": geo,
+        "attributes": {"roomId": room.get("id"), "type": ftype, "material": material},
+    })
+    sense = "olfactory+visual" if ftype == "plant" else "tactile"
+    return make_layout_diff(room, "furniture", "none", f"added {ftype} ({material})", sense)
+
+
+def apply_modify_glazing(layout: dict, room: Optional[dict],
+                         gtype: Optional[str], wants_more: bool) -> dict:
+    """Raise glazing ratio and/or upgrade glazing type on `room`. Returns the diff."""
+    if not room:
+        return {}
+    attrs  = room.setdefault("attributes", {})
+    old_gr = float(attrs.get("glazingRatio", 0.10))
+    new_gr = round(max(old_gr, 0.25), 2) if (wants_more or gtype is None) else old_gr
+    attrs["glazingRatio"] = new_gr
+
+    applied_gt = gtype or "triple"
+    rid    = room.get("id")
+    old_gt = "double"
+    for win in layout.get("windows", []):
+        if win.get("attributes", {}).get("roomId") == rid:
+            old_gt = win.get("attributes", {}).get("glazingType", "double")
+            win.setdefault("attributes", {})["glazingType"] = applied_gt
+
+    return make_layout_diff(
+        room, "glazingRatio",
+        f"ratio={old_gr:.2f}, type={old_gt}",
+        f"ratio={new_gr:.2f}, type={applied_gt}",
+        "visual+thermal",
+    )

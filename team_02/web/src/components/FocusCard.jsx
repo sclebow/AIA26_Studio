@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { SC, SI, SENSES, scoreColor, scoreOpacity } from "../lib/constants.js";
+import { STATUS } from "../lib/senses.js";
 import { useSelection } from "../lib/selection.jsx";
 import { thresholdFromWeight, BASIS_ICON, basisBorder, LEVER_SENSE } from "../lib/senseModel.js";
 import { roomByName, suggestionsFor, narrativeBullets } from "../lib/turn.js";
@@ -101,7 +102,8 @@ export default function FocusCard({ turn, persona, onClose, onFix }) {
               </div>
               <span className="fc-val" style={{ color: v < t ? SC[s] : "rgba(var(--fg-rgb),0.5)" }}>{v.toFixed(2)}</span>
               {moved && (
-                <span className="fc-delta" title={adj.map((a) => `${a.mechanism}`).join(" · ")}>
+                <span className="fc-delta" style={{ color: v > b ? STATUS.pass : STATUS.fail }}
+                  title={adj.map((a) => `${a.mechanism} (${a.delta > 0 ? "+" : ""}${a.delta})`).join(" · ")}>
                   {b.toFixed(2)}→{v.toFixed(2)}
                   {adj.map((a, i) => (
                     <span key={i} className="fc-basis" style={{ borderBottomStyle: basisBorder(a.basis) }}>{BASIS_ICON[a.basis] || ""}</span>

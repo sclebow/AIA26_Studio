@@ -3,7 +3,7 @@
   "role": "architect",
   "description": "Emilie is a architect whose primary sensory concerns are thermal, olfactory, tactile.",
   "age_group": "young_adult",
-  "household_type": "family",
+  "household_type": "dual",
   "sensory_priorities": [
     "thermal",
     "olfactory",
@@ -19,20 +19,20 @@
   ],
   "comfort_weights": {
     "thermal": 0.9,
-    "visual": 0.8,
+    "visual": 0.74,
     "acoustic": 0.8,
-    "spatial": 0.79,
+    "spatial": 0.8,
     "olfactory": 0.9,
     "tactile": 0.9
   },
-  "aesthetic_preferences": "You gravitate toward warm, earthy palettes of amber, terracotta, and muted sage, layered with natural wood tones and weathered textures that ground the space in organic warmth. Soft, diffused daylight filters through skylights, casting gentle shadows over exposed beams and rough-hewn timber, while velvety potted greenery introduces bursts of emerald against the muted backdrop. The atmosphere balances cozy intimacy with airy openness, blending reclaimed materials, handcrafted irregularities, and a serene, sunlit calm that feels both grounded and timeless.",
-  "lifestyle": "streets of paris",
+  "aesthetic_preferences": "You gravitate toward spaces defined by warm amber tones of aged wood and the soft glow of diffused natural light filtering through sheer fabrics, creating a serene interplay of shadows and texture. Muted greens of velvety plants contrast with rough-hewn beams and smooth concrete, blending raw authenticity with refined simplicity. The atmosphere thrives on quiet intimacy and open-air spaciousness, evoking the calm of a forest retreat with its grounded yet expansive feel. Your taste leans into tactile richness—weathered grain, polished wood, and stone—balanced by a minimalist elegance that feels both lived-in and tranquil.",
+  "lifestyle": "Streets of paris",
   "key_requirements": [
-    "plants and natural light"
+    "plants"
   ],
   "personality": -1.0,
   "preference_vs_baseline": {
-    "spatial": "Stated weight 0.79 is above research baseline 0.50 (delta +0.29). User rates this highly -- aligns well with research.",
+    "spatial": "Stated weight 0.80 is above research baseline 0.50 (delta +0.30). User rates this highly -- aligns well with research.",
     "olfactory": "Stated weight 0.90 is above research baseline 0.40 (delta +0.50). User rates this highly -- aligns well with research.",
     "tactile": "Stated weight 0.90 is above research baseline 0.35 (delta +0.55). User rates this highly -- aligns well with research."
   },

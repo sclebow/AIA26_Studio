@@ -30,6 +30,11 @@ from nodes._shared.utils import layout_digits
 # ── Keyword fallback ──────────────────────────────────────────────────────────
 
 _KEYWORD_MAP = [
+    # Preview must come FIRST: "what if I change the floor" is a simulation, not a
+    # commit, so it must win over the edit keywords below.
+    ("preview",          ("what if", "what would happen", "what happens if", "would it help",
+                          "simulate", "preview", "what would it", "show me what", "if i changed",
+                          "if i added", "if i made", "hypothetical")),
     ("change_material",  ("change material", "change floor", "change wall", "change ceiling",
                           "wood floor", "wooden floor", "carpet", "concrete floor", "tile floor",
                           "floor to", "material to", "wall to", "make it wood", "make it fabric")),
@@ -116,6 +121,11 @@ ACTIONS — pick exactly one:
   add_furniture   — user wants to add furniture or plants to a room.
                     Use for: "add a plant", "put a rug", "add a sofa".
 
+  preview         — user wants to SIMULATE a change to see its effect WITHOUT applying it.
+                    The change is hypothetical — do not commit it.
+                    Use for: "what if I change the floor to wood", "what would happen if I add a plant",
+                    "simulate triple glazing", "preview a carpet in the bedroom".
+
   topologic       — user wants room adjacency/connectivity analysis.
                     Use for: "topologic", "adjacency", "room connections", "spatial flow".
 
@@ -166,7 +176,7 @@ def build_action_classifier_node(llm):
             valid_actions = {
                 "analyze", "detect", "full", "overview", "follow_up", "chitchat",
                 "inspire", "change_material", "modify_glazing", "add_furniture",
-                "topologic", "biophilic", "compare",
+                "preview", "topologic", "biophilic", "compare",
             }
             if candidate in valid_actions:
                 action = candidate

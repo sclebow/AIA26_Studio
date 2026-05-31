@@ -15,6 +15,8 @@ export default function SenseHub({ room, cx, cy, R, u, activeSense, onSelectSens
   if (!room) return null;
   const eff = room.comfortScores || {};
   const adjustments = (room.adjustments || []).filter((a) => SENSES.includes(a.from) && SENSES.includes(a.sense));
+  // Senses that are SOURCES of a ripple this turn — their nodes pulse (a sense "firing").
+  const origins = new Set(adjustments.map((a) => a.from));
 
   const pos = {}, rad = {};
   SENSES.forEach((s, i) => {
@@ -36,10 +38,13 @@ export default function SenseHub({ room, cx, cy, R, u, activeSense, onSelectSens
         const sign = signOf(adj.delta);
         const a = arc(ax, ay, bx, by, 0.18);
         const dim = activeSense && activeSense !== adj.from && activeSense !== adj.sense;
+        // Bigger ripples travel faster; valence sets the pulse hue (green lift / red drag).
+        const rippleDur = Math.max(0.9, 2.0 - Math.abs(adj.delta || 0) * 12);
         return (
           <g key={i} opacity={dim ? 0.15 : 1}>
             <GraphEdge ax={ax} ay={ay} bx={bx} by={by} color={SC[adj.from]} width={edgeWidth(adj.delta)}
               dash={basisDash(adj.basis)} arrow headSize={u * 0.95} curvature={0.18} hitWidth={6}
+              ripple={!dim} rippleColor={VALENCE[sign].tint} rippleDur={rippleDur} rippleSize={u * 0.5}
               onHover={(e) => onHoverEdge && onHoverEdge({ x: e.clientX, y: e.clientY, kind: "edge", adj, sign })}
               onLeave={() => onHoverEdge && onHoverEdge(null)} />
             <text x={a.midx} y={a.midy} textAnchor="middle" dominantBaseline="central"
@@ -58,6 +63,13 @@ export default function SenseHub({ room, cx, cy, R, u, activeSense, onSelectSens
           <g key={s} className="spln-gnode" onClick={(e) => { e.stopPropagation(); onSelectSense && onSelectSense(s); }}
             style={onSelectSense ? { cursor: "pointer" } : undefined} opacity={dim ? 0.4 : 1}>
             <circle cx={x} cy={y} r={rad[s] + u * 0.9} fill="transparent" />
+            {/* origin pulse — this sense is radiating to its partners this turn */}
+            {origins.has(s) && !dim && (
+              <circle cx={x} cy={y} r={rad[s]} fill="none" stroke={SC[s]} strokeWidth={1.5} vectorEffect="non-scaling-stroke" pointerEvents="none">
+                <animate attributeName="r" values={`${rad[s]};${rad[s] + u * 1.6}`} dur="1.6s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0.7;0" dur="1.6s" repeatCount="indefinite" />
+              </circle>
+            )}
             <circle cx={x} cy={y} r={rad[s]} fill={SC[s]} fillOpacity={0.25 + sc * 0.5}
               stroke={SC[s]} strokeWidth={on ? 2.4 : 1.2} vectorEffect="non-scaling-stroke" />
             <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontFamily="var(--font-mono)" fontSize={u * 0.95} fill="rgb(var(--fg-rgb))">{SI[s]}</text>

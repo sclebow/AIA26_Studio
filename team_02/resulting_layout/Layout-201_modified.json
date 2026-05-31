@@ -62,13 +62,13 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T00:11:26",
-          "overallScore": 0.55,
+          "timestamp": "2026-05-31T18:29:07",
+          "overallScore": 0.53,
           "comfortScores": {
-            "thermal": 0.61,
-            "visual": 0.87,
-            "acoustic": 0.39,
-            "spatial": 0.94,
+            "thermal": 0.65,
+            "visual": 0.81,
+            "acoustic": 0.37,
+            "spatial": 0.87,
             "olfactory": 0.73,
             "tactile": 0.68
           },
@@ -107,22 +107,22 @@
         "roomType": "kitchen",
         "height": 2.8,
         "orientation": "N",
-        "glazingRatio": 0.25,
+        "glazingRatio": 0.08,
         "ventilationType": "mechanical",
-        "floorMaterial": "ceramic",
+        "floorMaterial": "carpet",
         "analysis": {
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T00:11:26",
-          "overallScore": 0.34,
+          "timestamp": "2026-05-31T18:29:07",
+          "overallScore": 0.32,
           "comfortScores": {
-            "thermal": 0.36,
-            "visual": 0.72,
-            "acoustic": 0.19,
-            "spatial": 0.94,
+            "thermal": 0.34,
+            "visual": 0.49,
+            "acoustic": 0.2,
+            "spatial": 0.87,
             "olfactory": 0.3,
-            "tactile": 0.42
+            "tactile": 0.52
           },
           "conflicts": [],
           "suggestions": []
@@ -166,13 +166,13 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T00:11:26",
-          "overallScore": 0.64,
+          "timestamp": "2026-05-31T18:29:07",
+          "overallScore": 0.66,
           "comfortScores": {
-            "thermal": 0.69,
-            "visual": 0.65,
-            "acoustic": 0.55,
-            "spatial": 0.86,
+            "thermal": 0.73,
+            "visual": 0.63,
+            "acoustic": 0.6,
+            "spatial": 0.81,
             "olfactory": 0.85,
             "tactile": 0.71
           },
@@ -218,15 +218,15 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T00:11:26",
+          "timestamp": "2026-05-31T18:29:07",
           "overallScore": 0.7,
           "comfortScores": {
-            "thermal": 0.72,
-            "visual": 0.65,
-            "acoustic": 0.7,
-            "spatial": 0.86,
-            "olfactory": 0.85,
-            "tactile": 0.73
+            "thermal": 0.76,
+            "visual": 0.63,
+            "acoustic": 0.78,
+            "spatial": 0.81,
+            "olfactory": 0.89,
+            "tactile": 0.77
           },
           "conflicts": [],
           "suggestions": []
@@ -270,13 +270,13 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T00:11:26",
+          "timestamp": "2026-05-31T18:29:07",
           "overallScore": 0.5,
           "comfortScores": {
             "thermal": 0.62,
-            "visual": 0.4,
-            "acoustic": 0.65,
-            "spatial": 1.0,
+            "visual": 0.41,
+            "acoustic": 0.67,
+            "spatial": 0.93,
             "olfactory": 0.4,
             "tactile": 0.56
           },
@@ -322,11 +322,11 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T00:11:26",
-          "overallScore": 0.46,
+          "timestamp": "2026-05-31T18:29:07",
+          "overallScore": 0.47,
           "comfortScores": {
             "thermal": 0.62,
-            "visual": 0.4,
+            "visual": 0.41,
             "acoustic": 0.5,
             "spatial": 0.52,
             "olfactory": 0.55,
@@ -483,7 +483,7 @@
         "roomId": "room-2",
         "area": 1.5,
         "orientation": "N",
-        "glazingType": "triple"
+        "glazingType": "single"
       }
     },
     {
@@ -913,8 +913,8 @@
     "_source": "Sensi",
     "persona": "Neutral",
     "depth": "analyze",
-    "timestamp": "2026-05-31T00:11:26",
-    "overallScore": 0.5317,
+    "timestamp": "2026-05-31T18:29:07",
+    "overallScore": 0.53,
     "bestRoom": "room-4",
     "worstRoom": "room-2"
   }

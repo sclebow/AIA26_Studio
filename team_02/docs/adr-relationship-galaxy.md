@@ -2,6 +2,10 @@
 
 **Status:** Accepted · **Date:** 2026-05-31 · **Deciders:** Emilie (product), Claude (impl)
 
+> Guiding concept: [`concept-the-ripple.md`](concept-the-ripple.md) — *the real lesson
+> lives in the edges: how a change to one sense ripples to another.* The galaxy is that
+> ripple, flown through.
+
 ## Context
 The 2D on-plan graph is the *analysis* surface (precise, geometric). The user wants a
 second, *experiential* mode — an immersive 3D "galaxy" you fly through and get lost in,

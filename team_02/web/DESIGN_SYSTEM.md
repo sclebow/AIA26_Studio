@@ -4,6 +4,11 @@ A small, documented design system for the Sensi frontend (`team_02/web/src`).
 Three layers: **tokens + logic** (`lib/`, `styles/`), **generic primitives** (`ui/`),
 and **domain primitives** (`viz/`, `canvas/`). Screens are assembled from these.
 
+> **Why these visuals exist:** the real lesson lives in the **edges** — *how a change to
+> one sense ripples to another* — not in any single score. The sense-encoding grammar, the
+> animated ripple (`canvas/SenseHub.jsx`), and the relationship galaxy all serve that.
+> North-star concept: [`../docs/concept-the-ripple.md`](../docs/concept-the-ripple.md).
+
 ---
 
 ## 1. The sense-encoding language

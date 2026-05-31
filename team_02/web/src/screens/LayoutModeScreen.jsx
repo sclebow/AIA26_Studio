@@ -15,7 +15,7 @@ import LayoutPicker from "../components/LayoutPicker.jsx";
 import SenseMixer from "../components/SenseMixer.jsx";
 import { formatChatMessage } from "../lib/formatMessage.js";
 import { useSelection } from "../lib/selection.jsx";
-import { roomScores, conflictCount } from "../lib/turn.js";
+import { roomScores, conflictCount, layoutScore } from "../lib/turn.js";
 
 // 3D galaxy is heavy (three.js) — lazy so it never enters the initial bundle.
 const RelationshipGalaxy = lazy(() => import("../galaxy/RelationshipGalaxy.jsx"));
@@ -82,7 +82,7 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
   }, [activeTurn?.id]); // eslint-disable-line
 
   const rooms         = roomScores(activeTurn);
-  const avg           = rooms.length ? rooms.reduce((a, r) => a + (r.overallScore || 0), 0) / rooms.length : null;
+  const avg           = layoutScore(rooms);
   const conflicts     = conflictCount(activeTurn);
   const ringClass     = avg == null ? "" : avg >= 0.65 ? "score-pass" : avg >= 0.45 ? "score-warn" : "score-fail";
   const initial       = persona?.name?.charAt(0).toUpperCase() || "";

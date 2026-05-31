@@ -88,6 +88,18 @@ VETO_WEIGHT = 0.5
 CROSS_MODAL_LOW = 0.50      # a source sense at/below this is "contributing discomfort"
 CROSS_MODAL_DELTA = {"-": -0.06, "±": -0.05, "+": 0.0, "0": 0.0}
 
+# ── Symmetric (positive) ripple ──────────────────────────────────────────────
+# Comfort should ALSO spread, not just discomfort: a STRONG source sense lifts its
+# synergistic ("+") partners. Research backs this — the 2025 multisensory thermal-
+# comfort review names cross-modal effects as "additive, SYNERGISTIC, or
+# compensatory", and congruent stimuli bond (Spence). The positive magnitude is
+# deliberately SMALLER than the negative (negativity bias) and capped per target so
+# positives can't stack into inflation; the non-additive veto in aggregate_comfort()
+# still floors the room by its worst sense, so a lifted partner can't mask a deficit.
+CROSS_MODAL_HIGH = 0.70     # a source at/above this "radiates comfort" along "+" edges
+CROSS_MODAL_POS = {"+": 0.04}
+CROSS_MODAL_POS_CAP = 0.08  # max cumulative positive nudge per target sense
+
 
 # tier → human-facing basis label (so the UI can mark each adjustment's provenance)
 BASIS = {"verified": "research", "inferred": "physics"}
@@ -103,14 +115,28 @@ def apply_cross_modal(scores: dict, tiers=("verified", "inferred")):
     """
     eff = dict(scores)
     adj = []
+    pos_total = {}   # cumulative positive nudge already applied per target (cap enforcement)
 
     def nudge(src, tgt, sign, tier, mech):
-        if scores.get(src, 1.0) < CROSS_MODAL_LOW:
+        src_val = scores.get(src, 1.0)
+        if src_val < CROSS_MODAL_LOW:
+            # Discomfort spreads from a FAILING source (unchanged behaviour).
             delta = CROSS_MODAL_DELTA.get(sign, 0.0)
-            if delta:
-                eff[tgt] = round(max(0.0, min(1.0, eff[tgt] + delta)), 2)
-                adj.append({"sense": tgt, "delta": delta, "from": src,
-                            "mechanism": mech, "tier": tier, "basis": BASIS.get(tier, tier)})
+        elif src_val >= CROSS_MODAL_HIGH and sign == "+":
+            # Comfort spreads from a STRONG source along synergy ("+") edges, capped.
+            delta = CROSS_MODAL_POS.get(sign, 0.0)
+            room = CROSS_MODAL_POS_CAP - pos_total.get(tgt, 0.0)
+            if room <= 0:
+                return
+            delta = min(delta, room)
+        else:
+            return
+        if delta:
+            eff[tgt] = round(max(0.0, min(1.0, eff[tgt] + delta)), 2)
+            if delta > 0:
+                pos_total[tgt] = pos_total.get(tgt, 0.0) + delta
+            adj.append({"sense": tgt, "delta": delta, "from": src,
+                        "mechanism": mech, "tier": tier, "basis": BASIS.get(tier, tier)})
 
     for (a, b, direction, sign, tier, mech) in SENSE_SENSE:
         if tier not in tiers:
