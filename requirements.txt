@@ -8,3 +8,8 @@ grandalf
 sentence-transformers
 torch
 networkx
+folium
+streamlit
+streamlit-folium
+plotly
+pillow
