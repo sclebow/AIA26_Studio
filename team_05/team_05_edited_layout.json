@@ -46,8 +46,13 @@
         ]
       ],
       "rate_per_m2": 3200,
+<<<<<<< Updated upstream
       "area_m2": 36.0,
       "total_cost": 115200,
+=======
+      "area_m2": 47.5,
+      "total_cost": 152000,
+>>>>>>> Stashed changes
       "color_hex": "#BD0026",
       "color_rgb": [
         189,
@@ -144,10 +149,17 @@
           11.0
         ]
       ],
+<<<<<<< Updated upstream
       "rate_per_m2": 2800,
       "area_m2": 22.5,
       "total_cost": 63000,
       "color_hex": "#FEC35E",
+=======
+      "rate_per_m2": 2901.0,
+      "area_m2": 20.25,
+      "total_cost": 58745.25,
+      "color_hex": "#FEB24C",
+>>>>>>> Stashed changes
       "color_rgb": [
         254,
         195,
@@ -178,9 +190,15 @@
         ]
       ],
       "rate_per_m2": 2200,
+<<<<<<< Updated upstream
       "area_m2": 13.5,
       "total_cost": 29700,
       "color_hex": "#FFF5DC",
+=======
+      "area_m2": 15.75,
+      "total_cost": 34650,
+      "color_hex": "#FECC68",
+>>>>>>> Stashed changes
       "color_rgb": [
         255,
         245,
@@ -918,16 +936,40 @@
     "ranges": {
       "rooms": {
         "min": 29700,
+<<<<<<< Updated upstream
         "max": 115200
+=======
+        "max": 152000
+      },
+      "doors": {
+        "min": 1800,
+        "max": 4500
+      },
+      "windows": {
+        "min": 1800,
+        "max": 5500
+      },
+      "columns": {
+        "min": 4000,
+        "max": 11000
+>>>>>>> Stashed changes
       }
     }
   },
   "totals": {
     "currency": "USD",
+<<<<<<< Updated upstream
     "rooms": 418677.0,
     "doors": 15700,
     "windows": 27900,
     "columns": 47000,
     "grand": 509277.0
+=======
+    "rooms": 430345.25,
+    "doors": 15700,
+    "windows": 27900,
+    "columns": 47000,
+    "grand": 520945.25
+>>>>>>> Stashed changes
   }
 }

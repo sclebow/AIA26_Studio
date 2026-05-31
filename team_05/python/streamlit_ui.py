@@ -17,183 +17,6 @@ from nodes.arch_advice import get_room_carbon_data
 
 from langgraph_agent import LangGraphAgent
 
-def render_3d_heatmap(layout_data, extrusion_mode="skyline"):
-    """
-    Embeds a Three.js interactive 3D heatmap into Streamlit.
-    """
-    layout_json_str = json.dumps(layout_data)
-    
-    html_code = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-        <style>
-            body {{ margin: 0; overflow: hidden; font-family: sans-serif; }}
-            #canvas-container {{ width: 100vw; height: 100vh; }}
-            .hologram-label {{
-                position: absolute;
-                background: rgba(10, 10, 10, 0.85);
-                color: #00ffcc;
-                padding: 6px 12px;
-                border: 1px solid #00ffcc;
-                border-radius: 4px;
-                font-size: 12px;
-                pointer-events: none;
-                transform: translate(-50%, -50%);
-                text-align: center;
-                box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
-            }}
-            .hologram-label span {{ color: #ffffff; font-weight: bold; font-size: 14px; display: block; }}
-        </style>
-    </head>
-    <body>
-        <div id="canvas-container"></div>
-        <div id="labels-container"></div>
-
-        <script>
-            const layoutData = {layout_json_str};
-            const mode = "{extrusion_mode}";
-            const rooms = layoutData.costs ? layoutData.costs.rooms.rooms : layoutData.rooms;
-
-            const scene = new THREE.Scene();
-            scene.background = new THREE.Color('#1e1e1e');
-            const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-            const renderer = new THREE.WebGLRenderer({{ antialias: true }});
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            document.getElementById('canvas-container').appendChild(renderer.domElement);
-
-            const controls = new THREE.OrbitControls(camera, renderer.domElement);
-            
-            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-            dirLight.position.set(10, 20, 10);
-            scene.add(dirLight);
-
-            const labelsContainer = document.getElementById('labels-container');
-            const labelObjects = [];
-            const group = new THREE.Group();
-            scene.add(group);
-
-            // --- 1. CALCULATE MIN & MAX COST FOR DYNAMIC COLOR MAPPING ---
-            let minCost = Infinity;
-            let maxCost = -Infinity;
-            Object.values(rooms).forEach(room => {{
-                const cost = room.total_cost || 0;
-                if (cost > 0 && cost < minCost) minCost = cost;
-                if (cost > maxCost) maxCost = cost;
-            }});
-            if (minCost === Infinity) minCost = 0;
-            if (maxCost === -Infinity) maxCost = 1;
-
-            // --- 2. DYNAMIC COLOR RAMP FUNCTION ---
-            function getHeatColor(cost) {{
-                let t = (maxCost > minCost) ? (cost - minCost) / (maxCost - minCost) : 0;
-                t = Math.max(0, Math.min(1, t)); // clamp between 0 and 1
-
-                // Our architectural cost gradient (Cream to Red)
-                const stops = [
-                    {{ t: 0.00, c: new THREE.Color("#FFF5DC") }}, // Cream (Cheapest)
-                    {{ t: 0.25, c: new THREE.Color("#FED976") }}, // Light Yellow
-                    {{ t: 0.50, c: new THREE.Color("#FEB24C") }}, // Orange
-                    {{ t: 0.75, c: new THREE.Color("#F06913") }}, // Dark Orange
-                    {{ t: 1.00, c: new THREE.Color("#BD0026") }}  // Red (Most Expensive)
-                ];
-
-                // Smoothly blend (interpolate) colors based on cost
-                for (let i = 0; i < stops.length - 1; i++) {{
-                    if (t >= stops[i].t && t <= stops[i+1].t) {{
-                        const localT = (t - stops[i].t) / (stops[i+1].t - stops[i].t);
-                        return stops[i].c.clone().lerp(stops[i+1].c, localT);
-                    }}
-                }}
-                return stops[stops.length-1].c;
-            }}
-
-            Object.values(rooms).forEach(room => {{
-                if (!room.polygon || room.polygon.length < 3) return;
-
-                const shape = new THREE.Shape();
-                shape.moveTo(room.polygon[0][0], room.polygon[0][1]);
-                for (let i = 1; i < room.polygon.length; i++) {{
-                    shape.lineTo(room.polygon[i][0], room.polygon[i][1]);
-                }}
-
-                let height = 3; 
-                if (mode === "skyline" && room.total_cost) {{
-                    height = Math.max(1, room.total_cost / 10000); 
-                }}
-
-                const extrudeSettings = {{ depth: height, bevelEnabled: false }};
-                const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-                
-                // --- 3. APPLY THE DYNAMIC COLOR ---
-                // Try backend color first, otherwise calculate live
-                let finalColor;
-                if (room.color_hex) {{
-                    finalColor = new THREE.Color(room.color_hex);
-                }} else {{
-                    finalColor = getHeatColor(room.total_cost || 0);
-                }}
-
-                const material = new THREE.MeshLambertMaterial({{ 
-                    color: finalColor, 
-                    transparent: true, 
-                    opacity: 0.9 
-                }});
-                
-                const mesh = new THREE.Mesh(geometry, material);
-                mesh.rotation.x = -Math.PI / 2;
-                group.add(mesh);
-
-                geometry.computeBoundingBox();
-                const center = new THREE.Vector3();
-                geometry.boundingBox.getCenter(center);
-                
-                const labelPos = new THREE.Vector3(center.x, height + 0.5, -center.y); 
-
-                const labelDiv = document.createElement('div');
-                labelDiv.className = 'hologram-label';
-                labelDiv.innerHTML = `${{room.name}} <br> <span>$${{room.total_cost.toLocaleString()}}</span>`;
-                labelsContainer.appendChild(labelDiv);
-
-                labelObjects.push({{ div: labelDiv, pos: labelPos }});
-            }});
-
-            new THREE.Box3().setFromObject(group).getCenter(controls.target);
-            camera.position.set(controls.target.x + 15, 20, controls.target.z + 15);
-            controls.update();
-
-            function animate() {{
-                requestAnimationFrame(animate);
-                
-                labelObjects.forEach(obj => {{
-                    const vector = obj.pos.clone();
-                    vector.project(camera);
-                    
-                    const x = (vector.x * .5 + .5) * window.innerWidth;
-                    const y = (vector.y * -.5 + .5) * window.innerHeight;
-                    
-                    obj.div.style.left = `${{x}}px`;
-                    obj.div.style.top = `${{y}}px`;
-                }});
-
-                renderer.render(scene, camera);
-            }}
-            animate();
-            
-            window.addEventListener('resize', () => {{
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            }});
-        </script>
-    </body>
-    </html>
-    """
-    components.html(html_code, height=600)
-
 # ── page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="AIA Cost Advisor — Team 05",
@@ -323,6 +146,10 @@ for _k, _v in {
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def _merge_gh_colors(base: dict, gh: dict) -> dict:
+    """
+    Overlay updated color_hex / heat_t / total_cost / rate_per_m2 from gh onto
+    the base layout. Matches by id first, then by lowercase name as fallback.
+    """
     result = copy.deepcopy(base)
     gh_rooms = gh.get("rooms", [])
     gh_by_id   = {r.get("id"): r for r in gh_rooms}
@@ -511,22 +338,18 @@ def _cost_color_for_category(layout: dict, category: str, value: float, default_
         stops = fallback_stops.get(category, [(default_hex, 0.0), (default_hex, 1.0)])
 
     stops.sort(key=lambda x: x[1])
-    
-    # Check boundaries
     if t <= stops[0][1]:
         return stops[0][0]
     if t >= stops[-1][1]:
         return stops[-1][0]
 
-    # Interpolate between the appropriate color stops
     for idx in range(len(stops) - 1):
         c1, t1 = stops[idx]
         c2, t2 = stops[idx + 1]
         if t1 <= t <= t2:
-            # Calculate how far 't' is between 't1' and 't2'
             local_t = 0.0 if t2 == t1 else (t - t1) / (t2 - t1)
             return _interp_hex(c1, c2, local_t)
-            
+
     return default_hex
 
 
@@ -696,15 +519,11 @@ def build_cost_df(layout: dict) -> pd.DataFrame:
     
     # 4. Add Total Row
     if not df.empty:
-        totals = {
-            "Room": "TOTAL",
-            "Category": "",
-            "Area (m²)": df["Area (m²)"].sum(),
-            f"Rate ({currency}/m²)": 0,
-            f"Cost ({currency})": df[f"Cost ({currency})"].sum()
-        }
+        currency = layout.get("project", {}).get("currency", "")
+        totals = {"Room":"TOTAL","Category":"","Area (m²)":df["Area (m²)"].sum(),
+                  f"Rate ({currency}/m²)":0,
+                  f"Cost ({currency})":df[f"Cost ({currency})"].sum()}
         df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
-        
     return df
 
 # ── room card ─────────────────────────────────────────────────────────────────
@@ -722,8 +541,6 @@ def render_room_card(room: dict, currency: str) -> None:
 
 # ── element detail panel ──────────────────────────────────────────────────────
 def _render_element_panel() -> None:
-
-    
     """Inline info panel that appears below the floor plan when an element is clicked."""
     el = st.session_state.get("selected_element") or {}
     if not el:
@@ -811,10 +628,13 @@ with st.sidebar:
         uploaded_ids = set(st.session_state._uploaded_ids)
         added_count = 0
         failed_names: list[str] = []
-        
         for uploaded in uploads:
             file_uid = getattr(uploaded, "file_id", uploaded.name)
-            if file_uid in uploaded_ids: continue
+            if file_uid in uploaded_ids:
+                continue
+            if len(st.session_state.layouts) >= 5:
+                st.warning("Maximum 5 plans can be saved at once.")
+                break
             try:
                 loaded_layout = json.load(uploaded)
                 plan_key = _unique_plan_key(st.session_state.layouts, uploaded.name)
@@ -863,6 +683,18 @@ with st.sidebar:
         c1.metric("Rooms", len(rooms))
         c2.metric("Footprint", f"{proj.get('footprint_m2', 0):.0f} m²")
         st.metric("Room construction", f"{room_total:,.0f} {currency}")
+        if grand != room_total:
+            st.metric("Grand total", f"{grand:,.0f} {currency}")
+
+        st.divider()
+        st.markdown("### Grasshopper")
+        if st.button("Check connection", use_container_width=True):
+            from swiftlet_mcp import check_connection
+            ok, info = check_connection()
+            if ok:
+                st.success(f"Connected — {len(info.split(','))} tools")
+            else:
+                st.error(f"Not reachable: {info[:80]}")
 
         if st.button("Analyze All Saved Plans", use_container_width=True):
             from swiftlet_mcp import push_layout_to_grasshopper
@@ -950,132 +782,128 @@ tab_floor, tab_advice, tab_sustainability = st.tabs(["Floor Plan & Chat", "Archi
 with tab_sustainability:
     render_sustainability_tab()
 
-# ─────────────────────────── FLOOR PLAN & CHAT TAB ───────────────────────────
+# ─────────────────────────── FLOOR PLAN ──────────────────────────────────────
 with tab_floor:
     col_plan, col_chat = st.columns([3, 2], gap="large")
 
     with col_plan:
         if st.session_state.layout:
             st.markdown("#### Floor Plan — Cost Heatmap")
-            
-            # --- 3D / 2D VIEW TOGGLE ---
-            view_mode = st.radio(
-                "Visualization Mode", 
-                ["Interactive 3D Skyline", "2D Flat Floorplan"], 
-                horizontal=True
-            )
-            
-            if "3D" in view_mode:
-                st.caption("Drag to rotate, scroll to zoom. Z-height represents total room cost.")
-                render_3d_heatmap(st.session_state.layout, "skyline")
-            else:
-                st.caption("Colors from Database. Click a room to select it.")
-                sel_id = (st.session_state.selected_room or {}).get("id")
-                fig    = build_floor_plan(st.session_state.layout, sel_id)
+            st.caption("Colors from Grasshopper. Click a room to select it.")
 
-                # On-chart callout annotation for the selected element
-                _sel_el = st.session_state.get("selected_element")
-                if _sel_el and _sel_el.get("cx") is not None:
-                    _ann_cost = float(_sel_el.get("cost") or 0)
-                    _ann_cur  = _sel_el.get("currency", "")
-                    _ann_type = _sel_el.get("type", "")
-                    _ann_name = _sel_el.get("name", "")
-                    if _ann_type == "room":
-                        _ann_text = (
-                            f"<b>{_ann_name}</b><br>"
-                            f"Cost: {_ann_cost:,.0f} {_ann_cur}<br>"
-                            f"Area: {_sel_el.get('area', 0):.1f} m²<br>"
-                            f"Rate: {_sel_el.get('rate', 0):,.0f} {_ann_cur}/m²"
-                        )
-                    else:
-                        _ann_text = (
-                            f"<b>{_ann_type.capitalize()}</b> · {_ann_name}<br>"
-                            f"Cost: {_ann_cost:,.0f} {_ann_cur}"
-                        )
-                    fig.add_annotation(
-                        x=_sel_el["cx"], y=_sel_el["cy"],
-                        text=_ann_text,
-                        showarrow=True, arrowhead=2, arrowcolor="#4a90d9",
-                        arrowwidth=1.5, bgcolor="white", bordercolor="#4a90d9",
-                        borderwidth=1.5, borderpad=6,
-                        font=dict(size=10, color="#1a1a2e"),
-                        align="left", ax=60, ay=-60, xanchor="left",
+            sel_id = (st.session_state.selected_room or {}).get("id")
+            fig    = build_floor_plan(st.session_state.layout, sel_id)
+
+            # On-chart callout annotation for the selected element
+            _sel_el = st.session_state.get("selected_element")
+            if _sel_el and _sel_el.get("cx") is not None:
+                _ann_cost = float(_sel_el.get("cost") or 0)
+                _ann_cur  = _sel_el.get("currency", "")
+                _ann_type = _sel_el.get("type", "")
+                _ann_name = _sel_el.get("name", "")
+                if _ann_type == "room":
+                    _ann_text = (
+                        f"<b>{_ann_name}</b><br>"
+                        f"Cost: {_ann_cost:,.0f} {_ann_cur}<br>"
+                        f"Area: {_sel_el.get('area', 0):.1f} m²<br>"
+                        f"Rate: {_sel_el.get('rate', 0):,.0f} {_ann_cur}/m²"
                     )
-
-                plan_col, legend_col = st.columns([5, 1], gap="small")
-
-                with legend_col:
-                    st.markdown(
-                        '<div style="padding-top:2.5rem">'
-                        + build_gh_legend(st.session_state.layout)
-                        + "</div>",
-                        unsafe_allow_html=True,
+                else:
+                    _ann_text = (
+                        f"<b>{_ann_type.capitalize()}</b> · {_ann_name}<br>"
+                        f"Cost: {_ann_cost:,.0f} {_ann_cur}"
                     )
+                fig.add_annotation(
+                    x=_sel_el["cx"], y=_sel_el["cy"],
+                    text=_ann_text,
+                    showarrow=True,
+                    arrowhead=2,
+                    arrowcolor="#4a90d9",
+                    arrowwidth=1.5,
+                    bgcolor="white",
+                    bordercolor="#4a90d9",
+                    borderwidth=1.5,
+                    borderpad=6,
+                    font=dict(size=10, color="#1a1a2e"),
+                    align="left",
+                    ax=60, ay=-60,
+                    xanchor="left",
+                )
 
-                with plan_col:
-                    try:
-                        event = st.plotly_chart(
-                            fig, use_container_width=True,
-                            on_select="rerun", key="floor_plan_chart",
-                        )
-                        if event:
-                            pts = (event.get("selection") or {}).get("points", [])
-                            if pts:
-                                cd = pts[0].get("customdata", [])
-                                if cd and len(cd) >= 4:
-                                    el_id    = cd[0]
-                                    el_type  = cd[1]
-                                    el_name  = cd[2]
-                                    el_cost  = float(cd[3] or 0)
-                                    currency = (st.session_state.layout or {}).get("project", {}).get("currency", "")
+            plan_col, legend_col = st.columns([5, 1], gap="small")
 
-                                    def _centroid(poly: list) -> tuple:
-                                        if not poly:
-                                            return (0, 0)
-                                        return (
-                                            sum(p[0] for p in poly) / len(poly),
-                                            sum(p[1] for p in poly) / len(poly),
-                                        )
+            with legend_col:
+                st.markdown(
+                    '<div style="padding-top:2.5rem">'
+                    + build_gh_legend(st.session_state.layout)
+                    + "</div>",
+                    unsafe_allow_html=True,
+                )
 
-                                    if el_type == "room":
-                                        all_rooms = st.session_state.layout.get("rooms", [])
-                                        room = next((r for r in all_rooms if r.get("id") == el_id), None)
-                                        if room:
-                                            cx, cy = _centroid(room.get("polygon", []))
-                                            st.session_state.selected_room = room
-                                            st.session_state.selected_element = {
-                                                "type": "room",
-                                                "id": el_id,
-                                                "name": room.get("name", el_name),
-                                                "cost": room.get("total_cost", el_cost),
-                                                "area": room.get("area_m2", 0),
-                                                "rate": room.get("rate_per_m2", 0),
-                                                "category": room.get("category", ""),
-                                                "currency": currency,
-                                                "cx": cx, "cy": cy,
-                                            }
-                                    else:
-                                        all_ops = (
-                                            st.session_state.layout.get("openings", [])
-                                            + st.session_state.layout.get("columns", [])
-                                        )
-                                        el_obj = next((o for o in all_ops if o.get("id") == el_id), None)
-                                        cx, cy = _centroid((el_obj or {}).get("polygon", []))
-                                        st.session_state.selected_room = None
+            with plan_col:
+                try:
+                    event = st.plotly_chart(
+                        fig, use_container_width=True,
+                        on_select="rerun", key="floor_plan_chart",
+                    )
+                    if event:
+                        pts = (event.get("selection") or {}).get("points", [])
+                        if pts:
+                            cd = pts[0].get("customdata", [])
+                            if cd and len(cd) >= 4:
+                                el_id    = cd[0]
+                                el_type  = cd[1]
+                                el_name  = cd[2]
+                                el_cost  = float(cd[3] or 0)
+                                currency = (st.session_state.layout or {}).get("project", {}).get("currency", "")
+
+                                def _centroid(poly: list) -> tuple:
+                                    if not poly:
+                                        return (0, 0)
+                                    return (
+                                        sum(p[0] for p in poly) / len(poly),
+                                        sum(p[1] for p in poly) / len(poly),
+                                    )
+
+                                if el_type == "room":
+                                    all_rooms = st.session_state.layout.get("rooms", [])
+                                    room = next((r for r in all_rooms if r.get("id") == el_id), None)
+                                    if room:
+                                        cx, cy = _centroid(room.get("polygon", []))
+                                        st.session_state.selected_room = room
                                         st.session_state.selected_element = {
-                                            "type": el_type,
+                                            "type": "room",
                                             "id": el_id,
-                                            "name": el_name or el_type.capitalize(),
-                                            "cost": el_cost,
-                                            "area": 0.0,
-                                            "rate": 0.0,
-                                            "category": "",
+                                            "name": room.get("name", el_name),
+                                            "cost": room.get("total_cost", el_cost),
+                                            "area": room.get("area_m2", 0),
+                                            "rate": room.get("rate_per_m2", 0),
+                                            "category": room.get("category", ""),
                                             "currency": currency,
                                             "cx": cx, "cy": cy,
                                         }
-                                    st.rerun()
-                    except TypeError:
-                        st.plotly_chart(fig, use_container_width=True)
+                                else:
+                                    all_ops = (
+                                        st.session_state.layout.get("openings", [])
+                                        + st.session_state.layout.get("columns", [])
+                                    )
+                                    el_obj = next((o for o in all_ops if o.get("id") == el_id), None)
+                                    cx, cy = _centroid((el_obj or {}).get("polygon", []))
+                                    st.session_state.selected_room = None
+                                    st.session_state.selected_element = {
+                                        "type": el_type,
+                                        "id": el_id,
+                                        "name": el_name or el_type.capitalize(),
+                                        "cost": el_cost,
+                                        "area": 0.0,
+                                        "rate": 0.0,
+                                        "category": "",
+                                        "currency": currency,
+                                        "cx": cx, "cy": cy,
+                                    }
+                                st.rerun()
+                except TypeError:
+                    st.plotly_chart(fig, use_container_width=True)
 
             # element info panel — appears below chart when any element is clicked
             _render_element_panel()
@@ -1096,15 +924,12 @@ with tab_floor:
                         elif "Area" in col:
                             fmt[col] = "{:.1f}"
 
-                    def _hl(row):
-                        return (["font-weight:bold;background:#f3f4f6;color:#111111"] * len(row)
-                                if row.get("Room") == "TOTAL" else [""] * len(row))
+                def _hl(row):
+                    return (["font-weight:bold;background:#f3f4f6;color:#111111"] * len(row)
+                            if row["Room"] == "TOTAL" else [""] * len(row))
 
-                    st.dataframe(df.style.apply(_hl, axis=1).format(fmt),
-                                 use_container_width=True, hide_index=True)
-                else:
-                    st.info("No cost data available in this layout.")
-                    
+                st.dataframe(df.style.apply(_hl, axis=1).format(fmt),
+                             use_container_width=True, hide_index=True)
         else:
             st.markdown("#### Floor Plan")
             st.info("Upload a **layout JSON** in the sidebar to see the interactive floor plan.")
@@ -1175,13 +1000,132 @@ with tab_floor:
             st.session_state.messages = []
             st.rerun()
 
+<<<<<<< Updated upstream
+    # ── cost pie charts (inside Floor Plan tab) ───────────────────────────────
+=======
     # ── COST BREAKDOWN TREEMAP (FULL WIDTH IN FLOOR PLAN TAB) ─────────────────
+>>>>>>> Stashed changes
     if st.session_state.layout:
         _layout   = st.session_state.layout
         _currency = _layout.get("project", {}).get("currency", "")
         _rooms    = _layout.get("rooms", [])
         _openings = _layout.get("openings", [])
         _cols     = _layout.get("columns", [])
+<<<<<<< Updated upstream
+        _doors    = [o for o in _openings if (o.get("type") or "").lower() == "door"]
+        _windows  = [o for o in _openings if (o.get("type") or "").lower() == "window"]
+
+        st.divider()
+        st.markdown("#### Cost Breakdown")
+
+        pie_r, pie_d, pie_w, pie_c = st.columns(4, gap="large")
+
+        def _pie_legend(labels, colors):
+            items = "".join(
+                f'<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'
+                f'<div style="width:10px;height:10px;border-radius:2px;background:{c};flex-shrink:0"></div>'
+                f'<span style="font-size:11px;color:#444;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{l}</span>'
+                f'</div>'
+                for l, c in zip(labels, colors)
+            )
+            return f'<div style="padding-top:4px">{items}</div>'
+
+        _PIE_LAYOUT = dict(
+            margin=dict(l=5, r=5, t=30, b=5),
+            paper_bgcolor="#ffffff",
+            showlegend=False,
+            height=220,
+        )
+
+        with pie_r:
+            if _rooms:
+                labels = [r.get("name", "") for r in _rooms]
+                values = [r.get("total_cost", 0) or 0 for r in _rooms]
+                room_min = min(values) if values else 0
+                room_max = max(values) if values else 1
+                room_span = (room_max - room_min) or 1
+                colors = [
+                    r.get("color_hex")
+                    or _lerp_color(((r.get("total_cost", 0) or 0) - room_min) / room_span)
+                    for r in _rooms
+                ]
+                fig_r = go.Figure(go.Pie(
+                    labels=labels, values=values,
+                    marker=dict(colors=colors, line=dict(color="#fff", width=1)),
+                    textinfo="percent",
+                    hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
+                    hole=0.4,
+                ))
+                fig_r.update_layout(title=dict(text="Rooms", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
+                st.plotly_chart(fig_r, use_container_width=True)
+                st.markdown(_pie_legend(labels, colors), unsafe_allow_html=True)
+
+        with pie_d:
+            if _doors:
+                d_labels = [d.get("subtype") or d.get("id") or "Door" for d in _doors]
+                d_values = [d.get("cost", 0) or 0 for d in _doors]
+                d_colors = [
+                    d.get("color_hex")
+                    or _cost_color_for_category(_layout, "doors", d.get("cost", 0) or 0, "#B27A41")
+                    for d in _doors
+                ]
+                fig_d = go.Figure(go.Pie(
+                    labels=d_labels, values=d_values,
+                    marker=dict(colors=d_colors, line=dict(color="#fff", width=1)),
+                    textinfo="percent",
+                    hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
+                    hole=0.4,
+                ))
+                fig_d.update_layout(title=dict(text="Doors", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
+                st.plotly_chart(fig_d, use_container_width=True)
+                st.markdown(_pie_legend(d_labels, d_colors), unsafe_allow_html=True)
+            else:
+                st.caption("No door data")
+
+        with pie_w:
+            if _windows:
+                w_labels = [w.get("subtype") or w.get("id") or "Window" for w in _windows]
+                w_values = [w.get("cost", 0) or 0 for w in _windows]
+                w_colors = [
+                    w.get("color_hex")
+                    or _cost_color_for_category(_layout, "windows", w.get("cost", 0) or 0, "#5AA0CD")
+                    for w in _windows
+                ]
+                fig_w = go.Figure(go.Pie(
+                    labels=w_labels, values=w_values,
+                    marker=dict(colors=w_colors, line=dict(color="#fff", width=1)),
+                    textinfo="percent",
+                    hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
+                    hole=0.4,
+                ))
+                fig_w.update_layout(title=dict(text="Windows", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
+                st.plotly_chart(fig_w, use_container_width=True)
+                st.markdown(_pie_legend(w_labels, w_colors), unsafe_allow_html=True)
+            else:
+                st.caption("No window data")
+
+        with pie_c:
+            if _cols:
+                c_labels = [c.get("subtype") or c.get("id") or "Column" for c in _cols]
+                c_values = [c.get("cost", 0) or 0 for c in _cols]
+                c_colors = [
+                    c.get("color_hex")
+                    or _cost_color_for_category(_layout, "columns", c.get("cost", 0) or 0, "#828282")
+                    for c in _cols
+                ]
+                fig_c = go.Figure(go.Pie(
+                    labels=c_labels, values=c_values,
+                    marker=dict(colors=c_colors, line=dict(color="#fff", width=1)),
+                    textinfo="percent",
+                    hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
+                    hole=0.4,
+                ))
+                fig_c.update_layout(title=dict(text="Columns", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
+                st.plotly_chart(fig_c, use_container_width=True)
+                st.markdown(_pie_legend(c_labels, c_colors), unsafe_allow_html=True)
+            else:
+                st.caption("No column data")
+=======
 
         st.divider()
         st.markdown("#### Economic Spatial Distribution")
@@ -1257,8 +1201,9 @@ with tab_floor:
         )
         
         st.plotly_chart(fig_tree, use_container_width=True)
+>>>>>>> Stashed changes
 
-# ────────────────────────────── ARCHITECTURAL ADVICE TAB ──────────────────────
+# ────────────────────────────── ARCHITECTURAL ADVICE ─────────────────────────
 with tab_advice:
     from nodes.arch_advice import (
         extract_materials_from_layout as _extract_layout_mats,
@@ -1522,7 +1467,197 @@ with tab_advice:
     else:
         st.info("Upload a layout to enable the cost × carbon matrix.")
 
+# ──────────────────────────── COST MATCHING ──────────────────────────────────
+with tab_match:
+    st.markdown("### Cost Matching")
+    st.caption(
+        "Enter your target budget — the advisor will suggest material and finish "
+        "changes per room to reach your cost as closely as possible."
+    )
 
+    if not st.session_state.layout:
+        st.info("Upload a layout in the sidebar to enable cost matching.")
+    else:
+        _cm_layout   = st.session_state.layout
+        _cm_currency = _cm_layout.get("project", {}).get("currency", "USD")
+        _cm_rooms    = _cm_layout.get("rooms", [])
+        _cm_summary  = _cm_layout.get("summary") or _cm_layout.get("totals") or {}
+        _cm_room_sum = sum(r.get("total_cost", 0) for r in _cm_rooms)
+        _cm_non_room = (
+            (_cm_summary.get("doors_total")   or _cm_summary.get("doors")   or 0) +
+            (_cm_summary.get("windows_total") or _cm_summary.get("windows") or 0) +
+            (_cm_summary.get("columns_total") or _cm_summary.get("columns") or 0)
+        )
+        _cm_grand = _cm_room_sum + _cm_non_room
+
+        _col_in, _col_cur = st.columns([2, 1])
+        with _col_in:
+            _cm_target = st.number_input(
+                f"Your target total cost ({_cm_currency})",
+                min_value=0,
+                value=int(_cm_grand),
+                step=1000,
+                format="%d",
+                key="cm_target_input",
+            )
+        with _col_cur:
+            st.metric("Current grand total", f"{_cm_grand:,.0f} {_cm_currency}")
+
+        if st.button("Match Cost", type="primary", key="cm_run_btn"):
+            from python_copilot import cost_match as _cost_match
+            st.session_state.cm_result = _cost_match(_cm_layout, float(_cm_target))
+
+        _cm_res = st.session_state.get("cm_result")
+        if _cm_res:
+            st.divider()
+            _pct   = _cm_res["match_pct"]
+            _adj   = _cm_res["adjusted_total"]
+            _tgt   = _cm_res["target"]
+            _delta = _adj - _cm_res["current_grand"]
+            _cur   = _cm_currency
+
+            # KPI row
+            _k1, _k2, _k3, _k4 = st.columns(4)
+            _k1.metric("Target",         f"{_tgt:,.0f} {_cur}")
+            _k2.metric("Adjusted total", f"{_adj:,.0f} {_cur}",
+                       delta=f"{_delta:+,.0f}")
+            _k3.metric("Gap remaining",  f"{abs(_tgt - _adj):,.0f} {_cur}")
+            _k4.metric("Similarity",     f"{_pct:.1f}%",
+                       delta=f"{'On target' if _pct >= 99 else 'Approx match'}")
+
+            # similarity bar
+            _bar_color = "#2ecc71" if _pct >= 90 else "#f39c12" if _pct >= 70 else "#e74c3c"
+            st.markdown(
+                f'<div style="background:#e9e9e9;border-radius:8px;height:18px;margin:6px 0 14px">'
+                f'<div style="background:{_bar_color};width:{min(_pct,100):.1f}%;height:100%;'
+                f'border-radius:8px;transition:width 0.5s"></div></div>',
+                unsafe_allow_html=True,
+            )
+
+            _sugg = _cm_res["suggestions"]
+            if not _sugg:
+                st.success("Plan is already at your target — no changes needed.")
+            else:
+                st.markdown(f"#### Suggested finish changes ({len(_sugg)} adjustment{'s' if len(_sugg)!=1 else ''})")
+
+                # header
+                _th = "".join(
+                    f'<th style="padding:6px 10px;text-align:left;background:#f0f0f0;'
+                    f'border-bottom:2px solid #ccc;white-space:nowrap">{h}</th>'
+                    for h in ["Room", "Surface", "From", f"Rate ({_cur}/m²)",
+                              "To", f"Rate ({_cur}/m²)", "Area m²",
+                              f"Delta ({_cur})", f"New room total ({_cur})"]
+                )
+                _rows_html = ""
+                for i, s in enumerate(_sugg):
+                    _bg  = "#ffffff" if i % 2 == 0 else "#f9f9f9"
+                    _d   = s["delta_cost"]
+                    _dc  = "#c0392b" if _d > 0 else "#27ae60"
+                    def _td(v, bold=False, color=None):
+                        _st = f'padding:5px 10px;white-space:nowrap;'
+                        if color: _st += f'color:{color};'
+                        if bold:  _st += 'font-weight:600;'
+                        return f'<td style="{_st}">{v}</td>'
+                    _rows_html += (
+                        f'<tr style="background:{_bg}">'
+                        + _td(s["room"], bold=True)
+                        + _td(s["surface"].capitalize())
+                        + _td(s["from_material"])
+                        + _td(f"{s['from_rate']:,.0f}")
+                        + _td(f"<b>{s['to_material']}</b>", bold=True)
+                        + _td(f"{s['to_rate']:,.0f}", bold=True)
+                        + _td(f"{s['area']:.1f}")
+                        + _td(f"{_d:+,.0f}", bold=True, color=_dc)
+                        + _td(f"{s['new_room_total']:,.0f}", bold=True)
+                        + "</tr>"
+                    )
+                st.markdown(
+                    f'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'
+                    f'<thead><tr>{_th}</tr></thead><tbody>{_rows_html}</tbody></table></div>',
+                    unsafe_allow_html=True,
+                )
+
+                # summary footer
+                _total_delta = sum(s["delta_cost"] for s in _sugg)
+                _dc_total = "#c0392b" if _total_delta > 0 else "#27ae60"
+                st.markdown(
+                    f'<p style="margin-top:10px;font-size:13px;color:#555">'
+                    f'Total adjustment: <b style="color:{_dc_total}">{_total_delta:+,.0f} {_cur}</b> '
+                    f'across {len(_sugg)} room{"s" if len(_sugg)!=1 else ""}. '
+                    f'Non-room costs (doors, windows, columns) are fixed at '
+                    f'<b>{_cm_non_room:,.0f} {_cur}</b>.</p>',
+                    unsafe_allow_html=True,
+                )
+
+            # ── Before / After bar chart ──────────────────────────────
+            st.divider()
+            st.markdown("#### Room Cost — Before vs After")
+            st.caption("Each room shows its original cost and the adjusted cost after suggested finish changes.")
+
+            _all_rooms   = _cm_layout.get("rooms", [])
+            _room_names  = [r.get("name", "") for r in _all_rooms]
+            _orig_costs  = [r.get("total_cost", 0) or 0 for r in _all_rooms]
+
+            # build adjusted costs map from suggestions
+            _adj_map = {r.get("name"): r.get("total_cost", 0) or 0 for r in _all_rooms}
+            if _sugg:
+                for _s in _sugg:
+                    _adj_map[_s["room"]] = _s["new_room_total"]
+            _adj_costs = [_adj_map.get(n, 0) for n in _room_names]
+
+            _bar_colors = [
+                "#27ae60" if _adj_map.get(n, 0) < (r.get("total_cost", 0) or 0)
+                else "#c0392b" if _adj_map.get(n, 0) > (r.get("total_cost", 0) or 0)
+                else "#95a5a6"
+                for n, r in zip(_room_names, _all_rooms)
+            ]
+
+            _fig_bar = go.Figure()
+            _fig_bar.add_trace(go.Bar(
+                name="Current cost",
+                x=_room_names,
+                y=_orig_costs,
+                marker_color="#aab4c8",
+                text=[f"{v:,.0f}" for v in _orig_costs],
+                textposition="outside",
+                hovertemplate="<b>%{x}</b><br>Current: %{y:,.0f} " + _cur + "<extra></extra>",
+            ))
+            _fig_bar.add_trace(go.Bar(
+                name="Adjusted cost",
+                x=_room_names,
+                y=_adj_costs,
+                marker_color=_bar_colors,
+                text=[f"{v:,.0f}" for v in _adj_costs],
+                textposition="outside",
+                hovertemplate="<b>%{x}</b><br>Adjusted: %{y:,.0f} " + _cur + "<extra></extra>",
+            ))
+            # target line
+            _fig_bar.add_hline(
+                y=_tgt / max(len(_room_names), 1),
+                line_dash="dot", line_color="#e67e22", line_width=1.5,
+                annotation_text=f"Target avg/room: {_tgt/max(len(_room_names),1):,.0f}",
+                annotation_position="top right",
+            )
+            _fig_bar.update_layout(
+                barmode="group",
+                paper_bgcolor="#ffffff",
+                plot_bgcolor="#f7f7f7",
+                font=dict(color="#111"),
+                height=380,
+                margin=dict(l=10, r=10, t=30, b=10),
+                legend=dict(orientation="h", yanchor="bottom", y=-0.25,
+                            xanchor="center", x=0.5),
+                yaxis=dict(title=f"Cost ({_cur})", gridcolor="#e5e5e5"),
+                xaxis=dict(tickangle=-20),
+            )
+            st.plotly_chart(_fig_bar, use_container_width=True)
+
+<<<<<<< Updated upstream
+
+
+
+=======
+>>>>>>> Stashed changes
 # ── multi-plan comparison (all saved plans) ─────────────────────────────────
 if len(st.session_state.layouts) >= 2:
     st.divider()

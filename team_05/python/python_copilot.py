@@ -113,6 +113,14 @@ def _route(user_input: str, layout: dict) -> str:
     if _mentions_finish(lower):
         return _recalculate_with_finish(user_input, lower, rooms, currency)
 
+    # 1c. window-cost analysis must be checked before generic "lower/save" routing.
+    if _mentions_window_query(lower):
+        return _window_cost_analysis(user_input, lower, layout, currency)
+
+    # 1d. door-cost analysis must be checked before generic "lower/save" routing.
+    if _mentions_door_query(lower):
+        return _door_cost_analysis(user_input, lower, layout, currency)
+
     # 2. cost-reduction advice
     if any(k in lower for k in ("reduce", "save", "cut", "lower", "cheaper", "how to")):
         return _cost_reduction_advice(user_input, rooms, currency)
@@ -351,13 +359,18 @@ def _recalculate_with_finish(user_input: str, lower: str, rooms: list, currency:
 # ── answer generators ─────────────────────────────────────────────────────────
 
 def _total_cost(rooms: list, currency: str, layout: dict) -> str:
-    # prefer pre-computed totals from GH JSON
-    totals = layout.get("totals", {})
-    room_total = totals.get("rooms", sum(r.get("total_cost", 0) for r in rooms))
-    door_total = totals.get("doors", 0)
-    win_total  = totals.get("windows", 0)
-    col_total  = totals.get("columns", 0)
-    grand      = totals.get("grand", room_total + door_total + win_total + col_total)
+    # support both "totals" (new) and "summary" (legacy GH export) key names
+    totals  = layout.get("totals") or {}
+    summary = layout.get("summary") or {}
+    room_total = (totals.get("rooms")
+                  or summary.get("rooms_total")
+                  or sum(r.get("total_cost", 0) for r in rooms))
+    door_total = totals.get("doors") or summary.get("doors_total") or 0
+    win_total  = totals.get("windows") or summary.get("windows_total") or 0
+    col_total  = totals.get("columns") or summary.get("columns_total") or 0
+    grand      = (totals.get("grand")
+                  or summary.get("grand_total")
+                  or room_total + door_total + win_total + col_total)
 
     lines = ["**Total project cost breakdown:**",
              f"  Room construction : {room_total:>12,.0f} {currency}"]
@@ -369,6 +382,174 @@ def _total_cost(rooms: list, currency: str, layout: dict) -> str:
         lines.append(f"  Columns           : {col_total:>12,.0f} {currency}")
     if grand != room_total:
         lines.append(f"  **Grand total**   : {grand:>12,.0f} {currency}")
+    return "\n".join(lines)
+
+
+def _mentions_window_query(lower: str) -> bool:
+    text = lower.replace("widows", "windows")
+    has_window_word = any(k in text for k in ("window", "windows"))
+    if not has_window_word:
+        return False
+    return any(
+        k in text for k in (
+            "cost", "total", "price", "breakdown", "alternative", "alternatives",
+            "option", "options", "premium", "cheaper", "lower-cost", "lower cost"
+        )
+    )
+
+
+def _mentions_door_query(lower: str) -> bool:
+    text = lower
+    has_door_word = any(k in text for k in ("door", "doors"))
+    if not has_door_word:
+        return False
+    return any(
+        k in text for k in (
+            "cost", "total", "price", "breakdown", "alternative", "alternatives",
+            "option", "options", "premium", "cheaper", "lower-cost", "lower cost"
+        )
+    )
+
+
+def _window_cost_analysis(user_input: str, lower: str, layout: dict, currency: str) -> str:
+    openings = layout.get("openings", [])
+    windows = [o for o in openings if (o.get("type") or "").lower() == "window"]
+    if not windows:
+        return "No windows were found in the current layout."
+
+    cur = currency or "USD"
+    current_total = float(sum((w.get("cost", 0) or 0) for w in windows))
+
+    totals = layout.get("totals", {})
+    current_grand = float(
+        totals.get(
+            "grand",
+            sum((r.get("total_cost", 0) or 0) for r in layout.get("rooms", []))
+            + sum((o.get("cost", 0) or 0) for o in openings)
+            + sum((c.get("cost", 0) or 0) for c in layout.get("columns", [])),
+        )
+    )
+
+    lines = [
+        f"**Window cost breakdown ({cur})**",
+        "",
+        f"| # | Window ID | Subtype | Linked room(s) | Cost ({cur}) |",
+        "|---|---|---|---|---|",
+    ]
+    for idx, w in enumerate(windows, 1):
+        rooms = ", ".join(w.get("linked_rooms", [])) or "-"
+        lines.append(
+            f"| {idx} | {w.get('id', '-')} | {w.get('subtype', '-')} | {rooms} | {float(w.get('cost', 0) or 0):,.0f} |"
+        )
+
+    lines += [
+        "",
+        f"**Current window total: {current_total:,.0f} {cur}**",
+        f"Current project grand total: {current_grand:,.0f} {cur}",
+    ]
+
+    ask_alternatives = any(
+        k in lower for k in ("alternative", "alternatives", "option", "options", "premium", "lower", "cheaper")
+    )
+    if not ask_alternatives:
+        return "\n".join(lines)
+
+    pic_sum = float(sum((w.get("cost", 0) or 0) for w in windows if str(w.get("subtype", "")).lower() == "picture_large"))
+    opt1_window = current_total - (pic_sum * 0.30)
+    opt2_window = current_total * 0.85
+    opt3_window = current_total * 1.20
+
+    alt_rows = [
+        ("Option A (lower cost)", "Replace picture_large with standard where possible", opt1_window),
+        ("Option B (lower cost)", "Reduce glazing spec one tier on all windows", opt2_window),
+        ("Option C (premium)", "Upgrade all windows to premium performance package", opt3_window),
+    ]
+
+    lines += [
+        "",
+        f"**Alternatives (window total + project delta):**",
+        "",
+        f"| Scenario | Assumption | Updated window total ({cur}) | Project grand total delta ({cur}) |",
+        "|---|---|---|---|",
+    ]
+
+    for label, assumption, new_window_total in alt_rows:
+        delta = new_window_total - current_total
+        lines.append(
+            f"| {label} | {assumption} | {new_window_total:,.0f} | {delta:+,.0f} |"
+        )
+
+    return "\n".join(lines)
+
+
+def _door_cost_analysis(user_input: str, lower: str, layout: dict, currency: str) -> str:
+    openings = layout.get("openings", [])
+    doors = [o for o in openings if (o.get("type") or "").lower() == "door"]
+    if not doors:
+        return "No doors were found in the current layout."
+
+    cur = currency or "USD"
+    current_total = float(sum((d.get("cost", 0) or 0) for d in doors))
+
+    totals = layout.get("totals", {})
+    current_grand = float(
+        totals.get(
+            "grand",
+            sum((r.get("total_cost", 0) or 0) for r in layout.get("rooms", []))
+            + sum((o.get("cost", 0) or 0) for o in openings)
+            + sum((c.get("cost", 0) or 0) for c in layout.get("columns", [])),
+        )
+    )
+
+    lines = [
+        f"**Door cost breakdown ({cur})**",
+        "",
+        f"| # | Door ID | Subtype | Linked room(s) | Cost ({cur}) |",
+        "|---|---|---|---|---|",
+    ]
+    for idx, d in enumerate(doors, 1):
+        rooms = ", ".join(d.get("linked_rooms", [])) or "-"
+        lines.append(
+            f"| {idx} | {d.get('id', '-')} | {d.get('subtype', '-')} | {rooms} | {float(d.get('cost', 0) or 0):,.0f} |"
+        )
+
+    lines += [
+        "",
+        f"**Current door total: {current_total:,.0f} {cur}**",
+        f"Current project grand total: {current_grand:,.0f} {cur}",
+    ]
+
+    ask_alternatives = any(
+        k in lower for k in ("alternative", "alternatives", "option", "options", "premium", "lower", "cheaper")
+    )
+    if not ask_alternatives:
+        return "\n".join(lines)
+
+    interior_sum = float(sum((d.get("cost", 0) or 0) for d in doors if str(d.get("subtype", "")).lower().startswith("interior")))
+    opt1_door = current_total - (interior_sum * 0.15)
+    opt2_door = current_total * 0.90
+    opt3_door = current_total * 1.20
+
+    alt_rows = [
+        ("Option A (lower cost)", "Switch interior doors to standard economy spec", opt1_door),
+        ("Option B (lower cost)", "Apply one-tier downspec to all door sets", opt2_door),
+        ("Option C (premium)", "Upgrade all doors to premium acoustic/fire-rated package", opt3_door),
+    ]
+
+    lines += [
+        "",
+        f"**Alternatives (door total + project delta):**",
+        "",
+        f"| Scenario | Assumption | Updated door total ({cur}) | Project grand total delta ({cur}) |",
+        "|---|---|---|---|",
+    ]
+
+    for label, assumption, new_door_total in alt_rows:
+        delta = new_door_total - current_total
+        lines.append(
+            f"| {label} | {assumption} | {new_door_total:,.0f} | {delta:+,.0f} |"
+        )
+
     return "\n".join(lines)
 
 
@@ -584,6 +765,147 @@ def _cost_reduction_advice(user_input: str, rooms: list, currency: str) -> str:
         f"\n  A 10% rate reduction → saves **{cost * 0.10:,.0f} {currency}**."
     )
     return "\n".join(advice)
+
+
+# =============================================================================
+# Cost matching — suggest finish changes to reach a target budget
+# =============================================================================
+
+def _rate_to_material(surface: str, rate: float) -> str:
+    """Return the material name whose rate is closest to the given rate."""
+    by_mat = (_COST_RATES
+              .get("room_finishes", {})
+              .get({"floor": "floor_finish", "wall": "wall_finish",
+                    "ceiling": "ceiling_material"}.get(surface, ""), {})
+              .get("by_material", {}))
+    if not by_mat:
+        return "standard"
+    closest = min(by_mat.items(), key=lambda kv: abs(float(kv[1]) - rate))
+    return closest[0]
+
+def cost_match(layout: dict, target_cost: float) -> dict:
+    """
+    Suggest floor/wall/ceiling finish changes per room to bring grand total
+    as close as possible to target_cost.
+
+    Returns:
+        adjusted_total  — grand total after all suggested changes
+        current_grand   — original grand total
+        target          — the requested target
+        match_pct       — 0-100 similarity score
+        suggestions     — list of {room, surface, from_material, from_rate,
+                                    to_material, to_rate, area, delta_cost, new_room_total}
+        currency        — currency string
+    """
+    rooms    = layout.get("rooms", [])
+    summary  = layout.get("summary") or layout.get("totals") or {}
+    currency = layout.get("project", {}).get("currency", "USD")
+
+    room_total = sum(r.get("total_cost", 0) for r in rooms)
+    non_room   = (
+        (summary.get("doors_total")   or summary.get("doors")   or 0) +
+        (summary.get("windows_total") or summary.get("windows") or 0) +
+        (summary.get("columns_total") or summary.get("columns") or 0)
+    )
+    current_grand = room_total + non_room
+
+    gap = target_cost - current_grand   # positive → need to spend more; negative → need to cut
+
+    if abs(gap) < 1:
+        return {
+            "adjusted_total": current_grand, "current_grand": current_grand,
+            "target": target_cost, "match_pct": 100.0,
+            "suggestions": [], "currency": currency,
+        }
+
+    # Build per-room candidate changes for all three surfaces
+    _SURFACE_FUNCS = {
+        "floor":   (_floor_rate,   "floor-finish"),
+        "wall":    (_wall_rate,    "wall-finish"),
+        "ceiling": (_ceiling_rate, "ceiling-finish"),
+    }
+    _ALL_MATERIALS = {
+        "floor":   [m for m in _FINISH_MATERIALS if m not in _FINISH_SURFACES],
+        "wall":    [m for m in _FINISH_MATERIALS if m not in _FINISH_SURFACES],
+        "ceiling": [m for m in _FINISH_MATERIALS if m not in _FINISH_SURFACES],
+    }
+
+    candidates = []  # (delta_per_m2, area, delta_total, room, surface, to_mat, to_rate, from_mat, from_rate)
+    for room in rooms:
+        area      = room.get("area_m2", 0) or 0
+        breakdown = room.get("_rate_breakdown", {})
+        if area <= 0:
+            continue
+        for surface, (rate_fn, finish_key) in _SURFACE_FUNCS.items():
+            cur_rate = breakdown.get(surface, rate_fn("default"))
+            cur_mat  = (room.get(finish_key)
+                        or _rate_to_material(surface, cur_rate))
+            for mat in _ALL_MATERIALS[surface]:
+                new_rate  = rate_fn(mat)
+                delta_per = new_rate - cur_rate
+                if delta_per == 0 or mat == cur_mat:
+                    continue
+                # only include if moves in the right direction
+                if (gap > 0 and delta_per > 0) or (gap < 0 and delta_per < 0):
+                    candidates.append({
+                        "delta_total": delta_per * area,
+                        "area": area,
+                        "room_obj": room,
+                        "surface": surface,
+                        "to_mat": mat,
+                        "to_rate": new_rate,
+                        "from_mat": cur_mat,
+                        "from_rate": cur_rate,
+                    })
+
+    # Sort: prefer candidates whose delta is closest to the remaining gap (greedy)
+    remaining = gap
+    suggestions = []
+    used_room_surface: set = set()
+
+    while abs(remaining) > 50 and candidates:
+        candidates.sort(key=lambda c: abs(abs(c["delta_total"]) - abs(remaining)))
+        best = None
+        for c in candidates:
+            key = (c["room_obj"].get("id"), c["surface"])
+            if key not in used_room_surface:
+                best = c
+                break
+        if best is None:
+            break
+
+        key = (best["room_obj"].get("id"), best["surface"])
+        used_room_surface.add(key)
+        candidates = [c for c in candidates if (c["room_obj"].get("id"), c["surface"]) != key]
+
+        room       = best["room_obj"]
+        delta      = best["delta_total"]
+        new_total  = room.get("total_cost", 0) + delta
+        remaining -= delta
+
+        suggestions.append({
+            "room":         room.get("name", ""),
+            "surface":      best["surface"],
+            "from_material": best["from_mat"],
+            "from_rate":    best["from_rate"],
+            "to_material":  best["to_mat"],
+            "to_rate":      best["to_rate"],
+            "area":         best["area"],
+            "delta_cost":   delta,
+            "new_room_total": new_total,
+        })
+
+    adjusted_grand = current_grand + (gap - remaining)
+    match_pct = max(0.0, 100.0 - abs(adjusted_grand - target_cost) / max(abs(target_cost), 1) * 100.0)
+
+    return {
+        "adjusted_total": round(adjusted_grand, 0),
+        "current_grand":  round(current_grand, 0),
+        "target":         target_cost,
+        "match_pct":      round(match_pct, 1),
+        "suggestions":    suggestions,
+        "currency":       currency,
+    }
 
 
 # =============================================================================
