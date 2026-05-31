@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any
 import logging
 from tools.boundary_embedding_matcher import match_boundaries as boundary_match_boundaries
-from team_06.python.nodes import topology
 
 logger = logging.getLogger(__name__)
 
