@@ -1,47 +1,17 @@
 
-<template>
-  <v-stage :config="stageConfig">
-    <v-layer>
-      <v-group v-for="room in rooms" :key="room.id">
-        <v-line
-          :points="flattenAndScale(room.geometry)"
-          :closed="true"
-          :fill="roomColors[room.attributes.program] || '#ddd'"
-          :stroke="'#333'"
-          :strokeWidth="2"
-        />
-        <v-text
-          :x="getLabelX(room.geometry)"
-          :y="getLabelY(room.geometry)"
-          :text="room.attributes.program"
-          fontFamily="Inter"
-          fontSize="18"
-          fill="#222"
-          :offsetX="getTextWidth(room.attributes.program, 18) / 2"
-          :offsetY="18 / 2"
-        />
-        <v-text
-          :x="getLabelX(room.geometry)"
-          :y="getLabelY(room.geometry) + 16"
-          :text="room.attributes.area ? `${room.attributes.area.toFixed(1)} m²` : ''"
-          fontFamily="Inter"
-          fontSize="14"
-          fill="#222"
-          :offsetX="getTextWidth(room.attributes.area ? `${room.attributes.area.toFixed(1)} m²` : '', 14) / 2"
-          :offsetY="14 / 2"
-        />
-      </v-group>
-    </v-layer>
-  </v-stage>
-</template>
-
 <script setup>
 import { ref, onMounted } from 'vue'
 import { Stage, Layer, Group, Line, Text } from 'vue-konva'
-import layoutData from '../assets/dummy/team_06_edited_layout.json'
+import layoutData from '../assets/dummy/layouts.json'
+
+const props = defineProps({
+  index: Number
+})
 
 const stageConfig = ref({ width: 600, height: 600 })
-const rooms = ref(layoutData.rooms)
+const layout = layoutData[props.index] || {}
+const layoutId = layout.layoutId || 'Layout'
+const rooms = layout.rooms || []
 
 const roomColors = {
   bed: '#4A7CA8',
@@ -56,7 +26,7 @@ const scale = 60; // 1 meter = 60 pixels
 
 // Compute bounding box for all rooms
 function getAllPoints() {
-  return rooms.value.flatMap(room => room.geometry)
+  return rooms.flatMap(room => room.geometry)
 }
 const allPoints = getAllPoints();
 const xs = allPoints.map(pt => pt[0]);
@@ -113,6 +83,44 @@ function getTextWidth(text, fontSize) {
   return ctx.measureText(String(text)).width;
 }
 </script>
+
+<template>
+  <v-stage :config="stageConfig">
+    <v-layer>
+      <v-group v-for="room in rooms" :key="room.id">
+        <v-line
+          :points="flattenAndScale(room.geometry)"
+          :closed="true"
+          :fill="roomColors[room.attributes.program] || '#ddd'"
+          :stroke="'#333'"
+          :strokeWidth="2"
+        />
+        <v-text
+          :x="getLabelX(room.geometry)"
+          :y="getLabelY(room.geometry)"
+          :text="room.attributes.program"
+          fontFamily="Inter"
+          fontSize="18"
+          fill="#222"
+          :offsetX="getTextWidth(room.attributes.program, 18) / 2"
+          :offsetY="18 / 2"
+        />
+        <v-text
+          :x="getLabelX(room.geometry)"
+          :y="getLabelY(room.geometry) + 16"
+          :text="room.attributes.area ? `${room.attributes.area.toFixed(1)} m²` : ''"
+          fontFamily="Inter"
+          fontSize="14"
+          fill="#222"
+          :offsetX="getTextWidth(room.attributes.area ? `${room.attributes.area.toFixed(1)} m²` : '', 14) / 2"
+          :offsetY="14 / 2"
+        />
+      </v-group>
+    </v-layer>
+  </v-stage>
+</template>
+
+
 
 <style scoped>
 </style>

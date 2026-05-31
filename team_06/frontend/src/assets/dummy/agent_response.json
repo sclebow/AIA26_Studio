@@ -1,0 +1,5 @@
+[
+  { "id": 0, "role": "agent", "text": "How many bedrooms do you need?", "timestamp": "..." },
+  { "id": 1, "role": "agent", "text": "Here is a layout suggestion. Are you happy with this layout, or would you like to explore more options?", "timestamp": "..." },
+  { "id": 2, "role": "agent", "text": "Added a home office. Anything else to change?", "timestamp": "..." }
+]

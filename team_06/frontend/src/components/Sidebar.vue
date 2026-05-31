@@ -5,24 +5,35 @@ import clockIcon from '../assets/icons/clock.svg'
 import boxIcon from '../assets/icons/box.svg'
 import messageIcon from '../assets/icons/message.svg'
 import SidebarHeader from './SidebarHeader.vue'
-const props = defineProps({ tab: String })
+import parsedInput from '../assets/dummy/parsed_input.json'
+
+const props = defineProps({
+  tab: String,
+  index: {
+    type: Number,
+    default: 0
+  }
+})
 const emit = defineEmits(['change'])
+const input = Array.isArray(parsedInput) && parsedInput.length > 0 ? parsedInput[props.index] : null
 </script>
 
 <template>
   <aside class="sidebar">
     <SidebarHeader :tab="props.tab" @change="emit('change', $event)" />
     <div class="sidebar-content">
-      <template v-if="props.tab==='create'">
+      <template v-if="props.tab==='brief'">
         <section class="sidebar-section">
           <div class="sidebar-section-title">
             <img :src="userIcon" alt="Households" width="20" height="20" />
             Households
           </div>
           <ul class="sidebar-list">
-            <li>Mark - 36</li>
-            <li>Sara - 32</li>
-            <li>Johnny - 2</li>
+            <li v-if="input && input.households && input.households.length" v-for="(h, i) in input.households" :key="i">
+              {{ h.name }}<span v-if="h.age && h.age !== 'int'"> - {{ h.age }}</span>
+              <span v-if="h.relationship"> - {{ h.relationship }}</span>
+            </li>
+            <li v-else>No input yet</li>
           </ul>
         </section>
         <section class="sidebar-section">
@@ -31,9 +42,10 @@ const emit = defineEmits(['change'])
             Routine
           </div>
           <ul class="sidebar-list">
-            <li>Morning - work</li>
-            <li>Afternoon - work</li>
-            <li>Evening - cook</li>
+            <li v-if="input && input.activities && input.activities.length" v-for="(a, i) in input.activities" :key="i">
+              {{ a.type }}<span v-if="a.time && a.time !== 'int'"> - {{ a.time }}</span>
+            </li>
+            <li v-else>No input yet</li>
           </ul>
         </section>
         <section class="sidebar-section">
@@ -42,9 +54,10 @@ const emit = defineEmits(['change'])
             Rooms
           </div>
           <ul class="sidebar-list">
-            <li>Bedroom - large</li>
-            <li>Bathroom - small</li>
-            <li>Foyer</li>
+            <li v-if="input && input.rooms && input.rooms.length" v-for="(r, i) in input.rooms" :key="i">
+              {{ r.type }}
+            </li>
+            <li v-else>No input yet</li>
           </ul>
         </section>
         <section class="sidebar-section">
@@ -53,10 +66,10 @@ const emit = defineEmits(['change'])
             Brief
           </div>
           <div class="sidebar-brief">
-            For the user, natural light is more important than the size of the room...
+            <span v-if="input && input.brief">{{ input.brief }}</span>
+            <span v-else>No input yet</span>
           </div>
         </section>
-       
       </template>
       <template v-else-if="props.tab==='explore'">
         <div class="sidebar-section-title">Explore (placeholder)</div>
@@ -65,14 +78,14 @@ const emit = defineEmits(['change'])
         <div class="sidebar-section-title">History (placeholder)</div>
       </template>
     </div>
-     <button class="create-layout-btn layout-btn ">Create Layout</button>
+    <button class="update-brief-btn layout-btn">Update Brief</button>
   </aside>
 </template>
 
 <style scoped>
 .sidebar {
-  width: 320px;
-  min-width: 320px;
+  width: 300px;
+  min-width: 300px;
   background: white;
   display: flex;
   flex-direction: column;
@@ -95,7 +108,7 @@ const emit = defineEmits(['change'])
   display: flex;
   align-items: center;
   font-size: var(--font-size-bold);
-  font-weight: var(--font-weight-bold);
+  font-weight: 600;
   margin-bottom: 24px;
   color: var(--color-text-primary);
   gap: 8px;
@@ -118,7 +131,7 @@ const emit = defineEmits(['change'])
   margin-bottom: 12px;
   border: 1px solid var(--color-border);
 }
-.create-layout-btn{
+.update-brief-btn{
     margin-bottom: 28px;
 }
 

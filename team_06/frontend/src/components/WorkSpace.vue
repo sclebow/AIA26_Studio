@@ -5,6 +5,13 @@ import chevronIcon from '../assets/icons/chevron.svg'
 import ToolBar from './ToolBar.vue'
 import LayoutCanvas from './LayoutCanvas.vue'
 import LayoutCard from './LayoutCard.vue'
+
+const props = defineProps({
+  index: {
+    type: Number,
+    default: 0
+  }
+})
 </script>
 
 <template>
@@ -17,9 +24,9 @@ import LayoutCard from './LayoutCard.vue'
       </div>
       <div class="canvas-area">
         <div class="canvas-container">
-          <LayoutCanvas />
+          <LayoutCanvas :index="props.index" />
         </div>
-         <LayoutCard />
+         <LayoutCard :index="props.index" />
       </div>
   </aside>
 </template>
