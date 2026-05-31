@@ -1,0 +1,22 @@
+Spatial Flow Agent
+==================
+
+# Description
+The Spatial Flow Agent optimizes industrial floor plan layouts by intelligently placing and analyzing equipment in factories, workshops, warehouses, assembly halls, and clean rooms. It uses OSHA, NFPA, and ISO standards to evaluate collision clearances, path efficiency, visibility, reachability, and equipment orientation. The agent builds a spatial relationship graph connecting all objects, walls, windows, and doors ; then uses this graph to reason about workflow logic, proximity constraints, and industrial standards when placing or relocating equipment. It accepts natural language spatial descriptions, resolves complex multi-object dependencies, and iteratively adjusts placements using exact move vectors until the layout meets industrial safety and ergonomic standards.
+
+# Example Prompts
+
+1. "The production line in the clean room is too congested. the conveyors and packaging stations are blocking the main circulation path from the loading dock to the assembly area. Reorganize them so workers and material flow can move freely without crossing each other."
+   - The Spatial Flow Agent analyzes the spatial relationship graph to identify which conveyors and packaging stations have near edges to the main circulation corridor. It evaluates path efficiency scores between the loading dock and assembly stations, identifies the specific objects causing blockages, relocates them to maintain the production flow sequence while opening a minimum 1.2m OSHA-compliant corridor, and verifies that all stations remain reachable and visible after reorganization.
+
+2. "The CNC machine needs to move, it's too close to the wall and maintenance workers can't access the rear. Move it and everything that depends on it to a better location in the room."
+   - The Spatial Flow Agent reads the spatial graph to find all objects with near edges to the CNC machine — parts racks supplying it, conveyors feeding output, any QC stations downstream. It switches to the maintenance worker profile, calculates a new zone with 1.0m rear clearance per ANSI B11, relocates the CNC and its dependent cluster maintaining their relative positions and workflow sequence, then runs full collision, path, and reachability analysis to confirm the new configuration is compliant.
+
+3. "We're adding a forklift route through the warehouse but I'm worried the existing equipment layout won't support it. Check what needs to move and suggest a configuration that works for both forklifts and standard workers."
+   - The Spatial Flow Agent switches to the forklift movement profile (3.05m corridor, 2.5m turning radius per ANSI B56.1) and runs a full reachability analysis. It identifies every object blocking the forklift path, cross-references with the standard worker profile to find objects that need to stay accessible to both, proposes relocations that satisfy both profiles simultaneously, and reports the trade-offs if any conflict cannot be resolved.
+
+4. "I need to set up a quality control zone near the end of the production line. It should have good visibility of the packaging stations, be close to the labeling area, and not block the loading dock access."
+   - The Spatial Flow Agent reasons about the spatial graph to find a zone that satisfies all three constraints simultaneously — visibility edges to packaging stations, near edges to the labeling area within 3m, and no overlap with the door clearance zone of the loading dock. It computes isovist visibility polygons at standing height (1.55m) to verify sightlines, places the QC station cluster with correct ergonomic heights, and runs the full analysis pipeline to confirm compliance.
+
+5. "This layout is empty, set up a standard clean room production line for electronic assembly with proper material flow from the loading dock to the exit."
+   - The Spatial Flow Agent analyzes the room geometry and door positions to identify the material flow axis. It selects equipment from the industrial knowledge base appropriate for electronic assembly (ESD-safe workstations, controlled conveyors, inspection stations), divides the room into functional zones (receiving, assembly, QC, packaging, dispatch), places all equipment in workflow sequence maintaining OSHA clearances and ISO 14644 clean room requirements, and runs full spatial analysis after each placement to ensure the complete layout is compliant before presenting the result.

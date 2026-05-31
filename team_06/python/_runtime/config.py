@@ -95,7 +95,7 @@ def load_settings() -> Settings:
     mcp_json_path = _repo_root() / "mcp.json"
     mcp_server_key, mcp_endpoint = _load_mcp_server_from_json(mcp_json_path)
 
-    timeout_value = os.environ.get("REQUEST_TIMEOUT_SECONDS", "30")
+    timeout_value = os.environ.get("REQUEST_TIMEOUT_SECONDS", "60")
     max_iterations_value = os.environ.get("MAX_ITERATIONS", "4")
 
     llm_provider = _required_env("LLM_PROVIDER").strip().lower()

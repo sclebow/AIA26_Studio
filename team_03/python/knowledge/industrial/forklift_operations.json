@@ -1,0 +1,87 @@
+{
+  "source": "OSHA 29 CFR 1910.178 + ANSI/ITSDF B56.1 Safety Standard for Low Lift and High Lift Trucks",
+  "topic": "Forklift operation clearances, turning radii, and aisle requirements",
+  "facts": [
+    {
+      "rule": "forklift_standard_width",
+      "value_m": 1.220,
+      "context": "Typical counterbalance forklift body width (2-3 ton class)"
+    },
+    {
+      "rule": "forklift_standard_length_with_forks",
+      "value_m": 3.500,
+      "context": "Overall length including forks extended — used for aisle turn calculation"
+    },
+    {
+      "rule": "forklift_turning_radius_min",
+      "value_m": 2.100,
+      "context": "Minimum turning radius for standard 2-ton counterbalance forklift (inside radius)"
+    },
+    {
+      "rule": "forklift_turning_radius_operating",
+      "value_m": 2.500,
+      "context": "Operating turning radius including load swing — use this for layout clearance"
+    },
+    {
+      "rule": "aisle_width_forklift_90deg_turn",
+      "value_m": 3.660,
+      "context": "ANSI B56.1 — minimum aisle width to execute a 90-degree turn with standard load"
+    },
+    {
+      "rule": "aisle_width_forklift_one_way_no_turn",
+      "value_m": 2.440,
+      "context": "Straight one-way forklift travel with no turning — minimum clear width"
+    },
+    {
+      "rule": "aisle_width_forklift_two_way",
+      "value_m": 4.270,
+      "context": "Two-way forklift traffic — two vehicle widths + 0.6m clearance each side"
+    },
+    {
+      "rule": "forklift_pedestrian_separation_min",
+      "value_m": 1.830,
+      "context": "OSHA 1910.178(g) — dedicated pedestrian lane min 6 ft when co-located with forklift traffic"
+    },
+    {
+      "rule": "forklift_speed_limit_indoor",
+      "value": 8.000,
+      "unit": "km/h",
+      "context": "Typical indoor speed limit — affects stopping distance and safety zone radius"
+    },
+    {
+      "rule": "forklift_stopping_distance_loaded",
+      "value_m": 2.750,
+      "context": "Approximate stopping distance at 8km/h with full load — clear zone ahead of machine"
+    },
+    {
+      "rule": "forklift_clearance_to_wall",
+      "value_m": 0.600,
+      "context": "Minimum side clearance between forklift path and fixed wall or structure"
+    },
+    {
+      "rule": "forklift_clearance_to_machinery",
+      "value_m": 0.900,
+      "context": "Minimum clearance between forklift operating zone and fixed machinery — OSHA general"
+    },
+    {
+      "rule": "loading_zone_depth_forklift",
+      "value_m": 6.100,
+      "context": "Depth of loading/staging zone for forklift to maneuver with loaded pallet (20 ft)"
+    },
+    {
+      "rule": "forklift_blind_corner_clearance",
+      "value_m": 1.500,
+      "context": "Extra clearance at corridor intersections and blind corners for forklift approach"
+    },
+    {
+      "rule": "overhead_clearance_forklift_mast_raised",
+      "value_m": 4.500,
+      "context": "Minimum ceiling/beam clearance when forklift mast is fully raised (3-ton class)"
+    },
+    {
+      "rule": "charging_station_clearance",
+      "value_m": 1.200,
+      "context": "Minimum clear zone around forklift battery charging stations — ventilation + access"
+    }
+  ]
+}

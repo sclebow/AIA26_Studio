@@ -42,8 +42,13 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path):
             # Call the tool
             tool_output = mcp_client.call_tool(tool_name, tool_args)
 
-            # Store the updated layout returned by the MCP tool to a json file
-            write_tool_result(tool_output, edited_layout_path)
+            # Only persist results that look like a layout (have layoutId or rooms)
+            try:
+                _parsed = json.loads(tool_output.strip())
+                if isinstance(_parsed, dict) and ("layoutId" in _parsed or "rooms" in _parsed):
+                    write_tool_result(tool_output, edited_layout_path)
+            except (json.JSONDecodeError, AttributeError):
+                pass
 
             # If the tool returned valid JSON, update the layout in state so
             # subsequent tool calls in this loop receive the latest layout.

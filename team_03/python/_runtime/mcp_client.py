@@ -17,7 +17,8 @@ class McpClient:
         self._request_id += 1
         return self._request_id
 
-    def _rpc(self, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _rpc(self, method: str, params: dict[str, Any] | None = None,
+             timeout: float | None = None) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "jsonrpc": "2.0",
             "id": self._next_id(),
@@ -26,7 +27,8 @@ class McpClient:
         if params is not None:
             payload["params"] = params
 
-        response = self._client.post(self._endpoint, json=payload)
+        response = self._client.post(self._endpoint, json=payload,
+                                     timeout=timeout)
         response.raise_for_status()
 
         body = response.json()
@@ -63,8 +65,8 @@ class McpClient:
             raise RuntimeError("tools/list result missing 'tools' array")
         return tools
 
-    def call_tool(self, name: str, arguments: dict[str, Any]) -> str:
-        result = self._rpc("tools/call", {"name": name, "arguments": arguments})
+    def call_tool(self, name: str, arguments: dict[str, Any], timeout: float | None = None) -> str:
+        result = self._rpc("tools/call", {"name": name, "arguments": arguments}, timeout=timeout)
 
         content = result.get("content")
         if isinstance(content, list):

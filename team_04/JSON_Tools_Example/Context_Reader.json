@@ -1,0 +1,109 @@
+{
+  "tool_name": "context_reader",
+  "site_id": "SITE_001",
+  "input": {
+    "roads": [
+      {
+        "road_id": "ROAD_001",
+        "name": "Main Street",
+        "type": "primary",
+        "polyline_coordinates": [
+          [-20.0, -5.0],
+          [15.0, -2.0],
+          [65.0, 0.0]
+        ],
+        "width": 12.0,
+        "units": "meters"
+      },
+      {
+        "road_id": "ROAD_002",
+        "name": "East Lane",
+        "type": "secondary",
+        "polyline_coordinates": [
+          [60.0, 5.0],
+          [62.0, 30.0],
+          [58.0, 60.0]
+        ],
+        "width": 7.0,
+        "units": "meters"
+      }
+    ],
+    "trees": [
+      {
+        "tree_id": "TREE_001",
+        "species": "Oak",
+        "geometry_type": "cylinder",
+        "location": [12.5, 18.0, 0.0],
+        "trunk_radius": 0.35,
+        "canopy_radius": 4.5,
+        "height": 9.0,
+        "units": "meters"
+      },
+      {
+        "tree_id": "TREE_002",
+        "species": "Maple",
+        "geometry_type": "brep",
+        "location": [38.0, 44.0, 0.0],
+        "bounding_box": {
+          "min": [35.0, 41.0, 0.0],
+          "max": [41.0, 47.0, 8.5]
+        },
+        "units": "meters"
+      }
+    ],
+    "neighboring_buildings": [
+      {
+        "building_id": "NB_001",
+        "name": "North Apartments",
+        "geometry_type": "brep",
+        "footprint_coordinates": [
+          [8.0, 62.0],
+          [28.0, 62.0],
+          [28.0, 78.0],
+          [8.0, 78.0],
+          [8.0, 62.0]
+        ],
+        "height": 24.0,
+        "floors": 8,
+        "units": "meters"
+      },
+      {
+        "building_id": "NB_002",
+        "name": "West Office",
+        "geometry_type": "brep",
+        "footprint_coordinates": [
+          [-28.0, 10.0],
+          [-8.0, 10.0],
+          [-8.0, 35.0],
+          [-28.0, 35.0],
+          [-28.0, 10.0]
+        ],
+        "height": 18.0,
+        "floors": 5,
+        "units": "meters"
+      }
+    ],
+    "entrances": [
+      {
+        "entrance_id": "ENT_001",
+        "type": "vehicle",
+        "point": [21.0, 0.0, 0.0]
+      },
+      {
+        "entrance_id": "ENT_002",
+        "type": "pedestrian",
+        "point": [58.0, 22.0, 0.0]
+      }
+    ]
+  },
+  "output": {
+    "road_count": 2,
+    "tree_count": 2,
+    "neighboring_building_count": 2,
+    "entrance_count": 2,
+    "primary_access_edge": "south",
+    "high_noise_zone": "southwest",
+    "best_view_direction": "north",
+    "recommended_entry_point": [21.0, 0.0, 0.0]
+  }
+}

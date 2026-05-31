@@ -1,0 +1,64 @@
+{
+  "tool_name": "site_fit_checker",
+  "check_id": "FIT_001",
+  "input": {
+    "site_boundary_reader_output": {
+      "site_id": "SITE_001",
+      "site_area": {
+        "value": 2400.0,
+        "units": "square_meters"
+      },
+      "closed_site_boundary_curve": [
+        [0.0, 0.0],
+        [48.0, 0.0],
+        [62.0, 18.0],
+        [55.0, 44.0],
+        [20.0, 58.0],
+        [0.0, 34.0],
+        [0.0, 0.0]
+      ]
+    },
+    "shape_library_loader_output": {
+      "shape_id": "BLDG_001",
+      "shape_type": "L_shape",
+      "footprint_area": {
+        "value": 1320.0,
+        "units": "square_meters"
+      },
+      "footprint_coordinates": [
+        [8.0, 8.0],
+        [38.0, 8.0],
+        [38.0, 18.0],
+        [20.0, 18.0],
+        [20.0, 42.0],
+        [8.0, 42.0],
+        [8.0, 8.0]
+      ],
+      "rotation_angle": 0.0
+    }
+  },
+  "output": {
+    "fit_result": true,
+    "checks": {
+      "inside_site_boundary": true,
+      "self_intersection_free": true,
+      "footprint_area_valid": true,
+      "boundary_overlap_detected": false
+    },
+    "clearance": {
+      "minimum_distance_to_site_edge": {
+        "value": 4.2,
+        "units": "meters"
+      },
+      "recommended_margin": {
+        "value": 3.0,
+        "units": "meters"
+      }
+    },
+    "summary": {
+      "shape_can_fit_on_site": true,
+      "reason": "All footprint vertices lie within the site boundary and no overlap with edges detected."
+    },
+    "status": "site_fit_check_complete"
+  }
+}

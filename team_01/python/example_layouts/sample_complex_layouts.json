@@ -1,0 +1,557 @@
+[
+  {
+    "layoutId": "layout-1-large",
+    "apartment": {
+      "id": "layout-1-large",
+      "name": "Large Sample A - Family Rectangle",
+      "geometry": [
+        [
+          0,
+          0
+        ],
+        [
+          14,
+          0
+        ],
+        [
+          14,
+          10
+        ],
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "attributes": {
+        "area": 140.0
+      }
+    },
+    "outline": [
+      [
+        0,
+        0
+      ],
+      [
+        14,
+        0
+      ],
+      [
+        14,
+        10
+      ],
+      [
+        0,
+        10
+      ],
+      [
+        0,
+        0
+      ]
+    ],
+    "rooms": [
+      {
+        "id": "room-1",
+        "name": "Living Room",
+        "geometry": [
+          [
+            0,
+            0
+          ],
+          [
+            5,
+            0
+          ],
+          [
+            5,
+            5
+          ],
+          [
+            0,
+            5
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        "attributes": {
+          "area": 25.0,
+          "program": "living"
+        }
+      },
+      {
+        "id": "room-2",
+        "name": "Kitchen Dining",
+        "geometry": [
+          [
+            0,
+            5
+          ],
+          [
+            5,
+            5
+          ],
+          [
+            5,
+            10
+          ],
+          [
+            0,
+            10
+          ],
+          [
+            0,
+            5
+          ]
+        ],
+        "attributes": {
+          "area": 25.0,
+          "program": "kitchen_dining"
+        }
+      },
+      {
+        "id": "room-3",
+        "name": "Central Hall",
+        "geometry": [
+          [
+            5,
+            0
+          ],
+          [
+            8,
+            0
+          ],
+          [
+            8,
+            10
+          ],
+          [
+            5,
+            10
+          ],
+          [
+            5,
+            0
+          ]
+        ],
+        "attributes": {
+          "area": 30.0,
+          "program": "circulation"
+        }
+      },
+      {
+        "id": "room-4",
+        "name": "Master Bedroom",
+        "geometry": [
+          [
+            8,
+            0
+          ],
+          [
+            14,
+            0
+          ],
+          [
+            14,
+            4
+          ],
+          [
+            8,
+            4
+          ],
+          [
+            8,
+            0
+          ]
+        ],
+        "attributes": {
+          "area": 24.0,
+          "program": "bedroom"
+        }
+      },
+      {
+        "id": "room-5",
+        "name": "Bathroom",
+        "geometry": [
+          [
+            8,
+            4
+          ],
+          [
+            11,
+            4
+          ],
+          [
+            11,
+            7
+          ],
+          [
+            8,
+            7
+          ],
+          [
+            8,
+            4
+          ]
+        ],
+        "attributes": {
+          "area": 9.0,
+          "program": "bathroom"
+        }
+      },
+      {
+        "id": "room-6",
+        "name": "Study Guest Room",
+        "geometry": [
+          [
+            11,
+            4
+          ],
+          [
+            14,
+            4
+          ],
+          [
+            14,
+            7
+          ],
+          [
+            11,
+            7
+          ],
+          [
+            11,
+            4
+          ]
+        ],
+        "attributes": {
+          "area": 9.0,
+          "program": "study_guest"
+        }
+      },
+      {
+        "id": "room-7",
+        "name": "Bedroom 2",
+        "geometry": [
+          [
+            8,
+            7
+          ],
+          [
+            14,
+            7
+          ],
+          [
+            14,
+            10
+          ],
+          [
+            8,
+            10
+          ],
+          [
+            8,
+            7
+          ]
+        ],
+        "attributes": {
+          "area": 18.0,
+          "program": "bedroom"
+        }
+      }
+    ],
+    "doors": [
+      {
+        "id": "door-1",
+        "name": "Door 1",
+        "geometry": [
+          [
+            5,
+            2.5
+          ]
+        ],
+        "attributes": {
+          "connectsRooms": [
+            "room-1",
+            "room-3"
+          ]
+        }
+      },
+      {
+        "id": "door-2",
+        "name": "Door 2",
+        "geometry": [
+          [
+            5,
+            7.5
+          ]
+        ],
+        "attributes": {
+          "connectsRooms": [
+            "room-2",
+            "room-3"
+          ]
+        }
+      },
+      {
+        "id": "door-3",
+        "name": "Door 3",
+        "geometry": [
+          [
+            8,
+            2.0
+          ]
+        ],
+        "attributes": {
+          "connectsRooms": [
+            "room-3",
+            "room-4"
+          ]
+        }
+      },
+      {
+        "id": "door-4",
+        "name": "Door 4",
+        "geometry": [
+          [
+            8,
+            5.5
+          ]
+        ],
+        "attributes": {
+          "connectsRooms": [
+            "room-3",
+            "room-5"
+          ]
+        }
+      },
+      {
+        "id": "door-5",
+        "name": "Door 5",
+        "geometry": [
+          [
+            11,
+            5.5
+          ]
+        ],
+        "attributes": {
+          "connectsRooms": [
+            "room-5",
+            "room-6"
+          ]
+        }
+      },
+      {
+        "id": "door-6",
+        "name": "Door 6",
+        "geometry": [
+          [
+            8,
+            8.5
+          ]
+        ],
+        "attributes": {
+          "connectsRooms": [
+            "room-3",
+            "room-7"
+          ]
+        }
+      }
+    ],
+    "facades": [
+      {
+        "id": "facade-1",
+        "name": "Facade 1",
+        "geometry": [
+          [
+            0,
+            0
+          ],
+          [
+            14,
+            0
+          ]
+        ],
+        "attributes": {
+          "type": "exterior",
+          "length": 14.0
+        }
+      },
+      {
+        "id": "facade-2",
+        "name": "Facade 2",
+        "geometry": [
+          [
+            14,
+            0
+          ],
+          [
+            14,
+            10
+          ]
+        ],
+        "attributes": {
+          "type": "exterior",
+          "length": 10.0
+        }
+      },
+      {
+        "id": "facade-3",
+        "name": "Facade 3",
+        "geometry": [
+          [
+            14,
+            10
+          ],
+          [
+            0,
+            10
+          ]
+        ],
+        "attributes": {
+          "type": "exterior",
+          "length": 14.0
+        }
+      },
+      {
+        "id": "facade-4",
+        "name": "Facade 4",
+        "geometry": [
+          [
+            0,
+            10
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        "attributes": {
+          "type": "exterior",
+          "length": 10.0
+        }
+      }
+    ],
+    "circulation": [
+      {
+        "id": "circulation-1",
+        "name": "Main hall spine",
+        "geometry": [
+          [
+            6.5,
+            0
+          ],
+          [
+            6.5,
+            10
+          ]
+        ],
+        "attributes": {
+          "type": "circulation_centerline",
+          "length": 10.0
+        }
+      }
+    ],
+    "windows": [
+      {
+        "id": "window-1",
+        "name": "Window 1",
+        "geometry": [
+          [
+            1,
+            0
+          ],
+          [
+            4,
+            0
+          ]
+        ],
+        "attributes": {
+          "connectsRooms": [
+            "room-1"
+          ],
+          "type": "exterior_window",
+          "length": 3.0
+        }
+      },
+      {
+        "id": "window-2",
+        "name": "Window 2",
+        "geometry": [
+          [
+            1,
+            10
+          ],
+          [
+            4,
+            10
+          ]
+        ],
+        "attributes": {
+          "connectsRooms": [
+            "room-2"
+          ],
+          "type": "exterior_window",
+          "length": 3.0
+        }
+      },
+      {
+        "id": "window-3",
+        "name": "Window 3",
+        "geometry": [
+          [
+            10,
+            0
+          ],
+          [
+            13,
+            0
+          ]
+        ],
+        "attributes": {
+          "connectsRooms": [
+            "room-4"
+          ],
+          "type": "exterior_window",
+          "length": 3.0
+        }
+      },
+      {
+        "id": "window-4",
+        "name": "Window 4",
+        "geometry": [
+          [
+            10,
+            10
+          ],
+          [
+            13,
+            10
+          ]
+        ],
+        "attributes": {
+          "connectsRooms": [
+            "room-7"
+          ],
+          "type": "exterior_window",
+          "length": 3.0
+        }
+      }
+    ],
+    "furniture": [],
+    "mep": [],
+    "structure": [],
+    "rooms_summary": "1 bathroom, 2 bedroom, 1 circulation, 1 kitchen_dining, 1 living, 1 study_guest",
+    "attributes": {
+      "units": "meters",
+      "scale_assumption": "1 coordinate unit = 1 meter",
+      "minimum_exterior_wall_segment_m": 3.5,
+      "minimum_interior_wall_segment_m": 2.5,
+      "intended_use": "larger residential plot dataset samples"
+    }
+  }
+]
