@@ -6,12 +6,18 @@ import ToolBar from './ToolBar.vue'
 import LayoutCanvas from './LayoutCanvas.vue'
 import LayoutCard from './LayoutCard.vue'
 
+import { watch } from 'vue'
 const props = defineProps({
   agentState: {
     type: Object,
     default: null
   }
 })
+watch(() => props.agentState, (val) => {
+  console.log('WorkSpace agentState changed:', val)
+})
+console.log('WorkSpace received agentState:', props.agentState);
+console.log('WorkSpace agentState:', props.agentState);
 </script>
 
 <template>
@@ -26,7 +32,7 @@ const props = defineProps({
         <div class="canvas-container">
           <LayoutCanvas :layout="props.agentState" />
         </div>
-        <LayoutCard v-if="props.agentState && props.agentState.rooms && props.agentState.rooms.length" :layout="props.agentState" />
+        <LayoutCard :layout="props.agentState" />
       </div>
   </aside>
 </template>

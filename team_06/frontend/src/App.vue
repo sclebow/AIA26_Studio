@@ -2,8 +2,8 @@
   <div id="app">
     <div class="app-layout">
       <Sidebar :tab="tab" @change="tab = $event" :parsedInput="parsedInput" />
-      <WorkSpace :index="currentIndex" />
-      <ChatPanel :chat="chatHistory" @send="handleUserMessage" :index="currentIndex" />
+      <WorkSpace :agentState="agentState" />
+      <ChatPanel :chat="chatHistory" @send="handleUserMessage" />
     </div>
   </div>
 </template>
@@ -55,10 +55,11 @@ function mockAgentResponse(messages) {
     return {
       text: 'Here is a layout suggestion. Are you happy with this layout, or would you like to explore more options?',
       layout: {
+        layoutId: 'Layout 1',
         rooms: [
-          { id: 1, geometry: [[0,0],[0,40],[40,40],[40,0]], attributes: { program: 'bedroom', area: 16 } },
-          { id: 2, geometry: [[50,0],[50,40],[90,40],[90,0]], attributes: { program: 'kitchen', area: 16 } },
-          { id: 3, geometry: [[0,50],[0,90],[90,90],[90,50]], attributes: { program: 'living', area: 36 } }
+          { id: 1, name: 'Bedroom', geometry: [[0,0],[0,40],[40,40],[40,0]], attributes: { program: 'bedroom', area: 16 } },
+          { id: 2, name: 'Kitchen', geometry: [[50,0],[50,40],[90,40],[90,0]], attributes: { program: 'kitchen', area: 16 } },
+          { id: 3, name: 'Living', geometry: [[0,50],[0,90],[90,90],[90,50]], attributes: { program: 'living', area: 36 } }
         ]
       },
       parsedInput: {
@@ -81,11 +82,12 @@ function mockAgentResponse(messages) {
   return {
     text: 'Here is an updated layout with a workspace. Anything else to add?',
     layout: {
+      layoutId: 'Layout 2',
       rooms: [
-        { id: 1, geometry: [[0,0],[0,40],[40,40],[40,0]], attributes: { program: 'bedroom', area: 16 } },
-        { id: 2, geometry: [[50,0],[50,40],[90,40],[90,0]], attributes: { program: 'kitchen', area: 16 } },
-        { id: 3, geometry: [[0,50],[0,90],[90,90],[90,50]], attributes: { program: 'living', area: 36 } },
-        { id: 4, geometry: [[100,0],[100,30],[130,30],[130,0]], attributes: { program: 'workspace', area: 9 } }
+        { id: 1, name: 'Bedroom', geometry: [[0,0],[0,40],[40,40],[40,0]], attributes: { program: 'bedroom', area: 16 } },
+        { id: 2, name: 'Kitchen', geometry: [[50,0],[50,40],[90,40],[90,0]], attributes: { program: 'kitchen', area: 16 } },
+        { id: 3, name: 'Living', geometry: [[0,50],[0,90],[90,90],[90,50]], attributes: { program: 'living', area: 36 } },
+        { id: 4, name: 'Workspace', geometry: [[100,0],[100,30],[130,30],[130,0]], attributes: { program: 'workspace', area: 9 } }
       ]
     },
     parsedInput: {
@@ -120,8 +122,10 @@ function handleUserMessage(message) {
     // Get new agent state/layout/parsedInput
     const agent = mockAgentResponse(chatHistory.value);
     if (agent) {
-      agentState.value = agent.layout;
-      parsedInput.value = agent.parsedInput;
+      // Force new object reference for reactivity
+      agentState.value = agent.layout ? JSON.parse(JSON.stringify(agent.layout)) : null;
+      parsedInput.value = agent.parsedInput ? JSON.parse(JSON.stringify(agent.parsedInput)) : null;
+      console.log('App.vue setting agentState:', agent.layout);
       chatHistory.value.push({
         id: Date.now() + 1,
         role: 'agent',
