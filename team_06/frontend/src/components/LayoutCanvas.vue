@@ -1,17 +1,14 @@
-
 <script setup>
 import { ref, onMounted } from 'vue'
 import { Stage, Layer, Group, Line, Text } from 'vue-konva'
-import layoutData from '../assets/dummy/layouts.json'
-
 const props = defineProps({
-  index: Number
+  layout: {
+    type: Object,
+    default: null
+  }
 })
 
 const stageConfig = ref({ width: 600, height: 600 })
-const layout = layoutData[props.index] || {}
-const layoutId = layout.layoutId || 'Layout'
-const rooms = layout.rooms || []
 
 const roomColors = {
   bed: '#4A7CA8',
@@ -19,30 +16,40 @@ const roomColors = {
   kitchen: '#00C7D4',
   living: '#009FA6',
   foyer: '#0082C2',
-  storage: '#7A8FA3',
+  extra: '#7A8FA3',
 }
 
 const scale = 60; // 1 meter = 60 pixels
 
 // Compute bounding box for all rooms
 function getAllPoints() {
-  return rooms.flatMap(room => room.geometry)
+  const rooms = props.layout?.rooms || [];
+  const points = rooms.flatMap(room => room.geometry);
+  console.log('LayoutCanvas DEBUG:', {
+    layout: props.layout,
+    rooms,
+    points
+  });
+  return points;
 }
 const allPoints = getAllPoints();
-const xs = allPoints.map(pt => pt[0]);
-const ys = allPoints.map(pt => pt[1]);
-const minX = Math.min(...xs);
-const maxX = Math.max(...xs);
-const minY = Math.min(...ys);
-const maxY = Math.max(...ys);
-const layoutWidth = (maxX - minX) * scale;
-const layoutHeight = (maxY - minY) * scale;
+let minX = 0, maxX = 0, minY = 0, maxY = 0, layoutWidth = 0, layoutHeight = 0;
+if (allPoints.length > 0) {
+  const xs = allPoints.map(pt => pt[0]);
+  const ys = allPoints.map(pt => pt[1]);
+  minX = Math.min(...xs);
+  maxX = Math.max(...xs);
+  minY = Math.min(...ys);
+  maxY = Math.max(...ys);
+  layoutWidth = (maxX - minX) * scale;
+  layoutHeight = (maxY - minY) * scale;
+}
 const stageWidth = stageConfig.value.width;
 const stageHeight = stageConfig.value.height;
-const offset = {
+const offset = allPoints.length > 0 ? {
   x: (stageWidth - layoutWidth) / 2 - minX * scale,
   y: (stageHeight - layoutHeight) / 2 - minY * scale
-};
+} : { x: 0, y: 0 };
 
 function flattenAndScale(geometry) {
   // Converts [[x, y], ...] to [x*scale+offset, y*scale+offset, ...]
@@ -84,10 +91,13 @@ function getTextWidth(text, fontSize) {
 }
 </script>
 
+<style scoped>
+</style>
+
 <template>
   <v-stage :config="stageConfig">
     <v-layer>
-      <v-group v-for="room in rooms" :key="room.id">
+      <v-group v-for="room in props.layout?.rooms || []" :key="room.id">
         <v-line
           :points="flattenAndScale(room.geometry)"
           :closed="true"
@@ -119,7 +129,6 @@ function getTextWidth(text, fontSize) {
     </v-layer>
   </v-stage>
 </template>
-
 
 
 <style scoped>

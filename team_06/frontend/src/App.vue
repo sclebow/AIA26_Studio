@@ -57,9 +57,9 @@ function mockAgentResponse(messages) {
       layout: {
         layoutId: 'Layout 1',
         rooms: [
-          { id: 1, name: 'Bedroom', geometry: [[0,0],[0,40],[40,40],[40,0]], attributes: { program: 'bedroom', area: 16 } },
-          { id: 2, name: 'Kitchen', geometry: [[50,0],[50,40],[90,40],[90,0]], attributes: { program: 'kitchen', area: 16 } },
-          { id: 3, name: 'Living', geometry: [[0,50],[0,90],[90,90],[90,50]], attributes: { program: 'living', area: 36 } }
+          { id: 1, name: 'Bedroom', geometry: [[0,0],[0,4],[4,4],[4,0],[0,0]], attributes: { program: 'bed', area: 16 } },
+          { id: 2, name: 'Kitchen', geometry: [[4,0],[4,4],[8,4],[8,0],[4,0]], attributes: { program: 'kitchen', area: 16 } },
+          { id: 3, name: 'Living', geometry: [[0,4],[0,8],[8,8],[8,4],[0,4]], attributes: { program: 'living', area: 36 } }
         ]
       },
       parsedInput: {
@@ -84,10 +84,10 @@ function mockAgentResponse(messages) {
     layout: {
       layoutId: 'Layout 2',
       rooms: [
-        { id: 1, name: 'Bedroom', geometry: [[0,0],[0,40],[40,40],[40,0]], attributes: { program: 'bedroom', area: 16 } },
-        { id: 2, name: 'Kitchen', geometry: [[50,0],[50,40],[90,40],[90,0]], attributes: { program: 'kitchen', area: 16 } },
-        { id: 3, name: 'Living', geometry: [[0,50],[0,90],[90,90],[90,50]], attributes: { program: 'living', area: 36 } },
-        { id: 4, name: 'Workspace', geometry: [[100,0],[100,30],[130,30],[130,0]], attributes: { program: 'workspace', area: 9 } }
+        { id: 1, name: 'Bedroom', geometry: [[0,0],[0,4],[4,4],[4,0],[0,0]], attributes: { program: 'bed', area: 16 } },
+          { id: 2, name: 'Kitchen', geometry: [[4,0],[4,4],[8,4],[8,0],[4,0]], attributes: { program: 'kitchen', area: 16 } },
+          { id: 3, name: 'Living', geometry: [[0,4],[0,8],[8,8],[8,4],[0,4]], attributes: { program: 'living', area: 36 } },
+        { id: 4, name: 'Workspace', geometry: [[8,0],[8,3],[13,3],[13,0],[8,0]], attributes: { program: 'extra', area: 9 } }
       ]
     },
     parsedInput: {
