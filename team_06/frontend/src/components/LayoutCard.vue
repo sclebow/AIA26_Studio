@@ -1,3 +1,22 @@
+<script setup>
+import layoutData from '../assets/dummy/layouts.json'
+
+const props = defineProps({
+  // ...other props,
+  index: {
+    type: Number,
+    default: 0
+  }
+})
+
+const layout = layoutData[props.index] || {}
+const layoutId = layout.layoutId || 'Layout'
+const rooms = layout.rooms || []
+const totalArea = rooms.reduce((sum, r) => sum + (r.attributes?.area || 0), 0).toFixed(2)
+// Example: you can add logic to compute issues if needed
+const issues = []
+</script>
+
 <template>
   <div class="layout-summary-card">
     <div class="layout-summary-title">{{ layoutId.charAt(0).toUpperCase() + layoutId.slice(1) }}</div>
@@ -18,15 +37,6 @@
   </div>
 </template>
 
-<script setup>
-import layoutData from '../assets/dummy/team_06_edited_layout.json'
-
-const layoutId = layoutData[0].layoutId || 'Layout'
-const rooms = layoutData[0].rooms || []
-const totalArea = rooms.reduce((sum, r) => sum + (r.attributes?.area || 0), 0).toFixed(2)
-// Example: you can add logic to compute issues if needed
-const issues = []
-</script>
 <style scoped>
 .layout-summary-card {
   background: var(--color-white);
