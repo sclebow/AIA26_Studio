@@ -666,3 +666,23 @@ def get_room_optimization_tips(room: dict, all_rooms: list[dict]) -> str:
         return "This room is highly cost-efficient. Consider if the material quality meets your design aspirations."
     
     return "This room is within the expected cost range for this project."
+
+# Add this function to the BOTTOM of nodes/arch_advice.py
+def get_room_carbon_data(layout: dict) -> list[dict]:
+    """Returns a list of dicts for plotting carbon vs cost."""
+    if not layout:
+        return []
+        
+    results = []
+    rooms = layout.get("rooms", [])
+    
+    for room in rooms:
+        materials = room.get("materials", []) 
+        gwp_sum = sum(float(mat.get("gwp", 0)) for mat in materials)
+            
+        results.append({
+            "name": room.get("name", "Unknown"),
+            "cost": float(room.get("total_cost", 0)),
+            "gwp": float(gwp_sum)
+        })
+    return results
