@@ -9,8 +9,43 @@ Set environment variable BT_API_KEY before launching Streamlit.
 """
 from __future__ import annotations
 import os
+import pathlib
 import requests
 from typing import Optional
+
+# Auto-load .env from repo root so BT_API_KEY works without manual export.
+def _load_dotenv() -> None:
+    try:
+        from dotenv import load_dotenv  # python-dotenv if installed
+        for candidate in [
+            pathlib.Path(__file__).parents[3] / ".env",
+            pathlib.Path(__file__).parents[2] / ".env",
+            pathlib.Path(".env"),
+        ]:
+            if candidate.exists():
+                load_dotenv(candidate, override=False)
+                return
+    except ImportError:
+        # Fallback: minimal .env parser (no dependency needed)
+        for candidate in [
+            pathlib.Path(__file__).parents[3] / ".env",
+            pathlib.Path(__file__).parents[2] / ".env",
+            pathlib.Path(".env"),
+        ]:
+            if not candidate.exists():
+                continue
+            for line in candidate.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, val = line.partition("=")
+                key = key.strip()
+                val = val.strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = val
+            return
+
+_load_dotenv()
 
 _BASE = "https://api.buildingtransparency.org"
 
