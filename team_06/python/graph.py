@@ -43,7 +43,8 @@ class AgentState(TypedDict, total=False):
     input_layout_json_string: str | None           # NEW - input layout, defining outline, as a JSON string, injected into tool calls 
     topology_graph_json_string: str | None         # NEW - topology graph for search, as a JSON string
     search_results_json_string: str | None         # NEW - {id, score, description} only
-    tried_layout_ids: list[str]                    # NEW - keep track of which layout IDs we've tried adapting
+        search_mode: str                               # NEW - search strategy: boundary_only | graph_only
+        tried_layout_ids: list[str]                    # NEW - keep track of which layout IDs we've tried adapting
     evaluation_json_string: str | None             # NEW - evaluation results
     #-----------results from nodes (for routing)-----------
     preprocess_result: str                         # NEW - which node to go to after preprocess: "search" | "select" | "modify" | "evaluate" | "reason" | "end"
@@ -60,6 +61,9 @@ class AgentState(TypedDict, total=False):
 # ---------------------------------------------------------------------------
 def _route_after_preprocessing(state: AgentState) -> str:
     result = state.get("preprocess_result")
+        search_mode = state.get("search_mode", "boundary_only")
+        if search_mode == "boundary_only" and result == "topology":
+            return "search"
     return {
         "topology": "topology",
         "select": "select",
@@ -228,6 +232,7 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
     "search_results_json_string": final_state.get("search_results_json_string"),
     "parsed_prompt": final_state.get("parsed_prompt"),
     "feedback_history": final_state.get("feedback_history", []),
+            "search_mode": final_state.get("search_mode", "boundary_only"),
 }
     
     return final_response, updated_session
