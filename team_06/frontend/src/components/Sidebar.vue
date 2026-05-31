@@ -95,7 +95,7 @@ const emit = defineEmits(['change'])
   display: flex;
   align-items: center;
   font-size: var(--font-size-bold);
-  font-weight: 600;
+  font-weight: var(--font-weight-bold);
   margin-bottom: 24px;
   color: var(--color-text-primary);
   gap: 8px;

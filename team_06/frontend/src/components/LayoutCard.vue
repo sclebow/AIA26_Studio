@@ -1,24 +1,32 @@
-<template>  
-<div class="layout-summary-card">
-      <div class="layout-summary-title">Layout-001</div>
-      <div class="layout-summary-area">52<span style="font-size:1.1rem;font-weight:400;">sqm</span></div>
-      <ul class="layout-summary-list">
-        <li>Bedroom - 16 sqm</li>
-        <li>Bathroom - 5 sqm</li>
-        <li>Foyer - 2 sqm</li>
-        <li>Living - 20 sqm</li>
-        <li>Kitchen - 9 sqm</li>
+<template>
+  <div class="layout-summary-card">
+    <div class="layout-summary-title">{{ layoutId.charAt(0).toUpperCase() + layoutId.slice(1) }}</div>
+    <div class="layout-summary-area">
+      {{ totalArea }}<span style="font-size:1.1rem;font-weight:400;"> m²</span>
+    </div>
+    <ul class="layout-summary-list">
+      <li v-for="room in rooms" :key="room.id">
+        {{ room.name }} - {{ room.attributes.area }} m²
+      </li>
+    </ul>
+    <div class="layout-summary-issues" v-if="issues && issues.length">
+      <div class="layout-summary-issues-title">Issues</div>
+      <ul class="layout-summary-issues-list">
+        <li v-for="(issue, idx) in issues" :key="idx">{{ issue }}</li>
       </ul>
-      <div class="layout-summary-issues">
-        <div class="layout-summary-issues-title">Issues</div>
-        <ul class="layout-summary-issues-list">
-          <li>Lack of daylight</li>
-          <li>Outline too small</li>
-        </ul>
-        </div>
-      </div>
+    </div>
+  </div>
 </template>
 
+<script setup>
+import layoutData from '../assets/dummy/team_06_edited_layout.json'
+
+const layoutId = layoutData.layoutId || 'Layout'
+const rooms = layoutData.rooms || []
+const totalArea = rooms.reduce((sum, r) => sum + (r.attributes?.area || 0), 0).toFixed(2)
+// Example: you can add logic to compute issues if needed
+const issues = []
+</script>
 <style scoped>
 .layout-summary-card {
   background: var(--color-white);
@@ -27,18 +35,18 @@
   font-size: var(--font-size-standard);
   color: var(--color-text);
   min-width: 180px;
+   padding: 32px 32px;
 }
 .layout-summary-title {
   font-size: var(--font-size-bold);
-  font-weight: 700;
-  color: var(--color-blue);
-  margin-bottom: 8px;
+  font-weight: var(--font-weight-bold);
+  margin-bottom: 18px;
 }
 .layout-summary-area {
   font-size: var(--font-size-title);
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   margin-bottom: 12px;
-  color: var(--color-text-secondary);
+  color: var(--color-blue);
 }
 .layout-summary-list {
   margin: 0 0 12px 0;
@@ -59,9 +67,5 @@
   padding: 0 0 0 16px;
   color: var(--color-text-error);
   font-size: var(--font-size-bold);
-}
-.layout-summary-card {
-    margin: 16px;
-    padding: 32px 32px;
 }
 </style>

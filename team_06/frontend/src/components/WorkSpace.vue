@@ -4,6 +4,7 @@ import userIcon from '../assets/icons/user.svg'
 import chevronIcon from '../assets/icons/chevron.svg'
 import ToolBar from './ToolBar.vue'
 import LayoutCanvas from './LayoutCanvas.vue'
+import LayoutCard from './LayoutCard.vue'
 </script>
 
 <template>
@@ -15,9 +16,10 @@ import LayoutCanvas from './LayoutCanvas.vue'
         <ToolBar />
       </div>
       <div class="canvas-area">
-        <div class="canvas">
+        <div class="canvas-container">
           <LayoutCanvas />
         </div>
+         <LayoutCard />
       </div>
   </aside>
 </template>
@@ -55,11 +57,12 @@ import LayoutCanvas from './LayoutCanvas.vue'
 .canvas-area {
   flex: 1 1 auto;
   display: flex;
-  justify-content: center;
-  align-items: center;
+  justify-content: flex-start;
+  align-items: flex-start;
   margin: 28px;
+  gap: 18px;
 }
-.canvas {
+.canvas-container {
   background: var(--color-white);
   border-radius: var(--radius-card);
   border: 1px solid var(--color-border);
