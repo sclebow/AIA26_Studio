@@ -13,12 +13,13 @@ def classify_room_size(program: str, area: float) -> str:
     """
     # Define size thresholds for each program type
     size_thresholds = {
-        'living': {'small': 20, 'medium': 35},
-        'bed': {'small': 8, 'medium': 20},
-        'bath': {'small': 5, 'medium': 10},
-        'kitchen': {'small': 10, 'medium': 18},
+        'living': {'small': 10, 'medium': 14},  #based on sample_layout
+        'bed': {'small': 7, 'medium': 9},
+        'bath': {'small': 2, 'medium': 4},
+        'kitchen': {'small': 3, 'medium': 4},
         'foyer': {'small': 5, 'medium': 12},
-        'extra': {'small': 10, 'medium': 20},
+        'dining': {'small': 5, 'medium': 10},
+        'extra': {'small': 10, 'medium': 15},
     }
     
     # Default thresholds if program not found
@@ -27,11 +28,11 @@ def classify_room_size(program: str, area: float) -> str:
     thresholds = size_thresholds.get(program, default_thresholds)
     
     if area < thresholds['small']:
-        return 'Small'
+        return 'small'
     elif area < thresholds['medium']:
-        return 'Medium'
+        return 'medium'
     else:
-        return 'Large'
+        return 'large'
 
 def calculate_centrality_measures(graph: nx.Graph) -> dict:
     """
@@ -221,7 +222,7 @@ if __name__ == "__main__":
     parser.add_argument("--output", help="Output path for graphs JSON", default=None)
     args = parser.parse_args()
 
-    repo_root = Path(__file__).resolve().parent.parent
+    repo_root = Path(__file__).resolve().parent.parent.parent.parent
 
     if args.dir:
         layouts_dir = Path(args.dir) if Path(args.dir).is_absolute() else repo_root / "layout_inputs" / args.dir
