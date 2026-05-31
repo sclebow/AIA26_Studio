@@ -11,7 +11,7 @@ import networkx as nx
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.parser.schema_to_graph import create_graph_from_layout
-from utils.rule_based_embedder import RuleBasedEmbedder
+from utils.graph_embedder import RuleBasedEmbedder
 
 # ============================================================================
 # GraphSearcher class: loads layout graphs and provides search methods.
