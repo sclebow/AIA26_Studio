@@ -5,17 +5,15 @@ import clockIcon from '../assets/icons/clock.svg'
 import boxIcon from '../assets/icons/box.svg'
 import messageIcon from '../assets/icons/message.svg'
 import SidebarHeader from './SidebarHeader.vue'
-import parsedInput from '../assets/dummy/parsed_input.json'
-
 const props = defineProps({
   tab: String,
-  index: {
-    type: Number,
-    default: 0
+  parsedInput: {
+    type: Object,
+    default: null
   }
 })
 const emit = defineEmits(['change'])
-const input = Array.isArray(parsedInput) && parsedInput.length > 0 ? parsedInput[props.index] : null
+const input = props.parsedInput
 </script>
 
 <template>

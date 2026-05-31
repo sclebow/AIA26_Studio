@@ -1,15 +1,12 @@
 <script setup>
-import layoutData from '../assets/dummy/layouts.json'
-
 const props = defineProps({
-  // ...other props,
-  index: {
-    type: Number,
-    default: 0
+  layout: {
+    type: Object,
+    default: null
   }
 })
 
-const layout = layoutData[props.index] || {}
+const layout = props.layout || {}
 const layoutId = layout.layoutId || 'Layout'
 const rooms = layout.rooms || []
 const totalArea = rooms.reduce((sum, r) => sum + (r.attributes?.area || 0), 0).toFixed(2)
@@ -18,14 +15,14 @@ const issues = []
 </script>
 
 <template>
-  <div class="layout-summary-card">
+  <div v-if="layout && rooms.length" class="layout-summary-card">
     <div class="layout-summary-title">{{ layoutId.charAt(0).toUpperCase() + layoutId.slice(1) }}</div>
     <div class="layout-summary-area">
       {{ totalArea }}<span style="font-size:1.1rem;font-weight:400;"> m²</span>
     </div>
     <ul class="layout-summary-list">
       <li v-for="room in rooms" :key="room.id">
-        {{ room.name }} - {{ room.attributes.area }} m²
+        {{ room.name || room.attributes.program }} - {{ room.attributes.area }} m²
       </li>
     </ul>
     <div class="layout-summary-issues" v-if="issues && issues.length">

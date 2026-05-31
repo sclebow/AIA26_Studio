@@ -7,9 +7,9 @@ import LayoutCanvas from './LayoutCanvas.vue'
 import LayoutCard from './LayoutCard.vue'
 
 const props = defineProps({
-  index: {
-    type: Number,
-    default: 0
+  agentState: {
+    type: Object,
+    default: null
   }
 })
 </script>
@@ -24,9 +24,9 @@ const props = defineProps({
       </div>
       <div class="canvas-area">
         <div class="canvas-container">
-          <LayoutCanvas :index="props.index" />
+          <LayoutCanvas :layout="props.agentState" />
         </div>
-         <LayoutCard :index="props.index" />
+        <LayoutCard v-if="props.agentState && props.agentState.rooms && props.agentState.rooms.length" :layout="props.agentState" />
       </div>
   </aside>
 </template>
