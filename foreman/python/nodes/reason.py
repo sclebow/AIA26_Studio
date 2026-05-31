@@ -40,7 +40,7 @@ Output rules:
 def add_agent_descriptions_to_state(state):
     """Helper function to format the agent catalog for the system prompt.
     The foreman description is in ./foreman/agent.md
-    The tool descriptions are in ./team_01/agent.md, ./team_02/agent.md, etc.
+    The delegated agent descriptions are in ./team_01/agent.md, ./team_02/agent.md, etc.
     This function reads those files and adds them to the state as a formatted string for the system prompt.
     """
 
@@ -77,20 +77,20 @@ def build_reason_node(llm):
 
         result = call_llm(llm, SYSTEM_PROMPT, state["messages"])
 
-        # If the LLM decided no more actions are needed (action is final), set the final response in the state and clear pending tool calls
+        # If the LLM decided no more actions are needed (action is final), set the final response and clear pending agent calls.
         if result["action"] == "final":
             state["final_response"] = result["response"]
-            state["pending_tool_calls"] = None
+            state["pending_agent_calls"] = None
 
-        # If the LLM decided the action is to use a tool, set the pending tool calls
+        # If the LLM decided the action is to delegate, set the pending agent calls.
         elif result["action"] == "agent":
-            state["pending_tool_calls"] = result["agent_calls"]
+            state["pending_agent_calls"] = result["agent_calls"]
 
         else:  # further thought
             # Feed the thought back into the conversation so the next step can build on it.
             thought = result["response"]
             state["messages"].append({"role": "assistant", "content": thought})
-            state["pending_tool_calls"] = None
+            state["pending_agent_calls"] = None
             print(f"LLM thought: {thought}")
 
         if state["iteration"] >= state["max_iterations"] and state.get("final_response") is None:

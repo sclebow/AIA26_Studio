@@ -2,6 +2,7 @@ from __future__ import annotations
 import json
 from typing import Any
 from langgraph.graph import END, START, StateGraph
+from nodes.agent import build_agent_node
 from nodes.reason import build_reason_node
 
 
@@ -21,12 +22,11 @@ from nodes.reason import build_reason_node
 
 class AgentState():
     messages: list[dict[str, Any]]       # full conversation history
-    pending_tool_calls: list[dict[str, Any]] | None  # tool calls queued by the reason node
+    pending_agent_calls: list[dict[str, Any]] | None  # agent calls queued by the reason node
     final_response: str | None           # set when the agent is done
-    iteration: int                       # current tool-call count
+    iteration: int                       # current delegation round count
     max_iterations: int                  # safety cap to stop the process (set from .env)
-    tool_catalog: str                    # formatted list of available MCP tools
-    layout_json_string: str              # current layout as a JSON string, injected into tool calls
+    layout_json_string: str              # current layout as a JSON string, injected into agent calls
 
 
 # ---------------------------------------------------------------------------
@@ -36,6 +36,8 @@ class AgentState():
 def _route(state: AgentState) -> str:
     if state["final_response"] is not None:
         return "finish"
+    if state.get("pending_agent_calls"):
+        return "agent"
     return "continue_reason"
 
 
@@ -50,14 +52,16 @@ def _loop(state: AgentState) -> AgentState:
 
 def build_graph(ctx: Any) -> Any:
     # Create the state graph
-    # Use the reason and tool nodes
+    # Use the reason and agent nodes
     reason = build_reason_node(ctx.llm)
+    agent = build_agent_node(ctx)
 
     # Initialize the graph
     graph = StateGraph(AgentState)
 
     # Add the nodes
     graph.add_node("reason", reason)
+    graph.add_node("agent", agent)
     graph.add_node("loop", _loop)
 
     # Add the edges
@@ -67,9 +71,11 @@ def build_graph(ctx: Any) -> Any:
         _route,
         {
             "finish": END,
+            "agent": "agent",
             "continue_reason": "loop",
         },
     )
+    graph.add_edge("agent", "loop")
     graph.add_edge("loop", "reason")
 
     return graph.compile()
@@ -114,20 +120,9 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
 
     return {
         "messages": [{"role": "user", "content": user_message}],
-        "pending_tool_calls": None,
+        "pending_agent_calls": None,
         "final_response": None,
         "iteration": 0,
         "max_iterations": ctx.max_iterations,
-        "tool_catalog": _format_tool_catalog(ctx.tools),
         "layout_json_string": json.dumps(ctx.layout_data),
     }
-
-# Helper funtion to prepare the tool catalog for the LLM
-def _format_tool_catalog(tools: list[dict[str, Any]]) -> str:
-    lines = []
-    for tool in tools:
-        name = tool.get("name", "<unknown>")
-        description = tool.get("description", "")
-        schema = json.dumps(tool.get("inputSchema", {}))
-        lines.append(f"- {name}: {description} | inputSchema={schema}")
-    return "\n".join(lines)

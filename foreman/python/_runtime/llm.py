@@ -258,15 +258,29 @@ def call_llm(
 
     result = active_llm.invoke(llm_messages)
     content = result.content
-    if not isinstance(content, str):
-        raise RuntimeError("LLM response content must be a string")
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                text = item.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+        content = "\n".join(parts)
+    elif not isinstance(content, str):
+        content = str(content)
 
     try:
         return _normalize_llm_decision(_parse_llm_json(content))
     except Exception:
         print("\n[llm] Raw LLM response before crash:")
         print(content)
-        raise
+        return {
+            "action": "final",
+            "agent_calls": [],
+            "response": "I could not parse a valid reasoning decision from the model output.",
+        }
 
 
 # ---------------------------------------------------------------------------
