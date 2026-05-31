@@ -80,27 +80,19 @@ def _polygon_perimeter(coords: List[List[float]]) -> float:
 
 
 def extract_circulation_anchor_point(layout: Dict[str, Any]) -> List[float] | None:
-        # Extract the geometric anchor that defines boundary start orientation.
-        # Strategy:
-        # - Search `layout['circulation']` for an item whose name suggests door access
-        #   (contains "front door" or "door").
-        # - Fallback to the first circulation item when no preferred name exists.
-        # - Use the midpoint of the first segment (`geometry[0]` to `geometry[1]`) to
-        #   reduce sensitivity to arbitrary polyline direction/order in exports.
-        # - If only one point exists, use that point directly.
-        # Returns: [x, y] anchor point, or None when circulation is unavailable.
+    # Extract the geometric anchor that defines boundary start orientation.
+    # Strategy:
+    # - Use `layout['circulation']` directly as the door-edge indicator.
+    # - Take the first circulation item with valid geometry.
+    # - Use the midpoint of the first segment (`geometry[0]` to `geometry[1]`) to
+    #   reduce sensitivity to arbitrary polyline direction/order in exports.
+    # - If only one point exists, use that point directly.
+    # Returns: [x, y] anchor point, or None when circulation is unavailable.
     circulation_items = layout.get("circulation", [])
     if not circulation_items:
         return None
 
-    preferred_item = None
-    for item in circulation_items:
-        name = str(item.get("name", "")).lower()
-        if "front door" in name or "door" in name:
-            preferred_item = item
-            break
-
-    item = preferred_item or circulation_items[0]
+    item = next((entry for entry in circulation_items if entry.get("geometry")), circulation_items[0])
     geometry = item.get("geometry", [])
     if not geometry:
         return None
