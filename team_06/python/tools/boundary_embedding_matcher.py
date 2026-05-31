@@ -48,6 +48,36 @@ def _points_close(point_a: List[float], point_b: List[float], tolerance: float =
     return abs(point_a[0] - point_b[0]) <= tolerance and abs(point_a[1] - point_b[1]) <= tolerance
 
 
+def _normalize_coords(coords: List[List[float]]) -> List[tuple[float, float]]:
+    # Canonicalize a polygon for exact outline comparison.
+    # The result ignores repeated closing vertices and rounds coordinates to
+    # avoid tiny floating-point differences from breaking exact matches.
+    open_coords = _open_polygon(coords)
+    return [(round(point[0], 6), round(point[1], 6)) for point in open_coords]
+
+
+def _polygon_variants(coords: List[List[float]]) -> List[List[tuple[float, float]]]:
+    # Generate cyclic and reversed variants so exact-outline checks are robust
+    # to vertex start position and winding direction.
+    open_coords = _normalize_coords(coords)
+    if not open_coords:
+        return [[]]
+
+    variants: List[List[tuple[float, float]]] = []
+    for source in (open_coords, list(reversed(open_coords))):
+        for shift in range(len(source)):
+            variants.append(source[shift:] + source[:shift])
+    return variants
+
+
+def _exact_outline_match(query_coords: List[List[float]], candidate_coords: List[List[float]]) -> bool:
+    # Return True when two outlines are the same up to cyclic rotation and
+    # winding direction.
+    query_variants = _polygon_variants(query_coords)
+    candidate_norm = _normalize_coords(candidate_coords)
+    return candidate_norm in query_variants
+
+
 def _project_point_to_segment(point: List[float], start: List[float], end: List[float]) -> tuple[List[float], float]:
     # Project a point onto a segment and return (projected_point, euclidean_distance).
     # Used to find where the circulation anchor falls on the polygon boundary.
@@ -329,6 +359,7 @@ def match_boundaries(
         input_graph = build_boundary_graph(input_coords, None)
 
     input_vec = _vector_from_graph(input_graph)
+    input_coords_norm = _normalize_coords(input_coords or input_graph.get("coordinates", [])) if input_coords or input_graph.get("coordinates") else None
 
     # Load dataset
     if dataset_path is None:
@@ -367,6 +398,11 @@ def match_boundaries(
             sim = 0.0
         else:
             sim = float(np.dot(input_vec, cand_vec))
+
+        # If the outlines are identical up to rotation/winding, force the score
+        # near the top so exact shape matches cannot be buried by anchor noise.
+        if input_coords_norm is not None and _exact_outline_match(input_coords_norm, coords):
+            sim = max(sim, 0.999)
 
         if sim >= min_score:
             results.append({
