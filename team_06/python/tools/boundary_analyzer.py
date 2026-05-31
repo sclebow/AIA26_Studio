@@ -231,13 +231,6 @@ def extract_circulation_anchor_point(layout: Dict[str, Any]) -> List[float] | No
     if not geometry:
         return None
 
-    # Use the midpoint of the first segment as a more stable anchor
-    # (first point can be ordered arbitrarily in some data exports).
-    if len(geometry) >= 2:
-        x0, y0 = geometry[0]
-        x1, y1 = geometry[1]
-        return [ (x0 + x1) / 2.0, (y0 + y1) / 2.0 ]
-
     return list(geometry[0])
 
 
