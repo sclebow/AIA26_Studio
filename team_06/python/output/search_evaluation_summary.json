@@ -1,0 +1,766 @@
+[
+  {
+    "query_file": "team_06_edited_layout.json",
+    "layoutId": "layout-1126",
+    "modes": {
+      "boundary_only": {
+        "status": "success",
+        "reason": null,
+        "clarification": null,
+        "top_matches": [
+          {
+            "layoutId": "layout-1126",
+            "score": 0.947,
+            "name": "Sample I",
+            "boundary_graph": {
+              "anchor_point": [
+                3.0,
+                4.550000000000001
+              ],
+              "start_vertex_index": 0,
+              "perimeter": 28.6,
+              "vertex_count": 10,
+              "edge_count": 10,
+              "nodes": [
+                {
+                  "index": 0,
+                  "point": [
+                    3.0,
+                    4.55
+                  ],
+                  "turn_angle_radians": 3.141593,
+                  "turn_angle_normalized": 1.0
+                },
+                {
+                  "index": 1,
+                  "point": [
+                    3.0,
+                    6.4
+                  ],
+                  "turn_angle_radians": 3.141593,
+                  "turn_angle_normalized": 1.0
+                },
+                {
+                  "index": 2,
+                  "point": [
+                    3.0,
+                    10.15
+                  ],
+                  "turn_angle_radians": 1.570796,
+                  "turn_angle_normalized": 0.5
+                },
+                {
+                  "index": 3,
+                  "point": [
+                    8.85,
+                    10.15
+                  ],
+                  "turn_angle_radians": 1.570796,
+                  "turn_angle_normalized": 0.5
+                },
+                {
+                  "index": 4,
+                  "point": [
+                    8.85,
+                    6.4
+                  ],
+                  "turn_angle_radians": -1.570796,
+                  "turn_angle_normalized": -0.5
+                },
+                {
+                  "index": 5,
+                  "point": [
+                    9.85,
+                    6.4
+                  ],
+                  "turn_angle_radians": 1.570796,
+                  "turn_angle_normalized": 0.5
+                },
+                {
+                  "index": 6,
+                  "point": [
+                    9.85,
+                    2.7
+                  ],
+                  "turn_angle_radians": 1.570796,
+                  "turn_angle_normalized": 0.5
+                },
+                {
+                  "index": 7,
+                  "point": [
+                    8.85,
+                    2.7
+                  ],
+                  "turn_angle_radians": 3.141593,
+                  "turn_angle_normalized": 1.0
+                },
+                {
+                  "index": 8,
+                  "point": [
+                    6.6,
+                    2.7
+                  ],
+                  "turn_angle_radians": 3.141593,
+                  "turn_angle_normalized": 1.0
+                },
+                {
+                  "index": 9,
+                  "point": [
+                    3.0,
+                    2.7
+                  ],
+                  "turn_angle_radians": 1.570796,
+                  "turn_angle_normalized": 0.5
+                }
+              ],
+              "edges": [
+                {
+                  "index": 0,
+                  "from": 0,
+                  "to": 1,
+                  "length": 1.85,
+                  "normalized_length": 0.064685
+                },
+                {
+                  "index": 1,
+                  "from": 1,
+                  "to": 2,
+                  "length": 3.75,
+                  "normalized_length": 0.131119
+                },
+                {
+                  "index": 2,
+                  "from": 2,
+                  "to": 3,
+                  "length": 5.85,
+                  "normalized_length": 0.204545
+                },
+                {
+                  "index": 3,
+                  "from": 3,
+                  "to": 4,
+                  "length": 3.75,
+                  "normalized_length": 0.131119
+                },
+                {
+                  "index": 4,
+                  "from": 4,
+                  "to": 5,
+                  "length": 1.0,
+                  "normalized_length": 0.034965
+                },
+                {
+                  "index": 5,
+                  "from": 5,
+                  "to": 6,
+                  "length": 3.7,
+                  "normalized_length": 0.129371
+                },
+                {
+                  "index": 6,
+                  "from": 6,
+                  "to": 7,
+                  "length": 1.0,
+                  "normalized_length": 0.034965
+                },
+                {
+                  "index": 7,
+                  "from": 7,
+                  "to": 8,
+                  "length": 2.25,
+                  "normalized_length": 0.078671
+                },
+                {
+                  "index": 8,
+                  "from": 8,
+                  "to": 9,
+                  "length": 3.6,
+                  "normalized_length": 0.125874
+                },
+                {
+                  "index": 9,
+                  "from": 9,
+                  "to": 0,
+                  "length": 1.85,
+                  "normalized_length": 0.064685
+                }
+              ],
+              "signature": [
+                [
+                  0.06468531468531467,
+                  1.0
+                ],
+                [
+                  0.13111888111888112,
+                  1.0
+                ],
+                [
+                  0.20454545454545453,
+                  0.5
+                ],
+                [
+                  0.13111888111888112,
+                  0.5
+                ],
+                [
+                  0.03496503496503496,
+                  -0.5
+                ],
+                [
+                  0.12937062937062938,
+                  0.5
+                ],
+                [
+                  0.03496503496503496,
+                  0.5
+                ],
+                [
+                  0.07867132867132867,
+                  1.0
+                ],
+                [
+                  0.12587412587412586,
+                  1.0
+                ],
+                [
+                  0.0646853146853147,
+                  0.5
+                ]
+              ]
+            }
+          },
+          {
+            "layoutId": "layout-1050",
+            "score": 0.931,
+            "name": "Sample K",
+            "boundary_graph": {
+              "anchor_point": [
+                5.925,
+                3.65
+              ],
+              "start_vertex_index": 0,
+              "perimeter": 24.3,
+              "vertex_count": 12,
+              "edge_count": 12,
+              "nodes": [
+                {
+                  "index": 0,
+                  "point": [
+                    5.925,
+                    3.65
+                  ],
+                  "turn_angle_radians": 3.141593,
+                  "turn_angle_normalized": 1.0
+                },
+                {
+                  "index": 1,
+                  "point": [
+                    5.0,
+                    3.65
+                  ],
+                  "turn_angle_radians": 3.141593,
+                  "turn_angle_normalized": 1.0
+                },
+                {
+                  "index": 2,
+                  "point": [
+                    2.7,
+                    3.65
+                  ],
+                  "turn_angle_radians": 1.570796,
+                  "turn_angle_normalized": 0.5
+                },
+                {
+                  "index": 3,
+                  "point": [
+                    2.7,
+                    5.4
+                  ],
+                  "turn_angle_radians": 3.141593,
+                  "turn_angle_normalized": 1.0
+                },
+                {
+                  "index": 4,
+                  "point": [
+                    2.7,
+                    7.35
+                  ],
+                  "turn_angle_radians": 1.570796,
+                  "turn_angle_normalized": 0.5
+                },
+                {
+                  "index": 5,
+                  "point": [
+                    5.0,
+                    7.35
+                  ],
+                  "turn_angle_radians": -1.570796,
+                  "turn_angle_normalized": -0.5
+                },
+                {
+                  "index": 6,
+                  "point": [
+                    5.0,
+                    9.2
+                  ],
+                  "turn_angle_radians": 1.570796,
+                  "turn_angle_normalized": 0.5
+                },
+                {
+                  "index": 7,
+                  "point": [
+                    6.85,
+                    9.2
+                  ],
+                  "turn_angle_radians": -3.141593,
+                  "turn_angle_normalized": -1.0
+                },
+                {
+                  "index": 8,
+                  "point": [
+                    9.3,
+                    9.2
+                  ],
+                  "turn_angle_radians": 1.570796,
+                  "turn_angle_normalized": 0.5
+                },
+                {
+                  "index": 9,
+                  "point": [
+                    9.3,
+                    6.5
+                  ],
+                  "turn_angle_radians": -3.141593,
+                  "turn_angle_normalized": -1.0
+                },
+                {
+                  "index": 10,
+                  "point": [
+                    9.3,
+                    3.65
+                  ],
+                  "turn_angle_radians": 1.570796,
+                  "turn_angle_normalized": 0.5
+                },
+                {
+                  "index": 11,
+                  "point": [
+                    6.85,
+                    3.65
+                  ],
+                  "turn_angle_radians": 3.141593,
+                  "turn_angle_normalized": 1.0
+                }
+              ],
+              "edges": [
+                {
+                  "index": 0,
+                  "from": 0,
+                  "to": 1,
+                  "length": 0.925,
+                  "normalized_length": 0.038066
+                },
+                {
+                  "index": 1,
+                  "from": 1,
+                  "to": 2,
+                  "length": 2.3,
+                  "normalized_length": 0.09465
+                },
+                {
+                  "index": 2,
+                  "from": 2,
+                  "to": 3,
+                  "length": 1.75,
+                  "normalized_length": 0.072016
+                },
+                {
+                  "index": 3,
+                  "from": 3,
+                  "to": 4,
+                  "length": 1.95,
+                  "normalized_length": 0.080247
+                },
+                {
+                  "index": 4,
+                  "from": 4,
+                  "to": 5,
+                  "length": 2.3,
+                  "normalized_length": 0.09465
+                },
+                {
+                  "index": 5,
+                  "from": 5,
+                  "to": 6,
+                  "length": 1.85,
+                  "normalized_length": 0.076132
+                },
+                {
+                  "index": 6,
+                  "from": 6,
+                  "to": 7,
+                  "length": 1.85,
+                  "normalized_length": 0.076132
+                },
+                {
+                  "index": 7,
+                  "from": 7,
+                  "to": 8,
+                  "length": 2.45,
+                  "normalized_length": 0.100823
+                },
+                {
+                  "index": 8,
+                  "from": 8,
+                  "to": 9,
+                  "length": 2.7,
+                  "normalized_length": 0.111111
+                },
+                {
+                  "index": 9,
+                  "from": 9,
+                  "to": 10,
+                  "length": 2.85,
+                  "normalized_length": 0.117284
+                },
+                {
+                  "index": 10,
+                  "from": 10,
+                  "to": 11,
+                  "length": 2.45,
+                  "normalized_length": 0.100823
+                },
+                {
+                  "index": 11,
+                  "from": 11,
+                  "to": 0,
+                  "length": 0.925,
+                  "normalized_length": 0.038066
+                }
+              ],
+              "signature": [
+                [
+                  0.03806584362139917,
+                  1.0
+                ],
+                [
+                  0.09465020576131686,
+                  1.0
+                ],
+                [
+                  0.07201646090534981,
+                  0.5
+                ],
+                [
+                  0.08024691358024688,
+                  1.0
+                ],
+                [
+                  0.09465020576131686,
+                  0.5
+                ],
+                [
+                  0.07613168724279834,
+                  -0.5
+                ],
+                [
+                  0.07613168724279834,
+                  0.5
+                ],
+                [
+                  0.10082304526748975,
+                  -1.0
+                ],
+                [
+                  0.11111111111111108,
+                  0.5
+                ],
+                [
+                  0.11728395061728394,
+                  -1.0
+                ],
+                [
+                  0.10082304526748975,
+                  0.5
+                ],
+                [
+                  0.03806584362139917,
+                  1.0
+                ]
+              ]
+            }
+          },
+          {
+            "layoutId": "layout-1186",
+            "score": 0.863,
+            "name": "Sample Q",
+            "boundary_graph": {
+              "anchor_point": [
+                5.6,
+                3.9
+              ],
+              "start_vertex_index": 0,
+              "perimeter": 23.2,
+              "vertex_count": 11,
+              "edge_count": 11,
+              "nodes": [
+                {
+                  "index": 0,
+                  "point": [
+                    5.6,
+                    3.9
+                  ],
+                  "turn_angle_radians": 3.141593,
+                  "turn_angle_normalized": 1.0
+                },
+                {
+                  "index": 1,
+                  "point": [
+                    4.35,
+                    3.9
+                  ],
+                  "turn_angle_radians": 3.141593,
+                  "turn_angle_normalized": 1.0
+                },
+                {
+                  "index": 2,
+                  "point": [
+                    3.15,
+                    3.9
+                  ],
+                  "turn_angle_radians": 1.570796,
+                  "turn_angle_normalized": 0.5
+                },
+                {
+                  "index": 3,
+                  "point": [
+                    3.15,
+                    6.55
+                  ],
+                  "turn_angle_radians": 3.141593,
+                  "turn_angle_normalized": 1.0
+                },
+                {
+                  "index": 4,
+                  "point": [
+                    3.15,
+                    8.95
+                  ],
+                  "turn_angle_radians": 1.570796,
+                  "turn_angle_normalized": 0.5
+                },
+                {
+                  "index": 5,
+                  "point": [
+                    4.35,
+                    8.95
+                  ],
+                  "turn_angle_radians": -3.141593,
+                  "turn_angle_normalized": -1.0
+                },
+                {
+                  "index": 6,
+                  "point": [
+                    6.85,
+                    8.95
+                  ],
+                  "turn_angle_radians": -3.141593,
+                  "turn_angle_normalized": -1.0
+                },
+                {
+                  "index": 7,
+                  "point": [
+                    9.7,
+                    8.95
+                  ],
+                  "turn_angle_radians": 1.570796,
+                  "turn_angle_normalized": 0.5
+                },
+                {
+                  "index": 8,
+                  "point": [
+                    9.7,
+                    6.55
+                  ],
+                  "turn_angle_radians": -3.141593,
+                  "turn_angle_normalized": -1.0
+                },
+                {
+                  "index": 9,
+                  "point": [
+                    9.7,
+                    3.9
+                  ],
+                  "turn_angle_radians": 1.570796,
+                  "turn_angle_normalized": 0.5
+                },
+                {
+                  "index": 10,
+                  "point": [
+                    6.85,
+                    3.9
+                  ],
+                  "turn_angle_radians": 3.141593,
+                  "turn_angle_normalized": 1.0
+                }
+              ],
+              "edges": [
+                {
+                  "index": 0,
+                  "from": 0,
+                  "to": 1,
+                  "length": 1.25,
+                  "normalized_length": 0.053879
+                },
+                {
+                  "index": 1,
+                  "from": 1,
+                  "to": 2,
+                  "length": 1.2,
+                  "normalized_length": 0.051724
+                },
+                {
+                  "index": 2,
+                  "from": 2,
+                  "to": 3,
+                  "length": 2.65,
+                  "normalized_length": 0.114224
+                },
+                {
+                  "index": 3,
+                  "from": 3,
+                  "to": 4,
+                  "length": 2.4,
+                  "normalized_length": 0.103448
+                },
+                {
+                  "index": 4,
+                  "from": 4,
+                  "to": 5,
+                  "length": 1.2,
+                  "normalized_length": 0.051724
+                },
+                {
+                  "index": 5,
+                  "from": 5,
+                  "to": 6,
+                  "length": 2.5,
+                  "normalized_length": 0.107759
+                },
+                {
+                  "index": 6,
+                  "from": 6,
+                  "to": 7,
+                  "length": 2.85,
+                  "normalized_length": 0.122845
+                },
+                {
+                  "index": 7,
+                  "from": 7,
+                  "to": 8,
+                  "length": 2.4,
+                  "normalized_length": 0.103448
+                },
+                {
+                  "index": 8,
+                  "from": 8,
+                  "to": 9,
+                  "length": 2.65,
+                  "normalized_length": 0.114224
+                },
+                {
+                  "index": 9,
+                  "from": 9,
+                  "to": 10,
+                  "length": 2.85,
+                  "normalized_length": 0.122845
+                },
+                {
+                  "index": 10,
+                  "from": 10,
+                  "to": 0,
+                  "length": 1.25,
+                  "normalized_length": 0.053879
+                }
+              ],
+              "signature": [
+                [
+                  0.0538793103448276,
+                  1.0
+                ],
+                [
+                  0.05172413793103448,
+                  1.0
+                ],
+                [
+                  0.1142241379310345,
+                  0.5
+                ],
+                [
+                  0.10344827586206896,
+                  1.0
+                ],
+                [
+                  0.05172413793103448,
+                  0.5
+                ],
+                [
+                  0.1077586206896552,
+                  -1.0
+                ],
+                [
+                  0.1228448275862069,
+                  -1.0
+                ],
+                [
+                  0.10344827586206896,
+                  0.5
+                ],
+                [
+                  0.1142241379310345,
+                  -1.0
+                ],
+                [
+                  0.1228448275862069,
+                  0.5
+                ],
+                [
+                  0.0538793103448276,
+                  1.0
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "graph_only": {
+        "status": "failed",
+        "reason": null,
+        "clarification": "No matching layout found. How would you like to proceed? (Type 'end' to exit or write a new request)",
+        "top_matches": []
+      },
+      "hybrid": {
+        "status": "success",
+        "reason": null,
+        "clarification": null,
+        "top_matches": [
+          {
+            "id": "layout-1126",
+            "score": 0.5,
+            "description": "Layout layout-1126"
+          },
+          {
+            "id": "layout-1050",
+            "score": 0.492,
+            "description": "Layout layout-1050"
+          },
+          {
+            "id": "layout-1186",
+            "score": 0.456,
+            "description": "Layout layout-1186"
+          }
+        ]
+      }
+    }
+  }
+]
