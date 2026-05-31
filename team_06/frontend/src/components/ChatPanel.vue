@@ -1,10 +1,10 @@
 <script setup>
 import { ref } from 'vue'
-import menuIcon from '../assets/menu.svg'
-import sendIcon from '../assets/send.svg'
-import searchIcon from '../assets/search.svg'
-import userIcon from '../assets/user.svg'
-import chevronIcon from '../assets/chevron.svg'
+import menuIcon from '../assets/icons/menu.svg'
+import sendIcon from '../assets/icons/send.svg'
+import searchIcon from '../assets/icons/search.svg'
+import userIcon from '../assets/icons/user.svg'
+import chevronIcon from '../assets/icons/chevron.svg'
 import ChatBox from './ChatBox.vue'
 const search = ref('')
 const count = ref(0)
@@ -83,6 +83,7 @@ const count = ref(0)
   color: var(--color-text-primary);
   gap: 8px;
   margin-left: 32px;
+  margin-top: 12px;
 }
 .chat-search {
   display: flex;

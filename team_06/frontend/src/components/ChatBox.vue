@@ -13,10 +13,10 @@
 </template>
 
 <script setup>
-import imgIcon from '../assets/img.svg'
-import codeIcon from '../assets/code.svg'
-import micIcon from '../assets/mic.svg'
-import sendIcon from '../assets/send.svg'
+import imgIcon from '../assets/icons/img.svg'
+import codeIcon from '../assets/icons/code.svg'
+import micIcon from '../assets/icons/mic.svg'
+import sendIcon from '../assets/icons/send.svg'
 </script>
 
 <style scoped>

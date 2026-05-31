@@ -1,7 +1,7 @@
 
 <script setup>
-import userIcon from '../assets/user.svg'
-import chevronIcon from '../assets/chevron.svg'
+import userIcon from '../assets/icons/user.svg'
+import chevronIcon from '../assets/icons/chevron.svg'
 import ToolBar from './ToolBar.vue'
 </script>
 

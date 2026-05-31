@@ -1,9 +1,9 @@
 
 <script setup>
-import userIcon from '../assets/user.svg'
-import clockIcon from '../assets/clock.svg'
-import boxIcon from '../assets/box.svg'
-import messageIcon from '../assets/message.svg'
+import userIcon from '../assets/icons/user.svg'
+import clockIcon from '../assets/icons/clock.svg'
+import boxIcon from '../assets/icons/box.svg'
+import messageIcon from '../assets/icons/message.svg'
 import SidebarHeader from './SidebarHeader.vue'
 const props = defineProps({ tab: String })
 const emit = defineEmits(['change'])

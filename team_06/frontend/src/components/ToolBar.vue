@@ -8,10 +8,10 @@
 </template>
 
 <script setup>
-import uploadIcon from '../assets/upload.svg'
-import editIcon from '../assets/edit.svg'
-import rotateIcon from '../assets/rotate.svg'
-import downloadIcon from '../assets/download.svg'
+import uploadIcon from '../assets/icons/upload.svg'
+import editIcon from '../assets/icons/edit.svg'
+import rotateIcon from '../assets/icons/rotate.svg'
+import downloadIcon from '../assets/icons/download.svg'
 </script>
 
 <style scoped>
