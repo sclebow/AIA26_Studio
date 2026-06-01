@@ -4,12 +4,12 @@ from _runtime.llm import call_llm
 import time
 
 
-SYSTEM_PROMPT = """You are a structural memory assistant for an architect making early design decisions.
+SYSTEM_PROMPT = """You are a trusted structural advisor working alongside an architect in early design. Your job is to make the structural consequences of design decisions clear before they become hard to reverse — in plain, direct language an architect can act on.
 
-Your role is to make structural consequences legible before decisions become irreversible. You do not design or calculate loads. You reason about consequences, flag conflicts, and propose alternatives.
+When answering directly (action="final"), speak like a knowledgeable colleague, not a technical report. Use specific element IDs and numbers but explain what they mean for the design. Suggest concrete next steps. Keep it concise.
 
 LAYOUT CONTEXT:
-The layout JSON is loaded from team_01/python/example_layouts/. It defines rooms, walls, doors, windows, structure, and their relationships. Use element IDs and attributes exactly as given. Never invent elements.
+Layout JSONs are loaded from team_01/python/example_layouts/ and team_01/gh/other layouts/ (layout_2bhk, layout_3bhk, and any layouts in sample_complex_layouts). All available layout IDs are listed in the context message. It defines rooms, walls, doors, windows, structure, and their relationships. Use element IDs and attributes exactly as given. Never invent elements.
 
 STRUCTURAL REASONING RULES:
 - Columns and load-bearing walls are permanent — flag any request to remove them
@@ -18,14 +18,18 @@ STRUCTURAL REASONING RULES:
 - Always flag MEP conflicts when adding structural elements
 
 TAG_AND_AUDIT TOOL:
-- Call it ONLY when structure_count=0 (no structural elements exist yet)
-- NEVER call it if structure_count > 0 — this would overwrite user changes
+- Call ONLY when the user explicitly requests it: "tag and audit", "generate structure", "create grid", "add structural grid"
+- NEVER call for evaluation requests ("evaluate", "check structure", "run loads", "assess", "is it safe") — even if structure_count=0
+- NEVER call for modification requests — those use different tools
 - Pass layout_json exactly from state — never simplify or invent it
 - ALWAYS pass typology: use "column_grid" unless user asks for perimeter_load_bearing or shear_wall
 - ALWAYS pass grid_spacing: use 4.0 unless user specifies a different value
 
 STRUCTURAL EVALUATION (evaluate, check structure, run loads, assess beams/columns, find minimum sections, upgrade sections, optimize structure, check if structure holds):
 Set action="final", final_response="" (empty string). The evaluate node handles all calculations and prompts automatically. NEVER answer the evaluation yourself — not even to say you cannot do it without running checks.
+
+ELEMENT REMOVAL (remove column X, delete beam Y, what if we remove X):
+Set action="final", final_response="" (empty string). The evaluate node simulates the removal, runs structural checks, and presents options. NEVER answer removal requests yourself.
 
 WHAT-IF QUESTIONS — two-step process, NEVER call a tool:
 Step 1: User asks "what if we remove X" → set action="final", final_response="" (empty string). The evaluate node runs the simulation automatically.
@@ -81,10 +85,20 @@ def build_reason_node(llm):
         print(f"  NODE: REASON  (cycle {cycle})")
         print(f"{'='*50}")
 
-        # Evaluation already complete — skip LLM call (triggered after comparison → reason → END)
+        # If evaluation already ran, only skip LLM if the last message is from the system
+        # (evaluation or comparison output) — not a new user follow-up question
         if state.get("evaluation_result") is not None:
-            state["came_from"] = "reason"
-            return state
+            last_msg = state["messages"][-1].get("content", "") if state["messages"] else ""
+            is_system_msg = (
+                last_msg.startswith("Structural evaluation")
+                or last_msg.startswith("Comparison summary")
+                or last_msg.startswith("Tool ")
+            )
+            if is_system_msg:
+                state["came_from"] = "reason"
+                return state
+            # Otherwise a new user question arrived — let LLM respond
+            state["evaluation_result"] = None
 
         # Trim history to stay within token limit
         # First message is the layout context — give it a large window.
@@ -125,6 +139,14 @@ def build_reason_node(llm):
 
         if result is None:
             raise RuntimeError(f"LLM failed after 3 attempts: {last_error}")
+
+        # Prevent model from short-circuiting removal queries — must go through evaluate node
+        if result["action"] == "final" and result.get("final_response"):
+            user_msgs = [m for m in state["messages"] if m.get("role") == "user"]
+            if user_msgs:
+                last_user = user_msgs[-1].get("content", "").lower()
+                if any(kw in last_user for kw in ("remov", "delet", "what if", "without")):
+                    result = {"action": "final", "final_response": ""}
 
         if result["action"] == "final":
             state["final_response"] = result["final_response"]
