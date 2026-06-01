@@ -76,9 +76,9 @@ from typing import Optional
 # ============================================================================
 
 # All program types we care about (determines vector dimensions for room counts)
-PROGRAMS = ["bedroom", "kitchen", "living room", "bathroom", "dining room", "foyer"]
+PROGRAMS = ["bedroom", "kitchen", "living room", "bathroom", "dining room", "foyer", "extra"]
 
-SIZES = ["Small", "Medium", "Large"]
+SIZES = ["small", "medium", "large"]
 
 # All program-pair edges we care about
 PROGRAM_PAIRS = [
@@ -93,6 +93,7 @@ PROGRAM_PAIRS = [
     ("foyer",       "bedroom"),
     ("foyer",       "bathroom"),
     ("foyer",       "kitchen"),
+    ("bedroom",     "bedroom"),
 ]
 
 
@@ -138,8 +139,8 @@ def extract_features(G: nx.Graph) -> list[float]:
     #                    ^2 bedrooms ^1 kitchen ^1 living ^2 baths ^0 dining ^0 foyer
     program_size_counts = {}
     for node in G.nodes():
-        program = G.nodes[node].get("program", "")
-        size = G.nodes[node].get("size", "Medium")
+        program = normalize_program(G.nodes[node].get("program", ""))
+        size = G.nodes[node].get("size", "medium")
         key = (program, size)
         program_size_counts[key] = program_size_counts.get(key, 0) + 1
 
@@ -153,8 +154,8 @@ def extract_features(G: nx.Graph) -> list[float]:
     access_edges = set()
     for u, v in G.edges():
         if 'access' in G[u][v].get('edge_types', []):
-            pu = G.nodes[u].get("program", "")
-            pv = G.nodes[v].get("program", "")
+            pu = normalize_program(G.nodes[u].get("program", ""))
+            pv = normalize_program(G.nodes[v].get("program", ""))
             access_edges.add(tuple(sorted([pu, pv])))
 
     for pair in PROGRAM_PAIRS:
@@ -166,8 +167,8 @@ def extract_features(G: nx.Graph) -> list[float]:
     adjacency_edges = set()
     for u, v in G.edges():
         if 'adjacency' in G[u][v].get('edge_types', []):
-            pu = G.nodes[u].get("program", "")
-            pv = G.nodes[v].get("program", "")
+            pu = normalize_program(G.nodes[u].get("program", ""))
+            pv = normalize_program(G.nodes[v].get("program", ""))
             adjacency_edges.add(tuple(sorted([pu, pv])))
     
     for pair in PROGRAM_PAIRS:
@@ -177,7 +178,7 @@ def extract_features(G: nx.Graph) -> list[float]:
     # Tells us how "central" each program type is in the layout's access graph
     centrality_by_program = {}
     for program in PROGRAMS:
-        rooms = [n for n in G.nodes() if G.nodes[n].get("program", "") == program]
+        rooms = [n for n in G.nodes() if normalize_program(G.nodes[n].get("program", "")) == program]
         if rooms:
             centralities = [G.nodes[n].get("betweenness_centrality", 0.0) for n in rooms]
             centrality_by_program[program] = sum(centralities) / len(centralities)
@@ -200,52 +201,55 @@ def extract_features(G: nx.Graph) -> list[float]:
 # ============================================================================
 
 def build_query_vector(
-        programs: list[str], 
-        sizes: bool = False,
-        access: bool = False,
-        adjacency: bool = False,
+        programs: list, # Can be list[str] or list[tuple[str, str]]
+        access_pairs: Optional[list[tuple[str, str]]] = None,
+        adjacency_pairs: Optional[list[tuple[str, str]]] = None,
         centrality: bool = False
         ) -> list[float]:
     """Build a query feature vector from program and size preferences.
 
     Args:
-        programs:  e.g. ['bedroom', 'kitchen', 'living room']
-        sizes:  e.g. ['Small', 'Medium', 'Large']; if None, any size works
-        access: match door connections between programs
-        adjacency: match wall adjacencies between programs
+        programs: Mixed list of:
+            - str: 'bedroom' → any size
+            - tuple: ('bedroom', 'large') → exact size
+        access_pairs: list of program pairs that should be connected by doors
+        adjacency_pairs: list of program pairs that should share walls
         centrality: prefer centrally-located programs (high betweenness)
 
     Returns:
         Feature vector in the same space as extract_features() output.
     """
     features = []
-
-    # --- A: Count how many of each program the user wants
-    # Normalize short names (e.g. 'bed' → 'bedroom') so the query aligns
-    # with the canonical names used in PROGRAMS and the stored index.
     query_counts = {}
-    for p in programs:
-        canonical = normalize_program(p)
-        query_counts[canonical] = query_counts.get(canonical, 0) + 1
 
-    if sizes:
-        # If user specifies sizes, we assume they want all rooms to be that size
-        # (e.g. "I want 2 Small bedrooms and 1 Small kitchen")
-        for program in PROGRAMS:
+    # --- A: Parse mixed format (strings and tuples)
+    for item in programs:
+        if isinstance(item, tuple):
+            program, size = item
+            canonical = normalize_program(program)
+            key = (canonical, size)
+            query_counts[key] = query_counts.get(key, 0) + 1
+        else:
+            # String only — will be handled as "any size" with zero counts
+            canonical = normalize_program(item)
             for size in SIZES:
-                features.append(float(query_counts.get(program, 0)) / 3.0 if program in query_counts  else 0.0)
-    else:
-        features.extend([0.0] * (len(PROGRAMS) * len(SIZES)))  # No size preference, all zeros for size-specific counts
+                key = (canonical, size)
+                query_counts[key] = query_counts.get(key, 0) + 1 / len(SIZES)
+
+    for program in PROGRAMS:
+        for size in SIZES:
+            features.append(float(query_counts.get((program, size), 0)))
 
     # --- B: Which pairs does the user want connected?
-    # connected=True  → mark every pair combination in the user's list
-    # connected=False → no connectivity requirement, all zeros
-    if access:
+    # If access_pairs is provided, mark only those pairs as required.
+    # If access_pairs is None, no connectivity requirement (all zeros).
+    if access_pairs:
         query_access_pairs = set()
-        for i in range(len(programs)):
-            for j in range(i + 1, len(programs)):
-                pair = tuple(sorted([programs[i], programs[j]]))
-                query_access_pairs.add(pair)
+        for p1, p2 in access_pairs:
+            p1_normalized = normalize_program(p1)
+            p2_normalized = normalize_program(p2)
+            pair = tuple(sorted([p1_normalized, p2_normalized]))
+            query_access_pairs.add(pair)
         for pair in PROGRAM_PAIRS:
             features.append(1.0 if pair in query_access_pairs else 0.0)
     else:
@@ -253,14 +257,18 @@ def build_query_vector(
 
 
     # --- C: Adjacency edges between program pairs
-    if adjacency:
+    # If adjacency_pairs is provided, mark only those pairs as required.
+    # If adjacency_pairs is None, no adjacency requirement (all zeros).
+    if adjacency_pairs:
         query_adjacency_pairs = set()
-        for i in range(len(programs)):
-            for j in range(i + 1, len(programs)):
-                pair = tuple(sorted([programs[i], programs[j]]))
-                query_adjacency_pairs.add(pair)
+        for p1, p2 in adjacency_pairs:
+            p1_normalized = normalize_program(p1)
+            p2_normalized = normalize_program(p2)
+            pair = tuple(sorted([p1_normalized, p2_normalized]))
+            query_adjacency_pairs.add(pair)
         for pair in PROGRAM_PAIRS:
             features.append(1.0 if pair in query_adjacency_pairs else 0.0)
+    
     else:
         features.extend([0.0] * len(PROGRAM_PAIRS))  # No connectivity preference, all zeros for adjacency edges
 
@@ -307,6 +315,7 @@ class RuleBasedEmbedder:
     def __init__(self, layout_graphs: dict[str, nx.Graph]):
         # Build the index once — this replaces the per-search graph traversal
         # in graph_searcher.py. No traversal happens during search().
+        self.layout_graphs = layout_graphs
         self.index = {
             layout_id: extract_features(G)
             for layout_id, G in layout_graphs.items()
@@ -314,20 +323,22 @@ class RuleBasedEmbedder:
 
     def search(
         self,
-        programs: list[str],
-        sizes: bool = False,
-        access: bool = False,
-        adjacency: bool = False,
+        programs: list,
+        access_pairs: Optional[list[tuple[str, str]]] = None,
+        adjacency_pairs: Optional[list[tuple[str, str]]] = None,
+        not_adjacency_pairs: Optional[list[tuple[str, str]]] = None,
         centrality: bool = False,
         top_k: int = 3,
     ) -> list[tuple[str, float]]:
-        """Find the top-k layouts with EXACTLY the requested room counts.
+        """Find the top-k layouts with AT LEAST the requested room counts.
 
         Args:
-            programs:  e.g. ['bedroom', 'bedroom', 'kitchen', 'bathroom']
-            sizes:     whether to match the exact sizes of the programs
-            access:    whether the programs must be directly connected by doors
-            adjacency: whether the programs must be adjacent (share a wall)
+            programs: Either:
+                - ['bedroom', 'kitchen', 'living room'] → match any sizes
+                - [('bedroom', 'Large'), ('kitchen', 'Small')] → match exact sizes
+            access_pairs:    whether the programs must be directly connected by doors
+            adjacency_pairs: whether the programs must be adjacent (share a wall)
+            not_adjacency_pairs: whether the programs must NOT be adjacent (share a wall)
             centrality: whether to prefer centrally-located programs
             top_k:     how many results to return
 
@@ -335,31 +346,80 @@ class RuleBasedEmbedder:
             list of (layout_id, score) sorted best-first; empty if no exact match.
         """
         
-        #It filters to only layouts with the exact program counts.
-        # Dictionary that counts how many times each program appears in the user's query
-        required: dict[str, int] = {}
-        for p in programs:
-            canonical = normalize_program(p)
-            required[canonical] = required.get(canonical, 0) + 1
-
-        required_indices = {
-            PROGRAMS.index(p): count
-            for p, count in required.items()
-            if p in PROGRAMS
-        }
+        size_specific_reqs = {}  # {(program, size): count}
+        any_size_reqs = {}       # {program: count}
+        
+        for item in programs:
+            if isinstance(item, tuple):
+                program, size = item
+                canonical = normalize_program(program)
+                key = (canonical, size)
+                size_specific_reqs[key] = size_specific_reqs.get(key, 0) + 1
+            else:
+                canonical = normalize_program(item)
+                any_size_reqs[canonical] = any_size_reqs.get(canonical, 0) + 1
+            
+        # Build excluded pairs set
+        excluded_pairs = set()
+        if not_adjacency_pairs:
+            for p1, p2 in not_adjacency_pairs:
+                p1_normalized = normalize_program(p1)
+                p2_normalized = normalize_program(p2)
+                pair = tuple(sorted([p1_normalized, p2_normalized]))
+                excluded_pairs.add(pair)
+        
+        
+        def check_required_counts(layout_vec: list[float]) -> bool:
+            """Check if layout has AT LEAST the requested (program, size) pairs."""
+            for (program, size), required_count in size_specific_reqs.items():
+                if program not in PROGRAMS or size not in SIZES:
+                    continue
+                prog_idx = PROGRAMS.index(program)
+                size_idx = SIZES.index(size)
+                vec_idx = prog_idx * len(SIZES) + size_idx
+                if layout_vec[vec_idx] < required_count:
+                    return False
+                
+            # Check any-size requirements
+            for program, required_count in any_size_reqs.items():
+                if program not in PROGRAMS:
+                    continue
+                prog_idx = PROGRAMS.index(program)
+                total_count = sum(layout_vec[prog_idx * len(SIZES) + s] for s in range(len(SIZES)))
+                if total_count < required_count:
+                    return False
+            
+            return True   
+        
+        def has_excluded_adjacencies(layout_id: str) -> bool:
+            """Return True if layout has any of the excluded adjacencies."""
+            if not excluded_pairs:
+                return False
+            
+            G = self.layout_graphs[layout_id]
+            for u, v in G.edges():
+                if 'adjacency' in G[u][v].get('edge_types', []):
+                    pu = normalize_program(G.nodes[u].get("program", ""))
+                    pv = normalize_program(G.nodes[v].get("program", ""))
+                    pair = tuple(sorted([pu, pv]))
+                    if pair in excluded_pairs:
+                        return True
+            return False
 
         query_vec = build_query_vector(
             programs, 
-            sizes=sizes, 
-            access=access, 
-            adjacency=adjacency, 
+            access_pairs=access_pairs, 
+            adjacency_pairs=adjacency_pairs, 
             centrality=centrality)
 
         scores = []
         for layout_id, layout_vec in self.index.items():
-            if any(layout_vec[idx] != count for idx, count in required_indices.items()):
+            if not check_required_counts(layout_vec):
+                continue
+            if has_excluded_adjacencies(layout_id):
                 continue
             scores.append((layout_id, cosine_similarity(query_vec, layout_vec)))
+
         scores.sort(key=lambda x: x[1], reverse=True)
         
         return scores[:top_k]
@@ -377,7 +437,7 @@ if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).parent.parent))
 
     # Load and build index
-    graphs_path = Path(__file__).parent.parent / "layout_inputs" / "sample_graphs.json"
+    graphs_path = Path(__file__).parent.parent.parent / "layout_inputs" / "sample_graphs.json"
     with open(graphs_path) as f:
         layout_graphs = {
             lid: nx.node_link_graph(data)
@@ -387,8 +447,23 @@ if __name__ == "__main__":
     embedder = RuleBasedEmbedder(layout_graphs)
 
     # Example searches
-    print("Search 1:", embedder.search(["bedroom", "kitchen"], access=True, top_k=3))
-    print("Search 2:", embedder.search(["bedroom", "bedroom", "kitchen"], top_k=3))
-    print("Search 3:", embedder.search(["bedroom", "kitchen", "living room"], centrality=True, top_k=3))
-
+    print("Search 1:", 
+      embedder.search(["dining room"], top_k=3))
     
+    print("Search 2a:", 
+      embedder.search([('bedroom', 'large'), ('bedroom', 'medium')], top_k=3))
+
+    print("Search 2b:", 
+      embedder.search([('bedroom', 'large'), ('bedroom', 'medium'), 'extra'], top_k=3))
+
+    print("Search 3a:", 
+      embedder.search(["bedroom", "bedroom"], adjacency_pairs=[("bedroom", "bedroom"), ("kitchen", "living room")], top_k=3))
+    
+    print("Search 3b:", 
+      embedder.search(["bedroom", "bedroom", "extra"], adjacency_pairs=[("bedroom", "bedroom"), ("kitchen", "living room")], top_k=3))
+
+    print("Search 4a:", 
+      embedder.search(["bedroom", "bedroom"], not_adjacency_pairs=[("bedroom", "bathroom")], top_k=3))
+    
+    print("Search 4b:", 
+      embedder.search([('bedroom', 'medium'), ('kitchen', 'small')], adjacency_pairs=[("kitchen", "bathroom")], not_adjacency_pairs=[("bedroom", "kitchen")], top_k=3))

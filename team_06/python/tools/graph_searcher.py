@@ -64,10 +64,8 @@ class GraphSearcher:
         """
         k = top_k if top_k is not None else len(self.layout_graphs)
         results = self._embedder.search(
-            programs, 
-            access=access, 
-            adjacency=adjacency, 
-            centrality=centrality, 
+            programs,
+            centrality=centrality,
             top_k=k)
         
         if candidate_ids is not None:
