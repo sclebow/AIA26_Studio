@@ -1,5 +1,4 @@
-"""
-Grasshopper Bridge - Send generated shapes to Grasshopper via MCP
+"""Grasshopper Bridge - Send generated shapes to Grasshopper via MCP
 
 This module handles the integration between the Shape Generator and Grasshopper,
 including:
@@ -10,8 +9,8 @@ including:
 
 Usage:
     from grasshopper_bridge import GrasshopperBridge
-    
-    bridge = GrassopperBridge(mcp_client)
+
+    bridge = GrasshopperBridge(mcp_client)
     result = bridge.send_shape(shape_output)
     feedback = bridge.get_shape_feedback(shape_id)
 """
@@ -24,7 +23,7 @@ from shape_generator_node import ShapeOutput
 from mcp_client import McpClient
 
 
-class GrassopperBridge:
+class GrasshopperBridge:
     """
     Bridge for communicating with Grasshopper via MCP.
     
@@ -57,25 +56,72 @@ class GrassopperBridge:
         Returns:
             Tool result/response from Grasshopper
         """
-        # Prepare MCP call arguments
+        # Prepare MCP call arguments. Put numeric parameters at top-level so
+        # Grasshopper input parser (which expects keys like arm_length_m)
+        # can read them. Build a params dict from metadata and add common
+        # aliases used by the Grasshopper input parser.
+        meta = dict(shape.metadata or {})
+        params: dict[str, Any] = dict(meta)
+
+        # Common aliases mapping between our internal metadata and GH tool schema
+        if "length" in meta and "arm_length_m" not in params:
+            params["arm_length_m"] = float(meta["length"])
+        if "arm_a_length" in meta and "arm_length_m" not in params:
+            params["arm_length_m"] = float(meta["arm_a_length"])
+        if "width" in meta and "width_m" not in params:
+            params["width_m"] = float(meta["width"])
+        if "building_width" in meta and "width_m" not in params:
+            params["width_m"] = float(meta["building_width"])
+        if "courtyard_size" in meta and "courtyard_size_m" not in params:
+            params["courtyard_size_m"] = float(meta["courtyard_size"])
+        if "rotation_angle" in meta and "rotation_degrees" not in params:
+            params["rotation_degrees"] = float(meta["rotation_angle"])
+        if "rotation" in meta and "rotation_degrees" not in params:
+            params["rotation_degrees"] = float(meta["rotation"])
+        if "base_point" in meta and "position_xy" not in params:
+            bp = meta.get("base_point")
+            if isinstance(bp, (list, tuple)) and len(bp) >= 2:
+                params["position_xy"] = [float(bp[0]), float(bp[1])]
+
         arguments = {
-            "tool_name": tool_name,
             "shape_id": shape.shape_id,
-            "input": {
-                "shape_type": shape.shape_type,
-                "parameters": shape.metadata,
+            "shape_type": shape.shape_type,
+            # include mapped params so GH JSON readers see numeric keys
+            **params,
+            "live_geometry": {
+                "geometry_type": "closed_polyline_footprint_3d",
+                "vertices_2d": shape.vertices_2d,
+                "vertices_3d": shape.vertices_3d,
+                "faces": shape.faces,
             },
-            "output": {
-                "live_geometry": {
-                    "geometry_type": "closed_polyline_footprint_3d",
-                    "vertices_2d": shape.vertices_2d,
-                    "vertices_3d": shape.vertices_3d,
-                    "faces": shape.faces,
-                },
-                "shape_metadata": shape.metadata,
-                "editable_parameters": shape.editable_parameters,
-            },
+            "editable_parameters": shape.editable_parameters,
         }
+        # Also include common container aliases so Grasshopper components that
+        # expect nested objects (e.g. `arguments`, `input`, or `parameters`)
+        # can read numeric values without returning null.
+        arguments.setdefault("arguments", dict(params))
+        arguments.setdefault("input", dict(params))
+        arguments.setdefault("parameters", dict(params))
+        arguments.setdefault("args", dict(params))
+        # Add string duplicates for numeric/container params so GH AsString
+        # readers can fetch values reliably (e.g. move_back_str)
+        for key, val in list(params.items()):
+            try:
+                if isinstance(val, (int, float, bool)):
+                    arguments.setdefault(f"{key}_str", str(val))
+                    arguments["arguments"].setdefault(f"{key}_str", str(val))
+                    arguments["input"].setdefault(f"{key}_str", str(val))
+                    arguments["parameters"].setdefault(f"{key}_str", str(val))
+                    arguments["args"].setdefault(f"{key}_str", str(val))
+                elif isinstance(val, (list, dict)):
+                    s = json.dumps(val, ensure_ascii=False)
+                    arguments.setdefault(f"{key}_str", s)
+                    arguments["arguments"].setdefault(f"{key}_str", s)
+                    arguments["input"].setdefault(f"{key}_str", s)
+                    arguments["parameters"].setdefault(f"{key}_str", s)
+                    arguments["args"].setdefault(f"{key}_str", s)
+            except Exception:
+                continue
 
         # Cache the shape
         self.sent_shapes[shape.shape_id] = arguments
@@ -181,7 +227,7 @@ class GrassopperBridge:
             shape_id: ID of shape feedback is for
             feedback: Feedback data
         """
-        self.feedback[shape_id] = feedback
+        self.shape_feedback[shape_id] = feedback
 
     def validate_shape_geometry(self, shape: ShapeOutput) -> bool:
         """

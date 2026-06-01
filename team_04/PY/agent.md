@@ -14,4 +14,4 @@ The TerraPilot Agent is an architectural massing and Grasshopper workflow agent.
 4. "Generate an I-shape with connector on and compare it to connector off."
 	- The TerraPilot Agent will create both variants, compare geometry output, and flag connector-related differences.
 5. "If the input is null, keep the previous Grasshopper result unchanged."
-	- The TerraPilot Agent will avoid fallback geometry and return no new mesh when there is no meaningful input.
+	- The TerraPilot Agent will avoid fallback geometry and return no new mesh when there is no meaningful input.s
