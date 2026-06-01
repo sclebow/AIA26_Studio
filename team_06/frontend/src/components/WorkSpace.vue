@@ -26,14 +26,20 @@ console.log('WorkSpace agentState:', props.agentState);
     <header class="work-header">
       <button class="default-btn export-btn ">Export</button>
     </header>
-      <div class="toolbar-card toolbar-inline">
-        <ToolBar :viewMode="viewMode" @viewChange="viewMode = $event" />
-      </div>
-      <div class="canvas-area">
-        <div class="canvas-container">
-          <LayoutCanvas :layout="props.agentState" />
+      <template v-if="props.agentState">
+        <div class="toolbar-card toolbar-inline">
+          <ToolBar :viewMode="viewMode" @viewChange="viewMode = $event" />
         </div>
-        <LayoutCard :layout="props.agentState" />
+        <div class="canvas-area">
+          <div class="canvas-container">
+            <LayoutCanvas :layout="props.agentState" />
+          </div>
+          <LayoutCard :layout="props.agentState" />
+        </div>
+      </template>
+      <div v-else class="welcome-screen">
+        <h1 class="welcome-title">Welcome to inHabit</h1>
+        <p class="welcome-subtitle">AI-powered floor plan generation based on your lifestyle</p>
       </div>
   </aside>
 </template>
@@ -90,7 +96,7 @@ console.log('WorkSpace agentState:', props.agentState);
 }
 
 .toolbar-card {
-    margin-left: auto;
+  margin-left: auto;
   margin-right: auto;
   background: var(--color-white);
   border-radius: var(--radius);
@@ -100,6 +106,28 @@ console.log('WorkSpace agentState:', props.agentState);
   align-items: center;
   width: fit-content;
   min-width: 0;
+}
+
+.welcome-screen {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px;
+  text-align: center;
+}
+.welcome-title {
+  font-size: var(--font-size-title);
+  font-weight: 700;
+  color: var(--color-blue);
+  margin: 0;
+}
+.welcome-subtitle {
+  font-size: var(--font-size-subtitle);
+  color: var(--color-text-secondary);
+  margin: 0;
 }
 
 @media (max-width: 1200px) {
