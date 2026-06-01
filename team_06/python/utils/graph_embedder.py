@@ -231,13 +231,18 @@ def build_query_vector(
         query_counts[canonical] = query_counts.get(canonical, 0) + 1
 
     if sizes:
-        # If user specifies sizes, we assume they want all rooms to be that size
-        # (e.g. "I want 2 Small bedrooms and 1 Small kitchen")
+        # If user specifies sizes, distribute the requested count across the size buckets.
+        # This keeps the vector compatible with the stored layout vectors.
         for program in PROGRAMS:
-            for size in SIZES:
-                features.append(float(query_counts.get(program, 0)) / 3.0 if program in query_counts  else 0.0)
+            for _size in SIZES:
+                features.append(float(query_counts.get(program, 0)) / 3.0 if program in query_counts else 0.0)
     else:
-        features.extend([0.0] * (len(PROGRAMS) * len(SIZES)))  # No size preference, all zeros for size-specific counts
+        # No explicit size preference: still encode the requested room counts so
+        # program-only searches have a non-zero signal. The dataset defaults most
+        # rooms to Medium, so we place the count there.
+        for program in PROGRAMS:
+            count = float(query_counts.get(program, 0))
+            features.extend([0.0, count, 0.0])
 
     # --- B: Which pairs does the user want connected?
     # connected=True  → mark every pair combination in the user's list
@@ -363,7 +368,7 @@ if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).parent.parent))
 
     # Load and build index
-    graphs_path = Path(__file__).parent.parent / "layout_inputs" / "sample_graphs.json"
+    graphs_path = Path(__file__).parent.parent / "layout_inputs" / "RPLAN_Dataset_R-NB" / "graphs.json"
     with open(graphs_path) as f:
         layout_graphs = {
             lid: nx.node_link_graph(data)
