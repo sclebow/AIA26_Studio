@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from matplotlib.lines import Line2D
 
 # Add project root to sys.path to enable imports from team_06 package
 script_dir = Path(__file__).resolve().parent
@@ -29,8 +30,8 @@ color_map = {
 
 size_map = {
     'small': 1000,
-    'medium': 2000,
-    'large': 3000
+    'medium': 2500,
+    'large': 4000
 }
 
 # Loop through each layout
@@ -65,7 +66,6 @@ for layout_idx, layout in enumerate(layouts, start=1):
     print(f"Edge details:")
     for u, v, d in G.edges(data=True):
         edge_types = d.get('edge_types', [])
-        weight = d.get('weight', 0)
         print(f"  {u} -- {v}: types={edge_types}")
 
     nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=node_sizes)
@@ -82,8 +82,14 @@ for layout_idx, layout in enumerate(layouts, start=1):
         nx.draw_networkx_edges(G, pos, edgelist=adjacency_edges, width=2, style='dashed', edge_color='blue', 
                                connectionstyle='arc3,rad=0.1', arrows=True, arrowstyle='-', label='Adjacency (shared walls)')
     
-    plt.legend(loc='upper left', fontsize=8)
-    plt.title(f"Room Graph: {layout['layoutId']}")
+    # Create custom legend entries for edges
+    edge_legend_elements = [
+        Line2D([0], [0], color='black', linewidth=2, linestyle='-', label='Access (doors)'),
+        Line2D([0], [0], color='blue', linewidth=2, linestyle='--', label='Adjacency (shared walls)')
+    ]
+
+    plt.legend(handles=edge_legend_elements, loc='upper left', fontsize=8)
+    plt.title(f"Graph-{layout_idx}: {layout['layoutId']}")
     plt.axis('off')
     plt.tight_layout()
     #plt.show()
