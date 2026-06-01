@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <div class="app-layout">
-      <Sidebar :tab="tab" @change="tab = $event" :parsedInput="parsedInput" />
+      <Sidebar :tab="tab" @change="tab = $event" :parsedInput="parsedInput" @itemAdded="handleItemAdded" />
       <WorkSpace :agentState="agentState" />
       <ChatPanel :chat="chatHistory" @send="handleUserMessage" />
     </div>
@@ -107,6 +107,16 @@ function mockAgentResponse(messages) {
       brief: 'John and Sarah area a couple and cook a lot. They want one bedroom and a workspace.'
     }
   };
+}
+
+function handleItemAdded({ section, item }) {
+  if (!parsedInput.value) {
+    parsedInput.value = { households: [], activities: [], rooms: [], brief: '' }
+  }
+  if (!parsedInput.value[section]) {
+    parsedInput.value[section] = []
+  }
+  parsedInput.value[section] = [...parsedInput.value[section], item]
 }
 
 function handleUserMessage(message) {
