@@ -1,3 +1,4 @@
+from interface_mcp_bridge import run_interface_command
 from __future__ import annotations
 import json, math, sys, time
 from pathlib import Path
