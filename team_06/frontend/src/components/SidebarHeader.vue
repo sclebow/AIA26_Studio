@@ -4,7 +4,7 @@ defineProps({ tab: String })
 
 <template>
   <div class="sidebar-header">
-    <span class="sidebar-app-name">InHabit</span>
+    <span class="sidebar-app-name">inHabit</span>
     <div class="sidebar-nav-tabs">
       <button class="sidebar-nav-tab-btn" :class="{active: tab==='brief'}" @click="$emit('change', 'brief')">Brief</button>
       <button class="sidebar-nav-tab-btn" :class="{active: tab==='explore'}" @click="$emit('change', 'explore')">Explore</button>
