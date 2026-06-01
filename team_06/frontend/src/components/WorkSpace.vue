@@ -6,13 +6,14 @@ import ToolBar from './ToolBar.vue'
 import LayoutCanvas from './LayoutCanvas.vue'
 import LayoutCard from './LayoutCard.vue'
 
-import { watch } from 'vue'
+import { watch, ref } from 'vue'
 const props = defineProps({
   agentState: {
     type: Object,
     default: null
   }
 })
+const viewMode = ref('layout')
 watch(() => props.agentState, (val) => {
   console.log('WorkSpace agentState changed:', val)
 })
@@ -26,7 +27,7 @@ console.log('WorkSpace agentState:', props.agentState);
       <button class="default-btn export-btn ">Export</button>
     </header>
       <div class="toolbar-card toolbar-inline">
-        <ToolBar />
+        <ToolBar :viewMode="viewMode" @viewChange="viewMode = $event" />
       </div>
       <div class="canvas-area">
         <div class="canvas-container">
