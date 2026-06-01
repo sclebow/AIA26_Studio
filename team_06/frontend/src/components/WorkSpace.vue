@@ -23,12 +23,23 @@ const hasDaylight = computed(() =>
 function onViewChange(mode) {
   viewMode.value = mode
 }
+
+function exportLayout() {
+  if (!props.agentState) return
+  const blob = new Blob([JSON.stringify(props.agentState, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${props.agentState.layoutId || 'layout'}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 </script>
 
 <template>
   <aside class="work-panel">
     <header class="work-header">
-      <button class="default-btn export-btn ">Export</button>
+      <button class="default-btn export-btn" :disabled="!props.agentState" @click="exportLayout">Export</button>
     </header>
       <div class="toolbar-card toolbar-inline">
         <ToolBar :viewMode="viewMode" :hasLayout="!!props.agentState" :hasDaylight="hasDaylight" @viewChange="onViewChange" @layoutLoaded="emit('layoutLoaded', $event)" />
