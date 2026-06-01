@@ -32,9 +32,9 @@ console.log('WorkSpace agentState:', props.agentState);
         </div>
         <div class="canvas-area">
           <div class="canvas-container">
-            <LayoutCanvas :layout="props.agentState" />
+            <LayoutCanvas :layout="props.agentState" :viewMode="viewMode" />
           </div>
-          <LayoutCard :layout="props.agentState" />
+          <LayoutCard :layout="props.agentState" :viewMode="viewMode" />
         </div>
       </template>
       <div v-else class="welcome-screen">

@@ -35,14 +35,14 @@
 // Overflow rooms tile below y=7, staying attached to the footprint.
 
 const ROOM_GEO = {
-  'Kitchen':     { geometry: [[0,0],[0,4],[4,4],[4,0],[0,0]],     attributes: { program: 'kitchen', area: 16 } },
-  'Bedroom':     { geometry: [[4,0],[4,4],[10,4],[10,0],[4,0]],   attributes: { program: 'bed',     area: 24 } },
-  'Bedroom 1':   { geometry: [[4,0],[4,4],[7,4],[7,0],[4,0]],     attributes: { program: 'bed',     area: 12 } },
-  'Bedroom 2':   { geometry: [[7,0],[7,4],[10,4],[10,0],[7,0]],   attributes: { program: 'bed',     area: 12 } },
-  'Bedroom 3':   { geometry: [[4,0],[4,2],[10,2],[10,0],[4,0]],   attributes: { program: 'bed',     area:  8 } },
-  'Study':       { geometry: [[10,0],[10,4],[13,4],[13,0],[10,0]], attributes: { program: 'study',   area: 12 } },
-  'Living Room': { geometry: [[0,4],[0,7],[10,7],[10,4],[0,4]],   attributes: { program: 'living',  area: 30 } },
-  'Bathroom':    { geometry: [[10,4],[10,7],[13,7],[13,4],[10,4]], attributes: { program: 'bath',    area:  9 } },
+  'Kitchen':     { geometry: [[0,0],[0,4],[4,4],[4,0],[0,0]],     attributes: { program: 'kitchen', area: 16, daylight: 0.44 } },
+  'Bedroom':     { geometry: [[4,0],[4,4],[10,4],[10,0],[4,0]],   attributes: { program: 'bed',     area: 24, daylight: 0.41 } },
+  'Bedroom 1':   { geometry: [[4,0],[4,4],[7,4],[7,0],[4,0]],     attributes: { program: 'bed',     area: 12, daylight: 0.38 } },
+  'Bedroom 2':   { geometry: [[7,0],[7,4],[10,4],[10,0],[7,0]],   attributes: { program: 'bed',     area: 12, daylight: 0.43 } },
+  'Bedroom 3':   { geometry: [[4,0],[4,2],[10,2],[10,0],[4,0]],   attributes: { program: 'bed',     area:  8, daylight: 0.35 } },
+  'Study':       { geometry: [[10,0],[10,4],[13,4],[13,0],[10,0]], attributes: { program: 'study',   area: 12, daylight: 0.51 } },
+  'Living': { geometry: [[0,4],[0,7],[10,7],[10,4],[0,4]],   attributes: { program: 'living',  area: 30, daylight: 0.53 } },
+  'Bathroom':    { geometry: [[10,4],[10,7],[13,7],[13,4],[10,4]], attributes: { program: 'bath',    area:  9, daylight: 0.14 } },
 }
 
 function getRoomGeo(name, overflowIndex) {
@@ -52,7 +52,7 @@ function getRoomGeo(name, overflowIndex) {
   const y = 7 + Math.floor(overflowIndex / 3) * 3
   return {
     geometry: [[x,y],[x,y+3],[x+4,y+3],[x+4,y],[x,y]],
-    attributes: { program: 'extra', area: 12 }
+    attributes: { program: 'extra', area: 12, daylight: 0.12 }
   }
 }
 
@@ -96,7 +96,7 @@ const SCENARIOS = [
     respond(msg, _state) {
       const defaultRooms = [
         { id: 1, name: 'Kitchen',     size: 'medium' },
-        { id: 2, name: 'Living Room', size: 'medium' },
+        { id: 2, name: 'Living', size: 'medium' },
         { id: 3, name: 'Bedroom',     size: 'double' },
         { id: 4, name: 'Bathroom',    size: 'small'  },
       ]

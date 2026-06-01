@@ -1,11 +1,10 @@
 <script setup>
+import { getDaylightColor, formatDaylight } from '../utils/roomAnalysis.js'
+
 const props = defineProps({
-  layout: {
-    type: Object,
-    default: null
-  }
+  layout: { type: Object, default: null },
+  viewMode: { type: String, default: 'layout' }
 })
-// Example: you can add logic to compute issues if needed
 const issues = []
 </script>
 
@@ -14,11 +13,22 @@ const issues = []
     <template v-if="props.layout && props.layout.rooms && props.layout.rooms.length">
       <div class="layout-summary-title">{{ (props.layout.layoutId || 'Layout').charAt(0).toUpperCase() + (props.layout.layoutId || 'Layout').slice(1) }}</div>
       <div class="layout-summary-area">
-        {{ props.layout.rooms.reduce((sum, r) => sum + (r.attributes?.area || 0), 0).toFixed(2) }}<span style="font-size:1.1rem;font-weight:400;"> m²</span>
+        <template v-if="props.viewMode === 'daylight'">
+          {{ (props.layout.rooms.reduce((sum, r) => sum + (r.attributes?.daylight ?? 0), 0) / props.layout.rooms.length).toFixed(2) }}<span style="font-size:1.1rem;font-weight:400;"> avg DA</span>
+        </template>
+        <template v-else>
+          {{ props.layout.rooms.reduce((sum, r) => sum + (r.attributes?.area || 0), 0).toFixed(2) }}<span style="font-size:1.1rem;font-weight:400;"> m²</span>
+        </template>
       </div>
       <ul class="layout-summary-list">
-        <li v-for="room in props.layout.rooms" :key="room.id">
-          {{ room.name || room.attributes?.program }} - {{ room.attributes?.area }} m²
+        <li v-for="room in props.layout.rooms" :key="room.id" class="layout-summary-room-row">
+          <template v-if="props.viewMode === 'daylight'">
+            <span class="room-swatch" :style="{ background: getDaylightColor(room.attributes?.daylight ?? 0) }"></span>
+            {{ room.name || room.attributes?.program }} - {{ formatDaylight(room.attributes?.daylight) }}
+          </template>
+          <template v-else>
+            {{ room.name || room.attributes?.program }} - {{ room.attributes?.area }} m²
+          </template>
         </li>
       </ul>
       <div class="layout-summary-issues" v-if="issues && issues.length">
@@ -64,6 +74,18 @@ const issues = []
   padding: 0;
   list-style: none;
   color: var(--color-text-primary);
+}
+.layout-summary-room-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.room-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
 }
 .layout-summary-issues {
   margin-top: 10px;

@@ -1,23 +1,16 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { Stage, Layer, Group, Line, Text } from 'vue-konva'
+import { getRoomColor, getRoomSecondaryLabel } from '../utils/roomAnalysis.js'
+
 const props = defineProps({
-  layout: {
-    type: Object,
-    default: null
-  }
+  layout: { type: Object, default: null },
+  viewMode: { type: String, default: 'layout' }
 })
 
 const stageConfig = ref({ width: 600, height: 600 })
 
-const roomColors = {
-  bed: '#4A7CA8',
-  bath: '#C8F4F0',
-  kitchen: '#00C7D4',
-  living: '#009FA6',
-  foyer: '#0082C2',
-  extra: '#7A8FA3',
-}
+
 
 
 // --- Watcher-based geometry/scaling logic ---
@@ -71,6 +64,24 @@ function recalcGeometry() {
 
 watch(() => props.layout, recalcGeometry, { immediate: true, deep: true })
 
+// Computed room render data — explicitly tracks props.viewMode so Vue re-evaluates
+// when the toggle changes, even inside vue-konva's non-VDOM rendering path.
+const roomRenderData = computed(() => {
+  const rooms = props.layout?.rooms || []
+  const vm = props.viewMode
+  return rooms.map(room => ({
+    id: room.id,
+    points: flattenAndScale(room.geometry),
+    fill: getRoomColor(room, vm),
+    labelX: getLabelX(room.geometry),
+    labelY: getLabelY(room.geometry),
+    nameText: room.attributes.program,
+    nameOffsetX: getTextWidth(room.attributes.program, 18) / 2,
+    secondaryText: getRoomSecondaryLabel(room, vm),
+    secondaryOffsetX: getTextWidth(getRoomSecondaryLabel(room, vm), 14) / 2,
+  }))
+})
+
 function flattenAndScale(geometry) {
   // Converts [[x, y], ...] to [x*scale+offset, y*scale+offset, ...]
   return geometry.flatMap(([x, y]) => [x * scale.value + offset.value.x, y * scale.value + offset.value.y]);
@@ -117,32 +128,32 @@ function getTextWidth(text, fontSize) {
 <template>
   <v-stage :config="stageConfig">
     <v-layer>
-      <v-group v-for="room in props.layout?.rooms || []" :key="room.id">
+      <v-group v-for="room in roomRenderData" :key="room.id">
         <v-line
-          :points="flattenAndScale(room.geometry)"
+          :points="room.points"
           :closed="true"
-          :fill="roomColors[room.attributes.program] || '#ddd'"
+          :fill="room.fill"
           :stroke="'#333'"
           :strokeWidth="2"
         />
         <v-text
-          :x="getLabelX(room.geometry)"
-          :y="getLabelY(room.geometry)"
-          :text="room.attributes.program"
+          :x="room.labelX"
+          :y="room.labelY"
+          :text="room.nameText"
           fontFamily="Inter"
           fontSize="18"
           fill="#222"
-          :offsetX="getTextWidth(room.attributes.program, 18) / 2"
+          :offsetX="room.nameOffsetX"
           :offsetY="18 / 2"
         />
         <v-text
-          :x="getLabelX(room.geometry)"
-          :y="getLabelY(room.geometry) + 16"
-          :text="room.attributes.area ? `${room.attributes.area.toFixed(1)} m²` : ''"
+          :x="room.labelX"
+          :y="room.labelY + 16"
+          :text="room.secondaryText"
           fontFamily="Inter"
           fontSize="14"
           fill="#222"
-          :offsetX="getTextWidth(room.attributes.area ? `${room.attributes.area.toFixed(1)} m²` : '', 14) / 2"
+          :offsetX="room.secondaryOffsetX"
           :offsetY="14 / 2"
         />
       </v-group>
