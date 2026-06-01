@@ -137,7 +137,7 @@
       "attributes": {
         "area": 6.77,
         "program": "bed",
-        "daylight": 8.9
+        "daylight": 8.4
       }
     },
     {
@@ -168,7 +168,7 @@
       "attributes": {
         "area": 6.66,
         "program": "bed",
-        "daylight": 8.4
+        "daylight": 7.5
       }
     },
     {
@@ -199,7 +199,7 @@
       "attributes": {
         "area": 20.31,
         "program": "living",
-        "daylight": 3.4
+        "daylight": 7.5
       }
     },
     {
@@ -230,7 +230,7 @@
       "attributes": {
         "area": 2.79,
         "program": "kitchen",
-        "daylight": 7.5
+        "daylight": 3.4
       }
     },
     {
@@ -261,7 +261,7 @@
       "attributes": {
         "area": 2.01,
         "program": "bath",
-        "daylight": 7.5
+        "daylight": 8.9
       }
     }
   ],
