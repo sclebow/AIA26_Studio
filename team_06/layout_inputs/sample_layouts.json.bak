@@ -1,0 +1,4298 @@
+﻿[
+    {
+        "layoutId":  "layout-1",
+        "apartment":  {
+                          "id":  "apartment-1",
+                          "name":  "Sample B",
+                          "geometry":  [
+                                           [
+                                               4.85,
+                                               4.9
+                                           ],
+                                           [
+                                               4.85,
+                                               8.0
+                                           ],
+                                           [
+                                               4.85,
+                                               10.5
+                                           ],
+                                           [
+                                               7.9,
+                                               10.5
+                                           ],
+                                           [
+                                               7.9,
+                                               9.15
+                                           ],
+                                           [
+                                               9.35,
+                                               9.15
+                                           ],
+                                           [
+                                               9.35,
+                                               8.0
+                                           ],
+                                           [
+                                               9.35,
+                                               4.9
+                                           ],
+                                           [
+                                               9.35,
+                                               2.35
+                                           ],
+                                           [
+                                               7.95,
+                                               2.35
+                                           ],
+                                           [
+                                               4.85,
+                                               2.35
+                                           ],
+                                           [
+                                               4.85,
+                                               4.9
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  34.7175,
+                                             "description":  "1 balcony, 2 bed, 1 bath, 1 living, 1 kitchen."
+                                         }
+                      },
+        "outline":  [
+                        [
+                            4.85,
+                            4.9
+                        ],
+                        [
+                            4.85,
+                            8.0
+                        ],
+                        [
+                            4.85,
+                            10.5
+                        ],
+                        [
+                            7.9,
+                            10.5
+                        ],
+                        [
+                            7.9,
+                            9.15
+                        ],
+                        [
+                            9.35,
+                            9.15
+                        ],
+                        [
+                            9.35,
+                            8.0
+                        ],
+                        [
+                            9.35,
+                            4.9
+                        ],
+                        [
+                            9.35,
+                            2.35
+                        ],
+                        [
+                            7.95,
+                            2.35
+                        ],
+                        [
+                            4.85,
+                            2.35
+                        ],
+                        [
+                            4.85,
+                            4.9
+                        ]
+                    ],
+        "rooms":  [
+                      {
+                          "id":  "room-2",
+                          "name":  "Bed",
+                          "geometry":  [
+                                           [
+                                               7.9,
+                                               10.5
+                                           ],
+                                           [
+                                               4.85,
+                                               10.5
+                                           ],
+                                           [
+                                               4.85,
+                                               8.0
+                                           ],
+                                           [
+                                               7.9,
+                                               8.0
+                                           ],
+                                           [
+                                               7.9,
+                                               10.5
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  7.62,
+                                             "program":  "bed"
+                                         }
+                      },
+                      {
+                          "id":  "room-3",
+                          "name":  "Bath",
+                          "geometry":  [
+                                           [
+                                               9.35,
+                                               9.15
+                                           ],
+                                           [
+                                               7.9,
+                                               9.15
+                                           ],
+                                           [
+                                               7.9,
+                                               8.0
+                                           ],
+                                           [
+                                               9.35,
+                                               8.0
+                                           ],
+                                           [
+                                               9.35,
+                                               9.15
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  1.67,
+                                             "program":  "bath"
+                                         }
+                      },
+                      {
+                          "id":  "room-4",
+                          "name":  "Living",
+                          "geometry":  [
+                                           [
+                                               9.35,
+                                               4.9
+                                           ],
+                                           [
+                                               9.35,
+                                               8.0
+                                           ],
+                                           [
+                                               4.85,
+                                               8.0
+                                           ],
+                                           [
+                                               4.85,
+                                               4.9
+                                           ],
+                                           [
+                                               9.35,
+                                               4.9
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  13.95,
+                                             "program":  "living"
+                                         }
+                      },
+                      {
+                          "id":  "room-5",
+                          "name":  "Kitchen",
+                          "geometry":  [
+                                           [
+                                               9.35,
+                                               2.35
+                                           ],
+                                           [
+                                               9.35,
+                                               4.9
+                                           ],
+                                           [
+                                               7.95,
+                                               4.9
+                                           ],
+                                           [
+                                               7.95,
+                                               2.35
+                                           ],
+                                           [
+                                               9.35,
+                                               2.35
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  3.57,
+                                             "program":  "kitchen"
+                                         }
+                      },
+                      {
+                          "id":  "room-6",
+                          "name":  "Bed",
+                          "geometry":  [
+                                           [
+                                               4.85,
+                                               2.35
+                                           ],
+                                           [
+                                               7.95,
+                                               2.35
+                                           ],
+                                           [
+                                               7.95,
+                                               4.9
+                                           ],
+                                           [
+                                               4.85,
+                                               4.9
+                                           ],
+                                           [
+                                               4.85,
+                                               2.35
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  7.9,
+                                             "program":  "bed"
+                                         }
+                      }
+                  ],
+        "doors":  [
+                      {
+                          "id":  "door-2",
+                          "name":  "Door 2",
+                          "geometry":  [
+                                           [
+                                               6.375,
+                                               8.0
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-2",
+                                                                   "room-4"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-3",
+                          "name":  "Door 3",
+                          "geometry":  [
+                                           [
+                                               8.625,
+                                               8.0
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-3",
+                                                                   "room-4"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-4",
+                          "name":  "Door 4",
+                          "geometry":  [
+                                           [
+                                               8.65,
+                                               4.9
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-4",
+                                                                   "room-5"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-5",
+                          "name":  "Door 5",
+                          "geometry":  [
+                                           [
+                                               6.4,
+                                               4.9
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-4",
+                                                                   "room-6"
+                                                               ]
+                                         }
+                      }
+                  ],
+        "facades":  [
+                        {
+                            "id":  "facade-1",
+                            "name":  "Facade 1",
+                            "geometry":  [
+                                             [
+                                                 4.85,
+                                                 4.9
+                                             ],
+                                             [
+                                                 4.85,
+                                                 8.0
+                                             ],
+                                             [
+                                                 4.85,
+                                                 10.5
+                                             ],
+                                             [
+                                                 7.9,
+                                                 10.5
+                                             ],
+                                             [
+                                                 7.9,
+                                                 9.15
+                                             ],
+                                             [
+                                                 9.35,
+                                                 9.15
+                                             ],
+                                             [
+                                                 9.35,
+                                                 8.0
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  12.6
+                                           }
+                        },
+                        {
+                            "id":  "facade-2",
+                            "name":  "Facade 2",
+                            "geometry":  [
+                                             [
+                                                 9.35,
+                                                 4.9
+                                             ],
+                                             [
+                                                 9.35,
+                                                 2.35
+                                             ],
+                                             [
+                                                 7.95,
+                                                 2.35
+                                             ],
+                                             [
+                                                 4.85,
+                                                 2.35
+                                             ],
+                                             [
+                                                 4.85,
+                                                 4.9
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  9.600000000000001
+                                           }
+                        }
+                    ],
+        "circulation":  [
+                            {
+                                "id":  "circulation-1",
+                                "name":  "Front Door Axis",
+                                "geometry":  [
+                                                 [
+                                                     9.35,
+                                                     4.9
+                                                 ],
+                                                 [
+                                                     9.35,
+                                                     8.0
+                                                 ]
+                                             ],
+                                "attributes":  {
+                                                   "type":  "circulation",
+                                                   "length":  3.0999999999999996
+                                               }
+                            }
+                        ],
+        "windows":  [
+
+                    ],
+        "furniture":  [
+
+                      ],
+        "mep":  [
+
+                ],
+        "structure":  [
+
+                      ]
+    },
+    {
+        "layoutId":  "layout-1019",
+        "apartment":  {
+                          "id":  "apartment-1019",
+                          "name":  "Sample F",
+                          "geometry":  [
+                                           [
+                                               9.1,
+                                               3.35
+                                           ],
+                                           [
+                                               6.65,
+                                               3.35
+                                           ],
+                                           [
+                                               3.15,
+                                               3.35
+                                           ],
+                                           [
+                                               3.15,
+                                               8.0
+                                           ],
+                                           [
+                                               3.15,
+                                               9.5
+                                           ],
+                                           [
+                                               4.9,
+                                               9.5
+                                           ],
+                                           [
+                                               6.65,
+                                               9.5
+                                           ],
+                                           [
+                                               6.65,
+                                               8.6
+                                           ],
+                                           [
+                                               9.1,
+                                               8.6
+                                           ],
+                                           [
+                                               9.1,
+                                               5.95
+                                           ],
+                                           [
+                                               9.1,
+                                               3.35
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  34.3875,
+                                             "description":  "1 balcony, 1 living, 2 bed, 1 kitchen, 1 bath."
+                                         }
+                      },
+        "outline":  [
+                        [
+                            9.1,
+                            3.35
+                        ],
+                        [
+                            6.65,
+                            3.35
+                        ],
+                        [
+                            3.15,
+                            3.35
+                        ],
+                        [
+                            3.15,
+                            8.0
+                        ],
+                        [
+                            3.15,
+                            9.5
+                        ],
+                        [
+                            4.9,
+                            9.5
+                        ],
+                        [
+                            6.65,
+                            9.5
+                        ],
+                        [
+                            6.65,
+                            8.6
+                        ],
+                        [
+                            9.1,
+                            8.6
+                        ],
+                        [
+                            9.1,
+                            5.95
+                        ],
+                        [
+                            9.1,
+                            3.35
+                        ]
+                    ],
+        "rooms":  [
+                      {
+                          "id":  "room-2",
+                          "name":  "Living",
+                          "geometry":  [
+                                           [
+                                               3.15,
+                                               3.35
+                                           ],
+                                           [
+                                               6.65,
+                                               3.35
+                                           ],
+                                           [
+                                               6.65,
+                                               8.0
+                                           ],
+                                           [
+                                               3.15,
+                                               8.0
+                                           ],
+                                           [
+                                               3.15,
+                                               3.35
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  16.27,
+                                             "program":  "living"
+                                         }
+                      },
+                      {
+                          "id":  "room-3",
+                          "name":  "Bed",
+                          "geometry":  [
+                                           [
+                                               6.65,
+                                               8.6
+                                           ],
+                                           [
+                                               6.65,
+                                               5.95
+                                           ],
+                                           [
+                                               9.1,
+                                               5.95
+                                           ],
+                                           [
+                                               9.1,
+                                               8.6
+                                           ],
+                                           [
+                                               6.65,
+                                               8.6
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  6.49,
+                                             "program":  "bed"
+                                         }
+                      },
+                      {
+                          "id":  "room-4",
+                          "name":  "Bed",
+                          "geometry":  [
+                                           [
+                                               6.65,
+                                               3.35
+                                           ],
+                                           [
+                                               9.1,
+                                               3.35
+                                           ],
+                                           [
+                                               9.1,
+                                               5.95
+                                           ],
+                                           [
+                                               6.65,
+                                               5.95
+                                           ],
+                                           [
+                                               6.65,
+                                               3.35
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  6.37,
+                                             "program":  "bed"
+                                         }
+                      },
+                      {
+                          "id":  "room-5",
+                          "name":  "Kitchen",
+                          "geometry":  [
+                                           [
+                                               6.65,
+                                               9.5
+                                           ],
+                                           [
+                                               4.9,
+                                               9.5
+                                           ],
+                                           [
+                                               4.9,
+                                               8.0
+                                           ],
+                                           [
+                                               6.65,
+                                               8.0
+                                           ],
+                                           [
+                                               6.65,
+                                               9.5
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  2.62,
+                                             "program":  "kitchen"
+                                         }
+                      },
+                      {
+                          "id":  "room-6",
+                          "name":  "Bath",
+                          "geometry":  [
+                                           [
+                                               3.15,
+                                               9.5
+                                           ],
+                                           [
+                                               3.15,
+                                               8.0
+                                           ],
+                                           [
+                                               4.9,
+                                               8.0
+                                           ],
+                                           [
+                                               4.9,
+                                               9.5
+                                           ],
+                                           [
+                                               3.15,
+                                               9.5
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  2.62,
+                                             "program":  "bath"
+                                         }
+                      }
+                  ],
+        "doors":  [
+                      {
+                          "id":  "door-2",
+                          "name":  "Door 2",
+                          "geometry":  [
+                                           [
+                                               4.025,
+                                               8.0
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-2",
+                                                                   "room-6"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-3",
+                          "name":  "Door 3",
+                          "geometry":  [
+                                           [
+                                               5.775,
+                                               8.0
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-2",
+                                                                   "room-5"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-4",
+                          "name":  "Door 4",
+                          "geometry":  [
+                                           [
+                                               6.65,
+                                               4.65
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-2",
+                                                                   "room-4"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-5",
+                          "name":  "Door 5",
+                          "geometry":  [
+                                           [
+                                               6.65,
+                                               6.975
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-2",
+                                                                   "room-3"
+                                                               ]
+                                         }
+                      }
+                  ],
+        "facades":  [
+                        {
+                            "id":  "facade-1",
+                            "name":  "Facade 1",
+                            "geometry":  [
+                                             [
+                                                 9.1,
+                                                 3.35
+                                             ],
+                                             [
+                                                 6.65,
+                                                 3.35
+                                             ],
+                                             [
+                                                 3.15,
+                                                 3.35
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  5.949999999999999
+                                           }
+                        },
+                        {
+                            "id":  "facade-2",
+                            "name":  "Facade 2",
+                            "geometry":  [
+                                             [
+                                                 3.15,
+                                                 8.0
+                                             ],
+                                             [
+                                                 3.15,
+                                                 9.5
+                                             ],
+                                             [
+                                                 4.9,
+                                                 9.5
+                                             ],
+                                             [
+                                                 6.65,
+                                                 9.5
+                                             ],
+                                             [
+                                                 6.65,
+                                                 8.6
+                                             ],
+                                             [
+                                                 9.1,
+                                                 8.6
+                                             ],
+                                             [
+                                                 9.1,
+                                                 5.95
+                                             ],
+                                             [
+                                                 9.1,
+                                                 3.35
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  13.6
+                                           }
+                        }
+                    ],
+        "circulation":  [
+                            {
+                                "id":  "circulation-1",
+                                "name":  "Front Door Axis",
+                                "geometry":  [
+                                                 [
+                                                     3.15,
+                                                     8.0
+                                                 ],
+                                                 [
+                                                     3.15,
+                                                     3.35
+                                                 ]
+                                             ],
+                                "attributes":  {
+                                                   "type":  "circulation",
+                                                   "length":  4.65
+                                               }
+                            }
+                        ],
+        "windows":  [
+
+                    ],
+        "furniture":  [
+
+                      ],
+        "mep":  [
+
+                ],
+        "structure":  [
+
+                      ]
+    },
+    {
+        "layoutId":  "layout-1050",
+        "apartment":  {
+                          "id":  "apartment-1050",
+                          "name":  "Sample K",
+                          "geometry":  [
+                                           [
+                                               2.7,
+                                               3.65
+                                           ],
+                                           [
+                                               2.7,
+                                               5.4
+                                           ],
+                                           [
+                                               2.7,
+                                               7.35
+                                           ],
+                                           [
+                                               5.0,
+                                               7.35
+                                           ],
+                                           [
+                                               5.0,
+                                               9.2
+                                           ],
+                                           [
+                                               6.85,
+                                               9.2
+                                           ],
+                                           [
+                                               9.3,
+                                               9.2
+                                           ],
+                                           [
+                                               9.3,
+                                               6.5
+                                           ],
+                                           [
+                                               9.3,
+                                               3.65
+                                           ],
+                                           [
+                                               6.85,
+                                               3.65
+                                           ],
+                                           [
+                                               5.0,
+                                               3.65
+                                           ],
+                                           [
+                                               2.7,
+                                               3.65
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  32.375,
+                                             "description":  "1 bath, 1 kitchen, 1 living, 2 bed, 1 balcony."
+                                         }
+                      },
+        "outline":  [
+                        [
+                            2.7,
+                            3.65
+                        ],
+                        [
+                            2.7,
+                            5.4
+                        ],
+                        [
+                            2.7,
+                            7.35
+                        ],
+                        [
+                            5.0,
+                            7.35
+                        ],
+                        [
+                            5.0,
+                            9.2
+                        ],
+                        [
+                            6.85,
+                            9.2
+                        ],
+                        [
+                            9.3,
+                            9.2
+                        ],
+                        [
+                            9.3,
+                            6.5
+                        ],
+                        [
+                            9.3,
+                            3.65
+                        ],
+                        [
+                            6.85,
+                            3.65
+                        ],
+                        [
+                            5.0,
+                            3.65
+                        ],
+                        [
+                            2.7,
+                            3.65
+                        ]
+                    ],
+        "rooms":  [
+                      {
+                          "id":  "room-1",
+                          "name":  "Bath",
+                          "geometry":  [
+                                           [
+                                               2.7,
+                                               3.65
+                                           ],
+                                           [
+                                               5.0,
+                                               3.65
+                                           ],
+                                           [
+                                               5.0,
+                                               5.4
+                                           ],
+                                           [
+                                               2.7,
+                                               5.4
+                                           ],
+                                           [
+                                               2.7,
+                                               3.65
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  4.03,
+                                             "program":  "bath"
+                                         }
+                      },
+                      {
+                          "id":  "room-2",
+                          "name":  "Kitchen",
+                          "geometry":  [
+                                           [
+                                               5.0,
+                                               7.35
+                                           ],
+                                           [
+                                               2.7,
+                                               7.35
+                                           ],
+                                           [
+                                               2.7,
+                                               5.4
+                                           ],
+                                           [
+                                               5.0,
+                                               5.4
+                                           ],
+                                           [
+                                               5.0,
+                                               7.35
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  4.48,
+                                             "program":  "kitchen"
+                                         }
+                      },
+                      {
+                          "id":  "room-3",
+                          "name":  "Living",
+                          "geometry":  [
+                                           [
+                                               5.0,
+                                               9.2
+                                           ],
+                                           [
+                                               5.0,
+                                               3.65
+                                           ],
+                                           [
+                                               6.85,
+                                               3.65
+                                           ],
+                                           [
+                                               6.85,
+                                               9.2
+                                           ],
+                                           [
+                                               5.0,
+                                               9.2
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  10.27,
+                                             "program":  "living"
+                                         }
+                      },
+                      {
+                          "id":  "room-4",
+                          "name":  "Bed",
+                          "geometry":  [
+                                           [
+                                               6.85,
+                                               3.65
+                                           ],
+                                           [
+                                               9.3,
+                                               3.65
+                                           ],
+                                           [
+                                               9.3,
+                                               6.5
+                                           ],
+                                           [
+                                               6.85,
+                                               6.5
+                                           ],
+                                           [
+                                               6.85,
+                                               3.65
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  6.98,
+                                             "program":  "bed"
+                                         }
+                      },
+                      {
+                          "id":  "room-6",
+                          "name":  "Bed",
+                          "geometry":  [
+                                           [
+                                               9.3,
+                                               9.2
+                                           ],
+                                           [
+                                               6.85,
+                                               9.2
+                                           ],
+                                           [
+                                               6.85,
+                                               6.5
+                                           ],
+                                           [
+                                               9.3,
+                                               6.5
+                                           ],
+                                           [
+                                               9.3,
+                                               9.2
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  6.62,
+                                             "program":  "bed"
+                                         }
+                      }
+                  ],
+        "doors":  [
+                      {
+                          "id":  "door-1",
+                          "name":  "Door 1",
+                          "geometry":  [
+                                           [
+                                               5.0,
+                                               4.525
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-1",
+                                                                   "room-3"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-2",
+                          "name":  "Door 2",
+                          "geometry":  [
+                                           [
+                                               5.0,
+                                               6.375
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-2",
+                                                                   "room-3"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-3",
+                          "name":  "Door 3",
+                          "geometry":  [
+                                           [
+                                               6.85,
+                                               5.075
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-3",
+                                                                   "room-4"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-4",
+                          "name":  "Door 4",
+                          "geometry":  [
+                                           [
+                                               6.85,
+                                               7.85
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-3",
+                                                                   "room-6"
+                                                               ]
+                                         }
+                      }
+                  ],
+        "facades":  [
+                        {
+                            "id":  "facade-1",
+                            "name":  "Facade 1",
+                            "geometry":  [
+                                             [
+                                                 2.7,
+                                                 3.65
+                                             ],
+                                             [
+                                                 2.7,
+                                                 5.4
+                                             ],
+                                             [
+                                                 2.7,
+                                                 7.35
+                                             ],
+                                             [
+                                                 5.0,
+                                                 7.35
+                                             ],
+                                             [
+                                                 5.0,
+                                                 9.2
+                                             ],
+                                             [
+                                                 6.85,
+                                                 9.2
+                                             ],
+                                             [
+                                                 9.3,
+                                                 9.2
+                                             ],
+                                             [
+                                                 9.3,
+                                                 6.5
+                                             ],
+                                             [
+                                                 9.3,
+                                                 3.65
+                                             ],
+                                             [
+                                                 6.85,
+                                                 3.65
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  20.15
+                                           }
+                        },
+                        {
+                            "id":  "facade-2",
+                            "name":  "Facade 2",
+                            "geometry":  [
+                                             [
+                                                 5.0,
+                                                 3.65
+                                             ],
+                                             [
+                                                 2.7,
+                                                 3.65
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  2.3
+                                           }
+                        }
+                    ],
+        "circulation":  [
+                            {
+                                "id":  "circulation-1",
+                                "name":  "Front Door Axis",
+                                "geometry":  [
+                                                 [
+                                                     5.0,
+                                                     3.65
+                                                 ],
+                                                 [
+                                                     6.85,
+                                                     3.65
+                                                 ]
+                                             ],
+                                "attributes":  {
+                                                   "type":  "circulation",
+                                                   "length":  1.8499999999999996
+                                               }
+                            }
+                        ],
+        "windows":  [
+
+                    ],
+        "furniture":  [
+
+                      ],
+        "mep":  [
+
+                ],
+        "structure":  [
+
+                      ]
+    },
+    {
+        "layoutId":  "layout-1055",
+        "apartment":  {
+                          "id":  "apartment-1055",
+                          "name":  "Sample P",
+                          "geometry":  [
+                                           [
+                                               3.6,
+                                               6.15
+                                           ],
+                                           [
+                                               3.6,
+                                               8.85
+                                           ],
+                                           [
+                                               6.95,
+                                               8.85
+                                           ],
+                                           [
+                                               8.25,
+                                               8.85
+                                           ],
+                                           [
+                                               10.0,
+                                               8.85
+                                           ],
+                                           [
+                                               10.0,
+                                               7.35
+                                           ],
+                                           [
+                                               10.0,
+                                               4.0
+                                           ],
+                                           [
+                                               6.95,
+                                               4.0
+                                           ],
+                                           [
+                                               3.6,
+                                               4.0
+                                           ],
+                                           [
+                                               3.6,
+                                               6.15
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  31.04,
+                                             "description":  "2 bed, 1 living, 1 bath, 1 kitchen, 1 balcony."
+                                         }
+                      },
+        "outline":  [
+                        [
+                            3.6,
+                            6.15
+                        ],
+                        [
+                            3.6,
+                            8.85
+                        ],
+                        [
+                            6.95,
+                            8.85
+                        ],
+                        [
+                            8.25,
+                            8.85
+                        ],
+                        [
+                            10.0,
+                            8.85
+                        ],
+                        [
+                            10.0,
+                            7.35
+                        ],
+                        [
+                            10.0,
+                            4.0
+                        ],
+                        [
+                            6.95,
+                            4.0
+                        ],
+                        [
+                            3.6,
+                            4.0
+                        ],
+                        [
+                            3.6,
+                            6.15
+                        ]
+                    ],
+        "rooms":  [
+                      {
+                          "id":  "room-1",
+                          "name":  "Bed",
+                          "geometry":  [
+                                           [
+                                               3.6,
+                                               4.0
+                                           ],
+                                           [
+                                               6.95,
+                                               4.0
+                                           ],
+                                           [
+                                               6.95,
+                                               6.15
+                                           ],
+                                           [
+                                               3.6,
+                                               6.15
+                                           ],
+                                           [
+                                               3.6,
+                                               4.0
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  7.2,
+                                             "program":  "bed"
+                                         }
+                      },
+                      {
+                          "id":  "room-2",
+                          "name":  "Bed",
+                          "geometry":  [
+                                           [
+                                               3.6,
+                                               8.85
+                                           ],
+                                           [
+                                               3.6,
+                                               6.15
+                                           ],
+                                           [
+                                               6.95,
+                                               6.15
+                                           ],
+                                           [
+                                               6.95,
+                                               8.85
+                                           ],
+                                           [
+                                               3.6,
+                                               8.85
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  9.04,
+                                             "program":  "bed"
+                                         }
+                      },
+                      {
+                          "id":  "room-3",
+                          "name":  "Living",
+                          "geometry":  [
+                                           [
+                                               10.0,
+                                               4.0
+                                           ],
+                                           [
+                                               10.0,
+                                               7.35
+                                           ],
+                                           [
+                                               6.95,
+                                               7.35
+                                           ],
+                                           [
+                                               6.95,
+                                               4.0
+                                           ],
+                                           [
+                                               10.0,
+                                               4.0
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  10.22,
+                                             "program":  "living"
+                                         }
+                      },
+                      {
+                          "id":  "room-4",
+                          "name":  "Bath",
+                          "geometry":  [
+                                           [
+                                               6.95,
+                                               7.35
+                                           ],
+                                           [
+                                               8.25,
+                                               7.35
+                                           ],
+                                           [
+                                               8.25,
+                                               8.85
+                                           ],
+                                           [
+                                               6.95,
+                                               8.85
+                                           ],
+                                           [
+                                               6.95,
+                                               7.35
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  1.95,
+                                             "program":  "bath"
+                                         }
+                      },
+                      {
+                          "id":  "room-5",
+                          "name":  "Kitchen",
+                          "geometry":  [
+                                           [
+                                               10.0,
+                                               8.85
+                                           ],
+                                           [
+                                               8.25,
+                                               8.85
+                                           ],
+                                           [
+                                               8.25,
+                                               7.35
+                                           ],
+                                           [
+                                               10.0,
+                                               7.35
+                                           ],
+                                           [
+                                               10.0,
+                                               8.85
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  2.62,
+                                             "program":  "kitchen"
+                                         }
+                      }
+                  ],
+        "doors":  [
+                      {
+                          "id":  "door-1",
+                          "name":  "Door 1",
+                          "geometry":  [
+                                           [
+                                               6.95,
+                                               5.075
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-1",
+                                                                   "room-3"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-3",
+                          "name":  "Door 3",
+                          "geometry":  [
+                                           [
+                                               6.95,
+                                               6.75
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-2",
+                                                                   "room-3"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-4",
+                          "name":  "Door 4",
+                          "geometry":  [
+                                           [
+                                               7.6,
+                                               7.35
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-3",
+                                                                   "room-4"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-5",
+                          "name":  "Door 5",
+                          "geometry":  [
+                                           [
+                                               9.125,
+                                               7.35
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-3",
+                                                                   "room-5"
+                                                               ]
+                                         }
+                      }
+                  ],
+        "facades":  [
+                        {
+                            "id":  "facade-1",
+                            "name":  "Facade 1",
+                            "geometry":  [
+                                             [
+                                                 3.6,
+                                                 6.15
+                                             ],
+                                             [
+                                                 3.6,
+                                                 8.85
+                                             ],
+                                             [
+                                                 6.95,
+                                                 8.85
+                                             ],
+                                             [
+                                                 8.25,
+                                                 8.85
+                                             ],
+                                             [
+                                                 10.0,
+                                                 8.85
+                                             ],
+                                             [
+                                                 10.0,
+                                                 7.35
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  10.599999999999998
+                                           }
+                        },
+                        {
+                            "id":  "facade-2",
+                            "name":  "Facade 2",
+                            "geometry":  [
+                                             [
+                                                 10.0,
+                                                 4.0
+                                             ],
+                                             [
+                                                 6.95,
+                                                 4.0
+                                             ],
+                                             [
+                                                 3.6,
+                                                 4.0
+                                             ],
+                                             [
+                                                 3.6,
+                                                 6.15
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  8.55
+                                           }
+                        }
+                    ],
+        "circulation":  [
+                            {
+                                "id":  "circulation-1",
+                                "name":  "Front Door Axis",
+                                "geometry":  [
+                                                 [
+                                                     10.0,
+                                                     4.0
+                                                 ],
+                                                 [
+                                                     10.0,
+                                                     7.35
+                                                 ]
+                                             ],
+                                "attributes":  {
+                                                   "type":  "circulation",
+                                                   "length":  3.3499999999999996
+                                               }
+                            }
+                        ],
+        "windows":  [
+
+                    ],
+        "furniture":  [
+
+                      ],
+        "mep":  [
+
+                ],
+        "structure":  [
+
+                      ]
+    },
+    {
+        "layoutId":  "layout-1079",
+        "apartment":  {
+                          "id":  "apartment-1079",
+                          "name":  "Sample N",
+                          "geometry":  [
+                                           [
+                                               5.3,
+                                               5.05
+                                           ],
+                                           [
+                                               3.95,
+                                               5.05
+                                           ],
+                                           [
+                                               3.95,
+                                               8.55
+                                           ],
+                                           [
+                                               3.95,
+                                               11.3
+                                           ],
+                                           [
+                                               7.3,
+                                               11.3
+                                           ],
+                                           [
+                                               8.9,
+                                               11.3
+                                           ],
+                                           [
+                                               8.9,
+                                               8.55
+                                           ],
+                                           [
+                                               8.9,
+                                               5.05
+                                           ],
+                                           [
+                                               8.9,
+                                               2.25
+                                           ],
+                                           [
+                                               6.9,
+                                               2.25
+                                           ],
+                                           [
+                                               5.3,
+                                               2.25
+                                           ],
+                                           [
+                                               5.3,
+                                               5.05
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  41.017500000000005,
+                                             "description":  "1 balcony, 2 bed, 1 bath, 1 kitchen, 1 living."
+                                         }
+                      },
+        "outline":  [
+                        [
+                            5.3,
+                            5.05
+                        ],
+                        [
+                            3.95,
+                            5.05
+                        ],
+                        [
+                            3.95,
+                            8.55
+                        ],
+                        [
+                            3.95,
+                            11.3
+                        ],
+                        [
+                            7.3,
+                            11.3
+                        ],
+                        [
+                            8.9,
+                            11.3
+                        ],
+                        [
+                            8.9,
+                            8.55
+                        ],
+                        [
+                            8.9,
+                            5.05
+                        ],
+                        [
+                            8.9,
+                            2.25
+                        ],
+                        [
+                            6.9,
+                            2.25
+                        ],
+                        [
+                            5.3,
+                            2.25
+                        ],
+                        [
+                            5.3,
+                            5.05
+                        ]
+                    ],
+        "rooms":  [
+                      {
+                          "id":  "room-2",
+                          "name":  "Bed",
+                          "geometry":  [
+                                           [
+                                               8.9,
+                                               2.25
+                                           ],
+                                           [
+                                               8.9,
+                                               5.05
+                                           ],
+                                           [
+                                               6.9,
+                                               5.05
+                                           ],
+                                           [
+                                               6.9,
+                                               2.25
+                                           ],
+                                           [
+                                               8.9,
+                                               2.25
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  5.6,
+                                             "program":  "bed"
+                                         }
+                      },
+                      {
+                          "id":  "room-3",
+                          "name":  "Bath",
+                          "geometry":  [
+                                           [
+                                               5.3,
+                                               2.25
+                                           ],
+                                           [
+                                               6.9,
+                                               2.25
+                                           ],
+                                           [
+                                               6.9,
+                                               5.05
+                                           ],
+                                           [
+                                               5.3,
+                                               5.05
+                                           ],
+                                           [
+                                               5.3,
+                                               2.25
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  4.48,
+                                             "program":  "bath"
+                                         }
+                      },
+                      {
+                          "id":  "room-4",
+                          "name":  "Bed",
+                          "geometry":  [
+                                           [
+                                               3.95,
+                                               11.3
+                                           ],
+                                           [
+                                               3.95,
+                                               8.55
+                                           ],
+                                           [
+                                               7.3,
+                                               8.55
+                                           ],
+                                           [
+                                               7.3,
+                                               11.3
+                                           ],
+                                           [
+                                               3.95,
+                                               11.3
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  9.21,
+                                             "program":  "bed"
+                                         }
+                      },
+                      {
+                          "id":  "room-5",
+                          "name":  "Kitchen",
+                          "geometry":  [
+                                           [
+                                               8.9,
+                                               11.3
+                                           ],
+                                           [
+                                               7.3,
+                                               11.3
+                                           ],
+                                           [
+                                               7.3,
+                                               8.55
+                                           ],
+                                           [
+                                               8.9,
+                                               8.55
+                                           ],
+                                           [
+                                               8.9,
+                                               11.3
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  4.4,
+                                             "program":  "kitchen"
+                                         }
+                      },
+                      {
+                          "id":  "room-6",
+                          "name":  "Living",
+                          "geometry":  [
+                                           [
+                                               3.95,
+                                               5.05
+                                           ],
+                                           [
+                                               8.9,
+                                               5.05
+                                           ],
+                                           [
+                                               8.9,
+                                               8.55
+                                           ],
+                                           [
+                                               3.95,
+                                               8.55
+                                           ],
+                                           [
+                                               3.95,
+                                               5.05
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  17.33,
+                                             "program":  "living"
+                                         }
+                      }
+                  ],
+        "doors":  [
+                      {
+                          "id":  "door-2",
+                          "name":  "Door 2",
+                          "geometry":  [
+                                           [
+                                               7.9,
+                                               5.05
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-2",
+                                                                   "room-6"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-3",
+                          "name":  "Door 3",
+                          "geometry":  [
+                                           [
+                                               6.1,
+                                               5.05
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-3",
+                                                                   "room-6"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-4",
+                          "name":  "Door 4",
+                          "geometry":  [
+                                           [
+                                               5.625,
+                                               8.55
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-4",
+                                                                   "room-6"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-5",
+                          "name":  "Door 5",
+                          "geometry":  [
+                                           [
+                                               8.1,
+                                               8.55
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-5",
+                                                                   "room-6"
+                                                               ]
+                                         }
+                      }
+                  ],
+        "facades":  [
+                        {
+                            "id":  "facade-1",
+                            "name":  "Facade 1",
+                            "geometry":  [
+                                             [
+                                                 5.3,
+                                                 5.05
+                                             ],
+                                             [
+                                                 3.95,
+                                                 5.05
+                                             ],
+                                             [
+                                                 3.95,
+                                                 8.55
+                                             ],
+                                             [
+                                                 3.95,
+                                                 11.3
+                                             ],
+                                             [
+                                                 7.3,
+                                                 11.3
+                                             ],
+                                             [
+                                                 8.9,
+                                                 11.3
+                                             ],
+                                             [
+                                                 8.9,
+                                                 8.55
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  15.3
+                                           }
+                        },
+                        {
+                            "id":  "facade-2",
+                            "name":  "Facade 2",
+                            "geometry":  [
+                                             [
+                                                 8.9,
+                                                 5.05
+                                             ],
+                                             [
+                                                 8.9,
+                                                 2.25
+                                             ],
+                                             [
+                                                 6.9,
+                                                 2.25
+                                             ],
+                                             [
+                                                 5.3,
+                                                 2.25
+                                             ],
+                                             [
+                                                 5.3,
+                                                 5.05
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  9.2
+                                           }
+                        }
+                    ],
+        "circulation":  [
+                            {
+                                "id":  "circulation-1",
+                                "name":  "Front Door Axis",
+                                "geometry":  [
+                                                 [
+                                                     8.9,
+                                                     5.05
+                                                 ],
+                                                 [
+                                                     8.9,
+                                                     8.55
+                                                 ]
+                                             ],
+                                "attributes":  {
+                                                   "type":  "circulation",
+                                                   "length":  3.500000000000001
+                                               }
+                            }
+                        ],
+        "windows":  [
+
+                    ],
+        "furniture":  [
+
+                      ],
+        "mep":  [
+
+                ],
+        "structure":  [
+
+                      ]
+    },
+    {
+        "layoutId":  "layout-1101",
+        "apartment":  {
+                          "id":  "apartment-1101",
+                          "name":  "Sample J",
+                          "geometry":  [
+                                           [
+                                               2.25,
+                                               5.45
+                                           ],
+                                           [
+                                               2.25,
+                                               8.05
+                                           ],
+                                           [
+                                               6.95,
+                                               8.05
+                                           ],
+                                           [
+                                               6.95,
+                                               8.9
+                                           ],
+                                           [
+                                               9.55,
+                                               8.9
+                                           ],
+                                           [
+                                               9.55,
+                                               6.4
+                                           ],
+                                           [
+                                               9.55,
+                                               3.95
+                                           ],
+                                           [
+                                               6.95,
+                                               3.95
+                                           ],
+                                           [
+                                               5.4,
+                                               3.95
+                                           ],
+                                           [
+                                               2.25,
+                                               3.95
+                                           ],
+                                           [
+                                               2.25,
+                                               5.45
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  32.14000000000001,
+                                             "description":  "1 kitchen, 2 bed, 1 balcony, 1 living, 1 bath."
+                                         }
+                      },
+        "outline":  [
+                        [
+                            2.25,
+                            5.45
+                        ],
+                        [
+                            2.25,
+                            8.05
+                        ],
+                        [
+                            6.95,
+                            8.05
+                        ],
+                        [
+                            6.95,
+                            8.9
+                        ],
+                        [
+                            9.55,
+                            8.9
+                        ],
+                        [
+                            9.55,
+                            6.4
+                        ],
+                        [
+                            9.55,
+                            3.95
+                        ],
+                        [
+                            6.95,
+                            3.95
+                        ],
+                        [
+                            5.4,
+                            3.95
+                        ],
+                        [
+                            2.25,
+                            3.95
+                        ],
+                        [
+                            2.25,
+                            5.45
+                        ]
+                    ],
+        "rooms":  [
+                      {
+                          "id":  "room-1",
+                          "name":  "Kitchen",
+                          "geometry":  [
+                                           [
+                                               2.25,
+                                               3.95
+                                           ],
+                                           [
+                                               5.4,
+                                               3.95
+                                           ],
+                                           [
+                                               5.4,
+                                               5.45
+                                           ],
+                                           [
+                                               2.25,
+                                               5.45
+                                           ],
+                                           [
+                                               2.25,
+                                               3.95
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  4.73,
+                                             "program":  "kitchen"
+                                         }
+                      },
+                      {
+                          "id":  "room-2",
+                          "name":  "Bed",
+                          "geometry":  [
+                                           [
+                                               6.95,
+                                               3.95
+                                           ],
+                                           [
+                                               9.55,
+                                               3.95
+                                           ],
+                                           [
+                                               9.55,
+                                               6.4
+                                           ],
+                                           [
+                                               6.95,
+                                               6.4
+                                           ],
+                                           [
+                                               6.95,
+                                               3.95
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  6.37,
+                                             "program":  "bed"
+                                         }
+                      },
+                      {
+                          "id":  "room-4",
+                          "name":  "Bed",
+                          "geometry":  [
+                                           [
+                                               6.95,
+                                               8.9
+                                           ],
+                                           [
+                                               6.95,
+                                               6.4
+                                           ],
+                                           [
+                                               9.55,
+                                               6.4
+                                           ],
+                                           [
+                                               9.55,
+                                               8.9
+                                           ],
+                                           [
+                                               6.95,
+                                               8.9
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  6.5,
+                                             "program":  "bed"
+                                         }
+                      },
+                      {
+                          "id":  "room-5",
+                          "name":  "Living",
+                          "geometry":  [
+                                           [
+                                               6.95,
+                                               8.05
+                                           ],
+                                           [
+                                               2.25,
+                                               8.05
+                                           ],
+                                           [
+                                               2.25,
+                                               5.45
+                                           ],
+                                           [
+                                               6.95,
+                                               5.45
+                                           ],
+                                           [
+                                               6.95,
+                                               8.05
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  12.22,
+                                             "program":  "living"
+                                         }
+                      },
+                      {
+                          "id":  "room-6",
+                          "name":  "Bath",
+                          "geometry":  [
+                                           [
+                                               5.4,
+                                               3.95
+                                           ],
+                                           [
+                                               6.95,
+                                               3.95
+                                           ],
+                                           [
+                                               6.95,
+                                               5.45
+                                           ],
+                                           [
+                                               5.4,
+                                               5.45
+                                           ],
+                                           [
+                                               5.4,
+                                               3.95
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  2.32,
+                                             "program":  "bath"
+                                         }
+                      }
+                  ],
+        "doors":  [
+                      {
+                          "id":  "door-1",
+                          "name":  "Door 1",
+                          "geometry":  [
+                                           [
+                                               3.825,
+                                               5.45
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-1",
+                                                                   "room-5"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-2",
+                          "name":  "Door 2",
+                          "geometry":  [
+                                           [
+                                               6.95,
+                                               5.925
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-2",
+                                                                   "room-5"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-4",
+                          "name":  "Door 4",
+                          "geometry":  [
+                                           [
+                                               6.95,
+                                               7.225
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-4",
+                                                                   "room-5"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-5",
+                          "name":  "Door 5",
+                          "geometry":  [
+                                           [
+                                               6.175,
+                                               5.45
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-5",
+                                                                   "room-6"
+                                                               ]
+                                         }
+                      }
+                  ],
+        "facades":  [
+                        {
+                            "id":  "facade-1",
+                            "name":  "Facade 1",
+                            "geometry":  [
+                                             [
+                                                 2.25,
+                                                 5.45
+                                             ],
+                                             [
+                                                 2.25,
+                                                 8.05
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  2.6000000000000005
+                                           }
+                        },
+                        {
+                            "id":  "facade-2",
+                            "name":  "Facade 2",
+                            "geometry":  [
+                                             [
+                                                 6.95,
+                                                 8.05
+                                             ],
+                                             [
+                                                 6.95,
+                                                 8.9
+                                             ],
+                                             [
+                                                 9.55,
+                                                 8.9
+                                             ],
+                                             [
+                                                 9.55,
+                                                 6.4
+                                             ],
+                                             [
+                                                 9.55,
+                                                 3.95
+                                             ],
+                                             [
+                                                 6.95,
+                                                 3.95
+                                             ],
+                                             [
+                                                 5.4,
+                                                 3.95
+                                             ],
+                                             [
+                                                 2.25,
+                                                 3.95
+                                             ],
+                                             [
+                                                 2.25,
+                                                 5.45
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  17.200000000000003
+                                           }
+                        }
+                    ],
+        "circulation":  [
+                            {
+                                "id":  "circulation-1",
+                                "name":  "Front Door Axis",
+                                "geometry":  [
+                                                 [
+                                                     6.95,
+                                                     8.05
+                                                 ],
+                                                 [
+                                                     2.25,
+                                                     8.05
+                                                 ]
+                                             ],
+                                "attributes":  {
+                                                   "type":  "circulation",
+                                                   "length":  4.7
+                                               }
+                            }
+                        ],
+        "windows":  [
+
+                    ],
+        "furniture":  [
+
+                      ],
+        "mep":  [
+
+                ],
+        "structure":  [
+
+                      ]
+    },
+    {
+        "layoutId":  "layout-1126",
+        "apartment":  {
+                          "id":  "apartment-1126",
+                          "name":  "Sample I",
+                          "geometry":  [
+                                           [
+                                               6.6,
+                                               2.7
+                                           ],
+                                           [
+                                               3.0,
+                                               2.7
+                                           ],
+                                           [
+                                               3.0,
+                                               6.4
+                                           ],
+                                           [
+                                               3.0,
+                                               10.15
+                                           ],
+                                           [
+                                               8.85,
+                                               10.15
+                                           ],
+                                           [
+                                               8.85,
+                                               6.4
+                                           ],
+                                           [
+                                               9.85,
+                                               6.4
+                                           ],
+                                           [
+                                               9.85,
+                                               2.7
+                                           ],
+                                           [
+                                               8.85,
+                                               2.7
+                                           ],
+                                           [
+                                               6.6,
+                                               2.7
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  47.2825,
+                                             "description":  "1 bed, 1 living, 1 dining, 1 bath, 1 kitchen."
+                                         }
+                      },
+        "outline":  [
+                        [
+                            6.6,
+                            2.7
+                        ],
+                        [
+                            3.0,
+                            2.7
+                        ],
+                        [
+                            3.0,
+                            6.4
+                        ],
+                        [
+                            3.0,
+                            10.15
+                        ],
+                        [
+                            8.85,
+                            10.15
+                        ],
+                        [
+                            8.85,
+                            6.4
+                        ],
+                        [
+                            9.85,
+                            6.4
+                        ],
+                        [
+                            9.85,
+                            2.7
+                        ],
+                        [
+                            8.85,
+                            2.7
+                        ],
+                        [
+                            6.6,
+                            2.7
+                        ]
+                    ],
+        "rooms":  [
+                      {
+                          "id":  "room-1",
+                          "name":  "Bed",
+                          "geometry":  [
+                                           [
+                                               3.0,
+                                               10.15
+                                           ],
+                                           [
+                                               3.0,
+                                               6.4
+                                           ],
+                                           [
+                                               8.85,
+                                               6.4
+                                           ],
+                                           [
+                                               8.85,
+                                               10.15
+                                           ],
+                                           [
+                                               3.0,
+                                               10.15
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  21.94,
+                                             "program":  "bed"
+                                         }
+                      },
+                      {
+                          "id":  "room-2",
+                          "name":  "Living",
+                          "geometry":  [
+                                           [
+                                               3.0,
+                                               2.7
+                                           ],
+                                           [
+                                               6.6,
+                                               2.7
+                                           ],
+                                           [
+                                               6.6,
+                                               6.4
+                                           ],
+                                           [
+                                               3.0,
+                                               6.4
+                                           ],
+                                           [
+                                               3.0,
+                                               2.7
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  13.32,
+                                             "program":  "living"
+                                         }
+                      },
+                      {
+                          "id":  "room-3",
+                          "name":  "Dining",
+                          "geometry":  [
+                                           [
+                                               6.6,
+                                               2.7
+                                           ],
+                                           [
+                                               8.85,
+                                               2.7
+                                           ],
+                                           [
+                                               8.85,
+                                               4.9
+                                           ],
+                                           [
+                                               6.6,
+                                               4.9
+                                           ],
+                                           [
+                                               6.6,
+                                               2.7
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  4.95,
+                                             "program":  "dining"
+                                         }
+                      },
+                      {
+                          "id":  "room-4",
+                          "name":  "Bath",
+                          "geometry":  [
+                                           [
+                                               8.85,
+                                               4.9
+                                           ],
+                                           [
+                                               8.85,
+                                               6.4
+                                           ],
+                                           [
+                                               6.6,
+                                               6.4
+                                           ],
+                                           [
+                                               6.6,
+                                               4.9
+                                           ],
+                                           [
+                                               8.85,
+                                               4.9
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  3.38,
+                                             "program":  "bath"
+                                         }
+                      },
+                      {
+                          "id":  "room-5",
+                          "name":  "Kitchen",
+                          "geometry":  [
+                                           [
+                                               9.85,
+                                               2.7
+                                           ],
+                                           [
+                                               9.85,
+                                               6.4
+                                           ],
+                                           [
+                                               8.85,
+                                               6.4
+                                           ],
+                                           [
+                                               8.85,
+                                               2.7
+                                           ],
+                                           [
+                                               9.85,
+                                               2.7
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  3.7,
+                                             "program":  "kitchen"
+                                         }
+                      }
+                  ],
+        "doors":  [
+                      {
+                          "id":  "door-1",
+                          "name":  "Door 1",
+                          "geometry":  [
+                                           [
+                                               4.8,
+                                               6.4
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-1",
+                                                                   "room-2"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-2",
+                          "name":  "Door 2",
+                          "geometry":  [
+                                           [
+                                               6.6,
+                                               3.8
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-2",
+                                                                   "room-3"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-3",
+                          "name":  "Door 3",
+                          "geometry":  [
+                                           [
+                                               6.6,
+                                               5.65
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-2",
+                                                                   "room-4"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-4",
+                          "name":  "Door 4",
+                          "geometry":  [
+                                           [
+                                               8.85,
+                                               3.8
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-3",
+                                                                   "room-5"
+                                                               ]
+                                         }
+                      }
+                  ],
+        "facades":  [
+                        {
+                            "id":  "facade-1",
+                            "name":  "Facade 1",
+                            "geometry":  [
+                                             [
+                                                 6.6,
+                                                 2.7
+                                             ],
+                                             [
+                                                 3.0,
+                                                 2.7
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  3.5999999999999996
+                                           }
+                        },
+                        {
+                            "id":  "facade-2",
+                            "name":  "Facade 2",
+                            "geometry":  [
+                                             [
+                                                 3.0,
+                                                 6.4
+                                             ],
+                                             [
+                                                 3.0,
+                                                 10.15
+                                             ],
+                                             [
+                                                 8.85,
+                                                 10.15
+                                             ],
+                                             [
+                                                 8.85,
+                                                 6.4
+                                             ],
+                                             [
+                                                 9.85,
+                                                 6.4
+                                             ],
+                                             [
+                                                 9.85,
+                                                 2.7
+                                             ],
+                                             [
+                                                 8.85,
+                                                 2.7
+                                             ],
+                                             [
+                                                 6.6,
+                                                 2.7
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  21.3
+                                           }
+                        }
+                    ],
+        "circulation":  [
+                            {
+                                "id":  "circulation-1",
+                                "name":  "Front Door Axis",
+                                "geometry":  [
+                                                 [
+                                                     3.0,
+                                                     6.4
+                                                 ],
+                                                 [
+                                                     3.0,
+                                                     2.7
+                                                 ]
+                                             ],
+                                "attributes":  {
+                                                   "type":  "circulation",
+                                                   "length":  3.7
+                                               }
+                            }
+                        ],
+        "windows":  [
+
+                    ],
+        "furniture":  [
+
+                      ],
+        "mep":  [
+
+                ],
+        "structure":  [
+
+                      ]
+    },
+    {
+        "layoutId":  "layout-115",
+        "apartment":  {
+                          "id":  "apartment-115",
+                          "name":  "Sample L",
+                          "geometry":  [
+                                           [
+                                               4.4,
+                                               5.35
+                                           ],
+                                           [
+                                               2.7,
+                                               5.35
+                                           ],
+                                           [
+                                               2.7,
+                                               7.6
+                                           ],
+                                           [
+                                               4.4,
+                                               7.6
+                                           ],
+                                           [
+                                               4.4,
+                                               9.2
+                                           ],
+                                           [
+                                               6.4,
+                                               9.2
+                                           ],
+                                           [
+                                               9.1,
+                                               9.2
+                                           ],
+                                           [
+                                               9.1,
+                                               6.55
+                                           ],
+                                           [
+                                               9.1,
+                                               3.65
+                                           ],
+                                           [
+                                               6.4,
+                                               3.65
+                                           ],
+                                           [
+                                               4.4,
+                                               3.65
+                                           ],
+                                           [
+                                               4.4,
+                                               5.35
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  29.90999999999999,
+                                             "description":  "1 bath, 1 kitchen, 1 living, 2 bed, 1 balcony."
+                                         }
+                      },
+        "outline":  [
+                        [
+                            4.4,
+                            5.35
+                        ],
+                        [
+                            2.7,
+                            5.35
+                        ],
+                        [
+                            2.7,
+                            7.6
+                        ],
+                        [
+                            4.4,
+                            7.6
+                        ],
+                        [
+                            4.4,
+                            9.2
+                        ],
+                        [
+                            6.4,
+                            9.2
+                        ],
+                        [
+                            9.1,
+                            9.2
+                        ],
+                        [
+                            9.1,
+                            6.55
+                        ],
+                        [
+                            9.1,
+                            3.65
+                        ],
+                        [
+                            6.4,
+                            3.65
+                        ],
+                        [
+                            4.4,
+                            3.65
+                        ],
+                        [
+                            4.4,
+                            5.35
+                        ]
+                    ],
+        "rooms":  [
+                      {
+                          "id":  "room-1",
+                          "name":  "Bath",
+                          "geometry":  [
+                                           [
+                                               4.4,
+                                               3.65
+                                           ],
+                                           [
+                                               6.4,
+                                               3.65
+                                           ],
+                                           [
+                                               6.4,
+                                               5.35
+                                           ],
+                                           [
+                                               4.4,
+                                               5.35
+                                           ],
+                                           [
+                                               4.4,
+                                               3.65
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  3.4,
+                                             "program":  "bath"
+                                         }
+                      },
+                      {
+                          "id":  "room-2",
+                          "name":  "Kitchen",
+                          "geometry":  [
+                                           [
+                                               4.4,
+                                               9.2
+                                           ],
+                                           [
+                                               4.4,
+                                               7.6
+                                           ],
+                                           [
+                                               6.4,
+                                               7.6
+                                           ],
+                                           [
+                                               6.4,
+                                               9.2
+                                           ],
+                                           [
+                                               4.4,
+                                               9.2
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  3.2,
+                                             "program":  "kitchen"
+                                         }
+                      },
+                      {
+                          "id":  "room-3",
+                          "name":  "Living",
+                          "geometry":  [
+                                           [
+                                               2.7,
+                                               7.6
+                                           ],
+                                           [
+                                               2.7,
+                                               5.35
+                                           ],
+                                           [
+                                               6.4,
+                                               5.35
+                                           ],
+                                           [
+                                               6.4,
+                                               7.6
+                                           ],
+                                           [
+                                               2.7,
+                                               7.6
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  8.33,
+                                             "program":  "living"
+                                         }
+                      },
+                      {
+                          "id":  "room-4",
+                          "name":  "Bed",
+                          "geometry":  [
+                                           [
+                                               6.4,
+                                               3.65
+                                           ],
+                                           [
+                                               9.1,
+                                               3.65
+                                           ],
+                                           [
+                                               9.1,
+                                               6.55
+                                           ],
+                                           [
+                                               6.4,
+                                               6.55
+                                           ],
+                                           [
+                                               6.4,
+                                               3.65
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  7.83,
+                                             "program":  "bed"
+                                         }
+                      },
+                      {
+                          "id":  "room-5",
+                          "name":  "Bed",
+                          "geometry":  [
+                                           [
+                                               9.1,
+                                               6.55
+                                           ],
+                                           [
+                                               9.1,
+                                               9.2
+                                           ],
+                                           [
+                                               6.4,
+                                               9.2
+                                           ],
+                                           [
+                                               6.4,
+                                               6.55
+                                           ],
+                                           [
+                                               9.1,
+                                               6.55
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  7.16,
+                                             "program":  "bed"
+                                         }
+                      }
+                  ],
+        "doors":  [
+                      {
+                          "id":  "door-1",
+                          "name":  "Door 1",
+                          "geometry":  [
+                                           [
+                                               5.4,
+                                               5.35
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-1",
+                                                                   "room-3"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-2",
+                          "name":  "Door 2",
+                          "geometry":  [
+                                           [
+                                               5.4,
+                                               7.6
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-2",
+                                                                   "room-3"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-3",
+                          "name":  "Door 3",
+                          "geometry":  [
+                                           [
+                                               6.4,
+                                               5.95
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-3",
+                                                                   "room-4"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-4",
+                          "name":  "Door 4",
+                          "geometry":  [
+                                           [
+                                               6.4,
+                                               7.075
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-3",
+                                                                   "room-5"
+                                                               ]
+                                         }
+                      }
+                  ],
+        "facades":  [
+                        {
+                            "id":  "facade-1",
+                            "name":  "Facade 1",
+                            "geometry":  [
+                                             [
+                                                 4.4,
+                                                 5.35
+                                             ],
+                                             [
+                                                 2.7,
+                                                 5.35
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  1.7000000000000002
+                                           }
+                        },
+                        {
+                            "id":  "facade-2",
+                            "name":  "Facade 2",
+                            "geometry":  [
+                                             [
+                                                 2.7,
+                                                 7.6
+                                             ],
+                                             [
+                                                 4.4,
+                                                 7.6
+                                             ],
+                                             [
+                                                 4.4,
+                                                 9.2
+                                             ],
+                                             [
+                                                 6.4,
+                                                 9.2
+                                             ],
+                                             [
+                                                 9.1,
+                                                 9.2
+                                             ],
+                                             [
+                                                 9.1,
+                                                 6.55
+                                             ],
+                                             [
+                                                 9.1,
+                                                 3.65
+                                             ],
+                                             [
+                                                 6.4,
+                                                 3.65
+                                             ],
+                                             [
+                                                 4.4,
+                                                 3.65
+                                             ],
+                                             [
+                                                 4.4,
+                                                 5.35
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  19.95
+                                           }
+                        }
+                    ],
+        "circulation":  [
+                            {
+                                "id":  "circulation-1",
+                                "name":  "Front Door Axis",
+                                "geometry":  [
+                                                 [
+                                                     2.7,
+                                                     7.6
+                                                 ],
+                                                 [
+                                                     2.7,
+                                                     5.35
+                                                 ]
+                                             ],
+                                "attributes":  {
+                                                   "type":  "circulation",
+                                                   "length":  2.25
+                                               }
+                            }
+                        ],
+        "windows":  [
+
+                    ],
+        "furniture":  [
+
+                      ],
+        "mep":  [
+
+                ],
+        "structure":  [
+
+                      ]
+    },
+    {
+        "layoutId":  "layout-1186",
+        "apartment":  {
+                          "id":  "apartment-1186",
+                          "name":  "Sample Q",
+                          "geometry":  [
+                                           [
+                                               3.15,
+                                               3.9
+                                           ],
+                                           [
+                                               3.15,
+                                               6.55
+                                           ],
+                                           [
+                                               3.15,
+                                               8.95
+                                           ],
+                                           [
+                                               4.35,
+                                               8.95
+                                           ],
+                                           [
+                                               6.85,
+                                               8.95
+                                           ],
+                                           [
+                                               9.7,
+                                               8.95
+                                           ],
+                                           [
+                                               9.7,
+                                               6.55
+                                           ],
+                                           [
+                                               9.7,
+                                               3.9
+                                           ],
+                                           [
+                                               6.85,
+                                               3.9
+                                           ],
+                                           [
+                                               4.35,
+                                               3.9
+                                           ],
+                                           [
+                                               3.15,
+                                               3.9
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  33.077499999999986,
+                                             "description":  "2 bed, 1 living, 1 bath, 1 kitchen."
+                                         }
+                      },
+        "outline":  [
+                        [
+                            3.15,
+                            3.9
+                        ],
+                        [
+                            3.15,
+                            6.55
+                        ],
+                        [
+                            3.15,
+                            8.95
+                        ],
+                        [
+                            4.35,
+                            8.95
+                        ],
+                        [
+                            6.85,
+                            8.95
+                        ],
+                        [
+                            9.7,
+                            8.95
+                        ],
+                        [
+                            9.7,
+                            6.55
+                        ],
+                        [
+                            9.7,
+                            3.9
+                        ],
+                        [
+                            6.85,
+                            3.9
+                        ],
+                        [
+                            4.35,
+                            3.9
+                        ],
+                        [
+                            3.15,
+                            3.9
+                        ]
+                    ],
+        "rooms":  [
+                      {
+                          "id":  "room-1",
+                          "name":  "Bed",
+                          "geometry":  [
+                                           [
+                                               9.7,
+                                               3.9
+                                           ],
+                                           [
+                                               9.7,
+                                               6.55
+                                           ],
+                                           [
+                                               6.85,
+                                               6.55
+                                           ],
+                                           [
+                                               6.85,
+                                               3.9
+                                           ],
+                                           [
+                                               9.7,
+                                               3.9
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  7.55,
+                                             "program":  "bed"
+                                         }
+                      },
+                      {
+                          "id":  "room-2",
+                          "name":  "Bed",
+                          "geometry":  [
+                                           [
+                                               9.7,
+                                               8.95
+                                           ],
+                                           [
+                                               6.85,
+                                               8.95
+                                           ],
+                                           [
+                                               6.85,
+                                               6.55
+                                           ],
+                                           [
+                                               9.7,
+                                               6.55
+                                           ],
+                                           [
+                                               9.7,
+                                               8.95
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  6.84,
+                                             "program":  "bed"
+                                         }
+                      },
+                      {
+                          "id":  "room-3",
+                          "name":  "Living",
+                          "geometry":  [
+                                           [
+                                               4.35,
+                                               3.9
+                                           ],
+                                           [
+                                               6.85,
+                                               3.9
+                                           ],
+                                           [
+                                               6.85,
+                                               8.95
+                                           ],
+                                           [
+                                               4.35,
+                                               8.95
+                                           ],
+                                           [
+                                               4.35,
+                                               3.9
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  12.62,
+                                             "program":  "living"
+                                         }
+                      },
+                      {
+                          "id":  "room-4",
+                          "name":  "Bath",
+                          "geometry":  [
+                                           [
+                                               3.15,
+                                               8.95
+                                           ],
+                                           [
+                                               3.15,
+                                               6.55
+                                           ],
+                                           [
+                                               4.35,
+                                               6.55
+                                           ],
+                                           [
+                                               4.35,
+                                               8.95
+                                           ],
+                                           [
+                                               3.15,
+                                               8.95
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  2.88,
+                                             "program":  "bath"
+                                         }
+                      },
+                      {
+                          "id":  "room-5",
+                          "name":  "Kitchen",
+                          "geometry":  [
+                                           [
+                                               3.15,
+                                               3.9
+                                           ],
+                                           [
+                                               4.35,
+                                               3.9
+                                           ],
+                                           [
+                                               4.35,
+                                               6.55
+                                           ],
+                                           [
+                                               3.15,
+                                               6.55
+                                           ],
+                                           [
+                                               3.15,
+                                               3.9
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  3.18,
+                                             "program":  "kitchen"
+                                         }
+                      }
+                  ],
+        "doors":  [
+                      {
+                          "id":  "door-1",
+                          "name":  "Door 1",
+                          "geometry":  [
+                                           [
+                                               6.85,
+                                               5.225
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-1",
+                                                                   "room-3"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-2",
+                          "name":  "Door 2",
+                          "geometry":  [
+                                           [
+                                               6.85,
+                                               7.75
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-2",
+                                                                   "room-3"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-3",
+                          "name":  "Door 3",
+                          "geometry":  [
+                                           [
+                                               4.35,
+                                               5.225
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-3",
+                                                                   "room-5"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-4",
+                          "name":  "Door 4",
+                          "geometry":  [
+                                           [
+                                               4.35,
+                                               7.75
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-3",
+                                                                   "room-4"
+                                                               ]
+                                         }
+                      }
+                  ],
+        "facades":  [
+                        {
+                            "id":  "facade-1",
+                            "name":  "Facade 1",
+                            "geometry":  [
+                                             [
+                                                 3.15,
+                                                 3.9
+                                             ],
+                                             [
+                                                 3.15,
+                                                 6.55
+                                             ],
+                                             [
+                                                 3.15,
+                                                 8.95
+                                             ],
+                                             [
+                                                 4.35,
+                                                 8.95
+                                             ],
+                                             [
+                                                 6.85,
+                                                 8.95
+                                             ],
+                                             [
+                                                 9.7,
+                                                 8.95
+                                             ],
+                                             [
+                                                 9.7,
+                                                 6.55
+                                             ],
+                                             [
+                                                 9.7,
+                                                 3.9
+                                             ],
+                                             [
+                                                 6.85,
+                                                 3.9
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  19.499999999999993
+                                           }
+                        },
+                        {
+                            "id":  "facade-2",
+                            "name":  "Facade 2",
+                            "geometry":  [
+                                             [
+                                                 4.35,
+                                                 3.9
+                                             ],
+                                             [
+                                                 3.15,
+                                                 3.9
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  1.1999999999999997
+                                           }
+                        }
+                    ],
+        "circulation":  [
+                            {
+                                "id":  "circulation-1",
+                                "name":  "Front Door Axis",
+                                "geometry":  [
+                                                 [
+                                                     4.35,
+                                                     3.9
+                                                 ],
+                                                 [
+                                                     6.85,
+                                                     3.9
+                                                 ]
+                                             ],
+                                "attributes":  {
+                                                   "type":  "circulation",
+                                                   "length":  2.5
+                                               }
+                            }
+                        ],
+        "windows":  [
+
+                    ],
+        "furniture":  [
+
+                      ],
+        "mep":  [
+
+                ],
+        "structure":  [
+
+                      ]
+    },
+    {
+        "layoutId":  "layout-1246",
+        "apartment":  {
+                          "id":  "apartment-1246",
+                          "name":  "Sample Y",
+                          "geometry":  [
+                                           [
+                                               0.75,
+                                               6.05
+                                           ],
+                                           [
+                                               1.7,
+                                               6.05
+                                           ],
+                                           [
+                                               1.7,
+                                               7.55
+                                           ],
+                                           [
+                                               3.25,
+                                               7.55
+                                           ],
+                                           [
+                                               6.75,
+                                               7.55
+                                           ],
+                                           [
+                                               6.75,
+                                               8.45
+                                           ],
+                                           [
+                                               7.8,
+                                               8.45
+                                           ],
+                                           [
+                                               11.05,
+                                               8.45
+                                           ],
+                                           [
+                                               11.05,
+                                               6.6
+                                           ],
+                                           [
+                                               11.05,
+                                               4.4
+                                           ],
+                                           [
+                                               7.8,
+                                               4.4
+                                           ],
+                                           [
+                                               3.25,
+                                               4.4
+                                           ],
+                                           [
+                                               0.75,
+                                               4.4
+                                           ],
+                                           [
+                                               0.75,
+                                               6.05
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  34.88999999999999,
+                                             "description":  "1 kitchen, 1 bath, 2 bed, 1 balcony, 1 storage, 1 living."
+                                         }
+                      },
+        "outline":  [
+                        [
+                            0.75,
+                            6.05
+                        ],
+                        [
+                            1.7,
+                            6.05
+                        ],
+                        [
+                            1.7,
+                            7.55
+                        ],
+                        [
+                            3.25,
+                            7.55
+                        ],
+                        [
+                            6.75,
+                            7.55
+                        ],
+                        [
+                            6.75,
+                            8.45
+                        ],
+                        [
+                            7.8,
+                            8.45
+                        ],
+                        [
+                            11.05,
+                            8.45
+                        ],
+                        [
+                            11.05,
+                            6.6
+                        ],
+                        [
+                            11.05,
+                            4.4
+                        ],
+                        [
+                            7.8,
+                            4.4
+                        ],
+                        [
+                            3.25,
+                            4.4
+                        ],
+                        [
+                            0.75,
+                            4.4
+                        ],
+                        [
+                            0.75,
+                            6.05
+                        ]
+                    ],
+        "rooms":  [
+                      {
+                          "id":  "room-1",
+                          "name":  "Kitchen",
+                          "geometry":  [
+                                           [
+                                               0.75,
+                                               6.05
+                                           ],
+                                           [
+                                               0.75,
+                                               4.4
+                                           ],
+                                           [
+                                               3.25,
+                                               4.4
+                                           ],
+                                           [
+                                               3.25,
+                                               6.05
+                                           ],
+                                           [
+                                               0.75,
+                                               6.05
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  4.12,
+                                             "program":  "kitchen"
+                                         }
+                      },
+                      {
+                          "id":  "room-2",
+                          "name":  "Bath",
+                          "geometry":  [
+                                           [
+                                               1.7,
+                                               7.55
+                                           ],
+                                           [
+                                               1.7,
+                                               6.05
+                                           ],
+                                           [
+                                               3.25,
+                                               6.05
+                                           ],
+                                           [
+                                               3.25,
+                                               7.55
+                                           ],
+                                           [
+                                               1.7,
+                                               7.55
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  2.33,
+                                             "program":  "bath"
+                                         }
+                      },
+                      {
+                          "id":  "room-3",
+                          "name":  "Bed",
+                          "geometry":  [
+                                           [
+                                               7.8,
+                                               4.4
+                                           ],
+                                           [
+                                               11.05,
+                                               4.4
+                                           ],
+                                           [
+                                               11.05,
+                                               6.6
+                                           ],
+                                           [
+                                               7.8,
+                                               6.6
+                                           ],
+                                           [
+                                               7.8,
+                                               4.4
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  7.15,
+                                             "program":  "bed"
+                                         }
+                      },
+                      {
+                          "id":  "room-4",
+                          "name":  "Bed",
+                          "geometry":  [
+                                           [
+                                               11.05,
+                                               6.6
+                                           ],
+                                           [
+                                               11.05,
+                                               8.45
+                                           ],
+                                           [
+                                               7.8,
+                                               8.45
+                                           ],
+                                           [
+                                               7.8,
+                                               6.6
+                                           ],
+                                           [
+                                               11.05,
+                                               6.6
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  6.01,
+                                             "program":  "bed"
+                                         }
+                      },
+                      {
+                          "id":  "room-6",
+                          "name":  "Storage",
+                          "geometry":  [
+                                           [
+                                               6.75,
+                                               7.55
+                                           ],
+                                           [
+                                               7.8,
+                                               7.55
+                                           ],
+                                           [
+                                               7.8,
+                                               8.45
+                                           ],
+                                           [
+                                               6.75,
+                                               8.45
+                                           ],
+                                           [
+                                               6.75,
+                                               7.55
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  0.94,
+                                             "program":  "storage"
+                                         }
+                      },
+                      {
+                          "id":  "room-7",
+                          "name":  "Living",
+                          "geometry":  [
+                                           [
+                                               3.25,
+                                               4.4
+                                           ],
+                                           [
+                                               7.8,
+                                               4.4
+                                           ],
+                                           [
+                                               7.8,
+                                               7.55
+                                           ],
+                                           [
+                                               3.25,
+                                               7.55
+                                           ],
+                                           [
+                                               3.25,
+                                               4.4
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "area":  14.33,
+                                             "program":  "living"
+                                         }
+                      }
+                  ],
+        "doors":  [
+                      {
+                          "id":  "door-1",
+                          "name":  "Door 1",
+                          "geometry":  [
+                                           [
+                                               3.25,
+                                               5.225
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-1",
+                                                                   "room-7"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-2",
+                          "name":  "Door 2",
+                          "geometry":  [
+                                           [
+                                               3.25,
+                                               6.8
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-2",
+                                                                   "room-7"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-3",
+                          "name":  "Door 3",
+                          "geometry":  [
+                                           [
+                                               7.8,
+                                               5.5
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-3",
+                                                                   "room-7"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-4",
+                          "name":  "Door 4",
+                          "geometry":  [
+                                           [
+                                               7.8,
+                                               7.075
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-4",
+                                                                   "room-7"
+                                                               ]
+                                         }
+                      },
+                      {
+                          "id":  "door-6",
+                          "name":  "Door 6",
+                          "geometry":  [
+                                           [
+                                               7.275,
+                                               7.55
+                                           ]
+                                       ],
+                          "attributes":  {
+                                             "connectsRooms":  [
+                                                                   "room-6",
+                                                                   "room-7"
+                                                               ]
+                                         }
+                      }
+                  ],
+        "facades":  [
+                        {
+                            "id":  "facade-1",
+                            "name":  "Facade 1",
+                            "geometry":  [
+                                             [
+                                                 0.75,
+                                                 6.05
+                                             ],
+                                             [
+                                                 1.7,
+                                                 6.05
+                                             ],
+                                             [
+                                                 1.7,
+                                                 7.55
+                                             ],
+                                             [
+                                                 3.25,
+                                                 7.55
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  4.0
+                                           }
+                        },
+                        {
+                            "id":  "facade-2",
+                            "name":  "Facade 2",
+                            "geometry":  [
+                                             [
+                                                 6.75,
+                                                 7.55
+                                             ],
+                                             [
+                                                 6.75,
+                                                 8.45
+                                             ],
+                                             [
+                                                 7.8,
+                                                 8.45
+                                             ],
+                                             [
+                                                 11.05,
+                                                 8.45
+                                             ],
+                                             [
+                                                 11.05,
+                                                 6.6
+                                             ],
+                                             [
+                                                 11.05,
+                                                 4.4
+                                             ],
+                                             [
+                                                 7.8,
+                                                 4.4
+                                             ],
+                                             [
+                                                 3.25,
+                                                 4.4
+                                             ],
+                                             [
+                                                 0.75,
+                                                 4.4
+                                             ],
+                                             [
+                                                 0.75,
+                                                 6.05
+                                             ]
+                                         ],
+                            "attributes":  {
+                                               "type":  "exterior",
+                                               "length":  21.2
+                                           }
+                        }
+                    ],
+        "circulation":  [
+                            {
+                                "id":  "circulation-1",
+                                "name":  "Front Door Axis",
+                                "geometry":  [
+                                                 [
+                                                     6.75,
+                                                     7.55
+                                                 ],
+                                                 [
+                                                     3.25,
+                                                     7.55
+                                                 ]
+                                             ],
+                                "attributes":  {
+                                                   "type":  "circulation",
+                                                   "length":  3.5
+                                               }
+                            }
+                        ],
+        "windows":  [
+
+                    ],
+        "furniture":  [
+
+                      ],
+        "mep":  [
+
+                ],
+        "structure":  [
+
+                      ]
+    }
+]
