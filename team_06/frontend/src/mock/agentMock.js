@@ -62,13 +62,19 @@ let layoutCounter = 1
 
 export function buildLayout(rooms) {
   overflowCounter = 0
+  const roomList = rooms.map((r, i) => {
+    const geo = getRoomGeo(r.name, overflowCounter)
+    if (!ROOM_GEO[r.name]) overflowCounter++
+    return { id: r.id ?? i + 1, name: r.name, ...geo }
+  })
+  const programs = [...new Set(roomList.map(r => r.attributes?.program).filter(Boolean))]
+  const counts = {}
+  roomList.forEach(r => { counts[r.name] = (counts[r.name] || 0) + 1 })
+  const desc = Object.entries(counts).map(([name, n]) => `${n} ${name.toLowerCase()}${n > 1 ? 's' : ''}`).join(', ')
   return {
     layoutId: `Layout-${String(layoutCounter++).padStart(3, '0')}`,
-    rooms: rooms.map((r, i) => {
-      const geo = getRoomGeo(r.name, overflowCounter)
-      if (!ROOM_GEO[r.name]) overflowCounter++
-      return { id: r.id ?? i + 1, name: r.name, ...geo }
-    })
+    attributes: { description: desc },
+    rooms: roomList
   }
 }
 

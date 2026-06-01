@@ -2,7 +2,7 @@
   <div class="toolbar">
     <div class="toolbar-group">
       <button class="layout-input-btn" :class="{ active: !!fileName }" @click="fileInput.click()" :title="fileName ? 'Replace boundary JSON' : 'Upload boundary JSON'">
-        <img :src="uploadIcon" alt="Upload" width="22" height="22" />
+        <img :src="!!fileName ? uploadBlueIcon : uploadIcon" alt="Upload" width="22" height="22" />
       </button>
       <template v-if="fileName">
         <span class="file-name">{{ fileName }}</span>
@@ -25,6 +25,7 @@
 <script setup>
 import { ref } from 'vue'
 import uploadIcon from '../assets/icons/upload.svg'
+import uploadBlueIcon from '../assets/icons/upload-blue.svg'
 import layoutIcon from '../assets/icons/layout.svg'
 import layoutBlueIcon from '../assets/icons/layout-blue.svg'
 import sunIcon from '../assets/icons/sun.svg'

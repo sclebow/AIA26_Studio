@@ -49,10 +49,7 @@ watch(() => props.chat.length, () => {
         <button class="chat-history-add"><img :src="plusIcon" width="14" height="14" alt="new chat" /></button>
       </div>
     </section>
-    <div class="chat-search-bar">
-      <input class="chat-search" type="text" placeholder="Search..." v-model="search" />
-      <img class="chat-search-icon" :src="searchIcon" alt="Search" />
-    </div>
+    
     <div class="chat-area" ref="chatArea" style="overflow-y:auto;">
       <div v-for="msg in chat" :key="msg.id" :class="['chat-msg', msg.role]">
         <span>{{ msg.text }}</span>
@@ -106,6 +103,7 @@ watch(() => props.chat.length, () => {
   margin-left: 28px;
   margin-right: 28px;
   margin-top: 12px;
+  margin-bottom: 24px;
 }
 .chat-history-add {
   background: none;

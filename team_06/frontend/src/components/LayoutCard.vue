@@ -88,7 +88,7 @@ const displayId = computed(() => {
   border-radius: var(--radius-card);
   border: 1px solid var(--color-border);
   font-size: var(--font-size-standard);
-  min-width: 180px;
+  min-width: 200px;
    padding: 32px 32px;
 }
 .layout-summary-title {

@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <div class="app-layout">
-      <Sidebar :tab="tab" @change="tab = $event" :parsedInput="parsedInput" @itemAdded="handleItemAdded" @reset="handleReset" />
+      <Sidebar :tab="tab" @change="tab = $event" :parsedInput="parsedInput" :history="layoutHistory" :agentState="agentState" @restore="handleRestore" />
       <WorkSpace :agentState="agentState" @layoutLoaded="handleLayoutLoaded" />
       <ChatPanel :chat="chatHistory" @send="handleUserMessage" />
     </div>
@@ -13,12 +13,13 @@ import { ref } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import ChatPanel from './components/ChatPanel.vue'
 import WorkSpace from './components/WorkSpace.vue'
-import { getAgentResponse, getAgentResponseForSidebarAdd, generateBrief } from './mock/agentMock.js'
+import { getAgentResponse } from './mock/agentMock.js'
 
 const tab = ref('brief')
 const chatHistory = ref([])
 const agentState = ref(null)
 const parsedInput = ref(null)
+const layoutHistory = ref([])
 
 const boundary = ref(null)
 
@@ -33,6 +34,7 @@ function handleLayoutLoaded(json) {
       rooms: json.rooms || [],
       attributes: json.apartment?.attributes || {}
     }
+    layoutHistory.value.push({ ...agentState.value, _savedAt: new Date().toISOString() })
   } else {
     // File cleared — remove layout
     agentState.value = null
@@ -45,7 +47,10 @@ function handleLayoutLoaded(json) {
 // with API calls that return the same shape — this function stays unchanged.
 function applyAgentResponse(response) {
   if (response.parsedInput) parsedInput.value = response.parsedInput
-  if (response.layout)      agentState.value  = response.layout
+  if (response.layout) {
+    agentState.value = response.layout
+    layoutHistory.value.push({ ...response.layout, _savedAt: new Date().toISOString() })
+  }
   chatHistory.value.push({
     id: Date.now(),
     role: 'agent',
@@ -63,40 +68,12 @@ function handleUserMessage(message) {
   }, 800)
 }
 
-// ─── Reset ───────────────────────────────────────────────────────────────────
-function handleReset() {
-  parsedInput.value = null
-
-  if (boundary.value) {
-    agentState.value = {
-      layoutId: boundary.value.layoutId || 'Boundary',
-      outline: boundary.value.outline || boundary.value.apartment?.geometry || [],
-      rooms: [],
-      attributes: boundary.value.apartment?.attributes || {}
-    }
-  } else {
-    agentState.value = null
-  }
+// ─── Restore from history ─────────────────────────────────────────────────────
+function handleRestore(layout) {
+  agentState.value = layout
 }
 
 // ─── Sidebar path ─────────────────────────────────────────────────────────────
-function handleItemAdded({ section, item }) {
-  // 1. Merge item into local state immediately (optimistic update)
-  const base = parsedInput.value ?? { households: [], activities: [], rooms: [], extras: [] }
-  const merged = { ...base, [section]: [...(base[section] ?? []), item] }
-  // brief is internal-only (agent context), not displayed
-  merged.brief = generateBrief(merged)
-  parsedInput.value = merged
-
-  // 2. Ask mock (or real agent) for acknowledgement + optional layout update
-  setTimeout(() => {
-    const response = getAgentResponseForSidebarAdd(section, item, {
-      parsedInput: parsedInput.value,
-      layout: agentState.value
-    })
-    applyAgentResponse(response)
-  }, 400)
-}
 </script>
 
 <style src="./style.css"></style>
