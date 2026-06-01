@@ -43,7 +43,7 @@ class AgentState(TypedDict, total=False):
     input_layout_json_string: str | None           # NEW - input layout, defining outline, as a JSON string, injected into tool calls 
     topology_graph_json_string: str | None         # NEW - topology graph for search, as a JSON string
     search_results_json_string: str | None         # NEW - {id, score, description} only
-    search_mode: str                               # NEW - search strategy: graph_only | hybrid | boundary_only (legacy)
+    search_mode: str                               # search strategy: boundary_only
     tried_layout_ids: list[str]                    # NEW - keep track of which layout IDs we've tried adapting
     evaluation_json_string: str | None             # NEW - evaluation results
     #-----------results from nodes (for routing)-----------
@@ -61,7 +61,7 @@ class AgentState(TypedDict, total=False):
 # ---------------------------------------------------------------------------
 def _route_after_preprocessing(state: AgentState) -> str:
     result = state.get("preprocess_result")
-    search_mode = state.get("search_mode", "graph_only")
+    search_mode = state.get("search_mode", "boundary_only")
     if search_mode == "boundary_only" and result in {"topology", "search"}:
         return "search"
     return {
@@ -277,7 +277,7 @@ def _build_initial_state(prompt: str, ctx: Any, session: dict | None = None) -> 
         "search_results_json_string": session.get("search_results_json_string"),
         "tried_layout_ids": session.get("tried_layout_ids", []),
         "evaluation_json_string": session.get("evaluation_json_string"),
-        "search_mode": session.get("search_mode", "graph_only"),
+        "search_mode": session.get("search_mode", "boundary_only"),
         "preprocess_result": None,
         "topology_result": None,
         "search_result": None,
