@@ -8,12 +8,8 @@ from tools.boundary_embedding_matcher import match_boundaries as boundary_match_
 logger = logging.getLogger(__name__)
 
 
-def _load_layout_candidates(repo_root: Path) -> tuple[Path, Path | None]:
-    sample_graphs_path = repo_root / "layout_inputs" / "sample_graphs.json"
-    planfinder_graphs_path = repo_root / "layout_inputs" / "planfinder_graphs.json"
-    if not planfinder_graphs_path.exists():
-        planfinder_graphs_path = None
-    return sample_graphs_path, planfinder_graphs_path
+def _load_sample_layouts_path(repo_root: Path) -> Path:
+    return repo_root / "layout_inputs" / "sample_layouts.json"
 
 
 def _build_candidate_rows(results: list[tuple[str, float]]) -> list[dict[str, Any]]:
@@ -137,7 +133,7 @@ def build_search_node() -> Any:
         
         try:
             repo_root = Path(__file__).resolve().parent.parent.parent
-            graphs_path, planfinder_graphs_path = _load_layout_candidates(repo_root)
+            graphs_path = _load_sample_layouts_path(repo_root)
             from tools.graph_searcher import GraphSearcher
 
             topology = nx.node_link_graph(json.loads(topology_json))
@@ -152,14 +148,7 @@ def build_search_node() -> Any:
 
             searcher = GraphSearcher(str(graphs_path))
             graph_results = searcher.search_by_embedding(programs, access=True, top_k=3)
-
-            if planfinder_graphs_path is not None:
-                pf_searcher = GraphSearcher(str(planfinder_graphs_path))
-                pf_results = pf_searcher.search_by_embedding(programs, access=True, top_k=3)
-                graph_results = sorted(graph_results + pf_results, key=lambda x: x[1], reverse=True)
-                logger.info(f"🔍 Combined graph search results (sample + planfinder): {graph_results}")
-            else:
-                logger.info(f"🔍 Graph search results: {graph_results}")
+            logger.info(f"🔍 Sample layout graph search results: {graph_results}")
 
             if search_mode == "graph_only":
                 results = graph_results
