@@ -153,12 +153,9 @@ def create_user_feedback_node(dbg: Callable[[str], None]) -> Callable[[DesignWor
             state["pending_action"] = "final"
             return state
 
-        locked_shape_type = _extract_locked_shape_type(state)
-        display_options = _format_generated_options(generated_options, locked_shape_type)
-
-        if display_options:
+        if generated_options:
             print("\nMultiple options were generated:")
-            for index, option in enumerate(display_options, start=1):
+            for index, option in enumerate(generated_options, start=1):
                 print(f"  {index}. {option}")
 
         try:
@@ -168,8 +165,6 @@ def create_user_feedback_node(dbg: Callable[[str], None]) -> Callable[[DesignWor
             return state
 
         if feedback:
-            if "feedback_history" not in state or not isinstance(state.get("feedback_history"), list):
-                state["feedback_history"] = []
             state["feedback_history"].append(feedback)
 
         state["pending_action"] = "ask_user"
@@ -178,44 +173,3 @@ def create_user_feedback_node(dbg: Callable[[str], None]) -> Callable[[DesignWor
         return state
     
     return user_feedback_node
-
-
-def _extract_locked_shape_type(state: DesignWorkflowState) -> str:
-    shape_generation = state.get("shape_generation", {})
-    if not isinstance(shape_generation, dict):
-        shape_generation = {}
-
-    planning_context = state.get("design_state", {}).get("planning_json", {})
-    if not isinstance(planning_context, dict):
-        planning_context = state.get("design_state", {}).get("planning", {})
-    if not isinstance(planning_context, dict):
-        planning_context = {}
-
-    for candidate in (
-        shape_generation.get("locked_shape_type"),
-        shape_generation.get("selected_shape_type"),
-        planning_context.get("selected_shape_type"),
-    ):
-        if isinstance(candidate, str) and candidate.strip():
-            return candidate.strip().lower().replace(" ", "_")
-    return ""
-
-
-def _format_generated_options(options: list[Any], locked_shape_type: str) -> list[str]:
-    display_options: list[str] = []
-    seen: set[str] = set()
-
-    for option in options:
-        label = str(option).strip()
-        if not label:
-            continue
-
-        normalized_label = label
-        if locked_shape_type and "(" not in label:
-            normalized_label = f"{label} ({locked_shape_type})"
-
-        if normalized_label not in seen:
-            seen.add(normalized_label)
-            display_options.append(normalized_label)
-
-    return display_options

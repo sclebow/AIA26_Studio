@@ -381,6 +381,9 @@
 
 ## 📝 Notes Section
 
+### Tool Definition Reference
+- Full Name, Description, and Parameter definitions for all 23 tools are documented in `gh/tool_definitions/00_tool_catalog.md`
+
 ### Team Notes
 (Add your observations, challenges, solutions here as you work)
 

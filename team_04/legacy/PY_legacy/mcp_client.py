@@ -64,59 +64,7 @@ class McpClient:
         return tools
 
     def call_tool(self, name: str, arguments: dict[str, Any]) -> str:
-        # Final sanitization: ensure keys don't contain suffixes like '/Down'
-        # and provide string duplicates for numeric/container values so callers
-        # (e.g. Grasshopper JSON nodes) can read either numeric or string forms.
-        def _sanitize(obj: Any) -> Any:
-            if isinstance(obj, dict):
-                out: dict[str, Any] = {}
-                for k, v in obj.items():
-                    try:
-                        base = str(k).split("/")[0].strip()
-                    except Exception:
-                        base = str(k)
-
-                    sanitized_v = _sanitize(v)
-                    out[base] = sanitized_v
-
-                    # add string duplicate for primitives and JSON string for containers
-                    try:
-                        if base.endswith("_str"):
-                            continue
-                        if isinstance(sanitized_v, (int, float, bool)):
-                            out.setdefault(f"{base}_str", str(sanitized_v))
-                        elif isinstance(sanitized_v, (list, dict)):
-                            out.setdefault(f"{base}_str", json.dumps(sanitized_v, ensure_ascii=False))
-                        elif isinstance(sanitized_v, str):
-                            out.setdefault(f"{base}_str", sanitized_v)
-                    except Exception:
-                        pass
-
-                return out
-            if isinstance(obj, list):
-                return [_sanitize(x) for x in obj]
-            return obj
-
-        try:
-            safe_args = _sanitize(arguments or {})
-        except Exception:
-            safe_args = arguments or {}
-
-        # Log the outgoing tool call for debugging (stdout + JSONL file)
-        try:
-            try:
-                print(f"MCP CALL -> {name}: {json.dumps(safe_args, default=str)}")
-            except Exception:
-                print(f"MCP CALL -> {name}: <unserializable arguments>")
-            try:
-                with open("mcp_call_log.jsonl", "a", encoding="utf-8") as lf:
-                    lf.write(json.dumps({"tool": name, "arguments": safe_args}, default=str) + "\n")
-            except Exception:
-                pass
-        except Exception:
-            pass
-
-        result = self._rpc("tools/call", {"name": name, "arguments": safe_args})
+        result = self._rpc("tools/call", {"name": name, "arguments": arguments})
 
         content = result.get("content")
         if isinstance(content, list):

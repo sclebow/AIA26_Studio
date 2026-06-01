@@ -20,7 +20,6 @@ from design_action_nodes import (
     create_user_feedback_node,
 )
 from design_tool_node import create_design_tool_node
-from prompt_memory_node import create_prompt_memory_node
 from design_routing import (
     create_route_after_central_reasoning,
     create_route_after_action_node,
@@ -42,8 +41,6 @@ def run_design_workflow(
     debug_graph: bool,
     timeout_seconds: float,
     max_iterations: int,
-    planning_context: dict[str, Any] | None = None,
-    prompt_memory_state: dict[str, Any] | None = None,
 ) -> str:
     """
     Run the complete site design optimization workflow.
@@ -100,7 +97,6 @@ def run_design_workflow(
     visualization_node = create_visualization_node(dbg=dbg)
     constraint_check = create_constraint_check_node(dbg=dbg)
     user_feedback_node = create_user_feedback_node(dbg=dbg)
-    prompt_memory_node = create_prompt_memory_node(dbg=dbg)
     
     # Tool node for all actions (use all discovered tools)
     tool_node_available = bool(tools)
@@ -123,7 +119,6 @@ def run_design_workflow(
     graph = StateGraph(DesignWorkflowState)
 
     # Add all nodes
-    graph.add_node("prompt_memory", prompt_memory_node)
     graph.add_node("central_reason", central_reasoning)
     graph.add_node("suggestion", suggestion_node)
     graph.add_node("evaluation", evaluation_node)
@@ -140,8 +135,7 @@ def run_design_workflow(
     graph.add_node("finish", lambda state: state)
 
     # Build edges
-    graph.add_edge(START, "prompt_memory")
-    graph.add_edge("prompt_memory", "central_reason")
+    graph.add_edge(START, "central_reason")
 
     # Central reasoning routes to action nodes
     graph.add_conditional_edges(
@@ -221,85 +215,7 @@ def run_design_workflow(
         timeout_seconds=timeout_seconds,
         debug_graph=debug_graph,
         max_iterations=max_iterations,
-        prompt_memory_state=prompt_memory_state,
     )
-
-    if isinstance(planning_context, dict) and planning_context:
-        initial_state["design_state"]["planning"] = planning_context
-        initial_state["design_state"]["planning_human_summary"] = planning_context.get(
-            "human_friendly_explanation", ""
-        )
-        initial_state["design_state"]["planning_json"] = planning_context
-
-        selected_shape_type = planning_context.get("selected_shape_type")
-        if isinstance(selected_shape_type, str) and selected_shape_type.strip():
-            resolved_shape_type = selected_shape_type.strip().lower().replace(" ", "_")
-            if not initial_state["shape_generation"].get("locked_shape_type"):
-                initial_state["shape_generation"]["locked_shape_type"] = resolved_shape_type
-                initial_state["shape_generation"]["selected_shape_type"] = resolved_shape_type
-                initial_state["shape_generation"]["allow_shape_exploration"] = False
-                initial_state["shape_generation"]["allowed_shape_types"] = [resolved_shape_type]
-            initial_state["shape_request"] = {
-                "shape_type": resolved_shape_type,
-                "source": "plan_agent",
-            }
-            initial_state["design_state"]["shape_request"] = {
-                "shape_type": resolved_shape_type,
-                "source": "plan_agent",
-            }
-        
-        # If the planning context included explicit initial tool calls (e.g. simple move),
-        # enqueue them so the workflow runs them first. Normalize names and deduplicate
-        # so the user doesn't see duplicate options for the same backend tool.
-        initial_tool_calls = planning_context.get("initial_tool_calls")
-        if isinstance(initial_tool_calls, list) and initial_tool_calls:
-            # map simple aliases to canonical tool names
-            alias_map = {
-                "move": "manipulation_tools",
-                "manipulate": "manipulation_tools",
-            }
-
-            validated_calls: list[dict[str, Any]] = []
-            seen: set[str] = set()
-            for call in initial_tool_calls:
-                if not (isinstance(call, dict) and call.get("name")):
-                    continue
-                raw_name = str(call.get("name"))
-                norm_name = raw_name.strip()
-                # canonicalize by alias map (case-insensitive)
-                lower = norm_name.lower()
-                if lower in alias_map:
-                    canon_name = alias_map[lower]
-                else:
-                    canon_name = norm_name
-
-                raw_args = call.get("arguments") or call.get("args") or {}
-                if not isinstance(raw_args, dict):
-                    raw_args = {}
-
-                # Normalize argument keys: strip suffixes like '/Down' and lower-case
-                args: dict[str, Any] = {}
-                for k, v in raw_args.items():
-                    try:
-                        base = str(k).split("/")[0].strip().lower()
-                        args[base] = v
-                    except Exception:
-                        args[str(k).lower()] = v
-
-                # create a stable fingerprint to deduplicate duplicate calls
-                try:
-                    fingerprint = f"{canon_name}:{json.dumps(args, sort_keys=True, default=str)}"
-                except Exception:
-                    fingerprint = f"{canon_name}:{str(args)}"
-
-                if fingerprint in seen:
-                    continue
-                seen.add(fingerprint)
-                validated_calls.append({"name": canon_name, "arguments": args})
-
-            if validated_calls:
-                initial_state["pending_tool_calls"] = validated_calls
-                initial_state["pending_action"] = "design_tool"
 
     final_state = app.invoke(initial_state)
     dbg("[workflow] Workflow complete")

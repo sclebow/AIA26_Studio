@@ -1,0 +1,18 @@
+{
+  "original_shape_prompt": "create h shape commercial building with 4 trees on site",
+  "latest_user_prompt": "make right wing 0.5 times smalle\\r",
+  "latest_manipulation_prompt": "make right wing 0.5 times smalle\\r",
+  "manipulation_history": {
+    "move": "",
+    "rotate": "",
+    "scale": "",
+    "tree_update": "",
+    "general_adjustment": "make right wing 0.5 times smalle\\r"
+  },
+  "merged_mcp_prompt": "create h shape commercial building with 4 trees on site. Then make right wing 0.5 times smalle\\r",
+  "intent_type": "manipulation",
+  "active_shape_type": "h_shape",
+  "active_manipulation_type": "general_adjustment",
+  "memory_status": "preserved",
+  "explanation": "This manipulation is being applied to the previously generated shape, not creating a new shape."
+}
