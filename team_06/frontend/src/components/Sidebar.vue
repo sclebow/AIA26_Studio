@@ -61,7 +61,7 @@ function onKeydown(e) {
       <template v-if="props.tab==='brief'">
         <section class="sidebar-section">
           <div class="sidebar-section-title">
-            <img :src="userIcon" alt="Households" width="20" height="20" />
+            <img :src="userIcon" alt="Households" width="20" height="20" style="opacity:0.6;" />
             Households
             <button class="sidebar-title-add" @click="startAdding('households')"><img :src="plusIcon" width="14" height="14" alt="add" /></button>
           </div>
@@ -77,7 +77,7 @@ function onKeydown(e) {
         </section>
         <section class="sidebar-section">
           <div class="sidebar-section-title">
-            <img :src="clockIcon" alt="Routine" width="20" height="20" />
+            <img :src="clockIcon" alt="Routine" width="20" height="20" style="opacity:0.6;" />
             Routine
             <button class="sidebar-title-add" @click="startAdding('activities')"><img :src="plusIcon" width="14" height="14" alt="add" /></button>
           </div>
@@ -93,7 +93,7 @@ function onKeydown(e) {
         </section>
         <section class="sidebar-section">
           <div class="sidebar-section-title">
-            <img :src="boxIcon" alt="Rooms" width="20" height="20" />
+            <img :src="boxIcon" alt="Rooms" width="20" height="20" style="opacity:0.6;" />
             Rooms
             <button class="sidebar-title-add" @click="startAdding('rooms')"><img :src="plusIcon" width="14" height="14" alt="add" /></button>
           </div>
@@ -109,7 +109,7 @@ function onKeydown(e) {
         </section>
         <section class="sidebar-section">
           <div class="sidebar-section-title">
-            <img :src="messageIcon" alt="Extra" width="20" height="20" />
+            <img :src="messageIcon" alt="Extra" width="20" height="20" style="opacity:0.6;" />
             Extra
             <button class="sidebar-title-add" @click="startAdding('extras')"><img :src="plusIcon" width="14" height="14" alt="add" /></button>
           </div>
@@ -137,8 +137,8 @@ function onKeydown(e) {
 
 <style scoped>
 .sidebar {
-  width: 300px;
-  min-width: 300px;
+  width: 310px;
+  min-width: 310px;
   background: white;
   display: flex;
   flex-direction: column;
@@ -149,10 +149,9 @@ function onKeydown(e) {
   display: flex;
   flex-direction: column;
   gap: 32px;
-  padding: 38px 20px 0px 20px;
+  padding: 38px 28px 0px 28px;
   overflow-y: auto;
 }
-
 .sidebar-section {
   margin-bottom: 12px;
 }
@@ -163,7 +162,7 @@ function onKeydown(e) {
   font-size: var(--font-size-bold);
   font-weight: 600;
   margin-bottom: 24px;
-  color: var(--color-text-primary);
+  color: var(--color-text-secondary);
   gap: 8px;
 }
 

@@ -18,7 +18,7 @@ defineProps({ tab: String })
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 28px 20px 0 20px;
+  padding: 28px 28px 0 28px;
   min-height: 64px;
   background: white;
   border-bottom: 1px solid var(--color-border);

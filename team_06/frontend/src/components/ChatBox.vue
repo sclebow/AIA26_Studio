@@ -9,7 +9,7 @@
     />
     <div class="chatbox-bottom-row">
       <div class="chatbox-btns">
-        <button class="chatbox-btn"><img :src="plusIcon" alt="Image" width="24" height="24" style="opacity:0.6;" /></button>
+        <button class="chatbox-btn"><img :src="plusIcon" alt="Image" width="24" height="24" style="opacity:0.7;" /></button>
       </div>
       <button v-if="inputMsg.trim()" class="chatbox-send-btn" @click="sendMessage">
         <img :src="sendWhiteIcon" alt="Send" width="16" height="16"  />
@@ -45,8 +45,7 @@ function sendMessage() {
   padding: 12px 16px 8px 16px;
   width: 100%;
   position: relative;
-
-  min-height: 120px;
+  min-height: 100px;
   box-sizing: border-box;
 }
 .chatbox-input {
@@ -65,7 +64,6 @@ function sendMessage() {
   display: flex;
   flex-direction: row;
   align-items: flex-end;
-  padding: 8px;
   width: 100%;
   margin-bottom: 0;
 }

@@ -5,10 +5,10 @@
     </div>
     <div class="toolbar-divider"></div>
     <div class="toolbar-group">
-      <button class="layout-input-btn view-btn" :class="{ active: viewMode === 'layout' }" @click="emit('viewChange', 'layout')">
+      <button class="layout-input-btn view-btn" :class="{ active: viewMode === 'layout' }" :disabled="!hasLayout" @click="hasLayout && emit('viewChange', 'layout')">
         <img :src="viewMode === 'layout' ? layoutBlueIcon : layoutIcon" alt="Layout" width="22" height="22" />
       </button>
-      <button class="layout-input-btn view-btn" :class="{ active: viewMode === 'daylight' }" @click="emit('viewChange', 'daylight')">
+      <button class="layout-input-btn view-btn" :class="{ active: viewMode === 'daylight' }" :disabled="!hasLayout" @click="hasLayout && emit('viewChange', 'daylight')">
         <img :src="viewMode === 'daylight' ? sunBlueIcon : sunIcon" alt="Daylight" width="22" height="22" />
       </button>
     </div>
@@ -22,7 +22,10 @@ import layoutBlueIcon from '../assets/icons/layout-blue.svg'
 import sunIcon from '../assets/icons/sun.svg'
 import sunBlueIcon from '../assets/icons/sun-blue.svg'
 
-defineProps({ viewMode: { type: String, default: 'layout' } })
+defineProps({
+  viewMode: { type: String, default: null },
+  hasLayout: { type: Boolean, default: false }
+})
 const emit = defineEmits(['viewChange'])
 </script>
 

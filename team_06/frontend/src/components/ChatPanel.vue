@@ -37,14 +37,14 @@ watch(() => props.chat.length, () => {
   <section class="chat-panel">
     <header class="chat-header">
       <div class="chat-header-avatar">
-        <img :src="userIcon" alt="User" width="32" height="32" style="border-radius:50%;background:#e0e3ea;" />
-        <img :src="chevronIcon" alt="Chevron" width="18" height="18" />
+        <img :src="userIcon" alt="User" width="32" height="32" style="opacity:0.6; border-radius:50%; background:#e0e3ea;" />
+        <img :src="chevronIcon" alt="Chevron" width="18" height="18" style="opacity:0.6;"/>
       </div>
     </header>
     <div class="chat-title">AI Copilot</div>
     <section class="chat-history">
       <div class="chat-history-title">
-        <img :src="menuIcon" alt="Chat History" width="20" height="20" />
+        <img :src="menuIcon" alt="Chat History" width="20" height="20" style="opacity:0.6;" />
         Chat History
         <button class="chat-history-add"><img :src="plusIcon" width="14" height="14" alt="new chat" /></button>
       </div>
@@ -53,10 +53,6 @@ watch(() => props.chat.length, () => {
       <input class="chat-search" type="text" placeholder="Search..." v-model="search" />
       <img class="chat-search-icon" :src="searchIcon" alt="Search" />
     </div>
-    <ul v-if="search" class="chat-history-list">
-      <li>Apartment for a young couple</li>
-      <li>Daylight analysis</li>
-    </ul>
     <div class="chat-area" ref="chatArea" style="overflow-y:auto;">
       <div v-for="msg in chat" :key="msg.id" :class="['chat-msg', msg.role]">
         <span>{{ msg.text }}</span>
@@ -73,7 +69,7 @@ watch(() => props.chat.length, () => {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  padding: 28px 32px 0 0;
+  padding: 28px 28px 0 0;
   gap: 0;
   position: relative;
 }
@@ -95,7 +91,7 @@ watch(() => props.chat.length, () => {
 .chat-title {
   font-size: var(--font-size-subtitle);
   color: var(--color-blue);
-  padding: 28px 32px 28px 32px;
+  padding: 28px 28px 28px 28px;
 }
 .chat-history {
   margin-bottom: 12px;
@@ -105,10 +101,10 @@ watch(() => props.chat.length, () => {
   align-items: center;
   font-size: var(--font-size-bold);
   font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
+  color: var(--color-text-secondary);
   gap: 8px;
-  margin-left: 32px;
-  margin-right: 32px;
+  margin-left: 28px;
+  margin-right: 28px;
   margin-top: 12px;
 }
 .chat-history-add {
@@ -140,7 +136,7 @@ watch(() => props.chat.length, () => {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 18px 32px 28px 32px;
+  padding: 18px 28px 28px 28px;
 }
 .chat-search {
   width: 100%;

@@ -26,10 +26,10 @@ console.log('WorkSpace agentState:', props.agentState);
     <header class="work-header">
       <button class="default-btn export-btn ">Export</button>
     </header>
+      <div class="toolbar-card toolbar-inline">
+        <ToolBar :viewMode="props.agentState ? viewMode : null" :hasLayout="!!props.agentState" @viewChange="viewMode = $event" />
+      </div>
       <template v-if="props.agentState">
-        <div class="toolbar-card toolbar-inline">
-          <ToolBar :viewMode="viewMode" @viewChange="viewMode = $event" />
-        </div>
         <div class="canvas-area">
           <div class="canvas-container">
             <LayoutCanvas :layout="props.agentState" :viewMode="viewMode" />
