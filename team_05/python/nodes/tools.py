@@ -70,9 +70,6 @@ def _handle_get_count_by_type(tool_args: dict, state: dict) -> str:
     element_type = tool_args.get("element_type", "").lower().rstrip("s")  # normalise plural
     layout = json.loads(state.get("layout_json_string", "{}"))
 
-    # Support both layout schemas:
-    # new: top-level "doors", "windows", "rooms", "columns" arrays
-    # old: "openings" array with type field, "rooms", "columns"
     type_map = {
         "door":   lambda l: len(l.get("doors", [])) or sum(1 for o in l.get("openings", []) if o.get("type") == "door"),
         "window": lambda l: len(l.get("windows", [])) or sum(1 for o in l.get("openings", []) if o.get("type") == "window"),
@@ -191,6 +188,39 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path, cost_db: dict
     allowed_names = {t["name"] for t in allowed_tools if t.get("name")}
 
     def tool_node(state):
+        
+        # --- START FRED DATABASE INJECTION ---
+        print("\n🧮 [Database] Intercepting agent state to inject live FRED market rates...")
+        try:
+            from live_material_api import live_db
+            import json
+            
+            layout = state.get("layout_data", {})
+            if layout and "rooms" in layout:
+                category_rates = {
+                    "common": 3200.0, "bedroom": 2500.0, 
+                    "wet": 4500.0, "circulation": 1500.0, 
+                    "service": 1800.0, "kitchen": 3500.0
+                }
+                
+                # Loop through every room and fetch the live Supabase rate
+                for room in layout["rooms"]:
+                    cat = room.get("category", "common")
+                    base = category_rates.get(cat, 2000.0)
+                    
+                    # Fetch live rate from FRED
+                    live_rate = live_db.get_live_rate(cat, base_rate=base)
+                    
+                    # Force Grasshopper to use this rate!
+                    room["rate_per_m2"] = live_rate
+                
+                # Save the updated layout back to the agent's core memory
+                state["layout_data"] = layout
+                state["layout_json_string"] = json.dumps(layout)
+                print("✅ [Database] Live FRED rates successfully pushed to agent state!")
+        except Exception as e:
+            print(f"⚠️ [Database] Injection failed: {e}")
+        # --- END FRED DATABASE INJECTION ---
 
         # Iterate over the pending tool calls
         for call in state["pending_tool_calls"]:
@@ -200,10 +230,6 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path, cost_db: dict
             if state["iteration"] > state["max_iterations"]:
                 raise RuntimeError("Max iterations exceeded")
 
-
-            # Get the tool name and check it is valid. Older graph stubs used
-            # {"tool": ..., "action": ..., "args": ...}; the LLM uses
-            # {"name": ..., "arguments": ...}. Accept both shapes.
             tool_name = call.get("name") or call.get("action")
             if not tool_name:
                 raise RuntimeError(f"Tool call is missing a name/action: {call}")
@@ -227,7 +253,6 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path, cost_db: dict
                 tool_args["layout_json"] = state["layout_json_string"]
             
             # ENFORCE: compute_room_cost always receives the FULL layout_schema JSON.
-            # This is the ONLY sanctioned path for room/space area + cost.
             if tool_name == "compute_room_cost":
                 tool_args["layout_schema"] = state["layout_json_string"]
                 print(
@@ -241,7 +266,6 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path, cost_db: dict
                 subtype = _normalise_material(str(tool_args.get("subtype", "")))
                 rates = _load_cost_rates()
 
-                # Look up cost_rates.json first: doors → by_subtype or by_material leaf
                 cost = None
                 if element_type in ("door", "doors"):
                     door_rates = rates.get("doors", {})
@@ -261,7 +285,6 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path, cost_db: dict
                     col_rates = rates.get("columns", {})
                     cost = col_rates.get("by_subtype", {}).get(subtype) or col_rates.get("default")
 
-                # Fall back to live Supabase rate if cost_rates.json has no match
                 if cost is None:
                     cost = sheets_db.get_live_rate(element_type, base_rate=500.0)
 
@@ -279,14 +302,13 @@ def build_tool_node(mcp_client, allowed_tools, edited_layout_path, cost_db: dict
             elif tool_name == "compute_slab_cost":
                 tool_output = _handle_compute_slab_cost(tool_args, state)
             else:
+                # Call Grasshopper MCP tool
                 tool_output = mcp_client.call_tool(tool_name, tool_args)
 
             # Store the updated layout returned by the MCP tool to a json file
             write_tool_result(tool_output, edited_layout_path)
 
-            # Only update the layout in state when the tool output is actually
-            # a layout (has a "rooms" key). Cost-result dicts from virtual tools
-            # must NOT overwrite the layout.
+            # Only update the layout in state when the tool output is actually a layout
             try:
                 updated = json.loads(tool_output.strip())
                 if isinstance(updated, dict) and "rooms" in updated:
