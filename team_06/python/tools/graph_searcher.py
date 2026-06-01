@@ -11,6 +11,7 @@ import networkx as nx
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.graph_embedder import RuleBasedEmbedder
+from utils.parser.schema_to_graph import create_graph_from_layout
 
 # ============================================================================
 # GraphSearcher class: loads layout graphs and provides search methods.
@@ -28,11 +29,16 @@ class GraphSearcher:
 
         with open(self.graphs_path, 'r') as f:
             graphs_data = json.load(f)
-        
-        # Convert node-link format back to NetworkX graphs
+
+        # Support both node-link graph JSON and bundled layout JSON.
         layout_graphs = {}
-        for layout_id, node_link_data in graphs_data.items():
-            layout_graphs[layout_id] = nx.node_link_graph(node_link_data)
+        if isinstance(graphs_data, list):
+            for layout_idx, layout_data in enumerate(graphs_data, 1):
+                layout_id = layout_data.get('layoutId', f'layout-{layout_idx}')
+                layout_graphs[layout_id] = create_graph_from_layout(layout_data)
+        else:
+            for layout_id, node_link_data in graphs_data.items():
+                layout_graphs[layout_id] = nx.node_link_graph(node_link_data)
         
         return layout_graphs
 
