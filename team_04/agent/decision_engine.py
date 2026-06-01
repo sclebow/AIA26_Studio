@@ -7,6 +7,7 @@ from typing import Any, Protocol
 
 from langchain_openai import ChatOpenAI
 
+from .llm import resolve_active_llm
 from .models import PlanStep, RoutingDecision
 from .models import ToolCall
 from .tools.generate_building_boundary import get_boundary_planning_defaults
@@ -299,6 +300,10 @@ class RuleBasedPlanner:
 @dataclass
 class OpenAIDecisionEngine:
     llm: ChatOpenAI
+    decision_provider: str | None = None
+    decision_model: str | None = None
+    report_provider: str | None = None
+    report_model: str | None = None
 
     def decide(
         self,
@@ -324,7 +329,12 @@ class OpenAIDecisionEngine:
             {"role": "system", "content": REPORT_PROMPT.format(state_snapshot=json.dumps(snapshot, indent=2))},
             {"role": "user", "content": state.get("user_prompt", "")},
         ]
-        result = self.llm.invoke(messages)
+        active_llm = resolve_active_llm(
+            self.llm,
+            provider=self.report_provider,
+            model=self.report_model,
+        )
+        result = active_llm.invoke(messages)
         return _normalize_content(result.content).strip()
 
     def _invoke_json(self, system_prompt: str, user_prompt: str) -> dict[str, Any]:
@@ -332,7 +342,12 @@ class OpenAIDecisionEngine:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
-        result = self.llm.invoke(messages)
+        active_llm = resolve_active_llm(
+            self.llm,
+            provider=self.decision_provider,
+            model=self.decision_model,
+        )
+        result = active_llm.invoke(messages)
         content = _normalize_content(result.content)
         return _parse_json_object(content)
 

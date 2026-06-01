@@ -14,6 +14,10 @@ class AgentSettings:
     api_key: str
     base_url: str
     llm_model: str
+    decision_llm_provider: str | None
+    decision_llm_model: str | None
+    report_llm_provider: str | None
+    report_llm_model: str | None
     mcp_endpoint: str
     request_timeout_seconds: float
     max_optimization_cycles: int
@@ -93,6 +97,10 @@ def load_settings() -> AgentSettings:
         api_key=api_key,
         base_url=base_url,
         llm_model=llm_model,
+        decision_llm_provider=os.environ.get("TEAM04_DECISION_LLM_PROVIDER") or None,
+        decision_llm_model=os.environ.get("TEAM04_DECISION_LLM_MODEL") or None,
+        report_llm_provider=os.environ.get("TEAM04_REPORT_LLM_PROVIDER") or None,
+        report_llm_model=os.environ.get("TEAM04_REPORT_LLM_MODEL") or None,
         mcp_endpoint=_load_mcp_endpoint(),
         request_timeout_seconds=float(os.environ.get("REQUEST_TIMEOUT_SECONDS", "300")),
         max_optimization_cycles=int(os.environ.get("MAX_OPTIMIZATION_CYCLES", "4")),

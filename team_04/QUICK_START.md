@@ -218,6 +218,40 @@ print(result)
 python main.py "Create an L-shaped building on a rectangular site"
 ```
 
+---
+
+## Benchmarking Models
+
+The canonical runtime is `team_04/agent/main.py` via `team_04/main.py`.
+
+Team 04 now supports per-call LLM benchmarking without touching the shared repo runtime:
+
+- `--decision-provider` / `--decision-model` override the supervisor calls that choose tool actions.
+- `--report-provider` / `--report-model` override the final reporting call.
+- If you prefer env vars instead of CLI flags, set `TEAM04_DECISION_LLM_PROVIDER`, `TEAM04_DECISION_LLM_MODEL`, `TEAM04_REPORT_LLM_PROVIDER`, and `TEAM04_REPORT_LLM_MODEL`.
+
+Example: use a cheaper model for tool-routing and a stronger one for the final report.
+
+```bash
+python -m team_04.main "Generate a compact residential boundary near the site centroid" \
+    --decision-provider cloudflare \
+    --decision-model @cf/meta/llama-3.1-8b-instruct \
+    --report-provider openai \
+    --report-model gpt-4.1-mini
+```
+
+Suggested benchmark matrix:
+
+1. Keep the prompt and layout fixed for every run.
+2. Vary only the decision model first and compare tool choice quality, retries, and final geometry validity.
+3. Then hold the decision model fixed and vary only the report model to compare summary quality and latency.
+4. Record for each run: provider, model, prompt, total runtime, tool calls made, final response, and whether `team_04/team_04_edited_layout.json` was written with a valid result.
+
+Each run is now logged automatically under `team_04/benchmarks/`:
+
+- `benchmark_runs.csv` stores one summary row per run.
+- `json/<run_id>.json` stores the full benchmark record including tool history, messages, violations, and timing.
+
 **Expected behavior:**
 1. Agent calls site_boundary_reader_04 (mock data if no site provided)
 2. Agent calls parametric_shape_generator_04 with shape="l_shape"
