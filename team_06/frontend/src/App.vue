@@ -3,7 +3,7 @@
     <div class="app-layout">
       <Sidebar :tab="tab" @change="tab = $event" :parsedInput="parsedInput" :history="layoutHistory" :agentState="agentState" @restore="handleRestore" />
       <WorkSpace :agentState="agentState" @layoutLoaded="handleLayoutLoaded" />
-      <ChatPanel :chat="chatHistory" @send="handleUserMessage" />
+      <ChatPanel :chat="chatHistory" @send="handleUserMessage" @newChat="handleNewChat" />
     </div>
   </div>
 </template>
@@ -66,6 +66,14 @@ function handleUserMessage(message) {
     const response = getAgentResponse(message, { parsedInput: parsedInput.value, layout: agentState.value, boundary: boundary.value })
     applyAgentResponse(response)
   }, 800)
+}
+
+// ─── New chat (full reset) ────────────────────────────────────────────────────
+function handleNewChat() {
+  chatHistory.value = []
+  agentState.value = null
+  parsedInput.value = null
+  boundary.value = null
 }
 
 // ─── Restore from history ─────────────────────────────────────────────────────

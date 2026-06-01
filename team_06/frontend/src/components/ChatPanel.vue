@@ -1,6 +1,5 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue'
-import menuIcon from '../assets/icons/menu.svg'
 import sendIcon from '../assets/icons/send.svg'
 import searchIcon from '../assets/icons/search.svg'
 import userIcon from '../assets/icons/user.svg'
@@ -20,7 +19,7 @@ const props = defineProps({
     default: 0
   }
 })
-const emit = defineEmits(['send'])
+const emit = defineEmits(['send', 'newChat'])
 
 const chatArea = ref(null)
 
@@ -41,16 +40,12 @@ watch(() => props.chat.length, () => {
         <img :src="chevronIcon" alt="Chevron" width="18" height="18" style="opacity:0.6;"/>
       </div>
     </header>
-    <div class="chat-title">AI Copilot</div>
-    <section class="chat-history">
-      <div class="chat-history-title">
-        <img :src="menuIcon" alt="Chat History" width="20" height="20" style="opacity:0.6;" />
-        Chat History
-        <button class="chat-history-add"><img :src="plusIcon" width="14" height="14" alt="new chat" /></button>
-      </div>
-    </section>
+    <div class="chat-title-row">
+      <div class="chat-title">AI Copilot</div>
+      <button class="chat-history-add" @click="emit('newChat')" title="New chat"><img :src="plusIcon" width="14" height="14" alt="new chat" /></button>
+    </div>
     
-    <div class="chat-area" ref="chatArea" style="overflow-y:auto;">
+    <div class="chat-area" ref="chatArea">
       <div v-for="msg in chat" :key="msg.id" :class="['chat-msg', msg.role]">
         <span>{{ msg.text }}</span>
       </div>
@@ -83,28 +78,20 @@ watch(() => props.chat.length, () => {
   border-left: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
+  height: 100vh;
   padding: 0;
+}
+.chat-title-row {
+  display: flex;
+  align-items: center;
+  padding: 28px 28px 28px 28px;
 }
 .chat-title {
   font-size: var(--font-size-subtitle);
   color: var(--color-blue);
-  padding: 28px 28px 28px 28px;
+  flex: 1;
 }
-.chat-history {
-  margin-bottom: 12px;
-}
-.chat-history-title {
-  display: flex;
-  align-items: center;
-  font-size: var(--font-size-bold);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-secondary);
-  gap: 8px;
-  margin-left: 28px;
-  margin-right: 28px;
-  margin-top: 12px;
-  margin-bottom: 24px;
-}
+
 .chat-history-add {
   background: none;
   border: none;
@@ -157,11 +144,27 @@ watch(() => props.chat.length, () => {
   flex: 0 0 auto;
 }
 .chat-area {
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  overflow-y: auto;
   margin: 0 28px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+.chat-area::-webkit-scrollbar {
+  width: 4px;
+}
+.chat-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-area::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+.chat-area::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
 }
 .chat-box-bar {
   display: flex;

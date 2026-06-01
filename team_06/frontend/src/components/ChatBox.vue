@@ -8,9 +8,6 @@
       placeholder="What do you want to create next?"
     />
     <div class="chatbox-bottom-row">
-      <div class="chatbox-btns">
-        <button class="chatbox-btn"><img :src="plusIcon" alt="Image" width="24" height="24" style="opacity:0.7;" /></button>
-      </div>
       <button v-if="inputMsg.trim()" class="chatbox-send-btn" @click="sendMessage">
         <img :src="sendWhiteIcon" alt="Send" width="16" height="16"  />
       </button>
@@ -60,36 +57,10 @@ function sendMessage() {
   min-height: 0;
   box-sizing: border-box;
 }
-.chatbox-bottom-row {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  width: 100%;
-  margin-bottom: 0;
-}
-.chatbox-btns {
-  display: flex;
-  align-items: flex-end;
-  gap: 32px;
-}
-.chatbox-btn {
-  background: none;
-  border: none;
-  box-shadow: none;
-  margin-bottom: 12px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  color: var(--color-text-secondary);
-  font-size: 1.8rem;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: background 0.15s;
-}
+
 .chatbox-btn:focus {
   outline: none;
 }
-
 .chatbox-send-btn {
   background:var(--color-blue);
   border: 0px;
