@@ -15,7 +15,7 @@ def overview_respond_node(state: dict) -> dict:
         return {
             **state,
             "final_response": (
-                "No layout loaded. Mention a layout number (201, 202, or 203) "
+                "No layout loaded. Mention a layout number (e.g. 201 or 204) "
                 "to get started."
             ),
         }
@@ -56,10 +56,15 @@ def overview_respond_node(state: dict) -> dict:
         ))
 
     lines.append("")
-    lines.append(
-        "To run a comfort analysis, add a persona -- "
-        "e.g. 'analyze layout {} for an elderly user'.".format(layout_id)
-    )
+    if state.get("persona_profile"):
+        # Persona already set during onboarding — offer the direct next step.
+        lines.append(
+            "Ask me to analyze this layout for a full comfort breakdown across the six senses."
+        )
+    else:
+        lines.append(
+            "To run a comfort analysis, complete onboarding so I know your comfort priorities."
+        )
 
     print("[overview] Listing {} rooms for layout {}".format(len(rooms), layout_id))
 
