@@ -281,6 +281,50 @@ def match_boundaries(
 
     results = []
 
+    # Fast path: if precomputed sampled turning functions exist, use them.
+    tf_file = dataset_path.parent / 'tf_sampled.npy'
+    if tf_file.exists():
+        try:
+            sampled_array = np.load(str(tf_file))  # shape (N, dim)
+            # L2-normalize rows for cosine similarity
+            norms = np.linalg.norm(sampled_array, axis=1, keepdims=True)
+            norms[norms == 0] = 1.0
+            sampled_normed = sampled_array / norms
+
+            # Ensure input vector has same dimension as sampled vectors
+            if input_vec.size != sampled_normed.shape[1]:
+                # If dims mismatch, resample/trim/pad: simplest is to resample input
+                # by linear interpolation over its original samples to match target dim.
+                target_dim = sampled_normed.shape[1]
+                src = np.linspace(0.0, 1.0, num=input_vec.size, endpoint=False)
+                dst = np.linspace(0.0, 1.0, num=target_dim, endpoint=False)
+                input_vec = np.interp(dst, src, input_vec)
+                vnorm = np.linalg.norm(input_vec)
+                if vnorm != 0:
+                    input_vec = input_vec / vnorm
+
+            sims = float(np.nan) if input_vec.size == 0 else (sampled_normed @ input_vec)
+            # top_k indices
+            top_k = min(top_k, sampled_normed.shape[0])
+            idxs = np.argsort(-sims)[:top_k]
+
+            for idx in idxs:
+                layout = dataset[idx]
+                layout_id = layout.get('layoutId', layout.get('id', f'idx_{idx}'))
+                results.append({
+                    'layoutId': layout_id,
+                    'score': round(float(sims[idx]), 3),
+                    'name': layout.get('apartment', {}).get('name'),
+                    'boundary_graph': {
+                        'coordinates': _normalize_layout_outline(layout),
+                        'vector_size': sampled_normed.shape[1],
+                    }
+                })
+            return {'matches': results, 'query': 'turning_function_precomputed', 'count': len(results)}
+        except Exception:
+            # Fall back to on-the-fly computation below
+            pass
+
     for layout in dataset:
         layout_id = layout.get('layoutId', 'unknown')
         coords = layout.get('outline', [])
