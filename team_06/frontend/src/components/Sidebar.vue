@@ -15,7 +15,7 @@ const props = defineProps({
     default: null
   }
 })
-const emit = defineEmits(['change', 'itemAdded'])
+const emit = defineEmits(['change', 'itemAdded', 'reset'])
 
 const addingTo = ref(null) // 'households' | 'activities' | 'rooms'
 const newItemText = ref('')
@@ -131,7 +131,7 @@ function onKeydown(e) {
         <div class="sidebar-section-title">History (placeholder)</div>
       </template>
     </div>
-    <button class="reset-btn default-btn">Reset</button>
+    <button class="reset-btn default-btn" @click="emit('reset')">Reset</button>
   </aside>
 </template>
 

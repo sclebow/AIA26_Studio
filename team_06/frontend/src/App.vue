@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <div class="app-layout">
-      <Sidebar :tab="tab" @change="tab = $event" :parsedInput="parsedInput" @itemAdded="handleItemAdded" />
+      <Sidebar :tab="tab" @change="tab = $event" :parsedInput="parsedInput" @itemAdded="handleItemAdded" @reset="handleReset" />
       <WorkSpace :agentState="agentState" />
       <ChatPanel :chat="chatHistory" @send="handleUserMessage" />
     </div>
@@ -42,6 +42,12 @@ function handleUserMessage(message) {
     const response = getAgentResponse(message, { parsedInput: parsedInput.value, layout: agentState.value })
     applyAgentResponse(response)
   }, 800)
+}
+
+// ─── Reset ───────────────────────────────────────────────────────────────────
+function handleReset() {
+  parsedInput.value = null
+  agentState.value = null
 }
 
 // ─── Sidebar path ─────────────────────────────────────────────────────────────
