@@ -76,9 +76,9 @@ from typing import Optional
 # ============================================================================
 
 # All program types we care about (determines vector dimensions for room counts)
-PROGRAMS = ["bedroom", "kitchen", "living room", "bathroom", "dining room", "foyer"]
+PROGRAMS = ["bedroom", "kitchen", "living room", "bathroom", "dining room", "foyer", "extra"]
 
-SIZES = ["Small", "Medium", "Large"]
+SIZES = ["small", "medium", "large"]
 
 # All program-pair edges we care about
 PROGRAM_PAIRS = [
@@ -140,7 +140,7 @@ def extract_features(G: nx.Graph) -> list[float]:
     program_size_counts = {}
     for node in G.nodes():
         program = normalize_program(G.nodes[node].get("program", ""))
-        size = G.nodes[node].get("size", "Medium")
+        size = G.nodes[node].get("size", "medium")
         key = (program, size)
         program_size_counts[key] = program_size_counts.get(key, 0) + 1
 
@@ -201,8 +201,7 @@ def extract_features(G: nx.Graph) -> list[float]:
 # ============================================================================
 
 def build_query_vector(
-        programs: list[str], 
-        sizes: bool = False,
+        programs: list, # Can be list[str] or list[tuple[str, str]]
         access_pairs: Optional[list[tuple[str, str]]] = None,
         adjacency_pairs: Optional[list[tuple[str, str]]] = None,
         centrality: bool = False
@@ -210,8 +209,9 @@ def build_query_vector(
     """Build a query feature vector from program and size preferences.
 
     Args:
-        programs:  e.g. ['bedroom', 'kitchen', 'living room']
-        sizes:  e.g. ['Small', 'Medium', 'Large']; if None, any size works
+        programs: Mixed list of:
+            - str: 'bedroom' → any size
+            - tuple: ('bedroom', 'large') → exact size
         access_pairs: list of program pairs that should be connected by doors
         adjacency_pairs: list of program pairs that should share walls
         centrality: prefer centrally-located programs (high betweenness)
@@ -220,23 +220,25 @@ def build_query_vector(
         Feature vector in the same space as extract_features() output.
     """
     features = []
-
-    # --- A: Count how many of each program the user wants
-    # Normalize short names (e.g. 'bed' → 'bedroom') so the query aligns
-    # with the canonical names used in PROGRAMS and the stored index.
     query_counts = {}
-    for p in programs:
-        canonical = normalize_program(p)
-        query_counts[canonical] = query_counts.get(canonical, 0) + 1
 
-    if sizes:
-        # If user specifies sizes, we assume they want all rooms to be that size
-        # (e.g. "I want 2 Small bedrooms and 1 Small kitchen")
-        for program in PROGRAMS:
+    # --- A: Parse mixed format (strings and tuples)
+    for item in programs:
+        if isinstance(item, tuple):
+            program, size = item
+            canonical = normalize_program(program)
+            key = (canonical, size)
+            query_counts[key] = query_counts.get(key, 0) + 1
+        else:
+            # String only — will be handled as "any size" with zero counts
+            canonical = normalize_program(item)
             for size in SIZES:
-                features.append(float(query_counts.get(program, 0)) / len(SIZES))
-    else:
-        features.extend([0.0] * (len(PROGRAMS) * len(SIZES)))  # No size preference, all zeros for size-specific counts
+                key = (canonical, size)
+                query_counts[key] = query_counts.get(key, 0) + 1 / len(SIZES)
+
+    for program in PROGRAMS:
+        for size in SIZES:
+            features.append(float(query_counts.get((program, size), 0)))
 
     # --- B: Which pairs does the user want connected?
     # If access_pairs is provided, mark only those pairs as required.
@@ -320,20 +322,20 @@ class RuleBasedEmbedder:
 
     def search(
         self,
-        programs: list[str],
-        sizes: bool = False,
-        access: bool = False,
-        adjacency: bool = False,
+        programs: list,
+        access_pairs: Optional[list[tuple[str, str]]] = None,
+        adjacency_pairs: Optional[list[tuple[str, str]]] = None,
         centrality: bool = False,
         top_k: int = 3,
     ) -> list[tuple[str, float]]:
         """Find the top-k layouts with AT LEAST the requested room counts.
 
         Args:
-            programs:  e.g. ['bedroom', 'bedroom', 'kitchen', 'bathroom']
-            sizes:     whether to match the exact sizes of the programs
-            access:    whether the programs must be directly connected by doors
-            adjacency: whether the programs must be adjacent (share a wall)
+            programs: Either:
+                - ['bedroom', 'kitchen', 'living room'] → match any sizes
+                - [('bedroom', 'Large'), ('kitchen', 'Small')] → match exact sizes
+            access_pairs:    whether the programs must be directly connected by doors
+            adjacency_pairs: whether the programs must be adjacent (share a wall)
             centrality: whether to prefer centrally-located programs
             top_k:     how many results to return
 
@@ -341,39 +343,54 @@ class RuleBasedEmbedder:
             list of (layout_id, score) sorted best-first; empty if no exact match.
         """
         
-        #It filters to only layouts with the exact program counts.
-        # Dictionary that counts how many times each program appears in the user's query
-        required: dict[str, int] = {}
-        for p in programs:
-            canonical = normalize_program(p)
-            required[canonical] = required.get(canonical, 0) + 1
-
-        # Now build a proper check function
-        def check_required_counts(layout_vec: list[float], required: dict[str, int]) -> bool:
-            """Check if layout has AT LEAST the requested room counts."""
-            for program, required_count in required.items():
+        size_specific_reqs = {}  # {(program, size): count}
+        any_size_reqs = {}       # {program: count}
+        
+        for item in programs:
+            if isinstance(item, tuple):
+                program, size = item
+                canonical = normalize_program(program)
+                key = (canonical, size)
+                size_specific_reqs[key] = size_specific_reqs.get(key, 0) + 1
+            else:
+                canonical = normalize_program(item)
+                any_size_reqs[canonical] = any_size_reqs.get(canonical, 0) + 1
+            
+        def check_required_counts(layout_vec: list[float]) -> bool:
+            """Check if layout has AT LEAST the requested (program, size) pairs."""
+            for (program, size), required_count in size_specific_reqs.items():
+                if program not in PROGRAMS or size not in SIZES:
+                    continue
+                prog_idx = PROGRAMS.index(program)
+                size_idx = SIZES.index(size)
+                vec_idx = prog_idx * len(SIZES) + size_idx
+                if layout_vec[vec_idx] < required_count:
+                    return False
+                
+            # Check any-size requirements
+            for program, required_count in any_size_reqs.items():
                 if program not in PROGRAMS:
                     continue
-                # Get indices for all sizes of this program
                 prog_idx = PROGRAMS.index(program)
-                # Positions in vector: prog_idx*3, prog_idx*3+1, prog_idx*3+2
-                total_count = sum(layout_vec[prog_idx * len(SIZES) + size_idx] for size_idx in range(len(SIZES)))
+                total_count = sum(layout_vec[prog_idx * len(SIZES) + s] for s in range(len(SIZES)))
                 if total_count < required_count:
                     return False
-            return True
+            
+            return True   
+      
 
         query_vec = build_query_vector(
             programs, 
-            sizes=sizes, 
             access_pairs=access_pairs, 
             adjacency_pairs=adjacency_pairs, 
             centrality=centrality)
 
         scores = []
         for layout_id, layout_vec in self.index.items():
-            if not check_required_counts(layout_vec, required):
+            if not check_required_counts(layout_vec):
                 continue
             scores.append((layout_id, cosine_similarity(query_vec, layout_vec)))
+
         scores.sort(key=lambda x: x[1], reverse=True)
         
         return scores[:top_k]
@@ -403,10 +420,15 @@ if __name__ == "__main__":
     # Example searches
     print("Search 1:", 
       embedder.search(["dining room"], top_k=3))
-
-    print("Search 2:", 
-      embedder.search(["bedroom", "bedroom", "kitchen", "living room"], centrality=True, top_k=3))
-
-    print("Search 3:", 
-      embedder.search(["bedroom", "bedroom"], adjacency_pairs=[("bedroom", "bedroom")], top_k=3))
     
+    print("Search 2a:", 
+      embedder.search([('bedroom', 'large'), ('bedroom', 'medium')], top_k=3))
+
+    print("Search 2b:", 
+      embedder.search([('bedroom', 'large'), ('bedroom', 'medium'), 'extra'], top_k=3))
+
+    print("Search 3a:", 
+      embedder.search(["bedroom", "bedroom"], adjacency_pairs=[("bedroom", "bedroom"), ("kitchen", "living room")], top_k=3))
+    
+    print("Search 3b:", 
+      embedder.search(["bedroom", "bedroom", "extra"], adjacency_pairs=[("bedroom", "bedroom"), ("kitchen", "living room")], top_k=3))
