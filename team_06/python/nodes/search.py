@@ -60,7 +60,7 @@ def _fuse_rankings(
 def build_search_node() -> Any:
     """Search using topology graph from state."""
     def search(state: dict) -> dict:
-        search_mode = state.get("search_mode", "boundary_only")
+        search_mode = state.get("search_mode", "graph_only")
         topology_json = state.get("topology_graph_json_string")
         input_layout_json = state.get("input_layout_json_string") or state.get("layout_json_string")
         iteration = state.get("iteration", 0)
