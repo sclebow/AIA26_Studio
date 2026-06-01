@@ -315,6 +315,7 @@ class RuleBasedEmbedder:
     def __init__(self, layout_graphs: dict[str, nx.Graph]):
         # Build the index once — this replaces the per-search graph traversal
         # in graph_searcher.py. No traversal happens during search().
+        self.layout_graphs = layout_graphs
         self.index = {
             layout_id: extract_features(G)
             for layout_id, G in layout_graphs.items()
@@ -325,6 +326,7 @@ class RuleBasedEmbedder:
         programs: list,
         access_pairs: Optional[list[tuple[str, str]]] = None,
         adjacency_pairs: Optional[list[tuple[str, str]]] = None,
+        not_adjacency_pairs: Optional[list[tuple[str, str]]] = None,
         centrality: bool = False,
         top_k: int = 3,
     ) -> list[tuple[str, float]]:
@@ -336,6 +338,7 @@ class RuleBasedEmbedder:
                 - [('bedroom', 'Large'), ('kitchen', 'Small')] → match exact sizes
             access_pairs:    whether the programs must be directly connected by doors
             adjacency_pairs: whether the programs must be adjacent (share a wall)
+            not_adjacency_pairs: whether the programs must NOT be adjacent (share a wall)
             centrality: whether to prefer centrally-located programs
             top_k:     how many results to return
 
@@ -356,6 +359,16 @@ class RuleBasedEmbedder:
                 canonical = normalize_program(item)
                 any_size_reqs[canonical] = any_size_reqs.get(canonical, 0) + 1
             
+        # Build excluded pairs set
+        excluded_pairs = set()
+        if not_adjacency_pairs:
+            for p1, p2 in not_adjacency_pairs:
+                p1_normalized = normalize_program(p1)
+                p2_normalized = normalize_program(p2)
+                pair = tuple(sorted([p1_normalized, p2_normalized]))
+                excluded_pairs.add(pair)
+        
+        
         def check_required_counts(layout_vec: list[float]) -> bool:
             """Check if layout has AT LEAST the requested (program, size) pairs."""
             for (program, size), required_count in size_specific_reqs.items():
@@ -377,7 +390,21 @@ class RuleBasedEmbedder:
                     return False
             
             return True   
-      
+        
+        def has_excluded_adjacencies(layout_id: str) -> bool:
+            """Return True if layout has any of the excluded adjacencies."""
+            if not excluded_pairs:
+                return False
+            
+            G = self.layout_graphs[layout_id]
+            for u, v in G.edges():
+                if 'adjacency' in G[u][v].get('edge_types', []):
+                    pu = normalize_program(G.nodes[u].get("program", ""))
+                    pv = normalize_program(G.nodes[v].get("program", ""))
+                    pair = tuple(sorted([pu, pv]))
+                    if pair in excluded_pairs:
+                        return True
+            return False
 
         query_vec = build_query_vector(
             programs, 
@@ -388,6 +415,8 @@ class RuleBasedEmbedder:
         scores = []
         for layout_id, layout_vec in self.index.items():
             if not check_required_counts(layout_vec):
+                continue
+            if has_excluded_adjacencies(layout_id):
                 continue
             scores.append((layout_id, cosine_similarity(query_vec, layout_vec)))
 
@@ -432,3 +461,9 @@ if __name__ == "__main__":
     
     print("Search 3b:", 
       embedder.search(["bedroom", "bedroom", "extra"], adjacency_pairs=[("bedroom", "bedroom"), ("kitchen", "living room")], top_k=3))
+
+    print("Search 4a:", 
+      embedder.search(["bedroom", "bedroom"], not_adjacency_pairs=[("bedroom", "bathroom")], top_k=3))
+    
+    print("Search 4b:", 
+      embedder.search([('bedroom', 'medium'), ('kitchen', 'small')], adjacency_pairs=[("kitchen", "bathroom")], not_adjacency_pairs=[("bedroom", "kitchen")], top_k=3))
