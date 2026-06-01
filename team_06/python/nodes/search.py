@@ -3,6 +3,7 @@ import networkx as nx
 from pathlib import Path
 from typing import Any
 import logging
+from team_06.python.nodes import topology
 from tools.graph_searcher import GraphSearcher
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ def build_search_node() -> Any:
             logger.error("❌ No topology graph provided")
             return {
                 "search_results_json_string": json.dumps([]),
-                "final_response": "No topology graph provided.",
+                "clarification": "No topology graph provided. Please describe your layout or try again.",
                 "iteration": iteration + 1
             }
         
@@ -29,10 +30,26 @@ def build_search_node() -> Any:
             logger.info(f"📊 Topology graph nodes: {list(topology.nodes(data=True))}")
             logger.info(f"📊 Topology graph edges: {list(topology.edges())}")
             
-            searcher = GraphSearcher(str(graphs_path))
-            results = searcher.search_by_graph_similarity(topology, method="jaccard")
-            logger.info(f"🔍 Search results: {results}")
+            # Extract program types from topology
+            programs = [
+                topology.nodes[node].get('program', '')
+                for node in topology.nodes()
+                if topology.nodes[node].get('program', '')
+            ]
             
+            searcher = GraphSearcher(str(graphs_path))
+            results = searcher.search_by_embedding(programs, access=True, top_k=3)
+
+            # Also search Planfinder graphs if available
+            planfinder_graphs_path = repo_root / "layout_inputs" / "planfinder_graphs.json"
+            if planfinder_graphs_path.exists():
+                pf_searcher = GraphSearcher(str(planfinder_graphs_path))
+                pf_results = pf_searcher.search_by_embedding(programs, access=True, top_k=3)
+                results = sorted(results + pf_results, key=lambda x: x[1], reverse=True)
+                logger.info(f"🔍 Combined search results (sample + planfinder): {results}")
+            else:
+                logger.info(f"🔍 Search results: {results}")
+
             candidates = [
                 {"id": lid, "score": round(s, 2), "description": f"Layout {lid}"}
                 for lid, s in results[:3]
@@ -42,22 +59,25 @@ def build_search_node() -> Any:
             if not candidates:
                 logger.warning(f"⚠️  No matching layouts found")
                 return {
+                    "search_result": "failed",
                     "search_results_json_string": json.dumps([]),
-                    "final_response": "No matching layouts found.",
+                    "clarification": "No matching layout found. How would you like to proceed? (Type 'end' to exit or write a new request)",
                     "iteration": iteration + 1,
                 }
             
             logger.info(f"✅ Found {len(candidates)} layouts")
             
             return {
+                "search_result": "success",
                 "search_results_json_string": json.dumps(candidates),
                 "iteration": iteration + 1,
             }
         except Exception as e:
             logger.error(f"❌ Search failed: {str(e)}", exc_info=True)
             return {
+                "search_result": "failed",
                 "search_results_json_string": json.dumps([]),
-                "final_response": f"Search failed: {str(e)}",
+                "clarification": f"Search failed: {str(e)}. How would you like to proceed?",
                 "iteration": iteration + 1,
             }
         

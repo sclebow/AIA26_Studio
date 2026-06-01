@@ -9,7 +9,7 @@ def main():
     print("Describe your desired layout or type 'quit' to exit.\n")
     
     ctx = bootstrap()
-    session = {}  # Persists across turns
+    session = {"feedback_history": []}  # Persists across turns, ensure feedback_history always present
     
     while True:
         try:
@@ -26,8 +26,12 @@ def main():
             break
         
         try:
+            # Always ensure feedback_history is present in session
+            if "feedback_history" not in session:
+                session["feedback_history"] = []
             response, session = run_agent(user_input, ctx, session)
             print(f"\nAgent: {response}\n")
+            print(f"[DEBUG] Session after turn: {session.get('question_index')}")
         except Exception as e:
             print(f"\n❌ Error: {e}")
             print("Session still active. Try again or type 'quit'.\n")

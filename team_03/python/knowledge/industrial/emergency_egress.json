@@ -1,0 +1,83 @@
+{
+  "source": "NFPA 101 Life Safety Code 2021 + OSHA 29 CFR 1910.36-1910.37 + IBC 2021 Chapter 10",
+  "topic": "Emergency egress routes, exit door requirements, and travel distances for industrial occupancies",
+  "facts": [
+    {
+      "rule": "max_travel_distance_to_exit_sprinklered",
+      "value_m": 76.200,
+      "context": "NFPA 101 / IBC — max travel distance to exit in sprinklered industrial building (250 ft)"
+    },
+    {
+      "rule": "max_travel_distance_to_exit_unsprinklered",
+      "value_m": 60.960,
+      "context": "NFPA 101 — max travel distance to exit in non-sprinklered industrial building (200 ft)"
+    },
+    {
+      "rule": "min_exit_door_width_clear",
+      "value_m": 0.813,
+      "context": "NFPA 101 7.2.1.2 — 32 in minimum clear width for any exit door leaf"
+    },
+    {
+      "rule": "min_exit_door_width_high_occupancy",
+      "value_m": 0.914,
+      "context": "IBC — 36 in minimum for high-occupancy industrial spaces (50+ persons)"
+    },
+    {
+      "rule": "min_exit_corridor_width",
+      "value_m": 1.120,
+      "context": "NFPA 101 — 44 in minimum corridor width serving 50 or more occupants"
+    },
+    {
+      "rule": "min_exit_corridor_width_low_occupancy",
+      "value_m": 0.710,
+      "context": "OSHA 1910.37(b) — 28 in minimum for low-occupancy exit routes"
+    },
+    {
+      "rule": "min_number_of_exits_per_floor",
+      "value": 2,
+      "unit": "exits",
+      "context": "NFPA 101 — minimum 2 exits required for any occupant load above 1 person"
+    },
+    {
+      "rule": "exit_separation_min_diagonal",
+      "value": 0.333,
+      "unit": "fraction of diagonal",
+      "context": "IBC 1007.1.1 — exits must be separated by at least 1/3 of floor diagonal when unsprinklered"
+    },
+    {
+      "rule": "dead_end_corridor_max_length",
+      "value_m": 6.100,
+      "context": "NFPA 101 — dead-end corridors must not exceed 20 ft in industrial occupancy"
+    },
+    {
+      "rule": "door_swing_clearance",
+      "value_m": 0.915,
+      "context": "Clear floor space required on pull side of egress door — must not be blocked"
+    },
+    {
+      "rule": "exit_sign_max_spacing",
+      "value_m": 30.480,
+      "context": "NFPA 101 — exit signs required so no point is more than 100 ft from a visible sign"
+    },
+    {
+      "rule": "aisle_to_exit_must_be_clear",
+      "value_m": 0.000,
+      "context": "OSHA 1910.37(a) — exit routes must never be blocked by objects, equipment, or storage"
+    },
+    {
+      "rule": "emergency_lighting_path_width",
+      "value_m": 1.120,
+      "context": "NFPA 101 7.9 — emergency lighting must illuminate entire egress path at 44 in width"
+    },
+    {
+      "rule": "stairwell_width_min",
+      "value_m": 1.120,
+      "context": "IBC 1011.2 — 44 in minimum stair width for industrial occupancy (multi-storey)"
+    },
+    {
+      "rule": "exit_discharge_clear_width",
+      "value_m": 1.525,
+      "context": "NFPA 101 — exit discharge to exterior must be at least as wide as the exit itself, min 60 in in high-hazard areas"
+    }
+  ]
+}

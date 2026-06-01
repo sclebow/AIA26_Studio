@@ -1,14 +1,29 @@
 from __future__ import annotations
 import json
+import math
 from pathlib import Path
 from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 from nodes.reason import build_reason_node
-from nodes.modify import build_modify_node
-from nodes.evaluate import build_evaluate_node
+from nodes.modify import build_modify_node, DEFAULT_SECTIONS, BEAM_SECTION_UPGRADE, COL_SECTION_UPGRADE
+from nodes.evaluate import build_evaluate_node, evaluate_structure, SETTINGS_PATH, _get_user_request
 from nodes.comparison import build_comparison_node
+from nodes.cost_flexibility import build_cost_flexibility_node
+from nodes.tag_and_audit import generate_structure as _generate_structure
 
 EXAMPLE_LAYOUTS_DIR = Path(__file__).parent / "example_layouts"
+OTHER_LAYOUTS_DIR   = Path(__file__).parent.parent / "gh" / "other layouts"
+
+
+def _dist(a: list, b: list) -> float:
+    return math.dist(a, b)
+
+
+def _settings_load(path: Any, key: str) -> float | None:
+    try:
+        return json.loads(path.read_text(encoding="utf-8")).get(key)
+    except Exception:
+        return None
 
 
 class AgentState(TypedDict):
@@ -25,43 +40,156 @@ class AgentState(TypedDict):
     original_layout_json_string: str | None
     cycle: int
     material_override: str | None
+    pending_structural_change: dict | None
+    layout_before_change: str | None
+    live_load_kNm2: float | None
+    sdl_kNm2: float | None
+    find_minimum_done: bool | None
+    cost_flexibility: dict | None
+
+
+_EVAL_KEYWORDS = frozenset({
+    "evaluat", "check loads", "check structure", "check if",
+    "find minimum", "minimum section", "minimum sufficient",
+    "optimiz", "upgrade section", "structurally feasible",
+    "structure hold", "assess struct", "run structural",
+    "is this safe", "is it safe", "is the structure",
+    "will it hold", "can it support", "safe to",
+    "remove column", "remove beam", "delete column", "delete beam",
+    "what if", "what would happen", "if i remove", "if we remove",
+})
+
+
+def _looks_like_eval(state: AgentState) -> bool:
+    """Return True when the user's original prompt is an evaluation/computation request."""
+    text = _get_user_request(state.get("messages", []))
+    return any(kw in text for kw in _EVAL_KEYWORDS)
 
 
 def _route_from_reason(state: AgentState) -> str:
     if state.get("pending_tool_calls") and state.get("cycle", 0) < 2:
+        calls = [tc.get("name") for tc in (state.get("pending_tool_calls") or [])]
+        if "tag_and_audit" in calls:
+            return "generate_grid"
+        if _looks_like_eval(state):
+            state["pending_tool_calls"] = None
+            return "evaluate"
         return "modify"
     if state.get("cycle", 0) >= 2:
         return END
     if state.get("evaluation_result") is not None:
-        return END  # evaluate already ran — done
-    return "evaluate"  # always evaluate before ending
+        return END
+    if state.get("final_response"):
+        if _looks_like_eval(state):
+            return "evaluate"
+        return END
+    return "evaluate"
 
 
 def _route_from_evaluate(state: AgentState) -> str:
-    if state.get("came_from") == "tag_and_audit":
-        return END
-    if state.get("came_from") == "modify":
-        return "comparison"
+    if state.get("pending_structural_change"):
+        return "modify"
+    if state.get("evaluation_result") is not None:
+        return "cost_flexibility"
     return "reason"
 
 
+def _route_from_cost_flexibility(state: AgentState) -> str:
+    if state.get("came_from") in ("modify", "structural_change"):
+        return "comparison"
+    return END
+
+
+def build_generate_grid_node(edited_layout_path):
+    from _runtime.llm import write_tool_result
+
+    def generate_grid_node(state: dict) -> dict:
+        print(f"\n{'='*50}")
+        print(f"  NODE: GENERATE GRID")
+        print(f"{'='*50}")
+
+        if not state.get("original_layout_json_string"):
+            state["original_layout_json_string"] = state["layout_json_string"]
+
+        # Save original snapshot (layout without structure) — never overwritten by modify
+        original_path = edited_layout_path.with_stem(edited_layout_path.stem + "_original")
+        original_path.write_text(state["layout_json_string"], encoding="utf-8")
+        # Also initialise before to the same state so first comparison has a valid baseline
+        before_path = edited_layout_path.with_stem(edited_layout_path.stem + "_before")
+        before_path.write_text(state["layout_json_string"], encoding="utf-8")
+
+        layout_data = json.loads(state["layout_json_string"])
+        options = _generate_structure(layout_data)
+
+        if not options:
+            print("[generate_grid] No options returned — layout unchanged.")
+            state["came_from"] = "generate_grid"
+            state["pending_tool_calls"] = None
+            return state
+
+        if len(options) == 1:
+            chosen = options[0]
+        else:
+            print(f"\n{len(options)} layout options generated:")
+            for i, opt in enumerate(options):
+                struct  = opt.get("structure", [])
+                n_cols  = sum(1 for s in struct if len(s["geometry"]) == 1)
+                n_beams = sum(1 for s in struct if len(s["geometry"]) == 2)
+                max_span = max(
+                    (s["attributes"]["length"] for s in struct
+                     if len(s["geometry"]) == 2 and s["attributes"].get("length")),
+                    default=0,
+                )
+                print(f"  {i+1}. {n_cols} columns · {n_beams} beams · max span {round(max_span, 2)}m")
+            while True:
+                raw = input(f"Choose option [1-{len(options)}, Enter=1]: ").strip()
+                if not raw:
+                    chosen = options[0]
+                    print("[generate_grid] Using option 1")
+                    break
+                if raw.isdigit() and 1 <= int(raw) <= len(options):
+                    chosen = options[int(raw) - 1]
+                    print(f"[generate_grid] Using option {raw}")
+                    break
+
+        n = len(chosen.get("structure", []))
+        print(f"Structural grid ready — {n} elements placed.")
+
+        state["layout_json_string"] = json.dumps(chosen)
+        state["came_from"] = "generate_grid"
+        state["pending_tool_calls"] = None
+        write_tool_result(json.dumps(chosen), edited_layout_path)
+        return state
+
+    return generate_grid_node
+
+
 def build_graph(ctx: Any) -> Any:
-    reason = build_reason_node(ctx.llm)
-    modify = build_modify_node(ctx.mcp_client, ctx.tools, ctx.edited_layout_path)
-    evaluate = build_evaluate_node(ctx.llm)
-    comparison = build_comparison_node(ctx.llm)
+    reason       = build_reason_node(ctx.llm)
+    generate_grid = build_generate_grid_node(ctx.edited_layout_path)
+    modify       = build_modify_node(ctx.mcp_client, ctx.tools, ctx.edited_layout_path, evaluate_fn=evaluate_structure)
+    evaluate     = build_evaluate_node(ctx.llm)
+    cost_flex    = build_cost_flexibility_node()
+    comparison   = build_comparison_node(ctx.llm)
 
     graph = StateGraph(AgentState)
-    graph.add_node("reason", reason)
-    graph.add_node("modify", modify)
-    graph.add_node("evaluate", evaluate)
-    graph.add_node("comparison", comparison)
+    graph.add_node("reason",        reason)
+    graph.add_node("generate_grid", generate_grid)
+    graph.add_node("modify",        modify)
+    graph.add_node("evaluate",      evaluate)
+    graph.add_node("cost_flexibility", cost_flex)
+    graph.add_node("comparison",    comparison)
 
     graph.add_edge(START, "reason")
-    graph.add_conditional_edges("reason", _route_from_reason, {"modify": "modify", "evaluate": "evaluate", END: END})
-    graph.add_edge("modify", "evaluate")
-    graph.add_conditional_edges("evaluate", _route_from_evaluate, {"reason": "reason", "comparison": "comparison", END: END})
-    graph.add_edge("comparison", "reason")
+    graph.add_conditional_edges("reason", _route_from_reason,
+        {"generate_grid": "generate_grid", "modify": "modify", "evaluate": "evaluate", END: END})
+    graph.add_edge("generate_grid", "evaluate")
+    graph.add_edge("modify",        "evaluate")
+    graph.add_conditional_edges("evaluate", _route_from_evaluate,
+        {"modify": "modify", "cost_flexibility": "cost_flexibility", "reason": "reason"})
+    graph.add_conditional_edges("cost_flexibility", _route_from_cost_flexibility,
+        {"comparison": "comparison", END: END})
+    graph.add_edge("comparison", END)
 
     return graph.compile()
 
@@ -73,9 +201,8 @@ def run_agent(prompt: str, ctx: Any) -> str:
 
     # Persist material override to JSON after graph completes (survives multiple modify cycles)
     material = final_state.get("material_override")
-    print(f"[material] final material_override = {material!r}")
     if material:
-        from nodes.evaluate import DEFAULT_SECTIONS, BEAM_SECTION_UPGRADE, COL_SECTION_UPGRADE
+        from nodes.modify import DEFAULT_SECTIONS, BEAM_SECTION_UPGRADE, COL_SECTION_UPGRADE
         sec = DEFAULT_SECTIONS.get(material)
         if sec:
             # Use the in-state layout (which carries per-element upgrades) as the source
@@ -120,7 +247,9 @@ def run_agent(prompt: str, ctx: Any) -> str:
                 ctx.edited_layout_path.write_text(
                     json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
                 )
-                print(f"JSON updated: {material} applied to {count} elements → {ctx.edited_layout_path.name}")
+                print(f"Layout saved — {material} applied to {count} elements.")
+
+
 
     print("\nWorkflow graph:")
     app.get_graph().print_ascii()
@@ -142,7 +271,87 @@ def run_agent(prompt: str, ctx: Any) -> str:
     if not final_response and ctx.edited_layout_path.exists():
         final_response = f"Done. Layout saved to {ctx.edited_layout_path.name}"
 
+    # Write evaluation report to file
+    _write_evaluation_report(
+        prompt=prompt,
+        eval_json=final_state.get("evaluation_result"),
+        comparison=final_state.get("comparison_result"),
+        report_path=ctx.edited_layout_path.parent / "team_01_evaluation_report.md",
+        cost_flexibility=final_state.get("cost_flexibility"),
+        material=final_state.get("material_override"),
+        sdl_kNm2=final_state.get("sdl_kNm2"),
+        live_load_kNm2=final_state.get("live_load_kNm2"),
+    )
+
     return final_response
+
+
+def _write_evaluation_report(
+    prompt: str,
+    eval_json: str | None,
+    comparison: str | None,
+    report_path: Path,
+    cost_flexibility: dict | None = None,
+    material: str | None = None,
+    sdl_kNm2: float | None = None,
+    live_load_kNm2: float | None = None,
+) -> None:
+    import datetime
+    lines = [
+        f"# Structural Evaluation Report",
+        f"",
+        f"**Date:** {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"**Prompt:** {prompt}",
+        f"",
+    ]
+    # Analysis parameters summary
+    if material or sdl_kNm2 or live_load_kNm2:
+        lines.append("## Analysis Parameters")
+        lines.append("")
+        lines.append("| Parameter | Value |")
+        lines.append("|-----------|-------|")
+        if material:
+            lines.append(f"| Material | {material} |")
+        if sdl_kNm2 is not None:
+            lines.append(f"| Floor build-up (SDL) | {sdl_kNm2} kN/m² |")
+        if live_load_kNm2 is not None:
+            lines.append(f"| Live load | {live_load_kNm2} kN/m² |")
+        if sdl_kNm2 is not None and live_load_kNm2 is not None:
+            lines.append(f"| Total applied load | {round(sdl_kNm2 + live_load_kNm2, 2)} kN/m² |")
+        lines.append("")
+    eval_table = _format_evaluation(eval_json)
+    if eval_table:
+        lines.append("## Structural Checks")
+        lines.append("")
+        lines.append("```")
+        lines.append(eval_table)
+        lines.append("```")
+        lines.append("")
+    if comparison:
+        lines.append("## Change Summary")
+        lines.append("")
+        lines.append(comparison)
+        lines.append("")
+    if cost_flexibility:
+        cf = cost_flexibility
+        lines.append("## Cost & Flexibility Analysis")
+        lines.append("")
+        lines.append("| Metric | Value |")
+        lines.append("|--------|-------|")
+        if cf.get("cost_added_usd") is not None:
+            lines.append(f"| Material added | +${cf['cost_added_usd']:,.0f} |")
+            lines.append(f"| Material saved | -${abs(cf['cost_saved_usd']):,.0f} |")
+            lines.append(f"| Net cost change | ${cf['net_cost_usd']:+,.0f} |")
+        else:
+            lines.append(f"| Net cost change | ${cf.get('material_cost_usd', 0):+,.0f} |")
+        lines.append(f"| Disruption | {cf['disruption_label']} ({cf['disruption_score']}/10) |")
+        lines.append(f"| Spatial Penalty | {cf['spatial_penalty']:.2f} |")
+        lines.append(f"| Flexibility | {cf['flexibility_score']:.1f}/10 — {cf['flexibility_label']} |")
+        lines.append("")
+        lines.append(f"> {cf['summary']}")
+        lines.append("")
+    report_path.write_text("\n".join(lines), encoding="utf-8")
+    print(f"[report] saved {report_path.name}")
 
 
 def _format_evaluation(eval_json: str | None) -> str:
@@ -206,14 +415,20 @@ def _format_evaluation(eval_json: str | None) -> str:
 
 
 def _load_all_layouts() -> list[dict[str, Any]]:
-    """Load all layouts from example_layouts folder."""
+    """Load all layouts from example_layouts/ and gh/other layouts/."""
     all_layouts = []
-    for json_file in sorted(EXAMPLE_LAYOUTS_DIR.glob("*.json")):
-        content = json.loads(json_file.read_text(encoding="utf-8"))
-        if isinstance(content, list):
-            all_layouts.extend(content)
-        else:
-            all_layouts.append(content)
+    for layouts_dir in (EXAMPLE_LAYOUTS_DIR, OTHER_LAYOUTS_DIR):
+        if not layouts_dir.exists():
+            continue
+        for json_file in sorted(layouts_dir.glob("*.json")):
+            try:
+                content = json.loads(json_file.read_text(encoding="utf-8"))
+                entries = content if isinstance(content, list) else [content]
+                for entry in entries:
+                    if isinstance(entry, dict) and "rooms" in entry and "outline" in entry:
+                        all_layouts.append(entry)
+            except Exception:
+                pass
     return all_layouts
 
 
@@ -224,27 +439,66 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
         layouts = [edited]
     else:
         layouts = _load_all_layouts()
+        if len(layouts) > 1:
+            print(f"\n{len(layouts)} layouts available:")
+            for i, l in enumerate(layouts):
+                lid     = l.get("layoutId", f"layout-{i+1}")
+                n_rooms = len(l.get("rooms", []))
+                has_structure = len(l.get("structure", [])) > 0
+                tag = " [has structure]" if has_structure else ""
+                print(f"  {i+1}. {lid}  ({n_rooms} rooms){tag}")
+            while True:
+                raw = input(f"Choose layout [1-{len(layouts)}, Enter=1]: ").strip()
+                if not raw:
+                    layouts = [layouts[0]]
+                    print(f"[layout] Using {layouts[0].get('layoutId', 'layout-1')}")
+                    break
+                if raw.isdigit() and 1 <= int(raw) <= len(layouts):
+                    layouts = [layouts[int(raw) - 1]]
+                    print(f"[layout] Using {layouts[0].get('layoutId', '?')}")
+                    break
 
     layout_ids = [l.get("layoutId", "?") for l in layouts]
 
     # Send slim summary to LLM to stay within token limit
     slim = []
     for l in layouts:
+        structure = l.get("structure", [])
         conflicts = [
             {"id": s["id"], "conflict": s["attributes"].get("conflict")}
-            for s in l.get("structure", [])
+            for s in structure
             if s.get("attributes", {}).get("conflict") not in (None, "None", "none", "")
         ]
+        # Compact per-element lines: "id type material section span_m"
+        # Format is intentionally terse (~25 chars/element) to stay within LLM context
+        beam_lines = []
+        col_lines  = []
+        for s in structure:
+            attrs   = s.get("attributes", {})
+            geo     = s.get("geometry", [])
+            is_beam = len(geo) == 2
+            sec = (attrs.get("section")
+                   or attrs.get("dimensions")
+                   or (f"{attrs['width']}x{attrs['depth']}" if attrs.get("depth") and attrs.get("width") else "?"))
+            mat = attrs.get("material", "RCC")
+            if is_beam:
+                span = round(_dist(geo[0], geo[1]), 2)
+                beam_lines.append(f"{s['id']} {mat} {sec} {span}m")
+            else:
+                col_lines.append(f"{s['id']} {mat} {sec}")
         slim.append({
             "layoutId": l.get("layoutId"),
             "outline": l.get("outline"),
             "rooms": [{"id": r["id"], "name": r["name"]} for r in l.get("rooms", [])],
-            "structure_count": len(l.get("structure", [])),
+            "structure_count": len(structure),
+            "beams":   beam_lines,
+            "columns": col_lines,
             "structure_conflicts": conflicts,
         })
 
     user_message = (
-        f"Context: {len(layouts)} layouts loaded from team_01/python/example_layouts/: {layout_ids}.\n"
+        f"Context: {len(layouts)} layouts loaded from team_01/python/example_layouts/ "
+        f"and team_01/gh/other layouts/: {layout_ids}.\n"
         f"Valid room names are rooms[].name.\n\n"
         f"User request:\n{prompt}\n\n"
         f"Layout summaries:\n{json.dumps(slim, indent=2)}"
@@ -269,6 +523,12 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
         "original_layout_json_string": None,
         "cycle": 0,
         "material_override": detected_material,
+        "pending_structural_change": None,
+        "layout_before_change": None,
+        "live_load_kNm2": _settings_load(SETTINGS_PATH, "live_load_kNm2"),
+        "sdl_kNm2": _settings_load(SETTINGS_PATH, "sdl_kNm2"),
+        "find_minimum_done": False,
+        "cost_flexibility": None,
     }
 
 

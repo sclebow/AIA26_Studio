@@ -1,0 +1,8 @@
+{
+            "living":  {"min_area": 9.0, "min_edge": 2.5, "max_ratio": 3.0},
+            "bed":     {"min_area": 7.0, "min_edge": 2.0, "max_ratio": 2.5},
+            "kitchen": {"min_area": 4.0, "min_edge": 1.5, "max_ratio": 3.5},
+            "bath":    {"min_area": 2.5, "min_edge": 1.2, "max_ratio": 3.5},
+            "foyer":   {"min_area": 0.0, "min_edge": 0.3, "max_ratio": 9999.0},
+            "extra":   {"min_area": 0.3, "min_edge": 0.5, "max_ratio": 4.0}
+        }

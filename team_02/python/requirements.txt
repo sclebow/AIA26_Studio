@@ -1,0 +1,17 @@
+# Sensi — Python dependencies (web workflow)
+# Install with: pip install -r requirements.txt
+#
+# Every LLM provider (OpenAI, Anthropic, Google, Cloudflare, local) is reached
+# through a single OpenAI-compatible client (langchain-openai → ChatOpenAI with a
+# swapped base_url), so no provider-specific SDKs are needed here.
+
+# ── LangGraph agent stack ────────────────────────────────────────────────────
+langgraph
+langchain-openai      # pulls in langchain-core transitively
+httpx                 # Tavily web search + outbound HTTP
+python-dotenv         # loads ../.env
+
+# ── Web backend (FastAPI; serves the built React SPA in production) ───────────
+fastapi
+uvicorn[standard]
+pydantic

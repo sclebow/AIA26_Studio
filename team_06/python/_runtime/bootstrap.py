@@ -70,8 +70,6 @@ def bootstrap() -> Context:
         model_kwargs=get_llm_response_format(tools),
     )
 
-   
-
     return Context(
         llm=llm,
         mcp_client=mcp_client,

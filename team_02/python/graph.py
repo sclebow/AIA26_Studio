@@ -1,221 +1,310 @@
 """
-graph.py -- Comfort Copilot state graph.
+graph.py — Sensi state graph (v4 — unified action_classifier, cache logic)
 
-===========================================================================
-FULL WORKFLOW  (node type shown in brackets)
-===========================================================================
+=============================================================================
+WHAT CHANGED FROM v3 → v4
+=============================================================================
 
-  USER PROMPT
-      |
-      v
-  [PYTHON] PREPROCESS
-      Reads the raw prompt. No LLM, no external calls.
-      Classifies the top-level intent using keyword matching:
-        "comfort"  -- a layout ID (201/202/203) was mentioned, or a comfort
-                      keyword (detect, analyse, suggest...) with a layout loaded
-        "overview" -- user wants to list rooms, no analysis needed
-        "inspire"  -- image attached or atmosphere keyword
-        "chitchat" -- everything else
-      Also extracts layout_id and persona from the prompt text.
-      |
-      |-- [chitchat] --------------------> [LLM] CHITCHAT --> END
-      |                                    Free-form conversational reply.
-      |
-      |-- [inspire] ---------------------> [PYTHON] INSPIRE --> END
-      |                                    Placeholder. Phase 3 image generation.
-      |
-      |-- [comfort / overview] ------+
-                                     |
-                                     v
-                               [PYTHON] LOAD_LAYOUT
-                               Finds the layout JSON file by ID and reads it
-                               from randomized_layouts/. Skips if the same
-                               layout is already loaded in session state
-                               (multi-turn: avoids reloading on follow-ups).
-                                     |
-                                     |-- [overview] --> [PYTHON] OVERVIEW_RESPOND --> END
-                                     |                  Lists rooms (name, type, area,
-                                     |                  height, orientation). No tools,
-                                     |                  no persona, no scores.
-                                     |
-                                     |-- [comfort] ------+
-                                                         |
-                                                         v
-                                                   [PYTHON] ASK_PERSONA
-                                                   Checks if a persona was detected.
-                                                   If yes: pass-through.
-                                                   If no:  shows terminal picker
-                                                           (Elderly / Child / Neutral...)
-                                                         |
-                                                         v
-                                                   [LLM] ROUTE_INTENT
-                                                   Reads the prompt and classifies
-                                                   analysis depth:
-                                                     "analyze" -- scores only
-                                                     "detect"  -- scores + conflicts
-                                                     "full"    -- scores + conflicts
-                                                                  + suggestions
-                                                   Python keyword fallback if LLM fails.
-                                                         |
-                                                         v
-                                                   [MCP] ANALYZE
-                                                   Calls compute_comfort_scores
-                                                   in Grasshopper via MCP.
-                                                   Sends: layout_json, persona,
-                                                          room_ids (all or one).
-                                                   Writes: last_scores_json to state.
-                                                         |
-                                                         |-- [analyze] --> [LLM] RESPOND
-                                                         |                 (see below)
-                                                         |
-                                                         |-- [detect/full] ----+
-                                                                               |
-                                                                               v
-                                                                         [MCP] DETECT
-                                                                         Calls detect_sensorial_conflicts
-                                                                         in Grasshopper via MCP.
-                                                                         Sends: layout_json, persona,
-                                                                                scores_json.
-                                                                         Writes: last_conflicts_json.
-                                                                               |
-                                                                               |-- [detect] --> [LLM] RESPOND
-                                                                               |
-                                                                               |-- [full] -------+
-                                                                                                 |
-                                                                                                 v
-                                                                                           [MCP] SUGGEST
-                                                                                           Calls generate_suggestions
-                                                                                           in Grasshopper via MCP.
-                                                                                           Sends: layout_json, persona,
-                                                                                                  scores_json,
-                                                                                                  conflicts_json.
-                                                                                           Writes: last_suggestions_json.
-                                                                                                 |
-                                                                                                 v
-                                                                                           [LLM] RESPOND
-                                                                   Intent-driven format selected by depth:
-                                                                     analyze -> score interpretation per room
-                                                                     detect  -> conflict-led, scores as evidence
-                                                                     full    -> suggestion-led, conflicts + scores
-                                                                   Python pre-processes tool outputs first to
-                                                                   prevent LLM hallucination of scores/numbers.
-                                                                                                 |
-                                                                                                 v
-                                                                                               END
-                                                                                (+ output_writer saves
-                                                                                 resulting_layout/Layout-{id}_modified.json
-                                                                                 outside the graph, in run_agent)
+  1. UNIFIED ROUTING: intent_classifier + route_intent → single action_classifier.
+     One LLM call per turn for routing. `action` field replaces `intent` +
+     `route_intent_decision` + `comfort_depth` (all three were needed before).
 
-===========================================================================
-MCP TOOLS  (all hosted in Grasshopper via Swiftlet HTTP)
-===========================================================================
-  compute_comfort_scores      -- thermal/visual/acoustic/spatial/olfactory/tactile
-  detect_sensorial_conflicts  -- flags rooms below persona threshold
-  generate_suggestions        -- actionable fix per failing sense
+  2. CACHE LOGIC: for detect/full actions, if last_scores_json already exists
+     for the current layout, skip the analyze node and go straight to detect.
+     Avoids redundant re-scoring when the layout hasn't changed.
 
-===========================================================================
-NODE SUMMARY
-===========================================================================
-  preprocess       [PYTHON]  keyword routing + persona/layout_id extraction
-  load_layout      [PYTHON]  file I/O from randomized_layouts/
-  overview_respond [PYTHON]  room list formatter, no tools
-  ask_persona      [PYTHON]  terminal picker or pass-through
-  route_intent     [LLM]     depth classification (analyze/detect/full)
-  analyze          [MCP]     compute_comfort_scores
-  detect           [MCP]     detect_sensorial_conflicts
-  suggest          [MCP]     generate_suggestions
-  respond          [LLM]     natural language report, format driven by depth
-  chitchat         [LLM]     free-form conversation
-  inspire          [PYTHON]  placeholder -- Phase 3
+  3. PERSONA FIX: analyze/detect/suggest now pass real persona weights from
+     onboarding (persona_profile.comfort_weights) to the scoring tools.
+
+  4. TOOL PATHS NOW REACHABLE: change_material, modify_glazing, add_furniture,
+     topologic, biophilic, compare all route correctly via action field.
+
+  5. NEW STATE FIELDS: action, layout_diff, graph_data, biophilic_data,
+     target_room_hint, material_hint, layout_updated.
+
+  6. NODE REORGANISATION:
+     nodes/routing/   → action_classifier (replaces intent_classifier + route_intent)
+     nodes/scoring/   → analyze, score_interpreter, detect, conflict_reasoner,
+                         suggest, suggestion_critic
+     nodes/editing/   → change_material, modify_glazing, add_furniture, compare_versions
+     nodes/insights/  → topologic_analysis, biophilic_audit, persona_comparison
+
+=============================================================================
+LAYOUT MODE FLOW (v4)
+=============================================================================
+
+  ┌─ ROUTING ──────────────────────────────────────────────────────────────────┐
+  │  action_classifier [LLM]  →  one of 13 actions                            │
+  │                                                                            │
+  │  follow_up   → detail_respond → what_next                                  │
+  │  inspire     → inspire → what_next                                         │
+  │  chitchat    → chitchat → what_next                                        │
+  │  all others  → load_layout → dispatch                                      │
+  └────────────────────────────────────────────────────────────────────────────┘
+  ┌─ ANALYSIS (with cache) ────────────────────────────────────────────────────┐
+  │  analyze              → analyze → score_interpreter → respond              │
+  │  detect (no cache)    → analyze → score_interpreter → detect → conflict_r  │
+  │  detect (cached)      → [skip analyze] → detect → conflict_reasoner        │
+  │  full (no cache)      → analyze → score_interpreter → detect → suggest     │
+  │  full (cached scores) → [skip analyze] → detect → suggest                 │
+  │  → suggest → suggestion_critic → respond → evaluator → what_next          │
+  └────────────────────────────────────────────────────────────────────────────┘
+  ┌─ EDIT TOOLS ───────────────────────────────────────────────────────────────┐
+  │  change_material → analyze → compare_versions → score_interpreter         │
+  │  modify_glazing  → analyze → compare_versions → score_interpreter         │
+  │  add_furniture   → analyze → compare_versions → score_interpreter         │
+  │                 → respond → evaluator → what_next                         │
+  └────────────────────────────────────────────────────────────────────────────┘
+  ┌─ INSIGHT TOOLS ────────────────────────────────────────────────────────────┐
+  │  topologic  → topologic_analysis → respond → evaluator → what_next        │
+  │  biophilic  → biophilic_audit → [add_furniture if plants_needed]          │
+  │               → analyze → compare_versions → score_interpreter → respond  │
+  │  compare    → persona_comparison → score_interpreter → respond            │
+  └────────────────────────────────────────────────────────────────────────────┘
 """
 
 from __future__ import annotations
+from pathlib import Path
 from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 
-from nodes.preprocess      import preprocess_node
-from nodes.load_layout     import build_load_layout_node
-from nodes.ask_persona     import ask_persona_node
-from nodes.route_intent    import build_route_intent_node
-from nodes.analyze         import build_analyze_node
-from nodes.detect          import build_detect_node
-from nodes.suggest         import build_suggest_node
-from nodes.respond         import build_respond_node
-from nodes.chitchat        import build_chitchat_node
-from nodes.inspire         import inspire_node
-from nodes.overview        import overview_respond_node
-from nodes.output_writer   import write_analysis_to_layout
+# ── Onboarding ────────────────────────────────────────────────────────────────
+from nodes.onboarding.greet            import build_greet_node
+from nodes.onboarding.quiz             import build_quiz_node
+from nodes.onboarding.inspire          import build_inspire_node
+from nodes.onboarding.persona_compiler import build_persona_compiler_node
+
+# ── Routing (unified) ─────────────────────────────────────────────────────────
+from nodes.routing.action_classifier   import build_action_classifier_node
+from nodes.conversation.chitchat       import build_chitchat_node
+from nodes.conversation.detail_respond import build_detail_respond_node
+
+# ── Layout ────────────────────────────────────────────────────────────────────
+from nodes.layout.load_layout  import build_load_layout_node
+from nodes.layout.overview     import overview_respond_node
+
+# ── Scoring chain ─────────────────────────────────────────────────────────────
+from nodes.scoring.analyze           import build_analyze_node
+from nodes.scoring.score_interpreter import build_score_interpreter_node
+from nodes.scoring.detect            import build_detect_node
+from nodes.scoring.conflict_reasoner import build_conflict_reasoner_node
+from nodes.scoring.suggest           import build_suggest_node
+from nodes.scoring.suggestion_critic import build_suggestion_critic_node
+
+# ── Quality loop ──────────────────────────────────────────────────────────────
+from nodes.quality.respond   import build_respond_node
+from nodes.quality.evaluator import build_evaluator_node
+from nodes.conversation.what_next import build_what_next_node
+
+# ── Edit tools ────────────────────────────────────────────────────────────────
+from nodes.editing.change_material  import build_change_material_node
+from nodes.editing.modify_glazing   import build_modify_glazing_node
+from nodes.editing.add_furniture    import build_add_furniture_node
+from nodes.editing.compare_versions import build_compare_versions_node
+from nodes.editing.preview          import build_preview_node
+
+# ── Insight tools ─────────────────────────────────────────────────────────────
+from nodes.insights.topologic_analysis import build_topologic_analysis_node
+from nodes.insights.biophilic_audit    import build_biophilic_audit_node
+from nodes.insights.persona_comparison import build_persona_comparison_node
+
+# ── Post-graph ────────────────────────────────────────────────────────────────
+from nodes._shared.output_writer import write_analysis_to_layout
 
 
 # ---------------------------------------------------------------------------
-# State  --  shared dict passed between every node in the graph
+# AgentState
 # ---------------------------------------------------------------------------
 
 class AgentState(TypedDict, total=False):
-    # ---- Input (set at the start of each turn) ----------------------------
-    raw_prompt:            str       # raw text from the user
-    has_image:             bool      # True if an image was attached (Phase 3)
 
-    # ---- Routing (set by preprocess, read by edges) -----------------------
-    intent:                str       # "comfort" | "overview" | "inspire" | "chitchat"
-    layout_id:             str | None   # e.g. "201"
-    persona_detected:      str | None   # e.g. "Elderly 65+"
-    needs_persona_ask:     bool         # True when comfort but no persona found
-    comfort_depth:         str          # "analyze" | "detect" | "full"
+    # ── Input ────────────────────────────────────────────────────────────────
+    raw_prompt:  str
+    has_image:   bool
 
-    # ---- Session persistence (carried across turns via run_agent) ----------
-    layout_json_string:    str          # full JSON of the currently loaded layout
+    # ── Onboarding ───────────────────────────────────────────────────────────
+    greeted:               bool
+    quiz_step:             int
+    quiz_answers:          dict
+    quiz_complete:         bool
+    inspire_prompted:      bool
+    inspire_summary:       str
+    inspire_complete:      bool
+    inspire_image_analysis: str
+    inspire_moodboard_urls: list
+    inspire_sense_picks:    dict
+    onboarding_complete:    bool
 
-    # ---- Optional room targeting ------------------------------------------
-    target_room_id:        str | None   # e.g. "room-3"; None = all rooms
-                                        # wired through to analyze node,
-                                        # not yet populated by preprocess
+    # ── User identity ────────────────────────────────────────────────────────
+    user_name:       str
+    preliminary_role: str
+    user_type:       str
+    persona_profile: dict
 
-    # ---- MCP tool results (accumulated within one turn) -------------------
-    last_scores_json:      str          # from compute_comfort_scores      [MCP]
-    last_conflicts_json:   str          # from detect_sensorial_conflicts  [MCP]
-    last_suggestions_json: str          # from generate_suggestions        [MCP]
+    # ── Routing ──────────────────────────────────────────────────────────────
+    action:           str   # unified action: analyze|detect|full|overview|follow_up|
+                            #   chitchat|inspire|change_material|modify_glazing|
+                            #   add_furniture|topologic|biophilic|compare
+    intent:           str   # kept for backward compat with what_next
+    target_room_hint: str   # LLM-extracted room name from prompt
+    material_hint:    str   # LLM-extracted material name from prompt
 
-    # ---- Output -----------------------------------------------------------
-    final_response:        str | None   # natural language reply to the user
+    # ── Layout ───────────────────────────────────────────────────────────────
+    layout_id:          str | None
+    layout_json_string: str
+    target_room_id:     str | None
+    layout_not_found:   bool   # set by load_layout when a requested id has no file
+
+    # ── Analysis results (cached across turns) ───────────────────────────────
+    has_analysis_results:  bool
+    last_scores_json:      str
+    last_conflicts_json:   str
+    last_suggestions_json: str
+    original_scores_json:  str
+
+    # ── Specialist interpretations (cached across turns) ─────────────────────
+    score_interpretation:    str
+    conflict_reasoning:      str
+    suggestion_critique:     str
+
+    # ── Edit / insight results ────────────────────────────────────────────────
+    pending_comparison:           bool
+    layout_diff:                  dict   # {room_id, room_name, attribute, old_value, new_value, sense_affected}
+    layout_updated:               bool   # True when layout JSON was mutated this turn
+    # Predictive preview ("what if") — scored on a CLONE, never committed.
+    preview_scores_json:          str    # hypothetical scores; NOT the canonical cache
+    preview_diff:                 dict   # the hypothetical edit's diff
+    preview_summary:              str    # predicted per-sense delta, human-readable
+    adjacency_graph:              dict
+    graph_data:                   dict   # {nodes, edges, metrics} for Cytoscape/D3
+    compare_versions_summary:     str
+    biophilic_summary:            str
+    biophilic_plants_needed:      bool
+    biophilic_data:               dict   # per-room richness scores
+    persona_comparison_summary:   str
+    persona_comparison_data:      dict
+
+    # ── Quality loop ─────────────────────────────────────────────────────────
+    evaluator_decision: str
+    evaluator_feedback: str
+    evaluator_loops:    int
+
+    # ── Output ───────────────────────────────────────────────────────────────
+    final_response: str | None
 
 
 # ---------------------------------------------------------------------------
-# Routing functions  --  each reads state and returns the next node name
+# Routing functions
 # ---------------------------------------------------------------------------
 
-def _route_after_preprocess(state: AgentState) -> str:
-    """Both comfort and overview need the layout loaded first."""
-    intent = state.get("intent", "chitchat")
-    if intent in ("comfort", "overview"):
-        return "load_layout"
-    if intent == "inspire":
+def _route_start(state: AgentState) -> str:
+    if state.get("onboarding_complete"):
+        return "action_classifier"
+    if state.get("quiz_complete"):
         return "inspire"
-    return "chitchat"
+    if state.get("greeted"):
+        return "quiz"
+    return "greet"
+
+
+def _route_after_action_classifier(state: AgentState) -> str:
+    action = state.get("action", "chitchat")
+    if action == "follow_up":
+        return "detail_respond"
+    if action == "inspire":
+        return "inspire"
+    if action == "chitchat":
+        return "chitchat"
+    # All other actions need a layout loaded first
+    return "load_layout"
+
+
+def _route_after_chitchat(state: AgentState) -> str:
+    if state.get("action") in ("analyze", "detect", "full"):
+        return "action_classifier"
+    return "what_next"
+
+
+def _route_after_inspire(state: AgentState) -> str:
+    if state.get("onboarding_complete"):
+        return "what_next"
+    if state.get("inspire_complete"):
+        return "persona_compiler"
+    return END
 
 
 def _route_after_load_layout(state: AgentState) -> str:
-    """Overview short-circuits here; comfort continues to persona check."""
-    intent = state.get("intent", "comfort")
-    if intent == "overview":
+    action     = state.get("action", "analyze")
+    has_scores = bool(state.get("last_scores_json", "").strip())
+
+    # Requested layout doesn't exist — load_layout already wrote the message.
+    if state.get("layout_not_found"):
+        return END
+
+    if action == "overview":
         return "overview_respond"
-    return "ask_persona"
+
+    # Predictive preview ("what if") — score a hypothetical without committing.
+    if action == "preview":
+        return "preview"
+
+    # Edit tools
+    if action == "change_material":
+        return "change_material"
+    if action == "modify_glazing":
+        return "modify_glazing"
+    if action == "add_furniture":
+        return "add_furniture"
+
+    # Insight tools
+    if action == "topologic":
+        return "topologic_analysis"
+    if action == "biophilic":
+        return "biophilic_audit"
+    if action == "compare":
+        return "persona_comparison"
+
+    # Analysis: cache-aware routing
+    # detect/full can skip analyze if scores are already cached for this layout
+    if action in ("detect", "full") and has_scores:
+        print(f"[graph] Cache hit for action={action} — skipping analyze, jumping to detect")
+        return "detect"
+
+    return "analyze"
 
 
 def _route_after_analyze(state: AgentState) -> str:
-    """If depth needs conflict detection, go to detect; otherwise straight to respond."""
-    depth = state.get("comfort_depth", "analyze")
-    if depth in ("detect", "full"):
+    if state.get("pending_comparison"):
+        return "compare_versions"
+    return "score_interpreter"
+
+
+def _route_after_score_interpreter(state: AgentState) -> str:
+    action = state.get("action", "analyze")
+    if action in ("detect", "full"):
         return "detect"
     return "respond"
 
 
-def _route_after_detect(state: AgentState) -> str:
-    """If depth needs suggestions, go to suggest; otherwise straight to respond."""
-    depth = state.get("comfort_depth", "detect")
-    if depth == "full":
+def _route_after_conflict_reasoner(state: AgentState) -> str:
+    action = state.get("action", "detect")
+    if action == "full":
         return "suggest"
     return "respond"
+
+
+def _route_after_biophilic_audit(state: AgentState) -> str:
+    if state.get("biophilic_plants_needed"):
+        return "add_furniture"
+    return "score_interpreter"
+
+
+def _route_after_evaluator(state: AgentState) -> str:
+    decision = state.get("evaluator_decision", "APPROVED")
+    loops    = state.get("evaluator_loops", 0)
+    if decision == "REVISE" and loops < 1:
+        return "respond"
+    return "what_next"
 
 
 # ---------------------------------------------------------------------------
@@ -223,209 +312,300 @@ def _route_after_detect(state: AgentState) -> str:
 # ---------------------------------------------------------------------------
 
 def build_graph(ctx: Any) -> Any:
-    """
-    Instantiate all nodes, wire up edges, and compile the StateGraph.
+    persona_path = str(ctx.layout_input_dir.parent / "personas" / "persona.json")
 
-    Nodes that need external resources (LLM, MCP) are built via factory
-    functions so the resource is captured in a closure -- the graph itself
-    stays stateless.
-    """
+    # Onboarding
+    greet            = build_greet_node(ctx.llm_simple)
+    quiz             = build_quiz_node(ctx.llm_simple)
+    inspire          = build_inspire_node(ctx.llm_simple)
+    persona_compiler = build_persona_compiler_node(ctx.llm_simple, persona_path)
 
-    # [LLM]  llm_simple = plain text output (no JSON schema constraint)
-    #        used by: route_intent, respond, chitchat
-    # [LLM]  llm       = structured JSON output (reserved for future tool-calling)
-    # [MCP]  mcp_client = HTTP connection to Grasshopper/Swiftlet
+    # Routing
+    action_classifier = build_action_classifier_node(ctx.llm_simple)
+    chitchat          = build_chitchat_node(ctx.llm_simple)
+    detail_respond    = build_detail_respond_node(ctx.llm_simple)
 
-    load_layout  = build_load_layout_node(ctx.layout_input_dir)  # [PYTHON]
-    route_intent = build_route_intent_node(ctx.llm_simple)        # [LLM]
-    analyze      = build_analyze_node(ctx.mcp_client)             # [MCP]
-    detect       = build_detect_node(ctx.mcp_client)              # [MCP]
-    suggest      = build_suggest_node(ctx.mcp_client)             # [MCP]
-    respond      = build_respond_node(ctx.llm_simple)             # [LLM]
-    chitchat     = build_chitchat_node(ctx.llm_simple)            # [LLM]
+    # Layout
+    load_layout = build_load_layout_node(ctx.layout_input_dir)
+
+    # Scoring chain
+    analyze           = build_analyze_node(ctx.mcp_client)
+    score_interpreter = build_score_interpreter_node(ctx.llm_simple)
+    detect            = build_detect_node(ctx.mcp_client)
+    conflict_reasoner = build_conflict_reasoner_node(ctx.llm_simple)
+    suggest           = build_suggest_node(ctx.mcp_client)
+    suggestion_critic = build_suggestion_critic_node(ctx.llm_simple)
+
+    # Quality loop
+    respond   = build_respond_node(ctx.llm_simple)
+    evaluator = build_evaluator_node(ctx.llm_simple)
+    what_next = build_what_next_node(ctx.llm_simple)
+
+    # Edit tools
+    change_material  = build_change_material_node()
+    modify_glazing   = build_modify_glazing_node()
+    add_furniture    = build_add_furniture_node()
+    compare_versions = build_compare_versions_node()
+    preview          = build_preview_node(ctx.mcp_client)
+
+    # Insight tools
+    topologic_analysis = build_topologic_analysis_node()
+    biophilic_audit    = build_biophilic_audit_node()
+    persona_comparison = build_persona_comparison_node(ctx.mcp_client)
 
     g = StateGraph(AgentState)
 
-    # -- Register nodes -----------------------------------------------------
-    g.add_node("preprocess",       preprocess_node)       # [PYTHON]
-    g.add_node("load_layout",      load_layout)           # [PYTHON]
-    g.add_node("overview_respond", overview_respond_node) # [PYTHON]
-    g.add_node("ask_persona",      ask_persona_node)      # [PYTHON]
-    g.add_node("route_intent",     route_intent)          # [LLM]
-    g.add_node("analyze",          analyze)               # [MCP]
-    g.add_node("detect",           detect)                # [MCP]
-    g.add_node("suggest",          suggest)               # [MCP]
-    g.add_node("respond",          respond)               # [LLM]
-    g.add_node("chitchat",         chitchat)              # [LLM]
-    g.add_node("inspire",          inspire_node)          # [PYTHON] placeholder
+    # Register all nodes
+    g.add_node("greet",             greet)
+    g.add_node("quiz",              quiz)
+    g.add_node("inspire",           inspire)
+    g.add_node("persona_compiler",  persona_compiler)
+    g.add_node("action_classifier", action_classifier)
+    g.add_node("chitchat",          chitchat)
+    g.add_node("detail_respond",    detail_respond)
+    g.add_node("load_layout",       load_layout)
+    g.add_node("overview_respond",  overview_respond_node)
+    g.add_node("analyze",           analyze)
+    g.add_node("score_interpreter", score_interpreter)
+    g.add_node("detect",            detect)
+    g.add_node("conflict_reasoner", conflict_reasoner)
+    g.add_node("suggest",           suggest)
+    g.add_node("suggestion_critic", suggestion_critic)
+    g.add_node("respond",           respond)
+    g.add_node("evaluator",         evaluator)
+    g.add_node("what_next",         what_next)
+    g.add_node("change_material",   change_material)
+    g.add_node("modify_glazing",    modify_glazing)
+    g.add_node("add_furniture",     add_furniture)
+    g.add_node("compare_versions",  compare_versions)
+    g.add_node("preview",           preview)
+    g.add_node("topologic_analysis", topologic_analysis)
+    g.add_node("biophilic_audit",   biophilic_audit)
+    g.add_node("persona_comparison", persona_comparison)
 
-    # -- Wire edges ---------------------------------------------------------
+    # ── Wire edges ────────────────────────────────────────────────────────────
 
-    # Entry point
-    g.add_edge(START, "preprocess")
+    # Entry
+    g.add_conditional_edges(START, _route_start, {
+        "greet":             "greet",
+        "quiz":              "quiz",
+        "inspire":           "inspire",
+        "action_classifier": "action_classifier",
+    })
 
-    # After PREPROCESS: branch on intent
-    #   comfort / overview -> load_layout (both need the file)
-    #   inspire            -> inspire
-    #   chitchat           -> chitchat
-    g.add_conditional_edges(
-        "preprocess",
-        _route_after_preprocess,
-        {
-            "load_layout": "load_layout",
-            "inspire":     "inspire",
-            "chitchat":    "chitchat",
-        },
-    )
+    # Onboarding spine
+    g.add_edge("greet", END)
+    g.add_edge("quiz",  END)
+    g.add_conditional_edges("inspire", _route_after_inspire, {
+        "persona_compiler": "persona_compiler",
+        "what_next":        "what_next",
+        END:                END,
+    })
+    g.add_edge("persona_compiler", END)
 
-    # After LOAD_LAYOUT: branch on intent
-    #   overview -> overview_respond (short-circuit, no analysis)
-    #   comfort  -> ask_persona
-    g.add_conditional_edges(
-        "load_layout",
-        _route_after_load_layout,
-        {
-            "overview_respond": "overview_respond",
-            "ask_persona":      "ask_persona",
-        },
-    )
+    # Layout mode — routing
+    g.add_conditional_edges("action_classifier", _route_after_action_classifier, {
+        "inspire":       "inspire",
+        "load_layout":   "load_layout",
+        "detail_respond": "detail_respond",
+        "chitchat":      "chitchat",
+    })
+    g.add_edge("detail_respond", "what_next")
+    g.add_conditional_edges("chitchat", _route_after_chitchat, {
+        "action_classifier": "action_classifier",
+        "what_next":         "what_next",
+    })
 
-    # Overview path ends here (no scores, no LLM response)
-    g.add_edge("overview_respond", END)
+    # Layout dispatch
+    g.add_conditional_edges("load_layout", _route_after_load_layout, {
+        "overview_respond":  "overview_respond",
+        "analyze":           "analyze",
+        "detect":            "detect",       # cache hit: jump straight to detect
+        "change_material":   "change_material",
+        "modify_glazing":    "modify_glazing",
+        "add_furniture":     "add_furniture",
+        "preview":           "preview",
+        "topologic_analysis": "topologic_analysis",
+        "biophilic_audit":   "biophilic_audit",
+        "persona_comparison": "persona_comparison",
+        END:                 END,            # requested layout not found
+    })
+    g.add_edge("overview_respond", "what_next")
 
-    # Comfort path: persona -> route_intent -> analyze (always runs first)
-    g.add_edge("ask_persona",  "route_intent")
-    g.add_edge("route_intent", "analyze")
+    # Scoring chain
+    g.add_conditional_edges("analyze", _route_after_analyze, {
+        "compare_versions":  "compare_versions",
+        "score_interpreter": "score_interpreter",
+    })
+    g.add_edge("compare_versions", "score_interpreter")
+    g.add_conditional_edges("score_interpreter", _route_after_score_interpreter, {
+        "detect":  "detect",
+        "respond": "respond",
+    })
+    g.add_edge("detect", "conflict_reasoner")
+    g.add_conditional_edges("conflict_reasoner", _route_after_conflict_reasoner, {
+        "suggest": "suggest",
+        "respond": "respond",
+    })
+    g.add_edge("suggest",           "suggestion_critic")
+    g.add_edge("suggestion_critic", "respond")
 
-    # After ANALYZE [MCP]: branch on depth
-    #   analyze      -> respond (scores only, no conflict detection)
-    #   detect/full  -> detect
-    g.add_conditional_edges(
-        "analyze",
-        _route_after_analyze,
-        {
-            "detect":  "detect",
-            "respond": "respond",
-        },
-    )
+    # Edit tools → analyze (re-score) → compare → score_interpreter → respond
+    g.add_edge("change_material", "analyze")
+    g.add_edge("modify_glazing",  "analyze")
+    g.add_edge("add_furniture",   "analyze")
 
-    # After DETECT [MCP]: branch on depth
-    #   detect -> respond (conflicts + scores, no suggestions)
-    #   full   -> suggest
-    g.add_conditional_edges(
-        "detect",
-        _route_after_detect,
-        {
-            "suggest": "suggest",
-            "respond": "respond",
-        },
-    )
+    # Preview is terminal: it self-produces its predicted-ripple message (no re-score
+    # of the real layout, no commit) and goes straight to the next-step offer.
+    g.add_edge("preview", "what_next")
 
-    # After SUGGEST [MCP]: always respond (suggestions + conflicts + scores)
-    g.add_edge("suggest",  "respond")
+    # Insight tools
+    g.add_edge("topologic_analysis", "respond")
+    g.add_conditional_edges("biophilic_audit", _route_after_biophilic_audit, {
+        "add_furniture":     "add_furniture",
+        "score_interpreter": "score_interpreter",
+    })
+    g.add_edge("persona_comparison", "score_interpreter")
 
-    # Terminal edges
-    g.add_edge("respond",  END)
-    g.add_edge("chitchat", END)
-    g.add_edge("inspire",  END)
+    # Quality loop
+    g.add_edge("respond", "evaluator")
+    g.add_conditional_edges("evaluator", _route_after_evaluator, {
+        "respond":   "respond",
+        "what_next": "what_next",
+    })
+    g.add_edge("what_next", END)
 
     return g.compile()
 
 
 # ---------------------------------------------------------------------------
-# run_agent  --  called once per user turn from main.py
+# run_agent
 # ---------------------------------------------------------------------------
 
 def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, dict]:
-    """
-    Run one turn of the Comfort Copilot agent.
-
-    Args:
-        prompt  : raw user input for this turn
-        ctx     : Context object from bootstrap() -- holds LLM, MCP client,
-                  layout_input_dir, layout_output_dir
-        session : persistent state carried across turns
-                  { layout_json_string, persona_detected, layout_id }
-                  Pass None or {} on the first turn.
-
-    Returns:
-        (final_response, updated_session)
-        Pass updated_session back into the next run_agent() call.
-
-    Post-graph step (outside the graph):
-        If the comfort path ran and scores were computed, output_writer.py
-        writes the enriched layout to resulting_layout/Layout-{id}_modified.json.
-        This is intentionally outside the graph so a write failure never
-        blocks the text response from reaching the user.
-    """
     if session is None:
         session = {}
 
     initial_state: AgentState = {
-        # This turn's input
         "raw_prompt": prompt,
         "has_image":  False,
 
-        # Carry over persistent fields from the previous turn
+        # Onboarding
+        "greeted":              session.get("greeted", False),
+        "quiz_step":            session.get("quiz_step", 0),
+        "quiz_answers":         session.get("quiz_answers", {}),
+        "quiz_complete":        session.get("quiz_complete", False),
+        "inspire_prompted":     session.get("inspire_prompted", False),
+        "inspire_summary":      session.get("inspire_summary", ""),
+        "inspire_complete":     session.get("inspire_complete", False),
+        "inspire_image_analysis": session.get("inspire_image_analysis", ""),
+        "inspire_moodboard_urls": session.get("inspire_moodboard_urls", []),
+        "inspire_sense_picks":    session.get("inspire_sense_picks", {}),
+        "onboarding_complete":    session.get("onboarding_complete", False),
+
+        # Identity
+        "user_name":        session.get("user_name", ""),
+        "preliminary_role": session.get("preliminary_role", "client"),
+        "user_type":        session.get("user_type", ""),
+        "persona_profile":  session.get("persona_profile"),
+
+        # Layout
         "layout_json_string": session.get("layout_json_string", ""),
-        "persona_detected":   session.get("persona_detected"),
         "layout_id":          session.get("layout_id"),
 
-        # Reset per-turn fields (fresh each turn)
-        "intent":                "",
-        "needs_persona_ask":     False,
-        "comfort_depth":         "analyze",
-        "target_room_id":        None,
-        "last_scores_json":      "",
-        "last_conflicts_json":   "",
-        "last_suggestions_json": "",
-        "final_response":        None,
+        # Cached analysis (persisted across turns)
+        "has_analysis_results":  session.get("has_analysis_results", False),
+        "last_scores_json":      session.get("last_scores_json", ""),
+        "last_conflicts_json":   session.get("last_conflicts_json", ""),
+        "last_suggestions_json": session.get("last_suggestions_json", ""),
+        "score_interpretation":  session.get("score_interpretation", ""),
+        "conflict_reasoning":    session.get("conflict_reasoning", ""),
+        "suggestion_critique":   session.get("suggestion_critique", ""),
+
+        # Per-turn fields (reset each turn)
+        "action":                 "",
+        "intent":                 "",
+        "target_room_hint":       "",
+        "material_hint":          "",
+        "target_room_id":         None,
+        "layout_not_found":       False,
+        "pending_comparison":     False,
+        "original_scores_json":   "",
+        "layout_diff":            {},
+        "layout_updated":         False,
+        "preview_scores_json":    "",
+        "preview_diff":           {},
+        "preview_summary":        "",
+        "compare_versions_summary": "",
+        "biophilic_summary":      "",
+        "biophilic_plants_needed": False,
+        "biophilic_data":         {},
+        "adjacency_graph":        {},
+        "graph_data":             {},
+        "persona_comparison_summary": "",
+        "persona_comparison_data":    {},
+        "evaluator_decision":     "",
+        "evaluator_feedback":     "",
+        "evaluator_loops":        0,
+        "final_response":         None,
     }
 
     app = build_graph(ctx)
-
-    print("\nWorkflow graph:")
-    app.get_graph().print_ascii()
-
-    # -- Run the graph ------------------------------------------------------
     final_state = app.invoke(initial_state)
 
-    response = final_state.get("final_response") or ""
-    intent   = final_state.get("intent", "")
-    depth    = final_state.get("comfort_depth", "")
+    response    = final_state.get("final_response") or ""
+    action      = final_state.get("action", "")
     scores_ready = bool(final_state.get("last_scores_json"))
 
-    print("[run_agent] intent={} | depth={} | scores_ready={}".format(
-        intent, depth, scores_ready
-    ))
+    edit_actions = {"change_material", "modify_glazing", "add_furniture"}
+    print(f"[run_agent] action={action} | scores_ready={scores_ready} | layout_updated={final_state.get('layout_updated', False)}")
 
-    # -- [POST-GRAPH] Write analysis to resulting_layout/ -------------------
-    # Runs only when the comfort path executed and scores were computed.
-    # Failure is non-fatal -- the user always gets their text response.
-    if intent == "comfort" and scores_ready:
+    # Post-graph: write output JSON. Skip when the requested layout wasn't found —
+    # otherwise we'd persist stale scores under the (nonexistent) layout's name.
+    if (action in ("analyze", "detect", "full", *edit_actions)
+            and scores_ready
+            and not final_state.get("layout_not_found")):
         try:
             write_analysis_to_layout(final_state, ctx.layout_output_dir)
         except Exception as exc:
-            print("[run_agent] ERROR in output_writer: {}".format(exc))
+            print(f"[run_agent] ERROR in output_writer: {exc}")
 
-    # -- Update session with persistent fields ------------------------------
-    if intent == "comfort":
-        # Full update: layout, persona, and ID may all have changed this turn
-        updated_session = {
-            "layout_json_string": final_state.get("layout_json_string", ""),
-            "persona_detected":   final_state.get("persona_detected"),
-            "layout_id":          final_state.get("layout_id"),
-        }
-    elif intent == "overview":
-        # Overview loaded the layout but did not set a persona -- keep
-        # the layout in session so the next comfort turn skips reloading.
-        updated_session = {
-            "layout_json_string": final_state.get("layout_json_string", ""),
-            "persona_detected":   session.get("persona_detected"),  # unchanged
-            "layout_id":          final_state.get("layout_id"),
-        }
-    else:
-        # chitchat / inspire -- nothing layout-related changed
-        updated_session = dict(session)
+    # Persist session
+    updated_session = {
+        "greeted":             final_state.get("greeted",             session.get("greeted", False)),
+        "quiz_step":           final_state.get("quiz_step",           session.get("quiz_step", 0)),
+        "quiz_answers":        final_state.get("quiz_answers",        session.get("quiz_answers", {})),
+        "quiz_complete":       final_state.get("quiz_complete",       session.get("quiz_complete", False)),
+        "inspire_prompted":    final_state.get("inspire_prompted",    session.get("inspire_prompted", False)),
+        "inspire_summary":     final_state.get("inspire_summary",     session.get("inspire_summary", "")),
+        "inspire_complete":    final_state.get("inspire_complete",    session.get("inspire_complete", False)),
+        "inspire_image_analysis": final_state.get("inspire_image_analysis") or session.get("inspire_image_analysis", ""),
+        "inspire_moodboard_urls": final_state.get("inspire_moodboard_urls") or session.get("inspire_moodboard_urls", []),
+        "inspire_sense_picks":    final_state.get("inspire_sense_picks")    or session.get("inspire_sense_picks", {}),
+        "onboarding_complete":    final_state.get("onboarding_complete",    session.get("onboarding_complete", False)),
+        "user_name":           final_state.get("user_name")           or session.get("user_name", ""),
+        "preliminary_role":    final_state.get("preliminary_role")    or session.get("preliminary_role", "client"),
+        "user_type":           final_state.get("user_type")           or session.get("user_type", ""),
+        "persona_profile":     final_state.get("persona_profile")     or session.get("persona_profile"),
+        "layout_json_string":  final_state.get("layout_json_string")  or session.get("layout_json_string", ""),
+        "layout_id":           final_state.get("layout_id")           or session.get("layout_id"),
+        "last_scores_json":      final_state.get("last_scores_json")      or session.get("last_scores_json", ""),
+        "last_conflicts_json":   final_state.get("last_conflicts_json")   or session.get("last_conflicts_json", ""),
+        "last_suggestions_json": final_state.get("last_suggestions_json") or session.get("last_suggestions_json", ""),
+        "score_interpretation":  final_state.get("score_interpretation")  or session.get("score_interpretation", ""),
+        "conflict_reasoning":    final_state.get("conflict_reasoning")    or session.get("conflict_reasoning", ""),
+        "suggestion_critique":   final_state.get("suggestion_critique")   or session.get("suggestion_critique", ""),
+        "has_analysis_results":  bool(final_state.get("last_scores_json")) or session.get("has_analysis_results", False),
+        # Per-turn fields (cleared next turn — used by server to build response payload)
+        "layout_updated":         final_state.get("layout_updated", False),
+        "layout_diff":            final_state.get("layout_diff", {}),
+        "preview_scores_json":    final_state.get("preview_scores_json", ""),
+        "preview_diff":           final_state.get("preview_diff", {}),
+        "preview_summary":        final_state.get("preview_summary", ""),
+        "graph_data":             final_state.get("graph_data", {}),
+        "biophilic_data":         final_state.get("biophilic_data", {}),
+        "persona_comparison_data": final_state.get("persona_comparison_data", {}),
+        "action":                 final_state.get("action", ""),
+    }
 
     return response, updated_session

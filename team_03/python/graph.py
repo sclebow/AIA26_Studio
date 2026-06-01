@@ -26,7 +26,13 @@ from nodes.collision import build_collision_node
 from nodes.scoring import build_scoring_node
 from nodes.profile_agent import build_profile_agent_node
 from nodes.space_type_agent import build_space_type_agent_node
-from _runtime.session import close_session
+from nodes.query_agent import build_query_agent_node
+from nodes.populate_agent import build_populate_agent_node
+from nodes.checkpoint import build_user_checkpoint_node
+from nodes.explain import explain_node
+from nodes.output import output_node
+from nodes.fan_out import analysis_fan_out_node, group1_join_node
+from _runtime.utils import _slim_layout, _format_tool_catalog
 
 
 # ---------------------------------------------------------------------------
@@ -78,6 +84,7 @@ class AgentState(TypedDict):
 
     # Object placement — reason sets these, add_objects clears them.
     object_to_place:       Annotated[dict[str, Any] | None, _keep_last]
+    object_queue:          Annotated[list[dict] | None,     _keep_last]
     last_placement_result: Annotated[dict[str, Any] | None, _keep_last]
 
     # Analysis results — collision/visibility/orientation run in parallel;
@@ -111,6 +118,36 @@ class AgentState(TypedDict):
     # were modified or lost during the pipeline.
     original_layout:     dict | None
 
+    # Query mode flag — set by reason node when user asks to analyze without placing.
+    # Routes to query_agent instead of analysis_fan_out.
+    _query_mode:         Annotated[bool | None, _keep_last]
+
+    # Spatial relationship graph — NetworkX MultiGraph stored as node-link dict
+    # for JSON serialization, plus a compact text version for LLM context.
+    # Rebuilt from layout JSON after each placement (base edges only).
+    # Enriched by enrich_graph_node after all analysis tools complete.
+    spatial_graph:       Annotated[dict | None, _keep_last]
+    spatial_graph_text:  Annotated[str | None,  _keep_last]
+
+    # Node IDs to highlight in the visualizer. Set by add_objects after placement,
+    # carried into enrich_graph_node so highlights persist through both update steps.
+    # Reset to [] by _build_initial_state at the start of each new user request.
+    viz_highlight_ids:   Annotated[list[str] | None, _keep_last]
+
+    # Set to True by populate_agent after it fills the queue so the keyword
+    # check in _route_after_reason never fires a second time for the same request.
+    populate_done:       Annotated[bool | None, _keep_last]
+
+    # Sanitized placement profile — vehicle profiles (forklift, crane, pallet_jack)
+    # are stripped out here so populate_agent always places with standard_worker.
+    # Separate from profile_config, which is used for circulation analysis.
+    placement_profile:   Annotated[dict | None, _keep_last]
+
+    # Zone-by-zone populate flow — zone_queue holds remaining zones after the
+    # first one is loaded into object_queue; current_zone tracks the active zone.
+    zone_queue:    Annotated[list[dict] | None, _keep_last]
+    current_zone:  Annotated[str | None,        _keep_last]
+
 
 # ---------------------------------------------------------------------------
 # Routing functions — pure state reads, no side effects.
@@ -118,10 +155,18 @@ class AgentState(TypedDict):
 # ---------------------------------------------------------------------------
 
 def _route_after_reason(state: AgentState) -> str:
+    # If populate_agent filled the queue but reason hasn't set object_to_place yet,
+    # drain the queue directly without calling the LLM again.
+    queue = state.get("object_queue") or []
+    if queue and not state.get("object_to_place"):
+        return "add_objects"
+
     # Reason node sets exactly one of these fields to signal what should happen next.
     # object_to_place takes priority: place the object before running any analysis.
     if state.get("object_to_place"):
         return "add_objects"
+    if state.get("_query_mode"):
+        return "query_agent"
     # final_response means the LLM is done reasoning — move to analysis pipeline.
     # Empty string "" is treated as "cleared" (not finished); only a real
     # non-empty string triggers the finish route.
@@ -136,6 +181,8 @@ MAX_ADJUSTMENTS = 3  # Max times the graph loops back to reason for collision/re
 
 
 def _route_after_group1(state: AgentState) -> str:
+    if state.get("object_queue"):
+        return "drain"
     # Group 1 = collision + visibility + orientation.
     # Hard violations mean the layout is physically impassable — route back
     # to reason immediately rather than wasting time on path checks.
@@ -152,6 +199,8 @@ def _route_after_group1(state: AgentState) -> str:
 
 
 def _route_after_group2(state: AgentState) -> str:
+    if state.get("object_queue"):
+        return "adjust"
     # Group 2 = path + reachability.
     # Same logic with max adjustment limit.
     has_placed = state.get("last_placement_result") is not None
@@ -179,594 +228,264 @@ def _route_after_group2(state: AgentState) -> str:
 
 
 def _route_after_checkpoint(state: AgentState) -> str:
-    # User either approves the layout (write output and end) or requests more
-    # changes (loop back to reason with their new instructions).
-    if state.get("user_approved"):
+    user_input = ""
+    messages = state.get("messages") or []
+    # Find the last human/user message — not assistant or tool messages
+    SYSTEM_PREFIXES = (
+        "tool result:", "scoring complete", "layout score",
+        "collision", "visibility", "path analysis",
+        "reachability", "analysis complete", "placed ",
+        "moved ", "spatial graph", "current layout"
+    )
+    for msg in reversed(messages):
+        role = (msg.type if hasattr(msg, "type") 
+                else msg.get("role", ""))
+        if role not in ("human", "user"):
+            continue
+        content = (
+            msg.content if hasattr(msg, "content")
+            else msg.get("content", "")
+        ).strip()
+        if any(content.lower().startswith(p) for p in SYSTEM_PREFIXES):
+            continue
+        if len(content) > 200:
+            continue
+        user_input = content.lower()
+        break
+
+    zone_queue = state.get("zone_queue") or []
+
+    print(f"[checkpoint_debug] user_input='{user_input}' "
+          f"zone_queue_len={len(state.get('zone_queue') or [])} "
+          f"user_approved={state.get('user_approved')}")
+
+    # "yes" → proceed to next zone
+    if user_input == "yes" and zone_queue:
+        return "next_zone"
+
+    # "end" or "approve" → save and trigger final analysis
+    if user_input in ("end", "approve"):
         return "approved"
+
+    # Legacy flag fallback for non-populate flows
+    if state.get("user_approved") and not zone_queue:
+        return "approved"
+
+    # Empty input with no zones left → done
+    if (state.get("_query_mode") is False
+            and not state.get("placement_history")
+            and not zone_queue):
+        return "query_done"
+
+    # Anything else → loop back to reason with user instructions
     return "continue"
 
 
 # ---------------------------------------------------------------------------
-# User checkpoint node — pauses execution to show score and ask for approval.
+# analysis_fan_out_node, group1_join_node → nodes/fan_out.py
+# build_user_checkpoint_node             → nodes/checkpoint.py
+# explain_node                           → nodes/explain.py
+# output_node                            → nodes/output.py
 # ---------------------------------------------------------------------------
 
-def analysis_fan_out_node(state: AgentState) -> dict:
-    """No-op pass-through that exists solely as a fan-out point.
-    LangGraph needs a single source node to fan out to the three
-    Group 1 analysis nodes (collision, visibility, orientation).
-    Returns an empty update dict — nothing to change in state."""
-    return {}
 
+# ---------------------------------------------------------------------------
+# Spatial graph helpers
+# ---------------------------------------------------------------------------
 
-def group1_join_node(state: AgentState) -> dict:
-    """Join point after Group 1 parallel nodes converge.
-    Increments adjustment_count so the router can enforce the max limit.
-    LangGraph waits for all incoming edges (collision, visibility,
-    orientation) to complete before executing this node."""
-    collision = state.get("collision_results")
-    if collision and not collision.get("pass", True):
-        hard = collision.get("summary", {}).get("hard_violations", 0)
-        if hard > 0 and state.get("last_placement_result") is not None:
-            return {"adjustment_count": state.get("adjustment_count", 0) + 1}
-    return {}
+def _build_correction_message(state: dict, G=None) -> str:
+    """Build an explicit correction message from spatial graph findings.
 
+    Injected into conversation history when the router sends the LLM back for
+    adjustments, so the LLM knows exactly what to fix (move vectors, positions,
+    clearance details) instead of guessing.
 
-def build_user_checkpoint_node(mcp_client):
-    """Return a checkpoint node with access to MCP for viewport toggles.
-
-    The toggle loop uses the lightweight `set_viewport` MCP tool when
-    available (draws geometry only, no analysis). Falls back to
-    `collision-detector-grid` if `set_viewport` is not registered in GH.
+    Pass G directly from enrich_graph_node to avoid deserializing stale state.
     """
-
-    # Check once at build time whether set_viewport is available.
-    # Use a mutable list so the closure can disable it on repeated failures.
-    _viewport_state = {"use_set_viewport": False}
-    try:
-        tools = mcp_client.list_tools()
-        if any(t.get("name") == "set_viewport" for t in tools):
-            _viewport_state["use_set_viewport"] = True
-            print("[checkpoint] set_viewport MCP tool detected — using fast viewport toggle")
-    except Exception:
-        pass
-
-    def _send_layout_to_viewport(layout_data: dict, profile_config: dict | None,
-                                  label: str, mode: str = "all"):
-        """Push a layout to the GH viewport.
-
-        Prefers set_viewport (instant, no analysis) over collision-detector-grid
-        (runs full collision analysis — slow). Disables set_viewport after a
-        timeout so subsequent calls fall back immediately.
-        """
-        layout_json = json.dumps(layout_data)
-
-        if _viewport_state["use_set_viewport"]:
-            try:
-                mcp_client.call_tool("set_viewport", {
-                    "layout_json": layout_json,
-                    "mode": mode,
-                }, timeout=10.0)
-                print(f"  -> {label} sent to viewport (set_viewport, mode={mode})")
-                return
-            except Exception as exc:
-                _viewport_state["use_set_viewport"] = False
-                print(f"  -> set_viewport timed out/failed ({exc})")
-                print("  -> Disabled set_viewport for this session — using collision-detector-grid")
-
-        # Fallback: use collision-detector-grid (slower — runs analysis)
-        profile = profile_config or {}
-        gh_user_type = profile.get("profile_type", "wheelchair_user").replace("_user", "")
-        gh_profile = {
-            "user_type": gh_user_type,
-            "body_width_m": profile.get("body_width", 0.70),
-            "min_corridor_width_m": profile.get("min_path_width", 0.90),
-            "min_door_width_m": profile.get("min_door_width", 0.85),
-            "turning_radius_m": profile.get("turning_radius", 1.50),
-        }
+    if G is None:
+        graph_data = state.get("spatial_graph")
+        if not graph_data:
+            return ""
         try:
-            mcp_client.call_tool("collision-detector-grid", {
-                "layout_json": layout_json,
-                "user_profile": json.dumps(gh_profile),
-                "wall_thickness": 0.20,
-            })
-            print(f"  -> {label} sent to viewport (collision-detector-grid fallback)")
-        except Exception as exc:
-            print(f"  -> Failed to send {label}: {exc}")
+            from spatial_graph import dict_to_graph
+            G = dict_to_graph(graph_data)
+        except Exception:
+            return ""
 
-    def _send_visibility_to_viewport(layout_json_string: str, visibility_results: list | None):
-        """Push visibility lines to the GH viewport."""
-        if not visibility_results:
-            print("  -> No visibility data to display")
-            return
-        try:
-            mcp_client.call_tool("visualize_visibility", {
-                "layout_json": layout_json_string,
-                "visibility_json": json.dumps(visibility_results),
-            })
-            print("  -> Visibility analysis sent to viewport")
-        except Exception as exc:
-            print(f"  -> Failed to send visibility: {exc}")
+    issues = []
 
-    def _send_paths_to_viewport(layout_json_string: str, path_results: dict | None):
-        """Push path lines to the GH viewport."""
-        if not path_results:
-            print("  -> No path data to display")
-            return
-        try:
-            mcp_client.call_tool("visualize_paths", {
-                "layout_json": layout_json_string,
-                "paths_json": json.dumps(path_results),
-            })
-            print("  -> Path analysis sent to viewport")
-        except Exception as exc:
-            print(f"  -> Failed to send paths: {exc}")
+    for nid, nd in G.nodes(data=True):
+        if nd.get("ntype") not in ("furniture", "mep"):
+            continue
+        name = nd.get("name", nid)
 
-    def user_checkpoint_node(state: AgentState) -> dict:
-        # Present the current score to the user and let them decide whether to
-        # approve the layout or describe further changes.
-        # This is the only node that blocks on user input — all other nodes are
-        # fully automated.
-
-        # ── Structural integrity check ──────────────────────────────────
-        # Verify that doors, windows, structure, and outline haven't been
-        # lost during the pipeline. If any are missing, restore from original.
-        original = state.get("original_layout") or {}
-        current_layout = json.loads(state["layout_json_string"])
-        integrity_warnings = []
-        restored = False
-
-        for layer in ("doors", "windows", "mep", "structure", "outline"):
-            orig_data = original.get(layer)
-            curr_data = current_layout.get(layer)
-            if orig_data and not curr_data:
-                current_layout[layer] = orig_data
-                restored = True
-                if layer == "outline":
-                    integrity_warnings.append(f"  {layer}: RESTORED (was missing)")
-                else:
-                    integrity_warnings.append(f"  {layer}: RESTORED — {len(orig_data)} items recovered")
-            elif isinstance(orig_data, list) and isinstance(curr_data, list):
-                if len(curr_data) < len(orig_data):
-                    current_layout[layer] = orig_data
-                    restored = True
-                    integrity_warnings.append(
-                        f"  {layer}: RESTORED — had {len(curr_data)}, restored to {len(orig_data)}"
-                    )
-
-        if restored:
-            from _runtime.session import save_session
-            save_session(current_layout, state["workspace_path"])
-            print("\n[checkpoint] Structural integrity issues detected and fixed:")
-            for w in integrity_warnings:
-                print(w)
-
-        # ── Door change detection ───────────────────────────────────────
-        orig_doors = {d.get("id"): d for d in original.get("doors", [])}
-        curr_doors = {d.get("id"): d for d in current_layout.get("doors", [])}
-        door_changes = []
-        for door_id, orig_door in orig_doors.items():
-            curr_door = curr_doors.get(door_id)
-            if not curr_door:
-                door_changes.append(f"  REMOVED: {orig_door.get('name', door_id)}")
-            elif orig_door.get("geometry") != curr_door.get("geometry"):
-                door_changes.append(f"  MODIFIED: {orig_door.get('name', door_id)}")
-        for door_id in curr_doors:
-            if door_id not in orig_doors:
-                door_changes.append(f"  ADDED: {curr_doors[door_id].get('name', door_id)}")
-
-        # ── Auto-send current layout to viewport on arrival ───────────
-        profile_config = state.get("profile_config")
-        try:
-            print("\n[checkpoint] Sending current layout to viewport...")
-            _send_layout_to_viewport(current_layout, profile_config, "Current layout")
-        except Exception as exc:
-            print(f"[checkpoint] Viewport auto-send failed ({exc}) — continuing without viewport")
-
-        scoring = state.get("scoring_results") or {}
-        score = scoring.get("total_score", 0)
-        grade = scoring.get("grade", "?")
-        rec   = scoring.get("recommendation", "")
-        breakdown = scoring.get("breakdown", {})
-
-        prev_scoring = state.get("previous_scoring") or {}
-        prev_score = prev_scoring.get("total_score")
-        prev_breakdown = prev_scoring.get("breakdown", {})
-        has_previous = prev_score is not None
-
-        # ── ANSI color helpers ──────────────────────────────────────────
-        GREEN  = "\033[92m"
-        RED    = "\033[91m"
-        YELLOW = "\033[93m"
-        CYAN   = "\033[96m"
-        BOLD   = "\033[1m"
-        DIM    = "\033[2m"
-        RESET  = "\033[0m"
-
-        def _delta_str(current: float, previous: float | None) -> str:
-            """Return colored delta string like '▲ +5.2' or '▼ -3.1'."""
-            if previous is None:
-                return ""
-            diff = current - previous
-            if abs(diff) < 0.05:
-                return f"  {DIM}= no change{RESET}"
-            if diff > 0:
-                return f"  {GREEN}▲ +{diff:.1f}{RESET}"
-            return f"  {RED}▼ {diff:.1f}{RESET}"
-
-        def _score_color(s: float) -> str:
-            """Color a score value based on its range."""
-            if s >= 80:
-                return f"{GREEN}{s:5.1f}{RESET}"
-            if s >= 50:
-                return f"{YELLOW}{s:5.1f}{RESET}"
-            return f"{RED}{s:5.1f}{RESET}"
-
-        # ── Display report ──────────────────────────────────────────────
-        print(f"\n{BOLD}{'=' * 60}{RESET}")
-
-        score_display = _score_color(score)
-        delta = _delta_str(score, prev_score)
-        print(f"{BOLD}LAYOUT SCORE: {score_display}/100  Grade: {grade}{delta}{RESET}")
-
-        if has_previous:
-            prev_display = _score_color(prev_score)
-            print(f"{DIM}Previous:     {prev_display}/100{RESET}")
-
-        rec_color = GREEN if "approved" in rec.lower() or "pass" in rec.lower() else YELLOW
-        print(f"Recommendation: {rec_color}{rec}{RESET}")
-        print(f"{BOLD}{'=' * 60}{RESET}")
-
-        print(f"\n{BOLD}Score breakdown:{RESET}")
-        for tool_name, details in breakdown.items():
-            s = details.get("score", 0)
-            w = details.get("weight", 0)
-            ws = details.get("weighted", 0)
-            prev_detail = prev_breakdown.get(tool_name, {})
-            prev_s = prev_detail.get("score") if has_previous else None
-            s_color = _score_color(s)
-            delta = _delta_str(s, prev_s)
-            print(f"  {tool_name:15s}  {s_color}/100  {DIM}(weight {w:.2f}, +{ws:.2f}){RESET}{delta}")
-
-        collision = state.get("collision_results") or {}
-        violations = collision.get("violations", [])
-        if violations:
-            print(f"\n{RED}{BOLD}Collision violations ({len(violations)}):{RESET}")
-            for v in violations[:5]:
-                if isinstance(v, str):
-                    print(f"  {RED}- {v}{RESET}")
-                elif isinstance(v, dict):
-                    print(f"  {RED}- {v.get('type', '?')}: {v.get('description', str(v))}{RESET}")
-
-        history = state.get("placement_history")
-        if history:
-            print(f"\n{CYAN}{BOLD}Furniture changes made ({len(history)} items):{RESET}")
-            for c in history:
-                name = c.get("name", "?")
-                action = c.get("action", "?")
-                room = c.get("room", "?")
-                if action == "moved":
-                    fr = c.get("from", [0, 0])
-                    to = c.get("to", [0, 0])
-                    print(f"  {YELLOW}MOVED{RESET}  {name:30s}  ({fr[0]:6.1f}, {fr[1]:6.1f}) -> ({to[0]:6.1f}, {to[1]:6.1f})  {DIM}[{room}]{RESET}")
-                else:
-                    to = c.get("to", [0, 0])
-                    print(f"  {GREEN}ADDED{RESET}  {name:30s}  at ({to[0]:6.1f}, {to[1]:6.1f})  {DIM}[{room}]{RESET}")
-
-        if integrity_warnings:
-            print(f"\n{YELLOW}Structural integrity fixes applied:{RESET}")
-            for w in integrity_warnings:
-                print(f"{YELLOW}{w}{RESET}")
-
-        if door_changes:
-            print(f"\n{RED}Door changes detected:{RESET}")
-            for dc in door_changes:
-                print(f"{RED}{dc}{RESET}")
-            print(f"  {DIM}(Review carefully — door modifications may affect accessibility){RESET}")
-
-        # ── Interactive toggle loop ─────────────────────────────────────
-        # The user can switch viewport views before approving or requesting
-        # changes. Each number sends data to GH via MCP; the viewport
-        # updates in real time. Non-numeric input exits the loop.
-        has_changes = bool(state.get("placement_history"))
-
-        # ── Generate smart suggestions based on lowest scores ─────────
-        suggestions = []
-        # Build a simple score map even if breakdown is missing
-        score_map = {}
-        if breakdown:
-            score_map = {k: v.get("score", 100) for k, v in breakdown.items()}
-        else:
-            # Fallback: infer from raw results if scoring didn't run properly
-            if collision.get("pass") is False:
-                score_map["collision"] = 40.0
-            if state.get("visibility_results"):
-                vis = state["visibility_results"]
-                if isinstance(vis, list) and vis:
-                    avg = sum(1 for v in vis if v.get("visible", True)) / len(vis) * 100
-                    score_map["visibility"] = avg
-
-        if score_map:
-            sorted_tools = sorted(score_map.items(), key=lambda x: x[1])
-            for tool_name, s in sorted_tools:
-                if s >= 80:
-                    continue  # Only suggest for weak scores
-                if tool_name == "collision" and s < 80:
-                    # Check what's causing the collision issues
-                    objs = collision.get("objects", [])
-                    furniture_objs = [o for o in objs if o.get("object_type") == "furniture" and o.get("clearance_violation")]
-                    if furniture_objs:
-                        worst = sorted(furniture_objs, key=lambda o: o["clearance_violation"].get("blocked_area_m2", 0), reverse=True)
-                        names = [o.get("name", "?") for o in worst[:3]]
-                        suggestions.append({
-                            "key": "s1",
-                            "prompt": f"Move {', '.join(names)} away from walls and other furniture to increase clearance to at least {profile_config.get('min_path_width', 0.90) if profile_config else 0.90}m",
-                            "label": f"Fix collisions ({', '.join(names[:2])}...)",
-                        })
-                    else:
-                        suggestions.append({
-                            "key": "s1",
-                            "prompt": "Rearrange furniture to increase corridor clearance and reduce blocked areas",
-                            "label": "Fix collision clearance",
-                        })
-                elif tool_name == "visibility" and s < 80:
-                    suggestions.append({
-                        "key": "s2",
-                        "prompt": "Reposition furniture that blocks line-of-sight between the entrance and key areas. Prioritize clear sightlines from doors to workstations",
-                        "label": "Improve visibility / sightlines",
-                    })
-                elif tool_name == "path" and s < 80:
-                    suggestions.append({
-                        "key": "s3",
-                        "prompt": "Reorganize furniture to create wider, more direct paths between doors and all workstations. Ensure minimum corridor width is maintained throughout",
-                        "label": "Improve path accessibility",
-                    })
-                elif tool_name == "reachability" and s < 80:
-                    suggestions.append({
-                        "key": "s4",
-                        "prompt": "Move furniture blocking access to use points. Ensure every workstation's use_point is reachable from the nearest door without obstruction",
-                        "label": "Fix unreachable furniture",
-                    })
-                elif tool_name == "orientation" and s < 80:
-                    suggestions.append({
-                        "key": "s5",
-                        "prompt": "Rotate or reposition furniture so use points face toward open space and away from walls",
-                        "label": "Fix furniture orientation",
-                    })
-
-        print(f"\n{BOLD}{'=' * 60}{RESET}")
-        print(f"{BOLD}Viewport:{RESET}")
-        print("  1 = BEFORE layout (original)")
-        if has_changes:
-            print("  2 = AFTER layout (current)")
-        else:
-            print(f"  2 = AFTER layout {DIM}(disabled — no changes yet){RESET}")
-        print("  3 = + Collision overlay")
-        print("  4 = + Visibility overlay")
-        print("  5 = + Path overlay")
-        print("  0 = Clear overlays (layout only)")
-
-        if not suggestions and score < 80:
-            # Generic fallback suggestion when no specific tool analysis matched
-            suggestions.append({
-                "key": "s1",
-                "prompt": "Rearrange furniture to improve overall accessibility. Increase clearance between objects, ensure paths to all use points are unobstructed, and maintain minimum corridor widths",
-                "label": "Improve overall accessibility",
-            })
-
-        if suggestions:
-            print(f"\n{BOLD}Suggestions:{RESET}")
-            for sug in suggestions:
-                print(f"  {CYAN}{sug['key']}{RESET} = {sug['label']}")
-
-        print(f"\n{BOLD}Actions:{RESET}")
-        print("  'approve' -> save final layout and finish")
-        print("  anything else -> describe what to change")
-        print(f"{'=' * 60}")
-        print()
-
-        # Track which layout is active in the viewport (default: current)
-        active_layout = current_layout
-        active_label = "AFTER" if has_changes else "CURRENT"
-
-        def _send_collision(layout_data, label):
-            """Send layout to collision-detector-grid (always works, shows layout context via clearance mesh)."""
-            layout_json = json.dumps(layout_data)
-            profile = profile_config or {}
-            gh_user_type = profile.get("profile_type", "wheelchair_user").replace("_user", "")
-            gh_profile = {
-                "user_type": gh_user_type,
-                "body_width_m": profile.get("body_width", 0.70),
-                "min_corridor_width_m": profile.get("min_path_width", 0.90),
-                "min_door_width_m": profile.get("min_door_width", 0.85),
-                "turning_radius_m": profile.get("turning_radius", 1.50),
-            }
-            args = {
-                "layout_json": layout_json,
-                "user_profile": json.dumps(gh_profile),
-                "wall_thickness": 0.20,
-            }
-            mcp_client.call_tool("collision-detector-grid", args, timeout=30.0)
-            print(f"  -> {label} sent to collision-detector-grid")
-
-        while True:
-            user_input = input("Your decision: ").strip()
-
-            try:
-                if user_input == "1":
-                    active_layout = original
-                    active_label = "BEFORE"
-                    print(f"  Layout: {active_label} (original)")
-                    # Try set_viewport first, fall back to collision-detector-grid
-                    _send_layout_to_viewport(active_layout, profile_config, active_label)
-                    continue
-                elif user_input == "2":
-                    if not has_changes:
-                        print("  -> No changes yet — AFTER not available.")
-                        continue
-                    active_layout = current_layout
-                    active_label = "AFTER"
-                    print(f"  Layout: {active_label} (current)")
-                    _send_layout_to_viewport(active_layout, profile_config, active_label)
-                    continue
-                elif user_input == "3":
-                    print(f"  {active_label} + Collision overlay")
-                    _send_collision(active_layout, active_label)
-                    continue
-                elif user_input == "4":
-                    print(f"  {active_label} + Visibility overlay")
-                    # Send collision first as layout base (it always works)
-                    _send_collision(active_layout, active_label)
-                    _send_visibility_to_viewport(
-                        json.dumps(active_layout),
-                        state.get("visibility_results"),
-                    )
-                    continue
-                elif user_input == "5":
-                    print(f"  {active_label} + Path overlay")
-                    _send_collision(active_layout, active_label)
-                    _send_paths_to_viewport(
-                        json.dumps(active_layout),
-                        state.get("path_results"),
-                    )
-                    continue
-                elif user_input == "0":
-                    print(f"  Layout only: {active_label}")
-                    _send_layout_to_viewport(active_layout, profile_config, active_label)
-                    continue
-                else:
-                    # Check if it's a suggestion key (s1, s2, etc.)
-                    matched_sug = next((s for s in suggestions if s["key"] == user_input.lower()), None)
-                    if matched_sug:
-                        print(f"\n  {CYAN}Applying suggestion: {matched_sug['label']}{RESET}")
-                        print(f"  {DIM}> {matched_sug['prompt']}{RESET}\n")
-                        user_input = matched_sug["prompt"]
-                        break
-                    # Not a toggle or suggestion — exit loop as user instruction
-                    break
-            except Exception as exc:
-                print(f"  -> Viewport toggle failed: {exc}")
-                continue
-
-        # Build base updates — include restored layout if integrity was fixed.
-        # Always snapshot current scoring as previous_scoring so the next
-        # checkpoint visit can show the delta.
-        updates: dict = {"previous_scoring": scoring}
-        if restored:
-            updates["layout_json_string"] = json.dumps(current_layout)
-
-        if user_input.lower() in ("approve", "yes", "ok", "done"):
-            updates["user_approved"] = True
-            return updates
-        else:
-            updates["user_approved"] = False
-            updates["messages"] = [{"role": "user", "content": user_input}]
-            updates["iteration"] = 0
-            return updates
-
-    return user_checkpoint_node
-
-
-# ---------------------------------------------------------------------------
-# Explain node — LLM generates a spatial reasoning summary of the approved layout.
-# Runs after user_approved=True and before output so the explanation is
-# captured in final_response before the session file is deleted.
-# ---------------------------------------------------------------------------
-
-
-def explain_node(state: AgentState) -> dict:
-    # Called only once, immediately after the user approves at the checkpoint.
-    # The LLM receives a compact summary of every tool's results so it can
-    # give grounded feedback without re-reading the full layout JSON.
-    from _runtime.llm import call_llm
-
-    scoring    = state.get("scoring_results") or {}
-    collision  = state.get("collision_results") or {}
-    path       = state.get("path_results") or {}
-
-    score     = scoring.get("total_score", 0)
-    grade     = scoring.get("grade", "?")
-    breakdown = scoring.get("breakdown", {})
-
-    # Build a concise text summary the LLM can reason over quickly.
-    analysis_summary = (
-        f"Layout score: {score:.1f}/100  Grade: {grade}\n\n"
-        f"Tool breakdown:\n"
-        f"- Collision:    {breakdown.get('collision',    {}).get('score', 0):.0f}/100\n"
-        f"- Visibility:   {breakdown.get('visibility',   {}).get('score', 0):.0f}/100\n"
-        f"- Path:         {breakdown.get('path',         {}).get('score', 0):.0f}/100\n"
-        f"- Reachability: {breakdown.get('reachability', {}).get('score', 0):.0f}/100\n"
-        f"- Orientation:  {breakdown.get('orientation',  {}).get('score', 0):.0f}/100\n\n"
-    )
-
-    # Include the top collision violations so the LLM can name specific issues.
-    violations = collision.get("violations", [])
-    if violations:
-        analysis_summary += "Collision issues:\n"
-        for v in violations[:3]:
-            analysis_summary += f"  - {v}\n"
-
-    # Worst-case path distance gives the LLM a concrete distance to cite.
-    wc = path.get("worst_case", {})
-    if wc.get("from"):
-        analysis_summary += (
-            f"\nLongest path: {wc['from']} -> {wc['to']} ({wc['distance']}m)\n"
-        )
-
-    # Build the prompt by concatenation — avoids .format() choking on any
-    # literal braces that appear in the analysis summary or layout JSON.
-    prompt = (
-        "You are a spatial design expert.\n"
-        "The user has approved a layout.\n\n"
-        "Analysis results:\n" + analysis_summary +
-        "\nLayout JSON (first 2000 chars):\n" +
-        state["layout_json_string"][:2000] +
-        "\n\nWrite a clear 3-5 sentence explanation covering: "
-        "overall assessment, main strengths, key weaknesses, "
-        "one specific recommendation. "
-        "Reference actual object names and distances.\n\n"
-        "Respond with action final and put your explanation in final_response."
-    )
-
-    try:
-        result = call_llm(
-            state.get("_llm"),
-            prompt,
-            state["messages"],
-            state["tool_catalog"],
-        )
-        explanation = result.get("final_response", "Layout approved and saved.")
-    except Exception:
-        # LLM may return markdown/text instead of JSON — use call_llm_simple
-        # as a fallback to get the raw text response.
-        try:
-            from _runtime.llm import call_llm_simple
-            raw = call_llm_simple(state.get("_llm"), prompt, "Generate the explanation.")
-            if raw and isinstance(raw, dict):
-                explanation = raw.get("final_response", str(raw))
+        if nd.get("clearance_ok") is False:
+            md = nd.get("move_direction")
+            mdist = nd.get("move_distance_m")
+            deficit = nd.get("deficit_m", "?")
+            has_m = nd.get("min_clearance_m")
+            req_m = nd.get("required_clearance_m")
+            detail = f"has {has_m}m clearance, needs {req_m}m" if has_m and req_m else f"deficit {deficit}m"
+            center = nd.get("center")
+            pos_str = f" (currently at x={center[0]:.1f}, y={center[1]:.1f})" if center else ""
+            if md and mdist:
+                issues.append(
+                    f"- {name}{pos_str}: CLEARANCE VIOLATION ({detail}). "
+                    f"Fix: move [{md[0]:+.2f}, {md[1]:+.2f}] by {mdist}m")
             else:
-                explanation = "Layout approved and saved."
-        except Exception as exc2:
-            print(f"[explain] Fallback also failed: {exc2}")
-            explanation = "Layout approved and saved."
-    print(f"\nLayout Explanation:\n{explanation}")
-    return {"final_response": explanation}
+                issues.append(
+                    f"- {name}{pos_str}: CLEARANCE VIOLATION ({detail}). "
+                    f"Reposition away from walls and obstacles.")
 
+        if nd.get("reachable") is False:
+            reasons = []
+            if not nd.get("height_ok", True):
+                reasons.append("height out of reach range")
+            if not nd.get("radius_ok", True):
+                reasons.append("too far from use point")
+            issues.append(
+                f"- {name}: UNREACHABLE ({', '.join(reasons) if reasons else 'blocked'})")
 
-# ---------------------------------------------------------------------------
-# Output node — writes the approved layout to disk and ends the session.
-# ---------------------------------------------------------------------------
+        if nd.get("facing_ok") is False:
+            issues.append(
+                f"- {name}: WRONG FACING (off by {nd.get('angle_diff', '?')}deg)")
 
-def output_node(state: AgentState) -> dict:
-    # Called only after user_approved=True.
-    # Writes the final layout to output/ with a timestamp, then deletes the
-    # workspace session file so the next run starts clean.
-    output_path = close_session(
-        state["workspace_path"],
-        Path(state["workspace_path"]).parent / "output",
-        state["layout_name"],
+    blocks = [(u, v) for u, v, d in G.edges(data=True) if d.get("etype") == "blocks"]
+    for u, v in blocks:
+        un = G.nodes[u].get("name", u)
+        vn = G.nodes[v].get("name", v)
+        issues.append(f"- {un} BLOCKS the functional line of {vn}. Move {un} out of the way.")
+
+    unreachable_paths = [(u, v) for u, v, d in G.edges(data=True)
+                         if d.get("etype") == "path" and not d.get("reachable")]
+    for u, v in unreachable_paths:
+        un = G.nodes[u].get("name", u)
+        vn = G.nodes[v].get("name", v)
+        issues.append(f"- Path from {un} to {vn} is BLOCKED.")
+
+    if not issues:
+        return ""
+
+    adj = state.get("adjustment_count", 0) + 1
+    return (
+        f"SPATIAL GRAPH CORRECTION (attempt {adj}/{MAX_ADJUSTMENTS})\n"
+        f"The analysis found {len(issues)} issue(s) that need fixing:\n\n"
+        + "\n".join(issues) + "\n\n"
+        "Use move_object with the vectors above. "
+        "Do NOT call analysis tools -- they run automatically after placement."
     )
-    print(f"\nLayout saved to: {output_path}")
-    return {"final_response": f"Layout approved and saved to {output_path}"}
+
+
+def enrich_graph_node(state: AgentState) -> dict:
+    """Enrich the spatial graph with analysis tool results.
+
+    Runs after all 5 analysis tools complete (after reachability) and before
+    the group2 routing decision. Adds analysis-derived node attributes and
+    edges, prints ANSI-colored FINDINGS, and injects a correction message
+    into the conversation when violations are found after placement.
+    """
+    graph_data = state.get("spatial_graph")
+    if not graph_data:
+        return {}
+    try:
+        from spatial_graph import (
+            dict_to_graph, enrich_graph_from_analysis,
+            graph_to_dict, serialize_for_llm,
+        )
+        G = dict_to_graph(graph_data)
+        G = enrich_graph_from_analysis(
+            G,
+            state.get("collision_results"),
+            state.get("visibility_results"),
+            state.get("path_results"),
+            state.get("reachability_results"),
+            state.get("orientation_results"),
+        )
+        text = serialize_for_llm(G)
+        print(f"\n[enrich_graph] Spatial graph: {G.number_of_nodes()} nodes, "
+              f"{G.number_of_edges()} edges")
+        if not state.get("object_queue") and not state.get("zone_queue"):
+            print(text)
+
+        # Collect actionable findings for ANSI display
+        # Skip walls (structural, not movable) — their "clearance" is
+        # just wall thickness, not an actionable issue.
+        _skip_ntypes = {"wall"}
+        _findings = []
+        for nid, nd in G.nodes(data=True):
+            if nd.get("ntype") in _skip_ntypes:
+                continue
+            name = nd.get("name", nid)
+            if nd.get("clearance_ok") is False:
+                deficit = nd.get("deficit_m", "?")
+                has_m = nd.get("min_clearance_m")
+                req_m = nd.get("required_clearance_m")
+                detail = f"has {has_m}m, needs {req_m}m" if has_m and req_m else f"deficit {deficit}m"
+                md = nd.get("move_direction")
+                mdist = nd.get("move_distance_m")
+                if md and mdist:
+                    _findings.append(
+                        f"  \033[91mCLEARANCE\033[0m  {name}: {detail} "
+                        f"-> move [{md[0]:+.1f},{md[1]:+.1f}] {mdist}m")
+                else:
+                    _findings.append(f"  \033[91mCLEARANCE\033[0m  {name}: {detail}")
+            if nd.get("reachable") is False:
+                reasons = []
+                if not nd.get("height_ok", True):
+                    reasons.append("height")
+                if not nd.get("radius_ok", True):
+                    reasons.append("radius")
+                _findings.append(
+                    f"  \033[93mUNREACH \033[0m  {name}: "
+                    f"{', '.join(reasons) if reasons else 'blocked'}")
+            if nd.get("facing_ok") is False:
+                _findings.append(
+                    f"  \033[93mFACING  \033[0m  {name}: off by {nd.get('angle_diff', '?')}deg")
+
+        for u, v in [(u, v) for u, v, d in G.edges(data=True) if d.get("etype") == "blocks"]:
+            un = G.nodes[u].get("name", u)
+            vn = G.nodes[v].get("name", v)
+            _findings.append(f"  \033[91mBLOCKS  \033[0m  {un} blocks {vn}")
+
+        for u, v, d in [(u, v, d) for u, v, d in G.edges(data=True)
+                        if d.get("etype") == "path" and not d.get("reachable")]:
+            un = G.nodes[u].get("name", u)
+            vn = G.nodes[v].get("name", v)
+            _findings.append(f"  \033[91mNO PATH \033[0m  {un} -> {vn}: unreachable")
+
+        if _findings:
+            print(f"\n\033[1m[enrich_graph] === FINDINGS ({len(_findings)}) ===\033[0m")
+            for f in _findings:
+                print(f)
+            print()
+        else:
+            print(f"\n\033[92m[enrich_graph] No issues found - all clear\033[0m\n")
+
+        try:
+            from visualize_interactive import update_from_enriched_graph as _update_viz
+            _viz_path = Path(__file__).parent / "view_graph" / "spatial_graph_interactive.html"
+            _carry = set(state.get("viz_highlight_ids") or [])
+            _update_viz(G, output_path=_viz_path, extra_new_ids=_carry)
+            print(f"\033[36m[viz] Interactive graph updated: {_viz_path}\033[0m")
+        except Exception as _e:
+            print(f"[viz] Warning: {_e}")
+
+        updates = {
+            "spatial_graph": graph_to_dict(G),
+            "spatial_graph_text": text,
+        }
+
+        # Inject correction message if findings exist and objects were placed this round.
+        # The router may send the LLM back to reason — this message tells it what to fix.
+        if _findings and state.get("last_placement_result") is not None:
+            correction = _build_correction_message(state, G=G)
+            if correction:
+                updates["messages"] = [{"role": "user", "content": correction}]
+
+        return updates
+    except Exception as exc:
+        print(f"[enrich_graph] Warning: {exc}")
+        return {}
 
 
 # ---------------------------------------------------------------------------
@@ -779,6 +498,16 @@ def build_graph(ctx: Any) -> Any:
     # and return a plain callable that accepts and returns AgentState.
     profile_agent    = build_profile_agent_node(ctx.llm, ctx.knowledge_dir)
     space_type_agent = build_space_type_agent_node(ctx.llm, ctx.knowledge_dir)
+    query_agent      = build_query_agent_node(ctx.mcp_client)
+
+    def query_end_node(state):
+        print("\n[query_agent] Analysis complete — no changes saved.")
+        return {}
+
+    def increment_adjustment_node(state):
+        return {"adjustment_count": state.get("adjustment_count", 0) + 1}
+
+    populate_agent   = build_populate_agent_node(ctx.llm, ctx.knowledge_dir)
     reason           = build_reason_node(ctx.llm)
     tool             = build_tool_node(ctx.mcp_client, ctx.tools, ctx.workspace_path)
     add_objects      = build_add_objects_node(ctx.mcp_client, ctx.workspace_path)
@@ -795,7 +524,11 @@ def build_graph(ctx: Any) -> Any:
     # Register every node so it can be referenced by name in edge wiring.
     graph.add_node("profile_agent",    profile_agent)
     graph.add_node("space_type_agent", space_type_agent)
+    graph.add_node("query_agent",      query_agent)
+    graph.add_node("query_end",        query_end_node)
     graph.add_node("reason",           reason)
+    graph.add_node("increment_adjustment", increment_adjustment_node)
+    graph.add_node("populate_agent",   populate_agent)
     graph.add_node("tool",             tool)
     graph.add_node("add_objects",      add_objects)
     graph.add_node("analysis_fan_out", analysis_fan_out_node)
@@ -805,8 +538,127 @@ def build_graph(ctx: Any) -> Any:
     graph.add_node("orientation",      orientation)
     graph.add_node("collision",        collision)
     graph.add_node("group1_join",      group1_join_node)
+    graph.add_node("enrich_graph",     enrich_graph_node)
     graph.add_node("scoring",          scoring)
     graph.add_node("user_checkpoint",  user_checkpoint)
+    from prompts import POPULATE_COORDS_PROMPT as _COORDS_PROMPT
+    from _runtime.llm import call_llm_simple as _call_llm_simple
+    import json as _json_z
+
+    _SUPPORT_KW = {"office","meeting","restroom","toilet","utility",
+                   "corridor","hallway","stair","server","break",
+                   "canteen","lobby","reception"}
+
+    def next_zone_node(state: dict) -> dict:
+        zone_queue = list(state.get("zone_queue") or [])
+        while zone_queue and any(
+            kw in zone_queue[0].get("zone_name","").lower()
+            for kw in _SUPPORT_KW
+        ):
+            print(f"[zone] Skipping support room: {zone_queue[0]['zone_name']}")
+            zone_queue = zone_queue[1:]
+        if not zone_queue:
+            print("[zone] No more functional zones.")
+            return {"zone_queue": [], "object_queue": []}
+        next_plan = zone_queue[0]
+        remaining = zone_queue[1:]
+        zone_name = next_plan.get("zone_name", "")
+        try:
+            layout = _json_z.loads(state.get("layout_json_string", "{}"))
+        except Exception:
+            layout = {}
+        rooms = layout.get("rooms", [])
+        room  = next((r for r in rooms if r.get("name") == zone_name), None)
+        if not room:
+            print(f"[zone] Room '{zone_name}' not found — skipping")
+            return next_zone_node({**state, "zone_queue": zone_queue[1:]})
+        geom = room.get("geometry", [])
+        xs = [p[0] for p in geom]
+        ys = [p[1] for p in geom]
+        space_config      = state.get("space_config") or {}
+        placement_profile = state.get("placement_profile") or {}
+        actual_profile    = placement_profile.get("profile_type","standard_worker")
+        objects    = next_plan.get("objects", [])
+        has_coords = bool(objects) and "objects_list" in objects[0]
+        if has_coords:
+            zone_placements = objects
+        else:
+            print(f"[zone] Calculating coordinates for: {zone_name} ({len(objects)} objects)")
+            from nodes.populate_agent import calculate_zone_coordinates
+
+            room_summary = {
+                "bounds": {
+                    "min_x": round(min(xs),2), "max_x": round(max(xs),2),
+                    "min_y": round(min(ys),2), "max_y": round(max(ys),2),
+                },
+                "width": round(max(xs)-min(xs),2),
+                "depth": round(max(ys)-min(ys),2),
+            }
+
+            doors   = layout.get("doors", [])
+            windows = layout.get("windows", [])
+            mep     = layout.get("mep", [])
+
+            def _door_mid(d):
+                g = d.get("geometry", [])
+                if len(g) >= 2: return [(g[0][0]+g[1][0])/2, (g[0][1]+g[1][1])/2]
+                return d.get("position", [0, 0])
+
+            def _is_load(d):
+                l = (d.get("name","") + d.get("type","")).lower()
+                return any(k in l for k in ("load","dock","freight","cargo"))
+
+            door_info = {
+                "loading_doors":   [{"name": d.get("name",""), "midpoint": _door_mid(d)} for d in doors if _is_load(d)],
+                "personnel_doors": [{"name": d.get("name",""), "midpoint": _door_mid(d)} for d in doors if not _is_load(d)],
+            }
+            window_midpoints = [
+                [(w["geometry"][0][0]+w["geometry"][1][0])/2,
+                 (w["geometry"][0][1]+w["geometry"][1][1])/2]
+                for w in windows if len(w.get("geometry",[]))>=2
+            ]
+            mep_info = []
+            for m in mep:
+                g = m.get("geometry", [])
+                if g:
+                    mxs = [p[0] for p in g]; mys = [p[1] for p in g]
+                    mep_info.append({
+                        "name": m.get("name",""),
+                        "system": m.get("system",""),
+                        "center": [sum(mxs)/len(mxs), sum(mys)/len(mys)],
+                    })
+
+            zone_placements = calculate_zone_coordinates(
+                ctx.llm,
+                zone_name,
+                next_plan.get("zone_function", "production"),
+                room_summary,
+                objects,
+                space_config.get("clearance", 1.2),
+                actual_profile,
+                door_info,
+                window_midpoints,
+                mep_info,
+            )
+        if not zone_placements:
+            print(f"[zone] No placements for '{zone_name}' — skipping")
+            if remaining:
+                return next_zone_node({**state, "zone_queue": remaining})
+            return {"zone_queue": [], "object_queue": []}
+        print(f"[zone_debug] Final zone_placements count: {len(zone_placements)}")
+        print(f"[zone_debug] Returning object_queue with {len(zone_placements)} items")
+        print(f"[zone] Advancing to: {zone_name} ({len(zone_placements)} objects)")
+        return {
+            "object_to_place":   {},
+            "object_queue":      zone_placements,
+            "zone_queue":        remaining,
+            "current_zone":      zone_name,
+            "user_approved":     None,
+            "adjustment_count":  0,
+            "placement_history": [],
+        }
+
+    graph.add_node("next_zone", next_zone_node)
     graph.add_node("explain",          explain_node)
     graph.add_node("output",           output_node)
 
@@ -814,25 +666,62 @@ def build_graph(ctx: Any) -> Any:
     # and resolve the user accessibility profile before the LLM sees anything.
     graph.add_edge(START, "profile_agent")
     graph.add_edge("profile_agent", "space_type_agent")
-    graph.add_edge("space_type_agent", "reason")
+    def populate_check_node(state):
+        return {}
+
+    graph.add_node("populate_check", populate_check_node)
+    graph.add_edge("space_type_agent", "populate_check")
+
+    def _route_after_populate_check(state):
+        if state.get("populate_done"):
+            return "reason"
+        msg = state.get("messages", [])
+        if msg:
+            last = msg[-1]
+            last_msg = last.content if hasattr(last, "content") else last.get("content", "")
+        else:
+            last_msg = ""
+        keywords = ["populate", "fill", "set up", "setup", "generate layout"]
+        if any(k in last_msg.lower() for k in keywords):
+            return "populate_agent"
+        return "reason"
+
+    graph.add_conditional_edges(
+        "populate_check", _route_after_populate_check,
+        {"populate_agent": "populate_agent", "reason": "reason"},
+    )
+    graph.add_edge("populate_agent", "reason")
 
     # Reason routes to: place an object, execute a tool, or move to analysis.
     # "finish" goes to analysis_fan_out which triggers all Group 1 nodes in parallel.
     graph.add_conditional_edges(
         "reason", _route_after_reason,
         {
-            "add_objects":  "add_objects",
-            "run_tool":     "tool",
-            "finish":       "analysis_fan_out",
+            "add_objects":    "add_objects",
+            "query_agent":    "query_agent",
+            "run_tool":       "tool",
+            "finish":         "analysis_fan_out",
         },
     )
 
     # Tool result is fed back to reason so the LLM can interpret it.
     graph.add_edge("tool", "reason")
 
+    # Query agent bypasses placement pipeline — goes to a no-save terminal.
+    graph.add_edge("query_agent", "user_checkpoint")
+    graph.add_edge("query_end",   END)
+
     # After a placement, go through the same analysis fan-out node
     # so both paths (placement and direct finish) trigger the same parallel group.
-    graph.add_edge("add_objects", "analysis_fan_out")
+    def _route_after_add_objects(state):
+        if state.get("object_queue"):
+            return "reason"
+        return "analysis_fan_out"
+
+    graph.add_conditional_edges(
+        "add_objects", _route_after_add_objects,
+        {"reason": "reason", "analysis_fan_out": "analysis_fan_out"}
+    )
 
     # analysis_fan_out fans out to all three Group 1 nodes in parallel.
     graph.add_edge("analysis_fan_out", "collision")
@@ -845,26 +734,35 @@ def build_graph(ctx: Any) -> Any:
     graph.add_edge("visibility",  "group1_join")
     graph.add_edge("orientation", "group1_join")
 
-    # group1_join checks collision results — hard violations route back to reason.
+    # group1_join checks collision results — hard violations route back to reason
+    # via increment_adjustment so adjustment_count stays accurate.
     graph.add_conditional_edges(
         "group1_join", _route_after_group1,
-        {"adjust": "reason", "continue": "path"},
+        {"adjust": "increment_adjustment", "drain": "reason", "continue": "path"},
     )
+    graph.add_edge("increment_adjustment", "reason")
 
-    # Group 2: path then reachability; poor connectivity sends back to reason.
+    # Group 2: path → reachability → enrich_graph → routing decision.
+    # enrich_graph runs BEFORE _route_after_group2 so the spatial graph has
+    # all analysis data when the router (and _build_correction_message) reads it.
     graph.add_edge("path", "reachability")
+    graph.add_edge("reachability", "enrich_graph")
     graph.add_conditional_edges(
-        "reachability", _route_after_group2,
+        "enrich_graph", _route_after_group2,
         {"adjust": "reason", "continue": "scoring"},
     )
 
     # Scoring aggregates all results and triggers the human approval step.
     graph.add_edge("scoring", "user_checkpoint")
 
+    # Zone advance: after checkpoint approves a zone, load the next one into reason.
+    graph.add_edge("next_zone", "reason")
+
     # User checkpoint: approve → explain → output; otherwise loop back for changes.
     graph.add_conditional_edges(
         "user_checkpoint", _route_after_checkpoint,
-        {"approved": "explain", "continue": "reason"},
+        {"approved": "explain", "continue": "reason",
+         "query_done": "query_end", "next_zone": "next_zone"},
     )
 
     # Explain runs once after approval; output writes the file and ends the session.
@@ -897,41 +795,32 @@ def run_agent(prompt: str, ctx: Any) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Helpers — _slim_layout and _format_tool_catalog live in _runtime/utils.py
 # ---------------------------------------------------------------------------
-
-def _slim_layout(layout_data: dict) -> dict:
-    # Send only what the LLM needs for spatial reasoning.
-    # Windows, MEP, and structure are stripped to reduce tokens — they matter
-    # for visualization and engineering but not for object placement decisions.
-    return {
-        "layoutId": layout_data.get("layoutId"),
-        "rooms": [
-            {
-                "id":       r.get("id"),
-                "name":     r.get("name"),
-                "geometry": r.get("geometry"),
-            }
-            for r in layout_data.get("rooms", [])
-        ],
-        "doors": [
-            {
-                "id":       d.get("id"),
-                "name":     d.get("name"),
-                "geometry": d.get("geometry"),
-                "connects": d.get("attributes", {}).get("connectsRooms", []),
-            }
-            for d in layout_data.get("doors", [])
-        ],
-        "furniture": layout_data.get("furniture", []),
-    }
-
 
 def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
     # The user message embeds a slim version of the layout JSON to keep the
     # LLM context lean. But layout_json_string stores the FULL layout because
     # MCP tools (collision-detector-grid, visualize_visibility) need all fields
     # (outline, structure, mep) that _slim_layout strips.
+
+    # Build the initial spatial graph from the base layout (geometry only,
+    # no furniture placed yet). Gives the LLM room topology from the first turn.
+    from spatial_graph import build_graph_from_layout, graph_to_dict, serialize_for_llm
+    _sg = build_graph_from_layout(ctx.layout_data)
+    _sg_dict = graph_to_dict(_sg)
+    _sg_text = serialize_for_llm(_sg)
+    print(f"\n[spatial_graph] Initial graph: {_sg.number_of_nodes()} nodes, "
+          f"{_sg.number_of_edges()} edges")
+    print(_sg_text)
+    try:
+        from visualize_interactive import build_interactive_graph as _viz, http_url as _http_url
+        _viz_path = Path(__file__).parent / "view_graph" / "spatial_graph_interactive.html"
+        _viz(_sg, title=f"Spatial Graph — {ctx.layout_name}", output_path=_viz_path)
+        print(f"\033[36m[viz] Interactive graph: {_http_url(_viz_path)}\033[0m")
+    except Exception as _e:
+        print(f"[viz] Warning: {_e}")
+
     slim = _slim_layout(ctx.layout_data)
     layout_text = json.dumps(slim, indent=2)
     user_message = (
@@ -953,6 +842,7 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
         "space_config":          None,
         "profile_config":        None,
         "object_to_place":       None,
+        "object_queue":          [],
         "last_placement_result": None,
         "visibility_results":    None,
         "path_results":          None,
@@ -967,14 +857,14 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
         "previous_scoring":      None,
         "original_layout":       ctx.layout_data,
         "_llm":                  ctx.llm,
+        "_query_mode":           None,
+        "spatial_graph":         _sg_dict,
+        "spatial_graph_text":    _sg_text,
+        "viz_highlight_ids":     [],   # clear highlights on each new request
+        "populate_done":         None,
+        "placement_profile":     None,
+        "zone_queue":            [],
+        "current_zone":          None,
     }
 
 
-def _format_tool_catalog(tools: list[dict[str, Any]]) -> str:
-    lines = []
-    for tool in tools:
-        name = tool.get("name", "<unknown>")
-        description = tool.get("description", "")
-        schema = json.dumps(tool.get("inputSchema", {}))
-        lines.append(f"- {name}: {description} | inputSchema={schema}")
-    return "\n".join(lines)

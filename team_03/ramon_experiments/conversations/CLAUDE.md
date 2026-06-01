@@ -23,6 +23,7 @@ main.py  →  graph.py (LangGraph)  →  nodes/profile_agent.py    (user profili
                                   →  graph.py: user_checkpoint   (human approval gate)
                                   →  graph.py: explain_node      (LLM summary generation)
                                   →  graph.py: output_node       (save final layout)
+                                  →  visualize_interactive.py    (live HTML graph visualizer)
                                   →  _runtime/mcp_client.py → Grasshopper (Swiftlet @ localhost:3002)
                                   →  _runtime/session.py         (workspace session lifecycle)
 ```
@@ -66,7 +67,7 @@ START → profile_agent → space_type_agent → reason
 ```
 
 - **`main.py`** — CLI entry point, takes a prompt and `--layout <name>` argument
-- **`graph.py`** — Phase 3 LangGraph StateGraph with parallel analysis groups, conditional routing, user checkpoint, and output pipeline. Contains `AgentState` (TypedDict with `_keep_last` reducers for parallel writes), routing functions, `build_user_checkpoint_node(mcp_client)` (factory with viewport toggles + smart suggestions), `explain_node`, and `output_node`. `layout_json_string` stores the **full** layout (all 7 layers) for MCP tools; `_slim_layout` is used only in the LLM prompt message to save tokens. The checkpoint node features:
+- **`graph.py`** — Phase 3 LangGraph StateGraph with parallel analysis groups, conditional routing, user checkpoint, and output pipeline. Contains `AgentState` (TypedDict with `_keep_last` reducers for parallel writes, includes `viz_highlight_ids: Annotated[list[str] | None, _keep_last]` for carrying highlight state across pipeline steps), routing functions, `build_user_checkpoint_node(mcp_client)` (factory with viewport toggles + smart suggestions), `explain_node`, and `output_node`. Generates interactive graph visualization at startup (`_build_initial_state`) and updates it after enrichment (`enrich_graph_node` passes carry-over IDs via `update_from_enriched_graph`). `layout_json_string` stores the **full** layout (all 7 layers) for MCP tools; `_slim_layout` is used only in the LLM prompt message to save tokens. The checkpoint node features:
   - **Viewport toggles:** `1`=BEFORE, `2`=AFTER (disabled if no changes), `3`=collision overlay, `4`=visibility overlay, `5`=path overlay, `0`=clear overlays. Overlays (3/4/5) use `collision-detector-grid` as layout base (always works) + the analysis tool on top. Tracks which layout is "active" (before/after) — overlays apply to the active layout.
   - **Smart suggestions:** Auto-generated `s1`..`s5` prompts based on lowest-scoring tools. Mentions specific furniture names from collision violations. Selecting a suggestion sends it as a user instruction to the reason node.
   - **Score comparison:** ANSI-colored output with ▲/▼ deltas vs previous checkpoint visit. Per-tool breakdown with color coding (green >=80, yellow 50-79, red <50).
@@ -76,7 +77,8 @@ START → profile_agent → space_type_agent → reason
 - **`nodes/space_type_agent.py`** — LLM-based node that detects space type (residential/industrial) and outputs analysis priorities, clearances, and tool weights using RAG knowledge base
 - **`nodes/reason.py`** — calls the LLM with system prompt + profile/space context + conversation history, decides next action. Sets `object_to_place`, `pending_tool_calls`, or `final_response` to control routing.
 - **`nodes/tools.py`** — executes MCP tool calls, injects `layout_json` into every call
-- **`nodes/add_objects.py`** — places objects via MCP `place_objects` tool. Parses LLM's compact string format (`name:WxDxH:x=X,y=Y`) into JSON arrays. Saves session after each placement.
+- **`visualize_interactive.py`** — Live interactive graph visualizer (Apple-minimalist aesthetic). Generates raw HTML + vis.js 9.1.2 with: fixed architectural node positions (no physics), dark/light theme toggle, clickable legend filtering, detail panel on node click (metadata, type description, connected neighbors), draggable nodes with spring snap-back animation, live auto-refresh via embedded HTTP server (port 7477) with smart change detection (PAGE_TS comparison) and dual-mode fallback (adaptive backoff for `file://` origins). Includes `build_interactive_graph()` (main API, accepts layout dict or nx.MultiGraph), `update_from_enriched_graph()` (marks enrichment edges as new, merges carry-over highlight IDs), `_ensure_server()` (background HTTP daemon with CORS), and `http_url()` (returns browsable URL). Output: `view_graph/spatial_graph_interactive.html`.
+- **`nodes/add_objects.py`** — places objects via MCP `place_objects` tool. Parses LLM's compact string format (`name:WxDxH:x=X,y=Y`) into JSON arrays. Saves session after each placement. After placement, rebuilds spatial graph and regenerates interactive HTML visualization with new/moved furniture highlighted via `viz_highlight_ids`.
 - **`nodes/collision.py`** — Pure Python grid-based collision analysis (no Rhino dependency). Rasterizes layout onto grid, computes BFS distance field, checks clearance thresholds, door widths, turning radii, use_point clearance/reachability, functional_line obstruction. Also pushes visualization to GH via MCP.
 - **`nodes/visibility.py`** — Line-of-sight analysis using Shapely. Mode 1 (no objects): room-to-room centroids. Mode 2 (objects placed): use_point to functional_point pairs within same room.
 - **`nodes/path_analysis.py`** — Mode 1 (no furniture): BFS through door graph between all room pairs with polylabel interior points. Mode 2 (furniture): A* on per-room 2D grid between object centroids. Reports worst-case egress distance.
@@ -273,6 +275,56 @@ Defined in `nodes/profile_agent.py` → `DEFAULT_PROFILES`. Detected automatical
 | `LAYOUT_FILE` | Layout name (env alternative to `--layout` CLI arg) | — |
 
 **Important:** Grasshopper tool calls (especially `shortest_path`, `collision_detector_sphere`) can take >2 minutes. Set `REQUEST_TIMEOUT_SECONDS=300` or higher.
+
+## Interactive Graph Visualizer (`visualize_interactive.py`)
+
+Live HTML visualization of the spatial graph with Apple-minimalist aesthetic. Generates raw HTML + vis.js 9.1.2 (no pyvis dependency).
+
+### Features
+
+| Feature | Description |
+|---------|-------------|
+| **Architectural positions** | Nodes placed at real layout coordinates (flipped Y), not force-directed. `physics: false`, `fixed: true` |
+| **Dark/Light theme** | Toggle button (top-right), persists in `localStorage`. CSS custom properties + glass-morphism panels |
+| **Legend filtering** | Click legend items to filter by type (shift-click for multi-select). Non-matching elements fade to 8% opacity |
+| **Detail panel** | Click any node to open right-side panel with: type chip, all metadata attributes, type description, connected neighbors (clickable to navigate) |
+| **Drag snap-back** | Nodes are draggable but spring back to original position on release (550ms ease-out cubic animation via `requestAnimationFrame`) |
+| **New element highlights** | Recently added/changed elements get blue `#007AFF` border that fades after 4s. "new" badge on highlighted nodes |
+| **Live auto-refresh** | Active by default. Dual-mode: HTTP smart detection (compares `PAGE_TS` timestamp via `fetch()`) or blind `location.reload()` fallback with adaptive backoff (2-10s via `sessionStorage`) |
+| **HTTP server** | Background daemon on port 7477 with CORS `*` and `Cache-Control: no-store`. Started automatically by `_ensure_server()` |
+| **Viewport preservation** | Zoom/pan state saved to `sessionStorage` before reload, restored via `network.moveTo()` |
+
+### How to open
+
+```bash
+# Best: via CLI (starts HTTP server, keeps it alive)
+cd team_03/python
+python visualize_interactive.py --session
+# Opens http://127.0.0.1:7477/spatial_graph_interactive.html
+
+# Alternative: double-click view_graph/spatial_graph_interactive.html
+# Uses file:// protocol — live refresh falls back to blind reload with adaptive backoff
+```
+
+### Pipeline integration
+
+The graph auto-updates at three points:
+1. **Startup** (`_build_initial_state` in `graph.py`): generates initial HTML from base layout
+2. **After placement** (`add_objects.py`): rebuilds graph, highlights new/moved furniture via `viz_highlight_ids`
+3. **After enrichment** (`enrich_graph_node` in `graph.py`): marks enrichment edges as new, merges carry-over highlights from `viz_highlight_ids`
+
+### Node color palette (muted, low saturation)
+
+| Type | Dark | Light | Radius |
+|------|------|-------|--------|
+| room | `#6B9BD2` | `#4A7FB5` | 14 |
+| door | `#D4A574` | `#B8865A` | 9 |
+| wall | `#8B9DAF` | `#6B7D8F` | 8 |
+| window | `#7BC4C4` | `#5AA8A8` | 8 |
+| furniture | `#7DB87D` | `#5A9B5A` | 11 |
+| mep | `#C47070` | `#A85050` | 10 |
+
+All nodes use `shape: "dot"` (uniform circles). Edges at 40% opacity, 0.8px width.
 
 ## Known Issues & Fixes
 
@@ -509,6 +561,11 @@ team_03/
       general/                      # ADA, Neufert — universal accessibility data
       residential/                  # Residential-specific clearances
       industrial/                   # OSHA, ISO — industrial safety data
+    view_graph/
+      spatial_graph_interactive.html  # Generated live HTML graph (auto-updated by pipeline)
+      lib/vis-9.1.2/                  # Local vis.js 9.1.2 (network + CSS)
+      lib/bindings/                   # vis.js bindings utilities
+      lib/tom-select/                 # Tom Select library
     _runtime/
       bootstrap.py                  # Context dataclass, session init, MCP connect, LLM build
       config.py

@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "Swiftlet": {
+      "command": "C:\\Users\\MOHA9808\\AppData\\Roaming\\McNeel\\Rhinoceros\\packages\\8.0\\swiftlet\\0.2.0\\SwiftletBridge.exe",
+      "args": [
+        "http://localhost:3001/mcp/"
+      ]
+    }
+  }
+}
