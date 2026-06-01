@@ -67,6 +67,9 @@ _DEFAULTS = {
     "drawn_area": None,
     "step": 0,
     "building_shape": None,
+    "building_function": None,
+    "building_floors": None,
+    "building_trees": 0,
     "mesh_vertices": [],
     "mesh_faces": [],
     "mesh_options": [],
@@ -82,6 +85,109 @@ _DEFAULTS = {
 for _k, _v in _DEFAULTS.items():
     if _k not in st.session_state:
         st.session_state[_k] = _v
+
+def _get_site_bbox() -> dict[str, float]:
+    """Return a fallback site bounding box around the current site coordinates."""
+    delta = 0.05
+    lat = st.session_state.site_lat
+    lon = st.session_state.site_lon
+    return {
+        "south": lat - delta,
+        "north": lat + delta,
+        "west": lon - delta,
+        "east": lon + delta,
+    }
+
+
+def _load_model_info() -> dict[str, str]:
+    """Load LLM and MCP settings from available project configuration."""
+    if _py_workflow_available:
+        try:
+            s = _load_design_settings()
+            return {
+                "provider": s.llm_provider,
+                "model": s.llm_model,
+                "api_key": s.api_key,
+                "base_url": s.base_url,
+                "mcp_endpoint": s.mcp_endpoint,
+            }
+        except Exception:
+            pass
+    if _agent_available:
+        try:
+            s = _load_agent_settings()
+            return {
+                "provider": s.llm_provider,
+                "model": s.llm_model,
+                "api_key": s.api_key,
+                "base_url": s.base_url,
+                "mcp_endpoint": s.mcp_endpoint,
+            }
+        except Exception:
+            pass
+    return {
+        "provider": "n/a",
+        "model": "unknown",
+        "api_key": "",
+        "base_url": "",
+        "mcp_endpoint": "",
+    }
+
+
+def _site_polygon_latlon() -> tuple[list[float], list[float]]:
+    """Return site polygon coordinates as (lons, lats)."""
+    drawn = st.session_state.drawn_area
+    if drawn:
+        coords = drawn
+        if isinstance(coords, dict):
+            if "features" in coords:
+                features = coords.get("features") or []
+                if features:
+                    coords = features[0].get("geometry") or coords
+            if isinstance(coords, dict) and "coordinates" in coords:
+                coords = coords["coordinates"]
+        # Flatten nested coordinate lists, if needed
+        while isinstance(coords, list) and coords and isinstance(coords[0], list) and isinstance(coords[0][0], list):
+            coords = coords[0]
+        if isinstance(coords, list) and coords and isinstance(coords[0], (list, tuple)) and len(coords[0]) >= 2:
+            first = coords[0]
+            lon0, lat0 = first[0], first[1]
+            if abs(lat0 - st.session_state.site_lat) < abs(lon0 - st.session_state.site_lat):
+                # Preserve lat/lon order if the first value is closer to site latitude
+                lats = [c[0] for c in coords]
+                lons = [c[1] for c in coords]
+            else:
+                lons = [c[0] for c in coords]
+                lats = [c[1] for c in coords]
+            if len(lons) > 0 and len(lats) > 0:
+                return lons, lats
+    # fallback to a simple square around site center
+    lat = st.session_state.site_lat
+    lon = st.session_state.site_lon
+    delta = 0.02
+    return (
+        [lon - delta, lon + delta, lon + delta, lon - delta, lon - delta],
+        [lat - delta, lat - delta, lat + delta, lat + delta, lat - delta],
+    )
+
+
+def _site_area_sqm() -> float:
+    """Return the site area in square meters."""
+    lons, lats = _site_polygon_latlon()
+    if len(lons) < 3 or len(lats) < 3:
+        return 400.0
+    clat = sum(lats) / len(lats)
+    clon = sum(lons) / len(lons)
+    cos_lat = math.cos(math.radians(clat))
+    pts = [((lon - clon) * cos_lat * 111320, (lat - clat) * 111320)
+           for lon, lat in zip(lons, lats)]
+    area = abs(sum(
+        x0 * y1 - x1 * y0
+        for (x0, y0), (x1, y1) in zip(pts, pts[1:] + pts[:1])
+    )) / 2.0
+    return max(area, 400.0)
+
+
 def _check_mcp_alive():
     """Return True if MCP endpoint responds to initialize request."""
     mi = _load_model_info()
@@ -982,7 +1088,7 @@ with left_col:
         folium.GeoJson(st.session_state.drawn_area, style_function=lambda _: {
             "color":"#111111","weight":1.5,"fillColor":"#111111","fillOpacity":0.06}).add_to(_m)
     else:
-        b = cad_bbox
+        b = _get_site_bbox()
         folium.Rectangle(
             bounds=[[b["south"],b["west"]],[b["north"],b["east"]]],
             color="#aaaaaa", weight=1, fill=True, fill_color="#aaaaaa",
@@ -1204,15 +1310,14 @@ with main_col:
             label_visibility="collapsed",
             placeholder=_placeholder,
         )
+        import re as _re
+        _opts = st.session_state.get("mesh_options", [])
+        _inp = _chat_input.strip()
         _chat_submitted = st.form_submit_button("→ send")
-        if _chat_submitted and _chat_input.strip():
-            import re as _re
-            _inp = _chat_input.strip()
-            _opts = st.session_state.get("mesh_options", [])
 
-        # ── Option selection handling ────────────────────────────────────
+        # ── Option selection handling ──────────────────────────────────
         _sel_idx = None
-        if _opts:
+        if _chat_submitted and _inp and _opts:
             _lo = _inp.lower()
             for _n, _pat in [
                 (0, r'\boption\s*1\b|option\s*one\b|first\b|birinci\b'),
