@@ -2,7 +2,7 @@
   <div id="app">
     <div class="app-layout">
       <Sidebar :tab="tab" @change="tab = $event" :parsedInput="parsedInput" :history="layoutHistory" :agentState="agentState" @restore="handleRestore" />
-      <WorkSpace :agentState="agentState" @layoutLoaded="handleLayoutLoaded" />
+      <WorkSpace :agentState="agentState" :parsedInput="parsedInput" @layoutLoaded="handleLayoutLoaded" />
       <ChatPanel :chat="chatHistory" @send="handleUserMessage" @newChat="handleNewChat" />
     </div>
   </div>
@@ -35,6 +35,7 @@ function handleLayoutLoaded(json) {
       attributes: json.apartment?.attributes || {}
     }
     layoutHistory.value.push({ ...agentState.value, _savedAt: new Date().toISOString() })
+    if (layoutHistory.value.length > 15) layoutHistory.value.shift()
   } else {
     // File cleared — remove layout
     agentState.value = null
@@ -50,6 +51,7 @@ function applyAgentResponse(response) {
   if (response.layout) {
     agentState.value = response.layout
     layoutHistory.value.push({ ...response.layout, _savedAt: new Date().toISOString() })
+    if (layoutHistory.value.length > 15) layoutHistory.value.shift()
   }
   chatHistory.value.push({
     id: Date.now(),

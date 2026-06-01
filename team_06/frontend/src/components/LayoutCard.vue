@@ -1,12 +1,41 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { getDaylightColor, formatDaylight, PROGRAM_COLORS } from '../utils/roomAnalysis.js'
+import { ROUTINE_TIMES } from '../mock/agentMock.js'
 
 const props = defineProps({
-  layout: { type: Object, default: null },
-  viewMode: { type: String, default: 'layout' }
+  layout:      { type: Object, default: null },
+  viewMode:    { type: String, default: 'layout' },
+  routine:     { type: Array,  default: null },   // parsedInput.routine
 })
+
+const emit = defineEmits(['activeRoomsChange', 'timeStepChange'])
+
 const issues = []
+
+const activeStep = ref(0)
+
+// Reset slider when routine changes or viewMode switches to routine
+watch(() => [props.routine, props.viewMode], () => { activeStep.value = 0 })
+
+// { roomId: [{ color, name }, ...] } for the current step
+const activeRooms = computed(() => {
+  if (props.viewMode !== 'routine' || !props.routine) return {}
+  const map = {}
+  for (const p of props.routine) {
+    const roomId = p.steps?.[activeStep.value]
+    if (roomId != null) {
+      if (!map[roomId]) map[roomId] = []
+      map[roomId].push({ color: p.color, name: p.persona })
+    }
+  }
+  return map
+})
+
+// Emit whenever activeRooms changes so WorkSpace can pass it to LayoutCanvas
+watch(activeRooms, (val) => emit('activeRoomsChange', val), { immediate: true })
+// Emit step index so WorkSpace can pass it to LayoutCanvas for time-of-day colour
+watch(activeStep, (val) => emit('timeStepChange', val), { immediate: true })
 
 const hasDaylight = computed(() =>
   (props.layout?.rooms ?? []).some(r => r.attributes?.daylight != null)
@@ -20,6 +49,11 @@ const displayId = computed(() => {
   const id = props.layout?.layoutId || 'Layout'
   return id.length > 10 ? id.slice(0, 10) + '…' : id
 })
+
+function roomNameForId(id) {
+  const r = props.layout?.rooms?.find(r => String(r.id) === String(id))
+  return r ? (r.name || r.attributes?.program || id) : id
+}
 </script>
 
 <template>
@@ -28,8 +62,33 @@ const displayId = computed(() => {
       <!-- Title always shown -->
       <div class="layout-summary-title">{{ displayId }}</div>
 
+      <!-- ROUTINE MODE -->
+      <template v-if="props.viewMode === 'routine'">
+        <template v-if="routine">
+          <div class="routine-time-label">{{ ROUTINE_TIMES[activeStep] }}</div>
+          <input
+            class="routine-slider"
+            type="range"
+            min="0"
+            :max="ROUTINE_TIMES.length - 1"
+            step="1"
+            v-model.number="activeStep"
+          />
+          <ul class="layout-summary-list routine-persona-list">
+            <li v-for="p in routine" :key="p.persona" class="layout-summary-room-row">
+              <span class="room-swatch" :style="{ background: p.color }"></span>
+              <span class="routine-persona-name">{{ p.persona }}</span>
+              <span class="routine-persona-room">{{ roomNameForId(p.steps?.[activeStep]) ?? '–' }}</span>
+            </li>
+          </ul>
+        </template>
+        <template v-else>
+          <span class="no-rooms-tag">No routine yet</span>
+        </template>
+      </template>
+
       <!-- DAYLIGHT MODE -->
-      <template v-if="props.viewMode === 'daylight'">
+      <template v-else-if="props.viewMode === 'daylight'">
         <template v-if="hasDaylight">
           <div class="layout-summary-area">
             {{ (props.layout.rooms.reduce((sum, r) => sum + (r.attributes?.daylight ?? 0), 0) / props.layout.rooms.length).toFixed(2) }}<span style="font-size:1.1rem;font-weight:400;"> avg DA</span>
@@ -145,5 +204,44 @@ const displayId = computed(() => {
   font-size: var(--font-size-standard);
   color: var(--color-text-secondary);
   font-style: italic;
+}
+.routine-time-label {
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-blue);
+  margin-bottom: 8px;
+}
+.routine-slider {
+  width: 100%;
+  accent-color: var(--color-blue);
+  margin-bottom: 4px;
+  cursor: pointer;
+}
+.routine-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.routine-tick {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.routine-tick.active {
+  color: var(--color-blue);
+  font-weight: 600;
+}
+.routine-persona-list {
+  margin-top: 4px;
+}
+.routine-persona-name {
+  flex: 1;
+  color: var(--color-text-secondary);
+}
+.routine-persona-room {
+  color: var(--color-text-primary);
+  font-weight: 500;
+  font-size: var(--font-size-standard);
 }
 </style>

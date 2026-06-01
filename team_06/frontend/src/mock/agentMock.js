@@ -35,14 +35,14 @@
 // Overflow rooms tile below y=7, staying attached to the footprint.
 
 const ROOM_GEO = {
-  'Kitchen':     { geometry: [[0,0],[0,4],[4,4],[4,0],[0,0]],     attributes: { program: 'kitchen', area: 16, daylight: 0.44 } },
-  'Bedroom':     { geometry: [[4,0],[4,4],[10,4],[10,0],[4,0]],   attributes: { program: 'bed',     area: 24, daylight: 0.41 } },
-  'Bedroom 1':   { geometry: [[4,0],[4,4],[7,4],[7,0],[4,0]],     attributes: { program: 'bed',     area: 12, daylight: 0.38 } },
-  'Bedroom 2':   { geometry: [[7,0],[7,4],[10,4],[10,0],[7,0]],   attributes: { program: 'bed',     area: 12, daylight: 0.43 } },
-  'Bedroom 3':   { geometry: [[4,0],[4,2],[10,2],[10,0],[4,0]],   attributes: { program: 'bed',     area:  8, daylight: 0.35 } },
-  'Study':       { geometry: [[10,0],[10,4],[13,4],[13,0],[10,0]], attributes: { program: 'study',   area: 12, daylight: 0.51 } },
-  'Living': { geometry: [[0,4],[0,7],[10,7],[10,4],[0,4]],   attributes: { program: 'living',  area: 30, daylight: 0.53 } },
-  'Bathroom':    { geometry: [[10,4],[10,7],[13,7],[13,4],[10,4]], attributes: { program: 'bath',    area:  9, daylight: 0.14 } },
+  'Kitchen':     { geometry: [[0,0],[0,4],[4,4],[4,0],[0,0]],     attributes: { program: 'kitchen', area: 16, daylight: 4.4 } },
+  'Bedroom':     { geometry: [[4,0],[4,4],[10,4],[10,0],[4,0]],   attributes: { program: 'bed',     area: 24, daylight: 4.1 } },
+  'Bedroom 1':   { geometry: [[4,0],[4,4],[7,4],[7,0],[4,0]],     attributes: { program: 'bed',     area: 12, daylight: 3.8 } },
+  'Bedroom 2':   { geometry: [[7,0],[7,4],[10,4],[10,0],[7,0]],   attributes: { program: 'bed',     area: 12, daylight: 4.3 } },
+  'Bedroom 3':   { geometry: [[4,0],[4,2],[10,2],[10,0],[4,0]],   attributes: { program: 'bed',     area:  8, daylight: 3.5 } },
+  'Study':       { geometry: [[10,0],[10,4],[13,4],[13,0],[10,0]], attributes: { program: 'study',   area: 12, daylight: 5.0 } },
+  'Living': { geometry: [[0,4],[0,7],[10,7],[10,4],[0,4]],   attributes: { program: 'living',  area: 30, daylight: 5.0 } },
+  'Bathroom':    { geometry: [[10,4],[10,7],[13,7],[13,4],[10,4]], attributes: { program: 'bath',    area:  9, daylight: 1.4 } },
 }
 
 function getRoomGeo(name, overflowIndex) {
@@ -52,7 +52,7 @@ function getRoomGeo(name, overflowIndex) {
   const y = 7 + Math.floor(overflowIndex / 3) * 3
   return {
     geometry: [[x,y],[x,y+3],[x+4,y+3],[x+4,y],[x,y]],
-    attributes: { program: 'extra', area: 12, daylight: 0.12 }
+    attributes: { program: 'extra', area: 12, daylight: 1.2 }
   }
 }
 
@@ -76,6 +76,84 @@ export function buildLayout(rooms) {
     attributes: { description: desc },
     rooms: roomList
   }
+}
+
+// ─── Routine builder ─────────────────────────────────────────────────────────
+// Only returns a routine when activities are present AND a layout exists.
+// Each persona gets morning/afternoon/evening steps as room ID strings.
+
+import { PERSONA_COLORS } from '../utils/roomAnalysis.js'
+
+// Time slots: 06:00–22:00 every 2 hours (9 steps, index 0–8)
+export const ROUTINE_TIMES = ['06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00']
+
+export function buildRoutine(parsedInput, layout) {
+  if (!parsedInput?.activities?.length || !layout?.rooms?.length) return null
+
+  const findId = (program) => {
+    const r = layout.rooms.find(r => r.attributes?.program === program)
+    return r ? String(r.id) : null
+  }
+
+  const bed     = findId('bed')
+  const bath    = findId('bath')
+  const kitchen = findId('kitchen')
+  const living  = findId('living')
+  const study   = findId('study')
+
+  if (!bed && !kitchen) return null
+
+  const fallback = (...ids) => ids.find(Boolean) ?? null
+
+  // Build a schedule for a single persona based on their workStyle
+  // workStyle: 'office' | 'home' | 'none'
+  function scheduleFor(workStyle) {
+    // 9 slots: 06, 08, 10, 12, 14, 16, 18, 20, 22
+    if (workStyle === 'office') return [
+      fallback(bed, living),            // 06:00 — sleep
+      fallback(bath, bed),              // 08:00 — bathroom then leave
+      null,                             // 10:00 — away (office)
+      null,                             // 12:00 — away (office)
+      null,                             // 14:00 — away (office)
+      null,                             // 16:00 — away (office)
+      fallback(kitchen, living),        // 18:00 — home, cook
+      fallback(living, kitchen),        // 20:00 — evening
+      fallback(bed, living),            // 22:00 — sleep
+    ]
+    if (workStyle === 'home') return [
+      fallback(bed, living),                                            // 06:00 — sleep
+      fallback(kitchen, living),                                        // 08:00 — breakfast
+      fallback(study, living),                                          // 10:00 — work from home
+      fallback(kitchen, living),                                        // 12:00 — lunch break
+      fallback(study, living),                                          // 14:00 — work from home
+      fallback(study, living),                                          // 16:00 — wrapping up
+      fallback(kitchen, living),                                        // 18:00 — cook
+      fallback(living, kitchen),                                        // 20:00 — evening
+      fallback(bed, living),                                            // 22:00 — sleep
+    ]
+    // workStyle === 'none' — stays home, no formal work
+    return [
+      fallback(bed, living),            // 06:00 — sleep
+      fallback(kitchen, bath),          // 08:00 — breakfast
+      fallback(living, kitchen),        // 10:00 — relax
+      fallback(kitchen, living),        // 12:00 — lunch
+      fallback(living, study),          // 14:00 — leisure
+      fallback(living, kitchen),        // 16:00 — relax
+      fallback(kitchen, living),        // 18:00 — cook
+      fallback(living, kitchen),        // 20:00 — evening
+      fallback(bed, living),            // 22:00 — sleep
+    ]
+  }
+
+  const personas = parsedInput.households?.length
+    ? parsedInput.households
+    : [{ name: 'Resident', workStyle: 'none' }]
+
+  return personas.map((h, i) => ({
+    persona: h.name,
+    color: PERSONA_COLORS[i % PERSONA_COLORS.length],
+    steps: scheduleFor(h.workStyle ?? 'none')
+  }))
 }
 
 // ─── Brief generator ──────────────────────────────────────────────────────────
@@ -108,17 +186,20 @@ const SCENARIOS = [
       ]
       const parsedInput = {
         households: [
-          { name: 'John', relationship: 'self' },
-          { name: 'Sarah', relationship: 'partner' }
+          { name: 'John', relationship: 'self',    workStyle: 'office' },
+          { name: 'Sarah', relationship: 'partner', workStyle: 'none'   }
         ],
         activities: [{ type: 'Cooking', time: 'often' }],
         rooms: defaultRooms
       }
       parsedInput.brief = generateBrief(parsedInput)
+      const layout = buildLayout(defaultRooms)
+      const routine = buildRoutine(parsedInput, layout)
+      if (routine) parsedInput.routine = routine
       return {
         message: "Nice to meet you, John and Sarah! I've put together a first layout with a kitchen, living room, bedroom and bathroom. How many bedrooms are you thinking of?",
         parsedInput,
-        layout: buildLayout(defaultRooms),
+        layout,
         suggestedPrompts: ['One bedroom', 'Two bedrooms', 'Three bedrooms']
       }
     }
@@ -142,12 +223,15 @@ const SCENARIOS = [
       const rooms = [...nonBedrooms, ...bedrooms].map((r, i) => ({ ...r, id: i + 1 }))
       const parsedInput = { ...(state.parsedInput ?? {}), rooms }
       parsedInput.brief = generateBrief(parsedInput)
+      const layout = buildLayout(rooms)
+      const routine = buildRoutine(parsedInput, layout)
+      if (routine) parsedInput.routine = routine
       return {
         message: n === 1
           ? "Kept one bedroom. Does this layout work for you?"
           : `Updated to ${n} bedrooms. Does this layout work for you?`,
         parsedInput,
-        layout: buildLayout(rooms),
+        layout,
         suggestedPrompts: ["Add a study", "Add a bathroom", "Looks good!"]
       }
     }
@@ -168,17 +252,36 @@ const SCENARIOS = [
       const rooms = existing.some(r => r.name === newName)
         ? existing
         : [...existing, { id: existing.length + 1, name: newName, size: 'medium' }]
-      // Add work activity when working from home
+      // Add work activity when working from home, update matching persona's workStyle
       const existingActivities = state.parsedInput?.activities ?? []
-      const activities = /work from home|home.?office/i.test(msg) && !existingActivities.some(a => /work/i.test(a.type))
+      const isWFH = /work from home|home.?office/i.test(msg)
+      const activities = isWFH && !existingActivities.some(a => /work/i.test(a.type))
         ? [...existingActivities, { type: 'Work', time: 'weekdays' }]
         : existingActivities
-      const parsedInput = { ...(state.parsedInput ?? {}), rooms, activities }
+
+      // If a persona name appears in the message, update only that persona;
+      // otherwise update only the 'self' persona (the speaker)
+      const households = (state.parsedInput?.households ?? []).map(h => {
+        const anyNameMentioned = (state.parsedInput?.households ?? []).some(p => new RegExp(`\\b${p.name}\\b`, 'i').test(msg))
+        if (anyNameMentioned) {
+          const nameInMsg = new RegExp(`\\b${h.name}\\b`, 'i').test(msg)
+          if (!nameInMsg) return h
+        } else {
+          // No name — only update the speaker ('self')
+          if (h.relationship !== 'self') return h
+        }
+        if (isWFH) return { ...h, workStyle: 'home' }
+        return h
+      })
+      const parsedInput = { ...(state.parsedInput ?? {}), rooms, activities, households }
       parsedInput.brief = generateBrief(parsedInput)
+      const layout = buildLayout(rooms)
+      const routine = buildRoutine(parsedInput, layout)
+      if (routine) parsedInput.routine = routine
       return {
         message: `Done — I've added a ${newName.toLowerCase()} to the layout. Anything else?`,
         parsedInput,
-        layout: buildLayout(rooms),
+        layout,
         suggestedPrompts: ["Add a bathroom", "Make the kitchen bigger", "That's all, thanks!"]
       }
     }
@@ -275,12 +378,20 @@ export function getAgentResponseForSidebarAdd(section, item, currentState) {
     message = `Noted — I'll keep "${label}" in mind.`
   }
 
+  let updatedParsedInput = null
+  let updatedLayout = null
+  if (section === 'rooms' && hasLayout) {
+    updatedLayout = buildLayout(currentState.parsedInput.rooms)
+    const routine = buildRoutine(currentState.parsedInput, updatedLayout)
+    if (routine) {
+      updatedParsedInput = { ...currentState.parsedInput, routine }
+    }
+  }
+
   return {
     message,
-    parsedInput: null, // already applied by caller
-    layout: (section === 'rooms' && hasLayout)
-      ? buildLayout(currentState.parsedInput.rooms)
-      : null,
+    parsedInput: updatedParsedInput, // null unless routine changed
+    layout: updatedLayout,
     suggestedPrompts: []
   }
 }

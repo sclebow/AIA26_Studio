@@ -18,6 +18,9 @@
       <button class="layout-input-btn view-btn" :class="{ active: hasDaylight && viewMode === 'daylight' }" :disabled="!hasDaylight" @click="hasDaylight && emit('viewChange', 'daylight')">
         <img :src="hasDaylight && viewMode === 'daylight' ? sunBlueIcon : sunIcon" alt="Daylight" width="22" height="22" />
       </button>
+      <button class="layout-input-btn view-btn" :class="{ active: hasRoutine && viewMode === 'routine' }" :disabled="!hasRoutine" @click="hasRoutine && emit('viewChange', 'routine')" title="Routine visualization">
+        <img :src="hasRoutine && viewMode === 'routine' ? clockBlueIcon : clockIcon" alt="Routine" width="22" height="22" />
+      </button>
     </div>
   </div>
 </template>
@@ -30,11 +33,14 @@ import layoutIcon from '../assets/icons/layout.svg'
 import layoutBlueIcon from '../assets/icons/layout-blue.svg'
 import sunIcon from '../assets/icons/sun.svg'
 import sunBlueIcon from '../assets/icons/sun-blue.svg'
+import clockIcon from '../assets/icons/clock.svg'
+import clockBlueIcon from '../assets/icons/clock-blue.svg'
 
 defineProps({
   viewMode: { type: String, default: null },
   hasLayout: { type: Boolean, default: false },
-  hasDaylight: { type: Boolean, default: false }
+  hasDaylight: { type: Boolean, default: false },
+  hasRoutine: { type: Boolean, default: false }
 })
 const emit = defineEmits(['viewChange', 'layoutLoaded'])
 

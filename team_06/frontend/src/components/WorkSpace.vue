@@ -11,14 +11,22 @@ const props = defineProps({
   agentState: {
     type: Object,
     default: null
+  },
+  parsedInput: {
+    type: Object,
+    default: null
   }
 })
 const emit = defineEmits(['layoutLoaded'])
 const viewMode = ref('layout')
+const activeRooms = ref({})
+const activeStep = ref(0)
 
 const hasDaylight = computed(() =>
   (props.agentState?.rooms ?? []).some(r => r.attributes?.daylight != null)
 )
+
+const hasRoutine = computed(() => !!props.parsedInput?.routine)
 
 function onViewChange(mode) {
   viewMode.value = mode
@@ -42,14 +50,14 @@ function exportLayout() {
       <button class="default-btn export-btn" :disabled="!props.agentState" @click="exportLayout">Export</button>
     </header>
       <div class="toolbar-card toolbar-inline">
-        <ToolBar :viewMode="viewMode" :hasLayout="!!props.agentState" :hasDaylight="hasDaylight" @viewChange="onViewChange" @layoutLoaded="emit('layoutLoaded', $event)" />
+        <ToolBar :viewMode="viewMode" :hasLayout="!!props.agentState" :hasDaylight="hasDaylight" :hasRoutine="hasRoutine" @viewChange="onViewChange" @layoutLoaded="emit('layoutLoaded', $event)" />
       </div>
       <template v-if="props.agentState">
         <div class="canvas-area">
           <div class="canvas-container">
-            <LayoutCanvas :layout="props.agentState" :viewMode="viewMode" />
+            <LayoutCanvas :layout="props.agentState" :viewMode="viewMode" :activeRooms="activeRooms" :activeStep="activeStep" />
           </div>
-          <LayoutCard :layout="props.agentState" :viewMode="viewMode" />
+          <LayoutCard :layout="props.agentState" :viewMode="viewMode" :routine="props.parsedInput?.routine ?? null" @activeRoomsChange="activeRooms = $event" @timeStepChange="activeStep = $event" />
         </div>
       </template>
       <div v-else class="welcome-screen">

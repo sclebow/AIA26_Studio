@@ -11,13 +11,31 @@
 // 6-stop ramp: cool blues/teals (low DA) → yellow → orange → red (high DA).
 // Thresholds are upper bounds of each band (scale: 0 – 0.6 DA).
 
+// ─── Persona palette ──────────────────────────────────────────────────────────
+export const PERSONA_COLORS = ['#4A7CA8', '#F5A020', '#00C7D4', '#D94020']
+
+// ─── Time-of-day palette ────────────────────────────────────────────────────────
+// 9 steps matching ROUTINE_TIMES (06:00–22:00), mirrored around midday.
+export const TOD_COLORS = [
+  '#4A7CA8',  // 06:00 bedroom blue
+  '#7A8FA3',  // 08:00 bathroom cyan
+  '#C8F4F0',  // 10:00 light yellow
+  '#F5E68A',  // 12:00 peak yellow
+  '#F0D050',  // 14:00 light yellow
+  '#F5E68A',  // 16:00 bathroom cyan
+  '#C8F4F0',  // 18:00 bedroom blue
+  '#7A8FA3',  // 20:00 bedroom blue
+  '#4A7CA8',  // 22:00 bedroom blue
+]
+
 export const DAYLIGHT_PALETTE = [
-  { max: 0.50, color: '#4A7CA8', label: '< 10%' },
-  { max: 1.00, color: '#2272B4', label: '10 – 20%' },
-  { max: 1.75, color: '#00B4C6', label: '20 – 35%' },
-  { max: 2.25, color: '#F0D050', label: '35 – 45%' },
-  { max: 2.75, color: '#F5A020', label: '45 – 55%' },
-  { max: Infinity, color: '#D94020', label: '> 55%' },
+  { max: 0.5, color: '#4A7CA8' },
+  { max: 1.0, color: '#7A8FA3' },
+  { max: 1.5, color: '#C8F4F0' },
+  { max: 2.0, color: '#F5E68A' },
+  { max: 2.5, color: '#F0D050' },
+  { max: 3.0, color: '#F5A020' },
+  { max: Infinity, color: '#D94020' },
 ]
 
 /**
@@ -81,6 +99,7 @@ export function getRoomSecondaryLabel(room, viewMode) {
   if (viewMode === 'daylight') {
     return formatDaylight(room.attributes?.daylight)
   }
+  if (viewMode === 'routine') return ''
   const area = room.attributes?.area
   return area != null ? `${area.toFixed(1)} m²` : ''
 }

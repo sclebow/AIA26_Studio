@@ -1,12 +1,17 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { Stage, Layer, Group, Line, Text } from 'vue-konva'
-import { getRoomColor, getRoomSecondaryLabel } from '../utils/roomAnalysis.js'
+import { getRoomColor, getRoomSecondaryLabel, TOD_COLORS } from '../utils/roomAnalysis.js'
 
 const props = defineProps({
-  layout: { type: Object, default: null },
-  viewMode: { type: String, default: 'layout' }
+  layout:      { type: Object, default: null },
+  viewMode:    { type: String, default: 'layout' },
+  activeRooms: { type: Object, default: () => ({}) },  // { roomId: [color, ...] }
+  activeStep:  { type: Number, default: 0 }            // 0–8 for time-of-day colour
 })
+
+const CIRCLE_RADIUS = 14
+const CIRCLE_SPACING = 32  // horizontal gap between circles when multiple personas
 
 const stageConfig = ref({ width: 600, height: 600 })
 
@@ -81,10 +86,11 @@ const outlinePoints = computed(() => {
 const roomRenderData = computed(() => {
   const rooms = props.layout?.rooms || []
   const vm = props.viewMode
+  const todFill = vm === 'routine' ? TOD_COLORS[props.activeStep] ?? TOD_COLORS[0] : null
   return rooms.map(room => ({
     id: room.id,
     points: flattenAndScale(room.geometry),
-    fill: getRoomColor(room, vm),
+    fill: todFill ?? getRoomColor(room, vm),
     labelX: getLabelX(room.geometry),
     labelY: getLabelY(room.geometry),
     nameText: room.attributes.program,
@@ -92,6 +98,41 @@ const roomRenderData = computed(() => {
     secondaryText: getRoomSecondaryLabel(room, vm),
     secondaryOffsetX: getTextWidth(getRoomSecondaryLabel(room, vm), 14) / 2,
   }))
+})
+
+// Routine circles — one circle per persona per occupied room, offset when sharing
+const routineCircleData = computed(() => {
+  const rooms = props.layout?.rooms || []
+  const active = props.activeRooms || {}  // { roomId: [color, ...] }
+  if (!Object.keys(active).length) return []
+
+  // Build a map of personaIndex → persona name from the routine prop (passed via activeRooms colors)
+  // We need to correlate colors back to names — build color→name map from layout rooms isn't possible
+  // so we pass persona names alongside colors by extending activeRooms to { roomId: [{color, name}] }
+  // For now activeRooms is { roomId: [color] } — we enrich with room program name
+  const circles = []
+  for (const room of rooms) {
+    const entries = active[String(room.id)]  // array of { color, name } or just colors
+    if (!entries?.length) continue
+    const cx = getLabelX(room.geometry)
+    const cy = getLabelY(room.geometry)
+    const roomName = room.attributes?.program ?? ''
+    const count = entries.length
+    const totalWidth = (count - 1) * CIRCLE_SPACING
+    entries.forEach((entry, i) => {
+      const color = typeof entry === 'object' ? entry.color : entry
+      const personaName = typeof entry === 'object' ? entry.name : ''
+      circles.push({
+        key: `${room.id}-${i}`,
+        x: cx - totalWidth / 2 + i * CIRCLE_SPACING,
+        y: cy,
+        color,
+        personaName,
+        roomName,
+      })
+    })
+  }
+  return circles
 })
 
 function flattenAndScale(geometry) {
@@ -139,7 +180,7 @@ function getTextWidth(text, fontSize) {
 
 <template>
   <v-stage :config="stageConfig">
-    <v-layer>
+    <v-layer :key="`rooms-${props.viewMode}-${props.activeStep}`">
       <!-- Boundary outline (shown when no rooms yet) -->
       <v-line
         v-if="outlinePoints"
@@ -152,11 +193,7 @@ function getTextWidth(text, fontSize) {
       />
       <v-group v-for="room in roomRenderData" :key="room.id">
         <v-line
-          :points="room.points"
-          :closed="true"
-          :fill="room.fill"
-          :stroke="'#333'"
-          :strokeWidth="2"
+          :config="{ points: room.points, closed: true, fill: room.fill, stroke: '#333', strokeWidth: 2 }"
         />
         <v-text
           :x="room.labelX"
@@ -179,6 +216,22 @@ function getTextWidth(text, fontSize) {
           :offsetY="14 / 2"
         />
       </v-group>
+    </v-layer>
+    <!-- Routine persona circles only -->
+    <v-layer v-if="routineCircleData.length">
+      <v-circle
+        v-for="circle in routineCircleData"
+        :key="circle.key"
+        :config="{
+          x: circle.x,
+          y: circle.y,
+          radius: CIRCLE_RADIUS,
+          fill: circle.color,
+          stroke: '#ffffff',
+          strokeWidth: 3,
+          listening: false,
+        }"
+      />
     </v-layer>
   </v-stage>
 </template>
