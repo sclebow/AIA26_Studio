@@ -63,7 +63,7 @@ export default function LayerToggle({ layers, onToggle }: LayerToggleProps) {
           <span style={{
             color: layers[key] ? colors.text : colors.muted,
             transition: 'color 0.2s',
-            fontSize: 11,
+            fontSize: 12,
           }}>
             {label}
           </span>

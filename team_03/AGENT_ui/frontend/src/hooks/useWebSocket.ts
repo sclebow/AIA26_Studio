@@ -9,6 +9,10 @@ export interface UseWebSocketReturn {
   send: (message: WSMessage) => void;
   lastMessage: WSMessage | null;
   isConnected: boolean;
+  /** Subscribe to EVERY incoming message (no drops). Returns an unsubscribe fn.
+   *  Prefer this over `lastMessage` for dispatching — `lastMessage` is a single
+   *  slot and coalesces messages that arrive in the same tick (losing some). */
+  subscribe: (handler: (msg: WSMessage) => void) => () => void;
 }
 
 export function useWebSocket(): UseWebSocketReturn {
@@ -17,6 +21,12 @@ export function useWebSocket(): UseWebSocketReturn {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+  const handlersRef = useRef<Set<(msg: WSMessage) => void>>(new Set());
+
+  const subscribe = useCallback((handler: (msg: WSMessage) => void) => {
+    handlersRef.current.add(handler);
+    return () => { handlersRef.current.delete(handler); };
+  }, []);
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
@@ -35,6 +45,9 @@ export function useWebSocket(): UseWebSocketReturn {
         if (!mountedRef.current) return;
         try {
           const parsed = JSON.parse(event.data) as WSMessage;
+          // Deliver to every subscriber synchronously — no message is dropped
+          // even when several arrive in the same tick.
+          handlersRef.current.forEach(fn => { try { fn(parsed); } catch { /* ignore */ } });
           setLastMessage(parsed);
         } catch {
           // Ignore non-JSON messages
@@ -85,5 +98,5 @@ export function useWebSocket(): UseWebSocketReturn {
     }
   }, []);
 
-  return { send, lastMessage, isConnected };
+  return { send, lastMessage, isConnected, subscribe };
 }

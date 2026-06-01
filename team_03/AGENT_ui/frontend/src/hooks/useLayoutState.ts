@@ -71,6 +71,12 @@ export interface UseLayoutStateReturn {
   setScores: (scores: ScoreData) => void;
   acceptPending: () => Promise<void>;
   rejectPending: () => void;
+  /** Show a layout object in the viewport without committing it (AI generator preview). */
+  previewLayout: (data: LayoutJSON) => void;
+  /** Restore the committed layout after previewing (cancel a preview). */
+  endPreview: () => void;
+  /** Persist a generated layout to AI_GENERATED, refresh the list, and load it as active. */
+  saveAndLoadGenerated: (name: string, data: LayoutJSON) => Promise<string | null>;
 }
 
 export function useLayoutState(): UseLayoutStateReturn {
@@ -166,22 +172,35 @@ export function useLayoutState(): UseLayoutStateReturn {
   /** Force re-read the current layout from disk (via backend reload endpoint) */
   const reloadLayout = useCallback(async () => {
     if (!selectedLayoutName) return;
-    try {
-      const res = await fetch(`${API_BASE}/layouts/${encodeURIComponent(selectedLayoutName)}/reload`, {
-        method: 'POST',
-      });
-      if (res.ok) {
-        const freshData = await res.json();
-        setLayoutWithDiff(freshData);
+    const enc = encodeURIComponent(selectedLayoutName);
+
+    const applyFresh = async (freshData: LayoutJSON) => {
+      // Did objects get added/moved? Only then refresh the (heavier) graph.
+      const changed = diffLayoutIds(layoutRef.current, freshData).size > 0;
+      setLayoutWithDiff(freshData);
+      if (changed) {
+        // The backend rebuilds the spatial graph on reload — pull it so newly
+        // placed furniture + relations appear in the Spatial Graph panel.
+        try {
+          const g = await fetch(`${API_BASE}/graph`);
+          if (g.ok) {
+            const gd = await g.json();
+            if (gd) setGraphData(normalizeGraphData(gd));
+          }
+        } catch {
+          // Graph endpoint unavailable — keep the existing graph
+        }
       }
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/layouts/${enc}/reload`, { method: 'POST' });
+      if (res.ok) await applyFresh(await res.json());
     } catch {
       // Reload endpoint not available, try GET
       try {
-        const res = await fetch(`${API_BASE}/layouts/${encodeURIComponent(selectedLayoutName)}`);
-        if (res.ok) {
-          const freshData = await res.json();
-          setLayoutWithDiff(freshData);
-        }
+        const res = await fetch(`${API_BASE}/layouts/${enc}`);
+        if (res.ok) await applyFresh(await res.json());
       } catch {
         // Ignore
       }
@@ -265,6 +284,44 @@ export function useLayoutState(): UseLayoutStateReturn {
     if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
   }, []);
 
+  // ── AI Layout Generator ────────────────────────────────────────────────
+  /** Display-only preview of a candidate layout — does NOT touch layoutRef /
+   *  selectedLayoutName / graph, so endPreview() can restore the committed one. */
+  const previewLayout = useCallback((data: LayoutJSON) => {
+    setModifiedIds(new Set());
+    if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+    setLayout(data);
+  }, []);
+
+  /** Restore the last committed layout (cancel a preview / close the generator). */
+  const endPreview = useCallback(() => {
+    setLayout(layoutRef.current);
+  }, []);
+
+  /** Save a generated layout to AI_GENERATED then load it as the active layout
+   *  (loadLayout sets layoutRef + selectedLayoutName + rebuilds session/graph).
+   *  Returns the saved stem name, or null on failure. */
+  const saveAndLoadGenerated = useCallback(
+    async (name: string, data: LayoutJSON): Promise<string | null> => {
+      try {
+        const res = await fetch(`${API_BASE}/layouts/generated/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, layout: data }),
+        });
+        if (!res.ok) return null;
+        const saved = await res.json();
+        const savedName: string = saved.name ?? name;
+        await fetchLayouts();
+        await loadLayout(savedName);
+        return savedName;
+      } catch {
+        return null;
+      }
+    },
+    [fetchLayouts, loadLayout]
+  );
+
   const updateFromWS = useCallback((message: StateUpdate) => {
     switch (message.field) {
       case 'layout':
@@ -312,5 +369,8 @@ export function useLayoutState(): UseLayoutStateReturn {
     setScores,
     acceptPending,
     rejectPending,
+    previewLayout,
+    endPreview,
+    saveAndLoadGenerated,
   };
 }
