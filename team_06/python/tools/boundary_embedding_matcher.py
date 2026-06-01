@@ -245,6 +245,7 @@ def match_boundaries(
     input_coords: List[List[float]] | None = None,
     input_graph: Dict[str, Any] | None = None,
     dataset_path: str | Path | None = None,
+    tf_sampled_path: str | Path | None = None,
     top_k: int = 3,
     min_score: float = 0.5
 ) -> Dict[str, Any]:
@@ -282,7 +283,12 @@ def match_boundaries(
     results = []
 
     # Fast path: if precomputed sampled turning functions exist, use them.
-    tf_file = dataset_path.parent / 'tf_sampled.npy'
+    tf_file = Path(tf_sampled_path) if tf_sampled_path is not None else dataset_path.parent / 'tf_sampled.npy'
+    if not tf_file.is_absolute():
+        if str(tf_file).startswith("team_06"):
+            tf_file = Path(__file__).parent.parent.parent.parent / tf_file
+        else:
+            tf_file = dataset_path.parent / tf_file
     if tf_file.exists():
         try:
             sampled_array = np.load(str(tf_file))  # shape (N, dim)
