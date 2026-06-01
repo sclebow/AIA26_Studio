@@ -19,11 +19,11 @@ def build_preprocess_node() -> Any:
                 "final_response": "Layout finalized."
             }
 
-        if any(keyword in user_prompt for keyword in search_keywords):
-            return {"preprocess_result": "search"}
-        
         if any(keyword in user_prompt for keyword in topology_keywords):
             return {"preprocess_result": "topology"}
+
+        if any(keyword in user_prompt for keyword in search_keywords):
+            return {"preprocess_result": "search"}
         
         if "layout-" in user_prompt:
             return {"preprocess_result": "select"}
