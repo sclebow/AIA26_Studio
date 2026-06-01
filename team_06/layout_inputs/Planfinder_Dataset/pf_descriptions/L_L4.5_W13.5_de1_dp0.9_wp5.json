@@ -1,0 +1,8 @@
+{
+  "layoutId": "L_L4.5_W13.5_de1_dp0.9_wp5",
+  "description": "1 master suite, 1 shower bathroom, open plan living-kitchen-dining, 1 storage room. Double-aspect apartment \u2014 windows on left and top facade(s). Kitchen is on an interior wall away from windows \u2014 less natural light at the cooking position. 1 master suite (en-suite bathroom, no walk-in wardrobe), 0 single bedroom(s). Single bedrooms can each function as bedroom, home office, hobby room or guest room. Kitchen: single-wall, no island. Cook faces the wall, back to the living and dining area. No wall separates kitchen from dining and living \u2014 fully open plan. Living area arrangement: linear kitchen-dining-living. Bathroom config: 1 shower-only bathroom(s). Single bathroom \u2014 sequential morning routine. Master suite close to entry and kitchen \u2014 convenient morning access, less acoustic separation from activity. Storage room in entry or private zone, not adjacent to kitchen \u2014 suitable for coats, shoes, bikes, laundry or utility storage, not as kitchen pantry. Entry area has space for coat and shoe storage. From entry: kitchen is immediate, living area is short corridor. No door between entry and living/kitchen \u2014 relevant where local regulations require separation. Suits: singles or couples.",
+  "not_suitable_for": [
+    "jurisdictions requiring door separation between entry and kitchen"
+  ],
+  "rooms_summary": "1 bedroom, 1 bathroom, 1 living (open plan), 1 storage"
+}

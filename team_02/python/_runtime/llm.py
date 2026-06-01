@@ -264,7 +264,17 @@ def call_llm_simple(llm: Any, system_prompt: str, user_message: str) -> str:
     content = result.content
     if not isinstance(content, str):
         raise RuntimeError("LLM response content must be a string")
-    return _strip_think_tags(content)
+
+    stripped = _strip_think_tags(content)
+    # Reasoning models (qwen3, DeepSeek-R1) sometimes spend the whole turn inside a
+    # <think> block and emit no final answer, leaving an empty string after stripping.
+    # Retry once — the second pass usually produces a real answer.
+    if not stripped.strip():
+        print("[llm] Empty answer after think-strip — retrying once.")
+        result = llm.invoke(messages)
+        content = result.content if isinstance(result.content, str) else ""
+        stripped = _strip_think_tags(content)
+    return stripped
 
 
 # ---------------------------------------------------------------------------

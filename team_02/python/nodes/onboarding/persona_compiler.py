@@ -37,7 +37,8 @@ structured comfort persona profile. This profile will drive all comfort
 analysis and response personalisation for this user.
 
 INPUT you will receive:
-  QUIZ ANSWERS — keys q0 (intro / who are you?) through q5 (ideal space)
+  QUIZ ANSWERS — keys q0 (intro / who are you?) through q6, where q5 is their ideal
+                 space and q6 is how they recharge (social-energy / personality axis)
   INSPIRE SUMMARY — a paragraph describing aesthetic and sensory preferences
 
 OUTPUT — return ONLY this JSON schema, no explanation, no markdown fences:
@@ -65,6 +66,9 @@ OUTPUT — return ONLY this JSON schema, no explanation, no markdown fences:
   "aesthetic_preferences": "<concise distillation of their sensory aesthetic world>",
   "lifestyle": "<how they mainly use their home>",
   "key_requirements": ["<up to 3 non-negotiables the user explicitly stated>"],
+  "personality": <number in [-1.0, 1.0]: -1.0 = strong introvert (recharges alone,
+                  prefers low stimulation), 0.0 = balanced, +1.0 = strong extrovert
+                  (recharges around people, prefers high stimulation). Derive from q6.>,
   "notes": "<anything else relevant that does not fit above>"
 }
 
@@ -122,6 +126,7 @@ _MINIMAL_PROFILE: dict = {
     "aesthetic_preferences": "",
     "lifestyle": "",
     "key_requirements": [],
+    "personality": 0.0,
     "preference_vs_baseline": {},
     "notes": "",
 }
@@ -137,6 +142,41 @@ _SENSE_KEYWORDS: dict[str, list[str]] = {
     "olfactory": ["olfactory", "smell", "odor", "odour", "air quality", "ventilation"],
     "tactile":   ["tactile", "texture", "material", "surface"],
 }
+
+
+def _apply_personality_patch(profile: dict, quiz_answers: dict) -> dict:
+    """Deterministically set `personality` (-1..1) from q6.
+
+    q6 is a structured card answer (introvert / mixed / extrovert), so a keyword
+    scan is reliable. Runs unconditionally so the field is always present and
+    correct even if the LLM omitted or mis-derived it. Feeds apply_personality()
+    in the scoring layer (introvert = prefers low stimulation, extrovert = high).
+    """
+    q6 = str(quiz_answers.get("q6", "")).lower()
+    if not q6:
+        # No personality answer captured — keep whatever the LLM produced, clamped.
+        try:
+            profile["personality"] = max(-1.0, min(1.0, float(profile.get("personality", 0.0))))
+        except (TypeError, ValueError):
+            profile["personality"] = 0.0
+        return profile
+
+    extro = any(k in q6 for k in ("people", "activity", "lively", "buzz", "social", "company and"))
+    intro = any(k in q6 for k in ("alone", "to myself", "by myself", "calm space", "quiet"))
+    balance = any(k in q6 for k in ("balance", "a mix", "mixed", "both"))
+
+    if balance or (extro and intro):
+        value = 0.0
+    elif extro:
+        value = 1.0
+    elif intro:
+        value = -1.0
+    else:
+        value = 0.0
+
+    profile["personality"] = value
+    print(f"[persona_compiler] Personality patched from q6: {value:+.1f}")
+    return profile
 
 
 # ---------------------------------------------------------------------------
@@ -626,6 +666,11 @@ def build_persona_compiler_node(llm, persona_output_path: str):
         persona_profile = _apply_quiz_fallback_patch(
             persona_profile, quiz_answers, inspire_summary
         )
+
+        # ── Personality patch — always runs ──────────────────────────────
+        # Sets the introvert↔extrovert axis from q6 (deterministic card answer),
+        # so apply_personality() in scoring is no longer permanently neutral.
+        persona_profile = _apply_personality_patch(persona_profile, quiz_answers)
 
         # ── Recompute preference_vs_baseline ─────────────────────────────
         pvb = persona_profile.get("preference_vs_baseline") or {}
