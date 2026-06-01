@@ -23,7 +23,7 @@ console.log('WorkSpace agentState:', props.agentState);
 <template>
   <aside class="work-panel">
     <header class="work-header">
-      <button class="layout-btn save-layout-btn ">Save Layout</button>
+      <button class="default-btn export-btn ">Export</button>
     </header>
       <div class="toolbar-card toolbar-inline">
         <ToolBar />
@@ -62,7 +62,7 @@ console.log('WorkSpace agentState:', props.agentState);
   gap: 10px;
   margin-bottom: 8px;
 }
-.save-layout-btn {
+.export-btn {
   margin-right: 24px;
   margin-top: 28px;
   margin-bottom: 12px;

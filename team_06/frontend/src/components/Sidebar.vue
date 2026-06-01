@@ -131,7 +131,7 @@ function onKeydown(e) {
         <div class="sidebar-section-title">History (placeholder)</div>
       </template>
     </div>
-    <button class="update-brief-btn layout-btn">Reset</button>
+    <button class="reset-btn default-btn">Reset</button>
   </aside>
 </template>
 
@@ -205,7 +205,7 @@ function onKeydown(e) {
   padding: 2px 0;
 }
 
-.update-brief-btn{
+.reset-btn{
     margin-bottom: 28px;
 }
 
