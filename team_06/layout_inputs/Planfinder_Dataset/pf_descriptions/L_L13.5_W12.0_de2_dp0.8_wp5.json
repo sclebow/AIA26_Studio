@@ -1,0 +1,8 @@
+{
+  "layoutId": "L_L13.5_W12.0_de2_dp0.8_wp5",
+  "description": "1 double bedroom, 2 single bedrooms, open plan living-kitchen-dining, 1 storage room. Double-aspect apartment \u2014 windows on right and left facade(s). 1 double bedroom (no walk-in wardrobe, no en-suite), 2 single bedroom(s). Single bedrooms can each function as bedroom, home office, hobby room or guest room. Kitchen: unclear, no island. No wall separates kitchen from dining and living \u2014 fully open plan. Living area arrangement: other. Largest bedroom accessed via corridor. 0 of 2 single bedroom(s) have a desk visible in plan. Each single bedroom is large enough to accommodate a bunk bed for two children. Possible configurations \u2014 mutually exclusive: (1) all as children's bedrooms; (2) one children's bedroom and one home office or hobby room; (3) all as home offices or hobby rooms; (4) one or both as guest rooms; (5) bunk bed arrangement extending household capacity. Cannot simultaneously provide two separate children's bedrooms and a dedicated home office without a bunk bed in one bedroom. Storage room adjacent to kitchen \u2014 usable as kitchen pantry, laundry room or general storage. From entry: kitchen is unclear, living area is unclear. Door separates entry corridor from living area. Suits: families with one or two children.",
+  "not_suitable_for": [
+    "household requiring two children's bedrooms and a dedicated home office simultaneously without bunk bed arrangement"
+  ],
+  "rooms_summary": "3 bedroom, 2 bathroom, 1 living (open plan), 1 storage"
+}

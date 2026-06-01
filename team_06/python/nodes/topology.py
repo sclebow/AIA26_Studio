@@ -53,6 +53,11 @@ def build_topology_node(llm: Any) -> Any:
         # 1. Deterministic parsing
         programs, edges = parse_apartment_description(description)
         if programs:
+            if not edges:
+                hub = "living" if "living" in programs else programs[0]
+                for prog in programs:
+                    if prog != hub:
+                        edges.append((prog, hub))
             G = build_graph_from_programs_and_edges(programs, edges)
             graph_json = json.dumps(nx.node_link_data(G))
             # Log the topology graph as adjacency list
@@ -81,6 +86,11 @@ def build_topology_node(llm: Any) -> Any:
             programs = [prog.lower() for prog in result.get("programs", [])]
             edges = [(a.lower(), b.lower()) for a, b in result.get("edges", [])]
             if programs:
+                if not edges:
+                    hub = "living" if "living" in programs else programs[0]
+                    for prog in programs:
+                        if prog != hub:
+                            edges.append((prog, hub))
                 G = build_graph_from_programs_and_edges(programs, edges)
                 graph_json = json.dumps(nx.node_link_data(G))
                 # Log the topology graph as adjacency list
