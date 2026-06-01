@@ -26,7 +26,12 @@ const offset = ref({ x: 0, y: 0 })
 
 function recalcGeometry() {
   const rooms = props.layout?.rooms || [];
-  allPoints.value = rooms.flatMap(room => room.geometry);
+  const outline = props.layout?.outline || [];
+  // Use room geometry if available, fall back to outline for bounds calculation
+  const sourcePoints = rooms.length > 0
+    ? rooms.flatMap(room => room.geometry)
+    : outline
+  allPoints.value = sourcePoints;
   if (allPoints.value.length > 0) {
     const xs = allPoints.value.map(pt => pt[0]);
     const ys = allPoints.value.map(pt => pt[1]);
@@ -63,6 +68,13 @@ function recalcGeometry() {
 }
 
 watch(() => props.layout, recalcGeometry, { immediate: true, deep: true })
+
+// Outline points for boundary-only mode (no rooms)
+const outlinePoints = computed(() => {
+  const outline = props.layout?.outline
+  if (!outline || (props.layout?.rooms?.length ?? 0) > 0) return null
+  return flattenAndScale(outline)
+})
 
 // Computed room render data — explicitly tracks props.viewMode so Vue re-evaluates
 // when the toggle changes, even inside vue-konva's non-VDOM rendering path.
@@ -128,6 +140,16 @@ function getTextWidth(text, fontSize) {
 <template>
   <v-stage :config="stageConfig">
     <v-layer>
+      <!-- Boundary outline (shown when no rooms yet) -->
+      <v-line
+        v-if="outlinePoints"
+        :points="outlinePoints"
+        :closed="true"
+        fill="rgba(0,103,181,0.06)"
+        stroke="#0067B5"
+        :strokeWidth="2"
+        :dash="[8, 6]"
+      />
       <v-group v-for="room in roomRenderData" :key="room.id">
         <v-line
           :points="room.points"

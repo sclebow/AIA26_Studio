@@ -185,8 +185,10 @@ function onKeydown(e) {
   margin: 0 0 0 28px;
   padding: 0;
   list-style: none;
-  color: var(--color-text);
   font-size: var(--font-size-standard);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .sidebar-list-input-row {
@@ -199,9 +201,9 @@ function onKeydown(e) {
   border-bottom: 1px solid var(--color-border);
   outline: none;
   font-size: var(--font-size-standard);
-  color: var(--color-text);
   background: transparent;
   padding: 2px 0;
+  gap: 8px;
 }
 
 .reset-btn{

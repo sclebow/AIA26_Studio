@@ -2,7 +2,7 @@
   <div id="app">
     <div class="app-layout">
       <Sidebar :tab="tab" @change="tab = $event" :parsedInput="parsedInput" @itemAdded="handleItemAdded" @reset="handleReset" />
-      <WorkSpace :agentState="agentState" />
+      <WorkSpace :agentState="agentState" @layoutLoaded="handleLayoutLoaded" />
       <ChatPanel :chat="chatHistory" @send="handleUserMessage" />
     </div>
   </div>
@@ -19,6 +19,25 @@ const tab = ref('brief')
 const chatHistory = ref([])
 const agentState = ref(null)
 const parsedInput = ref(null)
+
+const boundary = ref(null)
+
+// ─── Boundary upload ──────────────────────────────────────────────────────────
+function handleLayoutLoaded(json) {
+  boundary.value = json
+  if (json) {
+    // Use whatever is in the JSON directly — rooms, outline, everything
+    agentState.value = {
+      layoutId: json.layoutId || 'Boundary',
+      outline: json.outline || json.apartment?.geometry || [],
+      rooms: json.rooms || [],
+      attributes: json.apartment?.attributes || {}
+    }
+  } else {
+    // File cleared — remove layout
+    agentState.value = null
+  }
+}
 
 // ─── Shared applier ───────────────────────────────────────────────────────────
 // Applies an AgentResponse onto local state.
@@ -39,7 +58,7 @@ function applyAgentResponse(response) {
 function handleUserMessage(message) {
   chatHistory.value.push({ id: Date.now(), role: 'user', text: message, timestamp: new Date().toISOString() })
   setTimeout(() => {
-    const response = getAgentResponse(message, { parsedInput: parsedInput.value, layout: agentState.value })
+    const response = getAgentResponse(message, { parsedInput: parsedInput.value, layout: agentState.value, boundary: boundary.value })
     applyAgentResponse(response)
   }, 800)
 }
@@ -47,7 +66,17 @@ function handleUserMessage(message) {
 // ─── Reset ───────────────────────────────────────────────────────────────────
 function handleReset() {
   parsedInput.value = null
-  agentState.value = null
+
+  if (boundary.value) {
+    agentState.value = {
+      layoutId: boundary.value.layoutId || 'Boundary',
+      outline: boundary.value.outline || boundary.value.apartment?.geometry || [],
+      rooms: [],
+      attributes: boundary.value.apartment?.attributes || {}
+    }
+  } else {
+    agentState.value = null
+  }
 }
 
 // ─── Sidebar path ─────────────────────────────────────────────────────────────

@@ -1,21 +1,29 @@
 <template>
   <div class="toolbar">
     <div class="toolbar-group">
-      <button class="layout-input-btn"><img :src="uploadIcon" alt="Upload" width="22" height="22" /></button>
+      <button class="layout-input-btn" :class="{ active: !!fileName }" @click="fileInput.click()" :title="fileName ? 'Replace boundary JSON' : 'Upload boundary JSON'">
+        <img :src="uploadIcon" alt="Upload" width="22" height="22" />
+      </button>
+      <template v-if="fileName">
+        <span class="file-name">{{ fileName }}</span>
+        <button class="file-clear" @click.stop="clearFile" title="Remove file">&times;</button>
+      </template>
+      <input ref="fileInput" type="file" accept=".json" style="display:none" @change="onFileChange" />
     </div>
     <div class="toolbar-divider"></div>
     <div class="toolbar-group">
-      <button class="layout-input-btn view-btn" :class="{ active: viewMode === 'layout' }" :disabled="!hasLayout" @click="hasLayout && emit('viewChange', 'layout')">
-        <img :src="viewMode === 'layout' ? layoutBlueIcon : layoutIcon" alt="Layout" width="22" height="22" />
+      <button class="layout-input-btn view-btn" :class="{ active: hasLayout && viewMode === 'layout' }" :disabled="!hasLayout" @click="hasLayout && emit('viewChange', 'layout')">
+        <img :src="hasLayout && viewMode === 'layout' ? layoutBlueIcon : layoutIcon" alt="Layout" width="22" height="22" />
       </button>
-      <button class="layout-input-btn view-btn" :class="{ active: viewMode === 'daylight' }" :disabled="!hasLayout" @click="hasLayout && emit('viewChange', 'daylight')">
-        <img :src="viewMode === 'daylight' ? sunBlueIcon : sunIcon" alt="Daylight" width="22" height="22" />
+      <button class="layout-input-btn view-btn" :class="{ active: hasDaylight && viewMode === 'daylight' }" :disabled="!hasDaylight" @click="hasDaylight && emit('viewChange', 'daylight')">
+        <img :src="hasDaylight && viewMode === 'daylight' ? sunBlueIcon : sunIcon" alt="Daylight" width="22" height="22" />
       </button>
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import uploadIcon from '../assets/icons/upload.svg'
 import layoutIcon from '../assets/icons/layout.svg'
 import layoutBlueIcon from '../assets/icons/layout-blue.svg'
@@ -24,9 +32,35 @@ import sunBlueIcon from '../assets/icons/sun-blue.svg'
 
 defineProps({
   viewMode: { type: String, default: null },
-  hasLayout: { type: Boolean, default: false }
+  hasLayout: { type: Boolean, default: false },
+  hasDaylight: { type: Boolean, default: false }
 })
-const emit = defineEmits(['viewChange'])
+const emit = defineEmits(['viewChange', 'layoutLoaded'])
+
+const fileInput = ref(null)
+const fileName = ref(null)
+
+function onFileChange(e) {
+  const file = e.target.files[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = (ev) => {
+    try {
+      const json = JSON.parse(ev.target.result)
+      fileName.value = file.name
+      emit('layoutLoaded', json)
+    } catch {
+      alert('Invalid JSON file')
+    }
+  }
+  reader.readAsText(file)
+  e.target.value = ''
+}
+
+function clearFile() {
+  fileName.value = null
+  emit('layoutLoaded', null)
+}
 </script>
 
 <style scoped>
@@ -62,4 +96,23 @@ const emit = defineEmits(['viewChange'])
 .layout-input-btn:focus { outline: none; }
 .layout-input-btn:hover { opacity: 0.75; }
 .layout-input-btn.active { opacity: 1; }
+.file-name {
+  font-size: var(--font-size-standard);
+  color: var(--color-text-secondary);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 2px;
+  color: var(--color-text-secondary);
+  opacity: 0.6;
+}
+.file-clear:hover { opacity: 1; }
 </style>

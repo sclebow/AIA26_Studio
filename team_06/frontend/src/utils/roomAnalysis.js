@@ -12,11 +12,11 @@
 // Thresholds are upper bounds of each band (scale: 0 – 0.6 DA).
 
 export const DAYLIGHT_PALETTE = [
-  { max: 0.10, color: '#1A3A5C', label: '< 10%' },
-  { max: 0.20, color: '#2272B4', label: '10 – 20%' },
-  { max: 0.35, color: '#00B4C6', label: '20 – 35%' },
-  { max: 0.45, color: '#F0D050', label: '35 – 45%' },
-  { max: 0.55, color: '#F5A020', label: '45 – 55%' },
+  { max: 0.50, color: '#4A7CA8', label: '< 10%' },
+  { max: 1.00, color: '#2272B4', label: '10 – 20%' },
+  { max: 1.75, color: '#00B4C6', label: '20 – 35%' },
+  { max: 2.25, color: '#F0D050', label: '35 – 45%' },
+  { max: 2.75, color: '#F5A020', label: '45 – 55%' },
   { max: Infinity, color: '#D94020', label: '> 55%' },
 ]
 

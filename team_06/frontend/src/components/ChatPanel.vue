@@ -80,8 +80,8 @@ watch(() => props.chat.length, () => {
   margin-bottom: 8px;
 }
 .chat-panel {
-  width: 400px;
-  min-width: 400px;
+  width: 360px;
+  min-width: 360px;
   background: var(--color-white);
   border-left: 1px solid var(--color-border);
   display: flex;
