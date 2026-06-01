@@ -1,5 +1,5 @@
-from interface_mcp_bridge import run_interface_command
 from __future__ import annotations
+from interface_mcp_bridge import run_interface_command
 import json, math, sys, time
 from pathlib import Path
 import httpx
@@ -25,6 +25,9 @@ except Exception:
 # ── agent integration ─────────────────────────────────────────────────────────
 _agent_available = False
 _py_workflow_available = False
+
+# ── Move / Rotate 指令 ────────────────────────────────────────
+ 
 
 # PY design workflow — same pipeline as design_main.py
 _PY_DIR = str(Path(__file__).parent / "PY")
@@ -64,151 +67,23 @@ _DEFAULTS = {
     "drawn_area": None,
     "step": 0,
     "building_shape": None,
-    "building_function": None,
-    "building_floors": None,
-    "building_trees": None,
+    "mesh_vertices": [],
+    "mesh_faces": [],
+    "mesh_options": [],
+    "last_mesh_genes": {},
+    "agent_chat_history": [],
+    "vp_view": "top",
+    "gh_send_status": None,
     "building_boundary": None,
     "building_area_sqm": None,
-    "pending_input": None,
-    "chat_history": [],
-    "gh_send_status": None,
-    "agent_chat_history": [],
-    "vp_view": "iso",
-    "rhino_screenshot": None,
-    "mesh_vertices": None,
-    "mesh_faces": None,
-    "mesh_options": [],      # list of {vertices, faces, genes} — alternatives
-    "last_mesh_genes": None, # genes dict of the last generated mesh
-    "selected_option_idx": 0,
+    "selected_option_idx": None,
 }
-
-st.set_page_config(page_title="TerraPilot", layout="wide")
-
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
-html,body,[class*="css"],[data-testid="stAppViewContainer"]*{
-    font-family:'JetBrains Mono','Fira Code',monospace;
-    color:#5b5b5b;
-}
-[data-testid="stAppViewContainer"]{background:#ffffff;}
-[data-testid="stHeader"]{background:rgba(255,255,255,0.92);}
-.block-container{padding-top:0.5rem !important;padding-bottom:1rem !important;max-width:100% !important;padding-left:3.5rem !important;padding-right:3.5rem !important;}
-section[data-testid="stMain"]>div:first-child{padding-left:3.5rem !important;padding-right:3.5rem !important;}
-.artboard{border:1px solid #2f2f2f;padding:14px 20px 22px 20px;background:#ffffff;}
-.top-rule{border-top:1px solid #3c3c3c;margin-top:8px;margin-bottom:14px;}
-.brand-row{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin-bottom:8px;}
-.brand{font-size:20px;font-weight:700;letter-spacing:0.3px;color:#6d6d6d;}
-.tagline{font-size:11px;font-style:italic;color:#7d7d7d;}
-.flowline{font-size:10px;color:#ff5d5d;letter-spacing:0.2px;white-space:nowrap;}
-.coord-meta{font-size:9px;line-height:1.45;color:#818181;margin-top:4px;margin-bottom:6px;}
-.site-desc{font-size:9px;line-height:1.65;color:#b8b8b8;margin-top:5px;margin-bottom:10px;border-top:1px solid #f0f0f0;padding-top:6px;}
-.rhino-bar{background:#1a1a1a;color:#555555;font-size:9px;padding:5px 12px;display:flex;gap:12px;align-items:center;border-radius:2px 2px 0 0;}
-/* prompt input */
-.stTextInput input{
-    font-size:12px !important;
-    font-family:'JetBrains Mono',monospace !important;
-    background:#f8f8f8 !important;
-    border:1px solid #d0d0d0 !important;
-    border-radius:3px !important;
-    color:#2e2e2e !important;
-    padding:10px 14px !important;
-}
-.stTextInput input:focus{background:#f2f2f2 !important;border-color:#888 !important;box-shadow:none !important;}
-.stTextInput input::placeholder{color:#aaa !important;font-style:italic !important;}
-div[data-testid="stFormSubmitButton"]>button{
-    width:100% !important;background:#f0f0f0 !important;color:#666 !important;
-    border:1px solid #d8d8d8 !important;border-radius:3px !important;
-    font-size:11px !important;letter-spacing:0.5px !important;margin-top:4px !important;
-}
-div[data-testid="stFormSubmitButton"]>button:hover{background:#e4e4e4 !important;border-color:#aaa !important;}
-.stButton>button{font-size:11px !important;padding:4px 10px !important;background:#e8e8e8 !important;color:#555 !important;border:1px solid #ccc !important;}
-.stButton>button:hover{background:#ddd !important;border-color:#aaa !important;}
-.prompt-question{
-    font-size:11px;color:#4a4a4a;letter-spacing:0.2px;
-    margin-bottom:6px;line-height:1.7;
-    border-left:2px solid #cccccc;padding-left:10px;
-}
-.prompt-hint{font-size:10px;color:#aaaaaa;margin-bottom:8px;font-style:italic;}
-.chat-bubble-user{font-size:11px;color:#3a3a3a;background:#f5f5f5;border-radius:3px;padding:7px 11px;margin-bottom:4px;text-align:right;}
-.chat-bubble-agent{font-size:11px;color:#5a5a5a;margin-bottom:10px;line-height:1.7;}
-.step-done{font-size:10px;color:#aaa;border-bottom:1px solid #f0f0f0;padding-bottom:6px;margin-bottom:6px;}
-.agent-section{border-top:1px solid #ebebeb;margin-top:22px;padding-top:14px;}
-.agent-section-title{font-size:9px;color:#bbb;letter-spacing:0.6px;text-transform:uppercase;margin-bottom:10px;}
-.mcp-status{font-size:9px;}
-/* view toggle radio */
-[data-testid="stRadio"]{margin:-6px 0 0px 0;}
-[data-testid="stRadio"]>div[role="radiogroup"]{flex-direction:row!important;gap:10px!important;align-items:center!important;}
-[data-testid="stRadio"] label{gap:3px!important;padding:0!important;cursor:pointer!important;}
-[data-testid="stRadio"] label p{font-size:9px!important;color:#bbb!important;letter-spacing:0.5px!important;text-transform:uppercase!important;font-family:'JetBrains Mono',monospace!important;}
-[data-testid="stRadio"] [data-baseweb="radio"]>div:first-child{width:6px!important;height:6px!important;border-width:1px!important;}
-</style>
-""", unsafe_allow_html=True)
-
-for k, v in _DEFAULTS.items():
-    if k not in st.session_state:
-        st.session_state[k] = v
-
-# ── helpers ───────────────────────────────────────────────────────────────────
-def _bbox_from_center(lat, lon, radius_km=5.0):
-    lat_d = radius_km / 111.32
-    lon_d = radius_km / max(math.cos(math.radians(lat)) * 111.32, 0.0001)
-    return {"north": lat+lat_d, "south": lat-lat_d, "east": lon+lon_d, "west": lon-lon_d}
-
-cad_bbox = _bbox_from_center(st.session_state.site_lat, st.session_state.site_lon)
-
-def _site_polygon_latlon():
-    if st.session_state.drawn_area:
-        geom = st.session_state.drawn_area.get("geometry", {})
-        coords = geom.get("coordinates", [[]])[0]
-        return [c[0] for c in coords], [c[1] for c in coords]
-    b = cad_bbox
-    return ([b["west"],b["east"],b["east"],b["west"],b["west"]],
-            [b["south"],b["south"],b["north"],b["north"],b["south"]])
-
-def _site_area_sqm():
-    lons, lats = _site_polygon_latlon()
-    n = len(lats)-1; area=0.
-    for i in range(n): area += lats[i]*lons[i+1]-lats[i+1]*lons[i]
-    area = abs(area)/2.
-    clat = sum(lats)/len(lats)
-    return area * 111320. * (111320. * math.cos(math.radians(clat)))
-
-def _generate_boundary():
-    site_sqm = _site_area_sqm()
-    footprint = max(site_sqm * 0.35, 200.)
-    try:
-        res = generate_building_boundary(
-            area=footprint,
-            building_type=st.session_state.building_shape,
-            rotation_degrees=0.0,
-        )
-        data = res["data"]
-        st.session_state.building_boundary = data["boundary"]
-        st.session_state.building_area_sqm = data["boundary_area_sqm"]
-    except Exception:
-        st.session_state.building_boundary = None
-        st.session_state.building_area_sqm = footprint
-
-# ── model & MCP status helpers ────────────────────────────────────────────────
-@st.cache_data(ttl=60, show_spinner=False)
-def _load_model_info():
-    if _py_workflow_available:
-        try:
-            s = _load_design_settings()
-            return {"provider": s.llm_provider, "model": s.llm_model, "mcp_endpoint": s.mcp_endpoint}
-        except Exception:
-            pass
-    if _agent_available:
-        try:
-            s = _load_agent_settings()
-            return {"provider": s.llm_provider, "model": s.llm_model, "mcp_endpoint": s.mcp_endpoint}
-        except Exception as e:
-            return {"provider": "?", "model": str(e)[:50], "mcp_endpoint": None}
-    return {"provider": "n/a", "model": "no pipeline loaded", "mcp_endpoint": None}
-
-@st.cache_data(ttl=20, show_spinner=False)
+# Initialize session state with defaults if keys are missing
+for _k, _v in _DEFAULTS.items():
+    if _k not in st.session_state:
+        st.session_state[_k] = _v
 def _check_mcp_alive():
+    """Return True if MCP endpoint responds to initialize request."""
     mi = _load_model_info()
     ep = mi.get("mcp_endpoint")
     if not ep:
@@ -256,46 +131,84 @@ def _capture_rhino_screenshot():
 
 
 def _apply_modification(text: str):
-    """Parse a natural-language move/rotate command and call the GH MCP tool."""
+    """Parse move/rotate, call GH MCP, then refresh local mesh from updated genes."""
     import re
     mi = _load_model_info()
     ep = mi.get("mcp_endpoint")
-    if not ep:
-        return False, "MCP not configured"
     t = text.strip().lower()
-    try:
-        client = _McpClient(ep, 15.0) if _py_workflow_available else HttpMcpClient(ep, 15.0)
-        client.initialize()
 
-        # move  e.g. "move 15 m left"
-        m = re.search(r'(\d+(?:\.\d+)?)\s*m?\s*(left|right|up|down|north|south|east|west)', t)
-        if m or 'move' in t:
-            dist = float(m.group(1)) if m else 1.0
-            dir_ = m.group(2) if m else 'left'
-            _dm = {"left":"Left","west":"Left","right":"Right","east":"Right",
-                   "up":"Up","north":"Up","down":"Down","south":"Down"}
-            args = {"Left":0.0,"Right":0.0,"Up":0.0,"Down":0.0}
-            args[_dm.get(dir_,"Left")] = dist
-            raw = client.call_tool("move", args)
-            client.close()
-            return True, f"\u2713 moved {dist} m {dir_}"
+    # ── 1. 解析指令参数 ──────────────────────────────────────────────────
+    is_rotate = bool(re.search(r'\brotate\b', t))
+    is_move   = bool(re.search(r'\bmove\b', t))
 
-        # rotate  e.g. "rotate 45 clockwise"
-        r = re.search(r'(\d+(?:\.\d+)?)\s*(?:deg(?:rees?)?)?\s*(clockwise|counterclockwise|anti.?clockwise|cw|ccw)', t)
-        if r or 'rotat' in t:
-            angle = float(r.group(1)) if r else 15.0
-            cw_dir = r.group(2) if r else 'clockwise'
-            cw  = angle if cw_dir in ('clockwise','cw') else 0.0
-            ccw = angle if cw_dir not in ('clockwise','cw') else 0.0
-            raw = client.call_tool("Rotate", {"Clockwise": cw, "Anti-clockwise": ccw})
-            client.close()
-            label = "clockwise" if cw else "counter-clockwise"
-            return True, f"\u2713 rotated {angle}\u00b0 {label}"
-
-        client.close()
+    if not is_rotate and not is_move:
         return False, "couldn't parse — try: move 10 m left · rotate 45 clockwise"
+
+    num_m = re.search(r'(\d+(?:\.\d+)?)', t)
+    value = float(num_m.group(1)) if num_m else (15.0 if is_rotate else 1.0)
+
+    # ── 2. 本地 genes 更新（不依赖 MCP，始终执行）──────────────────────
+    genes = dict(st.session_state.get("last_mesh_genes") or {})
+    label = ""
+
+    if is_rotate:
+        cw = 'counter' not in t and 'ccw' not in t
+        delta = value if cw else -value
+        genes["rotation"]       = (genes.get("rotation", 0) + delta) % 360
+        genes["rotation_angle"] = genes["rotation"]
+        label = f"✓ rotated {value}° {'clockwise' if cw else 'counter-clockwise'}"
+    else:
+        dir_m = re.search(r'(left|right|up|down|north|south|east|west)', t)
+        dir_  = dir_m.group(1) if dir_m else "right"
+        dir_map = {
+            "left": (-1, 0), "west":  (-1, 0),
+            "right": (1, 0), "east":  (1, 0),
+            "up":   (0, 1),  "north": (0, 1),
+            "down": (0, -1), "south": (0, -1),
+        }
+        dx, dy = dir_map.get(dir_, (1, 0))
+        bp = list(genes.get("base_point", [0.0, 0.0, 0.0]))
+        bp[0] += dx * value
+        bp[1] += dy * value
+        genes["base_point"] = bp
+        label = f"✓ moved {value} m {dir_}"
+
+    # 本地 mesh 立刻更新（离线也能看到效果）
+    if _py_workflow_available:
+        lv, lf = _generate_local_mesh(genes)
+        if lv and lf:
+            st.session_state.mesh_vertices = lv
+            st.session_state.mesh_faces    = lf
+            st.session_state.last_mesh_genes = genes
+            alts = _generate_alternatives(genes, n=3)
+            st.session_state.mesh_options  = alts
+            st.session_state.selected_option_idx = 0
+
+    # ── 3. Try syncing through the interface bridge (preferred) ──────────
+    # Spawn a background thread to call the MCP bridge so UI doesn't block
+    try:
+        import threading
+
+        def _bg_call():
+            try:
+                res = run_interface_command(text)
+            except Exception as _e:
+                res = {"success": False, "message": str(_e)}
+            try:
+                msg = res.get("message") if isinstance(res, dict) else str(res)
+            except Exception:
+                msg = str(res)
+            st.session_state.agent_chat_history.append({
+                "user": f"→ {text} (MCP)",
+                "agent": f"MCP: {msg}",
+            })
+
+        threading.Thread(target=_bg_call, daemon=True).start()
+        label += " (GH sync requested)"
     except Exception as e:
-        return False, str(e)
+        label += f" (background MCP error: {e})"
+
+    return True, label
 
 
 _SHAPE_TO_GH = {
@@ -1291,90 +1204,145 @@ with main_col:
             label_visibility="collapsed",
             placeholder=_placeholder,
         )
-        _chat_submitted = st.form_submit_button("\u2192 send")
+        _chat_submitted = st.form_submit_button("→ send")
         if _chat_submitted and _chat_input.strip():
             import re as _re
             _inp = _chat_input.strip()
             _opts = st.session_state.get("mesh_options", [])
 
-            # ── Option selection handling ────────────────────────────────────
-            _sel_idx = None
-            if _opts:
-                _lo = _inp.lower()
-                for _n, _pat in [
-                    (0, r'\boption\s*1\b|option\s*one\b|first\b|birinci\b'),
-                    (1, r'\boption\s*2\b|option\s*two\b|second\b|ikinci\b'),
-                    (2, r'\boption\s*3\b|option\s*three\b|third\b|\bu\u00e7\u00fcnc\u00fc\b'),
-                    (3, r'\boption\s*4\b|option\s*four\b|fourth\b|d\u00f6rd\u00fcnc\u00fc\b'),
-                ]:
-                    if _re.search(_pat, _lo):
-                        _sel_idx = _n
-                        break
-                if _sel_idx is None and _re.search(r'\byes\b|evet\b|like it\b|beğendim\b|perfect\b|güzel\b|go with it\b', _lo):
-                    _sel_idx = 0  # confirm option 1
+        # ── Option selection handling ────────────────────────────────────
+        _sel_idx = None
+        if _opts:
+            _lo = _inp.lower()
+            for _n, _pat in [
+                (0, r'\boption\s*1\b|option\s*one\b|first\b|birinci\b'),
+                (1, r'\boption\s*2\b|option\s*two\b|second\b|ikinci\b'),
+                (2, r'\boption\s*3\b|option\s*three\b|third\b|\büçüncü\b'),
+                (3, r'\boption\s*4\b|option\s*four\b|fourth\b|dördüncü\b'),
+            ]:
+                if _re.search(_pat, _lo):
+                    _sel_idx = _n
+                    break
+            if _sel_idx is None and _re.search(r'\byes\b|evet\b|like it\b|beğendim\b|perfect\b|güzel\b|go with it\b', _lo):
+                _sel_idx = 0
 
-            if _sel_idx is not None:
-                # Switch to selected option
-                _all_opts = [
-                    {"vertices": st.session_state.mesh_vertices, "faces": st.session_state.mesh_faces,
-                     "genes": st.session_state.get("last_mesh_genes", {})}
-                ] + _opts
-                if _sel_idx < len(_all_opts):
-                    _chosen = _all_opts[_sel_idx]
-                    st.session_state.mesh_vertices = _chosen["vertices"]
-                    st.session_state.mesh_faces = _chosen["faces"]
-                    if _chosen.get("genes"):
-                        st.session_state.last_mesh_genes = _chosen["genes"]
-                    st.session_state.selected_option_idx = _sel_idx
-                # Check if user also wants modification (e.g. "option 2 but taller")
-                _has_mod = bool(_re.search(r'\bbut\b|ama\b|also\b|make\b|yap\b|daha\b|bigger\b|smaller\b|taller\b|wider\b|shorter\b|büyük\b|küçük\b|yüksek\b', _lo))
-                if not _has_mod:
-                    st.session_state.mesh_options = []
-                    _confirm_label = ["Option 1", "Option 2", "Option 3"][_sel_idx] if _sel_idx < 3 else f"Option {_sel_idx+1}"
-                    st.session_state.agent_chat_history.append({
-                        "user": _inp,
-                        "agent": f"\u2713 {_confirm_label} selected. Viewport updated. Type any further refinements or start a new design."
-                    })
-                    st.session_state.vp_view = "persp"
-                    st.rerun()
-                # If there's a modification, fall through to agent call with the full input
+        if _sel_idx is not None:
+            _all_opts = [
+                {"vertices": st.session_state.mesh_vertices, "faces": st.session_state.mesh_faces,
+                 "genes": st.session_state.get("last_mesh_genes", {})}
+            ] + _opts
+            if _sel_idx < len(_all_opts):
+                _chosen = _all_opts[_sel_idx]
+                st.session_state.mesh_vertices = _chosen["vertices"]
+                st.session_state.mesh_faces = _chosen["faces"]
+                if _chosen.get("genes"):
+                    st.session_state.last_mesh_genes = _chosen["genes"]
+                st.session_state.selected_option_idx = _sel_idx
+            _has_mod = bool(_re.search(
+                r'\bbut\b|ama\b|also\b|make\b|yap\b|daha\b|bigger\b|smaller\b|taller\b|wider\b|shorter\b|büyük\b|küçük\b|yüksek\b',
+                _lo
+            ))
+            if not _has_mod:
+                st.session_state.mesh_options = []
+                _confirm_label = ["Option 1", "Option 2", "Option 3", "Option 4"][_sel_idx] if _sel_idx < 4 else f"Option {_sel_idx+1}"
+                st.session_state.agent_chat_history.append({
+                    "user": _inp,
+                    "agent": f"✓ {_confirm_label} selected. Viewport updated. Type any further refinements or start a new design."
+                })
+                st.session_state.vp_view = "persp"
+                st.rerun()
+            # has modification — fall through to agent
 
-            # ── Normal agent call ────────────────────────────────────────────
-            _status_slot = st.empty()
-            def _log_step(msg: str):
-                _status_slot.markdown(
-                    f'<p style="font-size:10px;color:#aaaaaa;font-family:JetBrains Mono,monospace;'
-                    f'margin:2px 0 4px 0;letter-spacing:0.2px;">↻ {msg}</p>',
-                    unsafe_allow_html=True
-                )
-            _chat_response = _run_agent_chat(_inp, _log=_log_step)
-            _status_slot.empty()
-            # Parse geometry from agent response
-            _v3d, _faces = _parse_mesh_from_response(_chat_response)
-            if _v3d and _faces:
-                st.session_state.mesh_vertices = _v3d
-                st.session_state.mesh_faces = _faces
-                st.session_state.vp_view = "persp"
-            _bnd = _parse_boundary_from_response(_chat_response)
-            if _bnd:
-                st.session_state.building_boundary = _bnd
-                st.session_state.vp_view = "persp"
-            # Append chat entry
-            _new_alts = st.session_state.get("mesh_options", [])
-            if _new_alts and st.session_state.get("mesh_vertices"):
-                _sc_main = _score_design(st.session_state.get("last_mesh_genes") or {})
-                _agent_reply = (
-                    f"Design generated \u2014 score **{_sc_main['total']}/100**.\n\n"
-                    "**3 options** are shown on the right panel. "
-                    "Click \u2192 select on any option, or type:\n"
-                    "- *\"Option 2\"* \u2014 switch to that option\n"
-                    "- *\"Option 1 but make it taller\"* \u2014 refine\n"
-                    "- *\"yes\"* \u2014 keep current option"
-                )
-            else:
-                _agent_reply = _clean_agent_reply(_chat_response) or "Design updated."
-            st.session_state.agent_chat_history.append({"user": _inp, "agent": _agent_reply})
+        # ── Move / Rotate 指令：处理后直接 rerun，绝不跌落到 agent ──────
+        if _sel_idx is None and _re.search(r'\b(move|rotate)\b', _inp, _re.I):
+            _ok, _msg = _apply_modification(_inp)
+
+            # MCP offline 时的本地 mesh 回退
+            if not _ok and st.session_state.get("last_mesh_genes"):
+                _r_num = _re.search(r'(\d+(?:\.\d+)?)', _inp)
+                _angle = float(_r_num.group(1)) if _r_num else 15.0
+                _cw = 'counter' not in _inp.lower() and 'ccw' not in _inp.lower()
+                _delta = _angle if _cw else -_angle
+
+                _genes = dict(st.session_state.last_mesh_genes)
+
+                if _re.search(r'\brotate\b', _inp, _re.I):
+                    # 旋转：更新 rotation gene
+                    _genes["rotation"] = (_genes.get("rotation", 0) + _delta) % 360
+                    _genes["rotation_angle"] = _genes["rotation"]
+                    _label = f"✓ rotated {_angle}° {'clockwise' if _cw else 'counter-clockwise'} (local preview)"
+                else:
+                    # 移动：更新 base_point gene
+                    _r_dir = _re.search(
+                        r'(left|right|up|down|north|south|east|west)', _inp.lower()
+                    )
+                    _dir = _r_dir.group(1) if _r_dir else "right"
+                    _dir_map = {
+                        "left": (-1, 0), "west": (-1, 0),
+                        "right": (1, 0),  "east": (1, 0),
+                        "up": (0, 1),     "north": (0, 1),
+                        "down": (0, -1),  "south": (0, -1),
+                    }
+                    _dx, _dy = _dir_map.get(_dir, (1, 0))
+                    _bp = list(_genes.get("base_point", [0.0, 0.0, 0.0]))
+                    _bp[0] += _dx * _angle
+                    _bp[1] += _dy * _angle
+                    _genes["base_point"] = _bp
+                    _label = f"✓ moved {_angle} m {_dir} (local preview)"
+
+                _lv, _lf = _generate_local_mesh(_genes)
+                if _lv and _lf:
+                    st.session_state.mesh_vertices = _lv
+                    st.session_state.mesh_faces = _lf
+                    st.session_state.last_mesh_genes = _genes
+                    _alts = _generate_alternatives(_genes, n=3)
+                    st.session_state.mesh_options = _alts
+                    st.session_state.selected_option_idx = 0
+                    _msg = _label
+                    _ok = True
+
+            # 无论 MCP 是否在线、本地是否成功，都在这里结束，不跑 agent
+            st.session_state.agent_chat_history.append({
+                "user": _inp,
+                "agent": _msg,
+            })
+            st.session_state.vp_view = "persp"
             st.rerun()
+
+        # ── Normal agent call ────────────────────────────────────────────
+        _status_slot = st.empty()
+        def _log_step(msg: str):
+            _status_slot.markdown(
+                f'<p style="font-size:10px;color:#aaaaaa;font-family:JetBrains Mono,monospace;'
+                f'margin:2px 0 4px 0;letter-spacing:0.2px;">↻ {msg}</p>',
+                unsafe_allow_html=True
+            )
+        _chat_response = _run_agent_chat(_inp, _log=_log_step)
+        _status_slot.empty()
+        _v3d, _faces = _parse_mesh_from_response(_chat_response)
+        if _v3d and _faces:
+            st.session_state.mesh_vertices = _v3d
+            st.session_state.mesh_faces = _faces
+            st.session_state.vp_view = "persp"
+        _bnd = _parse_boundary_from_response(_chat_response)
+        if _bnd:
+            st.session_state.building_boundary = _bnd
+            st.session_state.vp_view = "persp"
+        _new_alts = st.session_state.get("mesh_options", [])
+        if _new_alts and st.session_state.get("mesh_vertices"):
+            _sc_main = _score_design(st.session_state.get("last_mesh_genes") or {})
+            _agent_reply = (
+                f"Design generated — score **{_sc_main['total']}/100**.\n\n"
+                "**3 options** are shown on the right panel. "
+                "Click → select on any option, or type:\n"
+                "- *\"Option 2\"* — switch to that option\n"
+                "- *\"Option 1 but make it taller\"* — refine\n"
+                "- *\"yes\"* — keep current option"
+            )
+        else:
+            _agent_reply = _clean_agent_reply(_chat_response) or "Design updated."
+        st.session_state.agent_chat_history.append({"user": _inp, "agent": _agent_reply})
+        st.rerun()
 
     if st.session_state.agent_chat_history:
         if st.button("clear chat", key="clear_chat_btn"):

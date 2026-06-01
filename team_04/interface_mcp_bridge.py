@@ -60,6 +60,10 @@ class SimpleMCPClient:
 
         return data.get("result")
 
+    def close(self) -> None:
+        """No-op close to match other MCP client implementations."""
+        return None
+
     def initialize(self) -> Any:
         return self._post(
             "initialize",
@@ -205,7 +209,8 @@ def run_interface_command(user_prompt: str) -> Dict[str, Any]:
     """
 
     endpoint = load_mcp_endpoint()
-    client = SimpleMCPClient(endpoint)
+    # increase timeout for potentially long-running tool calls
+    client = SimpleMCPClient(endpoint, timeout=60.0)
 
     client.initialize()
     available_tools = client.list_tools()
@@ -216,17 +221,27 @@ def run_interface_command(user_prompt: str) -> Dict[str, Any]:
             available_tools,
             ["move", "Move", "move_building_04", "move_building"],
         )
-
-        raw = client.call_tool(tool_name, move_args)
-
-        return {
-            "success": True,
-            "action": "move",
-            "tool": tool_name,
-            "arguments": move_args,
-            "message": move_msg,
-            "raw_result": raw,
-        }
+        try:
+            raw = client.call_tool(tool_name, move_args)
+            client.close()
+            return {
+                "success": True,
+                "action": "move",
+                "tool": tool_name,
+                "arguments": move_args,
+                "message": move_msg,
+                "raw_result": raw,
+            }
+        except Exception as e:
+            client.close()
+            return {
+                "success": False,
+                "action": "move",
+                "tool": tool_name,
+                "arguments": move_args,
+                "message": f"MCP call failed: {e}",
+                "raw_result": None,
+            }
 
     rotate_ok, rotate_args, rotate_msg = parse_rotate_command(user_prompt)
     if rotate_ok:
@@ -234,17 +249,27 @@ def run_interface_command(user_prompt: str) -> Dict[str, Any]:
             available_tools,
             ["Rotate", "rotate", "rotate_building_04", "rotate_building"],
         )
-
-        raw = client.call_tool(tool_name, rotate_args)
-
-        return {
-            "success": True,
-            "action": "rotate",
-            "tool": tool_name,
-            "arguments": rotate_args,
-            "message": rotate_msg,
-            "raw_result": raw,
-        }
+        try:
+            raw = client.call_tool(tool_name, rotate_args)
+            client.close()
+            return {
+                "success": True,
+                "action": "rotate",
+                "tool": tool_name,
+                "arguments": rotate_args,
+                "message": rotate_msg,
+                "raw_result": raw,
+            }
+        except Exception as e:
+            client.close()
+            return {
+                "success": False,
+                "action": "rotate",
+                "tool": tool_name,
+                "arguments": rotate_args,
+                "message": f"MCP call failed: {e}",
+                "raw_result": None,
+            }
 
     return {
         "success": False,
