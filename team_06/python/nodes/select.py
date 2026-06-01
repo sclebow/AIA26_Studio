@@ -10,7 +10,7 @@ def _load_layout_by_id(layout_id: str, repo_root: Path) -> dict | None:
     layout = next((l for l in all_layouts if l.get("layoutId") == layout_id), None)
     if layout:
         return layout
-    pf_path = repo_root / "layout_inputs" / "Planfinder_Dataset" / f"{layout_id}.json"
+    pf_path = repo_root / "layout_inputs" / "Planfinder_Dataset" / "pf_jsons" / f"{layout_id}.json"
     if pf_path.exists():
         return json.loads(pf_path.read_text(encoding="utf-8"))
     return None
