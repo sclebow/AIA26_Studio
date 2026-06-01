@@ -138,7 +138,7 @@ def extract_features(G: nx.Graph) -> list[float]:
     #                    ^2 bedrooms ^1 kitchen ^1 living ^2 baths ^0 dining ^0 foyer
     program_size_counts = {}
     for node in G.nodes():
-        program = G.nodes[node].get("program", "")
+        program = normalize_program(G.nodes[node].get("program", ""))
         size = G.nodes[node].get("size", "Medium")
         key = (program, size)
         program_size_counts[key] = program_size_counts.get(key, 0) + 1
@@ -152,9 +152,10 @@ def extract_features(G: nx.Graph) -> list[float]:
     # e.g., ('bedroom', 'kitchen') → 1.0 if any bedroom shares a door with any kitchen
     access_edges = set()
     for u, v in G.edges():
-        if 'access' in G[u][v].get('edge_types', []):
-            pu = G.nodes[u].get("program", "")
-            pv = G.nodes[v].get("program", "")
+        edge_types = G[u][v].get('edge_types', [])
+        if not edge_types or 'access' in edge_types:
+            pu = normalize_program(G.nodes[u].get("program", ""))
+            pv = normalize_program(G.nodes[v].get("program", ""))
             access_edges.add(tuple(sorted([pu, pv])))
 
     for pair in PROGRAM_PAIRS:
@@ -165,9 +166,10 @@ def extract_features(G: nx.Graph) -> list[float]:
     # e.g., ('bedroom', 'kitchen') → 1.0 if any bedroom shares a wall with any kitchen
     adjacency_edges = set()
     for u, v in G.edges():
-        if 'adjacency' in G[u][v].get('edge_types', []):
-            pu = G.nodes[u].get("program", "")
-            pv = G.nodes[v].get("program", "")
+        edge_types = G[u][v].get('edge_types', [])
+        if 'adjacency' in edge_types:
+            pu = normalize_program(G.nodes[u].get("program", ""))
+            pv = normalize_program(G.nodes[v].get("program", ""))
             adjacency_edges.add(tuple(sorted([pu, pv])))
     
     for pair in PROGRAM_PAIRS:
@@ -177,7 +179,7 @@ def extract_features(G: nx.Graph) -> list[float]:
     # Tells us how "central" each program type is in the layout's access graph
     centrality_by_program = {}
     for program in PROGRAMS:
-        rooms = [n for n in G.nodes() if G.nodes[n].get("program", "") == program]
+        rooms = [n for n in G.nodes() if normalize_program(G.nodes[n].get("program", "")) == program]
         if rooms:
             centralities = [G.nodes[n].get("betweenness_centrality", 0.0) for n in rooms]
             centrality_by_program[program] = sum(centralities) / len(centralities)
@@ -244,7 +246,7 @@ def build_query_vector(
         query_access_pairs = set()
         for i in range(len(programs)):
             for j in range(i + 1, len(programs)):
-                pair = tuple(sorted([programs[i], programs[j]]))
+                pair = tuple(sorted([normalize_program(programs[i]), normalize_program(programs[j])]))
                 query_access_pairs.add(pair)
         for pair in PROGRAM_PAIRS:
             features.append(1.0 if pair in query_access_pairs else 0.0)
@@ -257,7 +259,7 @@ def build_query_vector(
         query_adjacency_pairs = set()
         for i in range(len(programs)):
             for j in range(i + 1, len(programs)):
-                pair = tuple(sorted([programs[i], programs[j]]))
+                pair = tuple(sorted([normalize_program(programs[i]), normalize_program(programs[j])]))
                 query_adjacency_pairs.add(pair)
         for pair in PROGRAM_PAIRS:
             features.append(1.0 if pair in query_adjacency_pairs else 0.0)
@@ -332,22 +334,8 @@ class RuleBasedEmbedder:
             top_k:     how many results to return
 
         Returns:
-            list of (layout_id, score) sorted best-first; empty if no exact match.
+            list of (layout_id, score) sorted best-first.
         """
-        
-        #It filters to only layouts with the exact program counts.
-        # Dictionary that counts how many times each program appears in the user's query
-        required: dict[str, int] = {}
-        for p in programs:
-            canonical = normalize_program(p)
-            required[canonical] = required.get(canonical, 0) + 1
-
-        required_indices = {
-            PROGRAMS.index(p): count
-            for p, count in required.items()
-            if p in PROGRAMS
-        }
-
         query_vec = build_query_vector(
             programs, 
             sizes=sizes, 
@@ -357,8 +345,6 @@ class RuleBasedEmbedder:
 
         scores = []
         for layout_id, layout_vec in self.index.items():
-            if any(layout_vec[idx] != count for idx, count in required_indices.items()):
-                continue
             scores.append((layout_id, cosine_similarity(query_vec, layout_vec)))
         scores.sort(key=lambda x: x[1], reverse=True)
         
