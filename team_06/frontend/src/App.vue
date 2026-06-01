@@ -13,137 +13,54 @@ import { ref } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import ChatPanel from './components/ChatPanel.vue'
 import WorkSpace from './components/WorkSpace.vue'
-
-
+import { getAgentResponse, getAgentResponseForSidebarAdd, generateBrief } from './mock/agentMock.js'
 
 const tab = ref('brief')
 const chatHistory = ref([])
 const agentState = ref(null)
 const parsedInput = ref(null)
 
-
-function mockAgentResponse(messages) {
-  // Simulate the described conversation and state updates
-  const userMsgs = messages.filter(m => m.role === 'user').map(m => m.text.trim().toLowerCase());
-  if (userMsgs.length === 0) {
-    return {
-      text: 'Hi, I am John, I live with my partner Sarah, we cook a lot',
-      layout: null,
-      parsedInput: null
-    };
-  }
-  if (userMsgs.length === 1) {
-    return {
-      text: 'How many bedrooms do you want?',
-      layout: null,
-      parsedInput: {
-        households: [
-          { name: 'John', age: 34, relationship: 'self' },
-          { name: 'Sarah', age: 32, relationship: 'partner' }
-        ],
-        activities: [
-          { type: 'Cooking', time: 'often' }
-        ],
-        rooms: [
-          { id: 1, name: 'Kitchen' , size: 'large' }
-        ],
-        brief: 'John and Sarah area a couple and cook a lot.'
-      }
-    };
-  }
-  if (userMsgs.length === 2) {
-    return {
-      text: 'Here is a layout suggestion. Are you happy with this layout, or would you like to explore more options?',
-      layout: {
-        layoutId: 'Layout 1',
-        rooms: [
-          { id: 1, name: 'Bedroom', geometry: [[0,0],[0,4],[4,4],[4,0],[0,0]], attributes: { program: 'bed', area: 16 } },
-          { id: 2, name: 'Kitchen', geometry: [[4,0],[4,4],[8,4],[8,0],[4,0]], attributes: { program: 'kitchen', area: 16 } },
-          { id: 3, name: 'Living', geometry: [[0,4],[0,8],[8,8],[8,4],[0,4]], attributes: { program: 'living', area: 36 } }
-        ]
-      },
-      parsedInput: {
-        households: [
-          { name: 'John', age: 34, relationship: 'self' },
-          { name: 'Sarah', age: 32, relationship: 'partner' }
-        ],
-        activities: [
-          { type: 'Cooking', time: 'often' }
-        ],
-        rooms: [
-          { id: 1, name: 'Kitchen' , size: 'large' },
-          { id: 2, name: 'Bedroom' , size: 'double'}
-        ],
-        brief: 'John and Sarah area a couple and cook a lot. They want one bedroom.'
-      }
-    };
-  }
-  // Third user message: e.g. "I work from home, etc..."
-  return {
-    text: 'Here is an updated layout with a workspace. Anything else to add?',
-    layout: {
-      layoutId: 'Layout 2',
-      rooms: [
-        { id: 1, name: 'Bedroom', geometry: [[0,0],[0,4],[4,4],[4,0],[0,0]], attributes: { program: 'bed', area: 16 } },
-          { id: 2, name: 'Kitchen', geometry: [[4,0],[4,4],[8,4],[8,0],[4,0]], attributes: { program: 'kitchen', area: 16 } },
-          { id: 3, name: 'Living', geometry: [[0,4],[0,8],[8,8],[8,4],[0,4]], attributes: { program: 'living', area: 36 } },
-        { id: 4, name: 'Workspace', geometry: [[8,0],[8,3],[13,3],[13,0],[8,0]], attributes: { program: 'extra', area: 9 } }
-      ]
-    },
-    parsedInput: {
-      households: [
-        { name: 'John', age: 34, relationship: 'self' },
-        { name: 'Sarah', age: 32, relationship: 'partner' }
-      ],
-      activities: [
-        { type: 'Cooking', time: 'often' },
-        { type: 'Work', time: 'weekdays' }
-      ],
-      rooms: [
-        { id: 1, name: 'Kitchen' , size: 'large' },
-        { id: 2, name: 'Bedroom' , size: 'double'},
-        { id: 3, name: 'Workspace' , size: 'medium'}
-      ],
-      brief: 'John and Sarah area a couple and cook a lot. They want one bedroom and a workspace.'
-    }
-  };
-}
-
-function handleItemAdded({ section, item }) {
-  if (!parsedInput.value) {
-    parsedInput.value = { households: [], activities: [], rooms: [], brief: '' }
-  }
-  if (!parsedInput.value[section]) {
-    parsedInput.value[section] = []
-  }
-  parsedInput.value[section] = [...parsedInput.value[section], item]
-}
-
-function handleUserMessage(message) {
-  // Add user message
+// ─── Shared applier ───────────────────────────────────────────────────────────
+// Applies an AgentResponse onto local state.
+// To connect a real agent, swap getAgentResponse/getAgentResponseForSidebarAdd
+// with API calls that return the same shape — this function stays unchanged.
+function applyAgentResponse(response) {
+  if (response.parsedInput) parsedInput.value = response.parsedInput
+  if (response.layout)      agentState.value  = response.layout
   chatHistory.value.push({
     id: Date.now(),
-    role: 'user',
-    text: message,
+    role: 'agent',
+    text: response.message,
     timestamp: new Date().toISOString()
-  });
+  })
+}
 
+// ─── Chat path ────────────────────────────────────────────────────────────────
+function handleUserMessage(message) {
+  chatHistory.value.push({ id: Date.now(), role: 'user', text: message, timestamp: new Date().toISOString() })
   setTimeout(() => {
-    // Get new agent state/layout/parsedInput
-    const agent = mockAgentResponse(chatHistory.value);
-    if (agent) {
-      // Force new object reference for reactivity
-      agentState.value = agent.layout ? JSON.parse(JSON.stringify(agent.layout)) : null;
-      parsedInput.value = agent.parsedInput ? JSON.parse(JSON.stringify(agent.parsedInput)) : null;
-      console.log('App.vue setting agentState:', agent.layout);
-      chatHistory.value.push({
-        id: Date.now() + 1,
-        role: 'agent',
-        text: agent.text,
-        timestamp: new Date().toISOString()
-      });
-    }
-  }, 800);
+    const response = getAgentResponse(message, { parsedInput: parsedInput.value, layout: agentState.value })
+    applyAgentResponse(response)
+  }, 800)
+}
+
+// ─── Sidebar path ─────────────────────────────────────────────────────────────
+function handleItemAdded({ section, item }) {
+  // 1. Merge item into local state immediately (optimistic update)
+  const base = parsedInput.value ?? { households: [], activities: [], rooms: [], extras: [] }
+  const merged = { ...base, [section]: [...(base[section] ?? []), item] }
+  // brief is internal-only (agent context), not displayed
+  merged.brief = generateBrief(merged)
+  parsedInput.value = merged
+
+  // 2. Ask mock (or real agent) for acknowledgement + optional layout update
+  setTimeout(() => {
+    const response = getAgentResponseForSidebarAdd(section, item, {
+      parsedInput: parsedInput.value,
+      layout: agentState.value
+    })
+    applyAgentResponse(response)
+  }, 400)
 }
 </script>
 

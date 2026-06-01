@@ -37,6 +37,8 @@ function confirmAdd() {
     emit('itemAdded', { section: 'activities', item: { type: val } })
   } else if (addingTo.value === 'rooms') {
     emit('itemAdded', { section: 'rooms', item: { name: val, id: Date.now() } })
+  } else if (addingTo.value === 'extras') {
+    emit('itemAdded', { section: 'extras', item: val })
   }
   cancelAdd()
 }
@@ -107,13 +109,19 @@ function onKeydown(e) {
         </section>
         <section class="sidebar-section">
           <div class="sidebar-section-title">
-            <img :src="messageIcon" alt="Brief" width="20" height="20" />
-            Brief
+            <img :src="messageIcon" alt="Extra" width="20" height="20" />
+            Extra
+            <button class="sidebar-title-add" @click="startAdding('extras')"><img :src="plusIcon" width="14" height="14" alt="add" /></button>
           </div>
-          <div class="sidebar-brief">
-            <span v-if="props.parsedInput && props.parsedInput.brief">{{ props.parsedInput.brief }}</span>
-            <span v-else>No input yet</span>
-          </div>
+          <ul class="sidebar-list">
+            <li v-if="props.parsedInput && props.parsedInput.extras && props.parsedInput.extras.length" v-for="(e, i) in props.parsedInput.extras" :key="i">
+              {{ e }}
+            </li>
+            <li v-else-if="addingTo !== 'extras'">No input yet</li>
+            <li v-if="addingTo === 'extras'" class="sidebar-list-input-row">
+              <input ref="inputRef" v-model="newItemText" class="sidebar-list-input" placeholder="e.g. We have a dog..." @keydown="onKeydown" @blur="cancelAdd" />
+            </li>
+          </ul>
         </section>
       </template>
       <template v-else-if="props.tab==='explore'">
@@ -123,7 +131,7 @@ function onKeydown(e) {
         <div class="sidebar-section-title">History (placeholder)</div>
       </template>
     </div>
-    <button class="update-brief-btn layout-btn">Update Brief</button>
+    <button class="update-brief-btn layout-btn">Reset</button>
   </aside>
 </template>
 
@@ -197,15 +205,6 @@ function onKeydown(e) {
   padding: 2px 0;
 }
 
-.sidebar-brief {
-  background: var(--color-white);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-  font-size: var(--font-size-standard);
-  color: var(--color-text-secondary);
-  margin-bottom: 12px;
-  border: 1px solid var(--color-border);
-}
 .update-brief-btn{
     margin-bottom: 28px;
 }
