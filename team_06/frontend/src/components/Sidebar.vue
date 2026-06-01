@@ -4,6 +4,7 @@ import userIcon from '../assets/icons/user.svg'
 import clockIcon from '../assets/icons/clock.svg'
 import boxIcon from '../assets/icons/box.svg'
 import messageIcon from '../assets/icons/message.svg'
+import plusIcon from '../assets/icons/plus.svg'
 import SidebarHeader from './SidebarHeader.vue'
 const props = defineProps({
   tab: String,
@@ -24,11 +25,11 @@ const emit = defineEmits(['change'])
           <div class="sidebar-section-title">
             <img :src="userIcon" alt="Households" width="20" height="20" />
             Households
+            <button class="sidebar-title-add"><img :src="plusIcon" width="14" height="14" alt="add" /></button>
           </div>
           <ul class="sidebar-list">
             <li v-if="props.parsedInput && props.parsedInput.households && props.parsedInput.households.length" v-for="(h, i) in props.parsedInput.households" :key="i">
-              {{ h.name }}<span v-if="h.age && h.age !== 'int'"> - {{ h.age }}</span>
-              <span v-if="h.relationship"> - {{ h.relationship }}</span>
+              {{ h.name }}<span v-if="h.age && h.age !== 'int'"> - {{ h.age }}</span><span v-if="h.relationship"> - {{ h.relationship }}</span>
             </li>
             <li v-else>No input yet</li>
           </ul>
@@ -37,6 +38,7 @@ const emit = defineEmits(['change'])
           <div class="sidebar-section-title">
             <img :src="clockIcon" alt="Routine" width="20" height="20" />
             Routine
+            <button class="sidebar-title-add"><img :src="plusIcon" width="14" height="14" alt="add" /></button>
           </div>
           <ul class="sidebar-list">
             <li v-if="props.parsedInput && props.parsedInput.activities && props.parsedInput.activities.length" v-for="(a, i) in props.parsedInput.activities" :key="i">
@@ -49,6 +51,7 @@ const emit = defineEmits(['change'])
           <div class="sidebar-section-title">
             <img :src="boxIcon" alt="Rooms" width="20" height="20" />
             Rooms
+            <button class="sidebar-title-add"><img :src="plusIcon" width="14" height="14" alt="add" /></button>
           </div>
           <ul class="sidebar-list">
             <li v-if="props.parsedInput && props.parsedInput.rooms && props.parsedInput.rooms.length" v-for="(r, i) in props.parsedInput.rooms" :key="i">
@@ -111,9 +114,24 @@ const emit = defineEmits(['change'])
   gap: 8px;
 }
 
+.sidebar-title-add {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  opacity: 0.5;
+}
+
+.sidebar-title-add:hover {
+  opacity: 1;
+}
+
 .sidebar-list {
   margin: 0 0 0 28px;
-  padding:0;
+  padding: 0;
   list-style: none;
   color: var(--color-text);
   font-size: var(--font-size-standard);

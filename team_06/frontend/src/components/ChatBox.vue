@@ -49,6 +49,7 @@ function sendMessage() {
   padding: 12px 16px 8px 16px;
   width: 100%;
   position: relative;
+
   min-height: 120px;
   box-sizing: border-box;
 }
