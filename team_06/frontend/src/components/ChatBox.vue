@@ -9,12 +9,10 @@
     />
     <div class="chatbox-bottom-row">
       <div class="chatbox-btns">
-        <button class="chatbox-btn"><img :src="imgIcon" alt="Image" width="20" height="20" /></button>
-        <button class="chatbox-btn"><img :src="codeIcon" alt="Code" width="20" height="20" /></button>
-        <button class="chatbox-btn"><img :src="micIcon" alt="Mic" width="20" height="20" /></button>
+        <button class="chatbox-btn"><img :src="plusIcon" alt="Image" width="24" height="24" style="opacity:0.6;" /></button>
       </div>
-      <button class="chatbox-send-btn" @click="sendMessage" :disabled="!inputMsg.trim()">
-        <img :src="sendWhiteIcon" alt="Send" width="16" height="16" />
+      <button v-if="inputMsg.trim()" class="chatbox-send-btn" @click="sendMessage">
+        <img :src="sendWhiteIcon" alt="Send" width="16" height="16"  />
       </button>
     </div>
   </div>
@@ -22,9 +20,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import imgIcon from '../assets/icons/img.svg'
-import codeIcon from '../assets/icons/code.svg'
-import micIcon from '../assets/icons/mic.svg'
+import plusIcon from '../assets/icons/plus_simple.svg'
 import sendWhiteIcon from '../assets/icons/send-white.svg'
 
 const emit = defineEmits(['send'])

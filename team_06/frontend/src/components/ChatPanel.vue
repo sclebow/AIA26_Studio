@@ -5,6 +5,7 @@ import sendIcon from '../assets/icons/send.svg'
 import searchIcon from '../assets/icons/search.svg'
 import userIcon from '../assets/icons/user.svg'
 import chevronIcon from '../assets/icons/chevron.svg'
+import plusIcon from '../assets/icons/plus.svg'
 import ChatBox from './ChatBox.vue'
 const search = ref('')
 
@@ -45,6 +46,7 @@ watch(() => props.chat.length, () => {
       <div class="chat-history-title">
         <img :src="menuIcon" alt="Chat History" width="20" height="20" />
         Chat History
+        <button class="chat-history-add"><img :src="plusIcon" width="14" height="14" alt="new chat" /></button>
       </div>
     </section>
     <div class="chat-search-bar">
@@ -106,8 +108,20 @@ watch(() => props.chat.length, () => {
   color: var(--color-text-primary);
   gap: 8px;
   margin-left: 32px;
+  margin-right: 32px;
   margin-top: 12px;
 }
+.chat-history-add {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  opacity: 0.5;
+}
+.chat-history-add:hover { opacity: 1; }
 .chat-search {
   display: flex;
   font-size: var(--font-size-standard);
