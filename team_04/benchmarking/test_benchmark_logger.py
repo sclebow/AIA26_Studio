@@ -24,8 +24,8 @@ class BenchmarkLoggerTests(unittest.TestCase):
                 json_dir=root_dir / "json",
                 csv_path=root_dir / "benchmark_runs.csv",
             )
-            output_layout_path = root_dir / "team_04_edited_layout.json"
-            output_layout_path.write_text('{"ok": true}\n', encoding="utf-8")
+            output_result_path = root_dir / "team_04_placement_result.json"
+            output_result_path.write_text('{"ok": true}\n', encoding="utf-8")
 
             record = write_benchmark_logs(
                 prompt="Generate one building.",
@@ -49,7 +49,7 @@ class BenchmarkLoggerTests(unittest.TestCase):
                     ],
                 },
                 final_response="Completed.",
-                output_layout_path=output_layout_path,
+                output_result_path=output_result_path,
                 paths=paths,
             )
 
@@ -62,7 +62,7 @@ class BenchmarkLoggerTests(unittest.TestCase):
 
             parsed_json = json.loads(json_path.read_text(encoding="utf-8"))
             self.assertEqual(parsed_json["final_response"], "Completed.")
-            self.assertTrue(parsed_json["layout_written"])
+            self.assertTrue(parsed_json["result_written"])
 
             with paths.csv_path.open("r", encoding="utf-8", newline="") as handle:
                 rows = list(csv.DictReader(handle))
@@ -91,14 +91,14 @@ class BenchmarkLoggerTests(unittest.TestCase):
                 completed_at=datetime(2026, 6, 1, 8, 0, 1, tzinfo=timezone.utc),
                 final_state={},
                 final_response="",
-                output_layout_path=root_dir / "missing.json",
+                output_result_path=root_dir / "missing.json",
                 error_message="network timeout",
                 paths=paths,
             )
 
             self.assertEqual(record["status"], "failed")
             self.assertEqual(record["error_message"], "network timeout")
-            self.assertFalse(record["layout_written"])
+            self.assertFalse(record["result_written"])
 
 
 if __name__ == "__main__":

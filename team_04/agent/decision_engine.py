@@ -5,7 +5,10 @@ import re
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from langchain_openai import ChatOpenAI
+try:
+    from langchain_openai import ChatOpenAI
+except ModuleNotFoundError:  # pragma: no cover - exercised when LLM deps are absent in unit tests
+    ChatOpenAI = Any  # type: ignore[misc,assignment]
 
 from .llm import resolve_active_llm
 from .models import PlanStep, RoutingDecision
@@ -435,6 +438,7 @@ def _repair_generate_shape_decision(
     tool_defaults = dict(defaults["tool_argument_defaults"])
     user_prompt = str(state.get("user_prompt", ""))
     site_area_sqm = _extract_site_area_sqm(state)
+    site_boundary = _extract_site_boundary_from_state(state)
     explicit_building_area_sqm = _extract_explicit_building_area_sqm(user_prompt)
     inferred_building_type = _infer_requested_building_type(user_prompt)
     requested_rotation = _extract_requested_rotation(user_prompt)
@@ -449,7 +453,15 @@ def _repair_generate_shape_decision(
         "max_rotation_angle": tool_defaults["max_rotation_angle"],
         "max_rotation_step": tool_defaults["max_rotation_step"],
         "rotation_step": tool_defaults["rotation_step"],
+        "optimize_placement": tool_defaults["optimize_placement"],
+        "placement_clearance": tool_defaults["placement_clearance"],
+        "population_size": tool_defaults["population_size"],
+        "generation_count": tool_defaults["generation_count"],
+        "random_seed": tool_defaults["random_seed"],
     }
+    if site_boundary:
+        fallback_arguments["site_boundary"] = site_boundary
+        fallback_arguments["optimize_placement"] = True
     if requested_rotation is not None:
         fallback_arguments.update(_rotation_arguments_for_requested_angle(requested_rotation))
 
@@ -523,12 +535,53 @@ def _default_boundary_area(site_area_sqm: float | None, default_site_coverage_ra
     return round(site_area_sqm * default_site_coverage_ratio, 2)
 
 
+def _extract_site_boundary_from_state(state: dict[str, Any]) -> list[list[float]] | None:
+    site_boundary = state.get("site_boundary")
+    if isinstance(site_boundary, list) and site_boundary:
+        return site_boundary
+
+    site_context = state.get("site_context", {})
+    found = _find_list_value(site_context, "site_boundary")
+    if found:
+        return found
+
+    layout_json = state.get("layout_json")
+    if isinstance(layout_json, str) and layout_json.strip():
+        try:
+            layout_payload = json.loads(layout_json)
+        except json.JSONDecodeError:
+            return None
+        boundary = layout_payload.get("site_boundary") if isinstance(layout_payload, dict) else None
+        if isinstance(boundary, list) and boundary:
+            return boundary
+    return None
+
+
+def _find_list_value(payload: Any, key: str) -> list[list[float]] | None:
+    if isinstance(payload, dict):
+        value = payload.get(key)
+        if isinstance(value, list) and value:
+            return value
+        for item in payload.values():
+            found = _find_list_value(item, key)
+            if found:
+                return found
+    if isinstance(payload, list):
+        for item in payload:
+            found = _find_list_value(item, key)
+            if found:
+                return found
+    return None
+
+
 def _infer_requested_building_type(user_prompt: str) -> str | None:
     prompt_lower = user_prompt.lower()
     if "y-shaped" in prompt_lower or "y shaped" in prompt_lower:
         return "Y"
     if "h-shaped" in prompt_lower or "h shaped" in prompt_lower:
         return "H"
+    if "u-shaped" in prompt_lower or "u shaped" in prompt_lower or "courtyard building" in prompt_lower:
+        return "U"
     if "x-shaped" in prompt_lower or "x shaped" in prompt_lower:
         return "X"
     if "o-shaped" in prompt_lower or "o shaped" in prompt_lower or "ring building" in prompt_lower:

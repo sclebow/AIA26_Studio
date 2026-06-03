@@ -17,7 +17,7 @@ from agent.tools.modify_building_boundary import modify_building_boundary
 
 class BoundaryToolTests(unittest.TestCase):
     def test_generate_building_boundary_supports_requested_shape_family(self) -> None:
-        supported_shapes = ["I", "L", "T", "Y", "H", "X", "O"]
+        supported_shapes = ["I", "L", "T", "U", "Y", "H", "X", "O"]
 
         for building_type in supported_shapes:
             with self.subTest(building_type=building_type):
@@ -33,6 +33,41 @@ class BoundaryToolTests(unittest.TestCase):
                 self.assertEqual(result["data"]["shape_type"], building_type)
                 self.assertAlmostEqual(result["data"]["boundary_area_sqm"], 900.0, places=5)
                 self.assertGreater(len(result["data"]["boundary"]), 4)
+
+    def test_generate_building_boundary_returns_indexed_wings_for_u_shape(self) -> None:
+        result = generate_building_boundary(area=1200.0, building_type="U")
+
+        self.assertTrue(result["success"])
+        self.assertEqual([wing["wing_index"] for wing in result["data"]["wings"]], [0, 1, 2])
+        self.assertEqual(result["data"]["building_graph"]["adjacency_list"], [[1, 2], [0], [0]])
+        self.assertEqual(result["data"]["wings"][1]["role"], "left_wing")
+
+    def test_generate_building_boundary_can_optimize_placement_inside_site(self) -> None:
+        site_boundary = [
+            [0.0, 0.0, 0.0],
+            [120.0, 0.0, 0.0],
+            [120.0, 120.0, 0.0],
+            [0.0, 120.0, 0.0],
+            [0.0, 0.0, 0.0],
+        ]
+
+        result = generate_building_boundary(
+            area=900.0,
+            building_type="L",
+            site_boundary=site_boundary,
+            population_size=24,
+            generation_count=20,
+            random_seed=11,
+        )
+
+        self.assertTrue(result["data"]["site_fit_summary"]["fits_within_site_boundary"])
+        self.assertTrue(result["data"]["placement_optimization"]["optimized"])
+        xs = [point[0] for point in result["data"]["boundary"][:-1]]
+        ys = [point[1] for point in result["data"]["boundary"][:-1]]
+        self.assertGreaterEqual(min(xs), 0.0)
+        self.assertGreaterEqual(min(ys), 0.0)
+        self.assertLessEqual(max(xs), 120.0)
+        self.assertLessEqual(max(ys), 120.0)
 
     def test_modify_building_boundary_flags_site_intersection(self) -> None:
         site_boundary = [
@@ -101,6 +136,7 @@ class BoundaryToolTests(unittest.TestCase):
     def test_requested_shape_inference_supports_new_shapes(self) -> None:
         self.assertEqual(_infer_requested_building_type("Generate a Y-shaped building."), "Y")
         self.assertEqual(_infer_requested_building_type("Create an H shaped building."), "H")
+        self.assertEqual(_infer_requested_building_type("Create a U-shaped building around a courtyard."), "U")
         self.assertEqual(_infer_requested_building_type("Use an X-shaped building form."), "X")
         self.assertEqual(_infer_requested_building_type("Create an O-shaped ring building."), "O")
 

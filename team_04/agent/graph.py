@@ -192,6 +192,7 @@ def _build_group_executor(
             allowed_names=allowed_names,
             layout_json=state.get("layout_json", "{}"),
             geometry_id=state.get("geometry_id"),
+            site_boundary=_extract_site_boundary(state),
         )
         messages = list(state.get("messages", []))
         messages.extend(record["message"] for record in records)
@@ -266,6 +267,7 @@ def _build_constraint_node(
             allowed_names=allowed_names,
             layout_json=state.get("layout_json", "{}"),
             geometry_id=state.get("geometry_id"),
+            site_boundary=_extract_site_boundary(state),
         )
         messages = list(state.get("messages", []))
         messages.extend(record["message"] for record in records)
@@ -307,6 +309,7 @@ def _build_evaluation_node(
             allowed_names=allowed_names,
             layout_json=state.get("layout_json", "{}"),
             geometry_id=state.get("geometry_id"),
+            site_boundary=_extract_site_boundary(state),
         )
         messages = list(state.get("messages", []))
         messages.extend(record["message"] for record in records)
@@ -854,6 +857,7 @@ def _execute_tool_calls(
     allowed_names: set[str],
     layout_json: str,
     geometry_id: str | None,
+    site_boundary: list[list[float]] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any], str, str | None]:
     records: list[dict[str, Any]] = []
     aggregate: dict[str, Any] = {}
@@ -869,6 +873,9 @@ def _execute_tool_calls(
         arguments = {key: value for key, value in arguments.items() if value is not None}
         if "layout_json" not in arguments:
             arguments["layout_json"] = current_layout_json
+        if tool_name == "generate_building_boundary" and site_boundary and "site_boundary" not in arguments:
+            arguments["site_boundary"] = site_boundary
+            arguments.setdefault("optimize_placement", True)
         if current_geometry_id and "geometry_id" not in arguments:
             arguments["geometry_id"] = current_geometry_id
 
@@ -956,12 +963,33 @@ def _extract_placed_boundary(state: AgentState) -> list[list[float]] | None:
 def _extract_site_boundary(state: AgentState) -> list[list[float]] | None:
     if isinstance(state.get("site_boundary"), list) and state.get("site_boundary"):
         return state.get("site_boundary")
+    site_context = state.get("site_context", {})
+    found = _find_site_boundary(site_context)
+    if found:
+        return found
     try:
         layout_payload = json.loads(state.get("layout_json", "{}"))
     except json.JSONDecodeError:
         return None
     boundary = layout_payload.get("site_boundary") if isinstance(layout_payload, dict) else None
     return boundary if isinstance(boundary, list) else None
+
+
+def _find_site_boundary(payload: Any) -> list[list[float]] | None:
+    if isinstance(payload, dict):
+        value = payload.get("site_boundary")
+        if isinstance(value, list) and value:
+            return value
+        for item in payload.values():
+            found = _find_site_boundary(item)
+            if found:
+                return found
+    if isinstance(payload, list):
+        for item in payload:
+            found = _find_site_boundary(item)
+            if found:
+                return found
+    return None
 
 
 def _extract_requested_position(state: AgentState) -> list[float] | None:

@@ -21,8 +21,7 @@ class AgentSettings:
     mcp_endpoint: str
     request_timeout_seconds: float
     max_optimization_cycles: int
-    initial_layout_path: Path
-    output_layout_path: Path
+    output_result_path: Path
 
 
 def _team_root() -> Path:
@@ -89,8 +88,7 @@ def load_settings() -> AgentSettings:
     else:
         raise ValueError(f"Unsupported LLM provider: {llm_provider}")
 
-    layout_path = _repo_root() / "layout_input" / "layout_schema.json"
-    output_layout_path = _team_root() / "team_04_edited_layout.json"
+    output_result_path = _team_root() / "team_04_placement_result.json"
 
     return AgentSettings(
         llm_provider=llm_provider,
@@ -104,15 +102,5 @@ def load_settings() -> AgentSettings:
         mcp_endpoint=_load_mcp_endpoint(),
         request_timeout_seconds=float(os.environ.get("REQUEST_TIMEOUT_SECONDS", "300")),
         max_optimization_cycles=int(os.environ.get("MAX_OPTIMIZATION_CYCLES", "4")),
-        initial_layout_path=layout_path,
-        output_layout_path=output_layout_path,
+        output_result_path=output_result_path,
     )
-
-
-def load_initial_layout(path: Path) -> dict:
-    if not path.exists():
-        return {}
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return {}

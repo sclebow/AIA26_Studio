@@ -3,7 +3,6 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from .generate_building_boundary import _polygon_metrics
 from .multi_building_mock import _normalize_polygon, _point_in_polygon, _polygon_centroid, _segments_intersect as _mock_segments_intersect
 
 
@@ -197,6 +196,43 @@ def _check_boundary_against_site(
 
 def _coerce_xy(point: list[float] | tuple[float, float]) -> tuple[float, float]:
     return (float(point[0]), float(point[1]))
+
+
+def _polygon_metrics(points: list[tuple[float, float]]) -> dict[str, Any]:
+    if len(points) < 4:
+        raise ValueError("closed polygon must contain at least three vertices")
+
+    signed_area = 0.0
+    centroid_x = 0.0
+    centroid_y = 0.0
+    perimeter = 0.0
+    xs = [point[0] for point in points]
+    ys = [point[1] for point in points]
+
+    for index in range(len(points) - 1):
+        x1, y1 = points[index]
+        x2, y2 = points[index + 1]
+        cross = x1 * y2 - x2 * y1
+        signed_area += cross
+        centroid_x += (x1 + x2) * cross
+        centroid_y += (y1 + y2) * cross
+        perimeter += math.dist((x1, y1), (x2, y2))
+
+    signed_area *= 0.5
+    area = abs(signed_area)
+    if area == 0:
+        raise ValueError("polygon area cannot be zero")
+
+    centroid_factor = 1.0 / (6.0 * signed_area)
+    centroid = (centroid_x * centroid_factor, centroid_y * centroid_factor)
+
+    return {
+        "area": area,
+        "perimeter": perimeter,
+        "centroid": centroid,
+        "bbox_min": (min(xs), min(ys)),
+        "bbox_max": (max(xs), max(ys)),
+    }
 
 
 def _mirror_point_about_origin(

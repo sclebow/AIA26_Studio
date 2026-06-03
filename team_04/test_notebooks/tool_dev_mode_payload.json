@@ -1,0 +1,634 @@
+{
+  "success": true,
+  "data": {
+    "geometry_id": "generate_building_boundary_08c4bf024608",
+    "shape_type": "U",
+    "boundary": [
+      [
+        14.667899,
+        35.171926,
+        0.0
+      ],
+      [
+        32.667899,
+        35.171917,
+        0.0
+      ],
+      [
+        37.987899,
+        35.171915,
+        0.0
+      ],
+      [
+        55.987899,
+        35.171906,
+        0.0
+      ],
+      [
+        55.987891,
+        17.171906,
+        0.0
+      ],
+      [
+        55.987888,
+        12.831906,
+        0.0
+      ],
+      [
+        37.987888,
+        12.831915,
+        0.0
+      ],
+      [
+        37.987891,
+        17.171915,
+        0.0
+      ],
+      [
+        32.667891,
+        17.171917,
+        0.0
+      ],
+      [
+        32.667888,
+        12.831917,
+        0.0
+      ],
+      [
+        14.667888,
+        12.831926,
+        0.0
+      ],
+      [
+        14.667891,
+        17.171926,
+        0.0
+      ],
+      [
+        14.667899,
+        35.171926,
+        0.0
+      ]
+    ],
+    "boundary_area_sqm": 900.0,
+    "perimeter_m": 136.0,
+    "centroid": [
+      35.327894,
+      24.232804,
+      0.0
+    ],
+    "bounding_box": {
+      "min": [
+        14.667888,
+        12.831906,
+        0.0
+      ],
+      "max": [
+        55.987899,
+        35.171926,
+        0.0
+      ]
+    },
+    "wings": [
+      {
+        "wing_index": 0,
+        "role": "base",
+        "area_sqm": 743.76,
+        "centroid": [
+          35.327895,
+          26.171916,
+          0.0
+        ],
+        "boundary": [
+          [
+            14.667899,
+            35.171926,
+            0.0
+          ],
+          [
+            14.667891,
+            17.171926,
+            0.0
+          ],
+          [
+            55.987891,
+            17.171906,
+            0.0
+          ],
+          [
+            55.987899,
+            35.171906,
+            0.0
+          ],
+          [
+            14.667899,
+            35.171926,
+            0.0
+          ]
+        ],
+        "nominal_width_m": 18.0,
+        "nominal_length_m": 41.32,
+        "editable_parameters": [
+          "width",
+          "length",
+          "edge_rotation",
+          "extension"
+        ]
+      },
+      {
+        "wing_index": 1,
+        "role": "left_wing",
+        "area_sqm": 402.12,
+        "centroid": [
+          46.987894,
+          24.00191,
+          0.0
+        ],
+        "boundary": [
+          [
+            37.987899,
+            35.171915,
+            0.0
+          ],
+          [
+            37.987888,
+            12.831915,
+            0.0
+          ],
+          [
+            55.987888,
+            12.831906,
+            0.0
+          ],
+          [
+            55.987899,
+            35.171906,
+            0.0
+          ],
+          [
+            37.987899,
+            35.171915,
+            0.0
+          ]
+        ],
+        "nominal_width_m": 18.0,
+        "nominal_length_m": 22.34,
+        "editable_parameters": [
+          "width",
+          "length",
+          "edge_rotation",
+          "extension"
+        ]
+      },
+      {
+        "wing_index": 2,
+        "role": "right_wing",
+        "area_sqm": 402.12,
+        "centroid": [
+          23.667894,
+          24.001922,
+          0.0
+        ],
+        "boundary": [
+          [
+            14.667899,
+            35.171926,
+            0.0
+          ],
+          [
+            14.667888,
+            12.831926,
+            0.0
+          ],
+          [
+            32.667888,
+            12.831917,
+            0.0
+          ],
+          [
+            32.667899,
+            35.171917,
+            0.0
+          ],
+          [
+            14.667899,
+            35.171926,
+            0.0
+          ]
+        ],
+        "nominal_width_m": 18.0,
+        "nominal_length_m": 22.34,
+        "editable_parameters": [
+          "width",
+          "length",
+          "edge_rotation",
+          "extension"
+        ]
+      }
+    ],
+    "building_graph": {
+      "backend": "topologicpy",
+      "node_count": 3,
+      "edge_count": 2,
+      "edges": [
+        {
+          "from_wing_index": 0,
+          "to_wing_index": 1,
+          "relationship": "connected"
+        },
+        {
+          "from_wing_index": 0,
+          "to_wing_index": 2,
+          "relationship": "connected"
+        }
+      ],
+      "adjacency_list": [
+        [
+          1,
+          2
+        ],
+        [
+          0
+        ],
+        [
+          0
+        ]
+      ]
+    },
+    "topologic_shape": {
+      "backend": "topologicpy",
+      "face_geometry": {
+        "vertices": [
+          [
+            14.667899,
+            35.171926,
+            0.0
+          ],
+          [
+            32.667899,
+            35.171917,
+            0.0
+          ],
+          [
+            37.987899,
+            35.171915,
+            0.0
+          ],
+          [
+            55.987899,
+            35.171906,
+            0.0
+          ],
+          [
+            55.987891,
+            17.171906,
+            0.0
+          ],
+          [
+            55.987888,
+            12.831906,
+            0.0
+          ],
+          [
+            37.987888,
+            12.831915,
+            0.0
+          ],
+          [
+            37.987891,
+            17.171915,
+            0.0
+          ],
+          [
+            32.667891,
+            17.171917,
+            0.0
+          ],
+          [
+            32.667888,
+            12.831917,
+            0.0
+          ],
+          [
+            14.667888,
+            12.831926,
+            0.0
+          ],
+          [
+            14.667891,
+            17.171926,
+            0.0
+          ]
+        ],
+        "edges": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            7,
+            8
+          ],
+          [
+            8,
+            9
+          ],
+          [
+            9,
+            10
+          ],
+          [
+            10,
+            11
+          ],
+          [
+            11,
+            0
+          ]
+        ],
+        "faces": [
+          [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        ],
+        "vertex_dicts": [
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {}
+        ],
+        "edge_dicts": [],
+        "face_dicts": []
+      },
+      "wing_face_geometries": [
+        {
+          "vertices": [
+            [
+              14.667899,
+              35.171926,
+              0.0
+            ],
+            [
+              14.667891,
+              17.171926,
+              0.0
+            ],
+            [
+              55.987891,
+              17.171906,
+              0.0
+            ],
+            [
+              55.987899,
+              35.171906,
+              0.0
+            ]
+          ],
+          "edges": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              0
+            ]
+          ],
+          "faces": [
+            [
+              0,
+              1,
+              2,
+              3
+            ]
+          ],
+          "vertex_dicts": [
+            {},
+            {},
+            {},
+            {}
+          ],
+          "edge_dicts": [],
+          "face_dicts": []
+        },
+        {
+          "vertices": [
+            [
+              37.987899,
+              35.171915,
+              0.0
+            ],
+            [
+              37.987888,
+              12.831915,
+              0.0
+            ],
+            [
+              55.987888,
+              12.831906,
+              0.0
+            ],
+            [
+              55.987899,
+              35.171906,
+              0.0
+            ]
+          ],
+          "edges": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              0
+            ]
+          ],
+          "faces": [
+            [
+              0,
+              1,
+              2,
+              3
+            ]
+          ],
+          "vertex_dicts": [
+            {},
+            {},
+            {},
+            {}
+          ],
+          "edge_dicts": [],
+          "face_dicts": []
+        },
+        {
+          "vertices": [
+            [
+              14.667899,
+              35.171926,
+              0.0
+            ],
+            [
+              14.667888,
+              12.831926,
+              0.0
+            ],
+            [
+              32.667888,
+              12.831917,
+              0.0
+            ],
+            [
+              32.667899,
+              35.171917,
+              0.0
+            ]
+          ],
+          "edges": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              0
+            ]
+          ],
+          "faces": [
+            [
+              0,
+              1,
+              2,
+              3
+            ]
+          ],
+          "vertex_dicts": [
+            {},
+            {},
+            {},
+            {}
+          ],
+          "edge_dicts": [],
+          "face_dicts": []
+        }
+      ]
+    },
+    "site_fit_summary": {
+      "outside_area_sqm": 0.0,
+      "clearance_m": 12.828074,
+      "fits_within_site_boundary": true,
+      "clearance_target_m": 2.0
+    },
+    "placement_optimization": {
+      "optimized": true,
+      "centroid_xy": [
+        35.327894,
+        24.232804
+      ],
+      "rotation_degrees": 179.999972,
+      "objective": -12.828074,
+      "outside_area_sqm": 0.0,
+      "clearance_m": 12.828074,
+      "fits_within_site_boundary": true,
+      "population_size": 40,
+      "generation_count": 40,
+      "random_seed": 11,
+      "target_location_xy": []
+    },
+    "parameters": {
+      "area": 900.0,
+      "building_type": "U",
+      "building_depth": 18.0,
+      "shape_ratio": 0.62,
+      "location_xy": [
+        0.0,
+        0.0
+      ],
+      "site_boundary_supplied": true,
+      "optimize_placement": true,
+      "placement_clearance": 2.0,
+      "population_size": 40,
+      "generation_count": 40,
+      "random_seed": 11,
+      "is_mirrored": false,
+      "mirror_axis": "y",
+      "rotation_degrees": 0.0,
+      "orientation_degrees": 0.0,
+      "max_rotation_angle": 180.0,
+      "max_rotation_step": 4,
+      "rotation_step": 0,
+      "applied_rotation_angle": 179.999972
+    }
+  },
+  "metadata": {
+    "tool_name": "generate_building_boundary",
+    "source": "python"
+  }
+}

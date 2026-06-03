@@ -378,6 +378,35 @@ class AgentGraphTests(unittest.TestCase):
         self.assertEqual(repaired.tool_calls[0].arguments["building_type"], "L")
         self.assertEqual(repaired.tool_calls[0].arguments["area"], 1750.0)
 
+    def test_generate_shape_repair_injects_site_boundary_for_placement(self) -> None:
+        client = self._build_tool_client()
+        catalog = ToolCatalog.from_discovered_tools(client.list_tools())
+        active_step = PlanStep(
+            step_id="generate_shape",
+            action="generate_shape",
+            goal="Create the next geometry candidate for building 1.",
+            status="pending",
+        )
+
+        repaired = _repair_generate_shape_decision(
+            RoutingDecision(action="generate_shape", reasoning="Generate the requested shape."),
+            {
+                "user_prompt": "Generate an H-shaped building for this site.",
+                "site_boundary": [
+                    [0.0, 0.0, 0.0],
+                    [100.0, 0.0, 0.0],
+                    [100.0, 100.0, 0.0],
+                    [0.0, 100.0, 0.0],
+                    [0.0, 0.0, 0.0],
+                ],
+            },
+            catalog,
+            active_step,
+        )
+
+        self.assertIn("site_boundary", repaired.tool_calls[0].arguments)
+        self.assertTrue(repaired.tool_calls[0].arguments["optimize_placement"])
+
     def test_generate_shape_repair_prefers_explicit_building_area(self) -> None:
         client = self._build_tool_client()
         catalog = ToolCatalog.from_discovered_tools(client.list_tools())
