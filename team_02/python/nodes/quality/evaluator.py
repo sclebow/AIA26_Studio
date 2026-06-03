@@ -46,7 +46,7 @@ Return ONLY:
 Nothing else.
 
 USER TYPE: {user_type}
-ANALYSIS DEPTH: {comfort_depth}
+ANALYSIS DEPTH: {action}
 PERSONA: {persona_summary}
 
 RESPONSE DRAFT:
@@ -60,20 +60,27 @@ def build_evaluator_node(llm):
     def evaluator_node(state: dict) -> dict:
         final_response: str = state.get("final_response") or ""
         user_type: str = state.get("user_type", "architect")
-        comfort_depth: str = state.get("comfort_depth", "analyze")
+        action: str = state.get("action", "") or state.get("intent", "") or "analyze"
         persona_profile: dict = state.get("persona_profile") or {}
         loops: int = state.get("evaluator_loops", 0)
 
         new_loops = loops + 1
         print(f"[evaluator] Evaluating response (loop {new_loops}/1)...")
 
-        # Build persona summary
-        primary = persona_profile.get("primary_user", {})
-        persona_summary = primary.get("description", "no specific persona")
+        # Persona summary from the flat onboarding schema (name/role/description).
+        if persona_profile:
+            persona_summary = (
+                persona_profile.get("description")
+                or persona_profile.get("name")
+                or persona_profile.get("role")
+                or "no specific persona"
+            )
+        else:
+            persona_summary = "no specific persona"
 
         system = _SYSTEM_PROMPT.format(
             user_type=user_type,
-            comfort_depth=comfort_depth,
+            action=action,
             persona_summary=persona_summary,
             response_draft=final_response,
         )

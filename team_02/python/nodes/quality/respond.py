@@ -1,12 +1,78 @@
 """
 RESPOND node — generates the final user-facing response.
-Format adapts to comfort_depth (analyze/detect/full) and user_type register.
+Format adapts to action (analyze/detect/full/change_material/etc.) and user_type register.
 Incorporates specialist interpretations and any evaluator/fact-checker feedback.
 """
 
 from __future__ import annotations
 import json as _json
 from _runtime.llm import call_llm_simple
+from nodes._shared.utils import grounded_facts, grounded_extremes
+
+# Actions that are layout edits (what-ifs), routed to analyze+compare then respond.
+_EDIT_ACTIONS = ("change_material", "modify_glazing", "add_furniture")
+
+
+def _format_change(layout_diff):
+    """One readable line describing the edit, from the structured layout_diff."""
+    if not layout_diff:
+        return ""
+    room = layout_diff.get("room_name", "the room")
+    attr = layout_diff.get("attribute", "")
+    old  = layout_diff.get("old_value", "")
+    new  = layout_diff.get("new_value", "")
+    sense = layout_diff.get("sense_affected", "")
+    if attr == "furniture":
+        line = f"{new} in the {room}"            # e.g. "added plant (natural) in the Kitchen"
+    else:
+        line = f"{room}: {attr} {old} -> {new}"
+    if sense:
+        line += f" (primarily affects {sense})"
+    return line
+
+
+def _deterministic_summary(persona_label, layout_id, action, scores_json, conflicts_json,
+                           layout_diff=None, compare_versions=""):
+    """A correct, data-grounded summary used when the LLM returns nothing.
+
+    The reasoning model (qwen3) occasionally emits only a <think> block, leaving an
+    empty answer. Rather than a generic 'see the panel' line, build a real summary
+    from the computed extremes so the user always gets accurate information.
+    """
+    head = f"For {persona_label}, Layout {layout_id}: "
+
+    # Edit (what-if): lead with the change and its before-to-after delta.
+    if action in _EDIT_ACTIONS:
+        change = _format_change(layout_diff) or "an edit was applied to the layout"
+        room = (layout_diff or {}).get("room_name", "")
+        delta = ""
+        for ln in (compare_versions or "").splitlines():
+            s = ln.strip()
+            if room and s.lower().startswith(room.lower() + ":"):
+                delta = s[len(room) + 1:].strip()
+                break
+        if delta and delta.lower() != "no change":
+            return head + f"applied {change}. The {room}'s scores changed: {delta}. See the panel."
+        if delta:
+            return head + f"applied {change}, but it produced no meaningful score change. See the panel."
+        return head + f"applied {change}. Scores were updated - see the panel."
+
+    e = grounded_extremes(scores_json)
+    if not e:
+        return head + "the analysis is ready - see the panel for the full breakdown."
+    parts = [
+        f"the weakest spot is {e['lo_sense']} in the {e['lo_room']} ({e['lo_val']:.2f}), "
+        f"and the lowest-scoring room overall is {e['worst_room']} ({e['worst_overall']:.2f})."
+    ]
+    if action in ("detect", "full") and conflicts_json:
+        try:
+            n = len(_json.loads(conflicts_json).get("flaggedRooms", []))
+            if n:
+                parts.append(f" {n} room(s) have comfort conflicts.")
+        except Exception:
+            pass
+    parts.append(" See the panel for the full breakdown.")
+    return head + "".join(parts)
 
 
 _SYSTEM_PROMPT = (
@@ -20,6 +86,14 @@ _SYSTEM_PROMPT = (
     "Hard rules for ALL formats:\n"
     "- Use ONLY scores from PRE-PROCESSED ROOM DATA. Copy numbers exactly.\n"
     "- Best and Worst are pre-computed -- copy them, do not recalculate.\n"
+    "- NEVER claim a room or sense is the 'lowest/highest/worst/best of all rooms',\n"
+    "  'across all rooms', or 'across the layout' unless that exact statement appears\n"
+    "  in GROUNDED FACTS. This includes per-sense claims like 'worst spatial of all\n"
+    "  rooms' - those are NOT in GROUNDED FACTS, so do not make them.\n"
+    "- The single worst sense+room for the WHOLE layout is the 'Lowest single sense'\n"
+    "  line in GROUNDED FACTS - if you name an overall worst, use that one verbatim.\n"
+    "- A room's own best/worst sense is in its PRE-PROCESSED ROOM DATA line (best=/worst=).\n"
+    "  Use those for a single room - do not eyeball the per-sense numbers yourself.\n"
     "- Persona name appears ONCE at the top only.\n"
     "- No markdown tables. No JSON. No tool names. Plain ASCII only.\n"
     "- Use a hyphen (-) not an em dash. No special characters.\n"
@@ -40,7 +114,9 @@ _FORMAT_ANALYZE = (
     "The full score breakdown is shown in the analysis panel — do NOT repeat it here.\n\n"
     "Write exactly 2-3 sentences:\n"
     "  1. What was analysed (layout ID, all rooms or a specific room).\n"
-    "  2. The headline finding: name the single worst-performing sense and room for this persona.\n"
+    "  2. The headline finding: the layout's worst spot — use the 'Lowest single sense'\n"
+    "     line from GROUNDED FACTS verbatim (that room + sense + value). Do not pick a\n"
+    "     different room/sense or invent a per-sense ranking.\n"
     "  3. Optionally: one sentence noting what stands out positively, if relevant.\n\n"
     "No room-by-room breakdown. No score lists. No markdown. Plain sentences only.\n"
     "Do NOT mention conflicts or suggestions.\n"
@@ -65,6 +141,19 @@ _FORMAT_FULL = (
     "  2. Which room benefits most and what sense is addressed.\n"
     "  3. One sentence: invite the user to explore the suggestions in the panel or ask a follow-up.\n\n"
     "No room-by-room breakdown. No score lists. No markdown. Plain sentences only.\n"
+)
+
+_FORMAT_EDIT = (
+    "FORMAT: 2-3 sentence chat summary for a LAYOUT EDIT (a what-if).\n"
+    "You just applied a change to the layout and re-scored it. Report the change and its effect.\n\n"
+    "Write exactly 2-3 sentences:\n"
+    "  1. State the edit plainly: the room and what changed (see WHAT CHANGED).\n"
+    "  2. The effect: name the sense(s) that moved and give the before-to-after values\n"
+    "     for the edited room, using VERSION COMPARISON (the delta). If nothing changed\n"
+    "     meaningfully, say so honestly - do not invent an improvement.\n"
+    "  3. One short next step (e.g. detect conflicts, or try another what-if).\n\n"
+    "Lead with the change and its impact - do NOT write a generic full-layout analysis.\n"
+    "No score lists. No markdown. Plain sentences only.\n"
 )
 
 
@@ -150,40 +239,32 @@ def build_respond_node(llm):
         user_name_state  = state.get("user_name", "")
 
         if persona_profile:
-            # -- Current flat schema ------------------------------------------
-            if "name" in persona_profile or "role" in persona_profile:
-                p_name = persona_profile.get("name") or user_name_state or "User"
-                p_role = persona_profile.get("role", "client")
-                p_desc = persona_profile.get("description", "")
-                p_prio = persona_profile.get("sensory_priorities", [])
-                p_sens = persona_profile.get("sensory_sensitivities", [])
-                p_wts  = persona_profile.get("comfort_weights", {})
-                parts  = [f"{p_name} ({p_role})"]
-                if p_desc:
-                    parts.append(p_desc)
-                if p_prio:
-                    parts.append(f"sensory priorities: {', '.join(p_prio)}")
-                if p_sens:
-                    parts.append(f"sensitivities: {', '.join(p_sens)}")
-                if p_wts:
-                    wt_str = " | ".join(f"{k}={v:.2f}" for k, v in p_wts.items())
-                    parts.append(f"comfort weights: {wt_str}")
-                persona = "; ".join(parts)
-            # -- Legacy nested schema -----------------------------------------
-            else:
-                primary = persona_profile.get("primary_user", {})
-                persona = primary.get("description", "Neutral")
-                secondary = persona_profile.get("secondary_user")
-                if secondary:
-                    sec_desc = secondary.get("description", "secondary user")
-                    persona = persona + " + " + sec_desc
+            # Flat persona_compiler v2 schema (always has name/role).
+            p_name = persona_profile.get("name") or user_name_state or "User"
+            p_role = persona_profile.get("role", "client")
+            p_desc = persona_profile.get("description", "")
+            p_prio = persona_profile.get("sensory_priorities", [])
+            p_sens = persona_profile.get("sensory_sensitivities", [])
+            p_wts  = persona_profile.get("comfort_weights", {})
+            parts  = [f"{p_name} ({p_role})"]
+            if p_desc:
+                parts.append(p_desc)
+            if p_prio:
+                parts.append(f"sensory priorities: {', '.join(p_prio)}")
+            if p_sens:
+                parts.append(f"sensitivities: {', '.join(p_sens)}")
+            if p_wts:
+                wt_str = " | ".join(f"{k}={v:.2f}" for k, v in p_wts.items())
+                parts.append(f"comfort weights: {wt_str}")
+            persona = "; ".join(parts)
         else:
             persona  = persona_detected or "Neutral"
             p_name   = user_name_state or "User"
             p_role   = state.get("user_type", "client")
 
         layout_id   = state.get("layout_id", "?")
-        depth       = state.get("comfort_depth", "analyze")
+        # action is the unified v4 field (replaces dead comfort_depth)
+        depth       = state.get("action", "") or state.get("intent", "analyze")
         scores      = state.get("last_scores_json", "")
         conflicts   = state.get("last_conflicts_json", "")
         suggestions = state.get("last_suggestions_json", "")
@@ -204,7 +285,12 @@ def build_respond_node(llm):
         processed_conflicts   = _preprocess_conflicts(conflicts) if conflicts else "not run"
         processed_suggestions = _preprocess_suggestions(suggestions) if suggestions else "not run"
 
-        if depth == "full":
+        layout_diff = state.get("layout_diff") or {}
+        is_edit = depth in _EDIT_ACTIONS
+
+        if is_edit:
+            fmt = _FORMAT_EDIT
+        elif depth == "full":
             fmt = _FORMAT_FULL
         elif depth == "detect":
             fmt = _FORMAT_DETECT
@@ -230,6 +316,8 @@ def build_respond_node(llm):
             "--- PRE-PROCESSED ROOM DATA (copy scores exactly as shown) ---",
             processed_scores,
             "",
+            grounded_facts(scores) or "GROUNDED FACTS: (no scores yet - do not make ranking claims)",
+            "",
             "--- CONFLICTS ---",
             processed_conflicts,
             "",
@@ -240,8 +328,12 @@ def build_respond_node(llm):
         # score_interpretation, conflict_reasoning, suggestion_critique are now
         # shown directly in the analysis panel — not fed into this prompt.
         # Respond writes a 2-3 sentence summary from the raw MCP data only.
+        if is_edit:
+            change_line = _format_change(layout_diff)
+            sections += ["", "--- WHAT CHANGED (lead with this) ---",
+                         change_line or "(an edit was applied to the layout)"]
         if compare_versions:
-            sections += ["", "--- VERSION COMPARISON (lead with delta) ---", compare_versions]
+            sections += ["", "--- VERSION COMPARISON (use for the before-to-after delta) ---", compare_versions]
         if biophilic_summary:
             sections += ["", "--- BIOPHILIC AUDIT ---", biophilic_summary]
         if persona_comparison:
@@ -255,6 +347,26 @@ def build_respond_node(llm):
 
         print("[respond] Generating natural language report...")
         response = call_llm_simple(llm, _SYSTEM_PROMPT, user_message)
+
+        # Resilience: the reasoning model occasionally returns an empty answer
+        # (only a <think> block) — both on first pass and during the REVISE loop.
+        # Keep a previously-good summary if we have one; otherwise synthesise a
+        # correct, data-grounded summary rather than a generic placeholder.
+        if not (response or "").strip():
+            prior = (state.get("final_response") or "").strip()
+            if prior:
+                print("[respond] Empty response from LLM — keeping prior summary.")
+                response = prior
+            else:
+                print("[respond] Empty response — using deterministic grounded summary.")
+                pp = state.get("persona_profile") or {}
+                short_label = (
+                    f"{pp.get('name')} ({pp.get('role')})" if pp.get("name") and pp.get("role")
+                    else pp.get("name") or user_name_state or "you"
+                )
+                response = _deterministic_summary(short_label, layout_id, depth, scores, conflicts,
+                                                   layout_diff=layout_diff, compare_versions=compare_versions)
+
         return {**state, "final_response": response}
 
     return respond_node

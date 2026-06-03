@@ -48,6 +48,10 @@ DEFL_LIMIT_LL  = 360   # L/360  live load
 DEFL_LIMIT_TL  = 250   # L/250  total load
 BUCKLING_SF    = 3.0   # minimum Euler buckling safety factor
 
+# ── Utilisation thresholds for advisor feedback ────────────────────────────────
+UTIL_OVERENGINEERED = 0.50  # below this → layout change possible (remove / relocate)
+UTIL_APPROACHING    = 0.75  # above this → approaching limit, flag to architect
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -553,7 +557,7 @@ def _build_failure_alternatives(
     # Auto-upgrade all failing beams through the section chain
     if beam_fails:
         n = len(beam_fails)
-        alts.append(f"Auto-upgrade {n} failing beam{'s' if n > 1 else ''} through section sizes until PASS")
+        alts.append(f"Increase the {n} failing beam{'s' if n > 1 else ''} to the next size up — recommended")
 
     # Per-element beam upgrades (Steel IPE, RCC dims, Timber dims) — most targeted fix
     for r in beam_fails:
@@ -570,7 +574,7 @@ def _build_failure_alternatives(
     # Auto-upgrade all failing columns through the section chain
     if col_fails and not beam_fails:
         n = len(col_fails)
-        alts.append(f"Auto-upgrade {n} failing column{'s' if n > 1 else ''} through section sizes until PASS")
+        alts.append(f"Increase the {n} failing column{'s' if n > 1 else ''} to the next size up — recommended")
 
     # Per-element column upgrades
     for r in col_fails:
@@ -655,25 +659,25 @@ def _detect_find_min(messages: list) -> str | None:
 def _ask_sdl_ll(state: dict) -> None:
     """Prompt for SDL and LL, update state in place, and persist to settings."""
     cur_sdl = state.get("sdl_kNm2") or SDL_KNM2
-    print(f"\nSuperimposed dead load (SDL — slab + finishes + partitions) [current: {cur_sdl} kN/m²]:")
-    print("  1. Timber  — 1.5 kN/m²  (wood structure + light finishes)")
-    print("  2. Light   — 2.5 kN/m²  (lightweight slab, minimal finishes)")
-    print("  3. Standard— 3.5 kN/m²  (125mm slab + finishes + partitions)")
-    print("  4. Heavy   — 5.0 kN/m²  (thick slab, heavy finishes, raised floor)")
+    print(f"\nWhat kind of floor build-up are you designing? [current: {cur_sdl} kN/m²]")
+    print("  1. Light timber floor — 1.5 kN/m²  (wood framing, light finishes)")
+    print("  2. Light concrete     — 2.5 kN/m²  (thin slab, minimal finishes)")
+    print("  3. Standard           — 3.5 kN/m²  (125mm slab + finishes + partitions)")
+    print("  4. Heavy              — 5.0 kN/m²  (thick slab, heavy finishes, raised floor)")
     print("  [Enter] — keep current")
-    raw_sdl = input("SDL choice [1-4 or Enter]: ").strip()
+    raw_sdl = input("Your choice [1-4 or Enter]: ").strip()
     state["sdl_kNm2"] = {"1": 1.5, "2": 2.5, "3": 3.5, "4": 5.0}.get(raw_sdl, cur_sdl)
-    print(f"  SDL: {state['sdl_kNm2']} kN/m²")
+    print(f"  Floor load: {state['sdl_kNm2']} kN/m²")
 
     cur_ll = state.get("live_load_kNm2") or LL_KNM2
-    print(f"\nLive load (use type) [current: {cur_ll} kN/m²]:")
-    print("  1. Residential — 2.0 kN/m²")
-    print("  2. Office      — 3.0 kN/m²")
-    print("  3. Retail/Public— 5.0 kN/m²")
+    print(f"\nHow will this space be used? [current: {cur_ll} kN/m²]")
+    print("  1. Homes / apartments  — 2.0 kN/m²")
+    print("  2. Offices             — 3.0 kN/m²")
+    print("  3. Retail / public     — 5.0 kN/m²")
     print("  [Enter] — keep current")
-    raw_ll = input("LL choice [1-3 or Enter]: ").strip()
+    raw_ll = input("Your choice [1-3 or Enter]: ").strip()
     state["live_load_kNm2"] = {"1": 2.0, "2": 3.0, "3": 5.0}.get(raw_ll, cur_ll)
-    print(f"  LL: {state['live_load_kNm2']} kN/m²")
+    print(f"  Live load: {state['live_load_kNm2']} kN/m²")
 
     try:
         SETTINGS_PATH.write_text(
@@ -684,8 +688,248 @@ def _ask_sdl_ll(state: dict) -> None:
         pass
 
 
-def build_evaluate_node(_):
-    """Structural first-principles check node — unused arg kept for graph API compatibility."""
+_INTERPRET_SYSTEM = """You are a structural advisor helping an architect during early design. You are given structural evaluation results: each element with its ID, type (beam or column), section, and utilisation % (100% = at the structural limit), plus a "May be removable" list. Write a concise advisory note.
+
+CRITICAL: If overall_PASS is false, your FIRST sentence MUST identify the structure as failing and name the specific failing element IDs from the data. Do not discuss optimisation or underutilised elements until all failures are addressed.
+
+USE ONLY THE DATA YOU ARE GIVEN:
+- Mention only element IDs that appear in the evaluation data. Never invent, guess, or complete an ID. The example IDs below are illustrative format only — never repeat them as if they were real.
+- Keep element types exactly as given — never call a beam a column or a column a beam.
+- Quote utilisation figures and spans exactly as given. Never invent a number.
+- Do NOT name rooms or locations ("living room", "kitchen", "staircase", "corridor") — the geometry does not tell you the room. Describe position only by what the data supports: element IDs, spans, and which elements are adjacent or clustered by their coordinates.
+
+UTILISATION THRESHOLDS — use consistently:
+- Below 50%: over-engineered. Suggest a specific LAYOUT change — remove the element (only if it is on the "May be removable" list) or open up the span. (Over-engineered means LOW utilisation only — never call a failing or near-limit element over-engineered.)
+- 50–75%: working range — note it positively.
+- Above 75%: approaching limit — flag it clearly.
+- Failures (100%+): must fix. Give 2 concrete options using exact element IDs.
+
+For UNDERUTILISED columns (<70%): use the "May be removable" list to say what happens if removed, e.g. "Column <ID> is at <N>% — removing it keeps the connected beams within limits" or, if it needs an upgrade, "removing <ID> extends beam <ID> to <span> — a larger section would be needed." The "May be removable" list is exhaustive — only name columns that appear on it; never suggest removing any element not on that list, and never suggest removing a perimeter column. Columns marked KEEP must never be suggested for removal, even at low utilisation.
+
+For UNDERUTILISED beams (<70%): ask whether that span is actually needed.
+
+Structure as a conversation, not a report:
+- Line 1: one-sentence overall verdict in plain language.
+- 2-3 bullets: the most important observations, each tied to a real element ID and its number.
+- 1 closing question: ONE specific question that moves the design forward, referencing real element IDs and their utilisation or proximity from the data — never a generic question, never a named room. (Format example only, do not reuse the IDs: "Columns <ID> and <ID> are both under 25% and sit close together — do you need both?")
+
+If everything passes and some elements are over-engineered: end with "Type 'right-size sections' or pick option 1 in the menu to find the minimum that still works." then still ask the question.
+
+Reply with JSON only: {"action":"final","final_response":"your advisory here","tool_calls":[]}"""
+
+
+def _beam_utilisation(b: dict) -> float:
+    return max(
+        b.get("sigma_bend_MPa",  0) / max(b.get("allow_bend_MPa",  0.001), 0.001),
+        b.get("tau_MPa",         0) / max(b.get("allow_shear_MPa", 0.001), 0.001),
+        b.get("delta_LL_mm",     0) / max(b.get("limit_LL_mm",     0.001), 0.001),
+        b.get("delta_total_mm",  0) / max(b.get("limit_TL_mm",     0.001), 0.001),
+    )
+
+
+def _col_utilisation(c: dict) -> float:
+    return max(
+        c.get("sigma_comp_MPa", 0) / max(c.get("allow_comp_MPa", 0.001), 0.001),
+        3.0 / max(c.get("SF_buckling", 99), 0.001),
+    )
+
+
+def _precompute_removal_hints(
+    result: dict,
+    layout_str: str,
+    ll_kNm2: float,
+    sdl_kNm2: float,
+) -> dict:
+    """
+    For underutilised elements (below UTIL_OVERENGINEERED), compute removal impact.
+    Returns {"columns": [...], "beams": [...]} each capped at 3 entries.
+    """
+    # ── COLUMNS ──────────────────────────────────────────────────────────────
+    # Build a set of perimeter column ids from the layout so we never suggest removing them
+    _perimeter_ids: set[str] = set()
+    if layout_str:
+        try:
+            _layout_tmp = json.loads(layout_str)
+            _all_cols = [
+                el for el in _layout_tmp.get("structure", [])
+                if len(el.get("geometry", [])) == 1
+            ]
+            if _all_cols:
+                _xs = [el["geometry"][0][0] for el in _all_cols]
+                _ys = [el["geometry"][0][1] for el in _all_cols]
+                _min_x, _max_x = min(_xs), max(_xs)
+                _min_y, _max_y = min(_ys), max(_ys)
+                for _el in _all_cols:
+                    _x, _y = _el["geometry"][0][0], _el["geometry"][0][1]
+                    if (
+                        _x == _min_x or _x == _max_x
+                        or _y == _min_y or _y == _max_y
+                        or _el.get("attributes", {}).get("type") == "perimeter"
+                    ):
+                        _perimeter_ids.add(_el["id"])
+        except Exception:
+            pass
+
+    col_candidates = sorted(
+        [
+            c for c in result.get("columns", [])
+            if _col_utilisation(c) < UTIL_OVERENGINEERED
+            and c["id"] not in _perimeter_ids
+        ],
+        key=_col_utilisation,
+    )
+    col_hints = []
+    if col_candidates and layout_str:
+        try:
+            layout    = json.loads(layout_str)
+            structure = layout.get("structure", [])
+            beams     = [el for el in structure if len(el.get("geometry", [])) == 2]
+            b_trib    = _beam_trib_widths(beams)
+        except Exception:
+            b_trib = {}
+
+        for c in col_candidates[:5]:
+            col_id = c["id"]
+            try:
+                whatif = simulate_what_if_removal(layout_str, [col_id], b_trib, ll_kNm2, sdl_kNm2)
+            except Exception:
+                continue
+            ws       = whatif.get("summary", {})
+            affected = whatif.get("affected_beams", [])
+            safe     = ws.get("overall_PASS", True) and "error" not in whatif
+            worst    = max(affected, key=lambda b: b.get("effective_span_m") or 0) if affected else None
+
+            hint: dict = {
+                "type": "column", "element_id": col_id,
+                "utilisation_pct": round(_col_utilisation(c) * 100, 1),
+                "load_kN": c.get("P_total_kN", 0),
+                "removal_safe": safe,
+            }
+            if worst and worst.get("effective_span_m"):
+                orig, eff = worst.get("original_span_m", "?"), worst.get("effective_span_m", "?")
+                hint["note"] = (
+                    f"safe — beam {worst['id']} extends {orig}m→{eff}m and stays within limits"
+                    if safe else
+                    f"extends beam {worst['id']} {orig}m→{eff}m — larger section needed"
+                )
+            else:
+                hint["note"] = "safe to remove" if safe else "removal not recommended"
+            col_hints.append(hint)
+
+    # ── BEAMS ─────────────────────────────────────────────────────────────────
+    beam_hints = []
+    beam_candidates = sorted(
+        [b for b in result.get("beams", []) if _beam_utilisation(b) < UTIL_OVERENGINEERED],
+        key=_beam_utilisation,
+    )[:3]
+    for b in beam_candidates:
+        beam_hints.append({
+            "type": "beam", "element_id": b["id"],
+            "utilisation_pct": round(_beam_utilisation(b) * 100, 1),
+            "span_m": b.get("span_m", "?"),
+            "note": f"removing this {b.get('span_m','?')}m span — check if this connection is still needed",
+        })
+
+    return {"columns": col_hints, "beams": beam_hints}
+
+
+def _format_summary_for_llm(summary: dict) -> str:
+    """Flat plain-text table — easier for small models than nested JSON."""
+    thresh = summary.get("thresholds", {})
+    lines = [
+        f"Overall: {'PASS' if summary['overall_PASS'] else 'FAIL'}",
+        f"Beams: {summary['n_beams']}  Columns: {summary['n_columns']}",
+        f"Thresholds: over-engineered <{thresh.get('over_engineered_pct', 50)}%  "
+        f"approaching >{thresh.get('approaching_limit_pct', 75)}%",
+        "",
+        f"{'ID':<10} {'Type':<8} {'Util%':>6}  {'Fails'}",
+        f"{'-'*10} {'-'*8} {'-'*6}  {'-'*20}",
+    ]
+    for b in summary.get("critical_beams", []):
+        fails = ", ".join(b.get("fails", [])) or "ok"
+        lines.append(f"{b['id']:<10} {'beam':<8} {b['utilisation_pct']:>6.1f}  {fails}")
+    hint_ids = {h["element_id"] for h in summary.get("removal_hints", [])}
+    for c in summary.get("critical_columns", []):
+        fails = ", ".join(c.get("fails", [])) or "ok"
+        keep = "" if c["id"] in hint_ids else "  KEEP — not removable"
+        lines.append(f"{c['id']:<10} {'column':<8} {c['utilisation_pct']:>6.1f}  {fails}{keep}")
+    for b in summary.get("underutilised_beams", []):
+        lines.append(f"{b['id']:<10} {'beam':<8} {b['utilisation_pct']:>6.1f}  (underutilised)")
+    hints = summary.get("removal_hints", [])
+    if hints:
+        lines.append("")
+        lines.append("May be removable (do not suggest removing any element not on this list):")
+        for h in hints:
+            lines.append(f"  {h['element_id']} ({h['type']}): {h.get('note', '')}")
+    return "\n".join(lines)
+
+
+def _interpret_evaluation(
+    llm,
+    result: dict,
+    layout_str: str = "",
+    ll: float = LL_KNM2,
+    sdl: float = SDL_KNM2,
+    removal_hints: list | None = None,
+) -> str:
+    """LLM-generated plain-language interpretation with layout-level suggestions."""
+    beams   = result.get("beams",   [])
+    columns = result.get("columns", [])
+    overall = result.get("summary", {}).get("overall_PASS", True)
+
+    beams_ranked   = sorted(beams,   key=_beam_utilisation, reverse=True)
+    columns_ranked = sorted(columns, key=_col_utilisation,  reverse=True)
+
+    if removal_hints is None:
+        removal_hints = _precompute_removal_hints(result, layout_str, ll, sdl)
+
+    summary = {
+        "overall_PASS":    overall,
+        "thresholds":      {"over_engineered_pct": 50, "approaching_limit_pct": 75},
+        "n_beams":         len(beams),
+        "n_columns":       len(columns),
+        "critical_beams":  [
+            {
+                "id": b["id"], "span_m": b["span_m"], "section": b["section_mm"],
+                "utilisation_pct": round(_beam_utilisation(b) * 100, 1),
+                "fails": [k for k in ["bend_PASS", "shear_PASS", "defl_LL_PASS", "defl_TL_PASS"]
+                          if not b.get(k, True)],
+            }
+            for b in beams_ranked[:4]
+        ],
+        "critical_columns": [
+            {
+                "id": c["id"], "section": c["section_mm"],
+                "load_kN": c["P_total_kN"],
+                "utilisation_pct": round(_col_utilisation(c) * 100, 1),
+                "fails": [k for k in ["stress_PASS", "buckling_PASS"] if not c.get(k, True)],
+            }
+            for c in columns_ranked[:4]
+        ],
+        "underutilised_beams": [
+            {"id": b["id"], "utilisation_pct": round(_beam_utilisation(b) * 100, 1)}
+            for b in beams_ranked if _beam_utilisation(b) < UTIL_OVERENGINEERED
+        ],
+        "removal_hints": (removal_hints or {}).get("columns", []) + (removal_hints or {}).get("beams", []),
+    }
+
+    try:
+        raw = llm.invoke([
+            {"role": "system", "content": _INTERPRET_SYSTEM},
+            {"role": "user",   "content": f"Structural evaluation:\n{_format_summary_for_llm(summary)}"},
+        ])
+        data = json.loads(raw.content)
+        response = data.get("final_response", "")
+        # Strip any XML/HTML tags that small models sometimes echo back
+        import re as _re
+        return _re.sub(r"<[^>]+>", "", response).strip()
+    except Exception as e:
+        print(f"[interpret] LLM unavailable ({e})")
+        return ""
+
+
+def build_evaluate_node(llm):
+    """Structural first-principles check node."""
 
     def evaluate_node(state: dict) -> dict:
         print(f"\n{'='*50}")
@@ -713,7 +957,7 @@ def build_evaluate_node(_):
             # Auto-detect "find minimum for [material]" from the user's original prompt
             auto_min_mat = _detect_find_min(state.get("messages", []))
             if auto_min_mat:
-                print(f"\n[auto] Find minimum sections for {auto_min_mat} — skipping material selection.")
+                print(f"\nRight-sizing sections for {auto_min_mat}...")
                 state["material_override"] = auto_min_mat
                 _ask_sdl_ll(state)
                 state["pending_structural_change"] = {"type": "find_minimum", "material": auto_min_mat}
@@ -724,22 +968,22 @@ def build_evaluate_node(_):
             base_current = next((m for m in BASE_MATERIALS if current.startswith(m)), "RCC")
             tier_label = current[len(base_current):]
             tier_note = f" [{tier_label[1:]} tier]" if tier_label else ""
-            print(f"\nMaterial (current: {current}{tier_note}):")
+            print(f"\nWhat structural material are you working with? [current: {current}{tier_note}]")
             for i, mat in enumerate(BASE_MATERIALS, 1):
                 active = base_current == mat
                 display_sec = DEFAULT_SECTIONS.get(current if active else mat, DEFAULT_SECTIONS[mat])
-                marker = f" <-- active{tier_note}" if active else ""
+                marker = f"  ← active{tier_note}" if active else ""
                 print(f"  {i}. {mat:6s} — beam {display_sec['beam_width_mm']}x{display_sec['beam_depth_mm']}mm | col {display_sec['col_dims']}mm{marker}")
-            print("  4. Find minimum — start XS, auto-upgrade to first PASS")
+            print("  4. Right-size sections — find the minimum that still works")
             print("  [Enter] — keep current")
-            raw = input("Choice [1/2/3/4 or RCC/STEEL/TIMBER]: ").strip().upper()
+            raw = input("Your choice [1/2/3/4 or RCC/STEEL/TIMBER]: ").strip().upper()
             lookup = {"1": "RCC", "2": "STEEL", "3": "TIMBER"}
             if raw == "4":
-                print("\nMaterial for minimum search:")
+                print("\nWhich material should I optimise for?")
                 for i, mat in enumerate(BASE_MATERIALS, 1):
                     xs_sec = DEFAULT_SECTIONS.get(f"{mat}_XS", DEFAULT_SECTIONS[mat])
-                    print(f"  {i}. {mat:6s} — beam {xs_sec['beam_width_mm']}x{xs_sec['beam_depth_mm']}mm | col {xs_sec['col_dims']}mm (XS start)")
-                raw2 = input("Choice [1/2/3 or RCC/STEEL/TIMBER]: ").strip().upper()
+                    print(f"  {i}. {mat:6s} — starting from {xs_sec['beam_width_mm']}x{xs_sec['beam_depth_mm']}mm beams | {xs_sec['col_dims']}mm cols")
+                raw2 = input("Your choice [1/2/3 or RCC/STEEL/TIMBER]: ").strip().upper()
                 selected = lookup.get(raw2) or (raw2 if raw2 in BASE_MATERIALS else None) or "RCC"
                 state["material_override"] = selected
                 _ask_sdl_ll(state)
@@ -759,14 +1003,14 @@ def build_evaluate_node(_):
 
         # After a structural change the layout already has the change applied — evaluate as-is
         if came_from == "structural_change":
-            print(f"\nRe-evaluating after structural change...")
+            print(f"\nRe-checking the structure after changes...")
             layout_str = state["layout_json_string"]
         elif material_override:
-            print(f"\nEvaluating structural integrity (first principles) — material: {material_override}...")
+            print(f"\nRunning structural checks for {material_override}...")
             layout_str = apply_material_override(state["layout_json_string"], material_override)
-            state["layout_json_string"] = layout_str  # save so modify.py sees the material-applied layout
+            state["layout_json_string"] = layout_str
         else:
-            print("\nEvaluating structural integrity (first principles)...")
+            print("\nRunning structural checks...")
             layout_str = state["layout_json_string"]
 
         result  = evaluate_structure(layout_str, ll_kNm2=ll, sdl_kNm2=sdl)
@@ -774,17 +1018,17 @@ def build_evaluate_node(_):
         current_mat = state.get("material_override") or "RCC"
 
         # Tier upgrade prompt (one offer per evaluate pass; each accepted upgrade is one modify cycle)
-        if not summary.get("overall_PASS"):
+        if not summary.get("overall_PASS") and came_from != "structural_change":
             next_tier = SECTION_UPGRADE_MAP.get(current_mat)
             if next_tier:
                 next_sec = DEFAULT_SECTIONS[next_tier]
                 print(
-                    f"\nStructural FAIL with {current_mat}. "
-                    f"Upgrade to {next_tier.replace('_', ' ')} "
-                    f"(beam {next_sec['beam_width_mm']}x{next_sec['beam_depth_mm']}mm "
-                    f"| col {next_sec['col_dims']}mm)?"
+                    f"\nThe current {current_mat} sections aren't quite holding. "
+                    f"Step up to {next_tier.replace('_', ' ')} "
+                    f"(beams {next_sec['beam_width_mm']}x{next_sec['beam_depth_mm']}mm "
+                    f"| cols {next_sec['col_dims']}mm)?"
                 )
-                if input("Upgrade? [y/N]: ").strip().lower() == "y":
+                if input("Try it? [y/N]: ").strip().lower() == "y":
                     state["evaluation_result"] = json.dumps(result)
                     state["pending_structural_change"] = {"type": "tier_upgrade", "tier": next_tier}
                     state["layout_before_change"] = layout_str
@@ -946,26 +1190,87 @@ def build_evaluate_node(_):
             "content": f"Structural evaluation (first principles):\n{eval_text}",
         })
 
+        # ── Advisor: LLM interprets the numbers and suggests next steps ───────
+        removal_hints = _precompute_removal_hints(result, layout_str, ll, sdl)
+        interpretation = _interpret_evaluation(llm, result, layout_str, ll, sdl, removal_hints)
+        if interpretation:
+            print(f"\n[Advisor]\n{interpretation}\n")
+            state["final_response"] = interpretation
+        # ─────────────────────────────────────────────────────────────────────
+
         main_fail = not summary.get("overall_PASS", True)
 
-        # Offer section optimisation when everything passes — skip if find_minimum already ran this session
-        already_find_min = bool(_detect_find_min(state.get("messages", []))) or bool(state.get("find_minimum_done"))
-        if not main_fail and not already_find_min:
+        # ── Unified "what next?" menu when structure passes ───────────────────
+        if not main_fail:
+            col_hints  = (removal_hints or {}).get("columns", [])
+            beam_hints = (removal_hints or {}).get("beams",   [])
+            already_find_min = (bool(_detect_find_min(state.get("messages", [])))
+                                or bool(state.get("find_minimum_done")))
             current_base = next((m for m in BASE_MATERIALS if current_mat.startswith(m)), "RCC")
-            if input("\nAll checks pass. Optimize — find minimum sufficient sections? [y/N]: ").strip().lower() == "y":
-                state["evaluation_result"] = json.dumps(result)
-                state["pending_structural_change"] = {"type": "find_minimum", "material": current_base}
-                state["layout_before_change"] = layout_str
-                return state
+
+            # Build numbered menu items: (kind, payload)
+            menu_items: list[tuple] = []
+            if not already_find_min:
+                menu_items.append(("find_minimum", current_base))
+            for h in col_hints:
+                menu_items.append(("column", h))
+            for h in beam_hints:
+                menu_items.append(("beam", h))
+
+            if menu_items:
+                print("\nThe structure is holding. What would you like to do?")
+                for i, (kind, payload) in enumerate(menu_items, 1):
+                    if kind == "find_minimum":
+                        print(f"  {i}. Right-size all sections — find the minimum that still works")
+                    elif kind == "column":
+                        tag = "safe" if payload["removal_safe"] else "needs beam upgrade"
+                        print(f"  {i}. Remove column {payload['element_id']} "
+                              f"({payload['utilisation_pct']}% utilised) — {tag}")
+                        print(f"     {payload['note']}")
+                    elif kind == "beam":
+                        print(f"  {i}. Remove beam {payload['element_id']} "
+                              f"({payload['utilisation_pct']}% utilised, {payload['span_m']}m span)")
+                        print(f"     {payload['note']}")
+                print("  [Enter] — keep as-is")
+
+                raw_choice = input("Choice [1-N, comma-separated or range, or Enter]: ").strip()
+                if raw_choice:
+                    tokens = []
+                    for part in raw_choice.replace(" ", ",").split(","):
+                        part = part.strip()
+                        if "-" in part and not part.startswith("-"):
+                            bounds = part.split("-", 1)
+                            if bounds[0].isdigit() and bounds[1].isdigit():
+                                tokens.extend(range(int(bounds[0]), int(bounds[1]) + 1))
+                                continue
+                        if part.isdigit():
+                            tokens.append(int(part))
+
+                    selected = [menu_items[t - 1] for t in tokens if 0 <= t - 1 < len(menu_items)]
+                    find_min_sel  = next(((k, p) for k, p in selected if k == "find_minimum"), None)
+                    remove_sel    = [p for k, p in selected if k in ("column", "beam")]
+
+                    if find_min_sel and not remove_sel:
+                        state["evaluation_result"] = json.dumps(result)
+                        state["pending_structural_change"] = {"type": "find_minimum", "material": find_min_sel[1]}
+                        state["layout_before_change"] = layout_str
+                        return state
+                    elif remove_sel:
+                        element_ids = [h["element_id"] for h in remove_sel]
+                        state["pending_structural_change"] = {"type": "remove_elements", "element_ids": element_ids}
+                        state["layout_before_change"] = layout_str
+                        state["evaluation_result"]    = json.dumps(result)
+                        return state
+        # ─────────────────────────────────────────────────────────────────────
 
         # On failure: show alternatives menu — each option packages pending_structural_change and returns
         if main_fail:
             alts = _build_failure_alternatives(result, remove_ids, current_mat)
 
-            print("\nStructural issues detected. Choose an action:")
+            print("\nThe structure needs attention. What would you like to do?")
             for i, alt in enumerate(alts, 1):
                 print(f"  {i}. {alt}")
-            print("  [Enter or text] — describe a custom change")
+            print("  [Enter or text] — describe what you'd like to change")
 
             raw = input("Choice: ").strip()
             if raw.isdigit():
@@ -975,14 +1280,14 @@ def build_evaluate_node(_):
                 chosen = raw
 
             if chosen:
-                # Auto-upgrade all failing beams through section chain
-                if re.match(r"Auto-upgrade \d+ failing beam", chosen, re.IGNORECASE):
+                # Increase failing beams to next size up
+                if re.match(r"Increase the \d+ failing beam", chosen, re.IGNORECASE):
                     state["pending_structural_change"] = {"type": "auto_upgrade_beams"}
                     state["layout_before_change"] = layout_str
                     return state
 
-                # Auto-upgrade all failing columns through section chain
-                if re.match(r"Auto-upgrade \d+ failing col", chosen, re.IGNORECASE):
+                # Increase failing columns to next size up
+                if re.match(r"Increase the \d+ failing col", chosen, re.IGNORECASE):
                     state["pending_structural_change"] = {"type": "auto_upgrade_columns"}
                     state["layout_before_change"] = layout_str
                     return state

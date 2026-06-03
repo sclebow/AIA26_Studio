@@ -3,6 +3,18 @@ import json
 import re
 from pathlib import Path
 
+def _load_layout_by_id(layout_id: str, repo_root: Path) -> dict | None:
+    """Try RPLAN sample_layouts.json first, then Planfinder_Dataset folder."""
+    layouts_path = repo_root / "layout_inputs" / "sample_layouts.json"
+    all_layouts = json.loads(layouts_path.read_text(encoding="utf-8"))
+    layout = next((l for l in all_layouts if l.get("layoutId") == layout_id), None)
+    if layout:
+        return layout
+    pf_path = repo_root / "layout_inputs" / "Planfinder_Dataset" / f"{layout_id}.json"
+    if pf_path.exists():
+        return json.loads(pf_path.read_text(encoding="utf-8"))
+    return None
+
 def build_select_node():
     def select(state: dict) -> dict:
         print("[SELECT] Entered select node")
@@ -24,10 +36,8 @@ def build_select_node():
                     results = []
                 found = any(f"{r['id']}" == layout_id for r in results)
                 if found and layout_id not in tried_layout_ids:
-                    # Load layout from team_06/layout_inputs/sample_layouts.json
-                    layouts_path = Path(__file__).parent.parent.parent / "layout_inputs" / "sample_layouts.json"
-                    all_layouts = json.loads(layouts_path.read_text(encoding="utf-8"))
-                    layout = next((l for l in all_layouts if l.get("layoutId") == layout_id), None)
+                    repo_root = Path(__file__).parent.parent.parent
+                    layout = _load_layout_by_id(layout_id, repo_root)
                     if not layout:
                         print(f"[SELECT] Layout {layout_id} not found in sample_layouts.json.")
                         return {
@@ -81,12 +91,10 @@ def build_select_node():
         # Pick the next untried layout
         next_layout = untried[0]
         layout_id = f"{next_layout['id']}"
-        # Load layout from team_06/layout_inputs/sample_layouts.json
-        layouts_path = Path(__file__).parent.parent.parent / "layout_inputs" / "sample_layouts.json"
-        all_layouts = json.loads(layouts_path.read_text(encoding="utf-8"))
-        layout = next((l for l in all_layouts if l.get("layoutId") == layout_id), None)
+        repo_root = Path(__file__).parent.parent.parent
+        layout = _load_layout_by_id(layout_id, repo_root)
         if not layout:
-            print(f"[SELECT] Layout {layout_id} not found in sample_layouts.json.")
+            print(f"[SELECT] Layout {layout_id} not found in sample_layouts.json or Planfinder_Dataset.")
             return {
                 "select_result": "failed",
                 "final_response": f"Layout {layout_id} not found in sample_layouts.json.",

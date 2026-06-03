@@ -9,7 +9,7 @@ class HeatmapGenerator:
         self.db = live_db
     
     def calculate_room_costs(self, layout_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Prioritizes costs calculated by the Grasshopper MCP tool."""
+        """Calculates costs EXCLUSIVELY using the Live Market database."""
         
         rooms = layout_data.get("rooms", [])
         room_costs = {}
@@ -18,19 +18,18 @@ class HeatmapGenerator:
         for room in rooms:
             room_id = room.get("id", "unknown")
             room_name = room.get("name", "Unknown")
+            category = room.get("category", "common")
             
-            # --- THE GRASSHOPPER CONNECTION ---
-            # 1. Check if the 'compute_room_cost' tool already calculated this
-            total_cost = room.get("total_cost")
+            # 1. Take ONLY the geometric area from Grasshopper
             area_m2 = room.get("area_m2", 0)
             
-            # 2. If the tool hasn't run yet, we fetch a live rate as a fallback
-            if total_cost is None:
-                cost_rate = self.db.get_live_rate(room_name, base_rate=500.0)
-                total_cost = area_m2 * cost_rate if cost_rate else 0
-            else:
-                # If the tool DID run, calculate the effective rate for the report
-                cost_rate = total_cost / area_m2 if area_m2 > 0 else 0
+            # 2. THE DATABASE OVERRIDE: 
+            # Completely ignore any cost Grasshopper tries to send.
+            # ALWAYS fetch the live rate from Supabase/FRED.
+            cost_rate = self._get_rate_for_category(category)
+            
+            # 3. Perform the financial math strictly in Python
+            total_cost = area_m2 * cost_rate
             
             total_room_cost += total_cost
             

@@ -1,7 +1,16 @@
 # Structural Evaluation Report
 
-**Date:** 2026-05-24 10:18:01
-**Prompt:** what would happen if I remove column C_2?
+**Date:** 2026-05-31 08:01:34
+**Prompt:** generate grid
+
+## Analysis Parameters
+
+| Parameter | Value |
+|-----------|-------|
+| Material | TIMBER |
+| Floor build-up (SDL) | 1.5 kN/m² |
+| Live load | 2.0 kN/m² |
+| Total applied load | 3.5 kN/m² |
 
 ## Structural Checks
 
@@ -9,47 +18,71 @@
 Structural evaluation: PASS
 
 BEAMS:
-  AB_1     IPE240    L=5.0m  M=22.835kNm  S=70.412MPa  d_LL=4.182mm/13.889mm  ok
-  BC_1     IPE240    L=3.0m  M=8.22kNm  S=25.348MPa  d_LL=0.542mm/8.333mm  ok
-  CD_1     IPE240    L=6.0m  M=32.882kNm  S=101.394MPa  d_LL=8.672mm/16.667mm  ok
-  A_12     IPE240    L=4.0m  M=18.114kNm  S=55.856MPa  d_LL=2.141mm/11.111mm  ok
-  A_23     IPE240    L=3.0m  M=10.189kNm  S=31.419MPa  d_LL=0.677mm/8.333mm  ok
-  A_34     IPE240    L=3.0m  M=10.189kNm  S=31.419MPa  d_LL=0.677mm/8.333mm  ok
-  AB_2     IPE240    L=5.0m  M=20.1kNm  S=61.981MPa  d_LL=3.659mm/13.889mm  ok
-  B_12     IPE240    L=4.0m  M=14.614kNm  S=45.064MPa  d_LL=1.713mm/11.111mm  ok
-  B_23     IPE240    L=3.0m  M=8.22kNm  S=25.348MPa  d_LL=0.542mm/8.333mm  ok
-  B_34     IPE240    L=3.0m  M=8.22kNm  S=25.348MPa  d_LL=0.542mm/8.333mm  ok
-  AB_3     IPE240    L=5.0m  M=17.366kNm  S=53.549MPa  d_LL=3.136mm/13.889mm  ok
-  BC_3     IPE240    L=3.0m  M=6.252kNm  S=19.278MPa  d_LL=0.406mm/8.333mm  ok
-  CD_3     IPE240    L=6.0m  M=25.007kNm  S=77.11MPa  d_LL=6.504mm/16.667mm  ok
-  C_34     IPE240    L=3.0m  M=9.205kNm  S=28.384MPa  d_LL=0.61mm/8.333mm  ok
-  AB_4     IPE240    L=5.0m  M=17.366kNm  S=53.549MPa  d_LL=3.136mm/13.889mm  ok
-  BC_4     IPE240    L=3.0m  M=6.252kNm  S=19.278MPa  d_LL=0.406mm/8.333mm  ok
-  CD_4     IPE240    L=6.0m  M=25.007kNm  S=77.11MPa  d_LL=6.504mm/16.667mm  ok
-  D_12     IPE240    L=4.0m  M=21.614kNm  S=66.649MPa  d_LL=2.569mm/11.111mm  ok
-  D_23     IPE240    L=3.0m  M=12.158kNm  S=37.49MPa  d_LL=0.813mm/8.333mm  ok
-  D_34     IPE240    L=3.0m  M=12.158kNm  S=37.49MPa  d_LL=0.813mm/8.333mm  ok
-  BC_2     IPE300    L=9.0m  M=66.293kNm  S=119.017MPa  d_LL=17.892mm/25.0mm  ok
-  C_12     IPE300    L=7.0m  M=50.822kNm  S=91.242MPa  d_LL=8.418mm/19.444mm  ok
+  A3-A5    120x300   L=3.75m  M=10.16kNm  S=5.645MPa  d_LL=3.815mm/10.417mm  ok
+  A3-B3    100x240   L=3.2m  M=4.634kNm  S=4.827MPa  d_LL=2.963mm/8.889mm  ok
+  A5-C5    100x240   L=3.5m  M=5.543kNm  S=5.774MPa  d_LL=4.24mm/9.722mm  ok
+  B1-B3    100x240   L=1.75m  M=1.386kNm  S=1.444MPa  d_LL=0.265mm/4.861mm  ok
+  B1-D1    100x240   L=2.6m  M=3.059kNm  S=3.186MPa  d_LL=1.291mm/7.222mm  ok
+  C5-C7    100x240   L=1.8m  M=1.466kNm  S=1.527MPa  d_LL=0.297mm/5.0mm  ok
+  C5-D5    100x240   L=2.3m  M=2.394kNm  S=2.493MPa  d_LL=0.791mm/6.389mm  ok
+  C7-D7    100x240   L=2.3m  M=2.394kNm  S=2.493MPa  d_LL=0.791mm/6.389mm  ok
+  D1-D2    100x240   L=1.5m  M=1.461kNm  S=1.522MPa  d_LL=0.207mm/4.167mm  ok
+  D1-E1    100x240   L=3.5m  M=5.543kNm  S=5.774MPa  d_LL=4.24mm/9.722mm  ok
+  D2-D3    100x240   L=0.25m  M=0.041kNm  S=0.042MPa  d_LL=0.0mm/0.694mm  ok
+  D2-E2    100x240   L=3.5m  M=5.543kNm  S=5.774MPa  d_LL=4.24mm/9.722mm  ok
+  D3-D5    100x240   L=3.75m  M=9.132kNm  S=9.512MPa  d_LL=8.103mm/10.417mm  ok
+  D5-D6    100x240   L=0.75m  M=0.365kNm  S=0.38MPa  d_LL=0.013mm/2.083mm  ok
+  D6-D7    100x240   L=1.05m  M=0.716kNm  S=0.746MPa  d_LL=0.05mm/2.917mm  ok
+  D6-E6    100x240   L=3.5m  M=5.543kNm  S=5.774MPa  d_LL=4.24mm/9.722mm  ok
+  E1-E2    100x240   L=1.5m  M=1.756kNm  S=1.83MPa  d_LL=0.25mm/4.167mm  ok
+  E2-E4    100x240   L=1.7m  M=2.256kNm  S=2.35MPa  d_LL=0.413mm/4.722mm  ok
+  E2-G2    100x240   L=3.8m  M=6.534kNm  S=6.806MPa  d_LL=5.892mm/10.556mm  ok
+  E4-E6    100x240   L=3.05m  M=7.262kNm  S=7.564MPa  d_LL=4.279mm/8.472mm  ok
+  E4-F4    100x240   L=3.5m  M=5.543kNm  S=5.774MPa  d_LL=4.24mm/9.722mm  ok
+  E6-E7    100x240   L=1.05m  M=0.861kNm  S=0.896MPa  d_LL=0.06mm/2.917mm  ok
+  E7-F7    100x240   L=3.5m  M=5.543kNm  S=5.774MPa  d_LL=4.24mm/9.722mm  ok
+  F4-F7    100x240   L=4.1m  M=7.607kNm  S=7.923MPa  d_LL=7.985mm/11.389mm  ok
+  F4-G4    100x240   L=0.3m  M=0.041kNm  S=0.042MPa  d_LL=0.0mm/0.833mm  ok
+  G2-G4    100x240   L=1.7m  M=1.308kNm  S=1.362MPa  d_LL=0.236mm/4.722mm  ok
+  B3-C3    100x240   L=2.6m  M=3.059kNm  S=3.186MPa  d_LL=1.291mm/7.222mm  ok
 
 COLUMNS:
-  A_1      HSS150x150x6 H=3.5m  P=18.45kN  S=5.3384MPa  SF=262.33  ok
-  A_2      HSS150x150x6 H=3.5m  P=31.57kN  S=9.1362MPa  SF=153.28  ok
-  A_3      HSS150x150x6 H=3.5m  P=27.2kN  S=7.8702MPa  SF=177.94  ok
-  A_4      HSS150x150x6 H=3.5m  P=14.07kN  S=4.0725MPa  SF=343.87  ok
-  B_1      HSS150x150x6 H=3.5m  P=28.95kN  S=8.3766MPa  SF=167.18  ok
-  B_2      HSS150x150x6 H=3.5m  P=49.95kN  S=14.453MPa  SF=96.89  ok
-  B_3      HSS150x150x6 H=3.5m  P=42.95kN  S=12.4275MPa  SF=112.69  ok
-  B_4      HSS150x150x6 H=3.5m  P=21.95kN  S=6.3511MPa  SF=220.5  ok
-  C_1      HSS150x150x6 H=3.5m  P=32.45kN  S=9.3893MPa  SF=149.15  ok
-  C_3      HSS150x150x6 H=3.5m  P=48.2kN  S=13.9466MPa  SF=100.41  ok
-  C_4      HSS150x150x6 H=3.5m  P=24.57kN  S=7.1107MPa  SF=196.94  ok
-  D_1      HSS150x150x6 H=3.5m  P=21.95kN  S=6.3511MPa  SF=220.5  ok
-  D_2      HSS150x150x6 H=3.5m  P=37.7kN  S=10.9084MPa  SF=128.38  ok
-  D_3      HSS150x150x6 H=3.5m  P=32.45kN  S=9.3893MPa  SF=149.15  ok
-  D_4      HSS150x150x6 H=3.5m  P=16.7kN  S=4.832MPa  SF=289.82  ok
+  A3       100x100   H=3.5m  P=4.94kN  S=0.4935MPa  SF=25.76  ok
+  A5       100x100   H=3.5m  P=8.71kN  S=0.8715MPa  SF=14.59  ok
+  B1       100x100   H=3.5m  P=4.77kN  S=0.4769MPa  SF=26.66  ok
+  B3       100x100   H=3.5m  P=5.38kN  S=0.5381MPa  SF=23.62  ok
+  C5       100x100   H=3.5m  P=7.11kN  S=0.7114MPa  SF=17.87  ok
+  C7       100x100   H=3.5m  P=3.67kN  S=0.3675MPa  SF=34.59  ok
+  D1       100x100   H=3.5m  P=7.79kN  S=0.7787MPa  SF=16.32  ok
+  D2       100x100   H=3.5m  P=9.06kN  S=0.9056MPa  SF=14.04  ok
+  D3       100x100   H=3.5m  P=8.8kN  S=0.8803MPa  SF=14.44  ok
+  D5       100x100   H=3.5m  P=15.65kN  S=1.5654MPa  SF=8.12  ok
+  D6       100x100   H=3.5m  P=9.31kN  S=0.931MPa  SF=13.66  ok
+  D7       100x100   H=3.5m  P=5.5kN  S=0.5504MPa  SF=23.1  ok
+  E1       100x100   H=3.5m  P=9.36kN  S=0.9363MPa  SF=13.58  ok
+  E2       100x100   H=3.5m  P=10.89kN  S=1.0894MPa  SF=11.67  ok
+  E4       100x100   H=3.5m  P=23.14kN  S=2.3144MPa  SF=5.49  ok
+  E6       100x100   H=3.5m  P=11.2kN  S=1.12MPa  SF=11.35  ok
+  E7       100x100   H=3.5m  P=6.61kN  S=0.6606MPa  SF=19.24  ok
+  F4       100x100   H=3.5m  P=12.64kN  S=1.2644MPa  SF=10.05  ok
+  F7       100x100   H=3.5m  P=3.67kN  S=0.3675MPa  SF=34.59  ok
+  G2       100x100   H=3.5m  P=3.67kN  S=0.3675MPa  SF=34.59  ok
+  G4       100x100   H=3.5m  P=3.67kN  S=0.3675MPa  SF=34.59  ok
 ```
 
 ## Change Summary
 
-Upgraded two IPE240 beams to IPE300, increasing the structural capacity and achieving its goal of enhancing load-bearing capabilities without compromising stability.
+Removed columns C3 and beams C3-C5, C3-D3 to reduce load on the structure.
+
+## Cost & Flexibility Analysis
+
+| Metric | Value |
+|--------|-------|
+| Material added | +$0 |
+| Material saved | -$144 |
+| Net cost change | $-144 |
+| Disruption | Significant (6/10) |
+| Spatial Penalty | 0.00 |
+| Flexibility | 1.0/10 — Very Low |
+
+> 3 removed | Saved: -$144 | Flexibility: 1.0/10 (Very Low) | Disruption: 6/10 (Significant)

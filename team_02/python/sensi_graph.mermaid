@@ -1,0 +1,151 @@
+---
+config:
+  flowchart:
+    curve: basis
+---
+flowchart TB
+
+    %% ── STYLES ─────────────────────────────────────────────────────────────
+    %% llm  = LLM reasoning step          tool = in-process comfort tool (pure Python)
+    %% py   = deterministic Python step    onboard = one-time onboarding
+    classDef llm      fill:#D6E8F8,stroke:#4A90D9,stroke-width:2px,color:#1a1a1a
+    classDef tool     fill:#CDEFD9,stroke:#3FAE6F,stroke-width:2px,color:#1a1a1a
+    classDef py       fill:#FCE9C8,stroke:#E0913A,stroke-width:2px,color:#1a1a1a
+    classDef onboard  fill:#EAD5F5,stroke:#9B59B6,stroke-width:2.5px,color:#1a1a1a
+    classDef terminal fill:#2C3E50,stroke:#2C3E50,color:#fff
+    classDef gate     fill:#F8F9FA,stroke:#6C757D,stroke-width:1.5px,stroke-dasharray:3 2,color:#555
+
+    START([START]):::terminal
+    END_F([END]):::terminal
+
+    %% ── LEGEND ──────────────────────────────────────────────────────────────
+    subgraph LEGEND["LEGEND"]
+        direction LR
+        L_LLM["LLM reasoning"]:::llm
+        L_TOOL["in-process comfort tool"]:::tool
+        L_PY["deterministic Python"]:::py
+        L_ON["onboarding (once)"]:::onboard
+    end
+
+    %% ── ① ONBOARDING — runs once · skipped for returning users (persona.json) ─
+    subgraph ONBOARDING["① ONBOARDING — runs once · skipped if persona.json exists"]
+        direction TB
+        GREET["GREET<br/>'Hi, I'm Sensi — who are you?'"]:::onboard
+        QUIZ["QUIZ<br/>one question per turn (6 turns)<br/>captures sensory priorities + sensitivities"]:::onboard
+        INSPIRE["INSPIRE<br/>web moodboard pipeline (FastAPI + SSE)<br/>image search → VLM tags → sense picks"]:::onboard
+        PERSONA_COMPILER["PERSONA_COMPILER<br/>quiz + inspire → persona_profile JSON<br/>(comfort_weights per sense) → personas/persona.json"]:::onboard
+        GREET -.-> QUIZ -.-> INSPIRE -.-> PERSONA_COMPILER
+    end
+
+    PERSONA_FILE[("persona.json on disk")]:::gate
+
+    %% ── ② ROUTING (layout mode) — one LLM call per turn ──────────────────────
+    subgraph ROUTING["② ROUTING — layout mode"]
+        ACTION_CLASSIFIER["ACTION_CLASSIFIER<br/>ONE call → one of 13 actions:<br/>analyze · detect · full · overview · follow_up<br/>chitchat · inspire · change_material · modify_glazing<br/>add_furniture · topologic · biophilic · compare"]:::llm
+    end
+
+    CHITCHAT["CHITCHAT<br/>off-topic; detects shift to analysis"]:::llm
+    DETAIL_RESPOND["DETAIL_RESPOND<br/>follow-up from CACHED session data<br/>no re-scoring"]:::llm
+    OVERVIEW_RESPOND["OVERVIEW_RESPOND<br/>quick room list · no analysis"]:::py
+
+    %% ── ③ LAYOUT ─────────────────────────────────────────────────────────────
+    LOAD_LAYOUT["LOAD_LAYOUT<br/>read layout JSON · resolve target room<br/>skip if already in session"]:::py
+
+    %% ── ④ ANALYSIS CHAIN (cache-aware) ───────────────────────────────────────
+    subgraph ANALYSIS["④ ANALYSIS CHAIN — cache-aware"]
+        ANALYZE["ANALYZE<br/>compute_comfort_scores<br/>6 senses · all rooms · persona-weighted<br/>baseScores · comfortScores · adjustments"]:::tool
+        SCORE_INTERP["SCORE_INTERPRETER<br/>what do the scores mean for this persona?"]:::llm
+        DETECT["DETECT<br/>detect_sensorial_conflicts<br/>senses below persona threshold"]:::tool
+        CONFLICT_R["CONFLICT_REASONER<br/>root cause of each conflict"]:::llm
+        SUGGEST["SUGGEST<br/>generate_suggestions<br/>one fix per failing sense"]:::tool
+        SUGGEST_CRIT["SUGGESTION_CRITIC<br/>feasible? ranked? cross-sense cost?"]:::llm
+    end
+
+    %% ── ⑤ EDIT TOOLS — mutate the layout, then re-score ──────────────────────
+    subgraph EDITS["⑤ EDIT TOOLS — mutate → re-score → compare"]
+        CHANGE_MATERIAL["CHANGE_MATERIAL"]:::py
+        MODIFY_GLAZING["MODIFY_GLAZING"]:::py
+        ADD_FURNITURE["ADD_FURNITURE"]:::py
+        COMPARE_VERSIONS["COMPARE_VERSIONS<br/>before/after delta per sense"]:::py
+        PREVIEW["PREVIEW — 'what if'<br/>score a CLONE · predicted ripple · NOT committed"]:::tool
+    end
+
+    %% ── ⑥ INSIGHT TOOLS ──────────────────────────────────────────────────────
+    subgraph INSIGHTS["⑥ INSIGHT TOOLS"]
+        TOPOLOGIC["TOPOLOGIC_ANALYSIS<br/>room adjacency graph (NetworkX)<br/>degree · betweenness · bridges · zones"]:::py
+        BIOPHILIC_AUDIT["BIOPHILIC_AUDIT<br/>greenery richness per room"]:::py
+        PERSONA_COMPARISON["PERSONA_COMPARISON<br/>same layout · two personas"]:::tool
+    end
+
+    %% ── ⑦ QUALITY LOOP ───────────────────────────────────────────────────────
+    subgraph QUALITY["⑦ QUALITY LOOP"]
+        RESPOND["RESPOND<br/>persona-aware · action-aware formatting"]:::llm
+        EVALUATOR["EVALUATOR<br/>coherent? complete? APPROVED / REVISE (max 1)"]:::llm
+    end
+
+    WHAT_NEXT["WHAT_NEXT<br/>names worst finding · suggests next action"]:::llm
+    OUTPUT_WRITER[("OUTPUT_WRITER (post-graph)<br/>writes resulting_layout/")]:::gate
+
+    %% ── EDGES ─────────────────────────────────────────────────────────────────
+
+    %% Onboarding spine (one turn each, waits for user)
+    START --> GREET
+    GREET -->|"turn 1 → END"| END_F
+    QUIZ -->|"each turn → END"| END_F
+    PERSONA_COMPILER -->|"onboarding_complete → END"| END_F
+    PERSONA_COMPILER --> PERSONA_FILE
+    PERSONA_FILE -.->|"detected at startup → skip onboarding"| ROUTING
+
+    %% Layout mode entry
+    START -->|"onboarding_complete"| ACTION_CLASSIFIER
+
+    %% Routing
+    ACTION_CLASSIFIER -->|"follow_up"| DETAIL_RESPOND
+    ACTION_CLASSIFIER -->|"chitchat"| CHITCHAT
+    ACTION_CLASSIFIER -->|"inspire"| INSPIRE
+    ACTION_CLASSIFIER -->|"all analysis / tool actions"| LOAD_LAYOUT
+    DETAIL_RESPOND --> WHAT_NEXT
+    CHITCHAT -->|"analysis intent"| ACTION_CLASSIFIER
+    CHITCHAT -->|"done"| WHAT_NEXT
+
+    %% Layout dispatch
+    LOAD_LAYOUT -->|"overview"| OVERVIEW_RESPOND --> WHAT_NEXT
+    LOAD_LAYOUT -->|"analyze · (detect/full, no cache)"| ANALYZE
+    LOAD_LAYOUT -->|"detect/full · CACHE HIT (skip analyze)"| DETECT
+    LOAD_LAYOUT -->|"change_material"| CHANGE_MATERIAL
+    LOAD_LAYOUT -->|"modify_glazing"| MODIFY_GLAZING
+    LOAD_LAYOUT -->|"add_furniture"| ADD_FURNITURE
+    LOAD_LAYOUT -->|"preview / what-if"| PREVIEW
+    LOAD_LAYOUT -->|"topologic"| TOPOLOGIC
+    LOAD_LAYOUT -->|"biophilic"| BIOPHILIC_AUDIT
+    LOAD_LAYOUT -->|"compare"| PERSONA_COMPARISON
+    LOAD_LAYOUT -.->|"layout not found → END"| END_F
+
+    %% Analysis chain
+    ANALYZE -->|"after an edit"| COMPARE_VERSIONS
+    ANALYZE -->|"direct"| SCORE_INTERP
+    COMPARE_VERSIONS --> SCORE_INTERP
+    SCORE_INTERP -->|"detect · full"| DETECT
+    SCORE_INTERP -->|"analyze only"| RESPOND
+    DETECT --> CONFLICT_R
+    CONFLICT_R -->|"full"| SUGGEST --> SUGGEST_CRIT --> RESPOND
+    CONFLICT_R -->|"detect"| RESPOND
+
+    %% Edit tools → re-score
+    CHANGE_MATERIAL --> ANALYZE
+    MODIFY_GLAZING --> ANALYZE
+    ADD_FURNITURE --> ANALYZE
+    PREVIEW --> WHAT_NEXT
+
+    %% Insight tools
+    TOPOLOGIC --> RESPOND
+    BIOPHILIC_AUDIT -->|"needs plants"| ADD_FURNITURE
+    BIOPHILIC_AUDIT -->|"direct"| SCORE_INTERP
+    PERSONA_COMPARISON --> SCORE_INTERP
+
+    %% Quality loop + feedback
+    RESPOND --> EVALUATOR
+    EVALUATOR -->|"REVISE (max 1)"| RESPOND
+    EVALUATOR -->|"APPROVED"| WHAT_NEXT
+    WHAT_NEXT -.->|"post-graph"| OUTPUT_WRITER
+    WHAT_NEXT -->|"done"| END_F

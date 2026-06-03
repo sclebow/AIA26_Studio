@@ -1,0 +1,48 @@
+/* ── Design tokens ───────────────────────────────────────────────────────────
+   The bespoke custom-property ladders, separated from component styles so the
+   "design system" layer is one small, scannable file. Imported before
+   global.css (see main.jsx).
+
+   NOT here, on purpose:
+   - Sense hues, the status palette, and the intensity ladder (--thermal…,
+     --status-*, --i-0…4) are authored in JS (lib/senses.js) and injected onto
+     :root at startup by hydrateCssTokens(). Single source of truth = JS.
+   - The Tailwind @theme block (font + radius + bg/fg utility tokens) stays in
+     global.css because the Tailwind Vite plugin processes that entry file.
+─────────────────────────────────────────────────────────────────────────── */
+:root {
+  --bg:        #0D0D0D;
+  --fg:        #F0EDE8;
+
+  /* foreground as rgb triplet so alpha can vary via one token */
+  --fg-rgb: 240, 237, 232;
+
+  /* radius scale - round = clickable, soft = content */
+  --r-pill: 999px;
+  --r-lg:   14px;
+  --r-sm:   6px;
+
+  /* ambient overlay rungs (borders, fills, hovers) keyed off --fg-rgb */
+  --o-hairline: 0.07;
+  --o-faint:    0.12;
+  --o-soft:     0.22;
+  --o-mid:      0.40;
+
+  /* ── motion ────────────────────────────────────────────────────────────
+     One ladder so the selection bus + transitions feel like one instrument
+     instead of 42 ad-hoc durations. Mirrored for Framer in lib/motion.js. */
+  --dur-fast:  120ms;   /* hovers, highlights */
+  --dur-base:  220ms;   /* panels, toggles */
+  --dur-slow:  420ms;   /* signature morphs, layer reveals */
+  --dur-amb:   4s;      /* ambient / breathing */
+  --ease-out:  cubic-bezier(0.22, 0.61, 0.36, 1);   /* default settle */
+  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);         /* calm in/out */
+
+  /* ── spacing scale (4px base) ──────────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+}
