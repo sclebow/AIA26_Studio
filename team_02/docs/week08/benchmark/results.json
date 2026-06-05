@@ -1,0 +1,72 @@
+{
+  "summary": {
+    "google": {
+      "images": 3,
+      "avg_latency_s": 6.8,
+      "total_cost_usd": 0.117,
+      "cost_per_image_usd": 0.039
+    },
+    "openai": {
+      "images": 3,
+      "avg_latency_s": 18.7,
+      "total_cost_usd": 0.126,
+      "cost_per_image_usd": 0.042
+    }
+  },
+  "runs": [
+    {
+      "provider": "google",
+      "case": "living-room-poor",
+      "latency_s": 6.6,
+      "kb": 1454,
+      "cost_usd": 0.039,
+      "ok": true,
+      "file": "google_living-room-poor.png"
+    },
+    {
+      "provider": "google",
+      "case": "bedroom-cosy",
+      "latency_s": 7.2,
+      "kb": 1732,
+      "cost_usd": 0.039,
+      "ok": true,
+      "file": "google_bedroom-cosy.png"
+    },
+    {
+      "provider": "google",
+      "case": "kitchen-mixed",
+      "latency_s": 6.6,
+      "kb": 1410,
+      "cost_usd": 0.039,
+      "ok": true,
+      "file": "google_kitchen-mixed.png"
+    },
+    {
+      "provider": "openai",
+      "case": "living-room-poor",
+      "latency_s": 21.5,
+      "kb": 1386,
+      "cost_usd": 0.042,
+      "ok": true,
+      "file": "openai_living-room-poor.png"
+    },
+    {
+      "provider": "openai",
+      "case": "bedroom-cosy",
+      "latency_s": 16.4,
+      "kb": 1598,
+      "cost_usd": 0.042,
+      "ok": true,
+      "file": "openai_bedroom-cosy.png"
+    },
+    {
+      "provider": "openai",
+      "case": "kitchen-mixed",
+      "latency_s": 18.1,
+      "kb": 1368,
+      "cost_usd": 0.042,
+      "ok": true,
+      "file": "openai_kitchen-mixed.png"
+    }
+  ]
+}

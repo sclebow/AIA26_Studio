@@ -57,9 +57,13 @@ def _gemini_image(prompt: str, reference_b64: Optional[str]) -> str:
 
 def _openai_image(prompt: str, reference_b64: Optional[str]) -> str:
     """OpenAI gpt-image-1 via the openai SDK. Returns base64 PNG. When a reference
-    image is supplied, uses images.edit so the result is anchored on it."""
+    image is supplied, uses images.edit so the result is anchored on it.
+
+    Quality is pinned (default 'medium') so cost is predictable — gpt-image-1 'high'
+    is ~4x the price. Override with OPENAI_IMAGE_QUALITY (low|medium|high)."""
     from openai import OpenAI
     model = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-1")
+    quality = os.environ.get("OPENAI_IMAGE_QUALITY", "medium")
     client = OpenAI(api_key=_require("OPENAI_API_KEY"))
     if reference_b64:
         img_bytes = base64.b64decode(reference_b64)
@@ -68,10 +72,11 @@ def _openai_image(prompt: str, reference_b64: Optional[str]) -> str:
             image=("reference.png", img_bytes, "image/png"),
             prompt=prompt,
             size="1024x1024",
+            quality=quality,
             n=1,
         )
         return result.data[0].b64_json
-    result = client.images.generate(model=model, prompt=prompt, size="1024x1024", n=1)
+    result = client.images.generate(model=model, prompt=prompt, size="1024x1024", quality=quality, n=1)
     return result.data[0].b64_json
 
 
