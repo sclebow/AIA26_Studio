@@ -39,6 +39,8 @@ export const saveInspirePicks = (round, urls)  => post("/api/inspire/picks", { r
 export const buildMoodboard   = (senseCounts)  => post("/api/inspire/moodboard", { sense_counts: senseCounts });
 export const profileChat      = (text)         => post("/api/profile-chat", { text });
 export const getLayout        = ()             => post("/api/layout");
+export const renderRoom       = (roomName, force = false) => post("/api/render-room", { room_name: roomName, force });
+export const compareRoom      = (roomName, force = false) => post("/api/compare-room", { room_name: roomName, force });
 
 // ── SSE: inspire rounds stream progress, then a final result ──────────────
 // callbacks: { onSession(id), onProgress(msg), onResult(data) }

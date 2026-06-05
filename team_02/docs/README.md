@@ -26,6 +26,10 @@ docs/
 ## week08/ — current week
 - [cli-changes.md](week08/cli-changes.md) — CLI for the orchestrator (faculty notes).
 - [benchmarking-findings.md](week08/benchmarking-findings.md) — per-node model tiering (Gemini FAST/SMART) + rationale.
+- [image-generation-research.md](week08/image-generation-research.md) — deep-research findings (consistency, score-conditioning, edit legibility).
+- [image-output-phase0.md](week08/image-output-phase0.md) — the edit-legible plan: material orbs + ripple, PNG export.
+- [image-output-phase1.md](week08/image-output-phase1.md) — generative per-room "feeling" render (FocusCard), IMAGE_PROVIDER google/openai.
+- [image-output-phase2.md](week08/image-output-phase2.md) — before/after wipe slider + per-sense deltas on an edited room (/api/compare-room).
 
 ## Tooling (root)
 - `build_deck.py` — regenerates the deck PDF from `shots/`. Run from this folder.

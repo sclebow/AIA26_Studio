@@ -36,9 +36,13 @@ import sys
 # Make python/ importable whether launched as `python -m api.server` or uvicorn.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import hashlib
+
 from _runtime.bootstrap import bootstrap
 from graph import run_agent
 from inspire import run_inspire_round, profile_chat_reply
+from imaging import generate_image, build_room_prompt, active_provider
+from nodes._shared.utils import unwrap_mcp_result, persona_display_label
 from api import contracts
 
 # persona.json lives at team_02/personas/persona.json (matches the PyQt app).
@@ -144,6 +148,11 @@ class LayoutSelectReq(BaseModel):
 class LayoutUploadReq(BaseModel):
     session_id: Optional[str] = None
     layout_json: str
+
+class RenderRoomReq(SessionReq):
+    room_id: Optional[str] = None
+    room_name: Optional[str] = None
+    force: bool = False
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -341,6 +350,162 @@ def layout_upload(req: LayoutUploadReq) -> dict:
     slot["session"]["layout_json_string"] = ""
 
     return {"session_id": sid, "ok": True, "layout_id": layout_id, "name": data.get("name", layout_id)}
+
+
+# session_id-independent cache: same (provider, layout, room, scores, persona) → same image
+_RENDER_CACHE: dict[str, dict] = {}
+
+
+def _room_comfort_scores(scores_json: str, room: dict) -> dict[str, float]:
+    """Pull this room's per-sense comfort scores (0-1) from the cached scores JSON."""
+    try:
+        data = json.loads(scores_json)
+    except Exception:
+        return {}
+    rid, rname = room.get("id"), room.get("name")
+    for r in data.get("rooms", []):
+        if r.get("roomId") == rid or r.get("id") == rid or r.get("roomName") == rname:
+            return {k: float(v) for k, v in (r.get("comfortScores") or {}).items()}
+    return {}
+
+
+@app.post("/api/render-room")
+def render_room(req: RenderRoomReq) -> dict:
+    """Generate a first-person 'how it feels' render of one room, driven by its
+    comfort scores + persona. On-demand (FocusCard button); cached per inputs."""
+    sid, slot = _slot(req.session_id)
+    sess = slot["session"]
+
+    raw = sess.get("layout_json_string", "")
+    if not raw:
+        return {"session_id": sid, "ok": False, "error": "No layout loaded yet."}
+    try:
+        layout = json.loads(raw)
+    except Exception:
+        return {"session_id": sid, "ok": False, "error": "Layout JSON could not be parsed."}
+
+    rooms = layout.get("rooms", [])
+    room = next(
+        (r for r in rooms if (req.room_id and r.get("id") == req.room_id)
+         or (req.room_name and r.get("name") == req.room_name)),
+        None,
+    )
+    if not room:
+        return {"session_id": sid, "ok": False, "error": "Room not found in current layout."}
+
+    scores = _room_comfort_scores(sess.get("last_scores_json", ""), room)
+    persona = sess.get("persona_profile") or {}
+    provider = active_provider()
+
+    cache_key = hashlib.sha1(json.dumps({
+        "provider": provider,
+        "layout": sess.get("layout_id", ""),
+        "room": room.get("id") or room.get("name"),
+        "material": (room.get("attributes", {}) or {}).get("floorMaterial"),
+        "scores": scores,
+        "role": persona.get("role"),
+    }, sort_keys=True).encode()).hexdigest()
+
+    if not req.force and cache_key in _RENDER_CACHE:
+        return {"session_id": sid, "ok": True, "cached": True, **_RENDER_CACHE[cache_key]}
+
+    prompt = build_room_prompt(room, scores, persona)
+    try:
+        b64 = generate_image(prompt)
+    except Exception as exc:
+        return {"session_id": sid, "ok": False, "error": f"Image generation failed: {exc}"}
+
+    out = {"image_base64": "data:image/png;base64," + b64, "prompt": prompt, "provider": provider}
+    _RENDER_CACHE[cache_key] = out
+    return {"session_id": sid, "ok": True, "cached": False, **out}
+
+
+_SENSES = ["thermal", "visual", "acoustic", "spatial", "olfactory", "tactile"]
+_COMPARE_CACHE: dict[str, dict] = {}
+
+
+def _score_layout(layout_dict: dict, persona: dict) -> str:
+    """Score a layout via the in-process comfort tool (same call the agent uses)."""
+    persona_label = persona_display_label(persona)
+    weights = persona.get("comfort_weights")
+    pers = persona.get("personality", 0)
+    if isinstance(pers, str):
+        pers = {"introvert": -1.0, "extrovert": 1.0}.get(pers.strip().lower(), 0.0)
+    try:
+        personality = float(pers or 0)
+    except (TypeError, ValueError):
+        personality = 0.0
+    args = {"layout_json": json.dumps(layout_dict), "persona": persona_label,
+            "room_ids": "all", "personality": personality}
+    if weights:
+        args["weights_override"] = json.dumps(weights)
+    return unwrap_mcp_result(_CTX.mcp_client.call_tool("compute_comfort_scores", args))
+
+
+@app.post("/api/compare-room")
+def compare_room(req: RenderRoomReq) -> dict:
+    """Before/after for the most recent edit of a room: revert the edit on a clone,
+    re-score it, generate both renders (after, then before anchored on after), and
+    return per-sense deltas. Powers the FocusCard before/after slider (Phase 2)."""
+    sid, slot = _slot(req.session_id)
+    sess = slot["session"]
+    diff = sess.get("layout_diff") or {}
+    if not diff or not diff.get("attribute"):
+        return {"session_id": sid, "ok": False, "error": "No recent edit to compare."}
+
+    raw = sess.get("layout_json_string", "")
+    try:
+        layout_after = json.loads(raw)
+    except Exception:
+        return {"session_id": sid, "ok": False, "error": "Layout JSON could not be parsed."}
+
+    rid, rname = diff.get("room_id"), diff.get("room_name")
+    rooms = layout_after.get("rooms", [])
+    room_after = next((r for r in rooms if r.get("id") == rid or r.get("name") == rname), None)
+    if not room_after:
+        return {"session_id": sid, "ok": False, "error": "Edited room not found."}
+
+    persona = sess.get("persona_profile") or {}
+    provider = active_provider()
+    attr, old, new = diff["attribute"], diff.get("old_value"), diff.get("new_value")
+
+    cache_key = hashlib.sha1(json.dumps({
+        "p": provider, "l": sess.get("layout_id", ""), "r": rid or rname,
+        "a": attr, "o": old, "n": new,
+    }, sort_keys=True).encode()).hexdigest()
+    if not req.force and cache_key in _COMPARE_CACHE:
+        return {"session_id": sid, "ok": True, "cached": True, **_COMPARE_CACHE[cache_key]}
+
+    after_scores = _room_comfort_scores(sess.get("last_scores_json", ""), room_after)
+
+    # BEFORE: clone, revert the changed attribute, re-score.
+    layout_before = json.loads(raw)
+    room_before = next((r for r in layout_before.get("rooms", [])
+                        if r.get("id") == rid or r.get("name") == rname), None)
+    room_before.setdefault("attributes", {})[attr] = old
+    try:
+        before_scores = _room_comfort_scores(_score_layout(layout_before, persona), room_before)
+    except Exception as exc:
+        return {"session_id": sid, "ok": False, "error": f"Re-scoring failed: {exc}"}
+
+    try:
+        after_b64 = generate_image(build_room_prompt(room_after, after_scores, persona))
+        before_b64 = generate_image(build_room_prompt(room_before, before_scores, persona),
+                                    reference_b64=after_b64)
+    except Exception as exc:
+        return {"session_id": sid, "ok": False, "error": f"Image generation failed: {exc}"}
+
+    deltas = {s: {"before": before_scores.get(s), "after": after_scores.get(s)}
+              for s in _SENSES if (s in before_scores or s in after_scores)}
+
+    out = {
+        "before_image": "data:image/png;base64," + before_b64,
+        "after_image": "data:image/png;base64," + after_b64,
+        "deltas": deltas, "attribute": attr, "old_value": old, "new_value": new,
+        "room": rname, "provider": provider,
+    }
+    _COMPARE_CACHE[cache_key] = out
+    return {"session_id": sid, "ok": True, "cached": False, **out}
 
 
 @app.post("/api/profile-chat")

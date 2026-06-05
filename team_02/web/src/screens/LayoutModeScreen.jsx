@@ -43,11 +43,13 @@ function SpaceInput({ pos, onSend, onClose }) {
 //   graph   — ONE unified room-relationship graph: nodes (rooms) + structural
 //             adjacency + directional transmissive flow, all together. (Topology +
 //             flow used to be two lenses; they are the same graph, now merged.)
-const DEFAULT_LAYERS = { plan: true, comfort: true, graph: false };
+const DEFAULT_LAYERS = { plan: true, comfort: true, graph: false, material: false };
 
 // What each lens needs computed before it can show anything real. The graph needs
-// the TOPOLOGY node to have run (its NetworkX metrics drive the whole view).
-const LAYER_REQUIRES = { plan: null, comfort: "scores", graph: "topology" };
+// the TOPOLOGY node to have run (its NetworkX metrics drive the whole view). The
+// material lens is deterministic (reads floorMaterial straight off the layout), so
+// it needs nothing pre-computed.
+const LAYER_REQUIRES = { plan: null, comfort: "scores", graph: "topology", material: null };
 // If a lens isn't available yet, clicking it asks Sensi to run the analysis.
 const LAYER_RUN_MSG = { comfort: "analyse the layout", graph: "map the topology of the layout" };
 
@@ -61,6 +63,7 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
   const [draft,        setDraft]        = useState("");
   const [layers,       setLayers]       = useState(DEFAULT_LAYERS);
   const taRef = useRef(null);
+  const planRef = useRef(null);
 
   const { focusSense, toggleSense, activeRoom, setActiveRoom } = useSelection();
 
@@ -177,10 +180,12 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
             <LayerToggles layers={layers} onToggle={onLayer} available={layerAvailable} />
             <button className="layer-pill" title="3D relationship galaxy"
               onClick={() => rooms.length ? setGalaxyOpen(true) : onSend("analyse the layout")}>galaxy ↗</button>
+            <button className="layer-pill" title="export the plan as a PNG image"
+              onClick={() => planRef.current?.exportPng()}>⤓ png</button>
           </div>
 
           <div className="lm-viewer">
-            <SensePlan rooms={rooms} layoutId={layoutId} layoutVersion={layoutVersion} layers={layers} graphData={activeTurn?.graph_data} />
+            <SensePlan ref={planRef} rooms={rooms} layoutId={layoutId} layoutVersion={layoutVersion} layers={layers} graphData={activeTurn?.graph_data} diff={activeTurn?.layout_diff} />
 
             {/* topology metric pills */}
             {metrics && (
