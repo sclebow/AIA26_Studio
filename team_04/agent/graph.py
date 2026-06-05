@@ -449,14 +449,27 @@ def _build_place_building_node(
         )
         parsed_output = _parse_tool_output(raw_output)
         placement_data = parsed_output.get("data", {}) if isinstance(parsed_output, dict) else {}
+        shape_payload = _extract_current_shape_payload(state)
         placed_buildings = list(state.get("placed_buildings", []))
-        placed_buildings.append(
-            {
-                "geometry_id": geometry_id,
-                "boundary": placed_boundary,
-                "placement": placement_data,
-            }
-        )
+        placed_snapshot = {
+            "geometry_id": geometry_id,
+            "boundary": placed_boundary,
+            "placement": placement_data,
+        }
+        if isinstance(shape_payload, dict):
+            for key in (
+                "shape_type",
+                "wings",
+                "building_graph",
+                "parameters",
+                "site_fit_summary",
+                "placement_optimization",
+                "option_catalog",
+                "object_hierarchy",
+            ):
+                if key in shape_payload:
+                    placed_snapshot[key] = shape_payload[key]
+        placed_buildings.append(placed_snapshot)
         messages.append(f"Tool {tool_name} executed.")
         tool_history.append(
             {
@@ -873,8 +886,9 @@ def _execute_tool_calls(
         arguments = {key: value for key, value in arguments.items() if value is not None}
         if "layout_json" not in arguments:
             arguments["layout_json"] = current_layout_json
-        if tool_name == "generate_building_boundary" and site_boundary and "site_boundary" not in arguments:
+        if site_boundary and "site_boundary" not in arguments:
             arguments["site_boundary"] = site_boundary
+        if tool_name == "generate_building_boundary":
             arguments.setdefault("optimize_placement", True)
         if current_geometry_id and "geometry_id" not in arguments:
             arguments["geometry_id"] = current_geometry_id
@@ -925,6 +939,13 @@ def _extract_geometry_id(payload: Any) -> str | None:
 
 
 def _extract_current_boundary(state: AgentState) -> list[list[float]] | None:
+    shape_payload = _extract_current_shape_payload(state)
+    if isinstance(shape_payload, dict) and isinstance(shape_payload.get("boundary"), list):
+        return shape_payload["boundary"]
+    return None
+
+
+def _extract_current_shape_payload(state: AgentState) -> dict[str, Any] | None:
     shape_context = state.get("shape_context", {})
     if not isinstance(shape_context, dict):
         shape_context = {}
@@ -932,7 +953,7 @@ def _extract_current_boundary(state: AgentState) -> list[list[float]] | None:
         if isinstance(payload, dict):
             data = payload.get("data", payload)
             if isinstance(data, dict) and isinstance(data.get("boundary"), list):
-                return data["boundary"]
+                return data
     for record in reversed(state.get("tool_history", [])):
         if not isinstance(record, dict):
             continue
@@ -940,7 +961,7 @@ def _extract_current_boundary(state: AgentState) -> list[list[float]] | None:
         if isinstance(output, dict):
             data = output.get("data", output)
             if isinstance(data, dict) and isinstance(data.get("boundary"), list):
-                return data["boundary"]
+                return data
     return None
 
 

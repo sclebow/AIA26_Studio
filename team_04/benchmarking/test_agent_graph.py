@@ -268,6 +268,8 @@ class AgentGraphTests(unittest.TestCase):
         placement_fit_summary = final_state.get("placement_fit_summary", {})
         self.assertEqual(placement_payload.get("geometry_id"), placed_building.get("geometry_id"))
         self.assertEqual(placement_payload.get("boundary"), placed_building.get("boundary"))
+        self.assertIn("option_catalog", placed_building)
+        self.assertEqual(placed_building["object_hierarchy"]["node_type"], "building")
         self.assertIn("fits_within_site_boundary", placement_fit_summary)
         self.assertIn("placement_suggested_move", placement_fit_summary)
         self.assertIn("test_fit_passed", placement_fit_summary)
@@ -454,6 +456,54 @@ class AgentGraphTests(unittest.TestCase):
         self.assertEqual(repaired.tool_calls[0].arguments["max_rotation_angle"], 45.0)
         self.assertEqual(repaired.tool_calls[0].arguments["max_rotation_step"], 1)
         self.assertEqual(repaired.tool_calls[0].arguments["rotation_step"], 1)
+
+    def test_generate_shape_repair_seeds_later_building_from_remaining_candidates(self) -> None:
+        client = self._build_tool_client()
+        catalog = ToolCatalog.from_discovered_tools(client.list_tools())
+        active_step = PlanStep(
+            step_id="generate_shape",
+            action="generate_shape",
+            goal="Create the next geometry candidate for building 2.",
+            status="pending",
+        )
+
+        repaired = _repair_generate_shape_decision(
+            RoutingDecision(action="generate_shape", reasoning="Generate the second shape."),
+            {
+                "user_prompt": "Place two buildings on this site.",
+                "site_boundary": [
+                    [0.0, 0.0, 0.0],
+                    [140.0, 0.0, 0.0],
+                    [140.0, 90.0, 0.0],
+                    [0.0, 90.0, 0.0],
+                    [0.0, 0.0, 0.0],
+                ],
+                "placed_buildings": [
+                    {
+                        "geometry_id": "shape-001",
+                        "boundary": [
+                            [10.0, 10.0, 0.0],
+                            [40.0, 10.0, 0.0],
+                            [40.0, 40.0, 0.0],
+                            [10.0, 40.0, 0.0],
+                            [10.0, 10.0, 0.0],
+                        ],
+                    }
+                ],
+                "remaining_candidate_positions": [
+                    [55.0, 20.0, 0.0],
+                    [108.0, 46.0, 0.0],
+                    [82.0, 70.0, 0.0],
+                ],
+                "requested_positions": [[25.0, 25.0], [110.0, 50.0]],
+                "target_building_count": 2,
+            },
+            catalog,
+            active_step,
+        )
+
+        self.assertEqual(repaired.tool_calls[0].name, "generate_building_boundary")
+        self.assertEqual(repaired.tool_calls[0].arguments["location_xy"], [108.0, 46.0])
 
     def test_multi_building_runtime_places_first_building_and_analyzes_remaining_positions(self) -> None:
         client = self._build_tool_client()

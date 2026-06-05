@@ -29,6 +29,7 @@ def optimize_boundary_placement(
     population_size: int = 40,
     generation_count: int = 60,
     random_seed: int = 7,
+    saved_option_count: int = 5,
 ) -> dict[str, Any]:
     _ensure_pymoo_available()
     base_polygon = _coerce_polygon(boundary)
@@ -93,6 +94,21 @@ def optimize_boundary_placement(
         clearance_target=clearance_target,
         target_point=target_point,
     )
+    saved_options = _build_saved_options(
+        result=result,
+        base_polygon=base_polygon,
+        site_polygon=site_polygon,
+        fixed_rotation_degrees=fixed_rotation_degrees,
+        clearance_target=clearance_target,
+        target_point=target_point,
+        selected_centroid_xy=centroid_xy,
+        selected_rotation_degrees=rotation_degrees,
+        limit=max(saved_option_count, 1),
+    )
+    selected_option_id = next(
+        (item["option_id"] for item in saved_options if item.get("is_selected")),
+        saved_options[0]["option_id"] if saved_options else None,
+    )
     return {
         "optimized": True,
         "centroid_xy": [round(centroid_xy[0], 6), round(centroid_xy[1], 6)],
@@ -105,6 +121,9 @@ def optimize_boundary_placement(
         "generation_count": generation_count,
         "random_seed": random_seed,
         "target_location_xy": list(target_location_xy) if target_location_xy is not None else [],
+        "selected_option_id": selected_option_id,
+        "saved_option_count": len(saved_options),
+        "saved_options": saved_options,
     }
 
 
@@ -172,3 +191,114 @@ def _coerce_polygon(boundary: list[list[float]] | list[tuple[float, float]]) -> 
 def _ensure_pymoo_available() -> None:
     if _PYMOO_IMPORT_ERROR is not None:
         raise RuntimeError("pymoo is required for Team 04 placement optimization") from _PYMOO_IMPORT_ERROR
+
+
+def _build_saved_options(
+    *,
+    result: Any,
+    base_polygon: Polygon,
+    site_polygon: Polygon,
+    fixed_rotation_degrees: float | None,
+    clearance_target: float,
+    target_point: Point | None,
+    selected_centroid_xy: tuple[float, float],
+    selected_rotation_degrees: float,
+    limit: int,
+) -> list[dict[str, Any]]:
+    options: list[dict[str, Any]] = []
+    seen_keys: set[tuple[float, float, float]] = set()
+    selected_key = (
+        round(float(selected_centroid_xy[0]), 6),
+        round(float(selected_centroid_xy[1]), 6),
+        round(float(selected_rotation_degrees), 6),
+    )
+
+    for solution in _iter_candidate_solutions(result, selected_centroid_xy, selected_rotation_degrees):
+        centroid_xy, rotation_degrees = _resolve_candidate_transform(solution, fixed_rotation_degrees)
+        key = (
+            round(float(centroid_xy[0]), 6),
+            round(float(centroid_xy[1]), 6),
+            round(float(rotation_degrees), 6),
+        )
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+
+        candidate_polygon = _transform_polygon(
+            base_polygon,
+            centroid_xy=centroid_xy,
+            rotation_degrees=rotation_degrees,
+        )
+        summary = _summarize_candidate(
+            candidate_polygon=candidate_polygon,
+            site_polygon=site_polygon,
+            clearance_target=clearance_target,
+            target_point=target_point,
+        )
+        options.append(
+            {
+                "option_id": "",
+                "label": "",
+                "status": "candidate",
+                "centroid_xy": [round(float(centroid_xy[0]), 6), round(float(centroid_xy[1]), 6)],
+                "rotation_degrees": round(float(rotation_degrees), 6),
+                "objective": round(float(summary["objective"]), 6),
+                "outside_area_sqm": round(float(summary["outside_area_sqm"]), 6),
+                "clearance_m": round(float(summary["clearance_m"]), 6),
+                "fits_within_site_boundary": bool(summary["fits_within_site_boundary"]),
+                "boundary": _polygon_boundary_points(candidate_polygon),
+                "is_selected": key == selected_key,
+            }
+        )
+
+    options.sort(key=lambda item: (0 if item.get("is_selected") else 1, item["objective"]))
+    trimmed = options[: max(limit, 1)]
+    for index, option in enumerate(trimmed, start=1):
+        option["option_id"] = f"placement_option_{index:02d}"
+        option["label"] = f"Placement option {index}"
+        option["status"] = "selected" if option.get("is_selected") else "candidate"
+    return trimmed
+
+
+def _iter_candidate_solutions(
+    result: Any,
+    selected_centroid_xy: tuple[float, float],
+    selected_rotation_degrees: float,
+) -> list[Any]:
+    candidates: list[Any] = [
+        [float(selected_centroid_xy[0]), float(selected_centroid_xy[1]), float(selected_rotation_degrees)]
+    ]
+    population = getattr(result, "pop", None)
+    if population is None:
+        return candidates
+    try:
+        xs = population.get("X")
+    except Exception:
+        return candidates
+    if xs is None:
+        return candidates
+    for item in xs:
+        candidates.append(item)
+    return candidates
+
+
+def _resolve_candidate_transform(
+    solution: Any,
+    fixed_rotation_degrees: float | None,
+) -> tuple[tuple[float, float], float]:
+    if hasattr(solution, "tolist"):
+        solution = solution.tolist()
+    if not isinstance(solution, (list, tuple)):
+        raise ValueError("optimization solution must be array-like")
+    if len(solution) >= 3:
+        return (float(solution[0]), float(solution[1])), float(solution[2])
+    if len(solution) >= 2:
+        return (float(solution[0]), float(solution[1])), float(fixed_rotation_degrees or 0.0)
+    raise ValueError("optimization solution must contain at least x and y coordinates")
+
+
+def _polygon_boundary_points(polygon: Polygon) -> list[list[float]]:
+    return [
+        [round(float(x), 6), round(float(y), 6), 0.0]
+        for x, y in polygon.exterior.coords
+    ]

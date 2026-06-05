@@ -85,6 +85,11 @@ TOOL_DEFINITION: dict[str, Any] = {
                 "description": "Random seed used by the pymoo GA placement search. Default: 7.",
                 "default": 7,
             },
+            "saved_option_count": {
+                "type": "integer",
+                "description": "How many placement alternatives to persist from the optimization run for explorer-side option browsing. Default: 5.",
+                "default": 5,
+            },
             "is_mirrored": {
                 "type": "boolean",
                 "description": "Mirror the footprint before rotation and translation. Uses mirror_axis when provided. Default: false.",
@@ -154,6 +159,7 @@ def get_default_tool_arguments() -> dict[str, Any]:
             "population_size",
             "generation_count",
             "random_seed",
+            "saved_option_count",
             "is_mirrored",
             "mirror_axis",
             "rotation_degrees",
@@ -184,6 +190,7 @@ def generate_building_boundary(
     population_size: int = 40,
     generation_count: int = 60,
     random_seed: int = 7,
+    saved_option_count: int = 5,
     is_mirrored: bool = False,
     mirror_axis: str = "y",
     rotation_degrees: float = 0.0,
@@ -209,6 +216,8 @@ def generate_building_boundary(
         raise ValueError("population_size must be at least 4")
     if generation_count < 1:
         raise ValueError("generation_count must be at least 1")
+    if saved_option_count < 1:
+        raise ValueError("saved_option_count must be at least 1")
     if max_rotation_step < 0:
         raise ValueError("max_rotation_step cannot be negative")
     if rotation_step < 0:
@@ -250,6 +259,7 @@ def generate_building_boundary(
                 population_size=population_size,
                 generation_count=generation_count,
                 random_seed=random_seed,
+                saved_option_count=saved_option_count,
             )
             transformed_model = apply_shape_transform(
                 mirrored_model,
@@ -284,14 +294,31 @@ def generate_building_boundary(
         site_fit_summary = {}
 
     payload = serialize_shape_model(transformed_model)
+    geometry_id = f"generate_building_boundary_{uuid.uuid4().hex[:12]}"
+    option_catalog = _build_option_catalog(
+        geometry_id=geometry_id,
+        shape_type=normalized_type,
+        boundary=payload["boundary"],
+        placement_summary=placement_summary,
+        site_fit_summary=site_fit_summary,
+        site_boundary_supplied=bool(site_boundary),
+    )
+    object_hierarchy = _build_object_hierarchy(
+        geometry_id=geometry_id,
+        shape_type=normalized_type,
+        payload=payload,
+        option_catalog=option_catalog,
+    )
     return {
         "success": True,
         "data": {
-            "geometry_id": f"generate_building_boundary_{uuid.uuid4().hex[:12]}",
+            "geometry_id": geometry_id,
             "shape_type": normalized_type,
             **payload,
             "site_fit_summary": site_fit_summary,
             "placement_optimization": placement_summary,
+            "option_catalog": option_catalog,
+            "object_hierarchy": object_hierarchy,
             "parameters": {
                 "area": area,
                 "building_type": normalized_type,
@@ -304,6 +331,7 @@ def generate_building_boundary(
                 "population_size": population_size,
                 "generation_count": generation_count,
                 "random_seed": random_seed,
+                "saved_option_count": saved_option_count,
                 "is_mirrored": is_mirrored,
                 "mirror_axis": mirror_axis,
                 "rotation_degrees": rotation_degrees,
@@ -343,3 +371,157 @@ def _resolve_requested_rotation(
 
 def _is_origin(location_xy: tuple[float, float]) -> bool:
     return math.isclose(location_xy[0], 0.0, abs_tol=1e-9) and math.isclose(location_xy[1], 0.0, abs_tol=1e-9)
+
+
+def _build_option_catalog(
+    *,
+    geometry_id: str,
+    shape_type: str,
+    boundary: list[list[float]],
+    placement_summary: dict[str, Any],
+    site_fit_summary: dict[str, Any],
+    site_boundary_supplied: bool,
+) -> dict[str, Any]:
+    saved_options = placement_summary.get("saved_options", []) if isinstance(placement_summary, dict) else []
+    options: list[dict[str, Any]] = []
+    if isinstance(saved_options, list):
+        options.extend(item for item in saved_options if isinstance(item, dict))
+
+    if not options:
+        fallback_option = {
+            "option_id": "placement_option_01",
+            "label": "Current boundary",
+            "status": "selected",
+            "centroid_xy": [],
+            "rotation_degrees": float(placement_summary.get("rotation_degrees", 0.0)) if isinstance(placement_summary, dict) else 0.0,
+            "objective": float(placement_summary.get("objective", 0.0)) if isinstance(placement_summary, dict) else 0.0,
+            "outside_area_sqm": float(site_fit_summary.get("outside_area_sqm", 0.0)) if isinstance(site_fit_summary, dict) else 0.0,
+            "clearance_m": float(site_fit_summary.get("clearance_m", 0.0)) if isinstance(site_fit_summary, dict) else 0.0,
+            "fits_within_site_boundary": bool(site_fit_summary.get("fits_within_site_boundary", not site_boundary_supplied)) if isinstance(site_fit_summary, dict) else (not site_boundary_supplied),
+            "boundary": boundary,
+            "is_selected": True,
+        }
+        if isinstance(placement_summary, dict):
+            centroid_xy = placement_summary.get("centroid_xy")
+            if isinstance(centroid_xy, list):
+                fallback_option["centroid_xy"] = centroid_xy
+        options.append(fallback_option)
+
+    selected_option_id = next(
+        (item.get("option_id") for item in options if isinstance(item, dict) and item.get("is_selected")),
+        options[0].get("option_id") if options else None,
+    )
+    return {
+        "geometry_id": geometry_id,
+        "shape_type": shape_type,
+        "selected_option_id": selected_option_id,
+        "options": options,
+    }
+
+
+def _build_object_hierarchy(
+    *,
+    geometry_id: str,
+    shape_type: str,
+    payload: dict[str, Any],
+    option_catalog: dict[str, Any],
+) -> dict[str, Any]:
+    wings = payload.get("wings", []) if isinstance(payload.get("wings"), list) else []
+    centerline_graph = {}
+    building_graph = payload.get("building_graph")
+    if isinstance(building_graph, dict):
+        centerline_graph = building_graph.get("centerline_graph", {})
+    nodes = centerline_graph.get("nodes", []) if isinstance(centerline_graph.get("nodes"), list) else []
+    edges = centerline_graph.get("edges", []) if isinstance(centerline_graph.get("edges"), list) else []
+    adjacency_list = centerline_graph.get("adjacency_list", []) if isinstance(centerline_graph.get("adjacency_list"), list) else []
+    return {
+        "node_id": geometry_id,
+        "node_type": "building",
+        "label": f"{shape_type} building",
+        "children": [
+            {
+                "node_id": f"{geometry_id}:options",
+                "node_type": "option_collection",
+                "label": "Saved options",
+                "children": [
+                    {
+                        "node_id": f"{geometry_id}:option:{item.get('option_id', index + 1)}",
+                        "node_type": "placement_option",
+                        "label": str(item.get("label", f"Option {index + 1}")),
+                        "status": item.get("status", "candidate"),
+                        "ref": {
+                            "kind": "placement_option",
+                            "option_id": item.get("option_id"),
+                        },
+                    }
+                    for index, item in enumerate(option_catalog.get("options", []))
+                    if isinstance(item, dict)
+                ],
+            },
+            {
+                "node_id": f"{geometry_id}:wings",
+                "node_type": "wing_collection",
+                "label": "Wings",
+                "children": [
+                    {
+                        "node_id": f"{geometry_id}:wing:{wing.get('wing_index')}",
+                        "node_type": "wing",
+                        "label": f"Wing {wing.get('wing_index')}",
+                        "role": wing.get("role"),
+                        "ref": {
+                            "kind": "wing",
+                            "wing_index": wing.get("wing_index"),
+                        },
+                    }
+                    for wing in wings
+                    if isinstance(wing, dict)
+                ],
+            },
+            {
+                "node_id": f"{geometry_id}:centerline_graph",
+                "node_type": "graph",
+                "label": "Centerline graph",
+                "children": [
+                    {
+                        "node_id": f"{geometry_id}:graph:nodes",
+                        "node_type": "graph_node_collection",
+                        "label": "Nodes",
+                        "children": [
+                            {
+                                "node_id": f"{geometry_id}:graph:node:{node.get('node_index')}",
+                                "node_type": "graph_node",
+                                "label": f"Node {node.get('node_index')}",
+                                "degree": len(adjacency_list[node.get("node_index")]) if isinstance(node.get("node_index"), int) and node.get("node_index") < len(adjacency_list) else 0,
+                                "ref": {
+                                    "kind": "graph_node",
+                                    "node_index": node.get("node_index"),
+                                },
+                            }
+                            for node in nodes
+                            if isinstance(node, dict)
+                        ],
+                    },
+                    {
+                        "node_id": f"{geometry_id}:graph:edges",
+                        "node_type": "graph_edge_collection",
+                        "label": "Edges",
+                        "children": [
+                            {
+                                "node_id": f"{geometry_id}:graph:edge:{edge.get('edge_index')}",
+                                "node_type": "graph_edge",
+                                "label": f"Edge {edge.get('edge_index')}",
+                                "wing_index": edge.get("wing_index"),
+                                "ref": {
+                                    "kind": "graph_edge",
+                                    "edge_index": edge.get("edge_index"),
+                                    "wing_index": edge.get("wing_index"),
+                                },
+                            }
+                            for edge in edges
+                            if isinstance(edge, dict)
+                        ],
+                    },
+                ],
+            },
+        ],
+    }

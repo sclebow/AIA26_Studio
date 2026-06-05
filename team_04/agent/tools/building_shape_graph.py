@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from shapely import affinity
-from shapely.geometry import Polygon, box
+from shapely.geometry import LineString, Polygon, box
 from shapely.ops import unary_union
 
 _TOPOLOGICPY_IMPORT_ERROR: Exception | None = None
@@ -362,6 +362,13 @@ def _build_graph_payload(wings: tuple[WingModel, ...], edge_pairs: tuple[tuple[i
             "edge_count": 0,
             "edges": [],
             "adjacency_list": [],
+            "centerline_graph": {
+                "node_count": 0,
+                "edge_count": 0,
+                "nodes": [],
+                "edges": [],
+                "adjacency_list": [],
+            },
         }
 
     adjacency_list = [[] for _ in wings]
@@ -379,6 +386,8 @@ def _build_graph_payload(wings: tuple[WingModel, ...], edge_pairs: tuple[tuple[i
                 edges.append(edge)
         Graph.ByVerticesEdges(vertices, edges)
 
+    centerline_graph = _build_centerline_graph(wings, edge_pairs)
+
     return {
         "backend": "topologicpy",
         "node_count": len(wings),
@@ -392,15 +401,222 @@ def _build_graph_payload(wings: tuple[WingModel, ...], edge_pairs: tuple[tuple[i
             for source_index, target_index in edge_pairs
         ],
         "adjacency_list": adjacency_list,
+        "centerline_graph": centerline_graph,
     }
+
+
+def _build_centerline_graph(
+    wings: tuple[WingModel, ...],
+    edge_pairs: tuple[tuple[int, int], ...],
+) -> dict[str, Any]:
+    centerlines = {wing.index: _wing_centerline_segment(wing) for wing in wings}
+    wing_adjacency = {wing.index: [] for wing in wings}
+    for source_index, target_index in edge_pairs:
+        point = _segment_intersection_point(centerlines[source_index], centerlines[target_index])
+        if point is None:
+            point = _fallback_joint_point(centerlines[source_index], centerlines[target_index])
+        wing_adjacency[source_index].append(point)
+        wing_adjacency[target_index].append(point)
+
+    node_records: list[dict[str, Any]] = []
+    node_lookup: dict[tuple[int, int, int], int] = {}
+
+    def register_node(point: tuple[float, float, float], kind: str, wing_index: int) -> int:
+        key = (round(point[0] * 1_000_000), round(point[1] * 1_000_000), round(point[2] * 1_000_000))
+        existing_index = node_lookup.get(key)
+        if existing_index is not None:
+            record = node_records[existing_index]
+            connected = set(record["connected_wings"])
+            connected.add(wing_index)
+            record["connected_wings"] = sorted(connected)
+            if kind == "joint":
+                record["kind"] = "joint"
+            return existing_index
+
+        node_index = len(node_records)
+        node_lookup[key] = node_index
+        node_records.append(
+            {
+                "node_index": node_index,
+                "kind": kind,
+                "point": [round(point[0], 6), round(point[1], 6), round(point[2], 6)],
+                "connected_wings": [wing_index],
+            }
+        )
+        return node_index
+
+    centerline_edges: list[dict[str, Any]] = []
+    for wing in wings:
+        segment_start, segment_end = centerlines[wing.index]
+        joint_points = wing_adjacency[wing.index]
+        if not joint_points:
+            start_node_index = register_node(segment_start, "endpoint", wing.index)
+            end_node_index = register_node(segment_end, "endpoint", wing.index)
+            edge_start = segment_start
+            edge_end = segment_end
+        elif len(joint_points) == 1:
+            joint_point = joint_points[0]
+            joint_node_index = register_node(joint_point, "joint", wing.index)
+            free_endpoint = max(
+                (segment_start, segment_end),
+                key=lambda point: _distance_xy(point, joint_point),
+            )
+            free_node_index = register_node(free_endpoint, "endpoint", wing.index)
+            if _distance_xy(free_endpoint, segment_start) <= 1e-6:
+                start_node_index, end_node_index = free_node_index, joint_node_index
+                edge_start, edge_end = free_endpoint, joint_point
+            else:
+                start_node_index, end_node_index = joint_node_index, free_node_index
+                edge_start, edge_end = joint_point, free_endpoint
+        else:
+            ordered_joint_points = sorted(
+                joint_points,
+                key=lambda point: _line_parameter(point, segment_start, segment_end),
+            )
+            start_joint = ordered_joint_points[0]
+            end_joint = ordered_joint_points[-1]
+            start_node_index = register_node(start_joint, "joint", wing.index)
+            end_node_index = register_node(end_joint, "joint", wing.index)
+            edge_start, edge_end = start_joint, end_joint
+
+        centerline_edges.append(
+            {
+                "edge_index": len(centerline_edges),
+                "wing_index": wing.index,
+                "role": wing.role,
+                "from_node_index": start_node_index,
+                "to_node_index": end_node_index,
+                "centerline": [
+                    [round(edge_start[0], 6), round(edge_start[1], 6), round(edge_start[2], 6)],
+                    [round(edge_end[0], 6), round(edge_end[1], 6), round(edge_end[2], 6)],
+                ],
+                "length_m": round(_distance_xy(edge_start, edge_end), 6),
+                "nominal_width_m": round(wing.nominal_width, 6),
+                "estimated_area_sqm": round(wing.polygon.area, 6),
+            }
+        )
+
+    node_adjacency = [[] for _ in node_records]
+    for edge in centerline_edges:
+        source_index = edge["from_node_index"]
+        target_index = edge["to_node_index"]
+        node_adjacency[source_index].append(target_index)
+        node_adjacency[target_index].append(source_index)
+    node_adjacency = [sorted(set(neighbors)) for neighbors in node_adjacency]
+
+    if centerline_edges:
+        vertices = [Vertex.ByCoordinates(*record["point"]) for record in node_records]
+        edges = []
+        for edge in centerline_edges:
+            topology_edge = Edge.ByVertices(vertices[edge["from_node_index"]], vertices[edge["to_node_index"]])
+            if topology_edge is not None:
+                edges.append(topology_edge)
+        if edges:
+            Graph.ByVerticesEdges(vertices, edges)
+
+    return {
+        "node_count": len(node_records),
+        "edge_count": len(centerline_edges),
+        "nodes": node_records,
+        "edges": centerline_edges,
+        "adjacency_list": node_adjacency,
+    }
+
+
+def _wing_centerline_segment(wing: WingModel) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    rectangle = wing.polygon.minimum_rotated_rectangle
+    corners = list(rectangle.exterior.coords)[:-1]
+    edge_lengths = [math.dist(corners[index], corners[(index + 1) % 4]) for index in range(4)]
+
+    if edge_lengths[0] >= edge_lengths[1]:
+        start = _midpoint_xy(corners[1], corners[2])
+        end = _midpoint_xy(corners[3], corners[0])
+    else:
+        start = _midpoint_xy(corners[0], corners[1])
+        end = _midpoint_xy(corners[2], corners[3])
+    return start, end
+
+
+def _segment_intersection_point(
+    segment_a: tuple[tuple[float, float, float], tuple[float, float, float]],
+    segment_b: tuple[tuple[float, float, float], tuple[float, float, float]],
+) -> tuple[float, float, float] | None:
+    line_a = LineString([(segment_a[0][0], segment_a[0][1]), (segment_a[1][0], segment_a[1][1])])
+    line_b = LineString([(segment_b[0][0], segment_b[0][1]), (segment_b[1][0], segment_b[1][1])])
+    intersection = line_a.intersection(line_b)
+    if intersection.is_empty:
+        return None
+    if hasattr(intersection, "geoms"):
+        intersection = intersection.centroid
+    return (float(intersection.x), float(intersection.y), 0.0)
+
+
+def _fallback_joint_point(
+    segment_a: tuple[tuple[float, float, float], tuple[float, float, float]],
+    segment_b: tuple[tuple[float, float, float], tuple[float, float, float]],
+) -> tuple[float, float, float]:
+    candidate_pairs = (
+        (segment_a[0], segment_b[0]),
+        (segment_a[0], segment_b[1]),
+        (segment_a[1], segment_b[0]),
+        (segment_a[1], segment_b[1]),
+    )
+    point_a, point_b = min(candidate_pairs, key=lambda pair: _distance_xy(pair[0], pair[1]))
+    return (
+        round((point_a[0] + point_b[0]) / 2.0, 6),
+        round((point_a[1] + point_b[1]) / 2.0, 6),
+        0.0,
+    )
+
+
+def _midpoint_xy(point_a: tuple[float, float], point_b: tuple[float, float]) -> tuple[float, float, float]:
+    return (
+        (float(point_a[0]) + float(point_b[0])) / 2.0,
+        (float(point_a[1]) + float(point_b[1])) / 2.0,
+        0.0,
+    )
+
+
+def _distance_xy(point_a: tuple[float, float, float], point_b: tuple[float, float, float]) -> float:
+    return math.dist((point_a[0], point_a[1]), (point_b[0], point_b[1]))
+
+
+def _line_parameter(
+    point: tuple[float, float, float],
+    start: tuple[float, float, float],
+    end: tuple[float, float, float],
+) -> float:
+    direction_x = end[0] - start[0]
+    direction_y = end[1] - start[1]
+    denominator = (direction_x * direction_x) + (direction_y * direction_y)
+    if denominator <= 1e-12:
+        return 0.0
+    return ((point[0] - start[0]) * direction_x + (point[1] - start[1]) * direction_y) / denominator
 
 
 def _face_geometry_from_polygon(polygon: Polygon) -> dict[str, Any]:
     _ensure_topologicpy_available()
-    vertices = [Vertex.ByCoordinates(x, y, 0.0) for x, y in list(polygon.exterior.coords)[:-1]]
+    vertices = [Vertex.ByCoordinates(x, y, 0.0) for x, y in _sanitized_polygon_vertices(polygon)]
+    if len(vertices) < 3:
+        return {}
     face = Face.ByVertices(vertices)
+    if face is None:
+        return {}
     geometry = Topology.Geometry(face)
     return geometry if isinstance(geometry, dict) else {}
+
+
+def _sanitized_polygon_vertices(polygon: Polygon) -> list[tuple[float, float]]:
+    cleaned: list[tuple[float, float]] = []
+    for x, y in list(polygon.exterior.coords):
+        point = (float(x), float(y))
+        if not cleaned or math.dist(cleaned[-1], point) > 1e-6:
+            cleaned.append(point)
+
+    if len(cleaned) > 1 and math.dist(cleaned[0], cleaned[-1]) <= 1e-6:
+        cleaned.pop()
+
+    return cleaned
 
 
 def _ensure_topologicpy_available() -> None:
