@@ -314,32 +314,36 @@ def _route_after_evaluator(state: AgentState) -> str:
 def build_graph(ctx: Any) -> Any:
     persona_path = str(ctx.layout_input_dir.parent / "personas" / "persona.json")
 
+    # Benchmarking tiers (see docs/week08/benchmarking-findings.md):
+    #   ctx.llm_fast  -> routing / classification / short internal text
+    #   ctx.llm_smart -> user-facing prose & nuanced persona reasoning
+
     # Onboarding
-    greet            = build_greet_node(ctx.llm_simple)
-    quiz             = build_quiz_node(ctx.llm_simple)
-    inspire          = build_inspire_node(ctx.llm_simple)
-    persona_compiler = build_persona_compiler_node(ctx.llm_simple, persona_path)
+    greet            = build_greet_node(ctx.llm_fast)
+    quiz             = build_quiz_node(ctx.llm_fast)
+    inspire          = build_inspire_node(ctx.llm_smart)
+    persona_compiler = build_persona_compiler_node(ctx.llm_smart, persona_path)
 
     # Routing
-    action_classifier = build_action_classifier_node(ctx.llm_simple)
-    chitchat          = build_chitchat_node(ctx.llm_simple)
-    detail_respond    = build_detail_respond_node(ctx.llm_simple)
+    action_classifier = build_action_classifier_node(ctx.llm_fast)
+    chitchat          = build_chitchat_node(ctx.llm_fast)
+    detail_respond    = build_detail_respond_node(ctx.llm_smart)
 
     # Layout
     load_layout = build_load_layout_node(ctx.layout_input_dir)
 
     # Scoring chain
     analyze           = build_analyze_node(ctx.mcp_client)
-    score_interpreter = build_score_interpreter_node(ctx.llm_simple)
+    score_interpreter = build_score_interpreter_node(ctx.llm_smart)
     detect            = build_detect_node(ctx.mcp_client)
-    conflict_reasoner = build_conflict_reasoner_node(ctx.llm_simple)
+    conflict_reasoner = build_conflict_reasoner_node(ctx.llm_smart)
     suggest           = build_suggest_node(ctx.mcp_client)
-    suggestion_critic = build_suggestion_critic_node(ctx.llm_simple)
+    suggestion_critic = build_suggestion_critic_node(ctx.llm_smart)
 
     # Quality loop
-    respond   = build_respond_node(ctx.llm_simple)
-    evaluator = build_evaluator_node(ctx.llm_simple)
-    what_next = build_what_next_node(ctx.llm_simple)
+    respond   = build_respond_node(ctx.llm_smart)
+    evaluator = build_evaluator_node(ctx.llm_fast)
+    what_next = build_what_next_node(ctx.llm_fast)
 
     # Edit tools
     change_material  = build_change_material_node()
