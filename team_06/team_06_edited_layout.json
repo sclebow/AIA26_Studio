@@ -155,7 +155,7 @@
       "attributes": {
         "area": 2.7518,
         "program": "bath",
-        "daylight": 2.4
+        "daylight": 0.0
       }
     },
     {
@@ -194,7 +194,7 @@
       "attributes": {
         "area": 10.2173,
         "program": "bath",
-        "daylight": 0.0
+        "daylight": 2.2
       }
     },
     {
@@ -233,7 +233,7 @@
       "attributes": {
         "area": 16.59,
         "program": "bed",
-        "daylight": 0.0
+        "daylight": 3.6
       }
     },
     {
@@ -295,7 +295,7 @@
       "attributes": {
         "area": 19.4868,
         "program": "bed",
-        "daylight": 2.2
+        "daylight": 0.0
       }
     },
     {
@@ -342,7 +342,7 @@
       "attributes": {
         "area": 11.2103,
         "program": "extra",
-        "daylight": 2.2
+        "daylight": 2.3
       }
     },
     {
@@ -373,7 +373,7 @@
       "attributes": {
         "area": 37.1385,
         "program": "living",
-        "daylight": 3.6
+        "daylight": 2.2
       }
     }
   ],
