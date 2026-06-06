@@ -21,21 +21,6 @@ Rule-based embedding approach:
   is done once, not repeated. At 6 layouts this is trivial. At 6,000
   layouts the difference is significant.
 
-WHY NOT USE embedding_matcher.py (the existing neural embedder)?
-================================================================
-
-  embedding_matcher.py works on TEXT descriptions:
-    "A cozy 2-bedroom apartment with open kitchen..."
-  It uses a neural model (sentence-transformers) to find semantic matches.
-
-  Rule-based embedding works on GRAPH STRUCTURE:
-    bedroom_count=2, kitchen_count=1, bedroom-kitchen edge=True, ...
-  No model needed — the features are hand-crafted from the graph directly.
-
-  The two approaches are COMPLEMENTARY:
-    - Neural (existing): good for "feel" queries ("cozy", "spacious", "open plan")
-    - Rule-based (this file): good for structural queries ("2 bedrooms connected to kitchen")
-
 HOW RULE-BASED EMBEDDING WORKS (step by step):
 ===============================================
 
@@ -76,24 +61,23 @@ from typing import Optional
 # ============================================================================
 
 # All program types we care about (determines vector dimensions for room counts)
-PROGRAMS = ["bedroom", "kitchen", "living room", "bathroom", "dining room", "foyer", "extra"]
+PROGRAMS = ["bedroom", "living room", "bathroom", "extra", "walkincloset", "kitchen"]
 
 SIZES = ["small", "medium", "large"]
 
 # All program-pair edges we care about
 PROGRAM_PAIRS = [
-    ("bedroom",     "kitchen"),
     ("bedroom",     "living room"),
     ("bedroom",     "bathroom"),
-    ("kitchen",     "living room"),
-    ("kitchen",     "dining room"),
-    ("living room", "bathroom"),
-    ("living room", "dining room"),
-    ("foyer",       "living room"),
-    ("foyer",       "bedroom"),
-    ("foyer",       "bathroom"),
-    ("foyer",       "kitchen"),
+    ("bedroom",     "extra"),
+    ("bedroom",     "walkincloset"),
     ("bedroom",     "bedroom"),
+    ("living room", "bathroom"),
+    ("living room", "extra"),
+    ("bathroom",    "extra"),
+    ("bathroom",    "bathroom"),
+    ("extra",       "extra"),
+    ("kitchen",     "living room"),
 ]
 
 

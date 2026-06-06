@@ -3,12 +3,11 @@ import networkx as nx
 from pathlib import Path
 from typing import Any
 import logging
-from team_06.python.nodes import topology
 from tools.graph_searcher import GraphSearcher
 
 logger = logging.getLogger(__name__)
 
-def build_search_node() -> Any:
+def build_semantic_search_node() -> Any:
     """Search using topology graph from state."""
     def search(state: dict) -> dict:
         topology_json = state.get("topology_graph_json_string")
