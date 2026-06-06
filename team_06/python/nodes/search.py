@@ -157,7 +157,6 @@ def _merge_ranked_results(
             {
                 "id": layout_id,
                 "score": round(fused_score, 6),
-                "description": descriptions.get(layout_id, f"Layout {layout_id}"),
                 "graph_score": round(graph_score, 3) if graph_score is not None else None,
                 "description_score": round(description_score, 3) if description_score is not None else None,
             }

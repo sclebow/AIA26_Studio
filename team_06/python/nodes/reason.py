@@ -182,7 +182,7 @@ def build_reason_node(llm):
                     "iteration": iteration + 1,
                     "topology_graph_json_string": json.dumps(updated_search_payload),
                     "clarification": None,
-                    "reason_result": "search_node",
+                    "reason_result": "search",
                 }
 
             current_search_payload = {
