@@ -162,10 +162,10 @@ def extract_features(G: nx.Graph) -> list[float]:
             features.append(float(program_connectivity_counts.get((program, level), 0)))
 
     # --- E: Boundary shape and proportions
-    # shape: one-hot encoding [rectangular, l-shape, other]
+    # shape: one-hot encoding [rectangular, L-shape, other]
     shape = G.graph.get('shape', 'other') # default to 'other' if not specified
     features.append(1.0 if shape == 'rectangular' else 0.0)
-    features.append(1.0 if shape == 'l-shape'     else 0.0)
+    features.append(1.0 if shape == 'L-shape'     else 0.0)
     features.append(1.0 if shape == 'other'        else 0.0)
 
     # aspect_ratio and compactness: raw floats
@@ -189,7 +189,7 @@ def build_query_vector(
         access_pairs: Optional[list[tuple[str, str]]] = None,
         adjacency_pairs: Optional[list[tuple[str, str]]] = None,
         centrality: bool = False,
-        shape: Optional[str] = None,  # 'rectangular' | 'l-shape' | 'other' | None
+        shape: Optional[str] = None,  # 'rectangular' | 'L-shape' | 'other' | None
         aspect_ratio: Optional[float] = None,
         compactness: Optional[float] = None,
         ) -> list[float]:
@@ -202,16 +202,16 @@ def build_query_vector(
         access_pairs: list of program pairs that should be connected by doors
         adjacency_pairs: list of program pairs that should share walls
         centrality: prefer centrally-located programs (high betweenness)
-        shape:          Preferred apartment shape ('rectangular' | 'l-shape' | 'other')
+        shape:          Preferred apartment shape ('rectangular' | 'L-shape' | 'other')
         aspect_ratio:   Preferred aspect ratio (e.g. 2.0 = elongated)
         compactness:    Preferred compactness (e.g. 0.75 = moderate L-shape)
     Returns:
         Feature vector in the same space as extract_features() output.
     """
     features = []
-    query_counts = {}
 
     # --- A: Parse mixed format (strings and tuples)
+    query_counts = {}
     for item in programs:
         if isinstance(item, tuple):
             program, size = item
@@ -284,7 +284,7 @@ def build_query_vector(
     # Shape: one-hot — if None, all zeros (no preference)
     if shape is not None:
         features.append(1.0 if shape == 'rectangular' else 0.0)
-        features.append(1.0 if shape == 'l-shape'     else 0.0)
+        features.append(1.0 if shape == 'L-shape'     else 0.0)
         features.append(1.0 if shape == 'other'        else 0.0)
     else:
         features.extend([0.0, 0.0, 0.0])
@@ -358,7 +358,7 @@ class RuleBasedEmbedder:
             adjacency_pairs: whether the programs must be adjacent (share a wall)
             not_adjacency_pairs: whether the programs must NOT be adjacent (share a wall)
             centrality:     List of str or (str, connectivity) tuples
-            shape:          Preferred apartment shape ('rectangular' | 'l-shape' | 'other')
+            shape:          Preferred apartment shape ('rectangular' | 'L-shape' | 'other')
             aspect_ratio:   Preferred aspect ratio
             compactness:    Preferred compactness
             top_k:     how many results to return
@@ -471,41 +471,45 @@ if __name__ == "__main__":
     embedder = RuleBasedEmbedder(layout_graphs)
 
     # Example searches
-    print("Search 1:", 
+    print("Search 1:",  # unique program
           embedder.search(
-          ["dining room"], top_k=3))
+          ["walkincloset"], top_k=3))
+    
+    print("Search 1:",  # unique program
+          embedder.search(
+          ["bedroom"], top_k=3))
     
     print("Search 2a:", 
-          embedder.search(
-          [('bedroom', 'large'), ('bedroom', 'medium')], 
+          embedder.search( # exact size requirements
+          [('bedroom', 'medium'), ('bedroom', 'small')], 
           top_k=3))
 
     print("Search 2b:", 
-          embedder.search(
-        [('bedroom', 'large'), ('bedroom', 'medium'), 'extra'], 
+          embedder.search( # mixed size and any-size requirements (2 bedroom and 2 bathroom)
+        [('bedroom', 'large'), "bedroom", 'bathroom', 'bathroom'], 
         top_k=3))
 
     print("Search 3a:", 
-          embedder.search(
+          embedder.search( #shape requirement
               ["bedroom", "bedroom"], 
-              adjacency_pairs=[("bedroom", "bedroom"), ("kitchen", "living room")], 
+              shape='L-shape',
               top_k=3))
     
     print("Search 3b:", 
-      embedder.search(
-          ["bedroom", "bedroom", "extra"], 
-          adjacency_pairs=[("bedroom", "bedroom"), ("kitchen", "living room")], 
+      embedder.search( #The issue is scale imbalance. Your feature vector mixes: Binary values (0.0 or 1.0) for room counts, edges, shape one-hot and raw floats for aspect ratio (can be 1.0–4.0+)
+          ["bedroom", "bedroom", "extra", "extra"], 
+          adjacency_pairs=[("bedroom", "bedroom")],
+          aspect_ratio=1.0,
           top_k=3))
 
     print("Search 4a:", 
       embedder.search(
-          ["bedroom", "bedroom"], 
-          not_adjacency_pairs=[("bedroom", "bathroom")], 
+          ["extra"],
+          aspect_ratio=2.0,
           top_k=3))
     
     print("Search 4b:", 
       embedder.search(
-          [('bedroom', 'medium'), ('kitchen', 'small')], 
-          adjacency_pairs=[("kitchen", "bathroom")], 
-          not_adjacency_pairs=[("bedroom", "kitchen")], 
+          ["bedroom", "bedroom"], 
+          not_adjacency_pairs=[("bedroom", "bathroom")], 
           top_k=3))
