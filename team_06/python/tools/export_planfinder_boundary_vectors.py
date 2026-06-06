@@ -12,10 +12,10 @@ from pathlib import Path
 import numpy as np
 from typing import List
 
+# Importiamo le funzioni REALI presenti nel tuo matcher
 from tools.boundary_embedding_matcher import (
-    _vector_from_graph,
-    build_boundary_graph,
-    extract_circulation_anchor_point,
+    _vector_from_coords,
+    _normalize_layout_outline
 )
 
 
@@ -46,13 +46,22 @@ def main():
         layout = load_layout(p)
         if not layout:
             continue
+            
         layout_id = layout.get('layoutId') or p.stem
         coords = layout.get('outline') or layout.get('apartment', {}).get('geometry')
+        
         if not coords:
             continue
-        anchor = extract_circulation_anchor_point(layout)
-        graph = build_boundary_graph(coords, anchor)
-        vec = _vector_from_graph(graph)
+            
+        # Prepariamo un dizionario compatibile con la funzione di normalizzazione
+        layout_like = {"outline": coords, "circulation": layout.get("circulation", [])}
+        
+        # 1. Allinea all'ingresso e forza il senso orario
+        aligned_coords = _normalize_layout_outline(layout_like)
+        
+        # 2. Calcola la turning function a 64-D
+        vec = _vector_from_coords(aligned_coords)
+        
         vectors.append(vec.astype('float32'))
         records.append({
             'layoutId': layout_id,
@@ -64,9 +73,11 @@ def main():
         stacked = np.vstack(vectors)
         npy_path = out_dir / 'planfinder_boundary_vectors.npy'
         json_path = out_dir / 'planfinder_boundary_vectors.json'
+        
         np.save(str(npy_path), stacked)
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(records, f, indent=2)
+            
         print('Wrote', npy_path, json_path)
     else:
         print('No Planfinder layout JSONs found or no vectors generated')
