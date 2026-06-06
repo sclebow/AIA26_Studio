@@ -907,6 +907,21 @@ with st.sidebar:
 # =============================================================================
 st.markdown("## AIA Studio · Cost Advisor · Team 05")
 st.caption("Upload plans in the sidebar · choose an active plan · compare up to 5 plans")
+
+# ── 📖 QUICK START GUIDE ──────────────────────────────────────────────────────
+# This expander stays open automatically when the app first loads, but users can close it.
+with st.expander("📖 Welcome! How to use this interface", expanded=(not st.session_state.layout)):
+    st.markdown("""
+    **Welcome to the Interactive Cost & Carbon Advisor. Here is how to navigate the tools:**
+    
+    * **⬅️ Sidebar | Load Layouts:** Start by uploading one or multiple `layout.json` files. You can manage multiple plans and easily switch between them.
+    * **🎛️ Sidebar | Global Sensitivity Engine:** Adjust real-world economic factors like Labor Cost, Material Inflation, and Carbon Tax. Watch the tables and charts update instantly!
+    * **🗺️ Floor Plan & Chat Tab:** Toggle between 2D and 3D heatmaps of your project. Click any room to see its specific metrics. Use the **Agent Chat** on the right to ask the AI questions or assign materials (e.g., *"Set the living room floor finish to hardwood"*).
+    * **🧱 Architectural Advice Tab:** View a smart table of all materials used in your project, complete with fire ratings, carbon footprints, and lower-carbon alternatives. Check the **Carbon Budget Tracker** to see if you meet RIBA 2030 targets.
+    * **🌱 Sustainability Analysis Tab:** Compare Cost vs. Carbon across all your uploaded plans at once to find the most efficient design iteration.
+    * **🎯 Cost Matching Tab:** Over budget? Enter your target cost, and the algorithm will suggest specific material swaps to hit your financial goals.
+    """)
+
 st.divider()
 
 # ── Sustainability Tab Logic ──────────────────────────────────────────────────
