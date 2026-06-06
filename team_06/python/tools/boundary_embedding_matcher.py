@@ -277,13 +277,24 @@ def match_boundaries(
     if not dataset_path.exists():
         return {"error": f"Dataset not found at {dataset_path}", "matches": [], "count": 0}
 
-    with open(dataset_path, 'r', encoding='utf-8-sig') as f:
-        dataset = json.load(f)
+    if dataset_path.is_dir():
+        dataset = []
+        for json_file in sorted(dataset_path.glob('*.json')):
+            with open(json_file, 'r', encoding='utf-8-sig') as f:
+                item = json.load(f)
+            if isinstance(item, list):
+                dataset.extend(item)
+            else:
+                dataset.append(item)
+    else:
+        with open(dataset_path, 'r', encoding='utf-8-sig') as f:
+            dataset = json.load(f)
 
     results = []
 
     # Fast path: if precomputed sampled turning functions exist, use them.
-    tf_file = Path(tf_sampled_path) if tf_sampled_path is not None else dataset_path.parent / 'tf_sampled.npy'
+    tf_default_dir = dataset_path.parent / 'pf_embeddings' if dataset_path.is_dir() else dataset_path.parent
+    tf_file = Path(tf_sampled_path) if tf_sampled_path is not None else tf_default_dir / 'tf_sampled.npy'
     if not tf_file.is_absolute():
         if str(tf_file).startswith("team_06"):
             tf_file = Path(__file__).parent.parent.parent.parent / tf_file
