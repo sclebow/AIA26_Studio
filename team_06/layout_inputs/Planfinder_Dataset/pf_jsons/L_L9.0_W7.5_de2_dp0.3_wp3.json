@@ -114,11 +114,11 @@
       5.027
     ],
     [
-      4.691,
+      2.872,
       4.451
     ],
     [
-      2.872,
+      4.691,
       4.451
     ]
   ],
@@ -328,22 +328,6 @@
       "name": "Door 3",
       "geometry": [
         [
-          4.691,
-          4.451
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-3",
-          "room-5"
-        ]
-      }
-    },
-    {
-      "id": "door-4",
-      "name": "Door 4",
-      "geometry": [
-        [
           2.872,
           4.451
         ]
@@ -352,6 +336,22 @@
         "connectsRooms": [
           "room-3",
           "room-4"
+        ]
+      }
+    },
+    {
+      "id": "door-4",
+      "name": "Door 4",
+      "geometry": [
+        [
+          4.691,
+          4.451
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-3",
+          "room-5"
         ]
       }
     }

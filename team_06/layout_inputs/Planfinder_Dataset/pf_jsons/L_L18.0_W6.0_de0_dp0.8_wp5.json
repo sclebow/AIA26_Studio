@@ -532,22 +532,6 @@
           "room-8"
         ]
       }
-    },
-    {
-      "id": "door-8",
-      "name": "Door 8",
-      "geometry": [
-        [
-          7.09,
-          1.9
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-1",
-          "room-6"
-        ]
-      }
     }
   ],
   "facades": [

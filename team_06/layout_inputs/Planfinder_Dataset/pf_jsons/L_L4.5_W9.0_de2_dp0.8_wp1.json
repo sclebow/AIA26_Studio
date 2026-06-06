@@ -77,8 +77,8 @@
     ]
   ],
   "door_point": [
-    0.9,
-    9.0
+    0.0,
+    7.574
   ],
   "door_points": [
     [
@@ -223,16 +223,16 @@
       "geometry": [
         [
           0.0,
-          9.0
+          0.0
         ],
         [
-          4.5,
+          0.0,
           9.0
         ]
       ],
       "attributes": {
         "type": "circulation",
-        "length": 4.5
+        "length": 9.0
       }
     }
   ],
