@@ -125,8 +125,8 @@
     ]
   ],
   "door_point": [
-    16.303,
-    5.4112
+    15.886,
+    6.0
   ],
   "door_points": [
     [
@@ -454,38 +454,6 @@
       }
     },
     {
-      "id": "door-4",
-      "name": "Door 4",
-      "geometry": [
-        [
-          13.867,
-          4.8
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-2",
-          "room-6"
-        ]
-      }
-    },
-    {
-      "id": "door-5",
-      "name": "Door 5",
-      "geometry": [
-        [
-          11.146,
-          4.8
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-3",
-          "room-6"
-        ]
-      }
-    },
-    {
       "id": "door-6",
       "name": "Door 6",
       "geometry": [
@@ -610,8 +578,8 @@
       "name": "Front Door Axis",
       "geometry": [
         [
-          16.5,
-          0.0
+          0.0,
+          6.0
         ],
         [
           16.5,
@@ -620,7 +588,7 @@
       ],
       "attributes": {
         "type": "circulation",
-        "length": 6.0
+        "length": 16.5
       }
     }
   ],

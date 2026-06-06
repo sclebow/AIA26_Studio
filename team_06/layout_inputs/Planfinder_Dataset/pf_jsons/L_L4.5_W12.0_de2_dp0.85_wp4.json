@@ -85,8 +85,8 @@
     ]
   ],
   "door_point": [
-    0.675,
-    12.0
+    4.5,
+    7.93
   ],
   "door_points": [
     [
@@ -306,8 +306,8 @@
       "name": "Front Door Axis",
       "geometry": [
         [
-          0.0,
-          12.0
+          4.5,
+          0.0
         ],
         [
           4.5,
@@ -316,7 +316,7 @@
       ],
       "attributes": {
         "type": "circulation",
-        "length": 4.5
+        "length": 12.0
       }
     }
   ],

@@ -141,7 +141,7 @@
     ]
   ],
   "door_point": [
-    4.8,
+    6.0,
     0.0
   ],
   "door_points": [
@@ -522,22 +522,6 @@
       }
     },
     {
-      "id": "door-4",
-      "name": "Door 4",
-      "geometry": [
-        [
-          6.7,
-          1.995
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-4",
-          "room-5"
-        ]
-      }
-    },
-    {
       "id": "door-5",
       "name": "Door 5",
       "geometry": [
@@ -670,13 +654,13 @@
           0.0
         ],
         [
-          5.2,
-          3.465
+          11.4,
+          0.0
         ]
       ],
       "attributes": {
         "type": "circulation",
-        "length": 3.465
+        "length": 6.2
       }
     }
   ],
