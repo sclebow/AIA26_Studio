@@ -59,9 +59,13 @@ export default function App() {
   const [logOpen, setLogOpen] = useState(false);
   const [generatorMode, setGeneratorMode] = useState(false);   // left panel → AI Layout Generator
   const [memState, setMemState] = useState<'idle' | 'confirm' | 'cleared'>('idle'); // Clear-memory button
+  const [chatPanelHeight, setChatPanelHeight] = useState(260);
+  const [isDraggingChat, setIsDraggingChat] = useState(false);
   const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const memTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasRunningRef = useRef(false);
+  const dragStartYRef = useRef<number>(0);
+  const dragStartHRef = useRef<number>(0);
 
   // ── WebSocket dispatcher ──────────────────────────────────────────────────
   // Subscribe to EVERY message (not ws.lastMessage, which coalesces bursts and
@@ -140,6 +144,28 @@ export default function App() {
 
   const handleChatReset  = useCallback(() => { agentState.resetChat(); }, [agentState]);
   const handleChatCancel = useCallback(() => { agentState.cancelLast(); }, [agentState]);
+
+  const handleChatDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingChat(true);
+    dragStartYRef.current = e.clientY;
+    dragStartHRef.current = chatPanelHeight;
+
+    const onMove = (ev: MouseEvent) => {
+      const delta = dragStartYRef.current - ev.clientY;
+      const next = Math.min(600, Math.max(180, dragStartHRef.current + delta));
+      setChatPanelHeight(next);
+    };
+
+    const onUp = () => {
+      setIsDraggingChat(false);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [chatPanelHeight]);
 
   const handleLayoutSelect = useCallback(async (name: string) => {
     setIsovist(null);                 // drop any visibility surface from the previous layout
@@ -398,7 +424,7 @@ export default function App() {
         flex: 1, minHeight: 0,
         display: 'grid',
         gridTemplateColumns: '320px 1fr 320px',
-        gridTemplateRows: '1fr 260px',
+        gridTemplateRows: `1fr ${chatPanelHeight}px`,
         overflow: 'hidden',
       }}>
 
@@ -545,13 +571,35 @@ export default function App() {
           </div>
         </div>
 
-        {/* ── BOTTOM CHAT STRIP (all cols, row 2) ──────────────────────── */}
-        <div style={{
-          gridColumn: '2', gridRow: '2',
-          borderTop: panelBorder,
-          display: 'flex', flexDirection: 'column', overflow: 'hidden',
-          background: isDark ? 'rgba(11,7,20,0.98)' : 'rgba(250,251,253,0.98)',
-        }}>
+        {/* ── BOTTOM CHAT STRIP (resizable) ───────────────────────────── */}
+        <div
+          style={{
+            gridColumn: '2', gridRow: '2',
+            display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            background: isDark ? 'rgba(20,14,35,0.99)' : 'rgba(238,234,248,0.98)',
+            position: 'relative',
+            height: chatPanelHeight,
+            minHeight: 180,
+            maxHeight: 600,
+            transition: isDraggingChat ? 'none' : 'height 0.15s ease',
+            boxShadow: isDark
+              ? '0 -2px 16px rgba(139,92,246,0.08), inset 0 1px 0 rgba(139,92,246,0.15)'
+              : '0 -2px 20px rgba(139,92,246,0.18), inset 0 1px 0 rgba(139,92,246,0.35)',
+            borderTop: `1px solid ${isDark ? 'rgba(139,92,246,0.2)' : 'rgba(139,92,246,0.4)'}`,
+          }}
+        >
+          {/* Drag handle — hover over top edge to resize */}
+          <div
+            onMouseDown={handleChatDragStart}
+            style={{
+              position: 'absolute', top: 0, left: 0, right: 0,
+              height: 6, cursor: 'ns-resize', zIndex: 10,
+              background: 'transparent',
+              transition: 'background 0.2s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = colors.accent + '33')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          />
           <ChatPanel
             messages={agentState.messages}
             onSend={handleChatSend}
@@ -561,6 +609,7 @@ export default function App() {
             checkpoint={agentState.checkpoint}
             onDecision={handleChatDecision}
             statusText={agentState.currentStatus}
+            ws={ws}
           />
         </div>
       </div>

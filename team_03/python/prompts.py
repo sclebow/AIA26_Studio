@@ -530,7 +530,7 @@ TALL RACKS (height > 1.8m):
 
 MEP CLEARANCE:
 - Keep 1.5m clearance from all MEP element centers (HVAC, electrical, plumbing, gas)
-- Do not place any object whose bounding box comes within 1.5m of any MEP center
+- Do not place any object whose bounding box comes within 1.5m of any MEP center 
 
 WORKFLOW ORDER:
 - Follow the flow field from the workflow_pattern strictly

@@ -198,6 +198,77 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     "isovist": iso,
                 })
 
+            elif msg_type == "model_switch":
+                # Switch the active Anthropic model (haiku / sonnet).
+                # Only applies when LLM_PROVIDER=anthropic.
+                from pipeline_bridge import set_active_model
+                key = str(data.get("model", "haiku"))
+                try:
+                    full_model = set_active_model(key)
+                    await manager.send_personal(websocket, {
+                        "type": "model_switch_ack",
+                        "model": key,
+                        "full_model": full_model,
+                        "status": "ok",
+                    })
+                except ValueError as exc:
+                    await manager.send_personal(websocket, {
+                        "type": "model_switch_ack",
+                        "status": "error",
+                        "detail": str(exc),
+                    })
+
+            elif msg_type == "pure_chat":
+                # Pure chatbot — direct Anthropic call, no pipeline, no LangGraph.
+                content = str(data.get("content", "")).strip()
+                history = data.get("history", [])  # [{role, content}, ...]
+                if not content:
+                    continue
+                try:
+                    import anthropic
+                    from _runtime.config import load_settings
+                    from pipeline_bridge import get_active_model
+
+                    settings = load_settings()
+                    model = get_active_model() or settings.llm_model
+
+                    client = anthropic.AsyncAnthropic(api_key=settings.api_key)
+
+                    # Build messages: history + new user message
+                    messages = [
+                        {"role": m["role"], "content": m["content"]}
+                        for m in history
+                        if m.get("role") in ("user", "assistant") and m.get("content")
+                    ]
+                    messages.append({"role": "user", "content": content})
+
+                    response = await client.messages.create(
+                        model=model,
+                        max_tokens=1024,
+                        system=(
+                            "You are a helpful architectural design assistant specializing in "
+                            "spatial analysis, accessibility, layout planning, and architectural "
+                            "concepts. Answer clearly and concisely. You are NOT running any "
+                            "tools or workflow — this is a direct conversation."
+                        ),
+                        messages=messages,
+                    )
+                    reply = "".join(
+                        block.text for block in response.content
+                        if getattr(block, "type", None) == "text"
+                    )
+                    await manager.send_personal(websocket, {
+                        "type": "pure_chat_response",
+                        "content": reply,
+                        "model": model,
+                    })
+                except Exception as exc:
+                    await manager.send_personal(websocket, {
+                        "type": "pure_chat_response",
+                        "content": f"Error: {exc}",
+                        "model": "",
+                    })
+
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         # Free any agent session this client owned so the next connection

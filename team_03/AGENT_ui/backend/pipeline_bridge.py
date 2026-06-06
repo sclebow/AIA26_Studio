@@ -35,6 +35,35 @@ from _runtime.bootstrap import Context
 
 
 # ---------------------------------------------------------------------------
+# Runtime model state — switched via WebSocket model_switch message
+# ---------------------------------------------------------------------------
+
+ANTHROPIC_MODELS = {
+    "haiku": "claude-haiku-4-5-20251001",
+    "sonnet": "claude-sonnet-4-6",
+}
+
+_active_model: Optional[str] = None  # None = use .env default
+
+
+def set_active_model(model_key: str) -> str:
+    """Set the active Anthropic model. model_key is 'haiku' or 'sonnet'.
+    Returns the full model string that was set."""
+    global _active_model
+    full = ANTHROPIC_MODELS.get(model_key.lower())
+    if not full:
+        raise ValueError(f"Unknown model key '{model_key}'. Use 'haiku' or 'sonnet'.")
+    _active_model = full
+    print(f"[model] Active model switched → {full}")
+    return full
+
+
+def get_active_model() -> Optional[str]:
+    """Return the currently active model string, or None to use .env default."""
+    return _active_model
+
+
+# ---------------------------------------------------------------------------
 # Context builder — bootstrap() minus argparse and the interactive resume prompt
 # ---------------------------------------------------------------------------
 
@@ -152,16 +181,9 @@ def build_context(layout_name: str, progress: Optional[Callable[[str], None]] = 
     tools = mcp_client.list_tools()
     _say(f"MCP connected — {len(tools)} tool(s) available.")
 
-    # Cost control: force the cheapest Anthropic model (Haiku) regardless of what
-    # ANTHROPIC_MODEL is set to in .env, so the UI agent never runs a pricier
-    # Claude (Opus/Sonnet) by accident. Other providers keep their configured
-    # model (their defaults — gpt-5-nano, gemini-flash-lite — are already cheap).
-    HAIKU = "claude-haiku-4-5"
-    model = settings.llm_model
-    if settings.llm_provider == "anthropic" and model != HAIKU:
-        model = HAIKU
-        _say(f"Cost control: overriding Anthropic model → {HAIKU}.")
-
+    # Runtime model — can be switched via WebSocket model_switch message.
+    # Falls back to .env ANTHROPIC_MODEL if no override has been set.
+    model = get_active_model() or settings.llm_model
     _say(f"Initializing LLM ({model})…")
     llm = create_chat_llm(
         api_key=settings.api_key,
