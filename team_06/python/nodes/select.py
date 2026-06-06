@@ -2,12 +2,7 @@ import json
 from pathlib import Path
 
 def _load_layout_by_id(layout_id: str, repo_root: Path) -> dict | None:
-    """Try RPLAN sample_layouts.json first, then Planfinder_Dataset folder."""
-    layouts_path = repo_root / "layout_inputs" / "sample_layouts.json"
-    all_layouts = json.loads(layouts_path.read_text(encoding="utf-8"))
-    layout = next((l for l in all_layouts if l.get("layoutId") == layout_id), None)
-    if layout:
-        return layout
+    """Load a layout from the Planfinder dataset."""
     pf_path = repo_root / "layout_inputs" / "Planfinder_Dataset" / "pf_jsons" / f"{layout_id}.json"
     if pf_path.exists():
         return json.loads(pf_path.read_text(encoding="utf-8"))
@@ -15,7 +10,7 @@ def _load_layout_by_id(layout_id: str, repo_root: Path) -> dict | None:
 
 
 def _next_select_result(state: dict) -> str:
-    return "adapt" if state.get("input_layout_json_string") else "daylight"
+    return "daylight"
 
 
 def build_select_node():

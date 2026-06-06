@@ -1,13 +1,13 @@
 from typing import Any
+import re
 
 # ---------------------------------------------------------------------------
 # Check user prompt and determine the next action.
 # ---------------------------------------------------------------------------
 
 end_keywords = ["end", "finish", "done"]
-topology_keywords = ["layout", "apartment", "house", "floor plan", "topology"]
-modify_keywords = ["change", "modify", "adjust", "move", "relocate", "add", "remove"]
-evaluate_keywords = ["evaluate", "feedback", "daylight", "privacy", "flow", "functionality"]
+evaluate_keywords = ["evaluate", "feedback"]
+LAYOUT_ID_PATTERN = re.compile(r"\b(layout-\d+)\b", re.IGNORECASE)
 
 def build_preprocess_node() -> Any:
     def preprocess(state: dict) -> dict:
@@ -18,14 +18,12 @@ def build_preprocess_node() -> Any:
                 "final_response": "Layout finalized."
             }
         
-        if any(keyword in user_prompt for keyword in topology_keywords):
-            return {"preprocess_result": "topology"}
-        
-        if "layout-" in user_prompt:
-            return {"preprocess_result": "select"}
-
-        if any(keyword in user_prompt for keyword in modify_keywords):
-            return {"preprocess_result": "modify"}
+        layout_match = LAYOUT_ID_PATTERN.search(user_prompt)
+        if layout_match:
+            return {
+                "preprocess_result": "select",
+                "layout_id": layout_match.group(1),
+            }
         
         if any(keyword in user_prompt for keyword in evaluate_keywords):
             return {"preprocess_result": "evaluate"}

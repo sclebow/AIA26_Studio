@@ -46,7 +46,7 @@ class AgentState(TypedDict, total=False):
     #-----------results from nodes (for routing)-----------
     preprocess_result: str                         # Which node to go to after preprocess
     reason_result: str                             # Optional reason outcome label
-    search_result: str                             # Result from search node: "select" | "failed"
+    search_result: str                             # Result from search node: "adapt" | "select" | "failed"
     select_result: str                             # NEW - which node to go to after select: "success" | "failed"
     adapt_result: str | None                       # NEW - result from adapt node: "success" | "failed"
     daylight_result: str | None                    # Result from daylight node
@@ -61,6 +61,7 @@ def _route_after_preprocessing(state: AgentState) -> str:
     return {
         "reason": "reason",
         "select": "select",
+        "evaluate": "evaluate",
         "end": "end",
     }.get(result, "end")
         
@@ -74,6 +75,7 @@ def _route_after_reason(state: AgentState) -> str:
 def _route_after_search_node(state: AgentState) -> str:
     result = state.get("search_result")
     return {
+        "adapt": "adapt",
         "select": "select",
     }.get(result, "feedback")
     
@@ -142,6 +144,7 @@ def build_graph(ctx: Any) -> Any:
     workflow.add_conditional_edges("preprocess", _route_after_preprocessing, {
         "reason": "reason",
         "select": "select",
+        "evaluate": "evaluate",
         "end": END
     })
     workflow.add_conditional_edges("reason", _route_after_reason, {
@@ -149,6 +152,7 @@ def build_graph(ctx: Any) -> Any:
         "feedback": "feedback"
     })
     workflow.add_conditional_edges("search_node", _route_after_search_node, {
+        "adapt": "adapt",
         "select": "select",
         "feedback": "feedback"
     })

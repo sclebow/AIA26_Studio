@@ -41,8 +41,9 @@ class GraphSearcher:
     def search_by_embedding(
         self,
         programs: list,
-        access: bool = False,
-        adjacency: bool = False,
+        access_pairs: list[tuple[str, str]] | None = None,
+        adjacency_pairs: list[tuple[str, str]] | None = None,
+        not_adjacency_pairs: list[tuple[str, str]] | None = None,
         centrality: bool = False,
         top_k: int | None = None,
         candidate_ids: set | None = None,
@@ -54,8 +55,9 @@ class GraphSearcher:
 
         Args:
             programs:      room types; duplicates = multiple instances.
-            access:        match door connections between programs
-            adjacency:     match wall adjacencies between programs
+            access_pairs:  required door connections between programs
+            adjacency_pairs: required wall adjacencies between programs
+            not_adjacency_pairs: forbidden wall adjacencies between programs
             centrality:    prefer centrally-located program types
             top_k:         max results to return; None = return all that pass.
             candidate_ids: restrict to this subset (for pipeline chaining).
@@ -65,6 +67,9 @@ class GraphSearcher:
         k = top_k if top_k is not None else len(self.layout_graphs)
         results = self._embedder.search(
             programs,
+            access_pairs=access_pairs,
+            adjacency_pairs=adjacency_pairs,
+            not_adjacency_pairs=not_adjacency_pairs,
             centrality=centrality,
             top_k=k)
         
