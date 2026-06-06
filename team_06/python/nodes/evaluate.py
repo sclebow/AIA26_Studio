@@ -1,95 +1,105 @@
 from typing import Any
 import json
-import logging
-from pathlib import Path
-from tools.layout_utils import save_layout
-from tools.layout_evaluator import summarize_evaluation
 
-logger = logging.getLogger(__name__)
+FIXED_CLOSING_SENTENCE = (
+    "If you are happy with this layout, we can keep it. Otherwise, you can select a different candidate layout or refine the search with more information."
+)
+ 
+SYSTEM_PROMPT = (
+    "You are evaluating how well a residential layout matches a household's needs. "
+    "Return valid JSON with exactly this shape: "
+    '{"fit_score":0,"summary":"","strengths":[],"concerns":[],"routine_analysis":""}.'
+    "\nRules:\n"
+    "- fit_score is an integer from 0 to 100.\n"
+    "- summary is a short paragraph summarizing the overall match.\n"
+    "- strengths is a list of concise positive points.\n"
+    "- concerns is a list of concise mismatch or risk points.\n"
+    "- routine_analysis explains how the layout may support daily life across the day based on the brief.\n"
+    "- Use the structured graph and description from the brief, and use the layout JSON as the source of truth for what exists now.\n"
+    "- If daylight information is present in the layout, include it in the reasoning.\n"
+    "- Do not invent rooms or performance data that are not present.\n"
+)
 
-def build_evaluate_node(mcp_client: Any) -> Any:
-    """Evaluate layout using MCP tool daylight_06 and summarize results."""
+
+def _normalize_evaluation(value: object) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {
+            "fit_score": 0,
+            "summary": "Could not evaluate the layout.",
+            "strengths": [],
+            "concerns": ["Evaluation response could not be parsed."],
+            "routine_analysis": "",
+        }
+
+    fit_score = value.get("fit_score")
+    if not isinstance(fit_score, int):
+        fit_score = 0
+
+    def _string_list(field: str) -> list[str]:
+        data = value.get(field)
+        if not isinstance(data, list):
+            return []
+        return [item.strip() for item in data if isinstance(item, str) and item.strip()]
+
+    return {
+        "fit_score": max(0, min(100, fit_score)),
+        "summary": value.get("summary", "").strip() if isinstance(value.get("summary"), str) else "",
+        "strengths": _string_list("strengths"),
+        "concerns": _string_list("concerns"),
+        "routine_analysis": value.get("routine_analysis", "").strip() if isinstance(value.get("routine_analysis"), str) else "",
+    }
+
+
+def _format_evaluation_message(evaluation: dict[str, Any]) -> str:
+    parts = []
+    parts.append(f"Fit score: {evaluation['fit_score']}/100")
+    if evaluation["summary"]:
+        parts.append(evaluation["summary"])
+    if evaluation["strengths"]:
+        parts.append("Strengths: " + "; ".join(evaluation["strengths"]))
+    if evaluation["concerns"]:
+        parts.append("Concerns: " + "; ".join(evaluation["concerns"]))
+    if evaluation["routine_analysis"]:
+        parts.append("Routine: " + evaluation["routine_analysis"])
+    parts.append(FIXED_CLOSING_SENTENCE)
+    return "\n\n".join(parts)
+
+
+def build_evaluate_node(llm: Any) -> Any:
+    """Use the LLM to evaluate the current layout against the parsed brief."""
     def evaluate(state: dict) -> dict:
         layout_json = state.get("layout_json_string")
         iteration = state.get("iteration", 0)
 
         if not layout_json:
             return {
-                "final_response": "No layout to evaluate.",
+                "clarification": "No layout available for evaluation.",
                 "iteration": iteration + 1,
             }
 
-
         try:
-            # Parse layout
             layout_data = json.loads(layout_json) if isinstance(layout_json, str) else layout_json
-
-            def preview(d):
-                if isinstance(d, dict):
-                    return {k: str(v)[:120] for k, v in d.items()}
-                return str(d)[:120]
-
-            print(f"[EVALUATE] Calling MCP tool 'daylight_06' with layout_json keys: {list(layout_data.keys())} and values: {preview(layout_data)}")
-            result = mcp_client.call_tool("daylight_06", {
-                "layout_json": layout_data,
-                "window_wall_ratio": 0.5
-            })
-            print(f"[EVALUATE] MCP tool 'daylight_06' result: {str(result)[:300]}")
-
-            logger.info(f"🔍 MCP result type: {type(result)}")
-
-            # Parse result if it's a string
-            if isinstance(result, str):
-                logger.info(f"🔍 Parsing MCP result from string...")
-                try:
-                    result = json.loads(result)
-                except Exception:
-                    logger.error(f"❌ Failed to parse MCP result as JSON")
-                    return {
-                        "final_response": f"Evaluation failed: could not parse result",
-                        "iteration": iteration + 1,
-                    }
-
-            # Handle errors
-            if not result or (isinstance(result, str) and result.startswith("Error")):
-                logger.error(f"❌ MCP returned error: {result}")
-                return {
-                    "final_response": f"Evaluation failed: {result}",
-                    "iteration": iteration + 1,
-                }
-
-            if isinstance(result, dict) and "error" in result:
-                logger.error(f"❌ MCP returned error dict: {result.get('error')}")
-                return {
-                    "final_response": f"Evaluation error: {result.get('error')}",
-                    "iteration": iteration + 1,
-                }
-
-            # Use MCP result as layout_data (with daylight injected)
-            layout_data = result
-            logger.info(f"✅ Using MCP result as layout_data")
-
-            # Summarize evaluation (all logic in layout_evaluator.py)
             topology_json = state.get("topology_graph_json_string")
-            evaluation_summary = summarize_evaluation(layout_data, topology_json)
-
-            # Save updated layout
-            repo_root = Path(__file__).resolve().parent.parent.parent
-            edited_path = repo_root / "team_06_edited_layout.json"
-            logger.info(f"💾 Saving to {edited_path}")
-            save_layout(layout_data, state, edited_path)
-            logger.info(f"💾 Saved")
+            llm_messages = [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": (
+                    f"Parsed brief JSON: {topology_json}\n"
+                    f"Layout JSON: {json.dumps(layout_data)}\n"
+                    "Evaluate how well the layout matches the brief, including household needs, furniture needs, room relationships, and routine through the day."
+                )}
+            ]
+            response = llm.invoke(llm_messages)
+            evaluation_summary = _normalize_evaluation(json.loads(response.content.strip()))
 
             return {
-                "layout_json_string": json.dumps(layout_data),
                 "evaluation_json_string": json.dumps(evaluation_summary),
+                "clarification": _format_evaluation_message(evaluation_summary),
                 "iteration": iteration + 1,
             }
 
         except Exception as e:
-            logger.error(f"❌ Evaluate error: {str(e)}", exc_info=True)
             return {
-                "final_response": f"Evaluation failed: {str(e)}",
+                "clarification": f"Evaluation failed: {str(e)}",
                 "iteration": iteration + 1,
             }
 

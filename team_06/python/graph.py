@@ -5,7 +5,7 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 from nodes.preprocess import build_preprocess_node
 from nodes.reason import build_reason_node
-from nodes.search_node import build_search_node
+from nodes.search import build_search_node
 from nodes.select import build_select_node
 from nodes.adapt import build_adapt_node
 from nodes.evaluate import build_evaluate_node
@@ -46,7 +46,7 @@ class AgentState(TypedDict, total=False):
     #-----------results from nodes (for routing)-----------
     preprocess_result: str                         # Which node to go to after preprocess
     reason_result: str                             # Optional reason outcome label
-    search_result: str                             # Result from search node: "select" | "failed"
+    search_result: str                             # Result from search node: "adapt" | "select" | "failed"
     select_result: str                             # NEW - which node to go to after select: "success" | "failed"
     adapt_result: str | None                       # NEW - result from adapt node: "success" | "failed"
     daylight_result: str | None                    # Result from daylight node
@@ -61,19 +61,21 @@ def _route_after_preprocessing(state: AgentState) -> str:
     return {
         "reason": "reason",
         "select": "select",
+        "evaluate": "evaluate",
         "end": "end",
     }.get(result, "end")
         
 def _route_after_reason(state: AgentState) -> str:
     result = state.get("reason_result")
     return {
-        "search_node": "search_node",
+        "search": "search",
         "feedback": "feedback",
     }.get(result, "feedback")
 
-def _route_after_search_node(state: AgentState) -> str:
+def _route_after_search(state: AgentState) -> str:
     result = state.get("search_result")
     return {
+        "adapt": "adapt",
         "select": "select",
     }.get(result, "feedback")
     
@@ -104,7 +106,7 @@ def build_graph(ctx: Any) -> Any:
     """Build the layout agent graph."""
     reason = build_reason_node(ctx.llm)
     preprocess = build_preprocess_node()
-    search_node = build_search_node()
+    search = build_search_node()
     select = build_select_node()
     adapt = build_adapt_node(ctx.mcp_client)
     daylight = build_daylight_node(ctx.mcp_client)
@@ -129,7 +131,7 @@ def build_graph(ctx: Any) -> Any:
     # Add nodes
     workflow.add_node("reason", make_logged_node(reason, "reason"))
     workflow.add_node("preprocess", make_logged_node(preprocess, "preprocess"))
-    workflow.add_node("search_node", make_logged_node(search_node, "search_node"))
+    workflow.add_node("search", make_logged_node(search, "search"))
     workflow.add_node("select", make_logged_node(select, "select"))
     workflow.add_node("adapt", make_logged_node(adapt, "adapt"))
     workflow.add_node("daylight", make_logged_node(daylight, "daylight"))
@@ -142,13 +144,15 @@ def build_graph(ctx: Any) -> Any:
     workflow.add_conditional_edges("preprocess", _route_after_preprocessing, {
         "reason": "reason",
         "select": "select",
+        "evaluate": "evaluate",
         "end": END
     })
     workflow.add_conditional_edges("reason", _route_after_reason, {
-        "search_node": "search_node",
+        "search": "search",
         "feedback": "feedback"
     })
-    workflow.add_conditional_edges("search_node", _route_after_search_node, {
+    workflow.add_conditional_edges("search", _route_after_search, {
+        "adapt": "adapt",
         "select": "select",
         "feedback": "feedback"
     })

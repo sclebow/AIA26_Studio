@@ -17,7 +17,7 @@ class Context:
     max_iterations: int
     edited_layout_path: Path
     reference_layout_path: Path
-    input_layout_path: Path
+    input_layout_path: Path | None
 
 def bootstrap() -> Context:
     """Load settings, connect to the MCP server, discover tools, and build the LLM.
@@ -33,7 +33,8 @@ def bootstrap() -> Context:
     
     edited_layout_path = team_dir / f"{team_name}_edited_layout.json"
     reference_layout_path = team_dir / f"{team_name}_reference_layout.json"
-    input_layout_path = team_dir / f"{team_name}_input_layout.json"
+    candidate_input_layout_path = team_dir / f"{team_name}_input_layout.json"
+    input_layout_path = candidate_input_layout_path if candidate_input_layout_path.exists() else None
     
     # Load layout with priority: edited → reference → input
     if edited_layout_path.exists():
@@ -42,9 +43,12 @@ def bootstrap() -> Context:
     elif reference_layout_path.exists():
         layout_data = json.loads(reference_layout_path.read_text(encoding="utf-8"))
         print(f"[bootstrap] Loaded layout: reference_layout ({team_name}_reference_layout.json)")
-    else:
+    elif input_layout_path is not None:
         layout_data = json.loads(input_layout_path.read_text(encoding="utf-8"))
         print(f"[bootstrap] Loaded layout: input_layout ({team_name}_input_layout.json)")
+    else:
+        layout_data = {}
+        print("[bootstrap] No edited, reference, or input layout found. Starting without a boundary layout.")
 
     # Connect to the Grasshopper MCP server and list available tools
     # Make this optional - if MCP server is not available, only local tools will work
