@@ -1,6 +1,7 @@
 from __future__ import annotations
 from copy import deepcopy
 import json
+import os
 from pathlib import Path
 from typing import Any
 from langchain_openai import ChatOpenAI
@@ -23,9 +24,39 @@ def create_chat_llm(
         model=llm_model,
         timeout=timeout_seconds,
         temperature=0,
-        max_tokens=8000,
         model_kwargs=model_kwargs or {},
     )
+
+
+def _required_env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise ValueError(f"Missing or empty required environment variable: {name}")
+    return value
+
+
+def _resolve_llm_connection(provider: str, model: str | None) -> tuple[str, str, str]:
+    normalized = provider.strip().lower()
+    if normalized == "local":
+        return "No API Key Required", _required_env("LOCAL_LLM_ENDPOINT"), model or "local"
+    elif normalized == "cloudflare":
+        base_url = f"https://api.cloudflare.com/client/v4/accounts/{_required_env('CF_ACCOUNT_ID')}/ai/v1"
+        return _required_env("CF_API_TOKEN"), base_url, model or _required_env("CF_MODEL")
+    elif normalized == "openai":
+        return _required_env("OPENAI_API_KEY"), "https://api.openai.com/v1", model or _required_env("OPENAI_MODEL")
+    elif normalized == "google":
+        return _required_env("GOOGLE_API_KEY"), "https://generativelanguage.googleapis.com/v1beta/openai", model or _required_env("GOOGLE_MODEL")
+    elif normalized == "anthropic":
+        return _required_env("ANTHROPIC_API_KEY"), "https://api.anthropic.com/v1/", model or _required_env("ANTHROPIC_MODEL")
+    else:
+        raise ValueError(f"Unsupported provider override: {provider}")
+
+
+def _resolve_timeout_seconds(llm: Any) -> float:
+    timeout = getattr(llm, "timeout", None)
+    if isinstance(timeout, (int, float)) and timeout > 0:
+        return float(timeout)
+    return 30.0
 
 
 # ---------------------------------------------------------------------------
@@ -205,18 +236,33 @@ def call_llm(
     llm: Any,
     system_prompt: str,
     messages: list[dict[str, str]],
-    tool_catalog: str,
+    provider: str | None = None,
+    model: str | None = None,
 ) -> dict[str, Any]:
     """Invoke the LLM and return a parsed decision dict.
 
-    Returns one of:
-      {"action": "final", "final_response": "<text>"}
-      {"action": "tool",  "tool_calls": [{"name": "<tool>", "arguments": {...}}]}
+    provider and model are optional per-call overrides for .env defaults.
     """
-    formatted_prompt = system_prompt.format(tool_catalog=tool_catalog)
-    llm_messages = [{"role": "system", "content": formatted_prompt}] + messages
+    llm_messages = [{"role": "system", "content": system_prompt}] + messages
 
-    result = llm.invoke(llm_messages)
+    active_llm = llm
+    if provider is not None or model is not None:
+        resolved_provider = provider or os.environ.get("LLM_PROVIDER", "")
+        if not resolved_provider:
+            raise RuntimeError("LLM_PROVIDER is required when using call_llm overrides")
+        api_key, base_url, resolved_model = _resolve_llm_connection(resolved_provider, model)
+        model_kwargs = getattr(llm, "model_kwargs", {})
+        if not isinstance(model_kwargs, dict):
+            model_kwargs = {}
+        active_llm = create_chat_llm(
+            api_key=api_key,
+            base_url=base_url,
+            llm_model=resolved_model,
+            timeout_seconds=_resolve_timeout_seconds(llm),
+            model_kwargs=model_kwargs,
+        )
+
+    result = active_llm.invoke(llm_messages)
     content = result.content
     if not isinstance(content, str):
         raise RuntimeError("LLM response content must be a string")
