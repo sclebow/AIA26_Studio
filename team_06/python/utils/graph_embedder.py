@@ -163,7 +163,7 @@ def extract_features(G: nx.Graph) -> list[float]:
         for level in CONNECTIVITY_LEVELS:
             features.append(float(program_connectivity_counts.get((program, level), 0)))
 
-    # --- F: Window exposure per program type
+    # --- E: Window exposure per program type
     # Counts how many rooms of each program type have 0, 1, or 2 facade exposures
     program_window_counts = {}
     for node in G.nodes():
@@ -204,7 +204,7 @@ def build_query_vector(
         programs: list, # Can be list[str] or list[tuple[str, str]]
         access_pairs: Optional[list[tuple[str, str]]] = None,
         adjacency_pairs: Optional[list[tuple[str, str]]] = None,
-        centrality: bool = False,
+        centrality: Optional[list] = None,
         windows: Optional[list[tuple[str, int]]] = None,
         shape: Optional[str] = None,  # 'rectangular' | 'L-shape' | 'other' | None
         aspect_ratio: Optional[float] = None,
