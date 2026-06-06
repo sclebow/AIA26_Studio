@@ -1,13 +1,5 @@
 """Rule-based graph embedder — no ML model required.
 
-WHY THIS IS BETTER THAN THE CURRENT LOOP (graph_searcher.py):
-==============================================================
-
-Current approach (graph_searcher.py):
-  - Linear O(n) scan: checks EVERY layout on EVERY search call
-  - Recomputes edge sets from scratch each time
-  - No memory: previous searches don't make future searches faster
-
 Rule-based embedding approach:
   - OFFLINE PHASE (runs once at startup):
       Every layout graph is converted to a fixed-size numeric vector.
@@ -61,7 +53,7 @@ from typing import Optional
 # ============================================================================
 
 # All program types we care about (determines vector dimensions for room counts)
-PROGRAMS = ["bedroom", "living room", "bathroom", "extra", "walkincloset", "kitchen"]
+PROGRAMS = ["bedroom", "living room", "bathroom", "extra", "walkincloset"]
 
 SIZES = ["small", "medium", "large"]
 
@@ -77,18 +69,16 @@ PROGRAM_PAIRS = [
     ("bathroom",    "extra"),
     ("bathroom",    "bathroom"),
     ("extra",       "extra"),
-    ("kitchen",     "living room"),
 ]
 
 
-# Maps short dataset program names (RPLAN and similar) to the canonical long names
+# Maps short dataset program names to the canonical long names
 # used throughout this codebase. Apply at graph-load time via normalize_program()
 # so all downstream code works with one consistent vocabulary.
 PROGRAM_NORMALIZE: dict[str, str] = {
     "bed":    "bedroom",
     "bath":   "bathroom",
     "living": "living room",
-    "dining": "dining room",
 }
 
 

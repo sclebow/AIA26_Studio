@@ -4,6 +4,7 @@ import json
 import networkx as nx
 from pathlib import Path
 from shapely.geometry import Polygon, LineString
+from shapely import simplify
 
 # Per-dataset area thresholds (m²) for classifying room size into small/medium/large.
 # RPLAN thresholds: calibrated on 100 compact organic layouts (median bed 7.4 m²).
@@ -12,59 +13,71 @@ from shapely.geometry import Polygon, LineString
 # Thresholds chosen at roughly the 33rd and 67th area percentile per program type
 # so each category contains approximately one third of the dataset's rooms.
 SIZE_THRESHOLDS = {
-    'rplan': {
-        'living':       {'small': 10,  'medium': 14},
-        'bed':          {'small': 7,   'medium': 9},
-        'bath':         {'small': 2,   'medium': 4},
-        'kitchen':      {'small': 3,   'medium': 4},
-        'foyer':        {'small': 5,   'medium': 12},
-        'dining':       {'small': 5,   'medium': 10},
-        'extra':        {'small': 5,   'medium': 10},
-        'storage':      {'small': 3,   'medium': 8},
-    },
-    'planfinder': {
         'living':       {'small': 25,  'medium': 45},
         'bed':          {'small': 11,  'medium': 17},
         'bath':         {'small': 4,   'medium': 7},
         'extra':        {'small': 4,   'medium': 10},
         'walkincloset': {'small': 3,   'medium': 6},
-    },
 }
+
 _SIZE_THRESHOLDS_DEFAULT = {'small': 10, 'medium': 20}
 
-
-def _detect_dataset(layout_id: str) -> str:
+def classify_apartment_shape(outline: list) -> str:
     """
-    Infer which dataset a layout belongs to from its ID format.
-
-    Planfinder IDs follow the parametric naming convention: L_L{len}_W{wid}_...
-    RPLAN IDs are sequential integers: layout-1, layout-35, layout-1019, etc.
-    Any unrecognised format falls back to RPLAN thresholds.
-    """
-    return 'planfinder' if layout_id.startswith('L_') else 'rplan'
-
-
-def classify_room_size(program: str, area: float, dataset: str = 'rplan') -> str:
-    """
-    Classify a room's area into small / medium / large for a given dataset.
-
-    Uses dataset-specific thresholds because Planfinder rooms are significantly
-    larger than RPLAN rooms (median PF bedroom 14.6 m² vs RPLAN 7.4 m²).
-    Applying RPLAN thresholds to PF data would classify every PF room as 'large'.
+    Classify the apartment footprint shape based on its number of corners.
 
     Args:
-        program: room program string (bed, bath, living, kitchen, extra, …)
+        outline: list of [x, y] coordinate pairs from layout['outline']
+
+    Returns:
+        'rectangular' | 'L-shape' | 'other'
+    """
+    poly = Polygon(outline)
+    simplified = simplify(poly, tolerance=0.01, preserve_topology=True)
+    num_corners = len(simplified.exterior.coords) - 1
+
+    if num_corners == 4:
+        return 'rectangular'
+    elif num_corners == 6:
+        return 'L-shape'
+    else:
+        return 'other'
+
+def get_aspect_ratio(outline: list) -> float:
+    """
+    Compute the bounding box aspect ratio (always >= 1).
+    Meaningful for rectangular shapes.
+    """
+    poly = Polygon(outline)
+    minx, miny, maxx, maxy = poly.bounds
+    width  = maxx - minx
+    height = maxy - miny
+    return round(max(width, height) / min(width, height), 3)
+
+def get_compactness(outline: list) -> float:
+    """
+    Compute how compactly the apartment fills its minimum bounding rectangle.
+    1.0 = perfect rectangle; lower = more irregular.
+    Meaningful for L-shapes and irregular shapes.
+    """
+    poly = Polygon(outline)
+    return round(poly.area / poly.minimum_rotated_rectangle.area, 3)
+
+def classify_room_size(program: str, area: float) -> str:
+    """
+    Classify a room's area into small / medium / large.
+
+    Uses Planfinder-calibrated thresholds (median bedroom 14.6 m²).
+
+    Args:
+        program: room program string (bed, bath, living, extra, …)
         area:    room area in m²
-        dataset: 'rplan' or 'planfinder'
 
     Returns:
         'small' | 'medium' | 'large'
     """
-    thresholds = (
-        SIZE_THRESHOLDS
-        .get(dataset, SIZE_THRESHOLDS['rplan'])
-        .get(program, _SIZE_THRESHOLDS_DEFAULT)
-    )
+    thresholds = (SIZE_THRESHOLDS.get(program, _SIZE_THRESHOLDS_DEFAULT))
+
     if area < thresholds['small']:
         return 'small'
     elif area < thresholds['medium']:
@@ -108,7 +121,6 @@ def classify_betweenness(bc: float) -> str:
     else:
         return 'central'
 
-
 def count_facade_exposures(room: dict, facades: list) -> int:
     """
     Count how many distinct exterior facades this room shares a wall with.
@@ -143,7 +155,6 @@ def count_facade_exposures(room: dict, facades: list) -> int:
             if any(g.geom_type in ('LineString', 'MultiLineString') for g in inter.geoms):
                 count += 1
     return count
-
 
 def calculate_centrality_measures(graph: nx.Graph) -> dict:
     """
@@ -203,10 +214,17 @@ def create_graph_from_layout(layout: dict) -> nx.Graph:
     """
     graph = nx.Graph()
 
-    # Detect which dataset this layout belongs to so we use the correct
-    # area thresholds for classify_room_size (PF rooms are ~2x larger than RPLAN).
-    dataset = _detect_dataset(layout.get('layoutId', ''))
     facades = layout.get('facades', [])
+    outline = layout.get('outline', [])
+
+    #Total area
+    total_area = sum(
+        room.get('attributes', {}).get('area', 0) for room in layout['rooms'])
+
+    graph.graph['total_area'] = total_area
+    graph.graph['shape'] = classify_apartment_shape(outline)
+    graph.graph['aspect_ratio'] = get_aspect_ratio(outline)
+    graph.graph['compactness'] = get_compactness(outline)
 
     # Add nodes for each room with name, program, area, size and windows attributes
     for room in layout['rooms']:
@@ -215,7 +233,7 @@ def create_graph_from_layout(layout: dict) -> nx.Graph:
         program = attrs.get('program', '') or room.get('program', '')
         name = room.get('name', '')
         area = attrs.get('area', 0)
-        size = classify_room_size(program, area, dataset=dataset)
+        size = classify_room_size(program, area)
         windows = count_facade_exposures(room, facades)
         graph.add_node(room_id, name=name, program=program, area=area, size=size, windows=windows)
     

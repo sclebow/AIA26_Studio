@@ -23,9 +23,8 @@ color_map = {
     'bath': '#C8F4F0',
     'kitchen': '#00C7D4',
     'living': '#009FA6',
-    'foyer': '#0082C2',
-    'dining': '#FFFACD',
-    'extra': '#7A8FA3'
+    'extra': '#0082C2',
+    'walkincloset': '#7A8FA3'
 }
 
 size_map = {
