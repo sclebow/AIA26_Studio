@@ -115,6 +115,31 @@
 
 - [ ] Replace the placeholder `CF_ACCOUNT_ID` and provider credentials in Team 04 environment config, then rerun the live notebook agent cell.
 
+## 2026-06-06 End-to-End Recursion Fix
+
+### Plan
+
+- [x] Reproduce the notebook `GraphRecursionError` on the current Team 04 runtime.
+- [x] Patch the planner and graph state so empty remaining-position analyses do not stay pending forever.
+- [x] Re-run focused tests and the live notebook scenario.
+
+### Completed
+
+- [x] Identified the looping branch at `analyze_remaining_positions` after the first placement when no candidate positions were returned for the second building.
+- [x] Added explicit state tracking so remaining-site analysis is considered complete even when it returns an empty list.
+- [x] Reset that analysis marker when a new placement cycle starts.
+
+### Validation
+
+- [x] Ran `C:/Users/baoqt/miniconda3/python.exe -m unittest team_04.benchmarking.test_agent_graph` and all 15 tests passed.
+- [x] Added a regression that covers the empty remaining-position case for the planner.
+- [x] Re-ran the live end-to-end Team 04 scenario and confirmed it now exits cleanly instead of hitting `GraphRecursionError`.
+
+### Active MVP Status
+
+- [x] `test_notebooks/end_to_end_api_agent.ipynb` main agent cell now completes on the current two-building scenario.
+- [ ] The current scenario still places only one building because the remaining-site analysis returns no viable second-building positions, so the workflow exits without a second placement.
+
 ### Notebook Direction
 
 - [ ] Create a final test notebook where the controlling loop is framed as a React-style agent node test for the LangGraph runtime, repeatedly inspecting site-fit feedback and calling placement or modification tools until the footprint fits the site boundary.
@@ -127,6 +152,147 @@
 ### Current Next Notebook Target
 
 - [x] Reworked `test_notebooks/end_to_end_api_agent.ipynb` into the current prompt-driven LangGraph node harness with scenario selection, two-building intent, and notebook-local site-object inputs.
+
+## 2026-06-06 View Analysis and Multi-Objective Placement Optimization
+
+### Completed
+
+- [x] Created `team_04/agent/tools/view_analysis.py` — perpendicular ray casting evaluation tool.
+  - `divide_boundary_into_test_points`: splits each boundary segment into `round(len / piece_length)` pieces, places a test point at each midpoint, computes outward normal via CCW right-perpendicular `(dy/len, -dx/len)`.
+  - `evaluate_building_views`: casts one ray per test point in the outward-normal direction (no diagonal fan), checks intersection against all obstacles using `unary_union` fast path in optimization mode, returns `view_score` (0–1) and per-test-point detail.
+  - Supports `return_ray_detail=False` for fast optimizer inner loops.
+
+- [x] Created `team_04/agent/tools/view_optimizer.py` — seed-point model + NSGA-II optimizer.
+  - `sample_valid_placements`: grid sweep (5 m step) × 36 discrete rotations (10° steps), keeps only positions where `site.contains(building)` — the "seed points" step before any view analysis.
+  - `rank_placements_by_view`: evaluates each valid seed candidate and sorts by `view_score` descending.
+  - `optimize_view_placement`: single-building NSGA-II, F=[-view_score, -clearance], G=[outside_area<=0].
+  - `optimize_two_building_placement`: joint two-building NSGA-II.
+    - F[0]=-view_score_1, F[1]=-view_score_2 (Pareto shows trade-off between buildings).
+    - G[0]=outside_area_1<=0, G[1]=outside_area_2<=0, G[2]=overlap<=0 (hard constraints — infeasible solutions never appear in results).
+    - Each building's boundary is passed as obstacle to the other's `evaluate_building_views` call.
+    - Post-processing filter `oa > 0.5` additionally drops any outside-site solutions that leak through.
+  - Rotation: discrete `int(x[rot_idx]) * 10°`, 36 options, reduces parameter space vs. continuous.
+
+- [x] Created `team_04/test_notebooks/test_view_analysis.ipynb` — full end-to-end test notebook.
+  - Scene: 100×100 m site, L-shape building 1, rectangle building 2, 2 external obstacles (East, North).
+  - Section 2: raw `evaluate_building_views` comparisons (no obstacle → ext obstacles → mutual obstruction).
+  - Section 3: visualization with perpendicular arrow rays (green = clear, red = blocked).
+  - Section 4: `sample_valid_placements` demo — all valid seed centroids scatter-plotted by view score, best seed highlighted.
+  - Section 5: NSGA-II run with correct formulation (F=view trade-off, G=hard constraints).
+  - Section 6: Pareto front plotted as B1 view score vs. B2 view score (not avg vs. outside area).
+  - Section 7: top 3 Pareto solutions rendered as site maps with rays.
+
+### Design Decisions
+
+- **No auto-alteration**: optimizer presents options; the LLM or user selects which placement to keep. The system never silently relocates a placed building.
+- **Hard site-fit constraint**: `outside_area` is in G (hard inequality), never in F (Pareto objective). NSGA-II constraint-domination ensures all returned solutions are fully inside the site.
+- **Perpendicular rays only**: single outward-normal ray per test point, no diagonal fan. Matches the intent of "view to outside" from each facade piece.
+- **Seed-point model**: `sample_valid_placements` pre-computes all valid discrete positions before any view analysis begins. These are the only positions the system ever works with.
+
+### Active MVP Status
+
+- [x] `view_analysis.py` — perpendicular ray evaluation working, tested manually.
+- [x] `view_optimizer.py` — site-fit hard constraint enforced, seed-point precomputation working.
+- [x] `test_view_analysis.ipynb` — complete notebook with seed-point demo, correct Pareto front formulation.
+- [x] Attractor view objective added (2026-06-06) — see below.
+- [ ] `view_analysis.py` and `view_optimizer.py` are not yet wired into the LangGraph MCP tool catalog (agent cannot call them via LLM prompt yet).
+- [ ] No regression tests for view analysis tools in `benchmarking/`.
+
+## 2026-06-06 Site Setbacks, Building Clearance, and 3D View Analysis
+
+### Completed
+
+- [x] Created `team_04/agent/tools/site_setback.py` — per-edge setback computation.
+  - `compute_buildable_zone(site_boundary, *, default_setback, edge_setbacks, edge_road_widths, road_setback_ratio, min_setback)` — cuts the site polygon inward per-edge using the CCW inward normal `(-dy/L, dx/L)`. Returns a Shapely `Polygon` (the buildable zone).
+  - Priority: `edge_setbacks[i]` > `road_width × ratio` > `default_setback`.
+  - Heuristic: `setback = max(min_setback, road_width × 0.4)` — 20 m road → 8 m setback.
+  - `setback_summary()` returns edge table + area stats + `buildable_boundary` for plotting.
+  - `clearance_constraint_value(bld1, bld2, min_sep)` → G = `min_sep - distance(bld1, bld2)` — positive when buildings are too close (hard constraint violation).
+
+- [x] Updated `team_04/agent/tools/view_optimizer.py` to integrate setbacks and clearance:
+  - `sample_valid_placements` now accepts `site_setbacks` dict — uses `buildable_zone` instead of raw site for seed-point filtering.
+  - `optimize_view_placement` accepts `site_setbacks` — NSGA-II constraint uses `buildable_zone.contains(building)`.
+  - `optimize_two_building_placement` accepts `site_setbacks` and `min_building_separation`:
+    - If `min_building_separation > 0`: adds G[3] = `clearance_constraint_value(bld1, bld2, min_sep)` as a 4th hard constraint.
+    - Results now include `clearance_between_buildings_m` in each solution.
+    - `site_setbacks_used` and `min_building_separation_m` in the result dict.
+
+- [x] Created `team_04/agent/tools/view_3d.py` — height-aware 3D analysis and plotly visualization.
+  - `evaluate_building_views_3d(boundary, height, obstacles_with_heights, *, floor_height, ...)`:
+    - Floor levels: z = 0.5h, 1.5h, 2.5h, ... up to building height.
+    - At each z, filters obstacles to those with `height >= z` — upper floors see over shorter obstacles.
+    - `view_score_3d = total_unblocked / (n_floors × n_test_pts)`.
+    - `per_floor` list with `view_score`, `unblocked`, `total` per floor level.
+  - `visualize_3d(site_boundary, buildings, obstacles, *, buildable_zone_boundary, attractors, view_results, ...)`:
+    - Pure plotly (no topologicpy dependency).
+    - Buildings / obstacles: `go.Mesh3d` extruded prisms with fan triangulation.
+    - Site: flat `go.Mesh3d` ground plane.
+    - Buildable zone: `go.Scatter3d` dashed outline at z=0.05.
+    - Rays: `go.Scatter3d` (green = clear, red = blocked) at actual floor z-levels.
+    - Attractors: `go.Scatter3d` horizontal line.
+
+- [x] Updated `test_view_analysis.ipynb` with four new sections:
+  - Section 10: setback demo — visualizes buildable zone with per-edge setback annotations.
+  - Section 11: two-building optimization with setbacks + 6 m minimum clearance constraint.
+  - Section 12: height-aware 3D view score comparison (3, 6, 10 storeys) showing per-floor score improvement.
+  - Section 13: interactive plotly 3D scene with two buildings, obstacles at different heights, multi-floor rays.
+
+### Design Decisions
+
+- **Building clearance terminology**: the minimum separation between building footprints is called `min_building_separation` (or "building clearance" / "daylight gap"). The offset zone around a single building (preventing it from being too close to its own perimeter) is not implemented — `min_building_separation` governs pair-wise inter-building distance.
+- **Setback as a buildable zone**: setbacks affect where buildings can be placed (seed points and NSGA-II constraint), not view rays. Rays still cast from the placed building boundary to measure what the occupants actually see.
+- **Height-aware 3D vs 2D analysis**: `evaluate_building_views_3d` is a richer metric accounting for building height. The 2D `evaluate_building_views` remains the optimizer's inner loop for speed; 3D can be run as a post-hoc evaluation on selected solutions.
+- **No topologicpy Plotly**: topologicpy has no Plotly module in this codebase. `view_3d.py` uses pure `plotly.graph_objects`.
+
+### Active MVP Status
+
+- [x] Site setback and buildable zone computation working.
+- [x] Building clearance hard constraint integrated into two-building NSGA-II.
+- [x] 3D height-aware view analysis working.
+- [x] 3D plotly visualization working (interactive in notebook).
+- [ ] `view_3d.py` functions not yet wired into LangGraph MCP tool catalog.
+- [ ] Height is not yet a variable in NSGA-II (optimizer still works in 2D; height is set manually).
+
+## 2026-06-06 Attractor View Objective and Free-Shape Optimization
+
+### Completed
+
+- [x] Added `evaluate_attractor_views()` to `view_analysis.py`:
+  - Input: building boundary, list of attractor dicts (`{"type":"line"/"point","geometry":[...]}`) and obstacle polygons.
+  - For each test point × attractor pair: casts a ray from the test point toward the **nearest point on the attractor geometry** (not perpendicular — aimed at the target).
+  - Counts unblocked rays / total rays → `attractor_score` (0–1).
+  - Fast path (`return_ray_detail=False`) uses `unary_union` obstacle check for optimizer speed.
+  - Added `_nearest_point_on_attractor` helper for line (Shapely `project`/`interpolate`) and point attractors.
+
+- [x] Added area-preserving free-shape (`optimize_shape`) to both optimizers:
+  - `_stretch_polygon(polygon, s)`: `scale(x=s, y=1/s)` — area unchanged.
+  - Single-building: adds `stretch_factor ∈ [0.4, 2.5]` as a 4th optimization variable.
+  - Two-building: adds `s1, s2` → 8 total variables.
+  - No existing tool (e.g. `modify_building_boundary`) does this; the stretch variable is the only current path for shape variation during optimization.
+
+- [x] Updated `optimize_view_placement` (single building):
+  - With attractors: F[0]=-unblocked, F[1]=-attractor (true 2-objective Pareto).
+  - Without attractors: original F[0]=-unblocked, F[1]=-clearance.
+  - `attractor_weight` used only for result ranking, not during NSGA-II search.
+
+- [x] Updated `optimize_two_building_placement` (two buildings):
+  - Combined score per building: `(1-w)*unblocked + w*attractor`.
+  - F[0]=-combined_1, F[1]=-combined_2 (Pareto between buildings).
+  - Result dict now includes `unblocked_view_score`, `attractor_view_score`, `combined_score` for each building.
+
+- [x] Updated notebook `test_view_analysis.ipynb`:
+  - South-street attractor line added to scene (`y = -25`).
+  - Section 3: side-by-side visualisation of perpendicular rays (green/red) and attractor rays (blue/orange).
+  - Section 5: single-building NSGA-II with 2-objective Pareto (unblocked vs attractor); iso-combined-score dashed contours shown.
+  - Section 6: free-shape (`optimize_shape=True`) run with stretch factor in results table.
+  - Section 7-9: two-building joint optimization with attractor, full results table, combined-score Pareto + per-building breakdown scatter.
+
+### Design Decisions
+
+- **Two different ray directions**: Unblocked = perpendicular (outward normal); Attractor = aimed at nearest point on attractor geometry.  These capture genuinely different spatial qualities.
+- **Weight only for ranking**: Inside NSGA-II both objectives are free; the Pareto front is fully explored.  `attractor_weight` only controls result sort order and the combined-score contours displayed in the notebook.
+- **Attractor is not an obstacle**: The attractor geometry is only a target for rays, never subtracted from the valid view field.
+- **Area-preserving stretch**: `scale(s, 1/s)` preserves area exactly.  Applied before rotation, centred at origin (base polygons are origin-centred).
 
 ### Validation
 

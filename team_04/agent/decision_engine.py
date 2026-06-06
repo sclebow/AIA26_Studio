@@ -121,6 +121,7 @@ class RuleBasedPlanner:
         assessment_geometry_id = requested_position_assessment.get("geometry_id") if isinstance(requested_position_assessment, dict) else None
         requested_position_checked = bool(geometry_id and assessment_geometry_id == geometry_id)
         remaining_positions_ready = bool(state.get("remaining_candidate_positions"))
+        remaining_positions_analyzed = bool(placed_buildings) and state.get("remaining_positions_analyzed_for_count") == len(placed_buildings)
         more_buildings_needed = len(placed_buildings) < target_building_count
         current_geometry_already_placed = any(
             isinstance(item, dict) and item.get("geometry_id") == geometry_id
@@ -274,7 +275,7 @@ class RuleBasedPlanner:
                 goal=f"Analyze the remaining site area after placing {current_building_label}.{intent_suffix}",
                 status=(
                     "completed"
-                    if remaining_positions_ready
+                    if remaining_positions_analyzed
                     else ("pending" if placed_buildings and more_buildings_needed else "skipped")
                 ),
             ),

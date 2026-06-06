@@ -312,6 +312,25 @@ class AgentGraphTests(unittest.TestCase):
         self.assertEqual(status_by_step["analyze_remaining_positions"], "skipped")
         self.assertIn("Keep a quiet western frontage.", goal_by_step["generate_shape"])
 
+    def test_remaining_position_analysis_with_no_candidates_still_completes(self) -> None:
+        planner = RuleBasedPlanner()
+        catalog = ToolCatalog.from_discovered_tools(self._build_tool_client().list_tools())
+
+        plan = planner.build_plan(
+            {
+                "site_context": {"site_boundary_reader": {"data": {"site": "loaded"}}},
+                "placed_buildings": [{"geometry_id": "shape-001"}],
+                "remaining_candidate_positions": [],
+                "remaining_positions_analyzed_for_count": 1,
+                "target_building_count": 2,
+            },
+            catalog,
+        )
+
+        status_by_step = {step.step_id: step.status for step in plan}
+        self.assertEqual(status_by_step["analyze_remaining_positions"], "completed")
+        self.assertEqual(status_by_step["generate_shape"], "skipped")
+
     def test_single_building_report_does_not_advance_label_past_target(self) -> None:
         planner = RuleBasedPlanner()
         catalog = ToolCatalog.from_discovered_tools(self._build_tool_client().list_tools())

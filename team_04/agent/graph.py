@@ -501,6 +501,7 @@ def _build_place_building_node(
                     "violations": [],
                     "evaluation_results": {},
                     "placement_fit_summary": {},
+                    "remaining_positions_analyzed_for_count": None,
                     "requested_position_assessment": {},
                 }
             )
@@ -749,6 +750,7 @@ def _build_remaining_positions_node(
             "messages": messages,
             "tool_history": tool_history,
             "remaining_candidate_positions": result_data.get("candidate_positions", []) if isinstance(result_data, dict) else [],
+            "remaining_positions_analyzed_for_count": len(state.get("placed_buildings", [])),
             "replan_required": True,
             "replan_reason": "Remaining-site analysis completed.",
             "error": None,
