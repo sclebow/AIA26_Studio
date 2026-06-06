@@ -9,7 +9,9 @@
         "program": "bed",
         "area": 7.62,
         "size": "medium",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-2"
       },
       {
@@ -17,7 +19,9 @@
         "program": "bath",
         "area": 1.67,
         "size": "small",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-3"
       },
       {
@@ -25,7 +29,9 @@
         "program": "living",
         "area": 13.95,
         "size": "medium",
+        "windows": 1,
         "betweenness_centrality": 1.0,
+        "connectivity": "central",
         "id": "room-4"
       },
       {
@@ -33,7 +39,9 @@
         "program": "kitchen",
         "area": 3.57,
         "size": "medium",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-5"
       },
       {
@@ -41,7 +49,9 @@
         "program": "bed",
         "area": 7.9,
         "size": "medium",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-6"
       }
     ],
@@ -104,7 +114,9 @@
         "program": "bed",
         "area": 9.61,
         "size": "large",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-1"
       },
       {
@@ -112,7 +124,9 @@
         "program": "bed",
         "area": 9.14,
         "size": "large",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-2"
       },
       {
@@ -120,7 +134,9 @@
         "program": "living",
         "area": 14.26,
         "size": "large",
+        "windows": 1,
         "betweenness_centrality": 0.9,
+        "connectivity": "central",
         "id": "room-4"
       },
       {
@@ -128,7 +144,9 @@
         "program": "bath",
         "area": 4.42,
         "size": "large",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-5"
       },
       {
@@ -136,7 +154,9 @@
         "program": "dining",
         "area": 7.54,
         "size": "medium",
+        "windows": 1,
         "betweenness_centrality": 0.4,
+        "connectivity": "connected",
         "id": "room-6"
       },
       {
@@ -144,7 +164,9 @@
         "program": "kitchen",
         "area": 2.76,
         "size": "small",
+        "windows": 2,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-7"
       }
     ],
@@ -215,7 +237,9 @@
         "program": "living",
         "area": 13.9,
         "size": "medium",
+        "windows": 1,
         "betweenness_centrality": 1.0,
+        "connectivity": "central",
         "id": "room-1"
       },
       {
@@ -223,15 +247,19 @@
         "program": "bed",
         "area": 9.24,
         "size": "large",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-2"
       },
       {
         "name": "Extra",
         "program": "extra",
         "area": 5.54,
-        "size": "small",
+        "size": "medium",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-3"
       },
       {
@@ -239,7 +267,9 @@
         "program": "bed",
         "area": 8.25,
         "size": "medium",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-5"
       },
       {
@@ -247,7 +277,9 @@
         "program": "bath",
         "area": 2.9,
         "size": "medium",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-6"
       },
       {
@@ -255,7 +287,9 @@
         "program": "kitchen",
         "area": 3.05,
         "size": "medium",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-7"
       }
     ],
@@ -333,7 +367,9 @@
         "program": "bed",
         "area": 6.71,
         "size": "small",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-1"
       },
       {
@@ -341,7 +377,9 @@
         "program": "bath",
         "area": 3.85,
         "size": "medium",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-2"
       },
       {
@@ -349,7 +387,9 @@
         "program": "bed",
         "area": 6.93,
         "size": "small",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-3"
       },
       {
@@ -357,7 +397,9 @@
         "program": "kitchen",
         "area": 4.5,
         "size": "large",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-4"
       },
       {
@@ -365,7 +407,9 @@
         "program": "living",
         "area": 13.39,
         "size": "medium",
+        "windows": 1,
         "betweenness_centrality": 1.0,
+        "connectivity": "central",
         "id": "room-5"
       }
     ],
@@ -435,7 +479,9 @@
         "program": "bed",
         "area": 9.15,
         "size": "large",
+        "windows": 2,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-1"
       },
       {
@@ -443,7 +489,9 @@
         "program": "bed",
         "area": 8.1,
         "size": "medium",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-2"
       },
       {
@@ -451,7 +499,9 @@
         "program": "bath",
         "area": 2.61,
         "size": "medium",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-3"
       },
       {
@@ -459,7 +509,9 @@
         "program": "kitchen",
         "area": 2.79,
         "size": "small",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-4"
       },
       {
@@ -467,7 +519,9 @@
         "program": "living",
         "area": 10.81,
         "size": "medium",
+        "windows": 1,
         "betweenness_centrality": 1.0,
+        "connectivity": "central",
         "id": "room-5"
       }
     ],
@@ -530,7 +584,9 @@
         "program": "bath",
         "area": 3.4,
         "size": "medium",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-1"
       },
       {
@@ -538,7 +594,9 @@
         "program": "kitchen",
         "area": 3.2,
         "size": "medium",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-2"
       },
       {
@@ -546,7 +604,9 @@
         "program": "living",
         "area": 8.33,
         "size": "small",
+        "windows": 2,
         "betweenness_centrality": 1.0,
+        "connectivity": "central",
         "id": "room-3"
       },
       {
@@ -554,7 +614,9 @@
         "program": "bed",
         "area": 7.83,
         "size": "medium",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-4"
       },
       {
@@ -562,7 +624,9 @@
         "program": "bed",
         "area": 7.16,
         "size": "medium",
+        "windows": 1,
         "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
         "id": "room-5"
       }
     ],
