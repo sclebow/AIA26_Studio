@@ -11,6 +11,7 @@ Changes from v1:
       step 3 -> sensory bothers (multi-select cards in UI)
       step 4 -> life stage + living situation (card pickers + optional other)
       step 5 -> non-negotiable (text input)
+      step 6 -> social energy / personality axis (card picker) -> drives apply_personality
 
 Flow (one question per turn):
   Step 0 (turn 2): User's response to GREET -> name extracted, Q1 asked
@@ -18,7 +19,8 @@ Flow (one question per turn):
   Step 2 (turn 4): Space story stored, Q3 asked
   Step 3 (turn 5): Sensory bothers stored, Q4 asked
   Step 4 (turn 6): Life stage + living situation stored, Q5 asked
-  Step 5 (turn 7): Non-negotiable stored -> quiz_complete = True -> INSPIRE
+  Step 5 (turn 7): Non-negotiable stored, Q6 asked
+  Step 6 (turn 8): Personality answer stored -> quiz_complete = True -> INSPIRE
 
 State consumed:  quiz_step, quiz_answers, raw_prompt, user_name, preliminary_role
 State produced:  quiz_step (incremented), quiz_answers (updated),
@@ -95,12 +97,16 @@ _QUESTIONS: dict[int, str] = {
         "your life stage and who you share your space with."
     ),
     5: (
-        "Last one -- if your ideal space had one non-negotiable quality, "
+        "Almost there -- if your ideal space had one non-negotiable quality, "
         "what would it be?"
+    ),
+    6: (
+        "Last one -- after a demanding day, what restores you: "
+        "a calm space to yourself, a balance, or being around people and activity?"
     ),
 }
 
-_TOTAL_STEPS = 5  # Steps 0-5 inclusive (6 answers total, 5 follow-up questions)
+_TOTAL_STEPS = 6  # Steps 0-6 inclusive (7 answers total, 6 follow-up questions)
 
 
 # -- Step 1→2 ACK: role templates (replaces LLM call) -------------------------
@@ -270,6 +276,12 @@ def build_quiz_node(llm):
             ack = _ack_for_life_stage(n, raw_prompt)
             response = f"{ack}\n{next_question}"
             print(f"[quiz] Step 4 ACK (template)")
+
+        elif quiz_step == 5:
+            # Step 5→6: free-text non-negotiable — warm template, then the
+            # personality/arousal question (feeds apply_personality in scoring).
+            response = f"That's a strong anchor for your space, {n}.\n{next_question}"
+            print(f"[quiz] Step 5 ACK (template)")
 
         else:
             # Catch-all for any unexpected step

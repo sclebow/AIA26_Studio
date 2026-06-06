@@ -19,17 +19,18 @@
   ],
   "comfort_weights": {
     "thermal": 0.9,
-    "visual": 0.8,
+    "visual": 0.74,
     "acoustic": 0.8,
     "spatial": 0.8,
     "olfactory": 0.9,
     "tactile": 0.9
   },
-  "aesthetic_preferences": "You gravitate toward warm, earthy interiors defined by honeyed oak, weathered walnut, and soft amber tones that ground spaces in natural warmth. Sunlight filters through open layouts, casting gentle shadows over rough-hewn wood beams, smooth stone, and aged metal, blending raw textures with refined craftsmanship. Layers of tactile richness—woven textiles, polished concrete, and rough plaster—create a balance between intimacy and openness, while diffuse light softens deep wood tones to evoke a timeless, cocooning calm. Your aesthetic thrives on organic forms, unpretentious details, and the quiet grandeur of materials that age gracefully.",
-  "lifestyle": "The streets of Paris, and open spaces in cafe",
+  "aesthetic_preferences": "You gravitate toward spaces defined by warm amber tones of aged wood and the soft glow of diffused natural light filtering through sheer fabrics, creating a serene interplay of shadows and texture. Muted greens of velvety plants contrast with rough-hewn beams and smooth concrete, blending raw authenticity with refined simplicity. The atmosphere thrives on quiet intimacy and open-air spaciousness, evoking the calm of a forest retreat with its grounded yet expansive feel. Your taste leans into tactile richness—weathered grain, polished wood, and stone—balanced by a minimalist elegance that feels both lived-in and tranquil.",
+  "lifestyle": "Streets of paris",
   "key_requirements": [
-    "Natural light and plants"
+    "plants"
   ],
+  "personality": -1.0,
   "preference_vs_baseline": {
     "spatial": "Stated weight 0.80 is above research baseline 0.50 (delta +0.30). User rates this highly -- aligns well with research.",
     "olfactory": "Stated weight 0.90 is above research baseline 0.40 (delta +0.50). User rates this highly -- aligns well with research.",

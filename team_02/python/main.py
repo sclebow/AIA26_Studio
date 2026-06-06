@@ -55,8 +55,11 @@ _WELCOME = """
 +------------------------------------------------------+
 """
 
-# Path to the saved persona file (one level above python/)
-_PERSONA_PATH = Path(__file__).resolve().parent.parent / "persona.json"
+# Canonical persona location — must match where the graph writes it
+# (graph.py: ctx.layout_input_dir.parent / "personas" / "persona.json") and where
+# the web server reads it (api/server.py). Keeping these in sync prevents the CLI
+# from "forgetting" a persona the graph just saved.
+_PERSONA_PATH = Path(__file__).resolve().parent.parent / "personas" / "persona.json"
 
 
 def _load_existing_persona() -> dict | None:

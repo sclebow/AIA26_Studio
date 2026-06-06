@@ -3,6 +3,7 @@ import networkx as nx
 from pathlib import Path
 from typing import Any
 import logging
+from team_06.python.nodes import topology
 from tools.graph_searcher import GraphSearcher
 
 logger = logging.getLogger(__name__)
@@ -29,14 +30,21 @@ def build_search_node() -> Any:
             logger.info(f"📊 Topology graph nodes: {list(topology.nodes(data=True))}")
             logger.info(f"📊 Topology graph edges: {list(topology.edges())}")
             
+            # Extract program types from topology
+            programs = [
+                topology.nodes[node].get('program', '')
+                for node in topology.nodes()
+                if topology.nodes[node].get('program', '')
+            ]
+            
             searcher = GraphSearcher(str(graphs_path))
-            results = searcher.search_by_graph_similarity(topology, method="jaccard")
+            results = searcher.search_by_embedding(programs, access=True, top_k=3)
 
             # Also search Planfinder graphs if available
             planfinder_graphs_path = repo_root / "layout_inputs" / "planfinder_graphs.json"
             if planfinder_graphs_path.exists():
                 pf_searcher = GraphSearcher(str(planfinder_graphs_path))
-                pf_results = pf_searcher.search_by_graph_similarity(topology, method="jaccard")
+                pf_results = pf_searcher.search_by_embedding(programs, access=True, top_k=3)
                 results = sorted(results + pf_results, key=lambda x: x[1], reverse=True)
                 logger.info(f"🔍 Combined search results (sample + planfinder): {results}")
             else:

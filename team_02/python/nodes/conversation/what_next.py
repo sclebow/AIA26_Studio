@@ -1,7 +1,6 @@
 """
-WHAT_NEXT node — offers 2-3 contextual next steps after every complete turn.
-Adapts suggestions to what just ran (analyze/detect/full/overview/chitchat)
-and to user_type. Appends to chitchat responses rather than replacing them.
+WHAT_NEXT node — offers a contextual next step after every complete turn.
+Updated v4: uses `action` field (replaces dead `intent in ("comfort","tools")` + `comfort_depth`).
 """
 
 from __future__ import annotations
@@ -31,15 +30,10 @@ def _extract_worst_finding(scores_json: str) -> str:
 def _format_persona(persona_profile: dict) -> str:
     if not persona_profile:
         return "no specific persona"
-    # Flat schema (persona_compiler v2)
-    if "name" in persona_profile or "role" in persona_profile:
-        desc = persona_profile.get("description", "")
-        name = persona_profile.get("name", "")
-        role = persona_profile.get("role", "")
-        return desc or (f"{name}, {role}" if name else role or "no profile")
-    # Legacy nested schema
-    primary = persona_profile.get("primary_user", {})
-    return primary.get("description", "no specific persona")
+    desc = persona_profile.get("description", "")
+    name = persona_profile.get("name", "")
+    role = persona_profile.get("role", "")
+    return desc or (f"{name}, {role}" if name else role or "no profile")
 
 
 _SYSTEM_PROMPT = """\
@@ -47,16 +41,21 @@ You are Sensi. The user has just seen a result. Offer the most useful next step 
 what was found, not generic.
 
 What just ran and what to suggest:
-  analyze    → The panel shows scores. Suggest: "detect the conflicts" or "ask me why [worst sense] is low"
-               or "run the full analysis for suggestions".
-  detect     → Conflicts are visible. Suggest: "get improvement suggestions" or
-               "ask me why [conflict room] is failing" or "run a what-if scenario".
-  full       → Scores + conflicts + suggestions are all visible. Suggest: "try a what-if"
-               (what if I change a material?), "compare this to another persona", or a specific question.
-  follow_up  → Just answered a specific question. Suggest: continuing to dig, running a what-if,
-               or exploring the panel section that answers the next logical question.
-  overview   → Room list was shown. Suggest running a comfort analysis.
-  chitchat   → Nothing analysed yet. Offer to start.
+  analyze         → Panel shows scores. Suggest: "detect the conflicts" or "ask me why [worst sense] is low"
+                    or "run the full analysis for suggestions".
+  detect          → Conflicts visible. Suggest: "get improvement suggestions" or
+                    "ask me why [conflict room] is failing" or "run a what-if scenario".
+  full            → Scores + conflicts + suggestions all visible. Suggest: "try a what-if"
+                    (what if I change a material?), "compare to another persona", or a specific question.
+  follow_up       → Answered a specific question. Suggest continuing to dig or a what-if.
+  overview        → Room list shown. Suggest running a comfort analysis.
+  chitchat        → Nothing analysed yet. Offer to start.
+  change_material → Material was changed and scores updated. Suggest detect or full to see the impact.
+  modify_glazing  → Glazing changed and scores updated. Suggest detect or full.
+  add_furniture   → Furniture/plant added. Suggest biophilic audit or detect to see the impact.
+  topologic       → Room connectivity shown. Suggest running comfort analysis next.
+  biophilic       → Biophilic richness shown. Suggest adding plants or running detect.
+  compare         → Two persona scores compared. Suggest picking the most relevant and running full.
 
 Register by user_type:
   architect  → concise, technical: "Want to run a what-if on the glazing?"
@@ -71,10 +70,10 @@ Rules:
   - End with one short alternative: "or just ask me anything about the results."
 
 CONTEXT:
-  user_type:   {user_type}
-  last_path:   {last_path}
-  layout_id:   {layout_id}
-  persona:     {persona_summary}
+  user_type:     {user_type}
+  last_path:     {last_path}
+  layout_id:     {layout_id}
+  persona:       {persona_summary}
   worst_finding: {worst_finding}
 """
 
@@ -83,30 +82,37 @@ def build_what_next_node(llm):
     """Return the what_next node function, capturing the LLM instance."""
 
     def what_next_node(state: dict) -> dict:
-        user_type: str     = state.get("user_type", "architect")
-        comfort_depth: str = state.get("comfort_depth", "analyze")
-        intent: str        = state.get("intent", "comfort")
-        layout_id: str     = state.get("layout_id") or "?"
+        user_type: str        = state.get("user_type", "architect")
+        action: str           = state.get("action", "") or state.get("intent", "")
+        layout_id: str        = state.get("layout_id") or "?"
         persona_profile: dict = state.get("persona_profile") or {}
 
-        # Determine what just happened
-        if intent == "overview":
+        # Map action → human-readable last_path for the LLM prompt
+        _edit_actions = {"change_material", "modify_glazing", "add_furniture"}
+        _insight_actions = {"topologic", "biophilic", "compare"}
+        _analysis_actions = {"analyze", "detect", "full"}
+
+        if action == "overview":
             last_path = "overview (room list, no analysis)"
-        elif intent in ("comfort", "tools"):
-            last_path = f"comfort analysis — depth: {comfort_depth}"
-        elif intent == "chitchat":
+        elif action in _analysis_actions:
+            last_path = f"comfort analysis — depth: {action}"
+        elif action in _edit_actions:
+            last_path = f"layout edit — {action.replace('_', ' ')}"
+        elif action in _insight_actions:
+            last_path = f"insight analysis — {action}"
+        elif action == "chitchat":
             last_path = "chitchat conversation"
-        elif intent == "inspire":
+        elif action == "inspire":
             last_path = "inspire (atmosphere)"
-        elif intent == "follow_up":
-            last_path = f"follow_up (specific question about {comfort_depth} results)"
+        elif action == "follow_up":
+            last_path = "follow_up (specific question about prior results)"
         else:
-            last_path = intent
+            last_path = action or "unknown"
 
         persona_summary = _format_persona(persona_profile)
         worst_finding   = _extract_worst_finding(state.get("last_scores_json", ""))
 
-        print("[what_next] Generating next step offer...")
+        print(f"[what_next] action={action} → last_path='{last_path}' | Generating next step offer...")
 
         system = _SYSTEM_PROMPT.format(
             user_type=user_type,
@@ -118,18 +124,9 @@ def build_what_next_node(llm):
 
         offer = call_llm_simple(llm, system, "Offer next steps.")
 
-        # Always append the next-step nudge to the existing response.
-        # For comfort/tools paths the respond node already wrote the full
-        # analysis into final_response — we must not overwrite it.
         existing = state.get("final_response", "")
-        if existing:
-            combined = existing + "\n\n" + offer
-        else:
-            combined = offer
+        combined = (existing + "\n\n" + offer) if existing else offer
 
-        return {
-            **state,
-            "final_response": combined,
-        }
+        return {**state, "final_response": combined}
 
     return what_next_node
