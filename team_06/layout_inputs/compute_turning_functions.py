@@ -88,9 +88,24 @@ def sample_turning_function(piece, sample_count=64):
     return (sampled / (2.0 * math.pi)).astype(float)
 
 
-def compute(dataset_path: Path, sample_count: int = 64, top_k: int = 100, out_dir: Path | None = None):
+def _load_dataset(dataset_path: Path) -> list:
+    """Load layouts from a single JSON file or a directory of JSON files."""
+    if dataset_path.is_dir():
+        data = []
+        for json_file in sorted(dataset_path.glob('*.json')):
+            with open(json_file, 'r', encoding='utf-8-sig') as f:
+                item = json.load(f)
+            if isinstance(item, list):
+                data.extend(item)
+            else:
+                data.append(item)
+        return data
     with open(dataset_path, 'r', encoding='utf-8-sig') as f:
-        data = json.load(f)
+        return json.load(f)
+
+
+def compute(dataset_path: Path, sample_count: int = 64, top_k: int = 100, out_dir: Path | None = None):
+    data = _load_dataset(dataset_path)
 
     pieces = []
     sampled_list = []
@@ -115,7 +130,7 @@ def compute(dataset_path: Path, sample_count: int = 64, top_k: int = 100, out_di
     idxs = np.argsort(D, axis=1)[:, :top_k]
 
     if out_dir is None:
-        out_dir = dataset_path.parent
+        out_dir = dataset_path.parent / 'pf_embeddings' if dataset_path.is_dir() else dataset_path.parent
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -137,7 +152,7 @@ def compute(dataset_path: Path, sample_count: int = 64, top_k: int = 100, out_di
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default='team_06/layout_inputs/sample_layouts.json')
+    parser.add_argument('--dataset', type=str, default='team_06/layout_inputs/Planfinder_Dataset/pf_jsons')
     parser.add_argument('--sample_count', type=int, default=64)
     parser.add_argument('--top_k', type=int, default=100)
     parser.add_argument('--out_dir', type=str, default=None)
