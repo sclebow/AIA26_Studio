@@ -5,12 +5,11 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 from nodes.preprocess import build_preprocess_node
 from nodes.reason import build_reason_node
-from nodes.graph_search import build_search_node
+from nodes.search_node import build_search_node
 from nodes.select import build_select_node
 from nodes.adapt import build_adapt_node
 from nodes.evaluate import build_evaluate_node
 from nodes.feedback import build_feedback_node
-from nodes.semantic_search import build_semantic_search_node
 from nodes.daylight import build_daylight_node
 
 
@@ -32,28 +31,22 @@ logger = logging.getLogger(__name__)
 
 class AgentState(TypedDict, total=False):
     user_prompt: str                               # NEW - the raw use message prompt
-    parsed_prompt: dict[str, Any] | str | None     # Parsed prompt / extracted schema
     iteration: int                                 # current tool-call count
-    max_iterations: int                            # safety cap to stop the process (set from .env)
     final_response: str | None                     # set when the agent is done
     clarification: str | None                      # question for user clarification (set by all nodes except preprocess)
     feedback_history: list[str]                    # NEW - keep track of feedback given by the user
-    use_graph_search: bool                         # Route through graph search
-    use_description_search: bool                   # Route through semantic search
     graph_top_k: int                               # Candidate budget for graph search
     #-----------jsons for tools-----------
     layout_json_string: str                        # current layout as a JSON string, injected into tool calls 
     input_layout_json_string: str | None           # NEW - input layout, defining outline, as a JSON string, injected into tool calls 
-    topology_graph_json_string: str | None         # Graph query extracted by reason
-    graph_search_results_json_string: str | None   # Graph-search candidates
-    description_search_results_json_string: str | None  # Semantic-search candidates
-    search_results_json_string: str | None         # Final candidates used by select
+    topology_graph_json_string: str | None         # Structured search payload extracted by reason
+    search_results_json_string: str | None         # Search candidates
+    layout_id: str | None         # Layout ID to be selected
     evaluation_json_string: str | None             # NEW - evaluation results
     #-----------results from nodes (for routing)-----------
     preprocess_result: str                         # Which node to go to after preprocess
     reason_result: str                             # Optional reason outcome label
-    graph_search_result: str                       # Result from graph search: "success" | "failed"
-    semantic_search_result: str                    # Result from semantic search: "success" | "failed"
+    search_result: str                             # Result from search node: "select" | "failed"
     select_result: str                             # NEW - which node to go to after select: "success" | "failed"
     adapt_result: str | None                       # NEW - result from adapt node: "success" | "failed"
     daylight_result: str | None                    # Result from daylight node
@@ -74,20 +67,12 @@ def _route_after_preprocessing(state: AgentState) -> str:
 def _route_after_reason(state: AgentState) -> str:
     result = state.get("reason_result")
     return {
-        "graph_search": "graph_search",
-        "semantic_search": "semantic_search",
+        "search_node": "search_node",
         "feedback": "feedback",
     }.get(result, "feedback")
 
-def _route_after_graph_search(state: AgentState) -> str:
-    result = state.get("graph_search_result") or state.get("search_result")
-    return {
-        "semantic_search": "semantic_search",
-        "select": "select",
-    }.get(result, "feedback")
-
-def _route_after_semantic_search(state: AgentState) -> str:
-    result = state.get("semantic_search_result") or state.get("search_result")
+def _route_after_search_node(state: AgentState) -> str:
+    result = state.get("search_result")
     return {
         "select": "select",
     }.get(result, "feedback")
@@ -119,8 +104,7 @@ def build_graph(ctx: Any) -> Any:
     """Build the layout agent graph."""
     reason = build_reason_node(ctx.llm)
     preprocess = build_preprocess_node()
-    graph_search = build_search_node()
-    semantic_search = build_semantic_search_node()
+    search_node = build_search_node()
     select = build_select_node()
     adapt = build_adapt_node(ctx.mcp_client)
     daylight = build_daylight_node(ctx.mcp_client)
@@ -145,8 +129,7 @@ def build_graph(ctx: Any) -> Any:
     # Add nodes
     workflow.add_node("reason", make_logged_node(reason, "reason"))
     workflow.add_node("preprocess", make_logged_node(preprocess, "preprocess"))
-    workflow.add_node("graph_search", make_logged_node(graph_search, "graph_search"))
-    workflow.add_node("semantic_search", make_logged_node(semantic_search, "semantic_search"))
+    workflow.add_node("search_node", make_logged_node(search_node, "search_node"))
     workflow.add_node("select", make_logged_node(select, "select"))
     workflow.add_node("adapt", make_logged_node(adapt, "adapt"))
     workflow.add_node("daylight", make_logged_node(daylight, "daylight"))
@@ -162,16 +145,10 @@ def build_graph(ctx: Any) -> Any:
         "end": END
     })
     workflow.add_conditional_edges("reason", _route_after_reason, {
-        "graph_search": "graph_search",
-        "semantic_search": "semantic_search",
+        "search_node": "search_node",
         "feedback": "feedback"
     })
-    workflow.add_conditional_edges("graph_search", _route_after_graph_search, {
-        "semantic_search": "semantic_search",
-        "select": "select",
-        "feedback": "feedback"
-    })
-    workflow.add_conditional_edges("semantic_search", _route_after_semantic_search, {
+    workflow.add_conditional_edges("search_node", _route_after_search_node, {
         "select": "select",
         "feedback": "feedback"
     })
@@ -221,7 +198,8 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
     # Return response + updated session for next turn
     updated_session = {
     "layout_json_string": final_state.get("layout_json_string"),
-    "parsed_prompt": final_state.get("parsed_prompt"),
+    "layout_id": final_state.get("layout_id"),
+    "topology_graph_json_string": final_state.get("topology_graph_json_string"),
     "feedback_history": final_state.get("feedback_history", []),
 }
     
@@ -253,26 +231,19 @@ def _build_initial_state(prompt: str, ctx: Any, session: dict | None = None) -> 
 
     return {
         "user_prompt": prompt,
-        "parsed_prompt": session.get("parsed_prompt"),
         "feedback_history": session.get("feedback_history", []),
         "clarification": session.get("clarification"),
         "iteration": 0,
-        "max_iterations": ctx.max_iterations,
         "final_response": None,
-        "use_graph_search": False,
-        "use_description_search": False,
         "graph_top_k": 4,
         "layout_json_string": layout_json,
         "input_layout_json_string": input_layout_json,
-        "topology_graph_json_string": None,
-        "graph_search_results_json_string": None,
-        "description_search_results_json_string": None,
+        "topology_graph_json_string": session.get("topology_graph_json_string"),
         "search_results_json_string": None,
+        "layout_id": session.get("layout_id"),
         "evaluation_json_string": None,
         "preprocess_result": None,
         "reason_result": None,
-        "graph_search_result": None,
-        "semantic_search_result": None,
         "search_result": None,
         "select_result": None,
         "adapt_result": None,

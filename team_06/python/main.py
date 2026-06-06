@@ -31,7 +31,6 @@ def main():
                 session["feedback_history"] = []
             response, session = run_agent(user_input, ctx, session)
             print(f"\nAgent: {response}\n")
-            print(f"[DEBUG] Session after turn: {session.get('question_index')}")
         except Exception as e:
             print(f"\n❌ Error: {e}")
             print("Session still active. Try again or type 'quit'.\n")
