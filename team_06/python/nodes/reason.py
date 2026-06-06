@@ -7,32 +7,18 @@ if not PARSED_PROMPT_SCHEMA_PATH.exists():
     raise FileNotFoundError(str(PARSED_PROMPT_SCHEMA_PATH.resolve()))
 PARSED_PROMPT_SCHEMA = json.loads(PARSED_PROMPT_SCHEMA_PATH.read_text(encoding="utf-8"))
 
-
-# Define the question list (could be loaded from a questions.json file)
-QUESTION_LIST = [
-    "Please describe the people living in the household (name, age, relationship, special needs if any).",
-    "Do you have any pets? If so, what type and size?",
-    "What are the main activities at home (e.g., work, cook, hobbies)? When do they happen and who participates?",
-    "Do you have preferences for rooms (type, size, connections, usage times, or who uses them)?"
-]
-
-# Global system prompt for LLM reliability
 SYSTEM_PROMPT = (
-    "You are an architect assistant. "
-    "Given a user's description of their household and any previous feedback, "
-    "extract as much structured information as possible as a JSON object matching this schema: "
+    "You are an architect assistant preparing structured search input for layout retrieval. "
+    "Extract as much layout-relevant information as possible from the user's request as a JSON object matching this schema: "
     f"{json.dumps(PARSED_PROMPT_SCHEMA)}\n"
     "Always return a JSON object with only the fields from the schema. "
     "If you find no new information, return an empty JSON object: {}. "
     "Never return plain text, numbers, or explanations.\n"
+    "Prioritize room programs, room counts, room preferences, activities, and adjacency clues that help search layouts.\n"
     "\n"
     "Examples:\n"
-    "User input: 'I am 36, my partner 32, our child 2 years old.'\n"
-    "Output: {\"households\":[{\"id\":\"me\",\"age\":36,\"relationship\":\"me\"},{\"id\":\"partner\",\"age\":32,\"relationship\":\"partner\"},{\"id\":\"child\",\"age\":2,\"relationship\":\"child\"}]}\n"
-    "User input: 'We have a big dog'\n"
-    "Output: {\"pets\":[{\"type\":\"dog\",\"size\":\"big\"}]}\n"
-    "User input: 'no pets'\n"
-    "Output: {}\n"
+    "User input: 'We need two bedrooms, one bathroom, and an open kitchen connected to the living room.'\n"
+    "Output: {\"rooms\":[{\"id\":\"bedroom_1\",\"program\":\"bedroom\"},{\"id\":\"bedroom_2\",\"program\":\"bedroom\"},{\"id\":\"bathroom_1\",\"program\":\"bathroom\"},{\"id\":\"kitchen_1\",\"program\":\"kitchen\",\"connected_to\":[\"living_1\"]},{\"id\":\"living_1\",\"program\":\"living\",\"connected_to\":[\"kitchen_1\"]}]}\n"
 )
 
 def merge_parsed_prompt(existing, new):
@@ -61,78 +47,37 @@ def merge_parsed_prompt(existing, new):
     # print("[DEBUG] Updated parsed_prompt:", existing)
     return existing
 
+def _has_searchable_rooms(parsed_prompt: dict) -> bool:
+    rooms = parsed_prompt.get("rooms")
+    if not isinstance(rooms, list):
+        return False
+    return any(isinstance(room, dict) and room.get("program") for room in rooms)
+
+
 def build_reason_node(llm):
-
     def reason(state: dict) -> dict:
-
         user_prompt = state.get("user_prompt", "")
         iteration = state.get("iteration", 0)
-        # Ensure parsed_prompt is always a dict with the correct structure
-        raw_parsed = state.get("parsed_prompt")
-        if not isinstance(raw_parsed, dict):
+        raw_payload = state.get("topology_graph_json_string")
+        if isinstance(raw_payload, str):
+            try:
+                parsed_prompt = json.loads(raw_payload)
+            except json.JSONDecodeError:
+                parsed_prompt = {k: [] if isinstance(v, list) else None for k, v in PARSED_PROMPT_SCHEMA.items()}
+        elif isinstance(raw_payload, dict):
+            parsed_prompt = raw_payload
+        else:
             parsed_prompt = {k: [] if isinstance(v, list) else None for k, v in PARSED_PROMPT_SCHEMA.items()}
-        else:
-            parsed_prompt = raw_parsed
-        # No need to remap or remove 'households', use as is
-        question_index = state.get("question_index", 0)
-        retry_count = state.get("retry_count", 0)
-
-        # Always start from the first unanswered question (households first)
-        field_order = ["households", "pets", "activities", "rooms"]
-
-        # Early exit for trivial or non-informative prompts
-        if not user_prompt or user_prompt.strip().lower() in {"chat", "", "-", "n/a", "none"}:
-            for idx, field in enumerate(field_order):
-                val = parsed_prompt.get(field)
-                if not (isinstance(val, list) and len(val) > 0):
-                    question_index = idx
-                    break
-            else:
-                # All fields filled, finish
-                return {
-                    "iteration": iteration + 1,
-                    "parsed_prompt": parsed_prompt,
-                    "question_index": len(field_order),
-                    "clarification": None,
-                    "retry_count": 0,
-                    "reason_result": "complete"
-                }
-            current_question = QUESTION_LIST[question_index]
-            return {
-                "iteration": iteration + 1,
-                "parsed_prompt": parsed_prompt,
-                "question_index": question_index,
-                "clarification": current_question,
-                "retry_count": retry_count + 1,
-                "reason_result": "uncomplete"
-            }
-
-        for idx, field in enumerate(field_order):
-            val = parsed_prompt.get(field)
-            # Advance if field is a non-empty list
-            if not (isinstance(val, list) and len(val) > 0):
-                question_index = idx
-                break
-        else:
-            # All fields filled, finish
-            return {
-                "iteration": iteration + 1,
-                "parsed_prompt": parsed_prompt,
-                "question_index": len(field_order),
-                "clarification": None,
-                "retry_count": 0
-            }
-
-        current_question = QUESTION_LIST[question_index]
+        feedback_history = state.get("feedback_history", [])
 
         llm_messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": (
                 f"Current parsed info: {json.dumps(parsed_prompt)}\n"
-                f"Current question: {current_question}\n"
+                f"Feedback history: {json.dumps(feedback_history)}\n"
                 f"User input: {user_prompt}\n"
-                f"If you find info for any of these fields, output them as JSON. If not, output an empty JSON.\n"
-                f"Use the exact field names from the schema above. Do not use synonyms."
+                "Extract structured search input. Focus on rooms, room counts, room relationships, and activities. "
+                "If the request still lacks searchable room information, return an empty JSON object."
             )}
         ]
         try:
@@ -140,52 +85,24 @@ def build_reason_node(llm):
             new_info = json.loads(response.content.strip())
             parsed_prompt = merge_parsed_prompt(parsed_prompt, new_info)
 
-            # Check if the current field is now filled
-            if parsed_prompt.get(field_order[question_index]):
-                # Move to next question, reset retry_count
-                next_index = question_index + 1
-                if next_index < len(QUESTION_LIST):
-                    next_question = QUESTION_LIST[next_index]
-                    return {
-                        "iteration": iteration + 1,
-                        "parsed_prompt": parsed_prompt,
-                        "question_index": next_index,
-                        "clarification": next_question,
-                        "retry_count": 0
-                    }
-                else:
-                    # All questions asked, return final result
-                    return {
-                        "iteration": iteration + 1,
-                        "parsed_prompt": parsed_prompt,
-                        "question_index": next_index,
-                        "clarification": None,
-                        "retry_count": 0
-                    }
-            else:
-                # If too many retries, ask for clarification
-                if retry_count >= 2:
-                    return {
-                        "iteration": iteration + 1,
-                        "parsed_prompt": parsed_prompt,
-                        "question_index": question_index,
-                        "clarification": f"I couldn't understand your last answer. Could you clarify or rephrase?\n{current_question}",
-                        "retry_count": 0
-                    }
-                else:
-                    # Ask the same question again, increment retry_count
-                    return {
-                        "iteration": iteration + 1,
-                        "parsed_prompt": parsed_prompt,
-                        "question_index": question_index,
-                        "clarification": current_question,
-                        "retry_count": retry_count + 1
-                    }
+            if _has_searchable_rooms(parsed_prompt):
+                return {
+                    "iteration": iteration + 1,
+                    "topology_graph_json_string": json.dumps(parsed_prompt),
+                    "clarification": None,
+                    "reason_result": "graph_search",
+                }
+
+            return {
+                "iteration": iteration + 1,
+                "topology_graph_json_string": json.dumps(parsed_prompt),
+                "reason_result": "feedback",
+                "clarification": "Please describe the rooms you need, for example: two bedrooms, one bathroom, and a kitchen connected to the living room.",
+            }
         except Exception as e:
             return {
                 "iteration": iteration + 1,
-                "reason_result": "failed",
-                "clarification_needed": f"Could not process your input: {e}",
-                "retry_count": retry_count
+                "reason_result": "feedback",
+                "clarification": f"Could not process your request for search: {e}",
             }
     return reason
