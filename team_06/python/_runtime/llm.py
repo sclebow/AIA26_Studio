@@ -229,6 +229,40 @@ def _normalize_llm_decision(parsed: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Drop-in replacement for llm.invoke() with optional provider/model override
+# ---------------------------------------------------------------------------
+
+def llm_invoke(
+    llm: Any,
+    messages: list[dict[str, str]] | str,
+    provider: str | None = None,
+    model: str | None = None,
+) -> Any:
+    """Call llm.invoke(messages) with an optional per-call provider/model override.
+
+    Raises ValueError if the override provider's credentials are missing from
+    the environment — callers should catch this and fall back to the default llm.
+    """
+    active_llm = llm
+    if provider is not None or model is not None:
+        resolved_provider = provider or os.environ.get("LLM_PROVIDER", "")
+        if not resolved_provider:
+            raise RuntimeError("LLM_PROVIDER is required when using llm_invoke overrides")
+        api_key, base_url, resolved_model = _resolve_llm_connection(resolved_provider, model)
+        model_kwargs = getattr(llm, "model_kwargs", {})
+        if not isinstance(model_kwargs, dict):
+            model_kwargs = {}
+        active_llm = create_chat_llm(
+            api_key=api_key,
+            base_url=base_url,
+            llm_model=resolved_model,
+            timeout_seconds=_resolve_timeout_seconds(llm),
+            model_kwargs=model_kwargs,
+        )
+    return active_llm.invoke(messages)
+
+
+# ---------------------------------------------------------------------------
 # Public convenience function used by reason nodes
 # ---------------------------------------------------------------------------
 

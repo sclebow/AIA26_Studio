@@ -2,6 +2,9 @@ import json
 import re
 import networkx as nx
 from typing import Any, List, Tuple
+from _runtime.llm import llm_invoke
+
+_PREFERRED = {"provider": "google", "model": "gemini-2.5-flash-lite"}
 
 TOPOLOGY_SYSTEM_PROMPT = (
     "You are an assistant that extracts room nodes and their adjacencies from apartment descriptions. "
@@ -81,7 +84,10 @@ def build_topology_node(llm: Any) -> Any:
             "Return JSON: {\"programs\": [...], \"edges\": [[\"room1\", \"room2\"], ...]}"
         )
         try:
-            response = llm.invoke(llm_prompt)
+            try:
+                response = llm_invoke(llm, llm_prompt, **_PREFERRED)
+            except ValueError:
+                response = llm.invoke(llm_prompt)
             result = json.loads(response.content.strip())
             programs = [prog.lower() for prog in result.get("programs", [])]
             edges = [(a.lower(), b.lower()) for a, b in result.get("edges", [])]

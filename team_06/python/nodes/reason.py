@@ -1,5 +1,8 @@
 import json
 from pathlib import Path
+from _runtime.llm import llm_invoke
+
+_PREFERRED = {"provider": "google", "model": "gemini-2.5-flash-lite"}
 
 # Load new parsed prompt schema
 PARSED_PROMPT_SCHEMA_PATH = Path(__file__).parent.parent / "rules" / "parsed_prompt_schema.json"
@@ -136,7 +139,10 @@ def build_reason_node(llm):
             )}
         ]
         try:
-            response = llm.invoke(llm_messages)
+            try:
+                response = llm_invoke(llm, llm_messages, **_PREFERRED)
+            except ValueError:
+                response = llm.invoke(llm_messages)
             new_info = json.loads(response.content.strip())
             parsed_prompt = merge_parsed_prompt(parsed_prompt, new_info)
 
