@@ -60,10 +60,21 @@ def _extract_circulation_from_state(state: dict) -> list[dict] | None:
 
 
 def _load_layout_descriptions(repo_root: Path) -> dict[str, str]:
-    """Load layout descriptions from sample_layouts.json and Planfinder_Dataset."""
+    """Load layout descriptions from pf_jsons and sample_layouts.json."""
     descriptions: dict[str, str] = {}
 
-    # Load from sample_layouts.json
+    pf_jsons_dir = repo_root / "layout_inputs" / "Planfinder_Dataset" / "pf_jsons"
+    if pf_jsons_dir.exists():
+        for layout_file in pf_jsons_dir.glob("*.json"):
+            try:
+                layout = json.loads(layout_file.read_text(encoding="utf-8"))
+                layout_id = layout.get("layoutId", layout_file.stem)
+                description = layout.get("apartment", {}).get("attributes", {}).get("description")
+                if layout_id and description:
+                    descriptions[layout_id] = description
+            except Exception:
+                continue
+
     layouts_path = repo_root / "layout_inputs" / "sample_layouts.json"
     if layouts_path.exists():
         try:
@@ -75,19 +86,6 @@ def _load_layout_descriptions(repo_root: Path) -> dict[str, str]:
                     descriptions[layout_id] = description
         except Exception as e:
             logger.warning(f"Failed to load descriptions from sample_layouts.json: {e}")
-
-    # Load from Planfinder_Dataset
-    planfinder_dir = repo_root / "layout_inputs" / "Planfinder_Dataset"
-    if planfinder_dir.exists():
-        for layout_file in planfinder_dir.glob("*.json"):
-            try:
-                layout = json.loads(layout_file.read_text(encoding="utf-8"))
-                layout_id = layout.get("layoutId", layout_file.stem)
-                description = layout.get("apartment", {}).get("attributes", {}).get("description")
-                if layout_id and description:
-                    descriptions[layout_id] = description
-            except Exception:
-                continue
 
     return descriptions
 
@@ -142,26 +140,17 @@ def build_search_boundary_node() -> Any:
                         results.append((match["layoutId"], match["score"]))
                     logger.info(f"✅ Found {len(sample_results['matches'])} matches in sample_layouts")
             
-            # Search in Planfinder_Dataset if available
-            planfinder_path = repo_root / "layout_inputs" / "Planfinder_Dataset"
-            planfinder_json = None
-            
-            # Look for a consolidated planfinder JSON or search individual files
-            for possible_name in ["planfinder_layouts.json", "Planfinder_Dataset.json"]:
-                candidate = repo_root / "layout_inputs" / possible_name
-                if candidate.exists():
-                    planfinder_json = candidate
-                    break
-            
-            if planfinder_json and planfinder_json.exists():
-                logger.info(f"🔍 Searching Planfinder dataset by boundary shape...")
+            # Search in pf_jsons (uses precomputed cosine-similarity vectors from pf_embeddings)
+            pf_jsons_path = repo_root / "layout_inputs" / "Planfinder_Dataset" / "pf_jsons"
+            if pf_jsons_path.exists():
+                logger.info(f"🔍 Searching Planfinder dataset by boundary shape (cosine similarity)...")
                 pf_results = match_boundaries(
                     input_graph=input_layout,
-                    dataset_path=str(planfinder_json),
+                    dataset_path=str(pf_jsons_path),
                     top_k=top_k,
                     min_score=min_score
                 )
-                
+
                 if pf_results.get("matches"):
                     for match in pf_results["matches"]:
                         results.append((match["layoutId"], match["score"]))
