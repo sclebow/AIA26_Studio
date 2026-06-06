@@ -1,0 +1,542 @@
+[
+  {
+    "node": "reason",
+    "test": "households",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 16.53,
+    "tokens_in": 100,
+    "tokens_out": 885,
+    "correct": true,
+    "error": null,
+    "response": {
+      "households": [
+        "42",
+        "38",
+        "8",
+        "5"
+      ],
+      "pets": [],
+      "activities": [],
+      "rooms": []
+    }
+  },
+  {
+    "node": "reason",
+    "test": "pets",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 10.4,
+    "tokens_in": 83,
+    "tokens_out": 572,
+    "correct": true,
+    "error": null,
+    "response": {
+      "households": [],
+      "pets": [
+        "dog"
+      ],
+      "activities": [],
+      "rooms": []
+    }
+  },
+  {
+    "node": "reason",
+    "test": "activities",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 13.23,
+    "tokens_in": 92,
+    "tokens_out": 676,
+    "correct": true,
+    "error": null,
+    "response": {
+      "households": [
+        "We"
+      ],
+      "pets": [],
+      "activities": [
+        "cook",
+        "work from home",
+        "play"
+      ],
+      "rooms": [
+        "living room"
+      ]
+    }
+  },
+  {
+    "node": "reason",
+    "test": "rooms",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 7.04,
+    "tokens_in": 92,
+    "tokens_out": 354,
+    "correct": true,
+    "error": null,
+    "response": {
+      "households": [],
+      "pets": [],
+      "activities": [],
+      "rooms": [
+        "bedroom",
+        "bathroom",
+        "kitchen",
+        "living room"
+      ]
+    }
+  },
+  {
+    "node": "topology",
+    "test": "T1",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 5.85,
+    "tokens_in": 80,
+    "tokens_out": 390,
+    "correct": true,
+    "error": null,
+    "response": {
+      "programs": [
+        "bedroom",
+        "bathroom",
+        "kitchen",
+        "living room"
+      ],
+      "edges": [
+        [
+          "bedroom",
+          "bathroom"
+        ]
+      ]
+    }
+  },
+  {
+    "node": "topology",
+    "test": "T2",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 6.98,
+    "tokens_in": 68,
+    "tokens_out": 295,
+    "correct": true,
+    "error": null,
+    "response": {
+      "programs": [
+        "studio",
+        "kitchen",
+        "bathroom"
+      ],
+      "edges": [
+        [
+          "studio",
+          "kitchen"
+        ],
+        [
+          "studio",
+          "bathroom"
+        ]
+      ]
+    }
+  },
+  {
+    "node": "reason",
+    "test": "households",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.86,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "pets",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.35,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "activities",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 1.98,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "rooms",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.39,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "response": null
+  },
+  {
+    "node": "topology",
+    "test": "T1",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "response": null
+  },
+  {
+    "node": "topology",
+    "test": "T2",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.18,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "households",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 1.42,
+    "tokens_in": 89,
+    "tokens_out": 47,
+    "correct": true,
+    "error": null,
+    "response": {
+      "households": [
+        "42-year-old",
+        "38-year-old",
+        "8-year-old",
+        "5-year-old"
+      ],
+      "pets": [],
+      "activities": [],
+      "rooms": []
+    }
+  },
+  {
+    "node": "reason",
+    "test": "pets",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 0.88,
+    "tokens_in": 73,
+    "tokens_out": 58,
+    "correct": true,
+    "error": null,
+    "response": {
+      "households": [],
+      "pets": [
+        {
+          "type": "dog",
+          "size": "medium"
+        }
+      ],
+      "activities": [],
+      "rooms": []
+    }
+  },
+  {
+    "node": "reason",
+    "test": "activities",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 0.66,
+    "tokens_in": 81,
+    "tokens_out": 73,
+    "correct": true,
+    "error": null,
+    "response": {
+      "households": [
+        "I work from home"
+      ],
+      "pets": [],
+      "activities": [
+        "We cook daily",
+        "Kids play in the living room"
+      ],
+      "rooms": [
+        "living room"
+      ]
+    }
+  },
+  {
+    "node": "reason",
+    "test": "rooms",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 0.73,
+    "tokens_in": 81,
+    "tokens_out": 31,
+    "correct": true,
+    "error": null,
+    "response": {
+      "households": [],
+      "pets": [],
+      "activities": [],
+      "rooms": [
+        "3 bedrooms",
+        "2 bathrooms",
+        "kitchen",
+        "living room"
+      ]
+    }
+  },
+  {
+    "node": "topology",
+    "test": "T1",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 0.68,
+    "tokens_in": 70,
+    "tokens_out": 27,
+    "correct": true,
+    "error": null,
+    "response": {
+      "programs": [
+        "bedroom",
+        "bathroom",
+        "kitchen",
+        "living room"
+      ],
+      "edges": [
+        [
+          "bedroom",
+          "bathroom"
+        ]
+      ]
+    }
+  },
+  {
+    "node": "topology",
+    "test": "T2",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 0.61,
+    "tokens_in": 58,
+    "tokens_out": 29,
+    "correct": true,
+    "error": null,
+    "response": {
+      "programs": [
+        "studio",
+        "kitchen",
+        "bathroom"
+      ],
+      "edges": [
+        [
+          "studio",
+          "kitchen"
+        ],
+        [
+          "studio",
+          "bathroom"
+        ]
+      ]
+    }
+  },
+  {
+    "node": "reason",
+    "test": "households",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 1.23,
+    "tokens_in": 94,
+    "tokens_out": 128,
+    "correct": true,
+    "error": null,
+    "response": {
+      "households": [
+        {
+          "age": 42,
+          "relationship": "primary occupant"
+        },
+        {
+          "age": 38,
+          "relationship": "partner"
+        },
+        {
+          "age": 8,
+          "relationship": "child"
+        },
+        {
+          "age": 5,
+          "relationship": "child"
+        }
+      ],
+      "pets": [],
+      "activities": [],
+      "rooms": []
+    }
+  },
+  {
+    "node": "reason",
+    "test": "pets",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 0.72,
+    "tokens_in": 79,
+    "tokens_out": 40,
+    "correct": true,
+    "error": null,
+    "response": {
+      "households": [],
+      "pets": [
+        "medium-sized dog"
+      ],
+      "activities": [],
+      "rooms": []
+    }
+  },
+  {
+    "node": "reason",
+    "test": "activities",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 0.89,
+    "tokens_in": 87,
+    "tokens_out": 56,
+    "correct": true,
+    "error": null,
+    "response": {
+      "households": [
+        "adults",
+        "kids"
+      ],
+      "pets": [],
+      "activities": [
+        "cooking",
+        "working from home",
+        "playing"
+      ],
+      "rooms": [
+        "kitchen",
+        "living room"
+      ]
+    }
+  },
+  {
+    "node": "reason",
+    "test": "rooms",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 1.06,
+    "tokens_in": 91,
+    "tokens_out": 120,
+    "correct": true,
+    "error": null,
+    "response": {
+      "households": [],
+      "pets": [],
+      "activities": [],
+      "rooms": [
+        {
+          "type": "bedroom",
+          "count": 3
+        },
+        {
+          "type": "bathroom",
+          "count": 2
+        },
+        {
+          "type": "kitchen",
+          "adjacent_to": "living room"
+        },
+        {
+          "type": "living room"
+        }
+      ]
+    }
+  },
+  {
+    "node": "topology",
+    "test": "T1",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 1.06,
+    "tokens_in": 81,
+    "tokens_out": 67,
+    "correct": true,
+    "error": null,
+    "response": {
+      "programs": [
+        "bedroom",
+        "bedroom",
+        "bedroom",
+        "bathroom",
+        "kitchen",
+        "living room"
+      ],
+      "edges": [
+        [
+          "bedroom",
+          "bathroom"
+        ],
+        [
+          "bedroom",
+          "kitchen"
+        ],
+        [
+          "bedroom",
+          "living room"
+        ],
+        [
+          "bathroom",
+          "kitchen"
+        ],
+        [
+          "kitchen",
+          "living room"
+        ]
+      ]
+    }
+  },
+  {
+    "node": "topology",
+    "test": "T2",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 9.22,
+    "tokens_in": 64,
+    "tokens_out": 37,
+    "correct": true,
+    "error": null,
+    "response": {
+      "programs": [
+        "studio",
+        "kitchen",
+        "bathroom"
+      ],
+      "edges": [
+        [
+          "studio",
+          "kitchen"
+        ],
+        [
+          "studio",
+          "bathroom"
+        ]
+      ]
+    }
+  }
+]

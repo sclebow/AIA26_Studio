@@ -3,7 +3,6 @@ import networkx as nx
 from pathlib import Path
 from typing import Any
 import logging
-from team_06.python.nodes import topology
 from tools.graph_searcher import GraphSearcher
 
 logger = logging.getLogger(__name__)
