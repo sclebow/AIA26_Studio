@@ -601,6 +601,30 @@ def _furniture_counts(layout: dict) -> dict:
     return c
 
 
+def _room_overall(scores_json: str, room: dict):
+    """This room's overallScore (0-1) from a scores JSON, or None."""
+    try:
+        rid, rname = room.get("id"), room.get("name")
+        for r in json.loads(scores_json).get("rooms", []):
+            if r.get("roomId") == rid or r.get("roomName") == rname:
+                return r.get("overallScore")
+    except Exception:
+        pass
+    return None
+
+
+def _dwelling_overall(scores_json: str):
+    """Whole-home aggregate (0.6·mean + 0.4·worst — mirrors the JS layoutScore)."""
+    try:
+        ovs = [float(r["overallScore"]) for r in json.loads(scores_json).get("rooms", [])
+               if r.get("overallScore") is not None]
+        if not ovs:
+            return None
+        return round(0.6 * (sum(ovs) / len(ovs)) + 0.4 * min(ovs), 4)
+    except Exception:
+        return None
+
+
 @app.post("/api/compare-initial")
 def compare_initial(req: RenderRoomReq) -> dict:
     """Report before/after for the WHOLE editing session: the most-changed room from
@@ -649,11 +673,11 @@ def compare_initial(req: RenderRoomReq) -> dict:
     if not req.force and cache_key in _INITIAL_COMPARE_CACHE:
         return {"session_id": sid, "ok": True, "cached": True, **_INITIAL_COMPARE_CACHE[cache_key]}
 
-    after_scores = _room_comfort_scores(sess.get("last_scores_json", ""), room_after)
     try:
-        if not after_scores:
-            after_scores = _room_comfort_scores(_score_layout(current, persona), room_after)
-        before_scores = _room_comfort_scores(_score_layout(original, persona), room_before)
+        after_full = sess.get("last_scores_json", "") or _score_layout(current, persona)
+        before_full = _score_layout(original, persona)
+        after_scores = _room_comfort_scores(after_full, room_after)
+        before_scores = _room_comfort_scores(before_full, room_before)
     except Exception as exc:
         return {"session_id": sid, "ok": False, "error": f"scoring failed: {exc}"}
 
@@ -670,6 +694,11 @@ def compare_initial(req: RenderRoomReq) -> dict:
         "before_image": "data:image/png;base64," + before_b64,
         "after_image": "data:image/png;base64," + after_b64,
         "deltas": deltas, "room": room_after.get("name"), "changed": changed,
+        # overall scores so the slider can show initial→now numbers, not just images
+        "room_before_overall": _room_overall(before_full, room_before),
+        "room_after_overall": _room_overall(after_full, room_after),
+        "dwelling_before": _dwelling_overall(before_full),
+        "dwelling_after": _dwelling_overall(after_full),
         "provider": active_provider(),
     }
     _INITIAL_COMPARE_CACHE[cache_key] = out

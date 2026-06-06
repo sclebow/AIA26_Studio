@@ -84,6 +84,7 @@ export default function ReportScreen({ turn, persona, layoutId, onBack }) {
                   />
                 ))}
               </div>
+              <div className="report-signature">✦ the vision · {layoutId || "your layout"} · read by sensi</div>
             </>
           )}
         </div>

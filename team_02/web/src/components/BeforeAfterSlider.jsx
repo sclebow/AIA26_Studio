@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 
 // A vertical wipe slider: AFTER is the base layer; BEFORE is overlaid and clipped
 // to the left of the handle. Drag the handle — left of it = before, right = after.
-export default function BeforeAfterSlider({ before, after, height = 170 }) {
+export default function BeforeAfterSlider({ before, after, height = 170, beforeTag, afterTag }) {
   const [x, setX] = useState(50);
   const ref = useRef(null);
 
@@ -29,9 +29,13 @@ export default function BeforeAfterSlider({ before, after, height = 170 }) {
       <div style={{ position: "absolute", top: 0, bottom: 0, left: `${x}%`, width: 2,
         background: "rgba(255,255,255,0.85)", boxShadow: "0 0 4px rgba(0,0,0,0.6)", transform: "translateX(-1px)" }} />
       <span style={{ position: "absolute", left: 6, bottom: 4, fontSize: 10, letterSpacing: "0.08em",
-        color: "#fff", opacity: 0.85, textShadow: "0 1px 2px #000" }}>BEFORE</span>
+        color: "#fff", opacity: 0.85, textShadow: "0 1px 2px #000" }}>
+        BEFORE{beforeTag != null && <b style={{ marginLeft: 5, fontWeight: 600 }}>{beforeTag}</b>}
+      </span>
       <span style={{ position: "absolute", right: 6, bottom: 4, fontSize: 10, letterSpacing: "0.08em",
-        color: "#fff", opacity: 0.85, textShadow: "0 1px 2px #000" }}>AFTER</span>
+        color: "#fff", opacity: 0.85, textShadow: "0 1px 2px #000" }}>
+        {afterTag != null && <b style={{ marginRight: 5, fontWeight: 600 }}>{afterTag}</b>}AFTER
+      </span>
     </div>
   );
 }

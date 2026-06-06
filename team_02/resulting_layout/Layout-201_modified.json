@@ -62,7 +62,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-06-06T12:32:58",
+          "timestamp": "2026-06-06T15:54:08",
           "overallScore": 0.53,
           "comfortScores": {
             "thermal": 0.65,
@@ -114,15 +114,15 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-06-06T12:32:58",
-          "overallScore": 0.33,
+          "timestamp": "2026-06-06T15:54:08",
+          "overallScore": 0.32,
           "comfortScores": {
             "thermal": 0.34,
-            "visual": 0.53,
+            "visual": 0.49,
             "acoustic": 0.19,
             "spatial": 0.87,
-            "olfactory": 0.38,
-            "tactile": 0.55
+            "olfactory": 0.3,
+            "tactile": 0.51
           },
           "conflicts": [],
           "suggestions": []
@@ -159,21 +159,21 @@
         "roomType": "bedroom",
         "height": 2.8,
         "orientation": "N",
-        "glazingRatio": 0.25,
+        "glazingRatio": 0.18,
         "ventilationType": "natural",
         "floorMaterial": "wood",
         "analysis": {
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-06-06T12:32:58",
-          "overallScore": 0.67,
+          "timestamp": "2026-06-06T15:54:08",
+          "overallScore": 0.66,
           "comfortScores": {
-            "thermal": 0.75,
-            "visual": 0.7,
+            "thermal": 0.73,
+            "visual": 0.63,
             "acoustic": 0.6,
             "spatial": 0.81,
-            "olfactory": 0.89,
+            "olfactory": 0.85,
             "tactile": 0.71
           },
           "conflicts": [],
@@ -218,7 +218,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-06-06T12:32:58",
+          "timestamp": "2026-06-06T15:54:08",
           "overallScore": 0.7,
           "comfortScores": {
             "thermal": 0.76,
@@ -270,7 +270,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-06-06T12:32:58",
+          "timestamp": "2026-06-06T15:54:08",
           "overallScore": 0.5,
           "comfortScores": {
             "thermal": 0.62,
@@ -322,7 +322,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-06-06T12:32:58",
+          "timestamp": "2026-06-06T15:54:08",
           "overallScore": 0.47,
           "comfortScores": {
             "thermal": 0.62,
@@ -503,7 +503,7 @@
         "roomId": "room-3",
         "area": 2.0,
         "orientation": "N",
-        "glazingType": "triple"
+        "glazingType": "double"
       }
     },
     {
@@ -806,37 +806,6 @@
         "type": "desk",
         "material": "wood"
       }
-    },
-    {
-      "id": "furn-10",
-      "name": "Added plant",
-      "geometry": [
-        [
-          9.1,
-          1.6
-        ],
-        [
-          9.9,
-          1.6
-        ],
-        [
-          9.9,
-          2.4
-        ],
-        [
-          9.1,
-          2.4
-        ],
-        [
-          9.1,
-          1.6
-        ]
-      ],
-      "attributes": {
-        "roomId": "room-2",
-        "type": "plant",
-        "material": "natural"
-      }
     }
   ],
   "structure": [
@@ -944,8 +913,8 @@
     "_source": "Sensi",
     "persona": "Neutral",
     "depth": "analyze",
-    "timestamp": "2026-06-06T12:32:58",
-    "overallScore": 0.5333,
+    "timestamp": "2026-06-06T15:54:08",
+    "overallScore": 0.53,
     "bestRoom": "room-4",
     "worstRoom": "room-2"
   }

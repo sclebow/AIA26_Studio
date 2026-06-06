@@ -11,7 +11,7 @@ export default function ReportHeader({ onBack, onExportPng, onExportJson, busy }
         <SensiAvatar size={24} />
         <span className="top-bar-label">sensi</span>
         <span className="top-bar-sep">|</span>
-        <span className="top-bar-act">report</span>
+        <span className="top-bar-act">the vision</span>
       </div>
       <div className="report-actions">
         <button className="report-back" onClick={onBack}>‹ back to explore</button>

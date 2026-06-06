@@ -1,10 +1,21 @@
 import { useState } from "react";
 import { SC, SI, SENSES, scoreColor } from "../lib/constants.js";
+import { STATUS } from "../lib/senses.js";
+import { thresholdFromWeight } from "../lib/senseModel.js";
 import { roomByName, suggestionsFor, narrativeBullets } from "../lib/turn.js";
 import SenseSignature from "../components/SenseSignature.jsx";
 import SenseRows from "../components/SenseRows.jsx";
 import Collapsible from "../ui/Collapsible.jsx";
 import RenderSlot from "./RenderSlot.jsx";
+
+// a room's overall in one word — a glance before the number
+const verdictOf = (o) => (o >= 0.65 ? "serene" : o >= 0.5 ? "comfortable" : o >= 0.4 ? "strained" : "conflicted");
+// narrative bullets are "sense: text" — pull the sense so we can colour/glyph it
+const SENSE_RE = new RegExp(`^(${SENSES.join("|")})\\s*[:\\uFF1A]\\s*(.*)$`, "i");
+function parseInsight(b) {
+  const m = b.match(SENSE_RE);
+  return m ? { sense: m[1].toLowerCase(), text: m[2] } : { sense: null, text: b };
+}
 
 // Exact mirror of imaging/prompt.py _SENSE_FRAGMENTS [low (<0.45), high (>0.70)].
 // Used to locate each voiced sense's words inside the prompt so hovering a petal
@@ -72,6 +83,14 @@ export default function RoomReportCard({ room, turn, persona, img, defaultOpen =
   const sugg = suggestionsFor(turn, name);
   const why = narrativeBullets(turn, name);
 
+  // per-sense health dot vs the persona's threshold (red below · green strong · neutral ok)
+  const dotColor = (s) => {
+    const v = eff[s];
+    if (v == null) return "rgba(var(--fg-rgb),0.3)";
+    const t = thresholdFromWeight(weights[s] ?? 0.5);
+    return v < t ? STATUS.fail : v >= 0.65 ? STATUS.pass : "rgba(var(--fg-rgb),0.45)";
+  };
+
   return (
     <div className={"rr-card" + (defaultOpen ? " rr-card--featured" : "")}>
       <Collapsible
@@ -82,6 +101,7 @@ export default function RoomReportCard({ room, turn, persona, img, defaultOpen =
             <span className="rr-card-name">{name}</span>
             {room.room_type && <span className="rr-card-type">{room.room_type}</span>}
             {defaultOpen && <span className="rr-card-flag">featured</span>}
+            <span className="rr-card-verdict" style={{ color: scoreColor(overall) }}>{verdictOf(overall)}</span>
             <span className="rr-card-score" style={{ color: scoreColor(overall) }}>{overall.toFixed(2)}</span>
           </button>
         )}
@@ -98,6 +118,8 @@ export default function RoomReportCard({ room, turn, persona, img, defaultOpen =
             </div>
             <SenseRows eff={eff} base={base} weights={weights} adjustments={adjustments} />
           </div>
+
+          <span className="rr-loop-arrow" aria-hidden="true">→</span>
 
           {/* 2 · become a prompt */}
           <div className="rr-pane">
@@ -119,6 +141,8 @@ export default function RoomReportCard({ room, turn, persona, img, defaultOpen =
             <div className="rr-voiced-note">only a room's extreme senses are voiced — discomfort becomes visible</div>
           </div>
 
+          <span className="rr-loop-arrow" aria-hidden="true">→</span>
+
           {/* 3 · become an image */}
           <div className="rr-pane">
             <div className="rr-pane-label">become an image</div>
@@ -128,19 +152,22 @@ export default function RoomReportCard({ room, turn, persona, img, defaultOpen =
 
         {(why.length > 0 || sugg.length > 0) && (
           <div className="rr-notes">
-            {why.length > 0 && (
-              <ul className="rr-why">{why.map((b, i) => <li key={i}>{b}</li>)}</ul>
-            )}
-            {sugg.length > 0 && (
-              <div className="rr-sugg">
-                {sugg.map((sg, i) => (
-                  <div key={i} className="rr-sugg-row">
-                    <span style={{ color: SC[sg.sense] }}>{SI[sg.sense] || ""}</span>
-                    <span>{sg.suggestion}</span>
-                  </div>
-                ))}
+            {why.map((b, i) => {
+              const { sense, text } = parseInsight(b);
+              return (
+                <div className="rr-insight" key={"w" + i}>
+                  <span className="rr-insight-glyph" style={{ color: sense ? SC[sense] : "rgba(var(--fg-rgb),0.4)" }}>{sense ? SI[sense] : "·"}</span>
+                  {sense && <span className="rr-insight-dot" style={{ background: dotColor(sense) }} title="vs your threshold" />}
+                  <span className="rr-insight-text">{sense && <b style={{ color: SC[sense] }}>{sense}</b>} {text}</span>
+                </div>
+              );
+            })}
+            {sugg.map((sg, i) => (
+              <div className="rr-insight rr-insight--fix" key={"s" + i}>
+                <span className="rr-insight-glyph" style={{ color: SC[sg.sense] }}>⚒</span>
+                <span className="rr-insight-text"><b style={{ color: SC[sg.sense] }}>{sg.sense}</b> {sg.suggestion}</span>
               </div>
-            )}
+            ))}
           </div>
         )}
       </Collapsible>

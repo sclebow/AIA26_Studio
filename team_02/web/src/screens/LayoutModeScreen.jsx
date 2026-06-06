@@ -180,8 +180,8 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
             <span className="lm-controls-sep" aria-hidden="true" />
             <button className="layer-pill" title="3D relationship galaxy"
               onClick={() => rooms.length ? setGalaxyOpen(true) : onSend("analyse the layout")}>galaxy ↗</button>
-            <button className="layer-pill lm-report-cta" title="open the report — renders, prompts & scores per room"
-              onClick={() => rooms.length ? onReport?.() : onSend("analyse the layout")}>report →</button>
+            <button className="layer-pill lm-report-cta" title="open The Vision — renders, prompts & scores per room"
+              onClick={() => rooms.length ? onReport?.() : onSend("analyse the layout")}>the vision →</button>
           </div>
 
           <div className={"lm-viewer" + (activeRoom && rooms.length > 0 ? " has-focus" : "")}>

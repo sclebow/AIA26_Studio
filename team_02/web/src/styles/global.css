@@ -1988,6 +1988,24 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
 .ds-couplings-hint { font-family: var(--font-mono); font-size: 10px; color: rgba(var(--fg-rgb), 0.4); }
 .ds-hero { padding: 20px; border: 1px solid rgba(var(--fg-rgb), var(--o-hairline)); border-radius: var(--r-sm);
   background: rgba(var(--fg-rgb), 0.02); }
+/* data-driven headline atop the dwelling story */
+.ds-headline { font-size: 15px; line-height: 1.5; color: rgba(var(--fg-rgb), 0.9); margin: 0 0 8px; }
+/* ripple reading — what a tapped sense helps / harms / trades with */
+.ds-ripples { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.ds-ripple-row { display: flex; align-items: baseline; gap: 8px; font-size: 12px; line-height: 1.4; }
+.ds-ripple-val { flex-shrink: 0; font-family: var(--font-mono); width: 12px; text-align: center; }
+.ds-ripple-partner { flex-shrink: 0; font-family: var(--font-mono); min-width: 78px; }
+.ds-ripple-lbl { flex-shrink: 0; min-width: 64px; }
+.ds-ripple-mech { color: rgba(var(--fg-rgb), 0.55); border-bottom: 1px solid rgba(var(--fg-rgb), 0.3); padding-bottom: 1px; }
+.ds-ripple-clear { background: none; border: none; cursor: pointer; padding: 0; font-family: var(--font-mono);
+  font-size: 11px; letter-spacing: .04em; color: rgba(var(--fg-rgb), 0.55); }
+.ds-ripple-clear:hover { color: rgba(var(--fg-rgb), 0.9); }
+/* before/after overall-score deltas */
+.ds-hero-scores { display: flex; flex-wrap: wrap; gap: 18px; margin: 8px 0 4px; }
+.ds-delta { display: inline-flex; align-items: baseline; gap: 6px; font-family: var(--font-mono); font-size: 12px; }
+.ds-delta-label { color: rgba(var(--fg-rgb), 0.5); text-transform: lowercase; margin-right: 2px; }
+.ds-delta-arrow { color: rgba(var(--fg-rgb), 0.4); }
+.ds-delta-amt { font-weight: 600; }
 
 /* ── per-room card ── */
 .report-rooms { display: flex; flex-direction: column; gap: 14px; }
@@ -2002,10 +2020,12 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
   border: 1px solid rgba(var(--fg-rgb), var(--o-faint)); border-radius: var(--r-pill); padding: 1px 7px; }
 .rr-card-flag { font-family: var(--font-mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
   color: rgba(var(--fg-rgb), 0.45); }
-.rr-card-score { margin-left: auto; font-family: var(--font-mono); font-size: 15px; }
+.rr-card-verdict { margin-left: auto; font-family: var(--font-mono); font-size: 11px; letter-spacing: .06em; opacity: 0.85; }
+.rr-card-score { margin-left: 10px; font-family: var(--font-mono); font-size: 15px; }
 
-.rr-loop { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; padding: 4px 16px 16px; }
-@media (max-width: 760px) { .rr-loop { grid-template-columns: 1fr; } }
+.rr-loop { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 14px; padding: 4px 16px 16px; align-items: start; }
+.rr-loop-arrow { align-self: center; color: rgba(var(--fg-rgb), 0.3); font-size: 16px; }
+@media (max-width: 760px) { .rr-loop { grid-template-columns: 1fr; } .rr-loop-arrow { display: none; } }
 .rr-pane { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .rr-pane-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
   color: rgba(var(--fg-rgb), 0.45); }
@@ -2039,6 +2059,12 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
 
 .rr-notes { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 10px;
   border-top: 1px solid rgba(var(--fg-rgb), var(--o-faint)); margin-top: 2px; padding-top: 12px; }
-.rr-why { margin: 0; padding-left: 16px; font-size: 12px; line-height: 1.6; color: rgba(var(--fg-rgb), 0.6); }
-.rr-sugg { display: flex; flex-direction: column; gap: 4px; }
-.rr-sugg-row { display: flex; gap: 8px; font-size: 12px; color: rgba(var(--fg-rgb), 0.65); }
+/* per-sense insight rows (replaces plain bullets): glyph + health dot + text */
+.rr-insight { display: flex; align-items: baseline; gap: 8px; font-size: 12px; line-height: 1.55; color: rgba(var(--fg-rgb), 0.68); }
+.rr-insight-glyph { flex-shrink: 0; font-family: var(--font-mono); width: 14px; text-align: center; }
+.rr-insight-dot { flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%; align-self: center; }
+.rr-insight-text b { text-transform: lowercase; font-weight: 600; }
+.rr-insight--fix { opacity: 0.92; }
+.report-signature { text-align: center; font-family: var(--font-mono); font-size: 11px; letter-spacing: .14em;
+  color: rgba(var(--fg-rgb), 0.4); margin-top: 40px; padding-top: 20px;
+  border-top: 1px solid rgba(var(--fg-rgb), 0.08); }
