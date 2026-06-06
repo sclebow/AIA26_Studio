@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { scoreColor } from "../lib/constants.js";
 
 const ACTION_ICONS = {
@@ -42,15 +43,23 @@ function TurnChip({ turn, active, onSelect }) {
 }
 
 export default function TimelineStrip({ turns, activeTurnId, onSelect }) {
+  const [open, setOpen] = useState(true);
   if (!turns || !turns.length) return null;
+  const last = turns[turns.length - 1];
   return (
-    <div className="timeline-strip">
-      <div className="tl-chips-row">
-        <span className="tl-label">timeline</span>
-        {turns.map((turn) => (
-          <TurnChip key={turn.id} turn={turn} active={turn.id === activeTurnId} onSelect={onSelect} />
-        ))}
-      </div>
+    <div className={"timeline-strip" + (open ? " open" : " collapsed")}>
+      <button className="tl-toggle" onClick={() => setOpen((o) => !o)} title={open ? "hide timeline" : "show timeline"}>
+        {open ? "▾" : "▴"} timeline
+      </button>
+      {open ? (
+        <div className="tl-chips-row">
+          {turns.map((turn) => (
+            <TurnChip key={turn.id} turn={turn} active={turn.id === activeTurnId} onSelect={onSelect} />
+          ))}
+        </div>
+      ) : (
+        <span className="tl-collapsed-label">{turns.length} {turns.length === 1 ? "turn" : "turns"} · {last.label}</span>
+      )}
     </div>
   );
 }

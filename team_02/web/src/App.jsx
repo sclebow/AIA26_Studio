@@ -6,6 +6,7 @@ import LayoutModeScreen from "./screens/LayoutModeScreen.jsx";
 import InspireScreen from "./screens/InspireScreen.jsx";
 import PersonaScreen from "./screens/PersonaScreen.jsx";
 import ProfileChatScreen from "./screens/ProfileChatScreen.jsx";
+import ReportScreen from "./report/ReportScreen.jsx";
 import { SelectionProvider } from "./lib/selection.jsx";
 import { layoutScore } from "./lib/turn.js";
 
@@ -160,6 +161,7 @@ export default function App() {
   }, [routeResponse]);
 
   const confirmPersona = useCallback(() => setScreen("chat"), []);
+  const goReport = useCallback(() => setScreen("report"), []);
 
   return (
     <>
@@ -199,6 +201,17 @@ export default function App() {
             layoutId={layoutId}
             layoutVersion={layoutVersion}
             onSend={sendChat}
+            onReport={goReport}
+          />
+        </SelectionProvider>
+      )}
+      {screen === "report" && (
+        <SelectionProvider>
+          <ReportScreen
+            turn={turns.length ? turns[turns.length - 1] : null}
+            persona={persona}
+            layoutId={layoutId}
+            onBack={() => setScreen("chat")}
           />
         </SelectionProvider>
       )}

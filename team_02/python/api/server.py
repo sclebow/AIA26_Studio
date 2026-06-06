@@ -42,7 +42,7 @@ from _runtime.bootstrap import bootstrap
 from graph import run_agent
 from inspire import run_inspire_round, profile_chat_reply
 from imaging import generate_image, build_room_prompt, active_provider
-from nodes._shared.utils import unwrap_mcp_result, persona_display_label
+from nodes._shared.utils import unwrap_mcp_result, persona_display_label, layout_digits
 from api import contracts
 
 # persona.json lives at team_02/personas/persona.json (matches the PyQt app).
@@ -153,6 +153,9 @@ class RenderRoomReq(SessionReq):
     room_id: Optional[str] = None
     room_name: Optional[str] = None
     force: bool = False
+
+class ReportReq(SessionReq):
+    pass
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -420,6 +423,70 @@ def render_room(req: RenderRoomReq) -> dict:
     return {"session_id": sid, "ok": True, "cached": False, **out}
 
 
+@app.post("/api/report")
+def report(req: ReportReq) -> dict:
+    """Assemble the Report (Act 3): for every room, its per-sense comfort scores and the
+    PROMPT those scores generate (build_room_prompt — NO image generation, so this returns
+    in milliseconds). Images are fetched separately, on demand, via /api/render-room. The
+    score→prompt→image loop is the report's thesis. `featured` names the 1-3 rooms that
+    tell the story (worst overall + the most-recently-edited room) — the client renders
+    those eagerly and lazy-renders the rest on expand."""
+    sid, slot = _slot(req.session_id)
+    sess = slot["session"]
+
+    raw = sess.get("layout_json_string", "")
+    if not raw:
+        return {"session_id": sid, "ok": False, "error": "No layout loaded yet."}
+    try:
+        layout = json.loads(raw)
+    except Exception:
+        return {"session_id": sid, "ok": False, "error": "Layout JSON could not be parsed."}
+
+    scores_json = sess.get("last_scores_json", "")
+    if not scores_json:
+        return {"session_id": sid, "ok": False, "error": "Run an analysis first."}
+
+    # overallScore keyed by room name, from the cached scores
+    overall_by_name: dict[str, float] = {}
+    try:
+        for r in json.loads(scores_json).get("rooms", []):
+            nm = r.get("roomName") or r.get("name")
+            if nm is not None and r.get("overallScore") is not None:
+                overall_by_name[nm] = float(r["overallScore"])
+    except Exception:
+        pass
+
+    persona = sess.get("persona_profile") or {}
+    out_rooms: list[dict] = []
+    for room in layout.get("rooms", []):
+        rname = room.get("name")
+        scores = _room_comfort_scores(scores_json, room)
+        out_rooms.append({
+            "room_id": room.get("id"),
+            "room_name": rname,
+            "room_type": (room.get("attributes", {}) or {}).get("roomType"),
+            "comfort_scores": scores,
+            "overall_score": overall_by_name.get(rname),
+            "prompt": build_room_prompt(room, scores, persona),
+        })
+
+    # featured: worst overall, then the most-recently-edited room (deduped, order kept)
+    featured: list[str] = []
+    scored = [r for r in out_rooms if r["overall_score"] is not None]
+    if scored:
+        featured.append(min(scored, key=lambda r: r["overall_score"])["room_name"])
+    edited = (sess.get("layout_diff") or {}).get("room_name")
+    if edited and edited not in featured and any(r["room_name"] == edited for r in out_rooms):
+        featured.append(edited)
+
+    return {
+        "session_id": sid, "ok": True,
+        "layout_id": sess.get("layout_id", ""),
+        "rooms": out_rooms,
+        "featured": featured,
+    }
+
+
 _SENSES = ["thermal", "visual", "acoustic", "spatial", "olfactory", "tactile"]
 _COMPARE_CACHE: dict[str, dict] = {}
 
@@ -505,6 +572,107 @@ def compare_room(req: RenderRoomReq) -> dict:
         "room": rname, "provider": provider,
     }
     _COMPARE_CACHE[cache_key] = out
+    return {"session_id": sid, "ok": True, "cached": False, **out}
+
+
+_INITIAL_COMPARE_CACHE: dict[str, dict] = {}
+
+
+def _original_layout(sess) -> dict | None:
+    """The pristine on-disk layout — edits only mutate the session string, never the
+    file, so the file IS the 'initial' state for the report's before/after."""
+    if _CTX is None:
+        return None
+    norm = layout_digits(sess.get("layout_id", "") or "")
+    try:
+        for p in sorted(Path(_CTX.layout_input_dir).glob("*.json")):
+            if layout_digits(p.name) == norm:
+                return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return None
+
+
+def _furniture_counts(layout: dict) -> dict:
+    c: dict = {}
+    for f in layout.get("furniture", []):
+        rid = (f.get("attributes", {}) or {}).get("roomId")
+        c[rid] = c.get(rid, 0) + 1
+    return c
+
+
+@app.post("/api/compare-initial")
+def compare_initial(req: RenderRoomReq) -> dict:
+    """Report before/after for the WHOLE editing session: the most-changed room from
+    its INITIAL (on-disk) state → its FINAL (current) state, with per-sense deltas.
+    Unlike /api/compare-room (reverts the single last attribute), this captures the
+    cumulative effect of every edit on that room — the real 'ripple' to show."""
+    sid, slot = _slot(req.session_id)
+    sess = slot["session"]
+    cur_raw = sess.get("layout_json_string", "")
+    original = _original_layout(sess)
+    if not cur_raw or original is None:
+        return {"session_id": sid, "ok": False, "error": "no layout to compare"}
+    try:
+        current = json.loads(cur_raw)
+    except Exception:
+        return {"session_id": sid, "ok": False, "error": "current layout could not be parsed"}
+
+    persona = sess.get("persona_profile") or {}
+    orig_rooms = {r.get("name"): r for r in original.get("rooms", [])}
+    fc_cur, fc_orig = _furniture_counts(current), _furniture_counts(original)
+
+    # pick the room that changed the most (attributes + furniture count)
+    best = None
+    for rc in current.get("rooms", []):
+        ro = orig_rooms.get(rc.get("name"))
+        if not ro:
+            continue
+        ac = rc.get("attributes", {}) or {}
+        ao = ro.get("attributes", {}) or {}
+        changed = [k for k in (set(ac) | set(ao)) if ac.get(k) != ao.get(k)]
+        if fc_cur.get(rc.get("id"), 0) != fc_orig.get(ro.get("id"), 0):
+            changed.append("furniture")
+        if changed and (best is None or len(changed) > len(best[2])):
+            best = (rc, ro, changed)
+
+    if best is None:
+        return {"session_id": sid, "ok": False, "error": "no edits to compare"}
+    room_after, room_before, changed = best
+
+    cache_key = hashlib.sha1(json.dumps({
+        "p": active_provider(), "l": sess.get("layout_id", ""),
+        "r": room_after.get("id") or room_after.get("name"),
+        "a": room_after.get("attributes"), "b": room_before.get("attributes"),
+        "fc": [fc_cur.get(room_after.get("id"), 0), fc_orig.get(room_before.get("id"), 0)],
+    }, sort_keys=True).encode()).hexdigest()
+    if not req.force and cache_key in _INITIAL_COMPARE_CACHE:
+        return {"session_id": sid, "ok": True, "cached": True, **_INITIAL_COMPARE_CACHE[cache_key]}
+
+    after_scores = _room_comfort_scores(sess.get("last_scores_json", ""), room_after)
+    try:
+        if not after_scores:
+            after_scores = _room_comfort_scores(_score_layout(current, persona), room_after)
+        before_scores = _room_comfort_scores(_score_layout(original, persona), room_before)
+    except Exception as exc:
+        return {"session_id": sid, "ok": False, "error": f"scoring failed: {exc}"}
+
+    try:
+        after_b64 = generate_image(build_room_prompt(room_after, after_scores, persona))
+        before_b64 = generate_image(build_room_prompt(room_before, before_scores, persona),
+                                    reference_b64=after_b64)
+    except Exception as exc:
+        return {"session_id": sid, "ok": False, "error": f"Image generation failed: {exc}"}
+
+    deltas = {s: {"before": before_scores.get(s), "after": after_scores.get(s)}
+              for s in _SENSES if (s in before_scores or s in after_scores)}
+    out = {
+        "before_image": "data:image/png;base64," + before_b64,
+        "after_image": "data:image/png;base64," + after_b64,
+        "deltas": deltas, "room": room_after.get("name"), "changed": changed,
+        "provider": active_provider(),
+    }
+    _INITIAL_COMPARE_CACHE[cache_key] = out
     return {"session_id": sid, "ok": True, "cached": False, **out}
 
 

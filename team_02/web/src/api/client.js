@@ -41,6 +41,8 @@ export const profileChat      = (text)         => post("/api/profile-chat", { te
 export const getLayout        = ()             => post("/api/layout");
 export const renderRoom       = (roomName, force = false) => post("/api/render-room", { room_name: roomName, force });
 export const compareRoom      = (roomName, force = false) => post("/api/compare-room", { room_name: roomName, force });
+export const getReport        = ()             => post("/api/report");
+export const compareInitial   = (force = false) => post("/api/compare-initial", { force });
 
 // ── SSE: inspire rounds stream progress, then a final result ──────────────
 // callbacks: { onSession(id), onProgress(msg), onResult(data) }

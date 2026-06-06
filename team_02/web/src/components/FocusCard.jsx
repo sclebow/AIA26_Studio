@@ -1,15 +1,12 @@
-import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import * as api from "../api/client.js";
-import { SC, SI, SENSES, scoreColor, scoreOpacity } from "../lib/constants.js";
-import { STATUS } from "../lib/senses.js";
+import { SC, SI, SENSES, scoreColor } from "../lib/constants.js";
 import { useSelection } from "../lib/selection.jsx";
-import { thresholdFromWeight, BASIS_ICON, basisBorder, LEVER_SENSE } from "../lib/senseModel.js";
+import { thresholdFromWeight, LEVER_SENSE } from "../lib/senseModel.js";
 import { roomByName, suggestionsFor, narrativeBullets } from "../lib/turn.js";
 import { DUR, EASE } from "../lib/motion.js";
 import Collapsible from "../ui/Collapsible.jsx";
 import SenseSignature from "./SenseSignature.jsx";
-import BeforeAfterSlider from "./BeforeAfterSlider.jsx";
+import SenseRows from "./SenseRows.jsx";
 
 /*
  * FocusCard — the per-room detail, replacing the generic bars/radar panel.
@@ -17,6 +14,9 @@ import BeforeAfterSlider from "./BeforeAfterSlider.jsx";
  * ghost), per-sense rows (effective bar · personalized threshold · base→effective
  * with provenance), conflicts, suggestions, and a collapsible narrative.
  * "Why" lives here as readable HTML — never in-SVG text.
+ *
+ * Pure analysis: image generation (the old "render this space" + before/after
+ * slider) now lives in the Report (Act 3), not in explore.
  */
 // Levers a user can actually act on, mapped to a natural-language what-if the
 // agent can route to a REAL edit tool (modify_glazing / change_material /
@@ -38,33 +38,6 @@ const EDITABLE_LEVERS = {
 export default function FocusCard({ turn, persona, onClose, onFix }) {
   const { activeRoom, focusSense, toggleSense } = useSelection();
 
-  // Generative "how it feels" render (Phase 1) — on-demand, reset per room.
-  const [render, setRender] = useState({ loading: false, url: null, error: null });
-  useEffect(() => { setRender({ loading: false, url: null, error: null }); }, [activeRoom]);
-  const doRender = async (force = false) => {
-    setRender({ loading: true, url: null, error: null });
-    try {
-      const d = await api.renderRoom(activeRoom, force);
-      if (d.ok) setRender({ loading: false, url: d.image_base64, error: null });
-      else setRender({ loading: false, url: null, error: d.error || "render failed" });
-    } catch (e) {
-      setRender({ loading: false, url: null, error: String(e.message || e) });
-    }
-  };
-
-  // Before/after compare (Phase 2) — auto when THIS room was the most recent edit.
-  const wasEdited = !!(turn?.layout_diff && turn.layout_diff.room_name === activeRoom && turn.layout_diff.attribute);
-  const [compare, setCompare] = useState({ loading: false, data: null, error: null });
-  useEffect(() => {
-    if (!wasEdited) { setCompare({ loading: false, data: null, error: null }); return; }
-    let alive = true;
-    setCompare({ loading: true, data: null, error: null });
-    api.compareRoom(activeRoom)
-      .then((d) => { if (alive) setCompare(d.ok ? { loading: false, data: d, error: null } : { loading: false, data: null, error: d.error || "compare failed" }); })
-      .catch((e) => { if (alive) setCompare({ loading: false, data: null, error: String(e.message || e) }); });
-    return () => { alive = false; };
-  }, [activeRoom, wasEdited, turn?.id]); // eslint-disable-line
-
   const room = roomByName(turn, activeRoom);
   if (!activeRoom || !room) return null;
 
@@ -79,7 +52,6 @@ export default function FocusCard({ turn, persona, onClose, onFix }) {
 
   const thr = (s) => thresholdFromWeight(weights[s] ?? 0.5);
   const failing = SENSES.filter((s) => (eff[s] ?? 1) < thr(s));
-  const adjBySense = (s) => adjustments.filter((a) => a.sense === s);
 
   // lever bridge: positive, editable levers that fix the failing senses (deduped)
   const fixes = (() => {
@@ -113,91 +85,9 @@ export default function FocusCard({ turn, persona, onClose, onFix }) {
         </svg>
       </div>
 
-      {/* generative render — before/after for a just-edited room (Phase 2),
-          otherwise a single "how it feels" render (Phase 1) */}
-      {wasEdited ? (
-        <>
-          <div className="fc-section-label">
-            before / after — {compare.data?.attribute || turn.layout_diff.attribute}
-          </div>
-          {compare.loading && <div style={{ fontSize: 11, opacity: 0.6, padding: "12px 0" }}>rendering before / after…</div>}
-          {compare.error && <div style={{ fontSize: 11, opacity: 0.7, color: SC.thermal }}>{compare.error}</div>}
-          {compare.data && (
-            <>
-              <BeforeAfterSlider before={compare.data.before_image} after={compare.data.after_image} />
-              <div className="flex flex-wrap gap-1.5" style={{ marginTop: 6 }}>
-                {Object.entries(compare.data.deltas).map(([s, v]) => {
-                  if (v.before == null || v.after == null) return null;
-                  const d = v.after - v.before;
-                  if (Math.abs(d) < 0.01) return null;
-                  return (
-                    <span key={s} style={{ fontSize: 11, border: `1px solid ${SC[s]}`, color: SC[s], borderRadius: 10, padding: "1px 7px" }}
-                      title={`${s}: ${v.before.toFixed(2)} → ${v.after.toFixed(2)}`}>
-                      {SI[s]} {v.before.toFixed(2)}→{v.after.toFixed(2)} {d > 0 ? "↑" : "↓"}
-                    </span>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </>
-      ) : (
-        <>
-          <div className="fc-section-label">how it feels</div>
-          {render.url ? (
-            <div className="fc-render-wrap">
-              <img src={render.url} alt={`render of ${activeRoom}`}
-                style={{ width: "100%", borderRadius: 8, display: "block", border: "1px solid rgba(var(--fg-rgb),0.14)" }} />
-              <button className="fc-render-again" onClick={() => doRender(true)}
-                style={{ marginTop: 6, fontSize: 11, opacity: 0.65, cursor: "pointer", background: "none", border: "none", color: "inherit" }}>
-                ↻ re-render
-              </button>
-            </div>
-          ) : (
-            <button className="fc-render-btn" onClick={() => doRender(false)} disabled={render.loading}
-              style={{ width: "100%", padding: "9px", borderRadius: 8, cursor: render.loading ? "default" : "pointer",
-                background: "rgba(var(--fg-rgb),0.06)", color: "inherit",
-                border: "1px solid rgba(var(--fg-rgb),0.2)", letterSpacing: "0.04em", fontSize: 12 }}>
-              {render.loading ? "rendering this space…" : "✦ render this space"}
-            </button>
-          )}
-          {render.error && (
-            <div className="fc-render-err" style={{ fontSize: 11, opacity: 0.7, marginTop: 4, color: SC.thermal }}>{render.error}</div>
-          )}
-        </>
-      )}
-
       {/* per-sense rows */}
       <div className="fc-section-label">senses</div>
-      <div className="flex flex-col gap-1.5">
-        {SENSES.map((s) => {
-          const v = eff[s] ?? 0;
-          const b = base[s];
-          const moved = typeof b === "number" && Math.abs(b - v) >= 0.01;
-          const t = thr(s);
-          const adj = adjBySense(s);
-          return (
-            <div key={s} className="fc-row">
-              <span className="fc-glyph" style={{ color: SC[s] }}>{SI[s]}</span>
-              <span className="fc-sense">{s}</span>
-              <div className="fc-track">
-                <div className="fc-fill" style={{ width: `${v * 100}%`, background: SC[s], opacity: scoreOpacity(v) }} />
-                <div className="fc-thresh" style={{ left: `${t * 100}%` }} title={`your threshold ${t.toFixed(2)}`} />
-              </div>
-              <span className="fc-val" style={{ color: v < t ? SC[s] : "rgba(var(--fg-rgb),0.5)" }}>{v.toFixed(2)}</span>
-              {moved && (
-                <span className="fc-delta" style={{ color: v > b ? STATUS.pass : STATUS.fail }}
-                  title={adj.map((a) => `${a.mechanism} (${a.delta > 0 ? "+" : ""}${a.delta})`).join(" · ")}>
-                  {b.toFixed(2)}→{v.toFixed(2)}
-                  {adj.map((a, i) => (
-                    <span key={i} className="fc-basis" style={{ borderBottomStyle: basisBorder(a.basis) }}>{BASIS_ICON[a.basis] || ""}</span>
-                  ))}
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <SenseRows eff={eff} base={base} weights={weights} adjustments={adjustments} />
 
       {/* conflicts */}
       {failing.length > 0 && (

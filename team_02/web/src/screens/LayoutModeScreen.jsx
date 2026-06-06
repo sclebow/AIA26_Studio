@@ -12,7 +12,6 @@ import LayerToggles from "../components/LayerToggles.jsx";
 import Legend from "../components/Legend.jsx";
 import TimelineStrip from "../components/TimelineStrip.jsx";
 import LayoutPicker from "../components/LayoutPicker.jsx";
-import SenseMixer from "../components/SenseMixer.jsx";
 import { formatChatMessage } from "../lib/formatMessage.js";
 import { useSelection } from "../lib/selection.jsx";
 import { roomScores, conflictCount, layoutScore } from "../lib/turn.js";
@@ -53,7 +52,7 @@ const LAYER_REQUIRES = { plan: null, comfort: "scores", graph: "topology", mater
 // If a lens isn't available yet, clicking it asks Sensi to run the analysis.
 const LAYER_RUN_MSG = { comfort: "analyse the layout", graph: "map the topology of the layout" };
 
-export default function LayoutModeScreen({ messages, turns, thinking, persona, layoutId, layoutVersion = 0, onSend }) {
+export default function LayoutModeScreen({ messages, turns, thinking, persona, layoutId, layoutVersion = 0, onSend, onReport }) {
   const [chatOpen,     setChatOpen]     = useState(true);
   const [profileOpen,  setProfileOpen]  = useState(false);
   const [capOpen,      setCapOpen]      = useState(false);
@@ -89,7 +88,6 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
   const conflicts     = conflictCount(activeTurn);
   const ringClass     = avg == null ? "" : avg >= 0.65 ? "score-pass" : avg >= 0.45 ? "score-warn" : "score-fail";
   const initial       = persona?.name?.charAt(0).toUpperCase() || "";
-  const metrics       = layers.graph ? activeTurn?.graph_data?.metrics : null;
 
   const cursorPos = useRef({ x: 200, y: 200 });
   useEffect(() => {
@@ -137,6 +135,8 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
 
       <TopBar wide>
         <span className="top-bar-sep">|</span>
+        <span className="top-bar-act" title="you are shaping & exploring the layout">shape</span>
+        <span className="top-bar-sep">|</span>
         <LayoutPicker layoutId={layoutId} onSelect={(id) => onSend(`load layout ${id}`)} onUpload={(id) => onSend(`analyse layout ${id}`)} />
         <div className="top-bar-status-group">
           {conflicts > 0 && <span className="top-bar-conflict-badge">{conflicts} {conflicts === 1 ? "conflict" : "conflicts"}</span>}
@@ -176,34 +176,27 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
             <button className="lm-chat-toggle" onClick={() => setChatOpen(o => !o)} title={chatOpen ? "hide chat" : "show chat (Space to talk)"}>
               {chatOpen ? "‹ chat" : "chat ›"}
             </button>
-            <SenseMixer />
             <LayerToggles layers={layers} onToggle={onLayer} available={layerAvailable} />
+            <span className="lm-controls-sep" aria-hidden="true" />
             <button className="layer-pill" title="3D relationship galaxy"
               onClick={() => rooms.length ? setGalaxyOpen(true) : onSend("analyse the layout")}>galaxy ↗</button>
-            <button className="layer-pill" title="export the plan as a PNG image"
-              onClick={() => planRef.current?.exportPng()}>⤓ png</button>
+            <button className="layer-pill lm-report-cta" title="open the report — renders, prompts & scores per room"
+              onClick={() => rooms.length ? onReport?.() : onSend("analyse the layout")}>report →</button>
           </div>
 
-          <div className="lm-viewer">
+          <div className={"lm-viewer" + (activeRoom && rooms.length > 0 ? " has-focus" : "")}>
             <SensePlan ref={planRef} rooms={rooms} layoutId={layoutId} layoutVersion={layoutVersion} layers={layers} graphData={activeTurn?.graph_data} diff={activeTurn?.layout_diff} />
 
-            {/* topology metric pills */}
-            {metrics && (
-              <div className="metric-pills">
-                {metrics.most_connected && metrics.most_connected !== "none" && <span className="metric-pill">hub · {metrics.most_connected}</span>}
-                {metrics.bridge_rooms?.length > 0 && <span className="metric-pill">bridges · {metrics.bridge_rooms.join(", ")}</span>}
-                {metrics.isolated_rooms?.length > 0 && <span className="metric-pill warn">isolated · {metrics.isolated_rooms.join(", ")}</span>}
-                {metrics.num_components > 1 && <span className="metric-pill warn">detached · {metrics.num_components} zones</span>}
-              </div>
-            )}
+            {/* reading-aids legend — a horizontal strip in the top canvas band,
+                sharing the row with Expand All (card-less) */}
+            <Legend layers={layers} />
 
-            {/* legend (corner) */}
-            <div className="legend-corner"><Legend layers={layers} /></div>
+            {/* sense-coupling key plan + filter, bottom-left (card-less) */}
+            <div className="lm-corner-left">
+              <SenseKey rooms={rooms} />
+            </div>
 
-            {/* docked sense-coupling key (universal model reference) */}
-            <div className="sense-key-corner"><SenseKey rooms={rooms} /></div>
-
-            {/* focus card (right overlay, on room select) */}
+            {/* focus card (right overlay, on room select — the plan reflows left for it) */}
             <AnimatePresence>
               {activeRoom && rooms.length > 0 && (
                 <FocusCard key="focus-card" turn={activeTurn} persona={persona} onClose={() => setActiveRoom(null)} onFix={send} />
