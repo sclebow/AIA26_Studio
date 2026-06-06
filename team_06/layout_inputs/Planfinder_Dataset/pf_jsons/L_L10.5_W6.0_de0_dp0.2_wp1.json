@@ -362,22 +362,6 @@
       }
     },
     {
-      "id": "door-2",
-      "name": "Door 2",
-      "geometry": [
-        [
-          5.296,
-          1.522
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-2",
-          "room-4"
-        ]
-      }
-    },
-    {
       "id": "door-3",
       "name": "Door 3",
       "geometry": [

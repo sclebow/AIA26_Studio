@@ -41,10 +41,13 @@ class GraphSearcher:
     def search_by_embedding(
         self,
         programs: list,
-        access_pairs: list[tuple[str, str]] | None = None,
-        adjacency_pairs: list[tuple[str, str]] | None = None,
-        not_adjacency_pairs: list[tuple[str, str]] | None = None,
-        centrality: bool = False,
+        access_pairs: Optional[list[tuple[str, str]]] = None,
+        adjacency_pairs: Optional[list[tuple[str, str]]] = None,
+        not_adjacency_pairs: Optional[list[tuple[str, str]]] = None,
+        centrality: Optional[list] = None,
+        shape: Optional[str] = None,
+        aspect_ratio: Optional[float] = None,
+        compactness: Optional[float] = None,
         top_k: int | None = None,
         candidate_ids: set | None = None,
     ) -> list:
@@ -55,10 +58,13 @@ class GraphSearcher:
 
         Args:
             programs:      room types; duplicates = multiple instances.
-            access_pairs:  required door connections between programs
-            adjacency_pairs: required wall adjacencies between programs
-            not_adjacency_pairs: forbidden wall adjacencies between programs
-            centrality:    prefer centrally-located program types
+            access_pairs:    match door connections between programs
+            adjacency_pairs: match wall adjacencies between programs
+            not_adjacency_pairs: whether the programs must NOT be adjacent
+            centrality:     prefer centrally-located program types
+            shape:          preferred apartment shape
+            aspect_ratio:   preferred aspect ratio
+            compactness:    preferred compactness
             top_k:         max results to return; None = return all that pass.
             candidate_ids: restrict to this subset (for pipeline chaining).
 
@@ -71,6 +77,9 @@ class GraphSearcher:
             adjacency_pairs=adjacency_pairs,
             not_adjacency_pairs=not_adjacency_pairs,
             centrality=centrality,
+            shape=shape,
+            aspect_ratio=aspect_ratio,
+            compactness=compactness,
             top_k=k)
         
         if candidate_ids is not None:

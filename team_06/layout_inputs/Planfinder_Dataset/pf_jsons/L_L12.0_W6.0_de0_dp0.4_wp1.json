@@ -430,22 +430,6 @@
       }
     },
     {
-      "id": "door-3",
-      "name": "Door 3",
-      "geometry": [
-        [
-          7.835,
-          1.437
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-3",
-          "room-4"
-        ]
-      }
-    },
-    {
       "id": "door-4",
       "name": "Door 4",
       "geometry": [
@@ -506,22 +490,6 @@
         "connectsRooms": [
           "room-4",
           "room-5"
-        ]
-      }
-    },
-    {
-      "id": "door-8",
-      "name": "Door 8",
-      "geometry": [
-        [
-          3.669,
-          0.592
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-2",
-          "room-6"
         ]
       }
     },

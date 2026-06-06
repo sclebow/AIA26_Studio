@@ -2,118 +2,18 @@
   "layout-1": {
     "directed": false,
     "multigraph": false,
-    "graph": {},
+    "graph": {
+      "total_area": 46.305,
+      "shape": "rectangular",
+      "aspect_ratio": 2.381,
+      "compactness": 1.0
+    },
     "nodes": [
-      {
-        "name": "Bed",
-        "program": "bed",
-        "area": 7.62,
-        "size": "medium",
-        "windows": 1,
-        "betweenness_centrality": 0.0,
-        "connectivity": "peripheral",
-        "id": "room-2"
-      },
       {
         "name": "Bath",
         "program": "bath",
-        "area": 1.67,
-        "size": "small",
-        "windows": 1,
-        "betweenness_centrality": 0.0,
-        "connectivity": "peripheral",
-        "id": "room-3"
-      },
-      {
-        "name": "Living",
-        "program": "living",
-        "area": 13.95,
+        "area": 6.3991,
         "size": "medium",
-        "windows": 1,
-        "betweenness_centrality": 1.0,
-        "connectivity": "central",
-        "id": "room-4"
-      },
-      {
-        "name": "Kitchen",
-        "program": "kitchen",
-        "area": 3.57,
-        "size": "medium",
-        "windows": 1,
-        "betweenness_centrality": 0.0,
-        "connectivity": "peripheral",
-        "id": "room-5"
-      },
-      {
-        "name": "Bed",
-        "program": "bed",
-        "area": 7.9,
-        "size": "medium",
-        "windows": 1,
-        "betweenness_centrality": 0.0,
-        "connectivity": "peripheral",
-        "id": "room-6"
-      }
-    ],
-    "edges": [
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-2",
-        "target": "room-4"
-      },
-      {
-        "edge_types": [
-          "adjacency"
-        ],
-        "source": "room-2",
-        "target": "room-3"
-      },
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-3",
-        "target": "room-4"
-      },
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-4",
-        "target": "room-5"
-      },
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-4",
-        "target": "room-6"
-      },
-      {
-        "edge_types": [
-          "adjacency"
-        ],
-        "source": "room-5",
-        "target": "room-6"
-      }
-    ]
-  },
-  "layout-2": {
-    "directed": false,
-    "multigraph": false,
-    "graph": {},
-    "nodes": [
-      {
-        "name": "Bed",
-        "program": "bed",
-        "area": 9.61,
-        "size": "large",
         "windows": 1,
         "betweenness_centrality": 0.0,
         "connectivity": "peripheral",
@@ -122,130 +22,7 @@
       {
         "name": "Bed",
         "program": "bed",
-        "area": 9.14,
-        "size": "large",
-        "windows": 1,
-        "betweenness_centrality": 0.0,
-        "connectivity": "peripheral",
-        "id": "room-2"
-      },
-      {
-        "name": "Living",
-        "program": "living",
-        "area": 14.26,
-        "size": "large",
-        "windows": 1,
-        "betweenness_centrality": 0.9,
-        "connectivity": "central",
-        "id": "room-4"
-      },
-      {
-        "name": "Bath",
-        "program": "bath",
-        "area": 4.42,
-        "size": "large",
-        "windows": 1,
-        "betweenness_centrality": 0.0,
-        "connectivity": "peripheral",
-        "id": "room-5"
-      },
-      {
-        "name": "Dining",
-        "program": "dining",
-        "area": 7.54,
-        "size": "medium",
-        "windows": 1,
-        "betweenness_centrality": 0.4,
-        "connectivity": "connected",
-        "id": "room-6"
-      },
-      {
-        "name": "Kitchen",
-        "program": "kitchen",
-        "area": 2.76,
-        "size": "small",
-        "windows": 2,
-        "betweenness_centrality": 0.0,
-        "connectivity": "peripheral",
-        "id": "room-7"
-      }
-    ],
-    "edges": [
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-1",
-        "target": "room-4"
-      },
-      {
-        "edge_types": [
-          "adjacency"
-        ],
-        "source": "room-1",
-        "target": "room-2"
-      },
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-2",
-        "target": "room-4"
-      },
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-4",
-        "target": "room-5"
-      },
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-4",
-        "target": "room-6"
-      },
-      {
-        "edge_types": [
-          "adjacency"
-        ],
-        "source": "room-5",
-        "target": "room-6"
-      },
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-6",
-        "target": "room-7"
-      }
-    ]
-  },
-  "layout-3": {
-    "directed": false,
-    "multigraph": false,
-    "graph": {},
-    "nodes": [
-      {
-        "name": "Living",
-        "program": "living",
-        "area": 13.9,
-        "size": "medium",
-        "windows": 1,
-        "betweenness_centrality": 1.0,
-        "connectivity": "central",
-        "id": "room-1"
-      },
-      {
-        "name": "Bed",
-        "program": "bed",
-        "area": 9.24,
+        "area": 17.0843,
         "size": "large",
         "windows": 1,
         "betweenness_centrality": 0.0,
@@ -255,17 +32,119 @@
       {
         "name": "Extra",
         "program": "extra",
-        "area": 5.54,
+        "area": 4.9661,
         "size": "medium",
+        "windows": 0,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-3"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "area": 17.8555,
+        "size": "small",
+        "windows": 2,
+        "betweenness_centrality": 0,
+        "connectivity": "peripheral",
+        "id": "room-4"
+      }
+    ],
+    "edges": [
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-1",
+        "target": "room-2"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-2",
+        "target": "room-3"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-3",
+        "target": "room-4"
+      }
+    ]
+  },
+  "layout-2": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {
+      "total_area": 67.5001,
+      "shape": "rectangular",
+      "aspect_ratio": 1.2,
+      "compactness": 1.0
+    },
+    "nodes": [
+      {
+        "name": "Extra",
+        "program": "extra",
+        "area": 3.9364,
+        "size": "small",
+        "windows": 0,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bath",
+        "area": 5.6231,
+        "size": "medium",
+        "windows": 0,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-2"
+      },
+      {
+        "name": "Bed",
+        "program": "bed",
+        "area": 8.0378,
+        "size": "small",
         "windows": 1,
         "betweenness_centrality": 0.0,
         "connectivity": "peripheral",
         "id": "room-3"
       },
       {
+        "name": "Extra",
+        "program": "extra",
+        "area": 8.4052,
+        "size": "medium",
+        "windows": 0,
+        "betweenness_centrality": 0.9,
+        "connectivity": "central",
+        "id": "room-4"
+      },
+      {
         "name": "Bed",
         "program": "bed",
-        "area": 8.25,
+        "area": 12.2316,
         "size": "medium",
         "windows": 1,
         "betweenness_centrality": 0.0,
@@ -273,9 +152,326 @@
         "id": "room-5"
       },
       {
+        "name": "Living",
+        "program": "living",
+        "area": 29.266,
+        "size": "medium",
+        "windows": 2,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-6"
+      }
+    ],
+    "edges": [
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-1",
+        "target": "room-4"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-1",
+        "target": "room-2"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-2",
+        "target": "room-4"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-2",
+        "target": "room-6"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-3",
+        "target": "room-4"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-3",
+        "target": "room-5"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-3",
+        "target": "room-6"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-4",
+        "target": "room-5"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-4",
+        "target": "room-6"
+      }
+    ]
+  },
+  "layout-3": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {
+      "total_area": 122.3775,
+      "shape": "rectangular",
+      "aspect_ratio": 1.11,
+      "compactness": 1.0
+    },
+    "nodes": [
+      {
         "name": "Bath",
         "program": "bath",
-        "area": 2.9,
+        "area": 1.7287,
+        "size": "small",
+        "windows": 0,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-1"
+      },
+      {
+        "name": "Extra",
+        "program": "extra",
+        "area": 4.1077,
+        "size": "medium",
+        "windows": 0,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bath",
+        "area": 9.0802,
+        "size": "large",
+        "windows": 0,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-3"
+      },
+      {
+        "name": "Bed",
+        "program": "bed",
+        "area": 12.9275,
+        "size": "medium",
+        "windows": 1,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-4"
+      },
+      {
+        "name": "Extra",
+        "program": "extra",
+        "area": 13.6192,
+        "size": "large",
+        "windows": 0,
+        "betweenness_centrality": 1.0,
+        "connectivity": "central",
+        "id": "room-5"
+      },
+      {
+        "name": "Bed",
+        "program": "bed",
+        "area": 21.3792,
+        "size": "large",
+        "windows": 1,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-6"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "area": 59.535,
+        "size": "large",
+        "windows": 1,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-7"
+      }
+    ],
+    "edges": [
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-1",
+        "target": "room-5"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-1",
+        "target": "room-2"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-1",
+        "target": "room-7"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-2",
+        "target": "room-5"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-2",
+        "target": "room-7"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-3",
+        "target": "room-5"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-3",
+        "target": "room-6"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-4",
+        "target": "room-5"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-4",
+        "target": "room-6"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-4",
+        "target": "room-7"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-5",
+        "target": "room-6"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-5",
+        "target": "room-7"
+      }
+    ]
+  },
+  "layout-4": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {
+      "total_area": 112.5,
+      "shape": "rectangular",
+      "aspect_ratio": 2.0,
+      "compactness": 1.0
+    },
+    "nodes": [
+      {
+        "name": "Extra",
+        "program": "extra",
+        "area": 1.338,
+        "size": "small",
+        "windows": 0,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bath",
+        "area": 4.815,
+        "size": "medium",
+        "windows": 0,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bath",
+        "area": 5.5725,
+        "size": "medium",
+        "windows": 0,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-3"
+      },
+      {
+        "name": "Walkincloset",
+        "program": "walkincloset",
+        "area": 5.8275,
+        "size": "medium",
+        "windows": 0,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-4"
+      },
+      {
+        "name": "Bed",
+        "program": "bed",
+        "area": 11.5558,
+        "size": "medium",
+        "windows": 1,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-5"
+      },
+      {
+        "name": "Bed",
+        "program": "bed",
+        "area": 11.9358,
         "size": "medium",
         "windows": 1,
         "betweenness_centrality": 0.0,
@@ -283,11 +479,312 @@
         "id": "room-6"
       },
       {
-        "name": "Kitchen",
-        "program": "kitchen",
-        "area": 3.05,
-        "size": "medium",
+        "name": "Extra",
+        "program": "extra",
+        "area": 14.087,
+        "size": "large",
+        "windows": 0,
+        "betweenness_centrality": 0.8928571428571428,
+        "connectivity": "central",
+        "id": "room-7"
+      },
+      {
+        "name": "Bed",
+        "program": "bed",
+        "area": 19.3584,
+        "size": "large",
         "windows": 1,
+        "betweenness_centrality": 0.46428571428571425,
+        "connectivity": "central",
+        "id": "room-8"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "area": 38.01,
+        "size": "medium",
+        "windows": 2,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-9"
+      }
+    ],
+    "edges": [
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-1",
+        "target": "room-7"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-2",
+        "target": "room-8"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-2",
+        "target": "room-3"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-2",
+        "target": "room-4"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-3",
+        "target": "room-7"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-4",
+        "target": "room-8"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-5",
+        "target": "room-7"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-5",
+        "target": "room-6"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-5",
+        "target": "room-8"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-6",
+        "target": "room-7"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-6",
+        "target": "room-9"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-7",
+        "target": "room-8"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-7",
+        "target": "room-9"
+      }
+    ]
+  },
+  "layout-5": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {
+      "total_area": 66.15,
+      "shape": "rectangular",
+      "aspect_ratio": 3.75,
+      "compactness": 1.0
+    },
+    "nodes": [
+      {
+        "name": "Bath",
+        "program": "bath",
+        "area": 1.764,
+        "size": "small",
+        "windows": 0,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-1"
+      },
+      {
+        "name": "Bath",
+        "program": "bath",
+        "area": 8.0593,
+        "size": "large",
+        "windows": 0,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-2"
+      },
+      {
+        "name": "Extra",
+        "program": "extra",
+        "area": 4.7297,
+        "size": "medium",
+        "windows": 0,
+        "betweenness_centrality": 1.0,
+        "connectivity": "central",
+        "id": "room-3"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "area": 51.597,
+        "size": "large",
+        "windows": 1,
+        "betweenness_centrality": 0,
+        "connectivity": "peripheral",
+        "id": "room-4"
+      }
+    ],
+    "edges": [
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-1",
+        "target": "room-3"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-1",
+        "target": "room-2"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-2",
+        "target": "room-3"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-2",
+        "target": "room-4"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-3",
+        "target": "room-4"
+      }
+    ]
+  },
+  "layout-6": {
+    "directed": false,
+    "multigraph": false,
+    "graph": {
+      "total_area": 152.97220000000002,
+      "shape": "L-shape",
+      "aspect_ratio": 1.637,
+      "compactness": 0.924
+    },
+    "nodes": [
+      {
+        "name": "Bath",
+        "program": "bath",
+        "area": 2.0318,
+        "size": "small",
+        "windows": 0,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-1"
+      },
+      {
+        "name": "Extra",
+        "program": "extra",
+        "area": 4.8119,
+        "size": "medium",
+        "windows": 0,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-2"
+      },
+      {
+        "name": "Bath",
+        "program": "bath",
+        "area": 9.2816,
+        "size": "large",
+        "windows": 0,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-3"
+      },
+      {
+        "name": "Bed",
+        "program": "bed",
+        "area": 19.0984,
+        "size": "large",
+        "windows": 1,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-4"
+      },
+      {
+        "name": "Bed",
+        "program": "bed",
+        "area": 21.6153,
+        "size": "large",
+        "windows": 1,
+        "betweenness_centrality": 0.0,
+        "connectivity": "peripheral",
+        "id": "room-5"
+      },
+      {
+        "name": "Extra",
+        "program": "extra",
+        "area": 25.5505,
+        "size": "large",
+        "windows": 0,
+        "betweenness_centrality": 1.0,
+        "connectivity": "central",
+        "id": "room-6"
+      },
+      {
+        "name": "Living",
+        "program": "living",
+        "area": 70.5827,
+        "size": "large",
+        "windows": 4,
         "betweenness_centrality": 0.0,
         "connectivity": "peripheral",
         "id": "room-7"
@@ -304,7 +801,13 @@
       },
       {
         "edge_types": [
-          "access",
+          "adjacency"
+        ],
+        "source": "room-1",
+        "target": "room-2"
+      },
+      {
+        "edge_types": [
           "adjacency"
         ],
         "source": "room-1",
@@ -315,31 +818,30 @@
           "access",
           "adjacency"
         ],
-        "source": "room-1",
-        "target": "room-3"
-      },
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-1",
-        "target": "room-5"
-      },
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-1",
-        "target": "room-2"
+        "source": "room-2",
+        "target": "room-6"
       },
       {
         "edge_types": [
           "adjacency"
         ],
         "source": "room-2",
-        "target": "room-5"
+        "target": "room-4"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-2",
+        "target": "room-7"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-3",
+        "target": "room-6"
       },
       {
         "edge_types": [
@@ -350,339 +852,41 @@
       },
       {
         "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-4",
+        "target": "room-6"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-4",
+        "target": "room-5"
+      },
+      {
+        "edge_types": [
+          "adjacency"
+        ],
+        "source": "room-4",
+        "target": "room-7"
+      },
+      {
+        "edge_types": [
+          "access",
+          "adjacency"
+        ],
+        "source": "room-5",
+        "target": "room-6"
+      },
+      {
+        "edge_types": [
+          "access",
           "adjacency"
         ],
         "source": "room-6",
         "target": "room-7"
-      }
-    ]
-  },
-  "layout-4": {
-    "directed": false,
-    "multigraph": false,
-    "graph": {},
-    "nodes": [
-      {
-        "name": "Bed",
-        "program": "bed",
-        "area": 6.71,
-        "size": "small",
-        "windows": 1,
-        "betweenness_centrality": 0.0,
-        "connectivity": "peripheral",
-        "id": "room-1"
-      },
-      {
-        "name": "Bath",
-        "program": "bath",
-        "area": 3.85,
-        "size": "medium",
-        "windows": 1,
-        "betweenness_centrality": 0.0,
-        "connectivity": "peripheral",
-        "id": "room-2"
-      },
-      {
-        "name": "Bed",
-        "program": "bed",
-        "area": 6.93,
-        "size": "small",
-        "windows": 1,
-        "betweenness_centrality": 0.0,
-        "connectivity": "peripheral",
-        "id": "room-3"
-      },
-      {
-        "name": "Kitchen",
-        "program": "kitchen",
-        "area": 4.5,
-        "size": "large",
-        "windows": 1,
-        "betweenness_centrality": 0.0,
-        "connectivity": "peripheral",
-        "id": "room-4"
-      },
-      {
-        "name": "Living",
-        "program": "living",
-        "area": 13.39,
-        "size": "medium",
-        "windows": 1,
-        "betweenness_centrality": 1.0,
-        "connectivity": "central",
-        "id": "room-5"
-      }
-    ],
-    "edges": [
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-1",
-        "target": "room-5"
-      },
-      {
-        "edge_types": [
-          "adjacency"
-        ],
-        "source": "room-1",
-        "target": "room-2"
-      },
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-2",
-        "target": "room-5"
-      },
-      {
-        "edge_types": [
-          "adjacency"
-        ],
-        "source": "room-2",
-        "target": "room-3"
-      },
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-3",
-        "target": "room-5"
-      },
-      {
-        "edge_types": [
-          "adjacency"
-        ],
-        "source": "room-3",
-        "target": "room-4"
-      },
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-4",
-        "target": "room-5"
-      }
-    ]
-  },
-  "layout-5": {
-    "directed": false,
-    "multigraph": false,
-    "graph": {},
-    "nodes": [
-      {
-        "name": "Bed",
-        "program": "bed",
-        "area": 9.15,
-        "size": "large",
-        "windows": 2,
-        "betweenness_centrality": 0.0,
-        "connectivity": "peripheral",
-        "id": "room-1"
-      },
-      {
-        "name": "Bed",
-        "program": "bed",
-        "area": 8.1,
-        "size": "medium",
-        "windows": 1,
-        "betweenness_centrality": 0.0,
-        "connectivity": "peripheral",
-        "id": "room-2"
-      },
-      {
-        "name": "Bath",
-        "program": "bath",
-        "area": 2.61,
-        "size": "medium",
-        "windows": 1,
-        "betweenness_centrality": 0.0,
-        "connectivity": "peripheral",
-        "id": "room-3"
-      },
-      {
-        "name": "Kitchen",
-        "program": "kitchen",
-        "area": 2.79,
-        "size": "small",
-        "windows": 1,
-        "betweenness_centrality": 0.0,
-        "connectivity": "peripheral",
-        "id": "room-4"
-      },
-      {
-        "name": "Living",
-        "program": "living",
-        "area": 10.81,
-        "size": "medium",
-        "windows": 1,
-        "betweenness_centrality": 1.0,
-        "connectivity": "central",
-        "id": "room-5"
-      }
-    ],
-    "edges": [
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-1",
-        "target": "room-5"
-      },
-      {
-        "edge_types": [
-          "adjacency"
-        ],
-        "source": "room-1",
-        "target": "room-2"
-      },
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-2",
-        "target": "room-5"
-      },
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-3",
-        "target": "room-5"
-      },
-      {
-        "edge_types": [
-          "adjacency"
-        ],
-        "source": "room-3",
-        "target": "room-4"
-      },
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-4",
-        "target": "room-5"
-      }
-    ]
-  },
-  "layout-6": {
-    "directed": false,
-    "multigraph": false,
-    "graph": {},
-    "nodes": [
-      {
-        "name": "Bath",
-        "program": "bath",
-        "area": 3.4,
-        "size": "medium",
-        "windows": 1,
-        "betweenness_centrality": 0.0,
-        "connectivity": "peripheral",
-        "id": "room-1"
-      },
-      {
-        "name": "Kitchen",
-        "program": "kitchen",
-        "area": 3.2,
-        "size": "medium",
-        "windows": 1,
-        "betweenness_centrality": 0.0,
-        "connectivity": "peripheral",
-        "id": "room-2"
-      },
-      {
-        "name": "Living",
-        "program": "living",
-        "area": 8.33,
-        "size": "small",
-        "windows": 2,
-        "betweenness_centrality": 1.0,
-        "connectivity": "central",
-        "id": "room-3"
-      },
-      {
-        "name": "Bed",
-        "program": "bed",
-        "area": 7.83,
-        "size": "medium",
-        "windows": 1,
-        "betweenness_centrality": 0.0,
-        "connectivity": "peripheral",
-        "id": "room-4"
-      },
-      {
-        "name": "Bed",
-        "program": "bed",
-        "area": 7.16,
-        "size": "medium",
-        "windows": 1,
-        "betweenness_centrality": 0.0,
-        "connectivity": "peripheral",
-        "id": "room-5"
-      }
-    ],
-    "edges": [
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-1",
-        "target": "room-3"
-      },
-      {
-        "edge_types": [
-          "adjacency"
-        ],
-        "source": "room-1",
-        "target": "room-4"
-      },
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-2",
-        "target": "room-3"
-      },
-      {
-        "edge_types": [
-          "adjacency"
-        ],
-        "source": "room-2",
-        "target": "room-5"
-      },
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-3",
-        "target": "room-4"
-      },
-      {
-        "edge_types": [
-          "access",
-          "adjacency"
-        ],
-        "source": "room-3",
-        "target": "room-5"
-      },
-      {
-        "edge_types": [
-          "adjacency"
-        ],
-        "source": "room-4",
-        "target": "room-5"
       }
     ]
   }
