@@ -38,14 +38,24 @@ export const DAYLIGHT_PALETTE = [
   { max: Infinity, color: '#D94020' },
 ]
 
+export function toNumericValue(value) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
 /**
  * Returns the palette hex colour for a given Daylight Autonomy value (0–1).
  * @param {number} value  DA value
  * @returns {string}      hex colour string
  */
 export function getDaylightColor(value) {
+  const numericValue = toNumericValue(value) ?? 0
   for (const stop of DAYLIGHT_PALETTE) {
-    if (value <= stop.max) return stop.color
+    if (numericValue <= stop.max) return stop.color
   }
   return DAYLIGHT_PALETTE[DAYLIGHT_PALETTE.length - 1].color
 }
@@ -56,8 +66,9 @@ export function getDaylightColor(value) {
  * @returns {string}  e.g. "0.42 DA"
  */
 export function formatDaylight(value) {
-  if (value == null) return '–'
-  return `${value.toFixed(2)} DA`
+  const numericValue = toNumericValue(value)
+  if (numericValue == null) return '–'
+  return `${numericValue.toFixed(2)} DA`
 }
 
 // ─── Layout (program) palette ─────────────────────────────────────────────────
@@ -81,7 +92,7 @@ export const PROGRAM_COLORS = {
  */
 export function getRoomColor(room, viewMode) {
   if (viewMode === 'daylight') {
-    return getDaylightColor(room.attributes?.daylight ?? 0)
+    return getDaylightColor(room.attributes?.daylight)
   }
   return PROGRAM_COLORS[room.attributes?.program] ?? '#ddd'
 }
@@ -98,6 +109,6 @@ export function getRoomSecondaryLabel(room, viewMode) {
     return formatDaylight(room.attributes?.daylight)
   }
   if (viewMode === 'routine') return ''
-  const area = room.attributes?.area
+  const area = toNumericValue(room.attributes?.area)
   return area != null ? `${area.toFixed(1)} m²` : ''
 }
