@@ -66,6 +66,14 @@ function attachExploreResults(layout) {
   }
 }
 
+function attachRoutine(layout, routine = null) {
+  if (!layout) return null
+  return {
+    ...layout,
+    routine: routine ?? layout.routine ?? null
+  }
+}
+
 onMounted(async () => {
   await startFreshSession()
   chatHistory.value = []
@@ -85,13 +93,13 @@ async function handleLayoutLoaded(json) {
   }
 
   if (json) {
-    agentState.value = attachExploreResults({
+    agentState.value = attachRoutine(attachExploreResults({
       layoutId: json.layoutId || 'Boundary',
       outline: json.outline || json.apartment?.geometry || [],
       rooms: json.rooms || [],
       attributes: json.apartment?.attributes || {},
       evaluation: null
-    })
+    }), null)
   } else {
     agentState.value = null
   }
@@ -103,12 +111,15 @@ function applyAgentResponse(response) {
     exploreResults.value = Array.isArray(response.search_results) ? response.search_results : []
   }
   if (response.layout) {
-    const layoutWithEvaluation = attachExploreResults({ ...response.layout, evaluation: response.evaluation ?? null })
+    const layoutWithEvaluation = attachRoutine(
+      attachExploreResults({ ...response.layout, evaluation: response.evaluation ?? null }),
+      response.routine ?? null
+    )
     agentState.value = layoutWithEvaluation
     layoutHistory.value.push({ ...layoutWithEvaluation, _savedAt: new Date().toISOString() })
     if (layoutHistory.value.length > 15) layoutHistory.value.shift()
   } else if (agentState.value) {
-    agentState.value = attachExploreResults(agentState.value)
+    agentState.value = attachRoutine(attachExploreResults(agentState.value), response.routine ?? agentState.value.routine ?? null)
   }
   pushChatMessage('agent', response.message)
 }
@@ -121,17 +132,19 @@ function applyPartialResponse(response) {
     exploreResults.value = Array.isArray(response.search_results) ? response.search_results : []
   }
   if (response.layout) {
-    agentState.value = attachExploreResults({
+    agentState.value = attachRoutine(attachExploreResults({
       ...response.layout,
       evaluation: response.evaluation ?? agentState.value?.evaluation ?? null
-    })
+    }), response.routine ?? agentState.value?.routine ?? null)
+  } else if (response.routine && agentState.value) {
+    agentState.value = attachRoutine(attachExploreResults(agentState.value), response.routine)
   } else if (response.evaluation && agentState.value) {
-    agentState.value = attachExploreResults({
+    agentState.value = attachRoutine(attachExploreResults({
       ...agentState.value,
       evaluation: response.evaluation
-    })
+    }), response.routine ?? agentState.value?.routine ?? null)
   } else if (agentState.value) {
-    agentState.value = attachExploreResults(agentState.value)
+    agentState.value = attachRoutine(attachExploreResults(agentState.value), response.routine ?? agentState.value?.routine ?? null)
   }
 }
 

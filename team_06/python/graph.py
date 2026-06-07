@@ -10,6 +10,7 @@ from nodes.adapt import build_adapt_node
 from nodes.evaluate import build_evaluate_node
 from nodes.feedback import build_feedback_node
 from nodes.daylight import build_daylight_node
+from nodes.routine import build_routine_node
 
 
 # =============================================================================
@@ -29,6 +30,7 @@ STATUS_MESSAGES = {
     "adapt": "Adapting the layout to the provided boundary.",
     "daylight": "Running daylight analysis.",
     "evaluate": "Evaluating layout fit.",
+    "routine": "Generating daily routine.",
     "feedback": "Preparing the response.",
 }
 
@@ -53,6 +55,7 @@ class AgentState(TypedDict, total=False):
     search_results_json_string: str | None         # Search candidates
     layout_id: str | None         # Layout ID to be selected
     evaluation_json_string: str | None             # NEW - evaluation results
+    routine_json_string: str | None                # Routine visualization payload
     adaptation_issues: list[str] | None           # Validation or tool issues collected during adaptation
     adaptation_failed: bool | None                # Whether adaptation failed and the graph fell back to the selected layout
     #-----------results from nodes (for routing)-----------
@@ -125,6 +128,7 @@ def _session_from_state(state: AgentState) -> dict[str, Any]:
         "topology_graph_json_string": state.get("topology_graph_json_string"),
         "search_results_json_string": state.get("search_results_json_string"),
         "evaluation_json_string": state.get("evaluation_json_string"),
+        "routine_json_string": state.get("routine_json_string"),
         "feedback_history": state.get("feedback_history", []),
         "needs_user_input": state.get("needs_user_input", False),
         "forced_layout_id": state.get("forced_layout_id"),
@@ -142,6 +146,7 @@ def build_graph(ctx: Any, status_callback: Callable[[list[str], dict[str, Any] |
     daylight = build_daylight_node(ctx.mcp_client)
     evaluate = build_evaluate_node(ctx.llm)
     feedback = build_feedback_node()
+    routine = build_routine_node(ctx.llm)
     
     def make_instrumented_node(node_fn, node_name):
         def instrumented_wrapper(state):
@@ -166,6 +171,7 @@ def build_graph(ctx: Any, status_callback: Callable[[list[str], dict[str, Any] |
     workflow.add_node("adapt", make_instrumented_node(adapt, "adapt"))
     workflow.add_node("daylight", make_instrumented_node(daylight, "daylight"))
     workflow.add_node("evaluate", make_instrumented_node(evaluate, "evaluate"))
+    workflow.add_node("routine", make_instrumented_node(routine, "routine"))
     workflow.add_node("feedback", make_instrumented_node(feedback, "feedback"))
     
     workflow.add_edge(START, "preprocess")
@@ -200,7 +206,8 @@ def build_graph(ctx: Any, status_callback: Callable[[list[str], dict[str, Any] |
         "evaluate": "evaluate",
         "feedback": "feedback"
     })
-    workflow.add_edge("evaluate", "feedback")
+    workflow.add_edge("evaluate", "routine")
+    workflow.add_edge("routine", "feedback")
     
     app = workflow.compile()
     app._status_updates = status_updates
@@ -270,6 +277,7 @@ def _build_initial_state(prompt: str, ctx: Any, session: dict | None = None) -> 
         "search_results_json_string": session.get("search_results_json_string"),
         "layout_id": session.get("layout_id"),
         "evaluation_json_string": session.get("evaluation_json_string"),
+        "routine_json_string": session.get("routine_json_string"),
         "preprocess_result": None,
         "reason_result": None,
         "search_result": None,

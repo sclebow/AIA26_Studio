@@ -105,6 +105,11 @@ def _parse_evaluation(raw_evaluation: str | None) -> dict[str, Any] | None:
     return payload or None
 
 
+def _parse_routine(raw_routine: str | None) -> dict[str, Any] | None:
+    payload = _safe_json_loads(raw_routine)
+    return payload or None
+
+
 def _load_layout_by_id(layout_id: str) -> dict[str, Any] | None:
     repo_root = Path(__file__).resolve().parent.parent
     pf_path = repo_root / "layout_inputs" / "Planfinder_Dataset" / "pf_jsons" / f"{layout_id}.json"
@@ -269,6 +274,7 @@ def _build_chat_payload(session_id: str, response: str, updated_session: dict[st
         "brief": _build_brief(updated_session.get("topology_graph_json_string")),
         "layout": _parse_layout(updated_session.get("layout_json_string")),
         "evaluation": _parse_evaluation(updated_session.get("evaluation_json_string")),
+        "routine": _parse_routine(updated_session.get("routine_json_string")),
         "search_results": _parse_search_results(updated_session.get("search_results_json_string")),
         "needs_user_input": updated_session.get("needs_user_input", False),
         "status_messages": updated_session.get("status_messages", []),
@@ -281,6 +287,7 @@ def _build_partial_payload(session_id: str, updated_session: dict[str, Any]) -> 
         "brief": _build_brief(updated_session.get("topology_graph_json_string")),
         "layout": _parse_layout(updated_session.get("layout_json_string")),
         "evaluation": _parse_evaluation(updated_session.get("evaluation_json_string")),
+        "routine": _parse_routine(updated_session.get("routine_json_string")),
         "search_results": _parse_search_results(updated_session.get("search_results_json_string")),
         "needs_user_input": updated_session.get("needs_user_input", False),
         "status_messages": updated_session.get("status_messages", []),
