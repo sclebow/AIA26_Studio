@@ -31,30 +31,43 @@ from adapters.analysis_adapter import run_collision, run_path_analysis
 # Routing — is this chat message a spatial / observer / visibility question?
 # ---------------------------------------------------------------------------
 
-_SPATIAL_KEYWORDS = (
-    # observer / person  ("person" also covers persona / personaje)
-    "person", "persona", "observ", "observer", "coloca un personaje",
-    # visibility
-    "visibil", "visibility", "isovist", "sightline", "line of sight",
-    "linea de vista", "línea de vista", "line-of-sight",
-    "vista", "view", " ve ", "se ve", "no se ve", "puedo ver", "que veo",
-    "qué veo", "what can i see", "what do i see", "field of view",
-    # occlusion / blocking
+# STRONG signals are observer-specific: they should reach this assistant even when
+# a LangGraph pipeline run is paused at a checkpoint (and abort that run), because
+# they unambiguously mean "do something with the person/observer".
+_STRONG_SPATIAL = (
+    "person", "persona", "personaje", "observ", "observer",
+    "isovist", "sightline", "line of sight", "line-of-sight",
+    "linea de vista", "línea de vista",
+)
+
+# WEAK signals (visibility / path wording) are routed to this assistant only when
+# NO pipeline run is active — otherwise they'd hijack a real checkpoint decision
+# like "make the path wider".
+_WEAK_SPATIAL = (
+    "visibil", "visibility", "vista", "view", "se ve", "no se ve", "puedo ver",
+    "que veo", "qué veo", "what can i see", "what do i see", "field of view",
     "oculta", "oculto", "ocultos", "ocultas", "obstru", "obstruct",
     "bloquea", "bloquean", "block my view", "blocks my view", "blocking",
     "tapan", "tapa la vista",
-    # path
     "path", "camino", "ruta", "recorrido", "trayecto",
 )
 
 
-def is_spatial_query(text: str) -> bool:
-    """Heuristic: does this message want observer/visibility/path analysis?
-    (Used to route to this assistant instead of the LangGraph pipeline.)"""
+def is_strong_spatial_query(text: str) -> bool:
+    """Observer-specific intent that should override / abort an active pipeline run."""
     if not text:
         return False
     t = f" {text.lower()} "
-    return any(k in t for k in _SPATIAL_KEYWORDS)
+    return any(k in t for k in _STRONG_SPATIAL)
+
+
+def is_spatial_query(text: str) -> bool:
+    """Heuristic: does this message want observer/visibility/path analysis?
+    (Used to route to this assistant when no pipeline run is active.)"""
+    if not text:
+        return False
+    t = f" {text.lower()} "
+    return any(k in t for k in _STRONG_SPATIAL) or any(k in t for k in _WEAK_SPATIAL)
 
 
 # ---------------------------------------------------------------------------
@@ -158,6 +171,45 @@ def _door_point_for_room(layout: dict, room: dict) -> Optional[Tuple[float, floa
     return (mid[0] + dx / n * 0.6, mid[1] + dy / n * 0.6)
 
 
+def _find_object(layout: dict, text: str) -> Optional[Tuple[str, dict]]:
+    """Best furniture/MEP item whose name overlaps the text (e.g. 'assembly
+    station 1', 'the toilet'). Returns (type, item) or None."""
+    t = (text or "").lower()
+    best: Optional[Tuple[str, dict]] = None
+    best_score = 0
+    for ktype in ("furniture", "mep"):
+        for o in layout.get(ktype, []) or []:
+            name = (o.get("name") or "").lower()
+            if not name:
+                continue
+            score = 0
+            for w in name.replace("-", " ").split():
+                if len(w) >= 3 and w in t:
+                    score += 1
+            if name in t:        # exact name present → strong disambiguator
+                score += 3
+            if score > best_score:
+                best_score, best = score, (ktype, o)
+    return best if best_score > 0 else None
+
+
+def _object_point(layout: dict, item: dict) -> Optional[Tuple[float, float]]:
+    """A point ~1.2 m from an object's centroid toward its room centre, so an
+    observer stands NEXT to it (not inside its footprint, which would be blind)."""
+    c = isovist._centroid(item.get("geometry"))
+    if not c:
+        return None
+    rid = (item.get("attributes") or {}).get("roomId")
+    room = _room_of(layout, rid) if rid else None
+    rc = _room_centroid(room) if room else None
+    if rc:
+        dx, dy = rc[0] - c[0], rc[1] - c[1]
+        n = math.hypot(dx, dy)
+        if n > 1e-6:
+            return (c[0] + dx / n * 1.2, c[1] + dy / n * 1.2)
+    return (c[0] + 1.2, c[1])
+
+
 def resolve_location(layout: dict, text: str) -> Tuple[Optional[Tuple[float, float]], Optional[str]]:
     """Resolve a natural-language location to (x, y) + a human label."""
     t = (text or "").lower().strip()
@@ -172,6 +224,14 @@ def resolve_location(layout: dict, text: str) -> Tuple[Optional[Tuple[float, flo
         p = _door_point_for_room(layout, room)
         if p:
             return p, f"entrance of {room.get('name')}"
+
+    # A named furniture/MEP item ("assembly station 1", "the toilet") — stand next
+    # to it. Checked before the room centroid so "near assembly station 1" wins.
+    obj = _find_object(layout, t)
+    if obj and not (room and room.get("name", "").lower() in t):
+        p = _object_point(layout, obj[1])
+        if p:
+            return p, f"near {obj[1].get('name')}"
 
     if room:
         c = _room_centroid(room)
@@ -344,16 +404,19 @@ def _analyze_path(layout: dict) -> Dict[str, Any]:
 TOOLS = [
     {
         "name": "place_person",
-        "description": "Place a person/observer at a location and analyze visibility: "
-                       "which objects are visible vs hidden, and which furniture blocks the "
-                       "line of sight. Use for requests like 'place a person in the center of "
-                       "the room' or 'put an observer at the warehouse entrance'.",
+        "description": "Place OR MOVE the person/observer to a location and analyze visibility "
+                       "(which objects are visible vs hidden, which furniture blocks the line of "
+                       "sight). Re-placing moves the existing person — use this for 'place a "
+                       "person in the center of the room', 'move the person to the warehouse "
+                       "entrance', 'move the person near assembly station 1'. The location can be "
+                       "a room, a door/entrance, or a furniture/MEP item by name.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "location": {"type": "string",
                              "description": "Natural-language location, e.g. 'center of the "
-                                            "workshop', 'bathroom', 'entrance of the warehouse'."}
+                                            "workshop', 'bathroom', 'entrance of the warehouse', "
+                                            "'near assembly station 1', 'the toilet'."}
             },
             "required": ["location"],
         },
@@ -413,10 +476,13 @@ def _system_prompt(layout: dict, observer: Optional[dict]) -> str:
         f"Current layout rooms: {', '.join(rooms) or 'unknown'}. "
         f"Furniture items: {nf}, MEP items: {nm}. Observer currently: {obs}.\n\n"
         "Guidelines:\n"
-        "- If the user asks about a person/observer they ALREADY placed, call analyze_visibility "
-        "(do NOT place a new one).\n"
-        "- To place a new person, call place_person with a location. To create a route, call "
-        "start_path with from/to.\n"
+        "- If the user asks about a person/observer they ALREADY placed (without naming a new "
+        "spot), call analyze_visibility.\n"
+        "- To place OR MOVE the person, call place_person with the destination — re-placing "
+        "moves the existing person (e.g. 'move the person near assembly station 1' → "
+        "place_person(location='assembly station 1')). To create a route, call start_path.\n"
+        "- The location can be a room, an entrance/door, or a furniture/MEP item by name. If a "
+        "destination is genuinely missing ('move the person there'), ask for it.\n"
         "- 'blockers' are movable furniture/MEP that hide other objects from the observer; "
         "'hidden' are objects with no clear line of sight.\n"
         "- After the tool runs, answer the user in clear, concise prose. Give concrete counts "

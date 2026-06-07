@@ -184,8 +184,17 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             if msg_type == "chat_message":
                 content = data.get("content", "")
                 if agent_runner.is_active():
-                    # A run is in progress → feed the message to the checkpoint.
-                    agent_runner.submit_decision(content)
+                    # A pipeline run is paused at its checkpoint. A STRONG observer
+                    # intent ("move the person", "place an observer") means the user
+                    # switched to spatial work → abort the stale run and handle it,
+                    # so the pipeline can't keep eating every message. Weak wording
+                    # (path/view) stays a checkpoint decision so we don't hijack a
+                    # real placement run.
+                    if spatial_assistant.is_strong_spatial_query(content):
+                        agent_runner.abort_session(websocket)
+                        await _handle_spatial(content, websocket)
+                    else:
+                        agent_runner.submit_decision(content)
                 elif spatial_assistant.is_spatial_query(content):
                     # Observer / visibility / path question → lightweight assistant
                     # (pure Python, no Rhino). Draws into the viewport + answers.

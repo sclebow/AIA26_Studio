@@ -332,16 +332,21 @@ The Agent chat **auto-routes** observer/visibility/path questions to a lightweig
 Python (`isovist.py` + `adapters/analysis_adapter.py`) so it **works even when Rhino/Swiftlet
 is down** and answers in real time, drawing the result in the 3D viewport.
 
-- **Routing** (`server.py` `/ws` `chat_message`): if no pipeline run is active and
-  `spatial_assistant.is_spatial_query(text)` matches (keywords: person/persona, observ,
-  visibil/vista/view, obstru/bloquea/oculto, path/camino/ruta…) → `_handle_spatial`;
-  otherwise the message starts/feeds the normal pipeline. Other text (e.g. "place a cnc in
-  the workshop") still goes to LangGraph.
-- **Tools** (Anthropic tool-use, active model): `place_person(location)`,
-  `start_path(from,to)`, `analyze_visibility()` (uses the observer already placed),
-  `analyze_collisions()`, `analyze_path()`. Locations are resolved from layout geometry
-  (`resolve_location`: room centroid, door/entrance, ES/EN synonyms — baño→bathroom,
-  almacén→warehouse, …).
+- **Routing** (`server.py` `/ws` `chat_message`) is two-tier so a paused pipeline run can't
+  monopolize the chat:
+  - **Strong** observer intent (`is_strong_spatial_query`: person/observer/isovist/sightline)
+    is always handled by the assistant, and if a pipeline run is paused at a checkpoint it is
+    **aborted** first (the user switched to observer work).
+  - **Weak** wording (`is_spatial_query` adds visibil/vista/view/obstru/path/camino/ruta…) is
+    routed to the assistant only when **no** pipeline run is active — otherwise it stays a
+    checkpoint decision (so "make the path wider" isn't hijacked).
+  - Everything else starts/feeds the LangGraph pipeline ("place a cnc in the workshop").
+- **Tools** (Anthropic tool-use, active model): `place_person(location)` (also **moves/
+  re-places** the existing person), `start_path(from,to)`, `analyze_visibility()` (uses the
+  observer already placed), `analyze_collisions()`, `analyze_path()`. Locations are resolved
+  from layout geometry (`resolve_location`): room centroid, door/entrance, **furniture/MEP
+  item by name** ("near assembly station 1", "the toilet" → a point ~1.2 m beside it, not
+  inside its footprint), and ES/EN synonyms (baño→bathroom, almacén→warehouse, …).
 - **Obstruction analysis** (`isovist.analyze_obstructions` / `_path`): from an observer,
   classifies every furniture/MEP as **visible** or **hidden**, and reports the movable
   **blockers** that occlude others (e.g. "Conveyor Section 10 hides Assembly Station 1").
