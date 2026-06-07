@@ -26,7 +26,7 @@ const hasDaylight = computed(() =>
   (props.agentState?.rooms ?? []).some(r => r.attributes?.daylight != null)
 )
 
-const hasRoutine = computed(() => !!props.parsedInput?.routine)
+const hasRoutine = computed(() => false)
 
 function onViewChange(mode) {
   viewMode.value = mode
@@ -57,7 +57,7 @@ function exportLayout() {
           <div class="canvas-container">
             <LayoutCanvas :layout="props.agentState" :viewMode="viewMode" :activeRooms="activeRooms" :activeStep="activeStep" />
           </div>
-          <LayoutCard :layout="props.agentState" :viewMode="viewMode" :routine="props.parsedInput?.routine ?? null" @activeRoomsChange="activeRooms = $event" @timeStepChange="activeStep = $event" />
+          <LayoutCard :layout="props.agentState" :viewMode="viewMode" :routine="null" @activeRoomsChange="activeRooms = $event" @timeStepChange="activeStep = $event" />
         </div>
       </template>
       <div v-else class="welcome-screen">

@@ -29,9 +29,9 @@ Each browser session maps to a server-side session dict that persists across tur
 # graph.py — what survives between turns (returned by run_agent)
 session = {
     "layout_json_string":          str,   # current working layout
+  "input_layout_json_string":    str,   # uploaded boundary / outline JSON
     "topology_graph_json_string":  str,   # topology for search
     "search_results_json_string":  str,   # scored candidates
-    "parsed_prompt":               str,   # households, rooms, etc.
     "feedback_history":            list,  # all user messages so far
 }
 ```
@@ -57,13 +57,18 @@ Main turn endpoint. Accepts a user message plus optional session context.
 **Response**
 ```json
 {
+  "session_id": "abc-123",
   "message": "Here is a layout with 2 bedrooms…",
-  "parsed_prompt": {
-    "households": 2,
-    "activities": ["sleeping", "working"],
-    "rooms": ["bedroom", "bedroom", "study"],
-    "extras": [],
-    "brief": "2 bedrooms, 1 study"
+  "brief": {
+    "rooms": [
+      { "name": "bedroom", "count": 2, "label": "2 x bedroom" },
+      { "name": "study", "count": 1, "label": "study" }
+    ],
+    "access": ["bedroom - bathroom"],
+    "adjacency": ["kitchen - dining"],
+    "separation": [],
+    "description": "workspace for two adults",
+    "summary": "workspace for two adults"
   },
   "layout": {
     "layoutId": "Layout-001",
@@ -85,7 +90,9 @@ Main turn endpoint. Accepts a user message plus optional session context.
 ```
 
 - `layout` is `null` if the agent is still asking clarification questions.
-- `parsed_prompt` is `null` until the reason node completes parsing.
+- `brief` is `null` until the reason node produces useful topology/search input.
+- The frontend Brief tab should only display rooms, room relationships, and description.
+- Household-specific fields and routine output are intentionally out of scope for the current backend contract.
 
 ---
 
@@ -117,8 +124,7 @@ or as JSON:
 ```python
 # In the session dict:
 session["input_layout_json_string"] = json.dumps(uploaded_layout)
-# graph.py already reads this in _build_initial_state:
-#   input_layout_json = session.get("input_layout_json_string")
+# graph.py reads this value from the session in _build_initial_state
 ```
 
 ---
@@ -176,7 +182,36 @@ Clears the server-side session (called by frontend "New Chat").
 | `feedback_history` (agent reasoning) | **Backend session** | Used by LangGraph nodes to avoid repeating questions |
 | Past sessions (cross-reload) | Neither (future) | Requires DB; skip for now |
 
-The frontend `layoutHistory` array in `App.vue` is populated whenever a layout arrives from the backend — it is **never sent back** to the backend (except via `/restore-layout` when the user explicitly restores one).
+The frontend `layoutHistory` array in `App.vue` is populated whenever a layout arrives from the backend — it is **never sent back** to the backend (except via `/restore-layout` when the user explicitly restores one). Uploaded boundary files should not be added to history.
+
+---
+
+## Current Team 06 Contract
+
+- Backend entrypoint: `team_06/python/app.py`
+- Frontend API client: `team_06/frontend/src/api/agentClient.js`
+- `/chat` returns `brief`, not `parsed_prompt`
+- `brief` is derived from `topology_graph_json_string`
+- Routine visualization stays disabled for now
+
+### Run Locally
+
+Backend:
+```powershell
+cd team_06/python
+..\..\.venv\Scripts\python.exe -m uvicorn app:app --reload
+```
+
+Frontend:
+```powershell
+cd team_06/frontend
+npm run dev
+```
+
+Optional frontend env override:
+```powershell
+$env:VITE_API_BASE_URL = "http://127.0.0.1:8000"
+```
 
 ---
 
@@ -329,8 +364,8 @@ const sessionId = sessionStorage.getItem('sessionId') ?? (() => {
 ### 2. Replace `getAgentResponse` mock (App.vue)
 
 ```js
-// src/api/agent.js  (new file)
-const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:5000'
+// src/api/agentClient.js  (new file)
+const BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'
 
 export async function sendMessage(sessionId, message) {
   const res = await fetch(`${BASE}/chat`, {
@@ -338,7 +373,7 @@ export async function sendMessage(sessionId, message) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ session_id: sessionId, message })
   })
-  return res.json()   // { message, parsed_prompt, layout, suggested_prompts }
+  return res.json()   // { session_id, message, brief, layout }
 }
 
 export async function uploadLayout(sessionId, layoutJson) {
@@ -407,7 +442,7 @@ async function handleNewChat() {
 ### 6. `.env` file (frontend)
 
 ```
-VITE_API_URL=http://localhost:5000
+VITE_API_BASE_URL=http://127.0.0.1:8000
 ```
 
 ---
@@ -453,75 +488,22 @@ Every `/chat` and `/sidebar-add` response must follow this shape:
 
 ---
 
-### `parsedInput` object
+### `brief` object
 
 ```json
 {
-  "households": [
-    {
-      "name":         "John",
-      "relationship": "self",
-      "workStyle":    "office"
-    },
-    {
-      "name":         "Sarah",
-      "relationship": "partner",
-      "workStyle":    "home"
-    }
-  ],
-  "activities": [
-    { "type": "Cooking", "time": "often" },
-    { "type": "Work",    "time": "weekdays" }
-  ],
   "rooms": [
-    { "id": 1, "name": "Kitchen",  "size": "medium" },
-    { "id": 2, "name": "Living",   "size": "medium" },
-    { "id": 3, "name": "Bedroom",  "size": "double" },
-    { "id": 4, "name": "Bathroom", "size": "small"  }
+    { "name": "kitchen", "count": 1, "label": "kitchen" },
+    { "name": "bedroom", "count": 2, "label": "2 x bedroom" }
   ],
-  "extras": ["We have a dog", "We love natural light"],
-  "brief":  "John and Sarah live together. They enjoy cooking. …",
-  "routine": [ … ]
+  "access": ["kitchen - living"],
+  "adjacency": ["bedroom - bathroom"],
+  "separation": ["bedroom - kitchen"],
+  "description": "quiet workspace and natural light",
+  "summary": "quiet workspace and natural light"
 }
 ```
-
-#### `households[].workStyle`
-
-Controls the routine schedule generated for each persona.
-
-| Value      | Meaning                                        |
-|------------|------------------------------------------------|
-| `"office"` | Leaves home 10:00–16:00, home for dinner/sleep |
-| `"home"`   | Works from home; uses study 10:00–16:00        |
-| `"none"`   | No formal work; relaxes/cooks at home all day  |
-
-If omitted, frontend defaults to `"none"`.
-
----
-
-### `routine` array (inside `parsedInput`)
-
-The backend generates the routine and embeds it inside `parsedInput`.
-Room IDs in `steps` **must match** the `id` values in the companion `layout.rooms` array.
-
-```json
-[
-  {
-    "persona": "John",
-    "color":   "#4A7CA8",
-    "steps": [
-      "1",   "2",   null,  null,  null,  null,  "3",   "4",   "1"
-    ]
-  },
-  {
-    "persona": "Sarah",
-    "color":   "#E07B54",
-    "steps": [
-      "1",   "3",   "5",   "3",   "5",   "5",   "3",   "4",   "1"
-    ]
-  }
-]
-```
+Routine output is intentionally omitted for now. The toolbar entry can remain visible but disabled until the backend exposes a dedicated routine payload again.
 
 #### `steps` array
 
