@@ -74,6 +74,11 @@ CONNECTIVITY_LEVELS = ['peripheral', 'connected', 'central']
 
 WINDOW_COUNT = [0, 1, 2]
 
+# Hard filter tolerances for boundary matching
+AREA_TOLERANCE = 20.0
+ASPECT_RATIO_TOLERANCE = 0.5
+COMPACTNESS_TOLERANCE = 0.2
+
 
 # Maps short dataset program names to the canonical long names
 # used throughout this codebase. Apply at graph-load time via normalize_program()
@@ -104,7 +109,7 @@ def extract_features(G: nx.Graph) -> list[float]:
       - Program counts by room size (Small/Medium/Large)
       - Access connectivity (doors between program types)
       - Adjacency connectivity (shared walls between program types)
-      - Betweenness centrality per program type
+      - Betweenness centrality per program type (peripheral == 0.0 /connected <= 0.4 /central > 0.4)
     """
     features = []
 
@@ -212,11 +217,9 @@ def build_query_vector(
             - tuple: ('bedroom', 'large') → exact size
         access_pairs: list of program pairs that should be connected by doors
         adjacency_pairs: list of program pairs that should share walls
-        centrality: prefer centrally-located programs (high betweenness)
+        centrality: prefer centrally-located programs (peripheral == 0.0 /connected <= 0.4 /central > 0.4)
         windows:         List of (program, window_count) tuples
         shape:          Preferred apartment shape ('rectangular' | 'L-shape' | 'other')
-        aspect_ratio:   Preferred aspect ratio (e.g. 2.0 = elongated)
-        compactness:    Preferred compactness (e.g. 0.75 = moderate L-shape)
     Returns:
         Feature vector in the same space as extract_features() output.
     """
@@ -386,11 +389,8 @@ class RuleBasedEmbedder:
         windows: Optional[list[tuple[str, int]]] = None,
         shape: Optional[str] = None,
         total_area: Optional[float] = None,
-        area_tolerance: float = 10.0,
         aspect_ratio: Optional[float] = None,
-        aspect_ratio_tolerance: float = 0.5,
         compactness: Optional[float] = None,
-        compactness_tolerance: float = 0.2,
         top_k: int = 3,
     ) -> list[tuple[str, float]]:
         """Find the top-k layouts with AT LEAST the requested room counts.
@@ -402,7 +402,7 @@ class RuleBasedEmbedder:
             access_pairs:    whether the programs must be directly connected by doors
             adjacency_pairs: whether the programs must be adjacent (share a wall)
             not_adjacency_pairs: whether the programs must NOT be adjacent (share a wall)
-            centrality:     List of str or (str, connectivity) tuples
+            centrality:     List of str or (str, connectivity) tuples (peripheral == 0.0 /connected <= 0.4 /central > 0.4)
             windows:         List of (program, window_count) tuples
             shape:          Preferred apartment shape ('rectangular' | 'L-shape' | 'other')
             aspect_ratio:   Preferred aspect ratio
@@ -494,13 +494,13 @@ class RuleBasedEmbedder:
 
             # Hard filters
             if total_area is not None:
-                if abs(meta['total_area'] - total_area) > area_tolerance:
+                if abs(meta['total_area'] - total_area) > AREA_TOLERANCE:
                     continue
             if aspect_ratio is not None:
-                if abs(meta['aspect_ratio'] - aspect_ratio) > aspect_ratio_tolerance:
+                if abs(meta['aspect_ratio'] - aspect_ratio) > ASPECT_RATIO_TOLERANCE:
                     continue
             if compactness is not None:
-                if abs(meta['compactness'] - compactness) > compactness_tolerance:
+                if abs(meta['compactness'] - compactness) > COMPACTNESS_TOLERANCE:
                     continue
             if not check_required_counts(layout_vec):
                 continue
@@ -536,45 +536,76 @@ if __name__ == "__main__":
     embedder = RuleBasedEmbedder(layout_graphs)
 
     # Example searches
-    print("Search 1:",  # unique program. expected: layout-4
+
+    #Program test
+    print("Search 1:",  #expected: layout-4
           embedder.search(
           ["walkincloset"], top_k=3))
     
-    print("Search 2:",  # unique program. expected: layout-1
+    #Program test
+    print("Search 2:",  #expected: layout-1
           embedder.search(
           ["bedroom"], top_k=3))
     
+    #Size requirements test
     print("Search 3:", 
-          embedder.search( # exact size requirements expected: layout-2
+          embedder.search( #expected: layout-2
           [('bedroom', 'medium'), ('bedroom', 'small')], 
           top_k=3))
 
+    #Program + size requirements test
     print("Search 4:", 
           embedder.search( # 1 large bedroom + 1 bedroom and 2 bathroom expected: layout-3 and 6
         [('bedroom', 'large'), "bedroom", 'bathroom', 'bathroom'], 
         top_k=3))
 
+    #Shape requirement test
     print("Search 5:", 
-          embedder.search( #shape requirement expected: layout-6
+          embedder.search( #expected: layout-6
               ["bedroom", "bedroom"], 
               shape='L-shape',
               top_k=3))
     
+    #Adjacency + aspect ratio test
     print("Search 6:", 
-      embedder.search( #The issue is scale imbalance. Your feature vector mixes: Binary values (0.0 or 1.0) for room counts, edges, shape one-hot and raw floats for aspect ratio (can be 1.0–4.0+)
+      embedder.search( # expected: layout-2 and 3
           ["bedroom", "bedroom", "extra", "extra"], 
           adjacency_pairs=[("bedroom", "bedroom")],
           aspect_ratio=1.0,
           top_k=3))
 
+    #Aspect ratio test
     print("Search 7:", 
-      embedder.search( #expected: layout-1 and 5
+      embedder.search( #expected: layout-1 (layout-4 excluded: has 2 extras, not 1, layout-5 excluded: aspect ratio 3.75 too far from 2.0)
           ["extra"],
           aspect_ratio=2.0,
           top_k=3))
     
+    #Not adjacency test
     print("Search 8:", 
-      embedder.search(
+      embedder.search( #expected: layout-2
           ["bedroom", "bedroom"], 
           not_adjacency_pairs=[("bedroom", "bathroom")], 
+          top_k=3))
+    
+    #Windows test
+    print("Search 9:",  # expected: layout-1
+          embedder.search(
+          ["bathroom"],
+          windows=[('bathroom', 1)],
+          top_k=3))
+    
+    #Centrality test
+    print("Search 10:",  # expected: layout-4
+          embedder.search(
+          ["living room"],
+          centrality=[('bedroom', 'central')],
+          top_k=3))
+    
+    #Area and aspect ratio test
+    print("Search 11:",  # expected: layout-3
+          embedder.search(
+          ["living room"],
+          total_area=110.0,
+          aspect_ratio=1.0,
           top_k=3))
