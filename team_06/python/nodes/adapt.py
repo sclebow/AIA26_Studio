@@ -3,7 +3,6 @@ from tools.layout_utils import save_layout
 import json
 import re
 from pathlib import Path
-from tools.layout_evaluator import normalize_program
 
 
 def _load_layout_by_id(layout_id: str, repo_root: Path) -> dict | None:
@@ -39,6 +38,15 @@ def _composed_adapted_layout_id(input_layout: dict, selected_layout_id: str | No
     return f"{input_layout_id}__{selected_layout_id}"
 
 
+def _append_layout_candidate(layouts_to_try: list[tuple[str | None, dict]], layout_id: str | None, layout_data: dict | None) -> None:
+    if not isinstance(layout_data, dict):
+        return
+    for existing_layout_id, _ in layouts_to_try:
+        if existing_layout_id == layout_id:
+            return
+    layouts_to_try.append((layout_id, layout_data))
+
+
 def _call_adapt_tool(mcp_client: Any, layout_data: dict, input_layout: dict) -> tuple[dict | None, str | None]:
     result = mcp_client.call_tool("adapt_layout_06", {
         "layout_json": layout_data,
@@ -47,36 +55,24 @@ def _call_adapt_tool(mcp_client: Any, layout_data: dict, input_layout: dict) -> 
 
     if not result or (isinstance(result, str) and result.startswith("Error")):
         return None, str(result) if result else "The adaptation tool returned no result."
+
+    if isinstance(result, str):
+        try:
+            result = json.loads(result)
+        except json.JSONDecodeError:
+            return None, "The adaptation tool returned a non-JSON response."
+
     if isinstance(result, dict) and "error" in result:
         return None, str(result.get("error") or "The adaptation tool returned an error.")
     if not isinstance(result, dict):
         return None, "The adaptation tool returned an unexpected response."
 
-    adapted = result.get("adapted_layout", layout_data)
-    if not adapted:
+    adapted = result.get("adapted_layout") if isinstance(result.get("adapted_layout"), dict) else result
+    if not isinstance(adapted, dict) or not adapted:
         return None, "The adaptation tool did not return an adapted layout."
 
     return adapted, None
 
-
-def _room_counts(layout_data: dict) -> dict[str, int]:
-    counts: dict[str, int] = {}
-    for room in layout_data.get("rooms", []):
-        program = normalize_program(room.get("attributes", {}).get("program", ""))
-        if not program:
-            continue
-        counts[program] = counts.get(program, 0) + 1
-    return counts
-
-
-def _has_required_programs(layout_data: dict) -> tuple[bool, list[str]]:
-    counts = _room_counts(layout_data)
-    missing: list[str] = []
-    if counts.get("bath", 0) < 1 and counts.get("bathroom", 0) < 1:
-        missing.append("bathroom")
-    if counts.get("living", 0) < 1 and counts.get("living_room", 0) < 1:
-        missing.append("living room")
-    return len(missing) == 0, missing
 
 def build_adapt_node(mcp_client: Any) -> Any:
     """Adapt layout using MCP tool adapt_layout_06."""
@@ -132,6 +128,16 @@ def build_adapt_node(mcp_client: Any) -> Any:
             fallback_layout_json = layout_json
 
             layouts_to_try: list[tuple[str | None, dict]] = []
+
+            current_layout_data: dict | None = None
+            if layout_json:
+                if isinstance(layout_json, str):
+                    current_layout_data = json.loads(layout_json)
+                elif isinstance(layout_json, dict):
+                    current_layout_data = layout_json
+
+            _append_layout_candidate(layouts_to_try, current_layout_id, current_layout_data)
+
             if candidates:
                 for candidate in candidates:
                     candidate_id = candidate.get("id")
@@ -139,17 +145,14 @@ def build_adapt_node(mcp_client: Any) -> Any:
                         continue
                     candidate_layout = _load_layout_by_id(candidate_id, repo_root)
                     if candidate_layout:
-                        layouts_to_try.append((candidate_id, candidate_layout))
+                        _append_layout_candidate(layouts_to_try, candidate_id, candidate_layout)
                         if fallback_layout_json is None:
                             fallback_layout_id = candidate_id
                             fallback_layout_json = json.dumps(candidate_layout)
 
-            if not layouts_to_try and layout_json:
-                if isinstance(layout_json, str):
-                    layout_data = json.loads(layout_json)
-                else:
-                    layout_data = layout_json
-                layouts_to_try.append((state.get("layout_id"), layout_data))
+            if fallback_layout_json is None and current_layout_data is not None:
+                fallback_layout_id = current_layout_id
+                fallback_layout_json = json.dumps(current_layout_data)
 
             if not layouts_to_try:
                 return {
@@ -168,39 +171,23 @@ def build_adapt_node(mcp_client: Any) -> Any:
                     current_layout_json = json.dumps(current_layout_data)
 
                 return {
-                    "adapt_result": "success",
+                    "adapt_result": "daylight",
                     "layout_id": current_layout_id,
                     "layout_json_string": current_layout_json,
                     "clarification": None,
+                    "adaptation_issues": [],
+                    "adaptation_failed": False,
                     "iteration": iteration + 1,
                 }
 
             for candidate_id, layout_data in layouts_to_try:
                 candidate_label = candidate_id or "current layout"
                 attempt_logs.append(f"Trying layout {candidate_label}.")
-                candidate_input_layout = dict(input_layout) if isinstance(input_layout, dict) else {}
-                if not candidate_input_layout:
-                    candidate_input_layout = layout_data
-                elif not candidate_input_layout.get("rooms") and layout_data.get("rooms"):
-                    # Preserve the uploaded boundary/outline and only borrow rooms when
-                    # the uploaded JSON is boundary-only.
-                    candidate_input_layout = {
-                        **candidate_input_layout,
-                        "rooms": layout_data.get("rooms", []),
-                    }
+                candidate_input_layout = input_layout if isinstance(input_layout, dict) else {}
 
                 adapted, adapt_error = _call_adapt_tool(mcp_client, layout_data, candidate_input_layout)
                 if not adapted:
                     message = f"Layout {candidate_label} failed adaptation in the MCP tool: {adapt_error or 'unknown tool error.'}"
-                    attempt_logs.append(message)
-                    continue
-
-                has_required_programs, missing_programs = _has_required_programs(adapted)
-                if not has_required_programs:
-                    message = (
-                        f"The adapted layout for {candidate_label} is missing required spaces: "
-                        f"{', '.join(missing_programs)}."
-                    )
                     attempt_logs.append(message)
                     continue
 
@@ -213,9 +200,10 @@ def build_adapt_node(mcp_client: Any) -> Any:
                 save_layout(adapted, state, edited_path)
 
                 result = {
-                    "adapt_result": "success",
+                    "adapt_result": "daylight",
                     "layout_id": adapted_layout_id,
                     "layout_json_string": json.dumps(adapted),
+                    "adaptation_issues": [],
                     "adaptation_failed": False,
                     "iteration": iteration + 1,
                 }
