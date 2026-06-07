@@ -70,7 +70,6 @@ def _route_after_preprocessing(state: AgentState) -> str:
     return {
         "reason": "reason",
         "select": "select",
-        "evaluate": "evaluate",
         "end": "end",
     }.get(result, "end")
         
@@ -78,6 +77,7 @@ def _route_after_reason(state: AgentState) -> str:
     result = state.get("reason_result")
     return {
         "search": "search",
+        "evaluate": "evaluate",
         "feedback": "feedback",
     }.get(result, "feedback")
 
@@ -151,11 +151,11 @@ def build_graph(ctx: Any) -> Any:
     workflow.add_conditional_edges("preprocess", _route_after_preprocessing, {
         "reason": "reason",
         "select": "select",
-        "evaluate": "evaluate",
         "end": END
     })
     workflow.add_conditional_edges("reason", _route_after_reason, {
         "search": "search",
+        "evaluate": "evaluate",
         "feedback": "feedback"
     })
     workflow.add_conditional_edges("search", _route_after_search, {

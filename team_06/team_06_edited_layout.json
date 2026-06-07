@@ -105,7 +105,7 @@
       "attributes": {
         "area": 6.1249,
         "program": "bath",
-        "daylight": 2.1
+        "daylight": 0.0
       }
     },
     {
@@ -136,7 +136,7 @@
       "attributes": {
         "area": 11.1851,
         "program": "bed",
-        "daylight": 0.0
+        "daylight": 2.1
       }
     },
     {

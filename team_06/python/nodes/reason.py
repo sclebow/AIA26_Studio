@@ -21,6 +21,17 @@ SYSTEM_PROMPT = (
     "- Do not invent missing information.\n"
 )
 
+EVALUATE_PATTERNS = [
+    r"\bevaluate\b",
+    r"\bevaluation\b",
+    r"\bfeedback\b",
+    r"\bassess\b",
+    r"\bassessment\b",
+    r"\breview\b",
+    r"\bscore\b",
+    r"\bsummar(?:ize|ise)\b.*\b(issue|issues|problem|problems)\b",
+]
+
 
 def _empty_graph() -> dict:
     return {
@@ -62,6 +73,12 @@ def _normalize_graph(value: object) -> dict:
 
 def _has_search_input(graph: dict, description: str) -> bool:
     return any(graph.get(key) for key in graph) or bool(description.strip())
+
+
+def _wants_evaluation(user_prompt: str) -> bool:
+    if not isinstance(user_prompt, str):
+        return False
+    return any(re.search(pattern, user_prompt, flags=re.IGNORECASE) for pattern in EVALUATE_PATTERNS)
 
 
 def _normalize_payload(value: object) -> dict:
@@ -139,6 +156,7 @@ def build_reason_node(llm):
     def reason(state: dict) -> dict:
         user_prompt = state.get("user_prompt", "")
         iteration = state.get("iteration", 0)
+        wants_evaluation = _wants_evaluation(user_prompt)
         raw_payload = state.get("topology_graph_json_string")
         payload = {}
         if isinstance(raw_payload, str):
@@ -178,7 +196,7 @@ def build_reason_node(llm):
                     "iteration": iteration + 1,
                     "topology_graph_json_string": json.dumps(updated_search_payload),
                     "clarification": None,
-                    "reason_result": "search",
+                    "reason_result": "evaluate" if wants_evaluation else "search",
                 }
 
             current_search_payload = {
@@ -186,11 +204,29 @@ def build_reason_node(llm):
                 "description": existing_description,
             }
 
+            if wants_evaluation and _has_search_input(existing_graph, existing_description):
+                return {
+                    "iteration": iteration + 1,
+                    "topology_graph_json_string": json.dumps(current_search_payload),
+                    "clarification": None,
+                    "reason_result": "evaluate",
+                }
+
+            clarification = _clarification_for_state(
+                current_search_payload["graph"],
+                current_search_payload["description"],
+                latest_prompt_useful,
+                user_prompt,
+            )
+
+            if wants_evaluation and not _has_search_input(existing_graph, existing_description):
+                clarification = "I can evaluate the layout once I have your room requirements or household preferences. Please describe what you need first."
+
             return {
                 "iteration": iteration + 1,
                 "topology_graph_json_string": json.dumps(current_search_payload),
                 "reason_result": "feedback",
-                "clarification": _clarification_for_state(current_search_payload["graph"], current_search_payload["description"], latest_prompt_useful, user_prompt),
+                "clarification": clarification,
             }
         except Exception as e:
             return {
