@@ -17,17 +17,21 @@ from nodes._shared.utils import unwrap_mcp_result, persona_display_label
 SENSES = ["thermal", "visual", "acoustic", "spatial", "olfactory", "tactile"]
 
 
-def _resolve_edit(prompt: str) -> str:
-    """Which edit does this 'what if' refer to? furniture > glazing > material.
-    Conservative keyword routing — the preview is hypothetical, so a wrong guess is
-    cheap (nothing is committed)."""
+def _decompose_ops(prompt: str) -> list:
+    """Which edits does this 'what if' refer to? Detects EVERY category present so
+    "what if I add a plant AND change the floor" previews both. Keyword-only (no LLM)
+    — the preview is hypothetical, so a wrong guess is cheap (nothing is committed)."""
     p = (prompt or "").lower()
+    ops = []
     if any(k in p for k in ("plant", "rug", "sofa", "couch", "armchair", "cushion",
                             "furniture", "shelf", "bookshelf", "desk", "table", "cabinet")):
-        return "add_furniture"
+        ops.append("add_furniture")
     if any(k in p for k in ("window", "glazing", "skylight", "daylight", "more light")):
-        return "modify_glazing"
-    return "change_material"
+        ops.append("modify_glazing")
+    if any(k in p for k in ("floor", "wall", "material", "carpet", "wood", "concrete",
+                            "tile", "fabric", "cork", "stone")):
+        ops.append("change_material")
+    return ops or ["change_material"]  # default fallback
 
 
 def _layout_score(scores_json: str):
@@ -82,7 +86,8 @@ def build_preview_node(mcp_client):
         material_hint   = state.get("material_hint") or ""
         persona_profile = state.get("persona_profile") or {}
 
-        out = {**state, "preview_scores_json": "", "preview_diff": {}, "preview_summary": ""}
+        out = {**state, "preview_scores_json": "", "preview_diff": {},
+               "preview_diffs": [], "preview_summary": ""}
 
         layout = _edits.load(layout_str)
         if layout is None:
@@ -90,22 +95,28 @@ def build_preview_node(mcp_client):
             print("[preview] no layout — cannot simulate")
             return out
 
-        # Clone so the canonical layout is NEVER mutated.
+        # Clone so the canonical layout is NEVER mutated. Apply ALL hypothetical ops
+        # to the one clone, then score it ONCE (matches the committed multi-edit path).
         clone = json.loads(_edits.dump(layout))
         room  = _edits.find_target_room(clone, raw_prompt, current_scores, room_hint)
-        edit  = _resolve_edit(raw_prompt)
-
-        if edit == "add_furniture":
-            ftype = _edits.detect_furniture_type(raw_prompt)
-            mat   = _edits.furniture_material_for(ftype)
-            diff  = _edits.apply_add_furniture(clone, room, ftype, mat)
-        elif edit == "modify_glazing":
-            gtype, wants_more = _edits.resolve_glazing(raw_prompt)
-            diff = _edits.apply_modify_glazing(clone, room, gtype, wants_more)
-        else:
-            material = _edits.detect_material(raw_prompt, material_hint) or "wood"
-            surface  = _edits.detect_surface_target(raw_prompt)
-            diff     = _edits.apply_change_material(clone, room, surface, material)
+        diffs = []
+        for edit in _decompose_ops(raw_prompt):
+            if room is None:
+                break
+            if edit == "add_furniture":
+                ftype = _edits.detect_furniture_type(raw_prompt)
+                mat   = _edits.furniture_material_for(ftype)
+                d = _edits.apply_add_furniture(clone, room, ftype, mat)
+            elif edit == "modify_glazing":
+                gtype, wants_more = _edits.resolve_glazing(raw_prompt)
+                d = _edits.apply_modify_glazing(clone, room, gtype, wants_more)
+            else:
+                material = _edits.detect_material(raw_prompt, material_hint) or "wood"
+                surface  = _edits.detect_surface_target(raw_prompt)
+                d = _edits.apply_change_material(clone, room, surface, material)
+            if d:
+                diffs.append(d)
+        diff = diffs[-1] if diffs else {}
 
         # Score the hypothetical clone — same args as the analyze node.
         persona_label    = persona_display_label(persona_profile)
@@ -138,15 +149,23 @@ def build_preview_node(mcp_client):
             arrow = "→" if new_score != now_score else "≈"
             headline = f"\n\nPredicted layout score: {now_score:.2f} {arrow} {new_score:.2f}"
 
+        room_name = room.get("name") if room else "the layout"
+        if len(diffs) > 1:
+            change_desc = f"made {len(diffs)} changes in {room_name}"
+        elif diffs:
+            change_desc = f"{diff.get('new_value', 'made that change')} in {room_name}"
+        else:
+            change_desc = f"made that change in {room_name}"
+
         out["preview_scores_json"] = preview_scores
         out["preview_diff"]        = diff
+        out["preview_diffs"]       = diffs
         out["preview_summary"]     = summary
         out["final_response"]      = (
-            f"Here's what would happen if I {diff.get('new_value', 'made that change')} "
-            f"in {room.get('name') if room else 'the layout'} — nothing is applied yet:"
+            f"Here's what would happen if I {change_desc} — nothing is applied yet:"
             f"{headline}\n\n{summary}"
         )
-        print(f"[preview] simulated {edit} on {room.get('name') if room else '?'} (no commit)")
+        print(f"[preview] simulated {len(diffs)} op(s) on {room_name} (no commit)")
         return out
 
     return preview_node

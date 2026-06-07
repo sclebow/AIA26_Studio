@@ -29,8 +29,9 @@ docs/
 - [image-generation-research.md](week08/image-generation-research.md) — deep-research findings (consistency, score-conditioning, edit legibility).
 - [image-output-phase0.md](week08/image-output-phase0.md) — the edit-legible plan: material orbs + ripple, PNG export.
 - [image-output-phase1.md](week08/image-output-phase1.md) — generative per-room "feeling" render (FocusCard), IMAGE_PROVIDER google/openai.
-- [image-output-phase2.md](week08/image-output-phase2.md) — before/after wipe slider + per-sense deltas on an edited room (/api/compare-room).
+- [image-output-phase2.md](week08/image-output-phase2.md) — before/after wipe slider + per-sense deltas (historical; the per-edit `/api/compare-room` it describes was later removed — before/after is now always initial → now via `/api/compare-initial`).
 - [image-provider-benchmark.md](week08/image-provider-benchmark.md) — Google vs OpenAI head-to-head (latency/cost/visual); committed to Google. Samples in benchmark/.
+- [reference/report-vision-pipeline.md](reference/report-vision-pipeline.md) — current consolidated overview of the Report/Vision (model, prompts, scoring, before/after, exports).
 
 ## Tooling (root)
 - `build_deck.py` — regenerates the deck PDF from `shots/`. Run from this folder.

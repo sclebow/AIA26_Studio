@@ -19,20 +19,19 @@ import SenseRows from "./SenseRows.jsx";
  * slider) now lives in the Report (Act 3), not in explore.
  */
 // Levers a user can actually act on, mapped to a natural-language what-if the
-// agent can route to a REAL edit tool (modify_glazing / change_material /
-// add_furniture). The "lever bridge": a failing sense → its positive levers →
-// one click to a real edit.
+// agent routes to the unified `edit` action (edit_planner → apply_edits). The
+// "lever bridge": a failing sense → its positive levers → one click to a real edit.
 //
 // IMPORTANT: the phrasing must route to an edit, NOT a full analysis. Words like
 // "improve"/"fix"/"enhance" are full-analysis triggers in the action classifier,
 // so we phrase each as a concrete edit instruction. "ventilation" is intentionally
-// omitted — there is no ventilation edit tool in the backend, so it can't be a
+// omitted — there is no ventilation edit in the backend, so it can't be a
 // one-click fix (olfactory is still addressable via the "plants" lever).
 const EDITABLE_LEVERS = {
-  "glazing ratio":    (r) => `increase the window size in the ${r}`,   // → modify_glazing
-  "glazing type":     (r) => `upgrade to triple glazing in the ${r}`,  // → modify_glazing
-  "surface material": (r) => `change the floor to a soft material in the ${r}`, // → change_material
-  "plants":           (r) => `add a plant to the ${r}`,                // → add_furniture
+  "glazing ratio":    (r) => `increase the window size in the ${r}`,   // → edit (glazing)
+  "glazing type":     (r) => `upgrade to triple glazing in the ${r}`,  // → edit (glazing)
+  "surface material": (r) => `change the floor to a soft material in the ${r}`, // → edit (material)
+  "plants":           (r) => `add a plant to the ${r}`,                // → edit (furniture)
 };
 
 export default function FocusCard({ turn, persona, onClose, onFix }) {

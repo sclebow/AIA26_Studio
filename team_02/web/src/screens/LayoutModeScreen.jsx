@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import ChatThread from "../ui/ChatThread.jsx";
+import InteractiveMessage from "../ui/InteractiveMessage.jsx";
 import TopBar from "../ui/TopBar.jsx";
 import ErrorBoundary from "../ui/ErrorBoundary.jsx";
 import ProfilePanel from "../components/ProfilePanel.jsx";
@@ -10,7 +11,7 @@ import SenseKey from "../components/SenseKey.jsx";
 import FocusCard from "../components/FocusCard.jsx";
 import LayerToggles from "../components/LayerToggles.jsx";
 import Legend from "../components/Legend.jsx";
-import TimelineStrip from "../components/TimelineStrip.jsx";
+import CheckpointsStrip from "../components/CheckpointsStrip.jsx";
 import LayoutPicker from "../components/LayoutPicker.jsx";
 import { formatChatMessage } from "../lib/formatMessage.js";
 import { useSelection } from "../lib/selection.jsx";
@@ -52,7 +53,8 @@ const LAYER_REQUIRES = { plan: null, comfort: "scores", graph: "topology", mater
 // If a lens isn't available yet, clicking it asks Sensi to run the analysis.
 const LAYER_RUN_MSG = { comfort: "analyse the layout", graph: "map the topology of the layout" };
 
-export default function LayoutModeScreen({ messages, turns, thinking, persona, layoutId, layoutVersion = 0, onSend, onReport }) {
+export default function LayoutModeScreen({ messages, turns, thinking, persona, layoutId, layoutVersion = 0, onSend, onReport,
+  checkpoints = [], hasUncommitted = false, uncommittedDelta = {}, onCommit, onRestore }) {
   const [chatOpen,     setChatOpen]     = useState(true);
   const [profileOpen,  setProfileOpen]  = useState(false);
   const [capOpen,      setCapOpen]      = useState(false);
@@ -84,6 +86,8 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
   }, [activeTurn?.id]); // eslint-disable-line
 
   const rooms         = roomScores(activeTurn);
+  // closed vocabulary for the chat linkifier — the current layout's room names.
+  const roomNames     = rooms.map((r) => r.roomName).filter(Boolean);
   const avg           = layoutScore(rooms);
   const conflicts     = conflictCount(activeTurn);
   const ringClass     = avg == null ? "" : avg >= 0.65 ? "score-pass" : avg >= 0.45 ? "score-warn" : "score-fail";
@@ -156,7 +160,9 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
             <motion.div className="lm-chat-sidebar"
               initial={{ x: -40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -40, opacity: 0 }}
               transition={{ duration: 0.2, ease: EASE.out }}>
-              <ChatThread messages={messages} thinking={thinking} format={formatChatMessage} />
+              <ChatThread messages={messages} thinking={thinking}
+                renderMessage={(text) => <InteractiveMessage text={text} rooms={roomNames} />}
+                hasUncommitted={hasUncommitted} uncommittedDelta={uncommittedDelta} onCommit={onCommit} />
               <div className="lm-input-area">
                 <button className={"cap-btn" + (capOpen ? " on" : "")} onClick={() => setCapOpen(o => !o)} title="capabilities">⊞</button>
                 <div className="send-row" style={{ flex: 1 }}>
@@ -180,12 +186,20 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
             <span className="lm-controls-sep" aria-hidden="true" />
             <button className="layer-pill" title="3D relationship galaxy"
               onClick={() => rooms.length ? setGalaxyOpen(true) : onSend("analyse the layout")}>galaxy ↗</button>
-            <button className="layer-pill lm-report-cta" title="open The Vision — renders, prompts & scores per room"
+            <button className="layer-pill lm-report-cta" title={hasUncommitted
+                ? "open The Vision — shows your last committed checkpoint (commit to include new edits)"
+                : "open The Vision — renders, prompts & scores per room"}
               onClick={() => rooms.length ? onReport?.() : onSend("analyse the layout")}>the vision →</button>
+            {hasUncommitted && (
+              <span className="lm-uncommitted-hint" title="The Vision renders committed checkpoints; commit your edits to include them"
+                style={{ fontSize: 11, color: "rgba(var(--fg-rgb),0.55)", fontFamily: "var(--font-mono)" }}>
+                · uncommitted edits not in The Vision yet
+              </span>
+            )}
           </div>
 
           <div className={"lm-viewer" + (activeRoom && rooms.length > 0 ? " has-focus" : "")}>
-            <SensePlan ref={planRef} rooms={rooms} layoutId={layoutId} layoutVersion={layoutVersion} layers={layers} graphData={activeTurn?.graph_data} diff={activeTurn?.layout_diff} />
+            <SensePlan ref={planRef} rooms={rooms} layoutId={layoutId} layoutVersion={layoutVersion} layers={layers} graphData={activeTurn?.graph_data} diffs={activeTurn?.layout_diffs || []} />
 
             {/* reading-aids legend — a horizontal strip in the top canvas band,
                 sharing the row with Expand All (card-less) */}
@@ -204,8 +218,7 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
             </AnimatePresence>
           </div>
 
-          <TimelineStrip turns={turns} activeTurnId={activeTurnId}
-            onSelect={(id) => setActiveTurnId(id === activeTurnId ? null : id)} />
+          <CheckpointsStrip checkpoints={checkpoints} onRestore={onRestore} />
         </div>
       </div>
 

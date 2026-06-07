@@ -8,13 +8,14 @@ import { polyPoints, centroid, dims } from "../lib/geometry.js";
 // The ring sits in the room's top-right corner (off the furniture) and animates
 // its fill when the displayed score changes (sense solo) via pathLength + a CSS
 // stroke-dasharray transition. Hovering a room raises its attributes (onHover).
-export default function RoomsLayer({ rooms = [], scoredByName, plan, comfort, activeRoom, setActiveRoom, focusSense, fy, u, onHover }) {
+export default function RoomsLayer({ rooms = [], scoredByName, plan, comfort, activeRoom, setActiveRoom, focusRoom, setHoverRoom, focusSense, fy, u, onHover }) {
   return rooms.map((room) => {
     const geo = room.geometry || [];
     if (geo.length < 3) return null;
     const name = room.name;
     const r = scoredByName[name];
-    const isFocus = name === activeRoom;
+    // focusRoom = hoverRoom ?? activeRoom — so a chat-message hover lights the plan too
+    const isFocus = name === (focusRoom ?? activeRoom);
     const pts = polyPoints(geo, fy);
     const { w, h, top, cx } = dims(geo);
     const [, cy] = centroid(geo);
@@ -35,7 +36,9 @@ export default function RoomsLayer({ rooms = [], scoredByName, plan, comfort, ac
     return (
       <g key={name} className={"spln-room" + (isFocus ? " is-focus" : "")}
         onClick={() => setActiveRoom(activeRoom === name ? null : name)}
-        onMouseMove={hoverPayload} onMouseLeave={() => onHover && onHover(null)}>
+        onMouseEnter={() => setHoverRoom && setHoverRoom(name)}
+        onMouseMove={hoverPayload}
+        onMouseLeave={() => { onHover && onHover(null); setHoverRoom && setHoverRoom(null); }}>
         {/* hit area + comfort tint */}
         {comfort
           ? <polygon className="spln-room-fill" points={pts} fill={focusSense ? SC[focusSense] : "rgb(var(--fg-rgb))"} fillOpacity={fillOp} />

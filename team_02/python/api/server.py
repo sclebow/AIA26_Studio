@@ -44,6 +44,7 @@ from inspire import run_inspire_round, profile_chat_reply
 from imaging import generate_image, build_room_prompt, active_provider
 from nodes._shared.utils import unwrap_mcp_result, persona_display_label, layout_digits
 from api import contracts
+from api import checkpoints
 
 # persona.json lives at team_02/personas/persona.json (matches the PyQt app).
 _PERSONA_PATH = Path(__file__).resolve().parent.parent.parent / "personas" / "persona.json"
@@ -157,6 +158,12 @@ class RenderRoomReq(SessionReq):
 class ReportReq(SessionReq):
     pass
 
+class CommitReq(SessionReq):
+    label: Optional[str] = None
+
+class RestoreReq(SessionReq):
+    checkpoint_id: int
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Endpoints — ALL routes must be registered before app.mount("/", ...)
@@ -187,8 +194,49 @@ def message(req: MessageReq) -> dict:
     """Run one agent turn. Mirrors SensiBridge.sendMessage."""
     sid, slot = _slot(req.session_id)
     msg, new_session = run_agent(req.text, _CTX, slot["session"])
+    # Maintain the checkpoint layer on top of the working draft (graph stays untouched).
+    _orig = _original_layout(new_session)
+    checkpoints.sync(new_session,
+                     json.dumps(_orig) if _orig else "",
+                     bool(new_session.get("layout_updated")))
     slot["session"] = new_session
     return {"session_id": sid, **contracts.agent_response_payload(msg, new_session, new_session)}
+
+
+@app.post("/api/commit")
+def commit_checkpoint(req: CommitReq) -> dict:
+    """Commit the working draft as a new checkpoint (cumulative since the last one)."""
+    sid, slot = _slot(req.session_id)
+    sess = slot["session"]
+    cp = checkpoints.commit(sess, req.label)
+    if cp is None:
+        return {"session_id": sid, "ok": False, "error": "Nothing to commit."}
+    return {
+        "session_id": sid, "ok": True,
+        "checkpoints": checkpoints.summaries(sess),
+        "has_uncommitted": checkpoints.has_uncommitted(sess),
+        "committed_id": cp["id"],
+    }
+
+
+@app.post("/api/restore")
+def restore_checkpoint(req: RestoreReq) -> dict:
+    """Roll the working draft back to a checkpoint (discards uncommitted edits)."""
+    sid, slot = _slot(req.session_id)
+    sess = slot["session"]
+    cp = checkpoints.restore(sess, req.checkpoint_id)
+    if cp is None:
+        return {"session_id": sid, "ok": False, "error": "Checkpoint not found."}
+    return {
+        "session_id": sid, "ok": True,
+        "layout_id": sess.get("layout_id"),
+        "checkpoints": checkpoints.summaries(sess),
+        "has_uncommitted": checkpoints.has_uncommitted(sess),
+        "restored_label": cp["label"],
+        "scores_json": sess.get("last_scores_json", ""),
+        "conflicts_json": sess.get("last_conflicts_json", ""),
+        "suggestions_json": sess.get("last_suggestions_json", ""),
+    }
 
 
 @app.post("/api/reset-persona")
@@ -322,6 +370,7 @@ def layout_select(req: LayoutSelectReq) -> dict:
     slot["session"]["last_conflicts_json"] = ""
     slot["session"]["last_suggestions_json"] = ""
     slot["session"]["layout_json_string"] = ""
+    checkpoints.reset(slot["session"])
     return {"session_id": sid, "ok": True, "layout_id": req.layout_id}
 
 
@@ -351,6 +400,7 @@ def layout_upload(req: LayoutUploadReq) -> dict:
     slot["session"]["last_conflicts_json"] = ""
     slot["session"]["last_suggestions_json"] = ""
     slot["session"]["layout_json_string"] = ""
+    checkpoints.reset(slot["session"])
 
     return {"session_id": sid, "ok": True, "layout_id": layout_id, "name": data.get("name", layout_id)}
 
@@ -379,7 +429,8 @@ def render_room(req: RenderRoomReq) -> dict:
     sid, slot = _slot(req.session_id)
     sess = slot["session"]
 
-    raw = sess.get("layout_json_string", "")
+    # The Vision renders the COMMITTED state, never the uncommitted working draft.
+    raw = checkpoints.vision_layout(sess)
     if not raw:
         return {"session_id": sid, "ok": False, "error": "No layout loaded yet."}
     try:
@@ -396,7 +447,7 @@ def render_room(req: RenderRoomReq) -> dict:
     if not room:
         return {"session_id": sid, "ok": False, "error": "Room not found in current layout."}
 
-    scores = _room_comfort_scores(sess.get("last_scores_json", ""), room)
+    scores = _room_comfort_scores(checkpoints.vision_scores(sess), room)
     persona = sess.get("persona_profile") or {}
     provider = active_provider()
 
@@ -434,7 +485,8 @@ def report(req: ReportReq) -> dict:
     sid, slot = _slot(req.session_id)
     sess = slot["session"]
 
-    raw = sess.get("layout_json_string", "")
+    # Report renders the COMMITTED state (after = latest checkpoint), not the draft.
+    raw = checkpoints.vision_layout(sess)
     if not raw:
         return {"session_id": sid, "ok": False, "error": "No layout loaded yet."}
     try:
@@ -442,7 +494,7 @@ def report(req: ReportReq) -> dict:
     except Exception:
         return {"session_id": sid, "ok": False, "error": "Layout JSON could not be parsed."}
 
-    scores_json = sess.get("last_scores_json", "")
+    scores_json = checkpoints.vision_scores(sess)
     if not scores_json:
         return {"session_id": sid, "ok": False, "error": "Run an analysis first."}
 
@@ -484,11 +536,12 @@ def report(req: ReportReq) -> dict:
         "layout_id": sess.get("layout_id", ""),
         "rooms": out_rooms,
         "featured": featured,
+        # True when the working draft has edits not yet in this (committed) report.
+        "has_uncommitted": checkpoints.has_uncommitted(sess),
     }
 
 
 _SENSES = ["thermal", "visual", "acoustic", "spatial", "olfactory", "tactile"]
-_COMPARE_CACHE: dict[str, dict] = {}
 
 
 def _score_layout(layout_dict: dict, persona: dict) -> str:
@@ -507,72 +560,6 @@ def _score_layout(layout_dict: dict, persona: dict) -> str:
     if weights:
         args["weights_override"] = json.dumps(weights)
     return unwrap_mcp_result(_CTX.mcp_client.call_tool("compute_comfort_scores", args))
-
-
-@app.post("/api/compare-room")
-def compare_room(req: RenderRoomReq) -> dict:
-    """Before/after for the most recent edit of a room: revert the edit on a clone,
-    re-score it, generate both renders (after, then before anchored on after), and
-    return per-sense deltas. Powers the FocusCard before/after slider (Phase 2)."""
-    sid, slot = _slot(req.session_id)
-    sess = slot["session"]
-    diff = sess.get("layout_diff") or {}
-    if not diff or not diff.get("attribute"):
-        return {"session_id": sid, "ok": False, "error": "No recent edit to compare."}
-
-    raw = sess.get("layout_json_string", "")
-    try:
-        layout_after = json.loads(raw)
-    except Exception:
-        return {"session_id": sid, "ok": False, "error": "Layout JSON could not be parsed."}
-
-    rid, rname = diff.get("room_id"), diff.get("room_name")
-    rooms = layout_after.get("rooms", [])
-    room_after = next((r for r in rooms if r.get("id") == rid or r.get("name") == rname), None)
-    if not room_after:
-        return {"session_id": sid, "ok": False, "error": "Edited room not found."}
-
-    persona = sess.get("persona_profile") or {}
-    provider = active_provider()
-    attr, old, new = diff["attribute"], diff.get("old_value"), diff.get("new_value")
-
-    cache_key = hashlib.sha1(json.dumps({
-        "p": provider, "l": sess.get("layout_id", ""), "r": rid or rname,
-        "a": attr, "o": old, "n": new,
-    }, sort_keys=True).encode()).hexdigest()
-    if not req.force and cache_key in _COMPARE_CACHE:
-        return {"session_id": sid, "ok": True, "cached": True, **_COMPARE_CACHE[cache_key]}
-
-    after_scores = _room_comfort_scores(sess.get("last_scores_json", ""), room_after)
-
-    # BEFORE: clone, revert the changed attribute, re-score.
-    layout_before = json.loads(raw)
-    room_before = next((r for r in layout_before.get("rooms", [])
-                        if r.get("id") == rid or r.get("name") == rname), None)
-    room_before.setdefault("attributes", {})[attr] = old
-    try:
-        before_scores = _room_comfort_scores(_score_layout(layout_before, persona), room_before)
-    except Exception as exc:
-        return {"session_id": sid, "ok": False, "error": f"Re-scoring failed: {exc}"}
-
-    try:
-        after_b64 = generate_image(build_room_prompt(room_after, after_scores, persona))
-        before_b64 = generate_image(build_room_prompt(room_before, before_scores, persona),
-                                    reference_b64=after_b64)
-    except Exception as exc:
-        return {"session_id": sid, "ok": False, "error": f"Image generation failed: {exc}"}
-
-    deltas = {s: {"before": before_scores.get(s), "after": after_scores.get(s)}
-              for s in _SENSES if (s in before_scores or s in after_scores)}
-
-    out = {
-        "before_image": "data:image/png;base64," + before_b64,
-        "after_image": "data:image/png;base64," + after_b64,
-        "deltas": deltas, "attribute": attr, "old_value": old, "new_value": new,
-        "room": rname, "provider": provider,
-    }
-    _COMPARE_CACHE[cache_key] = out
-    return {"session_id": sid, "ok": True, "cached": False, **out}
 
 
 _INITIAL_COMPARE_CACHE: dict[str, dict] = {}
@@ -633,7 +620,8 @@ def compare_initial(req: RenderRoomReq) -> dict:
     cumulative effect of every edit on that room — the real 'ripple' to show."""
     sid, slot = _slot(req.session_id)
     sess = slot["session"]
-    cur_raw = sess.get("layout_json_string", "")
+    # after = the COMMITTED layout (latest checkpoint); before = the initial on-disk file.
+    cur_raw = checkpoints.vision_layout(sess)
     original = _original_layout(sess)
     if not cur_raw or original is None:
         return {"session_id": sid, "ok": False, "error": "no layout to compare"}
@@ -674,7 +662,7 @@ def compare_initial(req: RenderRoomReq) -> dict:
         return {"session_id": sid, "ok": True, "cached": True, **_INITIAL_COMPARE_CACHE[cache_key]}
 
     try:
-        after_full = sess.get("last_scores_json", "") or _score_layout(current, persona)
+        after_full = checkpoints.vision_scores(sess) or _score_layout(current, persona)
         before_full = _score_layout(original, persona)
         after_scores = _room_comfort_scores(after_full, room_after)
         before_scores = _room_comfort_scores(before_full, room_before)

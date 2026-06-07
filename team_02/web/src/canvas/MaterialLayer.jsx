@@ -7,9 +7,15 @@ import { materialColor, materialLabel, materialOrbFill } from "../lib/materials.
 // (sphere + faint halo + faint mono label). When the latest edit changed THIS
 // room's material, the orb emits a slow ripple and an affected-sense satellite
 // orbits it. Full old → new detail shows on hover via the plan tooltip.
-export default function MaterialLayer({ rooms = [], fy, u, diff = null, onHover }) {
-  const changedIsMaterial = diff && /material/i.test(diff.attribute || "");
-  const changedId = diff?.room_id, changedName = diff?.room_name;
+export default function MaterialLayer({ rooms = [], fy, u, diffs = [], onHover }) {
+  // Multi-edit: one turn can change several rooms' materials. Index the material
+  // diffs by room id and name so each room can light up its own change.
+  const matById = new Map(), matByName = new Map();
+  for (const d of diffs) {
+    if (!d || !/material/i.test(d.attribute || "")) continue;
+    if (d.room_id)   matById.set(d.room_id, d);
+    if (d.room_name) matByName.set(d.room_name, d);
+  }
 
   return rooms.map((room) => {
     const geo = room.geometry || [];
@@ -20,16 +26,17 @@ export default function MaterialLayer({ rooms = [], fy, u, diff = null, onHover 
     const { w, h } = dims(geo);
     const R = Math.max(u * 1.4, Math.min(Math.min(w, h) * 0.12, u * 2.6));
 
-    const isChanged = changedIsMaterial && ((changedId && room.id === changedId) || (changedName && room.name === changedName));
-    const sense = isChanged ? diff.sense_affected : null;
+    const d = matById.get(room.id) || matByName.get(room.name) || null;
+    const isChanged = !!d;
+    const sense = isChanged ? d.sense_affected : null;
     const senseColor = (sense && SC[sense]) || materialColor(mat);
 
     const hover = (e) => onHover && onHover({
       x: e.clientX, y: e.clientY, kind: "material", title: room.name,
       material: materialLabel(mat),
       changed: isChanged,
-      from: isChanged ? materialLabel(diff.old_value) : null,
-      to: isChanged ? materialLabel(diff.new_value) : null,
+      from: isChanged ? materialLabel(d.old_value) : null,
+      to: isChanged ? materialLabel(d.new_value) : null,
       sense,
     });
 

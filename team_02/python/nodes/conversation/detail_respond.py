@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from _runtime.llm import call_llm_simple
 from nodes._shared.utils import grounded_facts
+from nodes._shared.register import register_tone
 
 
 _SYSTEM_PROMPT = """\
@@ -21,7 +22,8 @@ You have full access to all analysis results below. Answer their question direct
 Rules:
   - Answer ONLY what was asked. Do not re-summarise the whole analysis.
   - Use ONLY the data provided. Never invent scores, room names, or suggestions.
-  - Reference specific values and room names when they are relevant to the answer.
+  - Name rooms by their EXACT name and senses by their exact word (thermal/visual/acoustic/
+    spatial/olfactory/tactile) - the live canvas highlights whatever you name, so don't paraphrase.
   - NEVER claim a room or sense is the "lowest/highest/worst/best of all rooms" or
     "lower than other rooms" unless that exact ranking is in GROUNDED FACTS below.
     Describe the room's own values without ranking them against others otherwise.
@@ -31,10 +33,7 @@ Rules:
   - If no analysis data is available yet, say so and offer to run one.
   - No markdown. No JSON. Plain language only.
 
-REGISTER:
-  architect → professional, concise, technical terms fine
-  client    → warm, plain language, no jargon, focus on daily life impact
-  learner   → educational, explain what each term means briefly
+VOICE for a {user_type}: {register_tone}
 
 USER TYPE: {user_type}
 PERSONA: {persona_summary}
@@ -85,6 +84,7 @@ def build_detail_respond_node(llm):
 
         system = _SYSTEM_PROMPT.format(
             user_type=user_type,
+            register_tone=register_tone(user_type),
             persona_summary=persona_summary,
             layout_id=layout_id,
         )

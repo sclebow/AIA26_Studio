@@ -94,7 +94,7 @@ function PlanTooltip({ info }) {
   );
 }
 
-const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion = 0, layers = DEFAULT_LAYERS, graphData = null, diff = null }, ref) {
+const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion = 0, layers = DEFAULT_LAYERS, graphData = null, diffs = [] }, ref) {
   const [layout, setLayout] = useState(null);
   const [err, setErr] = useState("");
   const [hover, setHover] = useState(null);
@@ -102,7 +102,7 @@ const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion
   const [hoverRoom, setHoverRoom] = useState(null);
   const [expandedRooms, setExpandedRooms] = useState(() => new Set());
   const svgRef = useRef(null);
-  const { focusSense, activeSense, toggleSense, activeRoom, setActiveRoom } = useSelection();
+  const { focusSense, activeSense, toggleSense, activeRoom, setActiveRoom, focusRoom, setHoverRoom: setSelHoverRoom } = useSelection();
 
   useEffect(() => {
     let alive = true;
@@ -168,13 +168,14 @@ const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion
         <g opacity={layers.graph ? 0.4 : 1}>
           {layers.plan && <WallsLayer outline={layout.outline} structure={layout.structure} fy={fy} />}
           <RoomsLayer rooms={layout.rooms} scoredByName={scoredByName} plan={layers.plan} comfort={layers.comfort}
-            activeRoom={activeRoom} setActiveRoom={setActiveRoom} focusSense={focusSense} fy={fy} u={u} onHover={setHover} />
+            activeRoom={activeRoom} setActiveRoom={setActiveRoom} focusRoom={focusRoom} setHoverRoom={setSelHoverRoom}
+            focusSense={focusSense} fy={fy} u={u} onHover={setHover} />
           {layers.plan && <OpeningsLayer doors={layout.doors} windows={layout.windows} fy={fy} />}
           {layers.plan && <FurnitureLayer furniture={layout.furniture} fy={fy} u={u} onHover={setHover} />}
         </g>
 
         {/* material orbs — float above the base, never dimmed by the graph lens */}
-        {layers.material && <MaterialLayer rooms={layout.rooms} fy={fy} u={u} diff={diff} onHover={setHover} />}
+        {layers.material && <MaterialLayer rooms={layout.rooms} fy={fy} u={u} diffs={diffs} onHover={setHover} />}
 
         {layers.graph && <>
           <GraphEdges roomById={roomById} graphData={graphData} doors={layout.doors} focusSense={focusSense} u={u} fy={fy} onHoverEdge={setHoverEdge} />

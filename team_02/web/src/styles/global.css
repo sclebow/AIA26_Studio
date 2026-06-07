@@ -983,6 +983,50 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
   border-top: 1px solid rgba(var(--fg-rgb),.05);
 }
 
+/* ── Interactive message entities (Task 4) — the reply as a guide into the canvas.
+   Three NON-INTERFERING cue channels (Strobelt: no cue-stacking):
+     rooms  = neutral underline + halo
+     senses = spectral glyph in the sense hue (no underline — the glyph IS the channel)
+     scores = the 0-1 number tinted by pass/warn/fail
+   Hover previews on the canvas; the canvas hovering back marks the word (.is-active). ── */
+.msg-room {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(var(--fg-rgb), .20);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  border-radius: 3px; padding: 0 1.5px;
+  transition: background .14s ease, text-decoration-color .14s ease;
+}
+.msg-room:hover, .msg-room.is-active {
+  background: rgba(var(--fg-rgb), .10);
+  text-decoration-color: rgba(var(--fg-rgb), .70);
+}
+.msg-sense {
+  cursor: pointer;
+  color: inherit;
+  border-radius: 3px; padding: 0 1.5px;
+  transition: color .14s ease, background .14s ease, text-shadow .14s ease;
+}
+.msg-sense-glyph {
+  color: var(--sense);
+  font-size: .82em;
+  opacity: .9;
+  margin-right: .18em;
+}
+.msg-sense:hover, .msg-sense.is-active {
+  color: var(--sense);
+  background: color-mix(in srgb, var(--sense) 13%, transparent);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--sense) 45%, transparent);
+}
+.msg-sense:hover .msg-sense-glyph, .msg-sense.is-active .msg-sense-glyph { opacity: 1; }
+/* score numbers — a quiet data cue; colour is set inline via scoreColor */
+.msg-score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  letter-spacing: .01em;
+}
+
 /* ── thinking bubble dots ── */
 @keyframes dotPulse {
   0%,80%,100% { opacity:.15; transform:scale(.75); }
@@ -1414,15 +1458,15 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
 .lm-chat-sidebar {
   display: flex;
   flex-direction: column;
-  width: 280px;
+  width: 360px;
   flex-shrink: 0;
   border-right: 1px solid rgba(var(--fg-rgb),.07);
   overflow: hidden;
   background: rgba(10,10,10,.60);
 }
 .lm-chat-sidebar .thread { padding: 14px 0 6px; }
-.lm-chat-sidebar .thread-inner { max-width: none; padding: 0 12px; }
-.lm-chat-sidebar .bubble-s { font-size: 13px; line-height: 1.55; }
+.lm-chat-sidebar .thread-inner { max-width: none; padding: 0 16px; }
+.lm-chat-sidebar .bubble-s { font-size: 13px; line-height: 1.62; }
 .lm-chat-sidebar .bubble-u { font-size: 12px; }
 
 .lm-input-area {

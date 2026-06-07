@@ -1,67 +1,35 @@
 """
-CHITCHAT node — peer/educational conversation adapted to user_type register.
-Knows its own capabilities and limitations. Detects if user shifts to analysis
-intent mid-conversation and writes intent="comfort" to trigger rerouting.
+CHITCHAT node — the graceful conversational handler: greetings, "what can you do?",
+concept questions, off-topic, and ambiguous requests. Adapts to the user's register
+and knows its REAL, current capabilities (it used to wrongly claim it can't render
+images — The Vision does). When the user clearly wants analysis or an edit, it nudges
+them to ask for it plainly (the action_classifier routes that on the next turn).
 """
 
 from __future__ import annotations
 from _runtime.llm import call_llm_simple
+from nodes._shared.register import register_label, register_tone, CAPABILITIES
 
 
 _SYSTEM_PROMPT_TEMPLATE = """\
-You are Sensi, an expert in multi-sensory architectural comfort.
-Your six dimensions of analysis are: thermal, visual, acoustic, spatial,
-olfactory, and tactile comfort.
+You are Sensi, a companion for multi-sensory architectural comfort. Your six
+dimensions are: thermal, visual, acoustic, spatial, olfactory, tactile.
 
-You are speaking with a {user_type_label}.
+You are speaking with a {user_type_label}. {register_tone}
 
-{register_instructions}
+This turn is conversation, not analysis: a greeting, a "what can you do?", a concept
+question, something off-topic, or a request too vague to act on yet. Respond warmly and
+helpfully:
+  - Comfort concept -> explain it in plain language with a concrete architectural example.
+  - "What can you do?" -> describe your capabilities truthfully (below), briefly.
+  - Off-topic -> answer politely in one line, then steer back to what you do best.
+  - Vague ("make it better") -> say what you'd need (a layout, or which room/sense) and
+    offer a concrete next step ("want me to analyse a layout, or change something?").
 
-Answer the user's question clearly and helpfully. If they are asking about
-comfort concepts, explain them in plain language with concrete architectural
-examples. If they are asking something unrelated to architecture or comfort,
-answer politely and briefly, then gently guide them back to what you can help
-with most.
+{capabilities}
 
-Important self-awareness: you CAN analyse apartment layouts (201, 202, 203)
-across 6 comfort dimensions for a specific persona. You CANNOT:
-  - generate 3D models or render images (Phase 3 — not yet available)
-  - access real-world data or live databases
-  - modify actual files outside of this session
-
-If the user asks "what can you do?", explain your capabilities honestly.
-
-Keep your response concise — no more than a short paragraph or two.
-"""
-
-_REGISTER = {
-    "architect": (
-        "professional architect",
-        "Use confident, peer-level language. Technical terms are fine. "
-        "Be efficient -- architects are busy."
-    ),
-    "client": (
-        "homeowner or client (non-technical)",
-        "Use warm, plain language. No jargon. Connect everything to daily life "
-        "and lived experience. Be encouraging."
-    ),
-    "student": (
-        "architecture student",
-        "Use an educational, curious tone. Explain concepts with brief examples. "
-        "Be friendly and enthusiastic -- make the learning feel insightful."
-    ),
-    "learner": (
-        "student or curious learner",
-        "Use an educational, curious tone. Explain concepts with brief examples. "
-        "Be friendly and enthusiastic -- learning should be fun."
-    ),
-}
-
-_INTENT_DETECT_PROMPT = """\
-Does this message contain an explicit request to analyse a layout, check comfort scores,
-detect conflicts, or get suggestions? Answer with just YES or NO.
-
-Message: {raw_prompt}
+Keep it to a short paragraph or two. Plain text. Do not invent scores or claim an
+analysis has run when it hasn't.
 """
 
 
@@ -72,35 +40,18 @@ def build_chitchat_node(llm):
         raw_prompt: str = state.get("raw_prompt", "")
         user_type: str = state.get("user_type", "client")
 
-        user_type_label, register_instructions = _REGISTER.get(
-            user_type, _REGISTER["client"]
-        )
         system = _SYSTEM_PROMPT_TEMPLATE.format(
-            user_type_label=user_type_label,
-            register_instructions=register_instructions,
+            user_type_label=register_label(user_type),
+            register_tone=register_tone(user_type),
+            capabilities=CAPABILITIES,
         )
 
         print(f"[chitchat] Generating response for {user_type}...")
         response = call_llm_simple(llm, system, raw_prompt)
 
-        # Detect if user has shifted to analysis intent
-        detected_intent = "chitchat"
-        try:
-            intent_check = call_llm_simple(
-                llm,
-                "You detect whether a message is requesting layout analysis.",
-                _INTENT_DETECT_PROMPT.format(raw_prompt=raw_prompt),
-            )
-            if intent_check.strip().upper().startswith("YES"):
-                detected_intent = "comfort"
-                print("[chitchat] Analysis intent detected -- routing to intent_classifier")
-        except Exception:
-            pass
-
         return {
             **state,
             "final_response": response,
-            "intent": detected_intent,
         }
 
     return chitchat_node
