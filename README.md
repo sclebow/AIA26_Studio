@@ -149,48 +149,6 @@ Do these in order:
 
 If `main.py` cannot reach the MCP server, confirm Grasshopper is running and `mcp.json` points at the correct HTTP endpoint.
 
-### Team 06 local UI run
-
-Team 06 now has a frontend plus a FastAPI backend.
-
-Recommended one-command startup on Windows:
-
-```powershell
-cd team_06
-.\start_local.ps1
-```
-
-If PowerShell execution policy blocks scripts:
-
-```powershell
-cd team_06
-.\start_local.cmd
-```
-
-This opens two terminals:
-
-- backend on `http://127.0.0.1:8000`
-- frontend via Vite in `team_06/frontend`
-
-Manual startup is also available:
-
-```powershell
-cd team_06/python
-python main.py
-```
-
-```powershell
-cd team_06/frontend
-npm run dev
-```
-
-For Team 06 terminal-only prompting, keep using CLI mode explicitly:
-
-```powershell
-cd team_06/python
-python main.py --prompt "I want a 2 bedroom apartment"
-```
-
 ### Per-team directory layout
 
 Replace `team_01` with your folder (`team_02`, …).
@@ -314,4 +272,313 @@ The Python client sends these over **HTTP POST** to the endpoint in `mcp.json`.
 
 LangGraph quickstart: https://docs.langchain.com/oss/python/langgraph/quickstart
 
-TEST2
+---
+
+## User Interfaces
+
+The agent you develop will need to work with a CLI (command-line interface) where the user can type instructions and pass in files, such as the layout JSON. We *need* a CLI to create an orchestrator agent that can call your agent and the other teams' agents as sub-agents and allow them to work together. The CLI is also a simple way to test your agent without needing to set up a more complex interface.
+
+In addition to the CLI, you should create a Graphical User Interface (GUI) that allows interaction with your agent.  The GUI will allow your agent to display information, and receive user input.  This is an opportunity to be creative and think about the human-computer interaction aspect of your agent.  As we've discussed in the course, a big challenge is that LLMs are not good at understanding geometric information, and require written information to be able to reason about the geometry.  A well-designed GUI can translate between the geometric and written information, and allow the user to interact with the agent in a more semantic way.  
+
+For example, the GUI could display the current layout, and allow the user to click on the south wall of the kitchen to add a window.  Or the user the could write in a text box "add a window to the south wall of kitchen".  Both examples convey the same information to the agent, but you may prefer one to the other.
+
+### Planning
+
+Before you start coding, we recommend that you plan out your GUI on a sketch or paper.  Think about the window(s) you may need, and what they will show.  Think about the porportion of the window each element will need, and how large the total window should be.  Think about the user flow: what will the user see when they first open the GUI, and what will they do next?  You can consider the interface in a series of states, and how the user transitions between those states.  
+
+### Suggested libraries for the GUI
+
+Below is a table of some libraries you could use to create a GUI for your agent, but not an exhaustive list, if you have other libraries in mind, that's great!
+
+First, consider whether you want a **local** application that runs on the user's machine, like Rhino or Revit would, or a **web-based** application that runs in the browser, such as Miro or Google Docs.  Local applications can be more responsive and have access to the file system, but web-based applications can be more accessible and run on more platforms.
+
+Also consider the **complexity** of the interface you want to create.  A simple library may be easier to learn and develop with, but may limit design options.  
+
+It's always a good idea to read documentation and tutorials and prototype before committing.  
+
+| Library | Description | Pros | Cons | Runtime | Complexity |
+|---------|-------------|------|------|---------|------|
+| Tkinter | Built-in Python library for creating GUIs. | No additional dependencies, simple to use for basic interfaces. | Limited in design and functionality, may not look modern. | Local | Low |
+| PyQt | A set of Python bindings for the Qt application framework. | More powerful and flexible than Tkinter, supports complex interfaces. | Requires installation of PyQt, can be more complex to learn. | Local | Medium |
+| Streamlit | A library for creating web apps for machine learning and data science. | Easy to use, great for data visualization, runs in the browser. | Not designed for complex GUIs, often refreshes the whole page on interaction which is slow. | Web-based | Medium |
+| Gradio | A library for creating web-based interfaces for machine learning models. | Very easy to use, great for quick demos, runs in the browser. | Limited customization, not ideal for complex interfaces. | Web-based | Low |
+| Holoviz Panel | A library for creating interactive web apps and dashboards. | Highly customizable, supports complex interfaces, runs in the browser. | Steeper learning curve, requires installation of Panel and its dependencies. | Web-based | High |
+
+---
+
+## Visualization in UI
+
+Since your agent will be manipulating the layout, it will help to have some options to visualize the layout in your GUI.  Options range from simple ASCII text art to 3D models.  The choice depends on your goals and design preference.
+
+### ASCII Art
+The simplest way to show the layout is to use the text, symbols and characters natively rendered in the GUI. You will have limited interactivity, but it can be good for debugging.  For example, you could use `#` to represent walls, `.` to represent empty space, and `W` to represent windows.  You could print the layout as a grid of characters, with each character representing a different element of the layout.  
+
+For example, a simple layout of two rooms with a door and a window could look like this:
+
+```
+###################
+#........#........#
+#........D........W
+#........#........W
+#........#........#
+###################
+```
+
+### 2D Visualization
+
+#### Native 2D
+A more advanced way to show the layout with linework in a 2D view.  You could use a library like Matplotlib, Plotly, or PyQt's drawing capabilities to render the layout as a 2D floor plan.  This would allow you to show walls, doors, windows, and other elements with more clarity than ASCII art.  You could also add interactivity, such as clicking on a wall to select it or hovering over a room to see its name.
+
+If using a web-based GUI, I recommend using Plotly for 2D visualization, as it has good support for interactivity and is supported by most web frameworks.
+
+![Example 2D Layout Visualization](./readme_images/layout_2d.png)
+
+#### Image-based 2D
+Another option is to generate an image of the layout using a Grasshopper and Swiftlet.  Swiftlet 0.3.0 has the option to send images back to the client as base64-encoded strings through MCP.  You could create a Grasshopper MCP tool that takes the layout JSON as input, renders a 2D floor plan image, and returns the image as a base64 string.  Your Python agent could then decode the string and display the image in the GUI.  
+
+### 3D Visualization
+
+#### Static 3D
+Similar to the image-based 2D option, you could create a Grasshopper MCP tool that takes the layout JSON as input, renders a 3D model of the layout, and returns a static image of the model as a base64 string.  This would allow you to show the layout in 3D, but without interactivity.  
+
+#### Interactive 3D
+The most complex way to show the layout is to render it in 3D with interactivity.  I suggest using Three.js for web-based applications, or PyQt's 3D capabilities for local applications.  You would need to convert the layout JSON into a 3D model, extruding walls and adding details like doors and windows.  The biggest benefit of this approach is that it allows the user to explore the layout from different angles and perspectives, and allows for the user to interact with the model, such as clicking on a wall to select it.
+
+If you go with this approach using Three.js, I recommend using VITE to set up a simple web server to serve the 3D model and handle interactions.  Then you could embed the web-based 3D viewer into your GUI using a web view component or iframe, creating a website inside a website.  You would also need to set up communication between the web-based 3D viewer and your Python agent, such as using WebSockets or HTTP requests.  The VITE server would be launched by a python subprocess when the agent starts, and the 3D viewer would fetch the layout JSON from the Python agent to render the model.  
+
+```mermaid
+sequenceDiagram
+    participant Python Agent (GUI)
+    participant Web-based 3D Viewer (Three.js)
+
+    Python Agent (GUI) ->> Web-based 3D Viewer (Three.js): Setup VITE server and serve Layout JSON 
+    Web-based 3D Viewer (Three.js) ->> Python Agent (GUI): Render 3D model based on Layout JSON 
+    Python Agent (GUI) ->> Web-based 3D Viewer (Three.js): Update 3D model based on user interactions or agent decisions
+    Web-based 3D Viewer (Three.js) ->> Python Agent (GUI): Notify when user interacts with the model
+
+```
+
+---
+
+## CLI Requirements
+
+You agent must have a CLI that allows the orchestrator agent to call it as a subprocess.  The CLI should accept user instructions and a layout JSON string as input, and return the agent's response as output along with a JSON string representing the edited layout if applicable.  
+### Instructions for updating main.py to support CLI
+
+1. In `team_XX/python/main.py`, switch from a single positional argument to explicit flags:
+  - `--prompt` (required string)
+  - `--layout_json` (optional JSON string)
+  Update any existing code that references `args[0]` to use `args.prompt` instead.
+
+2. Import `json` and parse `--layout_json` when provided:
+  - Use `json.loads(args.layout_json)`.
+  - If parsing fails, raise a clear `ValueError` (or print an error and exit with non-zero code).
+
+3. Initialize context with `ctx = bootstrap()` as before, then override layout context when CLI input is provided:
+  - If `--layout_json` is present, set `ctx.layout_data` to the parsed dict before calling `run_agent(...)`.
+  - This ensures the run uses orchestrator-provided layout data instead of only `layout_input/layout_schema.json`.
+
+4. Execute the graph with the parsed prompt:
+  - `response = run_agent(prompt_text, ctx)`
+  Keep the output safe for terminals.
+
+5. Print output using a stable machine-readable structure for orchestrators:
+
+  ```text
+  Final Response: 
+  <agent response>
+
+  Edited Layout JSON:
+  <edited layout JSON or "No layout changes">
+  ```
+
+### Example usage:
+
+```bash
+python main.py --prompt "add a window to the south wall of the living room" --layout_json '{
+    "layoutId": "Layout-101",
+    "outline": [[0.0, 0.0], [9.0, 0.0], [9.0, 5.0], [0.0, 5.0], [0.0, 0.0]],
+    "rooms": [
+      {
+        "id": "room-1",
+        "name": "Living Room",
+        "geometry": [[0.0, 0.0], [5.0, 0.0], [5.0, 5.0], [0.0, 5.0], [0.0, 0.0]],
+        "attributes": {"area": 25.0}
+      },
+      {
+        "id": "room-2",
+        "name": "Bedroom 1",
+        "geometry": [[5.0, 0.0], [9.0, 0.0], [9.0, 5.0], [5.0, 5.0], [5.0, 0.0]],
+        "attributes": {"area": 20.0}
+      }
+    ],
+    "doors": [
+      {
+        "id": "door-1",
+        "type": "wooden",
+        "name": "Bedroom Door",
+        "geometry": [[5.0, 2.0], [5.0, 2.9]],
+        "attributes": {"connectsRooms": ["room-1", "room-2"]}
+      }
+    ],
+    "windows": [
+      {
+        "id": "window-1",
+        "type": "sliding",
+        "name": "Living Room Window",
+        "geometry": [[0.0, 2.0], [0.0, 3.5]],
+        "attributes": {"roomId": "room-1"}
+      }
+    ],
+    "furniture": [
+      {
+        "id": "furn-1",
+        "name": "Main Couch",
+        "geometry": [[2.0, 3.0], [4.0, 3.0], [4.0, 4.0], [2.0, 4.0], [2.0, 3.0]],
+        "attributes": {"roomId": "room-1"}
+      }
+    ],
+    "mep": [
+      {
+        "id": "mep-1",
+        "name": "Living Room AC",
+        "geometry": [[2.5, 4.5], [3.5, 4.5], [3.5, 4.8], [2.5, 4.8], [2.5, 4.5]],
+        "attributes": {"system": "hvac"}
+      }
+    ],
+    "structure": [
+      {
+        "id": "wall-1",
+        "name": "North Interior Wall",
+        "geometry": [[5.0, 0.0], [5.0, 5.0]],
+        "attributes": {}
+      }
+    ]
+}'
+```
+
+The agent should parse the `--prompt` and `--layout_json` arguments, run the agent graph, and print the final response and edited layout JSON to the console.  
+
+If there are any follow-up questions or clarifications needed, the agent should prompt the user for input in the console if launched from the CLI.  This will allow the orchestrator agent to have a back-and-forth conversation with your agent if needed, and allow the user to provide additional information or clarification as the agent is running.
+
+Example output:
+
+```
+Final Response: 
+"Added a window to the south wall of the living room."
+
+Edited Layout JSON: 
+{
+    "layoutId": "Layout-101",
+    
+    "outline": [[0.0, 0.0], [9.0, 0.0], [9.0, 5.0], [0.0, 5.0], [0.0, 0.0]],
+  
+    "rooms": [
+      {
+        "id": "room-1",
+        "name": "Living Room",
+        "geometry": [[0.0, 0.0], [5.0, 0.0], [5.0, 5.0], [0.0, 5.0], [0.0, 0.0]],
+        "attributes": {
+          "area": 25.0
+        }
+      },
+      {
+        "id": "room-2",
+        "name": "Bedroom 1",
+        "geometry": [[5.0, 0.0], [9.0, 0.0], [9.0, 5.0], [5.0, 5.0], [5.0, 0.0]],
+        "attributes": {
+          "area": 20.0
+        }
+      }
+    ],
+  
+    "doors": [
+      {
+        "id": "door-1",
+        "type": "wooden",
+        "name": "Bedroom Door",
+        "geometry": [[5.0, 2.0], [5.0, 2.9]],
+        "attributes": {
+          "connectsRooms": ["room-1", "room-2"]
+        }
+      },
+      {
+        "id": "door-2",
+        "type": "wooden",
+        "name": "Living Room Door",
+        "geometry": [[5.0, 2.0], [5.0, 2.9]],
+        "attributes": {
+          "connectsRooms": ["room-1", "room-2"]
+        }
+      }
+    ],
+  
+    "windows": [
+      {
+        "id": "window-1",
+        "type:":"sliding",
+        "name": "Living Room Window",
+        "geometry": [[0.0, 2.0], [0.0, 3.5]],
+        "attributes": {
+          "roomId": "room-1"
+        }
+      },
+      {
+        "id": "window-2",
+        "type:":"sliding",
+        "name": "Living Room South Window",
+        "geometry": [[2.0, 0.0], [3.5, 0.0]],
+        "attributes": {
+          "roomId": "room-1"
+        }
+      }
+    ],
+  
+    "furniture": [
+      {
+        "id": "furn-1",
+        "name": "Main Couch",
+        "geometry": [[2.0, 3.0], [4.0, 3.0], [4.0, 4.0], [2.0, 4.0], [2.0, 3.0]],
+        "attributes": {
+          "roomId": "room-1"
+        }
+      }
+    ],
+  
+    "mep": [
+      {
+        "id": "mep-1",
+        "name": "Living Room AC",
+        "geometry": [[2.5, 4.5], [3.5, 4.5], [3.5, 4.8], [2.5, 4.8], [2.5, 4.5]],
+        "attributes": {
+          "system": "hvac"
+        }
+      },
+      {
+        "id": "mep-2",
+        "name": "Main Breaker Box",
+        "geometry": [[0.2, 0.2], [0.8, 0.2], [0.8, 0.5], [0.2, 0.5], [0.2, 0.2]],
+        "attributes": {
+          "system": "electrical"
+        }
+      }
+    ],
+  
+    "structure": [
+      {
+        "id": "wall-1",
+        "name": "North Interior Wall",
+        "geometry": [[5.0, 0.0], [5.0, 5.0]],
+        "attributes": {}
+      }
+    ]
+  }
+```
+
+---
+
+## Benchmarking
+
+To help evaluate your agent's performance, we can make an edit to the `llm.py` file to allow different providers and models to be used with each call of the `call_llm` function.  This allows us to use small models for simple tasks and larger models for more complex tasks, and compare the results.
+
+Please refer to the `llm.py` example file added to `./examples/updated_call_llm/llm.py` for an example of how to modify the `call_llm` function to accept a `provider` and `model` argument.  Then whenever you call optionally `call_llm` from a node, you can specify which provider and model to use for that call.  
