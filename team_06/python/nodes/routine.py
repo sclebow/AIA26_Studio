@@ -19,11 +19,10 @@ DEFAULT_TIME_SLOTS = [
 
 PERSONA_COLORS = [
     "#4A7CA8",
-    "#D97757",
-    "#6A8F5B",
-    "#A26DA8",
-    "#C3A24F",
-    "#5D8C9B",
+    "#F5A020",
+    "#00C7D4",
+    "#D94020",
+    "#7A8FA3",
 ]
 
 SYSTEM_PROMPT = (
@@ -181,20 +180,6 @@ def _adult_member_indexes(household: list[dict[str, str]]) -> list[int]:
     return indexes
 
 
-def _couple_indexes(household: list[dict[str, str]]) -> list[int]:
-    adult_indexes = _adult_member_indexes(household)
-    if len(adult_indexes) < 2:
-        return []
-
-    for index in adult_indexes:
-        relationship = _string(household[index].get("relationship")).lower()
-        info = _string(household[index].get("info")).lower()
-        text = f"{relationship} {info}"
-        if re.search(r"\b(partner|spouse|husband|wife|couple)\b", text):
-            return adult_indexes[:2]
-    return []
-
-
 def _profiles_for_household(household: list[dict[str, str]], description: str) -> list[str]:
     profiles = [_member_profile(member) for member in household]
     if _study_implies_home_worker(description):
@@ -281,14 +266,38 @@ def _enforce_bathroom_spacing(personas: list[dict[str, Any]], rooms: list[dict[s
     return personas
 
 
-def _apply_couple_bedroom_rule(personas: list[dict[str, Any]], household: list[dict[str, str]], rooms: list[dict[str, str | None]]) -> list[dict[str, Any]]:
-    couple = _couple_indexes(household)
+def _shared_sleeping_indexes(personas: list[dict[str, Any]], rooms: list[dict[str, str | None]]) -> list[int]:
+    bedroom_ids = {room["id"] for room in rooms if room.get("program") == "bed" and isinstance(room.get("id"), str)}
+    if not bedroom_ids:
+        return []
+
+    sleep_slots = [0, len(DEFAULT_TIME_SLOTS) - 1]
+    shared_indexes: set[int] = set()
+    for slot in sleep_slots:
+        occupancy: dict[str, list[int]] = {}
+        for index, persona in enumerate(personas):
+            steps = persona.get("steps") if isinstance(persona.get("steps"), list) else []
+            if slot >= len(steps):
+                continue
+            room_id = steps[slot]
+            if room_id not in bedroom_ids:
+                continue
+            occupancy.setdefault(room_id, []).append(index)
+        for indexes in occupancy.values():
+            if len(indexes) >= 2:
+                shared_indexes.update(indexes)
+
+    return sorted(shared_indexes)
+
+
+def _apply_shared_sleeping_bedroom_rule(personas: list[dict[str, Any]], rooms: list[dict[str, str | None]]) -> list[dict[str, Any]]:
+    shared_sleepers = _shared_sleeping_indexes(personas, rooms)
     largest_bedroom = _largest_bedroom_id(rooms)
-    if not couple or not largest_bedroom:
+    if not shared_sleepers or not largest_bedroom:
         return personas
 
     sleep_slots = [0, len(DEFAULT_TIME_SLOTS) - 1]
-    for index in couple:
+    for index in shared_sleepers:
         if index >= len(personas):
             continue
         steps = personas[index].get("steps") if isinstance(personas[index].get("steps"), list) else []
@@ -312,7 +321,7 @@ def _fallback_routine(layout_data: dict[str, Any], topology_json: str | None) ->
             "steps": _default_steps(profiles[index], rooms),
         })
 
-    personas = _apply_couple_bedroom_rule(personas, household, rooms)
+    personas = _apply_shared_sleeping_bedroom_rule(personas, rooms)
     personas = _enforce_bathroom_spacing(personas, rooms)
 
     return {
@@ -368,8 +377,7 @@ def _normalize_routine(value: Any, layout_data: dict[str, Any], topology_json: s
     if not personas:
         personas = fallback_personas
 
-    household = _parse_household(topology_json)
-    personas = _apply_couple_bedroom_rule(personas, household, rooms)
+    personas = _apply_shared_sleeping_bedroom_rule(personas, rooms)
     personas = _enforce_bathroom_spacing(personas, rooms)
 
     return {

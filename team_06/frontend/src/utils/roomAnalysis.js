@@ -12,7 +12,7 @@
 // Thresholds are upper bounds of each band (scale: 0 – 0.6 DA).
 
 // ─── Persona palette ──────────────────────────────────────────────────────────
-export const PERSONA_COLORS = ['#4A7CA8', '#F5A020', '#00C7D4', '#D94020']
+export const PERSONA_COLORS = ['#4A7CA8', '#F5A020', '#00C7D4', '#D94020', '#7A8FA3']
 
 // ─── Time-of-day palette ────────────────────────────────────────────────────────
 // 9 steps matching ROUTINE_TIMES (06:00–22:00), mirrored around midday.

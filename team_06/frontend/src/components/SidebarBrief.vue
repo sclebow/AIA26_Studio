@@ -100,11 +100,10 @@ const specificationChips = computed(() => {
       <div v-if="specificationChips.length" class="spec-chip-list">
         <span v-for="chip in specificationChips" :key="chip" class="spec-chip">{{ chip }}</span>
       </div>
-      <ul v-else-if="specificationText" class="sidebar-list">
-        <li>{{ specificationText }}</li>
-      </ul>
-      <ul v-else class="sidebar-list">
-        <li class="sidebar-empty-text">No specifications yet</li>
+      <div v-else-if="specificationText" class="spec-block-list">
+        <div class="spec-block">{{ specificationText }}</div>
+      </div>
+      <ul v-else class= "sidebar-empty-text">No specifications yet
       </ul>
   </section>
 </template>
@@ -147,16 +146,6 @@ const specificationChips = computed(() => {
   color: var(--color-text-secondary);
   font-style: italic;
 }
-.sidebar-list-input-row { list-style: none; }
-.sidebar-list-input {
-  width: 100%;
-  border: none;
-  border-bottom: 1px solid var(--color-border);
-  outline: none;
-  font-size: var(--font-size-standard);
-  background: transparent;
-  padding: 2px 0;
-}
 .room-chip-list {
   display: flex;
   flex-wrap: wrap;
@@ -177,6 +166,26 @@ const specificationChips = computed(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+.spec-block-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.spec-block {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  padding: 8px 12px;
+  border-radius: 16px;
+  background: #f5f7fa;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-small);
+  font-weight: 500;
+  line-height: 1.4;
+  border: 1px solid var(--color-border);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .spec-chip {
   display: inline-flex;
