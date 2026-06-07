@@ -67,28 +67,6 @@ def _format_evaluation_message(evaluation: dict[str, Any]) -> str:
     return "\n\n".join(parts)
 
 
-def _merge_adaptation_issues(evaluation: dict[str, Any], adaptation_issues: list[str]) -> dict[str, Any]:
-    issues = [issue.strip() for issue in adaptation_issues if isinstance(issue, str) and issue.strip()]
-    if not issues:
-        return evaluation
-
-    concerns = list(evaluation.get("concerns", []))
-    for issue in issues:
-        if issue not in concerns:
-            concerns.append(issue)
-
-    summary = evaluation.get("summary", "").strip()
-    prefix = "The boundary adaptation produced a layout, but some checks did not pass."
-    if prefix not in summary:
-        summary = f"{prefix} {summary}".strip()
-
-    return {
-        **evaluation,
-        "summary": summary,
-        "concerns": concerns,
-    }
-
-
 def _merge_selected_layout_fallback(evaluation: dict[str, Any], adaptation_failed: bool) -> dict[str, Any]:
     if not adaptation_failed:
         return evaluation
@@ -135,7 +113,6 @@ def build_evaluate_node(llm: Any) -> Any:
     """Use the LLM to evaluate the current layout against the parsed brief."""
     def evaluate(state: dict) -> dict:
         layout_json = state.get("layout_json_string")
-        adaptation_issues = state.get("adaptation_issues") or []
         adaptation_failed = state.get("adaptation_failed", False)
         daylight_issues = state.get("daylight_issues") or []
         iteration = state.get("iteration", 0)
@@ -154,7 +131,6 @@ def build_evaluate_node(llm: Any) -> Any:
                 {"role": "user", "content": (
                     f"Parsed brief JSON: {topology_json}\n"
                     f"Layout JSON: {json.dumps(layout_data)}\n"
-                    f"Adaptation validation issues: {json.dumps(adaptation_issues)}\n"
                     f"Adaptation failed completely: {json.dumps(adaptation_failed)}\n"
                     f"Daylight issues: {json.dumps(daylight_issues)}\n"
                     "Evaluate how well the layout matches the brief, including household needs, furniture needs, room relationships, and routine through the day."
@@ -162,7 +138,6 @@ def build_evaluate_node(llm: Any) -> Any:
             ]
             response = llm.invoke(llm_messages)
             evaluation_summary = _normalize_evaluation(json.loads(response.content.strip()))
-            evaluation_summary = _merge_adaptation_issues(evaluation_summary, adaptation_issues)
             evaluation_summary = _merge_selected_layout_fallback(evaluation_summary, adaptation_failed)
             evaluation_summary = _merge_daylight_issues(evaluation_summary, daylight_issues)
 
