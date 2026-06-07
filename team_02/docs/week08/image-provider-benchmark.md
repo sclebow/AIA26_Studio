@@ -31,7 +31,13 @@ score-driven prompts**. Goal: pick one provider with evidence. Decision: **Googl
 | **OpenAI** (gpt-image-1, medium) | 18.7 s | $0.042 | "high" quality ≈ $0.167/img (~4×) |
 
 **Google is ~2.75× faster and slightly cheaper at matched quality** (and far cheaper vs OpenAI "high").
-The gap doubles for Phase 2, which generates two images per before/after.
+The gap doubles for the Report's before/after, which now generates **two** images per room (the
+canonical "after" render + the anchored "before" — see [report-vision-pipeline](../reference/report-vision-pipeline.md)).
+
+> **Second batch (2026-06-07).** Re-ran after the report/image-gen rework: **Google avg 6.7 s / $0.039**,
+> **OpenAI avg 20.5 s / $0.042** (per-case: Google 6.4 / 7.1 / 6.6 s; OpenAI 28.3 / 16.4 / 16.7 s).
+> Numbers held within noise — the Google decision stands. The before/after now issues 2 calls/room,
+> so a featured-room comparison costs ≈ **$0.078** (Google) at ≈ 13 s wall-clock.
 
 ## Visual character (see `./benchmark/`)
 

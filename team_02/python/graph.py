@@ -66,9 +66,46 @@ LAYOUT MODE FLOW (v4)
 """
 
 from __future__ import annotations
+import os
+import time
 from pathlib import Path
 from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
+
+# ── Per-node benchmarking (gated on BENCH_NODES=1; see bench_nodes.py) ───────────
+# When enabled, every node fn is wrapped with a wall-clock timer that also snapshots
+# the LLM token counter (_runtime/llm) before/after, so we get latency + tokens + the
+# tier each node ran on. No-op (zero overhead) when BENCH_NODES is unset.
+_BENCH = os.environ.get("BENCH_NODES") == "1"
+NODE_TIMINGS: list[dict] = []
+_NODE_TIER = {
+    "greet": "fast", "quiz": "fast", "action_classifier": "fast", "chitchat": "fast",
+    "evaluator": "fast", "what_next": "fast",
+    "inspire": "smart", "persona_compiler": "smart", "detail_respond": "smart",
+    "score_interpreter": "smart", "conflict_reasoner": "smart", "suggestion_critic": "smart",
+    "respond": "smart", "edit_planner": "smart",
+}
+
+
+def _bench_wrap(name: str, fn):
+    if not _BENCH:
+        return fn
+    from _runtime import llm as _llm
+
+    def wrapped(state):
+        u0 = _llm.usage_snapshot(); t0 = time.perf_counter()
+        out = fn(state)
+        dt = time.perf_counter() - t0; u1 = _llm.usage_snapshot()
+        NODE_TIMINGS.append({
+            "node": name, "tier": _NODE_TIER.get(name, "-"),
+            "latency_s": round(dt, 4),
+            "llm_calls": u1["calls"] - u0["calls"],
+            "in_tok": u1["input"] - u0["input"],
+            "out_tok": u1["output"] - u0["output"],
+        })
+        return out
+
+    return wrapped
 
 # ── Onboarding ────────────────────────────────────────────────────────────────
 from nodes.onboarding.greet            import build_greet_node
@@ -364,32 +401,35 @@ def build_graph(ctx: Any) -> Any:
 
     g = StateGraph(AgentState)
 
-    # Register all nodes
-    g.add_node("greet",             greet)
-    g.add_node("quiz",              quiz)
-    g.add_node("inspire",           inspire)
-    g.add_node("persona_compiler",  persona_compiler)
-    g.add_node("action_classifier", action_classifier)
-    g.add_node("chitchat",          chitchat)
-    g.add_node("detail_respond",    detail_respond)
-    g.add_node("load_layout",       load_layout)
-    g.add_node("overview_respond",  overview_respond_node)
-    g.add_node("analyze",           analyze)
-    g.add_node("score_interpreter", score_interpreter)
-    g.add_node("detect",            detect)
-    g.add_node("conflict_reasoner", conflict_reasoner)
-    g.add_node("suggest",           suggest)
-    g.add_node("suggestion_critic", suggestion_critic)
-    g.add_node("respond",           respond)
-    g.add_node("evaluator",         evaluator)
-    g.add_node("what_next",         what_next)
-    g.add_node("edit_planner",      edit_planner)
-    g.add_node("apply_edits",       apply_edits)
-    g.add_node("compare_versions",  compare_versions)
-    g.add_node("preview",           preview)
-    g.add_node("topologic_analysis", topologic_analysis)
-    g.add_node("biophilic_audit",   biophilic_audit)
-    g.add_node("persona_comparison", persona_comparison)
+    # Register all nodes (wrapped with the per-node timer when BENCH_NODES=1)
+    for _name, _fn in (
+        ("greet",             greet),
+        ("quiz",              quiz),
+        ("inspire",           inspire),
+        ("persona_compiler",  persona_compiler),
+        ("action_classifier", action_classifier),
+        ("chitchat",          chitchat),
+        ("detail_respond",    detail_respond),
+        ("load_layout",       load_layout),
+        ("overview_respond",  overview_respond_node),
+        ("analyze",           analyze),
+        ("score_interpreter", score_interpreter),
+        ("detect",            detect),
+        ("conflict_reasoner", conflict_reasoner),
+        ("suggest",           suggest),
+        ("suggestion_critic", suggestion_critic),
+        ("respond",           respond),
+        ("evaluator",         evaluator),
+        ("what_next",         what_next),
+        ("edit_planner",      edit_planner),
+        ("apply_edits",       apply_edits),
+        ("compare_versions",  compare_versions),
+        ("preview",           preview),
+        ("topologic_analysis", topologic_analysis),
+        ("biophilic_audit",   biophilic_audit),
+        ("persona_comparison", persona_comparison),
+    ):
+        g.add_node(_name, _bench_wrap(_name, _fn))
 
     # ── Wire edges ────────────────────────────────────────────────────────────
 

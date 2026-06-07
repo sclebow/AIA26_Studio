@@ -73,8 +73,49 @@ out = call_llm_simple(ctx.llm_simple, system_prompt, user_msg, provider="google"
   `Benchmarking tiers -> FAST: gemini-2.5-flash-lite | SMART: gemini-2.5-flash`.
 - Falls back safely to `GOOGLE_MODEL` when tier vars are absent.
 
+## Measured per-node latency & cost — second batch (2026-06-07)
+
+Captured with a new harness, **`bench_nodes.py`**, which wraps every graph node with a
+wall-clock timer + an LLM token snapshot (gated on `BENCH_NODES=1`; zero overhead when off).
+It runs one scripted layout-mode session (analyze → full detect/conflict/suggest → edit →
+follow-up → chitchat) so every runtime LLM node fires at least once.
+
+Reproduce: `BENCH_NODES=1 python bench_nodes.py` (from `team_02/python/`, UTF-8) →
+writes `docs/week08/benchmark/node-bench.json`. Token cost uses approx Google pricing
+(USD/1M tok): FAST $0.10 in / $0.40 out · SMART $0.30 in / $2.50 out — update if pricing moves.
+
+| Node | Tier | calls | avg s | in tok | out tok | $ (session) |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `suggestion_critic` | 🔵 SMART | 1 | 16.1 | 924 | 838 | 0.0024 |
+| `score_interpreter` | 🔵 SMART | 2 | 14.3 | 1696 | 1024 | 0.0031 |
+| `conflict_reasoner` | 🔵 SMART | 1 | 9.3 | 1062 | 320 | 0.0011 |
+| `respond` | 🔵 SMART | 3 | 7.4 | 4820 | 243 | 0.0021 |
+| `detail_respond` | 🔵 SMART | 1 | 2.1 | 8017 | 42 | 0.0025 |
+| `edit_planner` | 🔵 SMART | 1 | 1.5 | 474 | 105 | 0.0004 |
+| `chitchat` | 🟢 FAST | 1 | 0.85 | 469 | 63 | 0.0001 |
+| `what_next` | 🟢 FAST | 5 | 0.79 | 2564 | 182 | 0.0003 |
+| `action_classifier` | 🟢 FAST | 5 | 0.74 | 4105 | 175 | 0.0005 |
+| `greet` | 🟢 FAST | 1 | 0.54 | 124 | 12 | 0.0000 |
+| `evaluator` | 🟢 FAST | 3 | 0.47 | 1272 | 3 | 0.0001 |
+| no-LLM (`analyze` MCP, `detect`, `suggest`, `apply_edits`, `compare_versions`, `load_layout`) | — | — | ~0.00 | 0 | 0 | 0.0000 |
+
+**Tier summary:** FAST avg **0.68 s** / **$0.0010** · SMART avg **8.48 s** / **$0.0115** →
+SMART is ~12× slower and ~11× costlier per call. Total scripted session: **$0.0126**.
+
+**Takeaway:** the tiering pays off — routing/eval/small-talk/next-step (FAST) are sub-second and
+near-free; the spend and latency live in the deep reasoners (`suggestion_critic`,
+`score_interpreter`, `conflict_reasoner`), exactly where quality compounds. The biggest lever for
+*latency* is `score_interpreter` (runs on every analysis); a candidate for prompt-trimming or a
+streaming response.
+
+*Coverage:* the onboarding LLM nodes (`inspire`, `persona_compiler`, `quiz`) aren't in this batch —
+they run once per user, are multi-step/multimodal, and don't affect steady-state cost. `greet` is
+included as the onboarding probe.
+
 ## Open question / next
 
-- `evaluator` is on FAST. If the revise-loop starts rubber-stamping weak responses, promote it to
-  SMART (one-line change in `graph.py`).
-- Cost/latency numbers per tier to be captured during the week-8 demo runs.
+- `evaluator` is on FAST (0.47 s, ~free) and currently rubber-stamps (it APPROVED every turn this
+  run). If the revise-loop never fires, either tighten its rubric or promote to SMART (one-line in
+  `graph.py`) — measure with `bench_nodes.py` after.
+- `score_interpreter` / `suggestion_critic` dominate latency (14–16 s); trim their prompts or stream
+  to cut perceived wait.

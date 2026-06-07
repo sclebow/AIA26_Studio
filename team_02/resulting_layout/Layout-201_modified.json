@@ -62,7 +62,7 @@
           "_source": "Sensi",
           "persona": "Emilie (architect)",
           "depth": "edit",
-          "timestamp": "2026-06-07T18:15:37",
+          "timestamp": "2026-06-07T19:42:15",
           "overallScore": 0.53,
           "comfortScores": {
             "thermal": 0.65,
@@ -114,15 +114,15 @@
           "_source": "Sensi",
           "persona": "Emilie (architect)",
           "depth": "edit",
-          "timestamp": "2026-06-07T18:15:37",
-          "overallScore": 0.34,
+          "timestamp": "2026-06-07T19:42:15",
+          "overallScore": 0.39,
           "comfortScores": {
-            "thermal": 0.34,
+            "thermal": 0.47,
             "visual": 0.58,
-            "acoustic": 0.19,
+            "acoustic": 0.25,
             "spatial": 0.87,
             "olfactory": 0.46,
-            "tactile": 0.56
+            "tactile": 0.61
           },
           "conflicts": [],
           "suggestions": []
@@ -166,7 +166,7 @@
           "_source": "Sensi",
           "persona": "Emilie (architect)",
           "depth": "edit",
-          "timestamp": "2026-06-07T18:15:37",
+          "timestamp": "2026-06-07T19:42:15",
           "overallScore": 0.66,
           "comfortScores": {
             "thermal": 0.73,
@@ -218,7 +218,7 @@
           "_source": "Sensi",
           "persona": "Emilie (architect)",
           "depth": "edit",
-          "timestamp": "2026-06-07T18:15:37",
+          "timestamp": "2026-06-07T19:42:15",
           "overallScore": 0.7,
           "comfortScores": {
             "thermal": 0.76,
@@ -270,7 +270,7 @@
           "_source": "Sensi",
           "persona": "Emilie (architect)",
           "depth": "edit",
-          "timestamp": "2026-06-07T18:15:37",
+          "timestamp": "2026-06-07T19:42:15",
           "overallScore": 0.5,
           "comfortScores": {
             "thermal": 0.62,
@@ -322,7 +322,7 @@
           "_source": "Sensi",
           "persona": "Emilie (architect)",
           "depth": "edit",
-          "timestamp": "2026-06-07T18:15:37",
+          "timestamp": "2026-06-07T19:42:15",
           "overallScore": 0.47,
           "comfortScores": {
             "thermal": 0.62,
@@ -483,7 +483,7 @@
         "roomId": "room-2",
         "area": 1.5,
         "orientation": "N",
-        "glazingType": "single"
+        "glazingType": "triple"
       }
     },
     {
@@ -975,8 +975,8 @@
     "_source": "Sensi",
     "persona": "Emilie (architect)",
     "depth": "edit",
-    "timestamp": "2026-06-07T18:15:37",
-    "overallScore": 0.5333,
+    "timestamp": "2026-06-07T19:42:15",
+    "overallScore": 0.5417,
     "bestRoom": "room-4",
     "worstRoom": "room-2"
   }

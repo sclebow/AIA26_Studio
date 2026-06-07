@@ -8,6 +8,36 @@ from langchain_openai import ChatOpenAI
 
 
 # ---------------------------------------------------------------------------
+# Token-usage accounting (benchmarking — see bench_nodes.py)
+#
+# Every llm.invoke() result from an OpenAI-compatible endpoint (incl. Google's)
+# carries usage_metadata{input_tokens, output_tokens}. We accumulate it in a
+# module-level counter so the graph's per-node timer (graph.py, gated on
+# BENCH_NODES) can snapshot the delta around each node and attribute tokens/cost.
+# Cheap and always-on; ignored unless someone reads the snapshot.
+# ---------------------------------------------------------------------------
+
+_USAGE = {"calls": 0, "input": 0, "output": 0}
+
+
+def _record_usage(result: Any) -> None:
+    um = getattr(result, "usage_metadata", None)
+    if isinstance(um, dict):
+        _USAGE["calls"] += 1
+        _USAGE["input"] += int(um.get("input_tokens", 0) or 0)
+        _USAGE["output"] += int(um.get("output_tokens", 0) or 0)
+
+
+def usage_snapshot() -> dict:
+    """A copy of the running token counter (calls/input/output)."""
+    return dict(_USAGE)
+
+
+def usage_reset() -> None:
+    _USAGE.update(calls=0, input=0, output=0)
+
+
+# ---------------------------------------------------------------------------
 # LLM factory
 # ---------------------------------------------------------------------------
 
@@ -217,6 +247,7 @@ def call_llm(
     llm_messages = [{"role": "system", "content": formatted_prompt}] + messages
 
     result = llm.invoke(llm_messages)
+    _record_usage(result)
     content = result.content
     if not isinstance(content, str):
         raise RuntimeError("LLM response content must be a string")
@@ -343,6 +374,7 @@ def call_llm_simple(
         {"role": "user", "content": user_message},
     ]
     result = llm.invoke(messages)
+    _record_usage(result)
     content = result.content
     if not isinstance(content, str):
         raise RuntimeError("LLM response content must be a string")
@@ -354,6 +386,7 @@ def call_llm_simple(
     if not stripped.strip():
         print("[llm] Empty answer after think-strip — retrying once.")
         result = llm.invoke(messages)
+        _record_usage(result)
         content = result.content if isinstance(result.content, str) else ""
         stripped = _strip_think_tags(content)
     return stripped
