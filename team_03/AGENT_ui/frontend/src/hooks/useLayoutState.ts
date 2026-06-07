@@ -123,11 +123,22 @@ export function useLayoutState(): UseLayoutStateReturn {
     try {
       setSelectedLayoutName(name);
 
-      // Fetch layout data
-      const layoutRes = await fetch(`${API_BASE}/layouts/${encodeURIComponent(name)}`);
-      if (layoutRes.ok) {
-        const layoutData = await layoutRes.json();
-        // First load — no diff needed
+      // Try to load active session layout first (post-approval state)
+      // Falls back to base layout if no session exists
+      let layoutData = null;
+      try {
+        const sessionRes = await fetch(`${API_BASE}/layouts/${encodeURIComponent(name)}/reload`, { method: 'POST' });
+        if (sessionRes.ok) {
+          layoutData = await sessionRes.json();
+        }
+      } catch { /* ignore */ }
+
+      if (!layoutData) {
+        const layoutRes = await fetch(`${API_BASE}/layouts/${encodeURIComponent(name)}`);
+        if (layoutRes.ok) layoutData = await layoutRes.json();
+      }
+
+      if (layoutData) {
         layoutRef.current = layoutData;
         setLayout(layoutData);
       }

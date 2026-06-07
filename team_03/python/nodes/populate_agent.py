@@ -72,30 +72,9 @@ def build_populate_agent_node(llm: Any, knowledge_dir: Path):
     def populate_agent_node(state: dict) -> dict:
         print("\n[populate_agent] Building full placement plan...")
 
-        # Load workflow patterns
-        patterns_path = knowledge_dir / "industrial" / "workflow_patterns.json"
-        try:
-            patterns = json.loads(patterns_path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            print(f"[populate_agent] Could not load workflow_patterns.json: {exc}")
-            return {}
-
-        # Match space_config["space_type"] to the closest pattern key
         space_config = state.get("space_config") or {}
-        space_type   = space_config.get("space_type", "workshop").lower()
-
-        matched_pattern = None
-        matched_key     = None
-        for pt_key, pt_variants in patterns.items():
-            if pt_key in space_type or space_type in pt_key:
-                matched_pattern = next(iter(pt_variants.values()))
-                matched_key     = pt_key
-                break
-
-        if not matched_pattern:
-            matched_pattern = next(iter(patterns.get("workshop", {}).values()), {})
-            matched_key     = "workshop"
-            print(f"[populate_agent] No pattern for '{space_type}' — defaulting to workshop")
+        space_type   = space_config.get("space_type", "industrial").lower()
+        print(f"[populate_agent] Space type: {space_type} — letting LLM plan freely")
 
         # Parse layout geometry
         try:
@@ -184,12 +163,35 @@ def build_populate_agent_node(llm: Any, knowledge_dir: Path):
 
         # Phase 1 — Plan: what goes where (no coordinates)
         print("[populate_agent] Phase 1: planning zone distribution...")
+
+        # Extract requested object count from the user's initial message
+        messages = state.get("messages", [])
+        requested_count = 0
+        import re
+        for msg in messages:
+            content = (msg.content if hasattr(msg, "content") else msg.get("content", "")) or ""
+            m = re.search(r'\b(\d+)\s*(?:equipment|object|machine|station|item|piece)s?\b', content, re.IGNORECASE)
+            if m:
+                requested_count = int(m.group(1))
+                break
+
+        if requested_count > 0:
+            print(f"[populate_agent] Requested object count: {requested_count}")
+
+        # Extract user prompt for context
+        user_prompt = ""
+        for msg in messages:
+            content = (msg.content if hasattr(msg, "content") else msg.get("content", "")) or ""
+            if content.strip():
+                user_prompt = content
+                break
+
         plan_input = json.dumps({
-            "room_list_readable": room_list_text,
-            "rooms":              room_summaries,
-            "space_config":       space_config,
-            "workflow_pattern":   matched_pattern,
-            "matched_type":       matched_key,
+            "user_request":            user_prompt,
+            "room_list_readable":      room_list_text,
+            "rooms":                   room_summaries,
+            "space_config":            space_config,
+            "requested_total_objects": requested_count if requested_count > 0 else "use your judgment based on room sizes",
         }, indent=2)
 
         plan_result = call_llm_simple(llm, POPULATE_PLAN_PROMPT, plan_input)
