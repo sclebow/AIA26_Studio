@@ -24,25 +24,33 @@ const isSending = ref(false)
 
 const boundary = ref(null)
 
-function pushChatMessage(role, text) {
+function pushChatMessage(role, text, extra = {}) {
   const id = `${Date.now()}-${chatHistory.value.length}-${role}`
   chatHistory.value.push({
     id,
     role,
     text,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    ...extra
   })
   return id
 }
 
-function updateChatMessage(id, text) {
+function updateChatMessage(id, text, extra = {}) {
   const target = chatHistory.value.find(message => message.id === id)
-  if (target) target.text = text
+  if (target) {
+    target.text = text
+    Object.assign(target, extra)
+  }
+}
+
+function removeChatMessage(id) {
+  chatHistory.value = chatHistory.value.filter(message => message.id !== id)
 }
 
 function formatStatusMessages(messages) {
-  if (!messages?.length) return 'Status: starting...'
-  return `Status:\n${messages.map(message => `- ${message}`).join('\n')}`
+  if (!messages?.length) return 'Thinking'
+  return messages[messages.length - 1]
 }
 
 onMounted(async () => {
@@ -88,17 +96,17 @@ async function handleUserMessage(message) {
   if (isSending.value) return
 
   pushChatMessage('user', message)
-  const statusMessageId = pushChatMessage('status', 'Status: starting...')
+  const statusMessageId = pushChatMessage('status', 'Thinking', { isLoading: true })
   isSending.value = true
 
   try {
     const response = await sendChatMessage(message, messages => {
-      updateChatMessage(statusMessageId, formatStatusMessages(messages))
+      updateChatMessage(statusMessageId, formatStatusMessages(messages), { isLoading: true })
     })
-    updateChatMessage(statusMessageId, formatStatusMessages(response.status_messages))
+    removeChatMessage(statusMessageId)
     applyAgentResponse(response)
   } catch (error) {
-    updateChatMessage(statusMessageId, 'Status: request failed')
+    updateChatMessage(statusMessageId, 'Request failed', { isLoading: false, tone: 'error' })
     pushChatMessage('agent', `Backend error: ${error.message}`)
   } finally {
     isSending.value = false

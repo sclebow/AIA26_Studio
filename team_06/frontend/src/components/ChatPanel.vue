@@ -50,7 +50,7 @@ watch(() => props.chat.length, () => {
     </div>
     
     <div class="chat-area" ref="chatArea">
-      <div v-for="msg in chat" :key="msg.id" :class="['chat-msg', msg.role]">
+      <div v-for="msg in chat" :key="msg.id" :class="['chat-msg', msg.role, { loading: msg.isLoading, error: msg.tone === 'error' }]">
         <span>{{ msg.text }}</span>
       </div>
     </div>
@@ -221,13 +221,38 @@ watch(() => props.chat.length, () => {
 .chat-msg.status {
   align-self: flex-start;
   background: transparent;
-  color: var(--color-text-primary);
+  color: var(--color-text-secondary);
   border: none;
   margin-right: auto;
   margin-left: 0;
   text-align: left;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   padding: 0;
-  font-weight: 600;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.chat-msg.status.loading::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-blue);
+  opacity: 0.45;
+  animation: statusPulse 1.2s ease-in-out infinite;
+}
+.chat-msg.status.error {
+  color: #a04b4b;
+}
+@keyframes statusPulse {
+  0%, 100% {
+    opacity: 0.25;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
 }
 </style>
