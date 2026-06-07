@@ -60,9 +60,9 @@
         "floorMaterial": "wood",
         "analysis": {
           "_source": "Sensi",
-          "persona": "Neutral",
-          "depth": "analyze",
-          "timestamp": "2026-06-06T15:54:08",
+          "persona": "Emilie (architect)",
+          "depth": "edit",
+          "timestamp": "2026-06-07T18:15:37",
           "overallScore": 0.53,
           "comfortScores": {
             "thermal": 0.65,
@@ -109,20 +109,20 @@
         "orientation": "N",
         "glazingRatio": 0.08,
         "ventilationType": "mechanical",
-        "floorMaterial": "fabric",
+        "floorMaterial": "wood",
         "analysis": {
           "_source": "Sensi",
-          "persona": "Neutral",
-          "depth": "analyze",
-          "timestamp": "2026-06-06T15:54:08",
-          "overallScore": 0.32,
+          "persona": "Emilie (architect)",
+          "depth": "edit",
+          "timestamp": "2026-06-07T18:15:37",
+          "overallScore": 0.34,
           "comfortScores": {
             "thermal": 0.34,
-            "visual": 0.49,
+            "visual": 0.58,
             "acoustic": 0.19,
             "spatial": 0.87,
-            "olfactory": 0.3,
-            "tactile": 0.51
+            "olfactory": 0.46,
+            "tactile": 0.56
           },
           "conflicts": [],
           "suggestions": []
@@ -164,9 +164,9 @@
         "floorMaterial": "wood",
         "analysis": {
           "_source": "Sensi",
-          "persona": "Neutral",
-          "depth": "analyze",
-          "timestamp": "2026-06-06T15:54:08",
+          "persona": "Emilie (architect)",
+          "depth": "edit",
+          "timestamp": "2026-06-07T18:15:37",
           "overallScore": 0.66,
           "comfortScores": {
             "thermal": 0.73,
@@ -216,9 +216,9 @@
         "floorMaterial": "carpet",
         "analysis": {
           "_source": "Sensi",
-          "persona": "Neutral",
-          "depth": "analyze",
-          "timestamp": "2026-06-06T15:54:08",
+          "persona": "Emilie (architect)",
+          "depth": "edit",
+          "timestamp": "2026-06-07T18:15:37",
           "overallScore": 0.7,
           "comfortScores": {
             "thermal": 0.76,
@@ -268,9 +268,9 @@
         "floorMaterial": "ceramic",
         "analysis": {
           "_source": "Sensi",
-          "persona": "Neutral",
-          "depth": "analyze",
-          "timestamp": "2026-06-06T15:54:08",
+          "persona": "Emilie (architect)",
+          "depth": "edit",
+          "timestamp": "2026-06-07T18:15:37",
           "overallScore": 0.5,
           "comfortScores": {
             "thermal": 0.62,
@@ -320,9 +320,9 @@
         "floorMaterial": "ceramic",
         "analysis": {
           "_source": "Sensi",
-          "persona": "Neutral",
-          "depth": "analyze",
-          "timestamp": "2026-06-06T15:54:08",
+          "persona": "Emilie (architect)",
+          "depth": "edit",
+          "timestamp": "2026-06-07T18:15:37",
           "overallScore": 0.47,
           "comfortScores": {
             "thermal": 0.62,
@@ -806,6 +806,68 @@
         "type": "desk",
         "material": "wood"
       }
+    },
+    {
+      "id": "furn-10",
+      "name": "Added plant",
+      "geometry": [
+        [
+          9.1,
+          1.6
+        ],
+        [
+          9.9,
+          1.6
+        ],
+        [
+          9.9,
+          2.4
+        ],
+        [
+          9.1,
+          2.4
+        ],
+        [
+          9.1,
+          1.6
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-2",
+        "type": "plant",
+        "material": "natural"
+      }
+    },
+    {
+      "id": "furn-11",
+      "name": "Added plant",
+      "geometry": [
+        [
+          9.1,
+          1.6
+        ],
+        [
+          9.9,
+          1.6
+        ],
+        [
+          9.9,
+          2.4
+        ],
+        [
+          9.1,
+          2.4
+        ],
+        [
+          9.1,
+          1.6
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-2",
+        "type": "plant",
+        "material": "natural"
+      }
     }
   ],
   "structure": [
@@ -911,10 +973,10 @@
   ],
   "analysis": {
     "_source": "Sensi",
-    "persona": "Neutral",
-    "depth": "analyze",
-    "timestamp": "2026-06-06T15:54:08",
-    "overallScore": 0.53,
+    "persona": "Emilie (architect)",
+    "depth": "edit",
+    "timestamp": "2026-06-07T18:15:37",
+    "overallScore": 0.5333,
     "bestRoom": "room-4",
     "worstRoom": "room-2"
   }

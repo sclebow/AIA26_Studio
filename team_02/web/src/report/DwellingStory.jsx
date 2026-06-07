@@ -1,14 +1,30 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as api from "../api/client.js";
 import { SC, SI, SENSES, scoreColor } from "../lib/constants.js";
-import { STATUS } from "../lib/senses.js";
 import { SENSE_SENSE, basisBorder } from "../lib/senseModel.js";
 import { VALENCE } from "../lib/relationships.js";
 import { useSelection } from "../lib/selection.jsx";
 import { roomScores, layoutScore } from "../lib/turn.js";
 import SenseGraph from "../components/SenseGraph.jsx";
+import SenseSignature from "../components/SenseSignature.jsx";
 import BeforeAfterSlider from "../components/BeforeAfterSlider.jsx";
-import SenseDeltaPills from "../components/SenseDeltaPills.jsx";
+import PromptText, { voicedFromScores } from "./PromptText.jsx";
+
+// scrub interpolation: the slider handle drives scores/signature/prompt, not just
+// the image. t = 1 (fully after) … 0 (fully before).
+const lerp = (a, b, t) => (a == null || b == null ? (a ?? b ?? null) : a + (b - a) * t);
+const mixScores = (deltas, t) => {
+  const o = {};
+  for (const [s, v] of Object.entries(deltas || {})) {
+    o[s] = v.before != null && v.after != null ? lerp(v.before, v.after, t) : (v.after ?? v.before);
+  }
+  return o;
+};
+const sideScores = (deltas, side) => {
+  const o = {};
+  for (const [s, v] of Object.entries(deltas || {})) o[s] = v[side];
+  return o;
+};
 
 // Every coupling that touches sense S (skip sign "0"), with the partner + sign +
 // tier + mechanism — i.e. "the ripple of S": what it helps, harms, or trades with.
@@ -21,29 +37,15 @@ function ripplesFor(S) {
   return out;
 }
 
-function Delta({ from, to, label }) {
-  if (from == null || to == null) return null;
-  const d = to - from;
-  const col = Math.abs(d) < 0.005 ? "rgba(var(--fg-rgb),0.5)" : d > 0 ? STATUS.pass : STATUS.fail;
-  return (
-    <span className="ds-delta">
-      <span className="ds-delta-label">{label}</span>
-      <span style={{ color: scoreColor(from) }}>{from.toFixed(2)}</span>
-      <span className="ds-delta-arrow">→</span>
-      <span style={{ color: scoreColor(to) }}>{to.toFixed(2)}</span>
-      <span className="ds-delta-amt" style={{ color: col }}>{d > 0 ? "+" : ""}{d.toFixed(2)}</span>
-    </span>
-  );
-}
-
 /*
  * DwellingStory — the head of The Vision: the whole home at a glance.
  *   1. a data-driven headline + the aggregate as a quiet status light.
  *   2. the sense-coupling diagram = how the senses talk to each other — INTERACTIVE:
  *      tap a sense to trace its ripple (what it helps / harms / trades with). Default
  *      names the weakest thread.
- *   3. "what your changes did" — the most-changed room, initial → now, with the
- *      before/after renders, overall score deltas, and per-sense deltas.
+ *   3. "what your changes did" — the biggest-glow-up room, initial → now: a full-card
+ *      scrub of the before/after render, with a morphing sense rose + the two overall
+ *      numbers that interpolate as you drag, and the two prompts that drove it.
  */
 export default function DwellingStory({ turn }) {
   const { activeSense, setActiveSense } = useSelection();
@@ -67,8 +69,9 @@ export default function DwellingStory({ turn }) {
 
   const ripples = activeSense ? ripplesFor(activeSense) : [];
 
-  // before/after — the most-changed room, initial (on-disk) → now (current).
+  // before/after — the biggest-glow-up room, initial (on-disk) → now (current).
   const [cmp, setCmp] = useState({ loading: true, data: null, error: null });
+  const [pos, setPos] = useState(0.5);     // slider handle, 0..1 (left=before … right=after)
   useEffect(() => {
     let alive = true;
     api.compareInitial()
@@ -78,6 +81,27 @@ export default function DwellingStory({ turn }) {
   }, []);
   const d = cmp.data;
   const changedLabel = d?.changed?.length ? d.changed.join(", ") : "";
+
+  // the handle drives the whole readout, not just the image. t = after-ness:
+  // handle far left reveals the after (t→1), far right reveals the before (t→0).
+  const t = 1 - pos;
+  const interp = d ? mixScores(d.deltas, t) : {};
+  const baseScores = d ? sideScores(d.deltas, "before") : {};
+  const roomNow = d ? lerp(d.room_before_overall, d.room_after_overall, t) : null;
+  const homeNow = d ? lerp(d.dwelling_before, d.dwelling_after, t) : null;
+  const beforeVoiced = d ? voicedFromScores(sideScores(d.deltas, "before")) : [];
+  const afterVoiced = d ? voicedFromScores(sideScores(d.deltas, "after")) : [];
+
+  // full-card scrub: drag anywhere on the hero to move the spine + the whole readout.
+  const scrubRef = useRef(null);
+  const setFromX = (clientX) => {
+    const r = scrubRef.current?.getBoundingClientRect();
+    if (!r || !r.width) return;
+    setPos(Math.max(0, Math.min(1, (clientX - r.left) / r.width)));
+  };
+  const onScrubDown = (e) => { try { scrubRef.current?.setPointerCapture(e.pointerId); } catch { /* noop */ } setFromX(e.clientX); };
+  const onScrubMove = (e) => { if (e.buttons) setFromX(e.clientX); };
+  const railPos = Math.max(0.14, Math.min(0.86, pos)); // keep the centered readout on-card
 
   return (
     <section className="ds">
@@ -137,14 +161,52 @@ export default function DwellingStory({ turn }) {
           {cmp.loading && <div className="report-empty">rendering before / after…</div>}
           {d && (
             <>
-              <BeforeAfterSlider before={d.before_image} after={d.after_image} height={300}
-                beforeTag={d.room_before_overall != null ? d.room_before_overall.toFixed(2) : null}
-                afterTag={d.room_after_overall != null ? d.room_after_overall.toFixed(2) : null} />
-              <div className="ds-hero-scores">
-                <Delta from={d.room_before_overall} to={d.room_after_overall} label={d.room} />
-                <Delta from={d.dwelling_before} to={d.dwelling_after} label="whole home" />
+              {/* one scrub surface: drag anywhere; a single spine runs the whole card */}
+              <div className="ds-scrub" ref={scrubRef} onPointerDown={onScrubDown} onPointerMove={onScrubMove}>
+                <BeforeAfterSlider before={d.before_image} after={d.after_image} height={300}
+                  pos={pos} interactive={false}
+                  beforeTag={d.room_before_overall != null ? d.room_before_overall.toFixed(2) : null}
+                  afterTag={d.room_after_overall != null ? d.room_after_overall.toFixed(2) : null} />
+
+                {/* mid band: the live readout rides the spine — petals + numbers move with it */}
+                <div className="ds-scrub-mid">
+                  <div className="ds-scrub-readout" style={{ left: `${railPos * 100}%` }}>
+                    <svg width="80" height="80" viewBox="0 0 80 80">
+                      <SenseSignature scores={interp} baseScores={baseScores} size={80} showGlyphs
+                        title={d.room} activeSense={activeSense} onHoverSense={setActiveSense} />
+                    </svg>
+                    <div className="ds-scrub-nums">
+                      <div className="ds-hero-now">
+                        <span className="ds-delta-label">{d.room}</span>
+                        <span className="ds-hero-now-val" style={{ color: scoreColor(roomNow) }}>
+                          {roomNow != null ? roomNow.toFixed(2) : "—"}</span>
+                      </div>
+                      <div className="ds-hero-now">
+                        <span className="ds-delta-label">whole home</span>
+                        <span className="ds-hero-now-val" style={{ color: scoreColor(homeNow) }}>
+                          {homeNow != null ? homeNow.toFixed(2) : "—"}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* the two prompts that drove the renders — before left, after right of the spine */}
+                {(d.before_prompt || d.after_prompt) && (
+                  <div className="ds-scrub-prompts">
+                    <div className="ds-hero-prompt" style={{ opacity: 0.25 + 0.75 * pos }}>
+                      <div className="ds-hero-prompt-tag">before · the prompt</div>
+                      <div className="rr-prompt"><PromptText prompt={d.before_prompt || ""} voiced={beforeVoiced} hoverSense={activeSense} /></div>
+                    </div>
+                    <div className="ds-hero-prompt" style={{ opacity: 0.25 + 0.75 * t }}>
+                      <div className="ds-hero-prompt-tag">after · the prompt</div>
+                      <div className="rr-prompt"><PromptText prompt={d.after_prompt || ""} voiced={afterVoiced} hoverSense={activeSense} /></div>
+                    </div>
+                  </div>
+                )}
+
+                {/* the spine: one vertical line through the whole card */}
+                <div className="ds-scrub-spine" style={{ left: `${pos * 100}%` }} aria-hidden="true" />
               </div>
-              <SenseDeltaPills deltas={d.deltas} />
             </>
           )}
         </div>

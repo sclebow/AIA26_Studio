@@ -41,7 +41,7 @@ import hashlib
 from _runtime.bootstrap import bootstrap
 from graph import run_agent
 from inspire import run_inspire_round, profile_chat_reply
-from imaging import generate_image, build_room_prompt, active_provider
+from imaging import generate_image, build_room_prompt, build_change_clause, active_provider
 from nodes._shared.utils import unwrap_mcp_result, persona_display_label, layout_digits
 from api import contracts
 from api import checkpoints
@@ -415,8 +415,22 @@ def layout_upload(req: LayoutUploadReq) -> dict:
     return {"session_id": sid, "ok": True, "layout_id": layout_id, "name": data.get("name", layout_id)}
 
 
-# session_id-independent cache: same (provider, layout, room, scores, persona) → same image
+# session_id-independent cache: same (provider, layout, room, scores, furniture, persona) → same image
 _RENDER_CACHE: dict[str, dict] = {}
+# per-key in-flight locks so concurrent callers (eager card render + before/after banner)
+# generate ONE image instead of racing to two different ones.
+_RENDER_LOCKS: dict[str, threading.Lock] = {}
+_RENDER_LOCKS_GUARD = threading.Lock()
+
+
+def _furn_sig(furniture: list[dict] | None) -> list:
+    """A stable signature of a room's furniture (type+material) for the render cache key,
+    so changing the island material or adding plants busts the cache."""
+    out = []
+    for f in furniture or []:
+        a = f.get("attributes") or {}
+        out.append([a.get("type") or f.get("type") or "", a.get("material") or f.get("material") or ""])
+    return sorted(out)
 
 
 def _room_comfort_scores(scores_json: str, room: dict) -> dict[str, float]:
@@ -430,6 +444,42 @@ def _room_comfort_scores(scores_json: str, room: dict) -> dict[str, float]:
         if r.get("roomId") == rid or r.get("id") == rid or r.get("roomName") == rname:
             return {k: float(v) for k, v in (r.get("comfortScores") or {}).items()}
     return {}
+
+
+def _render_room_image(sess: dict, room: dict, scores: dict, persona: dict,
+                       force: bool = False, furniture: list[dict] | None = None) -> tuple[dict, bool]:
+    """Canonical per-room render — the single source of truth for a room's image.
+    Shared by /api/render-room (card) and /api/compare-initial (before/after 'after')
+    so the banner render is byte-identical to the room card. Keyed by
+    (provider, layout, room, material, furniture, scores, role). A per-key lock
+    de-dupes concurrent callers so they share ONE generated image (not a race to two).
+    Returns (out, cached) where out = {image_base64, prompt, provider}. May raise from
+    generate_image — callers wrap."""
+    provider = active_provider()
+    cache_key = hashlib.sha1(json.dumps({
+        "provider": provider,
+        "layout": sess.get("layout_id", ""),
+        "room": room.get("id") or room.get("name"),
+        "material": (room.get("attributes", {}) or {}).get("floorMaterial"),
+        "furniture": _furn_sig(furniture),
+        "scores": scores,
+        "role": persona.get("role"),
+    }, sort_keys=True).encode()).hexdigest()
+
+    if not force and cache_key in _RENDER_CACHE:
+        return _RENDER_CACHE[cache_key], True
+
+    with _RENDER_LOCKS_GUARD:
+        lock = _RENDER_LOCKS.setdefault(cache_key, threading.Lock())
+    with lock:
+        # Re-check inside the lock: a concurrent caller may have just filled the cache.
+        if not force and cache_key in _RENDER_CACHE:
+            return _RENDER_CACHE[cache_key], True
+        prompt = build_room_prompt(room, scores, persona, furniture)
+        b64 = generate_image(prompt)
+        out = {"image_base64": "data:image/png;base64," + b64, "prompt": prompt, "provider": provider}
+        _RENDER_CACHE[cache_key] = out
+        return out, False
 
 
 @app.post("/api/render-room")
@@ -459,29 +509,12 @@ def render_room(req: RenderRoomReq) -> dict:
 
     scores = _room_comfort_scores(checkpoints.vision_scores(sess), room)
     persona = sess.get("persona_profile") or {}
-    provider = active_provider()
-
-    cache_key = hashlib.sha1(json.dumps({
-        "provider": provider,
-        "layout": sess.get("layout_id", ""),
-        "room": room.get("id") or room.get("name"),
-        "material": (room.get("attributes", {}) or {}).get("floorMaterial"),
-        "scores": scores,
-        "role": persona.get("role"),
-    }, sort_keys=True).encode()).hexdigest()
-
-    if not req.force and cache_key in _RENDER_CACHE:
-        return {"session_id": sid, "ok": True, "cached": True, **_RENDER_CACHE[cache_key]}
-
-    prompt = build_room_prompt(room, scores, persona)
     try:
-        b64 = generate_image(prompt)
+        out, cached = _render_room_image(sess, room, scores, persona, req.force,
+                                         furniture=_room_furniture(layout, room))
     except Exception as exc:
         return {"session_id": sid, "ok": False, "error": f"Image generation failed: {exc}"}
-
-    out = {"image_base64": "data:image/png;base64," + b64, "prompt": prompt, "provider": provider}
-    _RENDER_CACHE[cache_key] = out
-    return {"session_id": sid, "ok": True, "cached": False, **out}
+    return {"session_id": sid, "ok": True, "cached": cached, **out}
 
 
 @app.post("/api/report")
@@ -529,14 +562,22 @@ def report(req: ReportReq) -> dict:
             "room_type": (room.get("attributes", {}) or {}).get("roomType"),
             "comfort_scores": scores,
             "overall_score": overall_by_name.get(rname),
-            "prompt": build_room_prompt(room, scores, persona),
+            "prompt": build_room_prompt(room, scores, persona, _room_furniture(layout, room)),
         })
 
-    # featured: worst overall, then the most-recently-edited room (deduped, order kept)
+    # featured: worst overall, the biggest-glow-up room (matches the before/after banner
+    # so its card render = the banner 'after'), then the most-recently-edited room.
     featured: list[str] = []
     scored = [r for r in out_rooms if r["overall_score"] is not None]
     if scored:
         featured.append(min(scored, key=lambda r: r["overall_score"])["room_name"])
+    try:
+        sel = _select_compare_room(sess, persona)
+        glow = sel["room_after"].get("name") if sel else None
+        if glow and glow not in featured and any(r["room_name"] == glow for r in out_rooms):
+            featured.append(glow)
+    except Exception:
+        pass
     edited = (sess.get("layout_diff") or {}).get("room_name")
     if edited and edited not in featured and any(r["room_name"] == edited for r in out_rooms):
         featured.append(edited)
@@ -598,6 +639,13 @@ def _furniture_counts(layout: dict) -> dict:
     return c
 
 
+def _room_furniture(layout: dict, room: dict) -> list[dict]:
+    """The furniture items belonging to one room (by roomId) — for the change clause."""
+    rid = room.get("id")
+    return [f for f in layout.get("furniture", [])
+            if (f.get("attributes", {}) or {}).get("roomId") == rid]
+
+
 def _room_overall(scores_json: str, room: dict):
     """This room's overallScore (0-1) from a scores JSON, or None."""
     try:
@@ -622,45 +670,85 @@ def _dwelling_overall(scores_json: str):
         return None
 
 
-@app.post("/api/compare-initial")
-def compare_initial(req: RenderRoomReq) -> dict:
-    """Report before/after for the WHOLE editing session: the most-changed room from
-    its INITIAL (on-disk) state → its FINAL (current) state, with per-sense deltas.
-    Unlike /api/compare-room (reverts the single last attribute), this captures the
-    cumulative effect of every edit on that room — the real 'ripple' to show."""
-    sid, slot = _slot(req.session_id)
-    sess = slot["session"]
-    # after = the COMMITTED layout (latest checkpoint); before = the initial on-disk file.
+def _select_compare_room(sess: dict, persona: dict):
+    """Pick the report's before/after room: the biggest positive overall gain
+    ('biggest glow up'), falling back to the most-changed-by-edits room. Returns a
+    dict with the parsed layouts, the chosen room (after/before), the changed keys,
+    and both scored states — or None when there's nothing to compare."""
     cur_raw = checkpoints.vision_layout(sess)
     original = _original_layout(sess)
     if not cur_raw or original is None:
-        return {"session_id": sid, "ok": False, "error": "no layout to compare"}
+        return None
     try:
         current = json.loads(cur_raw)
     except Exception:
-        return {"session_id": sid, "ok": False, "error": "current layout could not be parsed"}
+        return None
+    try:
+        after_full = checkpoints.vision_scores(sess) or _score_layout(current, persona)
+        before_full = _score_layout(original, persona)
+    except Exception:
+        return None
 
-    persona = sess.get("persona_profile") or {}
     orig_rooms = {r.get("name"): r for r in original.get("rooms", [])}
     fc_cur, fc_orig = _furniture_counts(current), _furniture_counts(original)
 
-    # pick the room that changed the most (attributes + furniture count)
-    best = None
+    def _changed_keys(rc: dict, ro: dict) -> list[str]:
+        ac, ao = rc.get("attributes", {}) or {}, ro.get("attributes", {}) or {}
+        ks = [k for k in (set(ac) | set(ao)) if ac.get(k) != ao.get(k)]
+        if fc_cur.get(rc.get("id"), 0) != fc_orig.get(ro.get("id"), 0):
+            ks.append("furniture")
+        return ks
+
+    glow = None          # (room_after, room_before, changed, delta)
+    most_changed = None  # (room_after, room_before, changed)
     for rc in current.get("rooms", []):
         ro = orig_rooms.get(rc.get("name"))
         if not ro:
             continue
-        ac = rc.get("attributes", {}) or {}
-        ao = ro.get("attributes", {}) or {}
-        changed = [k for k in (set(ac) | set(ao)) if ac.get(k) != ao.get(k)]
-        if fc_cur.get(rc.get("id"), 0) != fc_orig.get(ro.get("id"), 0):
-            changed.append("furniture")
-        if changed and (best is None or len(changed) > len(best[2])):
-            best = (rc, ro, changed)
+        changed = _changed_keys(rc, ro)
+        if not changed:
+            continue
+        if most_changed is None or len(changed) > len(most_changed[2]):
+            most_changed = (rc, ro, changed)
+        oa, ob = _room_overall(after_full, rc), _room_overall(before_full, ro)
+        if oa is not None and ob is not None:
+            delta = oa - ob
+            if delta > 0 and (glow is None or delta > glow[3]):
+                glow = (rc, ro, changed, delta)
 
-    if best is None:
+    if glow is not None:
+        room_after, room_before, changed = glow[0], glow[1], glow[2]
+    elif most_changed is not None:
+        room_after, room_before, changed = most_changed
+    else:
+        return None
+
+    return {
+        "current": current, "original": original,
+        "room_after": room_after, "room_before": room_before, "changed": changed,
+        "before_full": before_full, "after_full": after_full,
+    }
+
+
+@app.post("/api/compare-initial")
+def compare_initial(req: RenderRoomReq) -> dict:
+    """Report before/after for the WHOLE editing session: the BIGGEST-GLOW-UP room
+    (largest positive overall-score gain) from its INITIAL (on-disk) state → its FINAL
+    (current) state, with per-sense deltas and both prompts. The 'after' is the canonical
+    room render (shared cache with the report card = single source of truth); the 'before'
+    is generated anchored on that after image PLUS an explicit change clause, so the scene
+    stays consistent while the mood genuinely shifts."""
+    sid, slot = _slot(req.session_id)
+    sess = slot["session"]
+    persona = sess.get("persona_profile") or {}
+
+    sel = _select_compare_room(sess, persona)
+    if sel is None:
         return {"session_id": sid, "ok": False, "error": "no edits to compare"}
-    room_after, room_before, changed = best
+    current, original = sel["current"], sel["original"]
+    room_after, room_before, changed = sel["room_after"], sel["room_before"], sel["changed"]
+    after_full, before_full = sel["after_full"], sel["before_full"]
+    fc_cur, fc_orig = _furniture_counts(current), _furniture_counts(original)
 
     cache_key = hashlib.sha1(json.dumps({
         "p": active_provider(), "l": sess.get("layout_id", ""),
@@ -671,18 +759,28 @@ def compare_initial(req: RenderRoomReq) -> dict:
     if not req.force and cache_key in _INITIAL_COMPARE_CACHE:
         return {"session_id": sid, "ok": True, "cached": True, **_INITIAL_COMPARE_CACHE[cache_key]}
 
-    try:
-        after_full = checkpoints.vision_scores(sess) or _score_layout(current, persona)
-        before_full = _score_layout(original, persona)
-        after_scores = _room_comfort_scores(after_full, room_after)
-        before_scores = _room_comfort_scores(before_full, room_before)
-    except Exception as exc:
-        return {"session_id": sid, "ok": False, "error": f"scoring failed: {exc}"}
+    after_scores = _room_comfort_scores(after_full, room_after)
+    before_scores = _room_comfort_scores(before_full, room_before)
+    furn_after = _room_furniture(current, room_after)
+    furn_before = _room_furniture(original, room_before)
 
     try:
-        after_b64 = generate_image(build_room_prompt(room_after, after_scores, persona))
-        before_b64 = generate_image(build_room_prompt(room_before, before_scores, persona),
-                                    reference_b64=after_b64)
+        # AFTER = the canonical room render (same cache the report card uses → identical image).
+        after_out, _ = _render_room_image(sess, room_after, after_scores, persona, req.force,
+                                          furniture=furn_after)
+        after_image = after_out["image_base64"]
+        after_prompt = after_out["prompt"]
+        after_raw = after_image.split(",", 1)[-1]  # strip data: prefix for the anchor
+
+        # BEFORE = anchored on the after image + an IMPERATIVE edit clause, so the scene
+        # holds (same room/camera/composition) but every change reads distinctly different.
+        # Display prompt is the clean before-state scene; the clause is generation-only.
+        before_prompt = build_room_prompt(room_before, before_scores, persona, furn_before)
+        clause = build_change_clause(
+            room_before, room_after, before_scores, after_scores, furn_before, furn_after,
+        )
+        gen_prompt = before_prompt + (" " + clause if clause else "")
+        before_b64 = generate_image(gen_prompt, reference_b64=after_raw)
     except Exception as exc:
         return {"session_id": sid, "ok": False, "error": f"Image generation failed: {exc}"}
 
@@ -690,8 +788,11 @@ def compare_initial(req: RenderRoomReq) -> dict:
               for s in _SENSES if (s in before_scores or s in after_scores)}
     out = {
         "before_image": "data:image/png;base64," + before_b64,
-        "after_image": "data:image/png;base64," + after_b64,
+        "after_image": after_image,
         "deltas": deltas, "room": room_after.get("name"), "changed": changed,
+        # the two prompts so the slider can show how the score→prompt drove the render
+        "before_prompt": before_prompt,
+        "after_prompt": after_prompt,
         # overall scores so the slider can show initial→now numbers, not just images
         "room_before_overall": _room_overall(before_full, room_before),
         "room_after_overall": _room_overall(after_full, room_after),

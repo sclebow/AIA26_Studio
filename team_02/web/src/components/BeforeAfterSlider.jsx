@@ -2,14 +2,22 @@ import { useRef, useState } from "react";
 
 // A vertical wipe slider: AFTER is the base layer; BEFORE is overlaid and clipped
 // to the left of the handle. Drag the handle — left of it = before, right = after.
-export default function BeforeAfterSlider({ before, after, height = 170, beforeTag, afterTag }) {
-  const [x, setX] = useState(50);
+// Controlled mode: pass `pos` (0..1) + `onPos` so a parent can drive scores/prompt
+// off the same handle; otherwise it owns its own position.
+// `interactive={false}` disables its own pointer handling so a parent (e.g. a
+// full-card scrub spine) can own the drag and this just renders the wipe from `pos`.
+export default function BeforeAfterSlider({ before, after, height = 170, beforeTag, afterTag, pos, onPos, interactive = true }) {
+  const controlled = typeof pos === "number";
+  const [xInternal, setXInternal] = useState(50);
+  const x = controlled ? Math.max(0, Math.min(100, pos * 100)) : xInternal;
   const ref = useRef(null);
 
   const move = (clientX) => {
     const r = ref.current?.getBoundingClientRect();
     if (!r) return;
-    setX(Math.max(0, Math.min(100, ((clientX - r.left) / r.width) * 100)));
+    const nx = Math.max(0, Math.min(100, ((clientX - r.left) / r.width) * 100));
+    if (controlled) onPos?.(nx / 100);
+    else setXInternal(nx);
   };
 
   return (
@@ -17,9 +25,9 @@ export default function BeforeAfterSlider({ before, after, height = 170, beforeT
       ref={ref}
       className="ba-slider"
       style={{ position: "relative", width: "100%", height, borderRadius: 8, overflow: "hidden",
-        border: "1px solid rgba(var(--fg-rgb),0.14)", cursor: "ew-resize", userSelect: "none", touchAction: "none" }}
-      onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); move(e.clientX); }}
-      onPointerMove={(e) => { if (e.buttons) move(e.clientX); }}
+        border: "1px solid rgba(var(--fg-rgb),0.14)", cursor: interactive ? "ew-resize" : "inherit", userSelect: "none", touchAction: "none" }}
+      onPointerDown={interactive ? (e) => { e.currentTarget.setPointerCapture(e.pointerId); move(e.clientX); } : undefined}
+      onPointerMove={interactive ? (e) => { if (e.buttons) move(e.clientX); } : undefined}
     >
       <img src={after} alt="after" draggable={false}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />

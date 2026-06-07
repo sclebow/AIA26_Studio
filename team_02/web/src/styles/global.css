@@ -2051,6 +2051,27 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
 .ds-delta-arrow { color: rgba(var(--fg-rgb), 0.4); }
 .ds-delta-amt { font-weight: 600; }
 
+/* full-card scrub: one spine + live readout across image, readout band, and prompts */
+.ds-scrub { position: relative; margin: 12px 0 6px; cursor: ew-resize; user-select: none; touch-action: none; }
+.ds-scrub-spine { position: absolute; top: 0; bottom: 0; width: 2px; transform: translateX(-1px);
+  background: rgba(255,255,255,0.55); box-shadow: 0 0 8px rgba(0,0,0,0.55); pointer-events: none; z-index: 6; }
+
+/* mid band the readout rides along (between image and prompts) — clean, no chrome */
+.ds-scrub-mid { position: relative; height: 96px; }
+.ds-scrub-readout { position: absolute; top: 50%; transform: translate(-50%, -50%); z-index: 7;
+  pointer-events: none; display: flex; align-items: center; gap: 14px; }
+.ds-scrub-nums { display: flex; flex-direction: column; gap: 3px; }
+.ds-hero-now { display: inline-flex; align-items: baseline; gap: 6px; font-family: var(--font-mono);
+  font-size: 11px; white-space: nowrap; }
+.ds-hero-now-val { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; transition: color .12s; }
+
+/* before-prompt left of the spine, after-prompt right; crossfade as you scrub */
+.ds-scrub-prompts { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 4px; }
+.ds-hero-prompt { display: flex; flex-direction: column; gap: 5px; transition: opacity .12s; }
+.ds-hero-prompt-tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em;
+  text-transform: uppercase; color: rgba(var(--fg-rgb), 0.45); }
+@media (max-width: 720px) { .ds-scrub-prompts { grid-template-columns: 1fr; } }
+
 /* ── per-room card ── */
 .report-rooms { display: flex; flex-direction: column; gap: 14px; }
 .rr-card { border: 1px solid rgba(var(--fg-rgb), var(--o-hairline)); border-radius: var(--r-sm);

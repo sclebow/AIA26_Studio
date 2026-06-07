@@ -7,6 +7,7 @@ import SenseSignature from "../components/SenseSignature.jsx";
 import SenseRows from "../components/SenseRows.jsx";
 import Collapsible from "../ui/Collapsible.jsx";
 import RenderSlot from "./RenderSlot.jsx";
+import PromptText, { voicedFromScores } from "./PromptText.jsx";
 
 // a room's overall in one word — a glance before the number
 const verdictOf = (o) => (o >= 0.65 ? "serene" : o >= 0.5 ? "comfortable" : o >= 0.4 ? "strained" : "conflicted");
@@ -17,58 +18,12 @@ function parseInsight(b) {
   return m ? { sense: m[1].toLowerCase(), text: m[2] } : { sense: null, text: b };
 }
 
-// Exact mirror of imaging/prompt.py _SENSE_FRAGMENTS [low (<0.45), high (>0.70)].
-// Used to locate each voiced sense's words inside the prompt so hovering a petal
-// or chip can highlight the slice of language that sense produced.
-const FRAG = {
-  thermal:   ["a cool, slightly cold feel with bluish daylight", "a warm, cosy feel with golden light"],
-  visual:    ["dim, harsh and visually cluttered with uneven lighting", "bright, airy and visually calm with balanced natural light"],
-  acoustic:  ["hard reflective surfaces — bare concrete, glass and tile — that look acoustically live", "soft sound-absorbing textiles, rugs and drapes"],
-  spatial:   ["cramped and tight with a low ceiling", "open, spacious and generous in volume"],
-  olfactory: ["stuffy and closed with stale air", "fresh and well-ventilated, with a few plants"],
-  tactile:   ["cold, hard, unwelcoming materials", "warm natural materials like wood and wool"],
-};
-
 /*
  * RoomReportCard — the per-room unit of the Report, built as the explicit loop
  * the whole product turns on: the scores → become a prompt → become an image.
- * Featured rooms (worst / most-recently-edited) open by default and render on
- * entry; the rest are collapsed and render lazily when expanded.
- *
- * `voiced` mirrors imaging/prompt.py: only a sense scored clearly low (<0.45) or
- * clearly high (>0.70) earns a fragment in the prompt — so a room's *weak* senses
- * set the mood. We surface exactly those senses to make the score→prompt link legible.
+ * Featured rooms (worst / biggest glow-up / most-recently-edited) open by default
+ * and render on entry; the rest are collapsed and render lazily when expanded.
  */
-const voicedTier = (v) => (v == null ? null : v < 0.45 ? "low" : v > 0.70 ? "high" : null);
-
-function PromptText({ prompt, voiced, hoverSense }) {
-  if (!voiced.length) return <>{prompt}</>;
-  // Locate each voiced sense's exact fragment in the prompt; wrap it so hovering a
-  // petal/chip lights up the words that sense produced. Keeps the true prompt text.
-  const marks = voiced
-    .map(([s, t]) => ({ s, text: FRAG[s][t === "low" ? 0 : 1] }))
-    .filter((m) => prompt.includes(m.text))
-    .sort((a, b) => prompt.indexOf(a.text) - prompt.indexOf(b.text));
-  if (!marks.length) return <>{prompt}</>;
-  const out = [];
-  let cursor = 0;
-  marks.forEach((m, i) => {
-    const idx = prompt.indexOf(m.text, cursor);
-    if (idx < 0) return;
-    if (idx > cursor) out.push(prompt.slice(cursor, idx));
-    out.push(
-      <span key={i}
-        className={"rr-frag rr-prompt-voiced" + (hoverSense === m.s ? " rr-frag-hi" : "")}
-        style={hoverSense === m.s ? { color: SC[m.s] } : undefined}>
-        {m.text}
-      </span>
-    );
-    cursor = idx + m.text.length;
-  });
-  if (cursor < prompt.length) out.push(prompt.slice(cursor));
-  return <>{out}</>;
-}
-
 export default function RoomReportCard({ room, turn, persona, img, defaultOpen = false, onRequestRender }) {
   const [hoverSense, setHoverSense] = useState(null);
   const name = room.room_name;
@@ -79,7 +34,7 @@ export default function RoomReportCard({ room, turn, persona, img, defaultOpen =
   const weights = persona?.comfort_weights || {};
   const overall = room.overall_score ?? scored?.overallScore ?? 0;
 
-  const voiced = SENSES.map((s) => [s, voicedTier(eff[s])]).filter(([, t]) => t);
+  const voiced = voicedFromScores(eff);
   const sugg = suggestionsFor(turn, name);
   const why = narrativeBullets(turn, name);
 
