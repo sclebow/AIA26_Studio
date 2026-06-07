@@ -1,0 +1,10 @@
+{
+  "layoutId": "L_L4.5_W6.0_de3_dp0.6_wp1",
+  "description": "Studio apartment, 1 shower bathroom, open plan living-kitchen-dining. Single-aspect apartment \u2014 windows on right facade(s). Studio apartment. Sleeping area: unclear bed. Separation from living area: fully open. Kitchen: unclear, no island. No wall separates kitchen from dining and living \u2014 fully open plan. Living area arrangement: other. Bathroom config: 1 shower-only bathroom(s). Single bathroom \u2014 sequential morning routine. From entry: kitchen is unclear, living area is unclear. No door between entry and living/kitchen \u2014 relevant where local regulations require separation. Suits: singles or couples.",
+  "not_suitable_for": [
+    "families with children",
+    "household requiring separate rooms for different functions simultaneously",
+    "jurisdictions requiring door separation between entry and kitchen"
+  ],
+  "rooms_summary": "1 bathroom, 1 living (open plan)"
+}

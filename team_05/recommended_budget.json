@@ -1,0 +1,43 @@
+{
+  "total_budget": 104950,
+  "recommended_budget": {
+    "rooms": [
+      {"name": "Living Room", "recommended_budget": 50000},
+      {"name": "Dining Room", "recommended_budget": 23000},
+      {"name": "Corridor", "recommended_budget": 9000},
+      {"name": "Master Bedroom", "recommended_budget": 17000},
+      {"name": "Bedroom 2", "recommended_budget": 11000},
+      {"name": "Bedroom 3", "recommended_budget": 8000},
+      {"name": "Bathroom", "recommended_budget": 14000}
+    ],
+    "doors": [
+      {"id": "front_door", "recommended_budget": 1200},
+      {"id": "door_living_corridor", "recommended_budget": 500},
+      {"id": "door_dining_corridor", "recommended_budget": 500},
+      {"id": "door_master", "recommended_budget": 500},
+      {"id": "door_bedroom_2", "recommended_budget": 500},
+      {"id": "door_bedroom_3", "recommended_budget": 500},
+      {"id": "door_bathroom", "recommended_budget": 600}
+    ],
+    "windows": [
+      {"id": "window_living_south", "recommended_budget": 1500},
+      {"id": "window_living_west", "recommended_budget": 1500},
+      {"id": "window_dining_south", "recommended_budget": 1500},
+      {"id": "window_master_north", "recommended_budget": 1100},
+      {"id": "window_bedroom_2_north", "recommended_budget": 800},
+      {"id": "window_bedroom_3_north", "recommended_budget": 800},
+      {"id": "window_bathroom_east", "recommended_budget": 500}
+    ],
+    "columns": [
+      {"id": "col_corner_sw", "recommended_budget": 500},
+      {"id": "col_corner_se", "recommended_budget": 500},
+      {"id": "col_corner_ne", "recommended_budget": 500},
+      {"id": "col_corner_nw", "recommended_budget": 500},
+      {"id": "col_edge_south", "recommended_budget": 550},
+      {"id": "col_edge_north", "recommended_budget": 550},
+      {"id": "col_edge_east", "recommended_budget": 550},
+      {"id": "col_edge_west", "recommended_budget": 550},
+      {"id": "col_center", "recommended_budget": 600}
+    ]
+  }
+}

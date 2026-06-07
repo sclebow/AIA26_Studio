@@ -4,7 +4,7 @@ import json
 import re
 from typing import Any, Callable
 
-from design_state import build_shape_generation_state
+from design_state import build_prompt_memory_state, build_shape_generation_state
 
 
 PLAN_AGENT_PROMPT = """
@@ -100,6 +100,58 @@ def _extract_tree_count(user_prompt: str) -> int:
     return 0
 
 
+def _parse_wing_areas(user_prompt: str) -> dict[str, float]:
+    """
+    Parse wing/arm area specifications from user prompt.
+    
+    Supports formats like:
+    - "one wing of 75sq m" / "arm of 75sq m"
+    - "75 sqm"
+    - "wing area 75 m2" / "arm area 75 m2"
+    - "first wing 75sq m, second wing 50sqm"
+    - "left arm 100 sqm, right arm 80 sqm"
+    
+    Returns dict with keys like 'left_wing_area', 'right_wing_area', 'avg_wing_area'
+    or 'left_arm_area', 'right_arm_area', 'avg_arm_area'
+    """
+    prompt = (user_prompt or "").lower()
+    areas: list[float] = []
+    component_type = "wing"  # default
+    
+    # Check if prompt mentions "arm" instead of "wing"
+    if "arm" in prompt and "wing" not in prompt:
+        component_type = "arm"
+    
+    # Match patterns like "75sq m", "75 sqm", "75m2", "75sq.m", etc.
+    patterns = [
+        r"(\d+(?:\.\d+)?)\s*sq\.?\s*m(?!eter)",  # "75sq m", "75 sqm", "75sq.m"
+        r"(\d+(?:\.\d+)?)\s*m2\b",                  # "75m2"
+        r"(\d+(?:\.\d+)?)\s*square\s+meters?\b",    # "75 square meters"
+    ]
+    
+    for pattern in patterns:
+        matches = re.findall(pattern, prompt)
+        for match in matches:
+            try:
+                areas.append(float(match))
+            except ValueError:
+                continue
+    
+    if not areas:
+        return {}
+    
+    result = {}
+    if len(areas) >= 2:
+        result[f"left_{component_type}_area"] = areas[0]
+        result[f"right_{component_type}_area"] = areas[1]
+        result[f"avg_{component_type}_area"] = sum(areas[:2]) / 2.0
+    elif len(areas) == 1:
+        result[f"{component_type}_area"] = areas[0]
+        result[f"avg_{component_type}_area"] = areas[0]
+    
+    return result
+
+
 def _extract_tree_edge_hint(user_prompt: str) -> str:
     prompt = (user_prompt or "").lower()
     for edge in ("north", "south", "east", "west", "top", "bottom", "left", "right"):
@@ -129,11 +181,17 @@ def _infer_default_shape_type(user_prompt: str) -> str:
 def _detect_user_intent(user_prompt: str) -> str:
     prompt = (user_prompt or "").lower()
 
+    if any(keyword in prompt for keyword in ("reset", "new design", "new_design", "start over", "clear previous", "fresh design")):
+        return "reset_new_design"
+
     if any(keyword in prompt for keyword in ("explain result", "generate report", "summarize optimization", "why this placement", "report", "summarize")):
         return "report_only"
 
     if any(keyword in prompt for keyword in ("add trees", "move trees", "shift trees", "change tree count", "change tree size", "resize trees", "tree update")):
         return "tree_update"
+
+    if any(keyword in prompt for keyword in ("scale", "resize", "enlarge", "shrink", "stretch", "bigger", "larger", "smaller", "increase", "decrease", "wider", "narrower", "expand", "contract")):
+        return "scale_building"
 
     if any(keyword in prompt for keyword in ("rotate", "rotation", "turn building", "turn it", "change orientation")):
         return "rotate_building"
@@ -141,6 +199,12 @@ def _detect_user_intent(user_prompt: str) -> str:
     if (
         any(keyword in prompt for keyword in ("move", "shift", "translate"))
         and any(keyword in prompt for keyword in ("left", "right", "front", "back", "north", "south", "east", "west"))
+    ):
+        return "move_building"
+
+    # also accept up/down keywords as move intent
+    if any(keyword in prompt for keyword in ("move", "shift", "translate")) and any(
+        keyword in prompt for keyword in ("up", "down", "top", "bottom", "above", "below")
     ):
         return "move_building"
 
@@ -191,33 +255,48 @@ def _extract_explicit_tree_count(user_prompt: str) -> int:
 
 def _build_move_plan(user_prompt: str) -> dict[str, Any]:
     distance = _parse_distance_meters(user_prompt, 5.0)
-    distance_text = f"{distance:g}"
     prompt = (user_prompt or "").lower()
 
-    movement = {
-        "move_left": "0",
-        "move_right": "0",
-        "move_front": "0",
-        "move_back": "0",
-        "move_north": "0",
-        "move_south": "0",
-        "move_east": "0",
-        "move_west": "0",
+    # determine direction and map to argument key used by downstream tools
+    direction = None
+    if any(keyword in prompt for keyword in ("left", "west")):
+        direction = "move_left"
+    elif any(keyword in prompt for keyword in ("right", "east")):
+        direction = "move_right"
+    elif any(keyword in prompt for keyword in ("front", "forward", "north")):
+        direction = "move_front"
+    elif any(keyword in prompt for keyword in ("back", "backward", "south", "down")):
+        # treat 'down' and 'south' as negative Y / back movement
+        direction = "move_back"
+    elif any(keyword in prompt for keyword in ("up", "top", "above")):
+        direction = "move_front"
+
+    movement: dict[str, Any] = {
+        "move_left": 0.0,
+        "move_right": 0.0,
+        "move_front": 0.0,
+        "move_back": 0.0,
         "apply_move": True,
     }
 
-    if any(keyword in prompt for keyword in ("left", "west")):
-        movement["move_left"] = distance_text
-        movement["move_west"] = distance_text
-    elif any(keyword in prompt for keyword in ("right", "east")):
-        movement["move_right"] = distance_text
-        movement["move_east"] = distance_text
-    elif any(keyword in prompt for keyword in ("front", "forward", "north")):
-        movement["move_front"] = distance_text
-        movement["move_north"] = distance_text
-    elif any(keyword in prompt for keyword in ("back", "backward", "south")):
-        movement["move_back"] = distance_text
-        movement["move_south"] = distance_text
+    if direction:
+        movement[direction] = float(distance)
+
+    # Provide an initial_tool_calls entry so the workflow can immediately execute the move
+    initial_tool_calls = []
+    move_call_args = {}
+    if direction:
+        move_call_args[direction] = float(distance)
+    else:
+        # default: move_back by distance
+        move_call_args["move_back"] = float(distance)
+
+    initial_tool_calls.append({"name": "move", "arguments": move_call_args})
+
+    human_expl = f"Move the building {distance:g} meters"
+    if direction:
+        human_expl += f" ({direction})"
+    human_expl += ", then validate against the site boundary and tree overlap."
 
     return {
         "requires_clarification": False,
@@ -225,16 +304,14 @@ def _build_move_plan(user_prompt: str) -> dict[str, Any]:
         "tool_to_run": "building_move_tool",
         "run_optimizer": False,
         "run_shape_generator": False,
-        "move_distance_meters": distance,
-        "move_distance_text": distance_text,
+        "move_distance_meters": float(distance),
         "movement": movement,
+        "initial_tool_calls": initial_tool_calls,
         "validation": {
             "check_site_boundary": True,
             "check_tree_overlap": True,
         },
-        "human_friendly_explanation": (
-            f"I will move the already optimized building {distance_text} meters to the left and validate it against the site boundary and tree overlap."
-        ),
+        "human_friendly_explanation": human_expl,
         "handoff": {
             "mode": "automatic",
             "target": "existing_move_tool",
@@ -455,6 +532,121 @@ def _build_tree_policy(user_prompt: str) -> dict[str, Any]:
     }
 
 
+def _build_scale_plan(user_prompt: str) -> dict[str, Any]:
+    prompt = (user_prompt or "").lower()
+    scale_factor = 1.0
+    percentage_match = re.search(r"(\d+(?:\.\d+)?)\s*%", prompt)
+    multiplier_match = re.search(r"(\d+(?:\.\d+)?)\s*times?", prompt)
+    if percentage_match:
+        try:
+            percentage_value = float(percentage_match.group(1)) / 100.0
+            if any(keyword in prompt for keyword in ("shrink", "smaller", "reduce", "decrease", "narrower", "contract")):
+                scale_factor = max(0.1, 1.0 - percentage_value)
+            else:
+                scale_factor = 1.0 + percentage_value
+        except ValueError:
+            scale_factor = 1.0
+    elif multiplier_match:
+        try:
+            multiplier_value = float(multiplier_match.group(1))
+            if any(keyword in prompt for keyword in ("shrink", "smaller", "reduce", "decrease", "narrower", "contract")):
+                scale_factor = max(0.1, 1.0 - multiplier_value)
+            else:
+                scale_factor = 1.0 + multiplier_value
+        except ValueError:
+            scale_factor = 1.0
+    elif any(keyword in prompt for keyword in ("enlarge", "bigger", "expand", "increase", "wider", "larger")):
+        scale_factor = 1.1
+    elif any(keyword in prompt for keyword in ("shrink", "smaller", "reduce", "decrease", "narrower", "contract")):
+        scale_factor = 0.9
+
+    return {
+        "requires_clarification": False,
+        "intent": "scale_building",
+        "tool_to_run": "building_scale_tool",
+        "run_optimizer": False,
+        "run_shape_generator": False,
+        "scale": {
+            "scale_factor": scale_factor,
+            "apply_scale": True,
+        },
+        "validation": {
+            "check_site_boundary": True,
+            "check_tree_overlap": True,
+        },
+        "human_friendly_explanation": (
+            f"I will scale the previously generated building by a factor of {scale_factor:g} and keep the original shape memory intact."
+        ),
+        "handoff": {
+            "mode": "automatic",
+            "target": "existing_scale_tool",
+        },
+    }
+
+
+def _build_reset_plan(user_prompt: str, shape_hint: dict[str, Any]) -> dict[str, Any]:
+    fallback_shape_hint = build_shape_generation_state(user_prompt)
+    if not isinstance(shape_hint, dict) or not shape_hint.get("locked_shape_type"):
+        shape_hint = {**(shape_hint if isinstance(shape_hint, dict) else {}), **fallback_shape_hint}
+
+    return {
+        "requires_clarification": False,
+        "intent": "reset_new_design",
+        "tool_to_run": "existing_workflow",
+        "run_optimizer": True,
+        "run_shape_generator": True,
+        "building_type": shape_hint.get("locked_shape_type") or _infer_default_shape_type(user_prompt),
+        "selected_shape_type": shape_hint.get("locked_shape_type") or _infer_default_shape_type(user_prompt),
+        "human_friendly_explanation": (
+            "The previous shape memory will be cleared so the next generation starts a new design, not a manipulation of the old one."
+        ),
+        "handoff": {
+            "mode": "automatic",
+            "target": "existing_workflow",
+            "notes": "Prompt memory will be reset before any new generation prompt is stored.",
+        },
+    }
+
+
+def _apply_prompt_memory_to_plan(
+    plan: dict[str, Any],
+    user_prompt: str,
+    memory_state: dict[str, Any] | None,
+    shape_hint: dict[str, Any],
+) -> dict[str, Any]:
+    prompt_memory = build_prompt_memory_state(user_prompt, memory_state, shape_hint)
+
+    plan["latest_user_prompt"] = prompt_memory["latest_user_prompt"]
+    plan["original_shape_prompt"] = prompt_memory["original_shape_prompt"]
+    plan["latest_manipulation_prompt"] = prompt_memory["latest_manipulation_prompt"]
+    plan["manipulation_history"] = prompt_memory["manipulation_history"]
+    plan["merged_mcp_prompt"] = prompt_memory["merged_mcp_prompt"]
+    plan["intent_type"] = prompt_memory["intent_type"]
+    plan["active_shape_type"] = prompt_memory["active_shape_type"]
+    plan["active_manipulation_type"] = prompt_memory["active_manipulation_type"]
+    plan["memory_status"] = prompt_memory["memory_status"]
+
+    # Ensure the plan's selected shape reflects the prompt memory when present.
+    # This prevents deterministic fallbacks from defaulting to an unrelated shape type
+    # (for example: 'rectangle') when the memory indicates a different active shape.
+    active_shape = prompt_memory.get("active_shape_type")
+    if isinstance(active_shape, str) and active_shape.strip():
+        resolved_shape = active_shape.strip()
+        plan["selected_shape_type"] = resolved_shape
+        plan["building_type"] = resolved_shape
+    else:
+        # keep any existing selected_shape_type in the plan, or leave as-is
+        plan.setdefault("selected_shape_type", plan.get("selected_shape_type", ""))
+
+    explanation = prompt_memory["explanation"]
+    if explanation:
+        plan["explanation"] = explanation
+    else:
+        plan["explanation"] = "The prompt memory was updated in the graph state and merged before MCP execution."
+
+    return plan
+
+
 def _normalize_text(content: Any) -> str:
     if isinstance(content, str):
         return content
@@ -529,7 +721,11 @@ def _build_plan_prompt(
     )
 
 
-def _fallback_plan(user_prompt: str, shape_hint: dict[str, Any]) -> dict[str, Any]:
+def _fallback_plan(
+    user_prompt: str,
+    shape_hint: dict[str, Any],
+    prompt_memory_state: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     prompt = user_prompt.strip()
     if not isinstance(shape_hint, dict):
         shape_hint = {}
@@ -546,7 +742,7 @@ def _fallback_plan(user_prompt: str, shape_hint: dict[str, Any]) -> dict[str, An
     is_vague = len(prompt.split()) < 4
     clarification_question = "What building type or site should I plan for?" if is_vague else ""
 
-    return {
+    plan = {
         "requires_clarification": is_vague,
         "clarification_question": clarification_question,
         "human_friendly_explanation": (
@@ -585,12 +781,15 @@ def _fallback_plan(user_prompt: str, shape_hint: dict[str, Any]) -> dict[str, An
         },
     }
 
+    return _apply_prompt_memory_to_plan(plan, user_prompt, prompt_memory_state, shape_hint)
+
 
 def generate_plan_agent_payload(
     llm: Any,
     user_prompt: str,
     tools: list[dict[str, Any]],
     layout_schema: dict[str, Any],
+    memory_state: dict[str, Any] | None,
     dbg: Callable[[str], None],
 ) -> dict[str, Any]:
     """
@@ -599,17 +798,49 @@ def generate_plan_agent_payload(
 
     intent = _detect_user_intent(user_prompt)
 
+    if intent == "reset_new_design":
+        shape_hint = build_shape_generation_state(user_prompt)
+        plan = _build_reset_plan(user_prompt, shape_hint)
+        plan["shape_hint"] = shape_hint
+        return _apply_prompt_memory_to_plan(plan, user_prompt, memory_state, shape_hint)
+
     if intent == "move_building":
-        return _build_move_plan(user_prompt)
+        plan = _build_move_plan(user_prompt)
+        return _apply_prompt_memory_to_plan(plan, user_prompt, memory_state, build_shape_generation_state(user_prompt))
 
     if intent == "rotate_building":
-        return _build_rotate_plan(user_prompt)
+        plan = _build_rotate_plan(user_prompt)
+        return _apply_prompt_memory_to_plan(plan, user_prompt, memory_state, build_shape_generation_state(user_prompt))
+
+    if intent == "scale_building":
+        plan = _build_scale_plan(user_prompt)
+        return _apply_prompt_memory_to_plan(plan, user_prompt, memory_state, build_shape_generation_state(user_prompt))
 
     if intent == "tree_update":
-        return _build_tree_update_plan(user_prompt)
+        plan = _build_tree_update_plan(user_prompt)
+        return _apply_prompt_memory_to_plan(plan, user_prompt, memory_state, build_shape_generation_state(user_prompt))
 
     if intent == "report_only":
-        return _build_report_plan()
+        plan = _build_report_plan()
+        existing_memory = memory_state if isinstance(memory_state, dict) else {}
+        empty_history = {
+            "move": "",
+            "rotate": "",
+            "scale": "",
+            "tree_update": "",
+            "general_adjustment": "",
+        }
+        plan["latest_user_prompt"] = user_prompt
+        plan["original_shape_prompt"] = str(existing_memory.get("original_shape_prompt", "")).strip()
+        plan["latest_manipulation_prompt"] = str(existing_memory.get("latest_manipulation_prompt", "")).strip()
+        plan["manipulation_history"] = existing_memory.get("manipulation_history", empty_history)
+        plan["merged_mcp_prompt"] = str(existing_memory.get("merged_mcp_prompt", "")).strip()
+        plan["intent_type"] = str(existing_memory.get("intent_type", "generation")).strip() or "generation"
+        plan["active_shape_type"] = str(existing_memory.get("active_shape_type", "")).strip()
+        plan["active_manipulation_type"] = str(existing_memory.get("active_manipulation_type", "")).strip()
+        plan["memory_status"] = str(existing_memory.get("memory_status", "empty")).strip() or "empty"
+        plan["explanation"] = "This is a report-only request, so the stored shape memory is preserved and not overwritten."
+        return plan
 
     shape_hint = build_shape_generation_state(user_prompt)
     tree_policy = _build_tree_policy(user_prompt)
@@ -669,7 +900,7 @@ def generate_plan_agent_payload(
     plan["tool_to_run"] = "existing_optimization_workflow"
     plan["run_optimizer"] = True
     plan["run_shape_generator"] = True
-    return plan
+    return _apply_prompt_memory_to_plan(plan, user_prompt, memory_state, shape_hint)
 
 
 def format_plan_agent_response(plan: dict[str, Any]) -> str:
@@ -679,10 +910,28 @@ def format_plan_agent_response(plan: dict[str, Any]) -> str:
 
     explanation = str(plan.get("human_friendly_explanation", "")).strip()
     intent = str(plan.get("intent", "")).strip()
+    intent_type = str(plan.get("intent_type", "")).strip()
+    memory_status = str(plan.get("memory_status", "")).strip()
+    active_manipulation_type = str(plan.get("active_manipulation_type", "")).strip()
+    memory_explanation = str(plan.get("explanation", "")).strip()
+    latest_user_prompt = str(plan.get("latest_user_prompt", "")).strip()
+    latest_manipulation_prompt = str(plan.get("latest_manipulation_prompt", "")).strip()
+    merged_mcp_prompt = str(plan.get("merged_mcp_prompt", "")).strip()
 
     header_line = ""
     if intent:
         header_line = f"Intent: {intent}\n"
+
+    memory_line = ""
+    if intent_type or memory_status or active_manipulation_type:
+        details: list[str] = []
+        if intent_type:
+            details.append(f"intent_type={intent_type}")
+        if active_manipulation_type:
+            details.append(f"active_manipulation_type={active_manipulation_type}")
+        if memory_status:
+            details.append(f"memory_status={memory_status}")
+        memory_line = f"Memory: {', '.join(details)}\n"
 
     lock_line = ""
     selected_shape_type = str(plan.get("selected_shape_type", "")).strip()
@@ -695,12 +944,31 @@ def format_plan_agent_response(plan: dict[str, Any]) -> str:
     if intent == "optimize_layout" and isinstance(tree_count, int) and tree_count > 0:
         tree_line = f"Tree assumption: {tree_count} trees\n"
 
+    explanation_line = ""
+    if memory_explanation:
+        explanation_line = f"{memory_explanation}\n"
+
+    prompt_lines = []
+    if latest_user_prompt:
+        prompt_lines.append(f"Latest user prompt: {latest_user_prompt}")
+    if latest_manipulation_prompt:
+        prompt_lines.append(f"Latest manipulation prompt: {latest_manipulation_prompt}")
+    if merged_mcp_prompt:
+        prompt_lines.append(f"Merged MCP prompt: {merged_mcp_prompt}")
+
+    prompt_block = ""
+    if prompt_lines:
+        prompt_block = "Prompt Memory\n" + "\n".join(prompt_lines) + "\n"
+
     plan_json = json.dumps(plan, indent=2, ensure_ascii=True)
     return (
         f"PART A - Human-Friendly Planning Explanation\n"
         f"{header_line}"
+        f"{memory_line}"
         f"{lock_line}"
         f"{tree_line}"
+        f"{explanation_line}"
+        f"{prompt_block}"
         f"{explanation}\n\n"
         f"PART B - Machine-Readable JSON Plan\n{plan_json}"
     )

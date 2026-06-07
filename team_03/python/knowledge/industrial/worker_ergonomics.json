@@ -1,0 +1,119 @@
+{
+  "source": "ISO 11228-1:2021 Manual Handling + EN 547 Human Body Measurements + Neufert Architects Data 4th Ed + NIOSH Lifting Equation",
+  "topic": "Industrial worker ergonomics — reach, posture, workstation heights, and fatigue zones",
+  "facts": [
+    {
+      "rule": "standing_worker_height_p50",
+      "value_m": 1.740,
+      "context": "50th percentile standing worker height (male European reference — Neufert)"
+    },
+    {
+      "rule": "standing_worker_shoulder_height",
+      "value_m": 1.430,
+      "context": "50th percentile shoulder height — upper limit for comfortable horizontal reach"
+    },
+    {
+      "rule": "standing_worker_elbow_height",
+      "value_m": 1.050,
+      "context": "50th percentile elbow height — optimal workbench height for precision tasks"
+    },
+    {
+      "rule": "workbench_height_light_assembly",
+      "value_m": 0.900,
+      "context": "Recommended workbench height for light assembly tasks — EN 547 / Neufert"
+    },
+    {
+      "rule": "workbench_height_heavy_assembly",
+      "value_m": 0.800,
+      "context": "Lower bench for heavy pushing/pulling tasks — reduces shoulder strain"
+    },
+    {
+      "rule": "standing_reach_forward_comfortable",
+      "value_m": 0.400,
+      "context": "Comfortable forward reach without leaning — ISO 11228-3"
+    },
+    {
+      "rule": "standing_reach_forward_max",
+      "value_m": 0.700,
+      "context": "Maximum forward reach with slight lean — beyond this requires repositioning"
+    },
+    {
+      "rule": "standing_reach_overhead_max",
+      "value_m": 2.000,
+      "context": "Maximum overhead reach for occasional access — not suitable for repetitive tasks"
+    },
+    {
+      "rule": "standing_reach_overhead_comfortable",
+      "value_m": 1.600,
+      "context": "Comfortable overhead reach without strain — upper limit for frequent access"
+    },
+    {
+      "rule": "standing_reach_floor_min",
+      "value_m": 0.350,
+      "context": "Minimum comfortable reach height from floor without bending — repetitive access below this causes injury"
+    },
+    {
+      "rule": "standing_reach_lateral_comfortable",
+      "value_m": 0.500,
+      "context": "Comfortable lateral reach to the side — controls and tools should be within this radius"
+    },
+    {
+      "rule": "operator_standing_zone_depth",
+      "value_m": 0.600,
+      "context": "Floor depth allocated for a standing operator at a workstation — from machine face"
+    },
+    {
+      "rule": "two_operator_side_by_side_width",
+      "value_m": 1.200,
+      "context": "Minimum clear width for two operators working side by side at the same bench"
+    },
+    {
+      "rule": "walkway_behind_operator_min",
+      "value_m": 0.915,
+      "context": "OSHA — minimum passageway behind a standing operator at a fixed workstation — 36 in"
+    },
+    {
+      "rule": "niosh_max_lift_weight_optimal",
+      "value": 23.000,
+      "unit": "kg",
+      "context": "NIOSH recommended max lift weight at optimal height (waist level, close to body)"
+    },
+    {
+      "rule": "niosh_max_lift_weight_floor_level",
+      "value": 10.000,
+      "unit": "kg",
+      "context": "NIOSH recommended max lift from floor level — twisting and distance reduce this further"
+    },
+    {
+      "rule": "fatigue_standing_max_continuous",
+      "value": 90.000,
+      "unit": "minutes",
+      "context": "Recommended max continuous standing work before a break — beyond causes lower limb fatigue"
+    },
+    {
+      "rule": "anti_fatigue_mat_coverage_depth",
+      "value_m": 0.600,
+      "context": "Anti-fatigue mat depth from machine face — covers standing operator zone"
+    },
+    {
+      "rule": "visual_inspection_distance_optimal",
+      "value_m": 0.300,
+      "context": "Optimal eye-to-part distance for precision visual inspection tasks — 30 cm"
+    },
+    {
+      "rule": "visual_inspection_distance_max",
+      "value_m": 0.600,
+      "context": "Maximum comfortable inspection distance without optical aids — parts should be within this range"
+    },
+    {
+      "rule": "tool_storage_max_height_frequent",
+      "value_m": 1.500,
+      "context": "Maximum height for frequently accessed tool storage — avoids overhead reach in repetitive tasks"
+    },
+    {
+      "rule": "tool_storage_min_height_floor",
+      "value_m": 0.400,
+      "context": "Minimum height for tool storage to avoid repeated bending — 400mm from finished floor"
+    }
+  ]
+}

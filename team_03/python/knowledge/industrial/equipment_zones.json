@@ -1,0 +1,106 @@
+{
+  "source": "ISO 11161:2007 Safety of Machinery + OSHA 29 CFR 1910.212 + ANSI B11 Series Machine Safety Standards",
+  "topic": "Safe operating zones, clearances, and exclusion areas around industrial machinery",
+  "facts": [
+    {
+      "rule": "min_operator_clearance_front_of_machine",
+      "value_m": 0.915,
+      "context": "OSHA 1910.212 — 36 in minimum clear zone in front of any machine where operator stands"
+    },
+    {
+      "rule": "min_operator_clearance_rear_of_machine",
+      "value_m": 0.760,
+      "context": "Minimum rear clearance for maintenance access — 30 in ANSI B11 general guideline"
+    },
+    {
+      "rule": "min_operator_clearance_side_of_machine",
+      "value_m": 0.610,
+      "context": "Minimum side clearance between machines where no operator access is needed — 24 in"
+    },
+    {
+      "rule": "cnc_machine_operator_zone_depth",
+      "value_m": 1.500,
+      "context": "CNC machining centre — operator standing zone depth including door swing and chip clearance"
+    },
+    {
+      "rule": "press_brake_front_clearance",
+      "value_m": 2.000,
+      "context": "Press brake — minimum front clear zone for sheet metal handling and operator safety"
+    },
+    {
+      "rule": "conveyor_side_clearance",
+      "value_m": 0.760,
+      "context": "OSHA 1910.217 — 30 in clear on each side of powered conveyor for maintenance walkway"
+    },
+    {
+      "rule": "robot_cell_safety_zone",
+      "value_m": 1.800,
+      "context": "ISO 10218-2 — safety fence or light curtain must be at least 1.8m from robot reach envelope"
+    },
+    {
+      "rule": "robot_cell_perimeter_fence_clearance",
+      "value_m": 0.500,
+      "context": "Minimum distance between robot reach envelope and safety fence inner face"
+    },
+    {
+      "rule": "welding_station_exclusion_radius",
+      "value_m": 3.000,
+      "context": "NFPA 51B — 10 ft radius exclusion zone around welding operations for combustibles"
+    },
+    {
+      "rule": "welding_station_operator_zone",
+      "value_m": 1.200,
+      "context": "Minimum clear zone for welder to maneuver with equipment and PPE"
+    },
+    {
+      "rule": "lathe_chip_guard_clearance",
+      "value_m": 1.220,
+      "context": "Minimum radial clear zone around lathe for chip ejection — 48 in from chuck centreline"
+    },
+    {
+      "rule": "grinder_wheel_exclusion_arc",
+      "value_m": 1.500,
+      "context": "ANSI B11.9 — 60 in exclusion arc in front of grinding wheel for wheel burst protection"
+    },
+    {
+      "rule": "machine_to_machine_min_separation",
+      "value_m": 1.220,
+      "context": "General industrial standard — minimum gap between machine footprints for operator and maintenance access"
+    },
+    {
+      "rule": "electrical_panel_front_clearance",
+      "value_m": 0.915,
+      "context": "NEC 110.26 — 36 in minimum clear in front of electrical panel — must never be blocked by equipment"
+    },
+    {
+      "rule": "compressed_air_manifold_clearance",
+      "value_m": 0.600,
+      "context": "Minimum clear access zone around compressed air distribution manifolds and valves"
+    },
+    {
+      "rule": "coolant_station_clearance",
+      "value_m": 0.900,
+      "context": "Coolant filling and filtration station — minimum operator access clearance"
+    },
+    {
+      "rule": "quality_control_station_min_depth",
+      "value_m": 1.500,
+      "context": "QC inspection station — depth of clear zone for inspector with parts and measuring equipment"
+    },
+    {
+      "rule": "quality_control_station_min_width",
+      "value_m": 1.200,
+      "context": "QC station — minimum width for single inspector workstation"
+    },
+    {
+      "rule": "storage_rack_face_clearance",
+      "value_m": 0.600,
+      "context": "Minimum clear zone in front of storage rack face for manual picking access"
+    },
+    {
+      "rule": "emergency_stop_max_reach_distance",
+      "value_m": 0.600,
+      "context": "ISO 13851 — E-stop must be reachable within 600mm from any operator position at the machine"
+    }
+  ]
+}

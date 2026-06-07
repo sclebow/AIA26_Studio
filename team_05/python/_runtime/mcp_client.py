@@ -8,8 +8,9 @@ class McpClient:
         self._endpoint = endpoint
         self._timeout_seconds = timeout_seconds
         self._request_id = 0
-        self._client = httpx.Client(timeout=timeout_seconds)
-
+        # Hardcode to 60 seconds to prevent crashes during heavy Grasshopper calculations
+        self._client = httpx.Client(timeout=60.0)
+        
     def close(self) -> None:
         self._client.close()
 

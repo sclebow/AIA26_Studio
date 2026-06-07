@@ -2,8 +2,10 @@ from __future__ import annotations
 from copy import deepcopy
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
 from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
+
 
 
 # ---------------------------------------------------------------------------
@@ -16,26 +18,61 @@ def create_chat_llm(
     llm_model: str,
     timeout_seconds: float,
     model_kwargs: dict[str, Any] | None = None,
-) -> ChatAnthropic:
-    return ChatAnthropic(
-        api_key=api_key,
-        base_url=base_url,
-        model=llm_model,
-        timeout=timeout_seconds,
-        temperature=0,
-        model_kwargs=model_kwargs or {},
-        max_tokens=2000
-    )
-# ) -> ChatOpenAI:
-#     return ChatOpenAI(
-#         api_key=api_key,
-#         base_url=base_url,
-#         model=llm_model,
-#         timeout=timeout_seconds,
-#         temperature=0,
-#         model_kwargs=model_kwargs or {},
-#     )
+) -> Union[ChatAnthropic, ChatOpenAI]:
+    model_name = llm_model.lower()
 
+    if "claude" in llm_model.lower():
+        return ChatAnthropic(
+            api_key=api_key,
+            base_url=base_url,
+            model=llm_model,
+            timeout=timeout_seconds,
+            temperature=0,
+            model_kwargs=model_kwargs or {},
+            max_tokens=2000
+        )
+    elif "gpt" in model_name or "gemini" in model_name:
+        return ChatOpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            model=llm_model,
+            timeout=timeout_seconds,
+            temperature=0,
+            model_kwargs=model_kwargs or {},
+            max_tokens=2000
+        )
+    
+    elif "ChatAnthropic" in llm_model:
+        return ChatAnthropic(
+            api_key=api_key,
+            base_url=base_url,
+            model=llm_model,
+            timeout=timeout_seconds,
+            temperature=0,
+            model_kwargs=model_kwargs or {},
+            max_tokens=2000
+        )
+    
+    elif "local" in llm_model:
+        return ChatOpenAI(
+            base_url=base_url or "http://localhost:1234/v1",
+            api_key="lm-studio",  # dummy key (LM Studio ignore eder)
+            model=llm_model,
+            temperature=0,
+            timeout=timeout_seconds,
+            max_tokens=2000,
+            model_kwargs=model_kwargs or {},
+        )
+    else:
+        return ChatOpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            model=llm_model,
+            timeout=timeout_seconds,
+            temperature=0,
+            model_kwargs=model_kwargs or {},
+            max_tokens=2000)
+    
 
 # ---------------------------------------------------------------------------
 # Structured-output schema builders

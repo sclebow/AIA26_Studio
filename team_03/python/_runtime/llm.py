@@ -183,7 +183,7 @@ def _parse_llm_json(content: str) -> dict[str, Any]:
                 pass
 
     # Extract JSON from ```json ... ``` fence anywhere in content
-    fence_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content_stripped, re.DOTALL)
+    fence_match = re.search(r'```(?:json)?\s*(\{.*\})\s*```', content_stripped, re.DOTALL)
     if fence_match:
         try:
             parsed = json.loads(fence_match.group(1))
@@ -232,6 +232,9 @@ def _normalize_tool_calls(raw_calls: list) -> list[dict]:
 
 def _normalize_llm_decision(parsed: dict[str, Any]) -> dict[str, Any]:
     action = parsed.get("action")
+
+    if action == "query":
+        return {"action": "query"}
 
     if action == "final":
         return {"action": "final", "final_response": parsed["final_response"]}

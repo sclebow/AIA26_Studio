@@ -196,6 +196,37 @@ def _parse_llm_json(content: str) -> dict[str, Any]:
         raise RuntimeError(f"Invalid JSON: {exc}") from exc
 
 
+def _build_fallback_final_response(state: dict[str, Any], reason: str) -> str:
+    design_state = state.get("design_state", {})
+    if not isinstance(design_state, dict):
+        design_state = {}
+
+    planning = design_state.get("planning")
+    if not isinstance(planning, dict):
+        planning = {}
+
+    selected_shape_type = planning.get("selected_shape_type") or state.get("shape_generation", {}).get("locked_shape_type")
+    tree_policy = planning.get("tree_policy") if isinstance(planning.get("tree_policy"), dict) else {}
+    tree_count = tree_policy.get("tree_count", planning.get("tree_count", 0))
+    preferred_edge = tree_policy.get("preferred_edge", planning.get("preferred_edge", ""))
+    explanation = planning.get("human_friendly_explanation", "")
+
+    parts: list[str] = [
+        "LLM connection failed, so the workflow used a safe fallback and stopped before tool execution.",
+    ]
+    if isinstance(selected_shape_type, str) and selected_shape_type.strip():
+        parts.append(f"Selected shape: {selected_shape_type.strip()}")
+    if isinstance(tree_count, int) and tree_count > 0:
+        edge_text = f" near the {preferred_edge} edge" if isinstance(preferred_edge, str) and preferred_edge.strip() else ""
+        parts.append(f"Tree policy: {tree_count} trees{edge_text}")
+    if isinstance(explanation, str) and explanation.strip():
+        parts.append(explanation.strip())
+    if reason.strip():
+        parts.append(f"Reason: {reason.strip()}")
+
+    return "\n".join(parts)
+
+
 def create_central_reasoning_node(
     llm: Any, dbg: Callable[[str], None], tool_names: list[str] | str | None = None
 ) -> Callable[[dict[str, Any]], dict[str, Any]]:
@@ -229,7 +260,7 @@ def create_central_reasoning_node(
 
         llm_messages: list[dict[str, str]] = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": state.get("user_prompt", "")},
+            {"role": "user", "content": state.get("merged_mcp_prompt") or state.get("user_prompt", "")},
         ]
 
         if state.get("feedback_history"):
@@ -238,10 +269,20 @@ def create_central_reasoning_node(
 
         dbg("[workflow][central_reason] Calling LLM")
         start_time = time.perf_counter()
-        result = llm.invoke(llm_messages)
-        elapsed = time.perf_counter() - start_time
-        dbg(f"[workflow][central_reason] LLM response received in {elapsed:.2f}s")
-        content = _normalize_content_text(result.content)
+        try:
+            result = llm.invoke(llm_messages)
+            elapsed = time.perf_counter() - start_time
+            dbg(f"[workflow][central_reason] LLM response received in {elapsed:.2f}s")
+            content = _normalize_content_text(result.content)
+        except Exception as exc:
+            elapsed = time.perf_counter() - start_time
+            dbg(f"[workflow][central_reason] LLM request failed after {elapsed:.2f}s: {exc}")
+            state["pending_action"] = "final"
+            state["pending_tool_calls"] = []
+            state["last_reasoning"] = str(exc)
+            state["next_step"] = "Use a reachable LLM endpoint or local provider before retrying."
+            state["final_response"] = _build_fallback_final_response(state, str(exc))
+            return state
 
         if not content.strip():
             dbg("[workflow][central_reason] Empty LLM output")

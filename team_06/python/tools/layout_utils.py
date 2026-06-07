@@ -9,11 +9,24 @@ def load_all_layouts() -> list[dict]:
     layouts_path = repo_root / "layout_inputs" / "sample_layouts.json"
     return json.loads(layouts_path.read_text(encoding="utf-8"))
 
+def load_planfinder_layout(layout_id: str) -> dict | None:
+    """Look up a layout by ID in the Planfinder_Dataset directory."""
+    planfinder_dir = Path(__file__).resolve().parent.parent.parent / "layout_inputs" / "Planfinder_Dataset"
+    candidate = planfinder_dir / f"{layout_id}.json"
+    if candidate.exists():
+        return json.loads(candidate.read_text(encoding="utf-8"))
+    return None
+
+
 def load_and_save_layout(layout_id: str, state: dict, save_path: Path) -> dict:
     """Load layout by ID, update state, and save to file."""
     all_layouts = load_all_layouts()
     layout = next((l for l in all_layouts if l.get("layoutId") == layout_id), None)
-    
+
+    # Fallback: check Planfinder dataset
+    if not layout:
+        layout = load_planfinder_layout(layout_id)
+
     if not layout:
         return {"error": f"Layout {layout_id} not found"}
     

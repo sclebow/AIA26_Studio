@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from _runtime.config import load_settings
-from _runtime.mcp_client import McpClient
+from _runtime.local_tool_client import LocalToolClient
 from _runtime.llm import create_chat_llm, get_llm_response_format
 
 
@@ -13,13 +13,14 @@ class Context:
     """Everything the agent graph needs to run -- passed from main.py into graph.py."""
     llm: Any          # Structured-output LLM (JSON schema enforced) -- reserved for future tool-calling
     llm_simple: Any   # Plain LLM (no response_format) -- used by chitchat, respond, route_intent
-    mcp_client: McpClient
+    mcp_client: LocalToolClient   # in-process comfort tools (was McpClient -> Grasshopper)
     tools: list[dict[str, Any]]
     layout_data: dict[str, Any]
     max_iterations: int
     edited_layout_path: Path
     layout_input_dir: Path   # Source layouts -- read-only input  (randomized_layouts/)
     layout_output_dir: Path  # Analysis results -- write destination (resulting_layout/)
+    mcp_available: bool = True  # retained for interface parity; local tools are always available
 
 
 # Python-side pseudo-tool. Not an MCP tool -- it's intercepted in nodes/tools.py
@@ -79,7 +80,7 @@ def select_layout(repo_root: Path) -> Path:
 
 
 def bootstrap(layout_path: Path | None = None) -> Context:
-    """Load settings, connect to the MCP server, discover tools, and build the LLM.
+    """Load settings, wire up the local comfort tools, and build the LLM.
 
     Call this once from main.py and pass the returned Context into run_agent().
 
@@ -104,15 +105,18 @@ def bootstrap(layout_path: Path | None = None) -> Context:
     else:
         layout_data = {}
 
-    # Connect to the Grasshopper MCP server and list available tools
-    mcp_client = McpClient(settings.mcp_endpoint, settings.request_timeout_seconds)
+    # Comfort tools now run in-process (migrated out of Grasshopper). No server
+    # to connect to, so they are always available -- Rhino/Grasshopper/Swiftlet
+    # are no longer required to run the app.
+    mcp_client = LocalToolClient()
+    mcp_available = True
     mcp_client.initialize()
     mcp_tools = mcp_client.list_tools()
-    print("Discovered MCP tools: {}".format([t.get("name") for t in mcp_tools]))
+    print("Loaded local comfort tools: {}".format([t.get("name") for t in mcp_tools]))
 
-    # Combine MCP tools with our Python-side pseudo-tool. From the LLM's
+    # Combine comfort tools with our Python-side pseudo-tool. From the LLM's
     # perspective they are all just tools it can choose to call; the tool node
-    # routes select_layout locally instead of forwarding it to the MCP server.
+    # routes select_layout locally.
     tools = mcp_tools + [SELECT_LAYOUT_TOOL]
     print("Plus Python-side pseudo-tool: {}".format(SELECT_LAYOUT_TOOL["name"]))
 
@@ -148,4 +152,5 @@ def bootstrap(layout_path: Path | None = None) -> Context:
         edited_layout_path=edited_layout_path,
         layout_input_dir=layout_input_dir,
         layout_output_dir=layout_output_dir,
+        mcp_available=mcp_available,
     )

@@ -1,0 +1,322 @@
+{
+  "clean_room": {
+    "standard_production_line": {
+      "description": "ISO 14644 compliant clean room with unidirectional workflow to prevent contamination",
+      "flow": "entry_airlock → gowning → production → qc_inspection → packaging → exit",
+      "clearance_m": 0.9,
+      "min_aisle_m": 1.2,
+      "zones": {
+        "entry": {
+          "position": "near_personnel_door",
+          "description": "Gowning and airlock zone — keep clear of equipment",
+          "objects": []
+        },
+        "receiving": {
+          "position": "near_loading_door",
+          "description": "Material intake — conveyor sections and parts racks",
+          "objects": [
+            { "type": "conveyor_section", "count": 2, "width": 3.0, "depth": 0.8, "height": 0.85 },
+            { "type": "parts_bin_rack",   "count": 2, "width": 1.0, "depth": 0.6, "height": 2.1  }
+          ]
+        },
+        "production": {
+          "position": "center",
+          "description": "Main assembly area — largest clear zone",
+          "objects": [
+            { "type": "assembly_station",   "count": 3, "width": 1.5, "depth": 0.8, "height": 0.9 },
+            { "type": "conveyor_section",   "count": 1, "width": 3.0, "depth": 0.8, "height": 0.85 },
+            { "type": "parts_bin_rack",     "count": 2, "width": 1.0, "depth": 0.6, "height": 2.1  }
+          ]
+        },
+        "qc": {
+          "position": "between_production_and_exit",
+          "description": "Quality control — between production and packaging",
+          "objects": [
+            { "type": "qc_table",         "count": 1, "width": 2.0, "depth": 1.0, "height": 0.9 },
+            { "type": "labeling_station", "count": 1, "width": 1.5, "depth": 0.8, "height": 0.9 }
+          ]
+        },
+        "packaging": {
+          "position": "near_exit",
+          "description": "Final packaging before dispatch",
+          "objects": [
+            { "type": "packaging_station", "count": 2, "width": 1.5, "depth": 0.8, "height": 0.9 }
+          ]
+        }
+      },
+      "rules": [
+        "Maintain unidirectional flow — dirty to clean, never reverse",
+        "No tall racks (>1.8m) near windows — blocks HVAC airflow",
+        "Keep 1.5m clearance around HVAC units",
+        "All aisles minimum 1.2m for trolley access",
+        "QC zone must have direct sightline to all production stations"
+      ],
+      "avoid_near_mep": ["hvac", "electrical"],
+      "avoid_near_windows": ["parts_bin_rack", "storage_rack"]
+    }
+  },
+
+  "warehouse": {
+    "standard_storage": {
+      "description": "OSHA 1910.178 compliant warehouse with forklift circulation",
+      "flow": "loading_dock → receiving → storage → picking → dispatch",
+      "clearance_m": 1.83,
+      "min_aisle_m": 3.05,
+      "zones": {
+        "receiving": {
+          "position": "near_loading_door",
+          "description": "Unloading and intake — wide forklift access required",
+          "objects": [
+            { "type": "conveyor_section",    "count": 2, "width": 4.0, "depth": 1.0, "height": 0.85 },
+            { "type": "pallet_staging_area", "count": 2, "width": 2.5, "depth": 2.5, "height": 0.2  }
+          ]
+        },
+        "storage": {
+          "position": "along_walls",
+          "description": "High-density racking — forklift aisles between rows",
+          "objects": [
+            { "type": "storage_rack", "count": 8, "width": 2.7, "depth": 1.1, "height": 5.5 },
+            { "type": "parts_bin_rack", "count": 4, "width": 1.8, "depth": 0.6, "height": 2.1 }
+          ]
+        },
+        "picking": {
+          "position": "center",
+          "description": "Order picking and consolidation — clear circulation zone",
+          "objects": [
+            { "type": "packing_table",  "count": 2, "width": 2.0, "depth": 0.8, "height": 0.9 },
+            { "type": "conveyor_section", "count": 1, "width": 4.0, "depth": 1.0, "height": 0.85 }
+          ]
+        },
+        "equipment": {
+          "position": "near_wall_away_from_flow",
+          "description": "Forklift charging and maintenance",
+          "objects": [
+            { "type": "forklift_charging_station", "count": 1, "width": 3.0, "depth": 2.0, "height": 1.5 }
+          ]
+        }
+      },
+      "rules": [
+        "Main forklift aisle minimum 3.05m (OSHA 1910.178)",
+        "Cross aisles minimum 2.44m",
+        "No racking within 0.5m of sprinkler heads",
+        "Keep 1.0m clearance on all electrical panels (NFPA 70)",
+        "Loading dock staging zone minimum 3.0m deep"
+      ],
+      "avoid_near_mep": ["electrical", "plumbing"],
+      "avoid_near_windows": []
+    }
+  },
+
+  "workshop": {
+    "standard_machining": {
+      "description": "OSHA 1910.212 compliant machine shop with maintenance access",
+      "flow": "material_intake → machining → finishing → inspection → output",
+      "clearance_m": 1.2,
+      "min_aisle_m": 1.5,
+      "zones": {
+        "intake": {
+          "position": "near_loading_door",
+          "description": "Raw material storage and staging",
+          "objects": [
+            { "type": "material_rack",    "count": 2, "width": 2.0, "depth": 0.6, "height": 2.1 },
+            { "type": "parts_bin_rack",   "count": 2, "width": 1.0, "depth": 0.6, "height": 2.1 }
+          ]
+        },
+        "machining": {
+          "position": "center",
+          "description": "Primary machining zone — maximum clearance on all sides",
+          "objects": [
+            { "type": "cnc_machine",    "count": 2, "width": 2.5, "depth": 2.0, "height": 1.8 },
+            { "type": "lathe",          "count": 1, "width": 2.0, "depth": 0.9, "height": 1.4 },
+            { "type": "drill_press",    "count": 1, "width": 0.8, "depth": 0.8, "height": 1.8 }
+          ]
+        },
+        "finishing": {
+          "position": "along_wall",
+          "description": "Grinding, sanding, deburring — dust extraction wall-mounted",
+          "objects": [
+            { "type": "workbench",      "count": 2, "width": 2.0, "depth": 0.7, "height": 0.9 },
+            { "type": "grinder_station","count": 1, "width": 0.8, "depth": 0.8, "height": 1.2 }
+          ]
+        },
+        "inspection": {
+          "position": "near_exit",
+          "description": "Final QC before dispatch",
+          "objects": [
+            { "type": "inspection_table", "count": 1, "width": 2.0, "depth": 1.0, "height": 0.9 }
+          ]
+        }
+      },
+      "rules": [
+        "Minimum 1.2m clearance around all rotating machinery (OSHA 1910.212)",
+        "No obstructions within 1.0m of emergency stop buttons",
+        "Chip/swarf disposal path must remain clear",
+        "Electrical panels need 1.0m clear front access (NFPA 70)",
+        "Drill press and grinder must face away from main aisle"
+      ],
+      "avoid_near_mep": ["electrical", "hvac"],
+      "avoid_near_windows": ["cnc_machine", "lathe"]
+    }
+  },
+
+  "assembly_hall": {
+    "standard_assembly_line": {
+      "description": "Linear assembly flow with parallel workstations",
+      "flow": "kitting → sub_assembly → main_assembly → testing → dispatch",
+      "clearance_m": 1.2,
+      "min_aisle_m": 1.8,
+      "zones": {
+        "kitting": {
+          "position": "near_loading_door",
+          "description": "Parts kitting and preparation before line entry",
+          "objects": [
+            { "type": "parts_bin_rack",   "count": 4, "width": 1.0, "depth": 0.6, "height": 2.1 },
+            { "type": "kitting_table",    "count": 2, "width": 1.8, "depth": 0.8, "height": 0.9 }
+          ]
+        },
+        "sub_assembly": {
+          "position": "near_kitting",
+          "description": "Component sub-assembly before main line",
+          "objects": [
+            { "type": "assembly_station", "count": 3, "width": 1.5, "depth": 0.8, "height": 0.9 },
+            { "type": "conveyor_section", "count": 1, "width": 4.0, "depth": 0.8, "height": 0.85 }
+          ]
+        },
+        "main_assembly": {
+          "position": "center",
+          "description": "Primary assembly line — longest clear run",
+          "objects": [
+            { "type": "assembly_station", "count": 4, "width": 1.5, "depth": 0.8, "height": 0.9 },
+            { "type": "conveyor_section", "count": 3, "width": 4.0, "depth": 0.8, "height": 0.85 },
+            { "type": "robot_cell",       "count": 1, "width": 2.5, "depth": 2.5, "height": 2.2 }
+          ]
+        },
+        "testing": {
+          "position": "between_assembly_and_exit",
+          "description": "Functional testing and QC gate",
+          "objects": [
+            { "type": "test_bench",  "count": 2, "width": 2.0, "depth": 1.0, "height": 0.9 },
+            { "type": "qc_table",   "count": 1, "width": 2.0, "depth": 1.0, "height": 0.9 }
+          ]
+        }
+      },
+      "rules": [
+        "Assembly line must run parallel to longest room axis",
+        "Cross aisles every 15m maximum for emergency egress (NFPA 101)",
+        "Robot cell requires 2.0m safety perimeter — no other objects inside",
+        "Conveyor sections must align end-to-end with max 0.1m gap",
+        "Testing zone must have direct path to exit (max 23m, NFPA 101)"
+      ],
+      "avoid_near_mep": ["electrical", "hvac"],
+      "avoid_near_windows": ["robot_cell"]
+    }
+  },
+
+  "fabrication_area": {
+    "standard_fabrication": {
+      "description": "Metal/composite fabrication with welding and cutting zones",
+      "flow": "material_storage → cutting → forming → welding → finishing → inspection",
+      "clearance_m": 1.2,
+      "min_aisle_m": 1.5,
+      "zones": {
+        "storage": {
+          "position": "along_wall_near_loading",
+          "description": "Raw stock and sheet material storage",
+          "objects": [
+            { "type": "material_rack",  "count": 3, "width": 3.0, "depth": 0.8, "height": 2.5 },
+            { "type": "parts_bin_rack", "count": 2, "width": 1.0, "depth": 0.6, "height": 2.1 }
+          ]
+        },
+        "cutting": {
+          "position": "near_storage",
+          "description": "Plasma, laser, or saw cutting — fume extraction required",
+          "objects": [
+            { "type": "cutting_table",  "count": 1, "width": 3.0, "depth": 1.5, "height": 0.9 },
+            { "type": "band_saw",       "count": 1, "width": 1.0, "depth": 0.8, "height": 1.7 }
+          ]
+        },
+        "forming": {
+          "position": "center",
+          "description": "Press brakes and forming equipment — heavy floor loading",
+          "objects": [
+            { "type": "press_brake",    "count": 1, "width": 3.2, "depth": 1.5, "height": 2.0 },
+            { "type": "roll_former",    "count": 1, "width": 2.5, "depth": 1.0, "height": 1.5 }
+          ]
+        },
+        "welding": {
+          "position": "away_from_windows",
+          "description": "Welding bays — UV screens required, away from combustibles",
+          "objects": [
+            { "type": "welding_bay",    "count": 2, "width": 2.5, "depth": 2.0, "height": 2.0 },
+            { "type": "welding_table",  "count": 2, "width": 1.5, "depth": 0.8, "height": 0.9 }
+          ]
+        },
+        "finishing": {
+          "position": "near_exit",
+          "description": "Grinding, deburring, surface treatment",
+          "objects": [
+            { "type": "workbench",          "count": 2, "width": 2.0, "depth": 0.7, "height": 0.9 },
+            { "type": "inspection_table",   "count": 1, "width": 2.0, "depth": 1.0, "height": 0.9 }
+          ]
+        }
+      },
+      "rules": [
+        "Welding bays must be separated from combustible storage by 10m or firewall (NFPA 51B)",
+        "Cutting zone needs direct exhaust ventilation — place near exterior wall",
+        "Press brake needs 2x machine length clearance at front for material feed",
+        "No welding within 3m of windows without UV-blocking screens",
+        "Fire extinguisher access path must remain clear at all times"
+      ],
+      "avoid_near_mep": ["electrical", "plumbing", "hvac"],
+      "avoid_near_windows": ["welding_bay", "welding_table", "cutting_table"]
+    }
+  },
+
+  "loading_bay": {
+    "standard_loading": {
+      "description": "OSHA 1910.178 dock with truck-level staging and forklift circulation",
+      "flow": "truck_dock → staging → sorting → dispatch_to_floor",
+      "clearance_m": 1.83,
+      "min_aisle_m": 3.66,
+      "zones": {
+        "dock": {
+          "position": "at_loading_door",
+          "description": "Truck leveler and immediate unloading zone — keep completely clear",
+          "objects": []
+        },
+        "staging": {
+          "position": "near_loading_door",
+          "description": "Pallet staging and short-term holding",
+          "objects": [
+            { "type": "pallet_staging_area", "count": 4, "width": 2.5, "depth": 2.5, "height": 0.2 },
+            { "type": "conveyor_section",    "count": 2, "width": 4.0, "depth": 1.0, "height": 0.85 }
+          ]
+        },
+        "sorting": {
+          "position": "center",
+          "description": "Sorting and scanning before dispatch",
+          "objects": [
+            { "type": "sorting_table",  "count": 2, "width": 2.0, "depth": 1.0, "height": 0.9 },
+            { "type": "parts_bin_rack", "count": 2, "width": 1.0, "depth": 0.6, "height": 2.1 }
+          ]
+        },
+        "equipment": {
+          "position": "along_wall",
+          "description": "Forklift parking and charging",
+          "objects": [
+            { "type": "forklift_charging_station", "count": 2, "width": 3.0, "depth": 2.0, "height": 1.5 }
+          ]
+        }
+      },
+      "rules": [
+        "Dock leveler zone must remain completely clear — no objects within 2.0m",
+        "Main forklift aisle minimum 3.66m for two-way traffic (OSHA 1910.178)",
+        "Pedestrian walkway must be marked and separated from forklift path",
+        "Staging areas must not block emergency exit routes (NFPA 101)",
+        "Charging stations must be ventilated — place near exterior wall"
+      ],
+      "avoid_near_mep": ["electrical", "plumbing"],
+      "avoid_near_windows": []
+    }
+  }
+}

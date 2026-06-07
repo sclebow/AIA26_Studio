@@ -1,0 +1,33 @@
+So i created a script that what it does is: 
+
+The script takes your building layout JSON file and converts it into a comprehensive network analysis that reveals how all building elements (rooms, doors, windows, furniture, walls, MEP systems) are connected and related to each other.
+
+How It Works
+Phase 1: Element Detection
+
+Scans the JSON file and identifies all 45 building elements
+Extracts their locations, sizes, and attributes
+Creates a network node for each element
+Phase 2: Relationship Discovery (5 types)
+
+Reference relationships - When elements reference each other (e.g., door connects to rooms)
+Spatial proximity - Elements that are physically close to each other (normalized to 0-1 distance scale)
+Containment - Elements inside rooms (windows/furniture in rooms)
+System groups - Elements in same system (HVAC units together, electrical together, etc.)
+Door connections - Doors linking rooms together
+Phase 3: Space Syntax Analysis
+Calculates network importance metrics for each element:
+
+Degree Centrality - How connected an element is
+Betweenness Centrality - How much an element "bridges" different areas
+Closeness Centrality - Average distance to all other elements
+Eigenvector Centrality - Influence based on connections to important nodes
+Phase 4: Exports
+
+✓ layout_comprehensive.png - Visual network graph showing all elements and their connections with color-coded edges by relationship type
+
+✓ layout_nodes.csv - Detailed table of all 45 elements with their coordinates, dimensions, and centrality scores
+
+✓ layout_edges.csv - All 406 relationships discovered, showing source, target, distance, and normalized strength
+
+✓ layout_metrics_summary.csv - Summary statistics (element counts, relationship counts, network density)
