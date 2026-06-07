@@ -1,5 +1,4 @@
 from __future__ import annotations
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -32,18 +31,7 @@ def bootstrap() -> Context:
     
     edited_layout_path = team_dir / f"{team_name}_edited_layout.json"
     reference_layout_path = team_dir / f"{team_name}_reference_layout.json"
-    candidate_input_layout_path = team_dir / f"{team_name}_input_layout.json"
-    input_layout_path = candidate_input_layout_path if candidate_input_layout_path.exists() else None
-    
-    # Load layout with priority: edited → reference → input
-    if edited_layout_path.exists():
-        layout_data = json.loads(edited_layout_path.read_text(encoding="utf-8"))
-    elif reference_layout_path.exists():
-        layout_data = json.loads(reference_layout_path.read_text(encoding="utf-8"))
-    elif input_layout_path is not None:
-        layout_data = json.loads(input_layout_path.read_text(encoding="utf-8"))
-    else:
-        layout_data = {}
+    layout_data: dict[str, Any] = {}
 
     # Connect to the Grasshopper MCP server and list available tools
     # Make this optional - if MCP server is not available, only local tools will work
@@ -74,5 +62,5 @@ def bootstrap() -> Context:
         max_iterations=settings.max_iterations,
         edited_layout_path=edited_layout_path,
         reference_layout_path=reference_layout_path,
-        input_layout_path=input_layout_path,
+        input_layout_path=None,
     )
