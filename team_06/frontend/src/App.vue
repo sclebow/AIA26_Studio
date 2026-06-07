@@ -13,7 +13,7 @@ import { onMounted, ref } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import ChatPanel from './components/ChatPanel.vue'
 import WorkSpace from './components/WorkSpace.vue'
-import { clearSession, restoreLayout, selectLayout, sendChatMessage, startFreshSession, uploadBoundaryLayout } from './api/agentClient.js'
+import { clearSession, restoreLayout, sendChatMessage, startFreshSession, uploadBoundaryLayout } from './api/agentClient.js'
 
 const tab = ref('brief')
 const chatHistory = ref([])
@@ -113,6 +113,28 @@ function applyAgentResponse(response) {
   pushChatMessage('agent', response.message)
 }
 
+function applyPartialResponse(response) {
+  if (!response) return
+
+  if (response.brief !== undefined) parsedInput.value = response.brief
+  if (response.search_results !== undefined) {
+    exploreResults.value = Array.isArray(response.search_results) ? response.search_results : []
+  }
+  if (response.layout) {
+    agentState.value = attachExploreResults({
+      ...response.layout,
+      evaluation: response.evaluation ?? agentState.value?.evaluation ?? null
+    })
+  } else if (response.evaluation && agentState.value) {
+    agentState.value = attachExploreResults({
+      ...agentState.value,
+      evaluation: response.evaluation
+    })
+  } else if (agentState.value) {
+    agentState.value = attachExploreResults(agentState.value)
+  }
+}
+
 async function handleUserMessage(message) {
   if (isSending.value) return
 
@@ -121,8 +143,9 @@ async function handleUserMessage(message) {
   isSending.value = true
 
   try {
-    const response = await sendChatMessage(message, messages => {
-      updateChatMessage(statusMessageId, formatStatusMessages(messages), { isLoading: true })
+    const response = await sendChatMessage(message, ({ statusMessages, partialResult }) => {
+      updateChatMessage(statusMessageId, formatStatusMessages(statusMessages), { isLoading: true })
+      applyPartialResponse(partialResult)
     })
     removeChatMessage(statusMessageId)
     applyAgentResponse(response)
@@ -159,20 +182,7 @@ async function handleRestore(layout) {
 
 async function handleSelectCandidate(candidate) {
   if (!candidate?.layoutId || isSending.value) return
-
-  const statusMessageId = pushChatMessage('status', 'Loading selected layout', { isLoading: true })
-  isSending.value = true
-
-  try {
-    const response = await selectLayout(candidate.layoutId)
-    removeChatMessage(statusMessageId)
-    applyAgentResponse(response)
-  } catch (error) {
-    updateChatMessage(statusMessageId, 'Selection failed', { isLoading: false, tone: 'error' })
-    pushChatMessage('agent', `Could not select layout: ${error.message}`)
-  } finally {
-    isSending.value = false
-  }
+  await handleUserMessage(`select layout ${candidate.layoutId}`)
 }
 </script>
 

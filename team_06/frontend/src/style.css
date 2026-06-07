@@ -21,7 +21,7 @@
   --font-size-title: 2.2rem;
   --font-size-subtitle: 1.2rem;
   --font-size-standard: 1rem;
-  --font-size-bold: 1rem;
+  --font-size-small: 0.875rem;
   --font-weight-bold: 700;
   --shadow-card: 0 2px 12px rgba(33, 118, 255, 0.07);
   --gradient-btn: linear-gradient(90deg, var(--color-marine) 0%, var(--color-blue) 100%);

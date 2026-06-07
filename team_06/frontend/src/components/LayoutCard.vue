@@ -252,8 +252,13 @@ function hasItems(items) {
   border-radius: var(--radius-card);
   border: 1px solid var(--color-border);
   font-size: var(--font-size-standard);
-  min-width: 200px;
-   padding: 32px 32px;
+  width: 280px;
+  min-width: 280px;
+  max-width: 280px;
+  max-height: calc(100vh - 170px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 32px 32px;
 }
 .layout-summary-title {
   font-size: var(--font-size-bold);
@@ -389,7 +394,7 @@ function hasItems(items) {
 }
 .tag-block-title {
   margin-bottom: 6px;
-  font-size: var(--font-size-regular);
+  font-size: var(--font-size-standard);
   font-weight: 600;
 }
 .tag-block-title.positive {
@@ -408,7 +413,7 @@ function hasItems(items) {
   align-items: center;
   padding: 4px 8px;
   border-radius: 999px;
-  font-size: 0.8rem;
+  font-size: var(--font-size-small);
   line-height: 1.2;
 }
 .eval-tag-positive {

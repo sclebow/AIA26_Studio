@@ -81,10 +81,11 @@ export async function sendChatMessage(message, onStatusUpdate) {
     })
 
     const statusMessages = statusPayload.status_messages ?? []
-    const statusKey = JSON.stringify(statusMessages)
+    const partialResult = statusPayload.partial_result ?? null
+    const statusKey = JSON.stringify({ statusMessages, partialResult })
     if (statusKey !== lastStatusKey) {
       lastStatusKey = statusKey
-      onStatusUpdate?.(statusMessages)
+      onStatusUpdate?.({ statusMessages, partialResult })
     }
 
     if (statusPayload.status === 'completed') {

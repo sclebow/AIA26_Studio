@@ -117,7 +117,21 @@ def _route_after_daylight(state: AgentState) -> str:
 # Graph wiring — add nodes and edges here.
 # ---------------------------------------------------------------------------
 
-def build_graph(ctx: Any, status_callback: Callable[[list[str]], None] | None = None) -> Any:
+def _session_from_state(state: AgentState) -> dict[str, Any]:
+    return {
+        "layout_json_string": state.get("layout_json_string"),
+        "layout_id": state.get("layout_id"),
+        "input_layout_json_string": state.get("input_layout_json_string"),
+        "topology_graph_json_string": state.get("topology_graph_json_string"),
+        "search_results_json_string": state.get("search_results_json_string"),
+        "evaluation_json_string": state.get("evaluation_json_string"),
+        "feedback_history": state.get("feedback_history", []),
+        "needs_user_input": state.get("needs_user_input", False),
+        "forced_layout_id": state.get("forced_layout_id"),
+    }
+
+
+def build_graph(ctx: Any, status_callback: Callable[[list[str], dict[str, Any] | None], None] | None = None) -> Any:
     """Build the layout agent graph."""
     status_updates: list[str] = []
     reason = build_reason_node(ctx.llm)
@@ -134,10 +148,11 @@ def build_graph(ctx: Any, status_callback: Callable[[list[str]], None] | None = 
             status_message = STATUS_MESSAGES.get(node_name, f"Running {node_name}.")
             status_updates.append(status_message)
             print(f"Status: {status_message}", flush=True)
-            if status_callback is not None:
-                status_callback(list(status_updates))
             result = node_fn(state)
             result["status_messages"] = list(status_updates)
+            if status_callback is not None:
+                merged_state = {**state, **result}
+                status_callback(list(status_updates), _session_from_state(merged_state))
             return result
         return instrumented_wrapper
     
@@ -200,7 +215,7 @@ def run_agent(
     prompt: str,
     ctx: Any,
     session: dict | None = None,
-    status_callback: Callable[[list[str]], None] | None = None,
+    status_callback: Callable[[list[str], dict[str, Any] | None], None] | None = None,
 ) -> tuple[str, dict]:
     if session is None:
         session = {}
@@ -216,17 +231,8 @@ def run_agent(
         raise RuntimeError("Agent finished without setting final_response")
     
     # Return response + updated session for next turn
-    updated_session = {
-    "layout_json_string": final_state.get("layout_json_string"),
-    "layout_id": final_state.get("layout_id"),
-    "input_layout_json_string": final_state.get("input_layout_json_string"),
-    "topology_graph_json_string": final_state.get("topology_graph_json_string"),
-    "search_results_json_string": final_state.get("search_results_json_string"),
-    "evaluation_json_string": final_state.get("evaluation_json_string"),
-    "feedback_history": final_state.get("feedback_history", []),
-    "needs_user_input": final_state.get("needs_user_input", False),
-    "status_messages": list(getattr(app, "_status_updates", [])),
-}
+    updated_session = _session_from_state(final_state)
+    updated_session["status_messages"] = list(getattr(app, "_status_updates", []))
     
     return final_response, updated_session
 

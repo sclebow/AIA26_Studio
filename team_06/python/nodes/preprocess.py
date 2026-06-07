@@ -7,6 +7,7 @@ import re
 
 end_keywords = ["end", "finish", "done"]
 LAYOUT_ID_PATTERN = re.compile(r"\b(layout-\d+)\b", re.IGNORECASE)
+SELECT_LAYOUT_PATTERN = re.compile(r"\bselect\s+layout\s+([A-Za-z0-9_.-]+)\b", re.IGNORECASE)
 
 def build_preprocess_node() -> Any:
     def preprocess(state: dict) -> dict:
@@ -24,6 +25,13 @@ def build_preprocess_node() -> Any:
                 "preprocess_result": "end",
                 "final_response": "Layout finalized.",
                 "needs_user_input": False,
+            }
+
+        select_layout_match = SELECT_LAYOUT_PATTERN.search(state.get("user_prompt", ""))
+        if select_layout_match:
+            return {
+                "preprocess_result": "select",
+                "layout_id": select_layout_match.group(1),
             }
         
         layout_match = LAYOUT_ID_PATTERN.search(user_prompt)

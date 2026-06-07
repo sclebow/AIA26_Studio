@@ -261,12 +261,27 @@ def _build_chat_payload(session_id: str, response: str, updated_session: dict[st
     }
 
 
+def _build_partial_payload(session_id: str, updated_session: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "session_id": session_id,
+        "brief": _build_brief(updated_session.get("topology_graph_json_string")),
+        "layout": _parse_layout(updated_session.get("layout_json_string")),
+        "evaluation": _parse_evaluation(updated_session.get("evaluation_json_string")),
+        "search_results": _parse_search_results(updated_session.get("search_results_json_string")),
+        "needs_user_input": updated_session.get("needs_user_input", False),
+        "status_messages": updated_session.get("status_messages", []),
+    }
+
+
 def _run_chat_in_background(session_id: str, message: str) -> None:
     run_state = _chat_run_store()[session_id]
 
-    def on_status(messages: list[str]) -> None:
+    def on_status(messages: list[str], partial_session: dict[str, Any] | None = None) -> None:
         run_state["status"] = "running"
         run_state["status_messages"] = list(messages)
+        if partial_session is not None:
+            partial_session = {**partial_session, "status_messages": list(messages)}
+            run_state["partial_result"] = _build_partial_payload(session_id, partial_session)
 
     try:
         _, session = _get_or_create_session(session_id)
@@ -309,6 +324,7 @@ def start_chat(body: ChatRequest) -> dict[str, Any]:
     _chat_run_store()[sid] = {
         "status": "running",
         "status_messages": [],
+        "partial_result": None,
         "result": None,
         "error": None,
     }
@@ -328,6 +344,8 @@ def get_chat_status(session_id: str) -> dict[str, Any]:
         "status": run_state.get("status", "running"),
         "status_messages": run_state.get("status_messages", []),
     }
+    if run_state.get("partial_result") is not None:
+        payload["partial_result"] = run_state.get("partial_result")
     if run_state.get("status") == "completed":
         payload["result"] = run_state.get("result")
     if run_state.get("status") == "failed":

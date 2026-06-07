@@ -2,9 +2,29 @@
 import boxIcon from '../assets/icons/box.svg'
 import messageIcon from '../assets/icons/message.svg'
 import userIcon from '../assets/icons/user.svg'
+import { computed } from 'vue'
 
 const props = defineProps({
   parsedInput: { type: Object, default: null }
+})
+
+const roomLabelMap = {
+  living: ['Living', 'Living'],
+  bed: ['Bedroom', 'Bedrooms'],
+  bath: ['Bathroom', 'Bathrooms'],
+  foyer: ['Foyer', 'Foyers'],
+  extra: ['Extra', 'Extras']
+}
+
+const roomChips = computed(() => {
+  const rooms = Array.isArray(props.parsedInput?.rooms) ? props.parsedInput.rooms : []
+  return rooms
+    .filter((room) => typeof room?.name === 'string' && typeof room?.count === 'number' && room.count > 0)
+    .map((room) => {
+      const [singular, plural] = roomLabelMap[room.name] ?? [room.name, `${room.name}s`]
+      const label = room.count === 1 ? singular : plural
+      return `${room.count} ${label}`
+    })
 })
 </script>
 
@@ -27,13 +47,11 @@ const props = defineProps({
       <img :src="boxIcon" alt="Rooms" width="20" height="20" style="opacity:0.6;" />
       Rooms
     </div>
-    <ul class="sidebar-list">
-      <template v-if="props.parsedInput?.rooms?.length">
-        <li v-for="(room, i) in props.parsedInput.rooms" :key="i">
-          {{ room.label || room.name }}
-        </li>
-      </template>
-      <li v-else>No rooms requested yet</li>
+    <div v-if="roomChips.length" class="room-chip-list">
+      <span v-for="chip in roomChips" :key="chip" class="room-chip">{{ chip }}</span>
+    </div>
+    <ul v-else class="sidebar-list">
+      <li>No rooms requested yet</li>
     </ul>
   </section>
 
@@ -111,5 +129,21 @@ const props = defineProps({
   font-size: var(--font-size-standard);
   background: transparent;
   padding: 2px 0;
+}
+.room-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.room-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--color-light-blue);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-small);
+  font-weight: 500;
+  line-height: 1.2;
 }
 </style>
