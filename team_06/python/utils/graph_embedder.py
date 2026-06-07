@@ -72,6 +72,8 @@ PROGRAM_PAIRS = [
 
 CONNECTIVITY_LEVELS = ['peripheral', 'connected', 'central']
 
+WINDOW_COUNT = [0, 1, 2]
+
 
 # Maps short dataset program names to the canonical long names
 # used throughout this codebase. Apply at graph-load time via normalize_program()
@@ -161,11 +163,25 @@ def extract_features(G: nx.Graph) -> list[float]:
         for level in CONNECTIVITY_LEVELS:
             features.append(float(program_connectivity_counts.get((program, level), 0)))
 
-    # --- E: Boundary shape and proportions
-    # shape: one-hot encoding [rectangular, l-shape, other]
+    # --- E: Window exposure per program type
+    # Counts how many rooms of each program type have 0, 1, or 2 facade exposures
+    program_window_counts = {}
+    for node in G.nodes():
+        program = normalize_program(G.nodes[node].get("program", ""))
+        windows = G.nodes[node].get("windows", 0)
+        windows = min(windows, 2)  # cap at 2
+        key = (program, windows)
+        program_window_counts[key] = program_window_counts.get(key, 0) + 1
+
+    for program in PROGRAMS:
+        for w in WINDOW_COUNT:
+            features.append(float(program_window_counts.get((program, w), 0)))
+
+    # --- F: Boundary shape and proportions
+    # shape: one-hot encoding [rectangular, L-shape, other]
     shape = G.graph.get('shape', 'other') # default to 'other' if not specified
     features.append(1.0 if shape == 'rectangular' else 0.0)
-    features.append(1.0 if shape == 'l-shape'     else 0.0)
+    features.append(1.0 if shape == 'L-shape'     else 0.0)
     features.append(1.0 if shape == 'other'        else 0.0)
 
     # aspect_ratio and compactness: raw floats
@@ -188,8 +204,9 @@ def build_query_vector(
         programs: list, # Can be list[str] or list[tuple[str, str]]
         access_pairs: Optional[list[tuple[str, str]]] = None,
         adjacency_pairs: Optional[list[tuple[str, str]]] = None,
-        centrality: bool = False,
-        shape: Optional[str] = None,  # 'rectangular' | 'l-shape' | 'other' | None
+        centrality: Optional[list] = None,
+        windows: Optional[list[tuple[str, int]]] = None,
+        shape: Optional[str] = None,  # 'rectangular' | 'L-shape' | 'other' | None
         aspect_ratio: Optional[float] = None,
         compactness: Optional[float] = None,
         ) -> list[float]:
@@ -202,16 +219,17 @@ def build_query_vector(
         access_pairs: list of program pairs that should be connected by doors
         adjacency_pairs: list of program pairs that should share walls
         centrality: prefer centrally-located programs (high betweenness)
-        shape:          Preferred apartment shape ('rectangular' | 'l-shape' | 'other')
+        windows:         List of (program, window_count) tuples
+        shape:          Preferred apartment shape ('rectangular' | 'L-shape' | 'other')
         aspect_ratio:   Preferred aspect ratio (e.g. 2.0 = elongated)
         compactness:    Preferred compactness (e.g. 0.75 = moderate L-shape)
     Returns:
         Feature vector in the same space as extract_features() output.
     """
     features = []
-    query_counts = {}
 
     # --- A: Parse mixed format (strings and tuples)
+    query_counts = {}
     for item in programs:
         if isinstance(item, tuple):
             program, size = item
@@ -280,11 +298,31 @@ def build_query_vector(
         for level in CONNECTIVITY_LEVELS:
             features.append(float(query_connectivity_counts.get((program, level), 0)))
 
-    # --- E: Boundary shape and proportions
+    # --- E: Window exposure per program type
+    query_window_counts = {}
+    if windows:
+        for item in windows:
+            if isinstance(item, tuple):
+                program, w = item
+                canonical = normalize_program(program)
+                key = (canonical, w)
+                query_window_counts[key] = query_window_counts.get(key, 0) + 1
+            else:
+                # string only — no window preference, distribute evenly
+                canonical = normalize_program(item)
+                for w in WINDOW_COUNT:
+                    key = (canonical, w)
+                    query_window_counts[key] = query_window_counts.get(key, 0) + 1 / len(WINDOW_COUNT)
+
+    for program in PROGRAMS:
+        for w in WINDOW_COUNT:
+            features.append(float(query_window_counts.get((program, w), 0)))
+
+    # --- F: Boundary shape and proportions
     # Shape: one-hot — if None, all zeros (no preference)
     if shape is not None:
         features.append(1.0 if shape == 'rectangular' else 0.0)
-        features.append(1.0 if shape == 'l-shape'     else 0.0)
+        features.append(1.0 if shape == 'L-shape'     else 0.0)
         features.append(1.0 if shape == 'other'        else 0.0)
     else:
         features.extend([0.0, 0.0, 0.0])
@@ -343,6 +381,7 @@ class RuleBasedEmbedder:
         adjacency_pairs: Optional[list[tuple[str, str]]] = None,
         not_adjacency_pairs: Optional[list[tuple[str, str]]] = None,
         centrality: Optional[list] = None,
+        windows: Optional[list[tuple[str, int]]] = None,
         shape: Optional[str] = None,
         aspect_ratio: Optional[float] = None,
         compactness: Optional[float] = None,
@@ -358,7 +397,8 @@ class RuleBasedEmbedder:
             adjacency_pairs: whether the programs must be adjacent (share a wall)
             not_adjacency_pairs: whether the programs must NOT be adjacent (share a wall)
             centrality:     List of str or (str, connectivity) tuples
-            shape:          Preferred apartment shape ('rectangular' | 'l-shape' | 'other')
+            windows:         List of (program, window_count) tuples
+            shape:          Preferred apartment shape ('rectangular' | 'L-shape' | 'other')
             aspect_ratio:   Preferred aspect ratio
             compactness:    Preferred compactness
             top_k:     how many results to return
@@ -391,23 +431,30 @@ class RuleBasedEmbedder:
         
         
         def check_required_counts(layout_vec: list[float]) -> bool:
-            """Check if layout has AT LEAST the requested (program, size) pairs."""
+            """Exact count for requested programs only, ignore unmentioned ones."""
+
+            # Merge size_specific and any_size into total required per program
+            total_reqs = dict(any_size_reqs)  # start from any-size counts
+            for (program, size), count in size_specific_reqs.items():
+                total_reqs[program] = total_reqs.get(program, 0) + count
+
+            # Check any-size requirements
+            for program, required_count in total_reqs.items():
+                if program not in PROGRAMS:
+                    continue
+                prog_idx = PROGRAMS.index(program)
+                total_count = sum(layout_vec[prog_idx * len(SIZES) + s] for s in range(len(SIZES)))
+                if total_count != required_count:
+                    return False
+
+            # Check size-specific counts within that program
             for (program, size), required_count in size_specific_reqs.items():
                 if program not in PROGRAMS or size not in SIZES:
                     continue
                 prog_idx = PROGRAMS.index(program)
                 size_idx = SIZES.index(size)
                 vec_idx = prog_idx * len(SIZES) + size_idx
-                if layout_vec[vec_idx] < required_count:
-                    return False
-                
-            # Check any-size requirements
-            for program, required_count in any_size_reqs.items():
-                if program not in PROGRAMS:
-                    continue
-                prog_idx = PROGRAMS.index(program)
-                total_count = sum(layout_vec[prog_idx * len(SIZES) + s] for s in range(len(SIZES)))
-                if total_count < required_count:
+                if layout_vec[vec_idx] < required_count:  # AT LEAST for size-specific
                     return False
             
             return True   
@@ -432,6 +479,7 @@ class RuleBasedEmbedder:
             access_pairs=access_pairs, 
             adjacency_pairs=adjacency_pairs, 
             centrality=centrality,
+            windows=windows,
             shape=shape,
             aspect_ratio=aspect_ratio,
             compactness=compactness)
@@ -471,41 +519,45 @@ if __name__ == "__main__":
     embedder = RuleBasedEmbedder(layout_graphs)
 
     # Example searches
-    print("Search 1:", 
+    print("Search 1:",  # unique program. expected: layout-4
           embedder.search(
-          ["dining room"], top_k=3))
+          ["walkincloset"], top_k=3))
     
-    print("Search 2a:", 
+    print("Search 2:",  # unique program. expected: layout-1
           embedder.search(
-          [('bedroom', 'large'), ('bedroom', 'medium')], 
+          ["bedroom"], top_k=3))
+    
+    print("Search 3:", 
+          embedder.search( # exact size requirements expected: layout-2
+          [('bedroom', 'medium'), ('bedroom', 'small')], 
           top_k=3))
 
-    print("Search 2b:", 
-          embedder.search(
-        [('bedroom', 'large'), ('bedroom', 'medium'), 'extra'], 
+    print("Search 4:", 
+          embedder.search( # 1 large bedroom + 1 bedroom and 2 bathroom expected: layout-3 and 6
+        [('bedroom', 'large'), "bedroom", 'bathroom', 'bathroom'], 
         top_k=3))
 
-    print("Search 3a:", 
-          embedder.search(
+    print("Search 5:", 
+          embedder.search( #shape requirement expected: layout-6
               ["bedroom", "bedroom"], 
-              adjacency_pairs=[("bedroom", "bedroom"), ("kitchen", "living room")], 
+              shape='L-shape',
               top_k=3))
     
-    print("Search 3b:", 
-      embedder.search(
-          ["bedroom", "bedroom", "extra"], 
-          adjacency_pairs=[("bedroom", "bedroom"), ("kitchen", "living room")], 
+    print("Search 6:", 
+      embedder.search( #The issue is scale imbalance. Your feature vector mixes: Binary values (0.0 or 1.0) for room counts, edges, shape one-hot and raw floats for aspect ratio (can be 1.0–4.0+)
+          ["bedroom", "bedroom", "extra", "extra"], 
+          adjacency_pairs=[("bedroom", "bedroom")],
+          aspect_ratio=1.0,
           top_k=3))
 
-    print("Search 4a:", 
+    print("Search 7:", 
+      embedder.search( #expected: layout-1 and 5
+          ["extra"],
+          aspect_ratio=2.0,
+          top_k=3))
+    
+    print("Search 8:", 
       embedder.search(
           ["bedroom", "bedroom"], 
           not_adjacency_pairs=[("bedroom", "bathroom")], 
-          top_k=3))
-    
-    print("Search 4b:", 
-      embedder.search(
-          [('bedroom', 'medium'), ('kitchen', 'small')], 
-          adjacency_pairs=[("kitchen", "bathroom")], 
-          not_adjacency_pairs=[("bedroom", "kitchen")], 
           top_k=3))
