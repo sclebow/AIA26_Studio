@@ -82,6 +82,11 @@ def _parse_layout(raw_layout: str | None) -> dict[str, Any] | None:
     return payload or None
 
 
+def _parse_evaluation(raw_evaluation: str | None) -> dict[str, Any] | None:
+    payload = _safe_json_loads(raw_evaluation)
+    return payload or None
+
+
 class ChatRequest(BaseModel):
     session_id: str | None = None
     message: str
@@ -139,6 +144,7 @@ def _build_chat_payload(session_id: str, response: str, updated_session: dict[st
         "message": response,
         "brief": _build_brief(updated_session.get("topology_graph_json_string")),
         "layout": _parse_layout(updated_session.get("layout_json_string")),
+        "evaluation": _parse_evaluation(updated_session.get("evaluation_json_string")),
         "needs_user_input": updated_session.get("needs_user_input", False),
         "status_messages": updated_session.get("status_messages", []),
     }

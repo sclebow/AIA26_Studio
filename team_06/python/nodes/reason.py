@@ -13,6 +13,14 @@ SYSTEM_PROMPT = (
     "- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n"
     "- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n"
     "- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n"
+    "- The available room categories in the dataset are only: living, bed, bath, foyer, and extra.\n"
+    "- Translate user wording into those dataset categories before filling graph.programs.\n"
+    "- If the user asks for entry, entrance hall, or hall, translate that to foyer.\n"
+    "- If the user asks for storage, translate that to extra.\n"
+    "- If the user asks for a study, office, or workspace, represent it as an additional bed in graph.programs, because the dataset does not have a separate study category.\n"
+    "- If the user asks for a double bedroom, keep the room category as bed and record in description that this bedroom should be large.\n"
+    "- If the user asks for a single bedroom, keep the room category as bed and record in description that this bedroom should be medium or small.\n"
+    "- Use description to preserve size intent or functional reinterpretation when the dataset category is approximate.\n"
     "- graph.access_pairs contains pairs of program names that should be connected by doors.\n"
     "- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n"
     "- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n"
@@ -94,6 +102,54 @@ def _normalize_payload(value: object) -> dict:
         "latest_prompt_useful": bool(value.get("latest_prompt_useful")),
         "graph": _normalize_graph(value.get("graph")),
         "description": value.get("description", "").strip() if isinstance(value.get("description"), str) else "",
+    }
+
+
+def _apply_dataset_program_rules(user_prompt: str, payload: dict) -> dict:
+    if not isinstance(user_prompt, str) or not isinstance(payload, dict):
+        return payload
+
+    graph = payload.get("graph") if isinstance(payload.get("graph"), dict) else _empty_graph()
+    programs = list(graph.get("programs", [])) if isinstance(graph.get("programs"), list) else []
+    description = payload.get("description", "") if isinstance(payload.get("description"), str) else ""
+    prompt_lower = user_prompt.lower()
+
+    mentions_study_alias = any(term in prompt_lower for term in ["study", "office", "workspace"])
+    mentions_plural_bedrooms = bool(re.search(r"\b(two|2|three|3|multiple|another)\s+bed(room)?s?\b", prompt_lower)) or "bedrooms" in prompt_lower
+
+    singular_double_bedroom = bool(re.search(r"\b(a|one)?\s*double bedroom\b", prompt_lower)) and "double bedrooms" not in prompt_lower
+    singular_single_bedroom = bool(re.search(r"\b(a|one)?\s*single bedroom\b", prompt_lower)) and "single bedrooms" not in prompt_lower
+
+    if (singular_double_bedroom or singular_single_bedroom) and not mentions_plural_bedrooms and not mentions_study_alias:
+        bed_count = sum(1 for program in programs if program == "bed")
+        if bed_count > 1:
+            seen_bed = 0
+            collapsed_programs: list[str] = []
+            for program in programs:
+                if program != "bed":
+                    collapsed_programs.append(program)
+                    continue
+                seen_bed += 1
+                if seen_bed == 1:
+                    collapsed_programs.append(program)
+            programs = collapsed_programs
+
+    description_notes: list[str] = []
+    if singular_double_bedroom and "large bedroom" not in description.lower():
+        description_notes.append("large bedroom preferred")
+    if singular_single_bedroom and not any(note in description.lower() for note in ["small bedroom", "medium bedroom"]):
+        description_notes.append("medium or small bedroom preferred")
+
+    if description_notes:
+        description = "; ".join([text for text in [description.strip(), *description_notes] if text])
+
+    return {
+        **payload,
+        "graph": {
+            **graph,
+            "programs": programs,
+        },
+        "description": description,
     }
 
 
@@ -186,6 +242,7 @@ def build_reason_node(llm):
         try:
             response = llm.invoke(llm_messages)
             parsed_payload = _normalize_payload(json.loads(response.content.strip()))
+            parsed_payload = _apply_dataset_program_rules(user_prompt, parsed_payload)
             latest_prompt_useful = parsed_payload["latest_prompt_useful"]
             updated_search_payload = {
                 "graph": parsed_payload["graph"],

@@ -80,7 +80,8 @@ async function handleLayoutLoaded(json) {
       layoutId: json.layoutId || 'Boundary',
       outline: json.outline || json.apartment?.geometry || [],
       rooms: json.rooms || [],
-      attributes: json.apartment?.attributes || {}
+      attributes: json.apartment?.attributes || {},
+      evaluation: null
     }
   } else {
     agentState.value = null
@@ -90,8 +91,9 @@ async function handleLayoutLoaded(json) {
 function applyAgentResponse(response) {
   if (response.brief !== undefined) parsedInput.value = response.brief
   if (response.layout) {
-    agentState.value = response.layout
-    layoutHistory.value.push({ ...response.layout, _savedAt: new Date().toISOString() })
+    const layoutWithEvaluation = { ...response.layout, evaluation: response.evaluation ?? null }
+    agentState.value = layoutWithEvaluation
+    layoutHistory.value.push({ ...layoutWithEvaluation, _savedAt: new Date().toISOString() })
     if (layoutHistory.value.length > 15) layoutHistory.value.shift()
   }
   pushChatMessage('agent', response.message)

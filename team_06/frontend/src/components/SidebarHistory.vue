@@ -24,7 +24,7 @@ const emit = defineEmits(['restore'])
           @click="emit('restore', item)"
         >
           <div class="history-item-id">{{ item.layoutId?.length > 10 ? item.layoutId.slice(0, 10) + '…' : item.layoutId }}</div>
-          <div class="history-item-desc">{{ item.attributes?.description || '–' }}</div>
+          <div class="history-item-desc">{{ item.apartment.attributes?.description || '–' }}</div>
         </li>
       </ul>
     </template>

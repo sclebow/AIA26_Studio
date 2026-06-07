@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { getDaylightColor, formatDaylight, PROGRAM_COLORS } from '../utils/roomAnalysis.js'
+import { getDaylightColor, formatDaylight, PROGRAM_COLORS, toNumericValue } from '../utils/roomAnalysis.js'
 import { ROUTINE_TIMES } from '../mock/agentMock.js'
 
 const props = defineProps({
@@ -45,6 +45,52 @@ const hasRooms = computed(() =>
   (props.layout?.rooms ?? []).length > 0
 )
 
+const evaluation = computed(() => props.layout?.evaluation ?? null)
+
+const daylightKeywords = ['daylight', 'light', 'window', 'ventilation', 'bright']
+
+function isDaylightPill(text) {
+  const value = String(text ?? '').toLowerCase()
+  return daylightKeywords.some((keyword) => value.includes(keyword))
+}
+
+const evaluationStrengths = computed(() => evaluation.value?.strengths ?? [])
+const evaluationConcerns = computed(() => evaluation.value?.concerns ?? [])
+const layoutStrengths = computed(() => evaluationStrengths.value.filter((item) => !isDaylightPill(item)))
+const layoutConcerns = computed(() => evaluationConcerns.value.filter((item) => !isDaylightPill(item)))
+const daylightStrengths = computed(() => evaluationStrengths.value.filter(isDaylightPill))
+const daylightConcerns = computed(() => evaluationConcerns.value.filter(isDaylightPill))
+
+const daylightScore = computed(() => {
+  const rooms = Array.isArray(props.layout?.rooms) ? props.layout.rooms : []
+  const scoredRooms = rooms
+    .map((room) => {
+      const daylight = toNumericValue(room.attributes?.daylight)
+      if (daylight == null) return null
+
+      const program = room.attributes?.program
+      const target = {
+        living: 2.0,
+        bed: 1.5,
+        foyer: 1.0,
+        bath: 0.4,
+        extra: 0.8,
+      }[program] ?? 1.0
+
+      const roomScore = Math.max(0, Math.min(1, daylight / target))
+      return roomScore * 100
+    })
+    .filter((value) => typeof value === 'number')
+
+  if (!scoredRooms.length) return null
+  return Math.round(scoredRooms.reduce((sum, value) => sum + value, 0) / scoredRooms.length)
+})
+
+const layoutScore = computed(() => {
+  const fitScore = evaluation.value?.fit_score
+  return typeof fitScore === 'number' ? fitScore : null
+})
+
 const displayId = computed(() => {
   const id = props.layout?.layoutId || 'Layout'
   return id.length > 10 ? id.slice(0, 10) + '…' : id
@@ -53,6 +99,17 @@ const displayId = computed(() => {
 function roomNameForId(id) {
   const r = props.layout?.rooms?.find(r => String(r.id) === String(id))
   return r ? (r.name || r.attributes?.program || id) : id
+}
+
+function scoreRingStyle(score) {
+  const value = Math.max(0, Math.min(100, score ?? 0))
+  return {
+    background: `conic-gradient(#0067B5 ${value * 3.6}deg, #E9ECEF 0deg)`
+  }
+}
+
+function hasItems(items) {
+  return Array.isArray(items) && items.length > 0
 }
 </script>
 
@@ -99,6 +156,30 @@ function roomNameForId(id) {
               {{ room.name || room.attributes?.program }} — {{ formatDaylight(room.attributes?.daylight) }}
             </li>
           </ul>
+
+          <div v-if="evaluation && (daylightScore != null || hasItems(daylightStrengths) || hasItems(daylightConcerns))" class="evaluation-section">
+            <div class="layout-summary-title evaluation-section-title">Daylight quality</div>
+            <div v-if="daylightScore != null" class="evaluation-score-ring" :style="scoreRingStyle(daylightScore)">
+              <div class="evaluation-score-core">
+                <div class="evaluation-score">{{ daylightScore }}</div>
+                <div class="evaluation-percent">%</div>
+              </div>
+            </div>
+
+            <div v-if="daylightStrengths.length" class="tag-block">
+              <div class="tag-block-title positive">Pros</div>
+              <div class="tag-list">
+                <span v-for="item in daylightStrengths" :key="item" class="eval-tag eval-tag-positive">{{ item }}</span>
+              </div>
+            </div>
+
+            <div v-if="daylightConcerns.length" class="tag-block">
+              <div class="tag-block-title negative">Watchouts</div>
+              <div class="tag-list">
+                <span v-for="item in daylightConcerns" :key="item" class="eval-tag eval-tag-negative">{{ item }}</span>
+              </div>
+            </div>
+          </div>
         </template>
         <template v-else>
           <span class="no-rooms-tag">No daylight yet</span>
@@ -124,6 +205,30 @@ function roomNameForId(id) {
           </div>
           <span class="no-rooms-tag">No rooms yet</span>
         </template>
+
+        <div v-if="evaluation && (layoutScore != null || hasItems(layoutStrengths) || hasItems(layoutConcerns))" class="evaluation-section">
+          <div class="layout-summary-title evaluation-section-title">Layout quality</div>
+          <div v-if="layoutScore != null" class="evaluation-score-ring" :style="scoreRingStyle(layoutScore)">
+            <div class="evaluation-score-core">
+              <div class="evaluation-score">{{ layoutScore }}</div>
+              <div class="evaluation-percent">%</div>
+            </div>
+          </div>
+
+          <div v-if="layoutStrengths.length" class="tag-block">
+            <div class="tag-block-title positive">Pros</div>
+            <div class="tag-list">
+              <span v-for="item in layoutStrengths" :key="item" class="eval-tag eval-tag-positive">{{ item }}</span>
+            </div>
+          </div>
+
+          <div v-if="layoutConcerns.length" class="tag-block">
+            <div class="tag-block-title negative">Watchouts</div>
+            <div class="tag-list">
+              <span v-for="item in layoutConcerns" :key="item" class="eval-tag eval-tag-negative">{{ item }}</span>
+            </div>
+          </div>
+        </div>
       </template>
 
       <div class="layout-summary-issues" v-if="issues && issues.length">
@@ -243,5 +348,75 @@ function roomNameForId(id) {
   color: var(--color-text-primary);
   font-weight: 500;
   font-size: var(--font-size-standard);
+}
+.evaluation-section {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+.evaluation-score-ring {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+}
+.evaluation-score-core {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.evaluation-score {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-blue);
+  line-height: 1;
+}
+.evaluation-percent {
+  font-size: 0.85rem;
+  color: var(--color-blue);
+  line-height: 1;
+}
+.tag-block {
+  margin-top: 10px;
+}
+.tag-block-title {
+  margin-bottom: 6px;
+  font-size: var(--font-size-regular);
+  font-weight: 600;
+}
+.tag-block-title.positive {
+  color: #2f9e44;
+}
+.tag-block-title.negative {
+  color: #e03131;
+}
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.eval-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+.eval-tag-positive {
+  background: #ebfbee;
+  color: #2b8a3e;
+}
+.eval-tag-negative {
+  background: #fff5f5;
+  color: #c92a2a;
 }
 </style>
