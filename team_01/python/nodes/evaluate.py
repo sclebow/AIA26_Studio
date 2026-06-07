@@ -968,12 +968,46 @@ def build_evaluate_node(llm):
             base_current = next((m for m in BASE_MATERIALS if current.startswith(m)), "RCC")
             tier_label = current[len(base_current):]
             tier_note = f" [{tier_label[1:]} tier]" if tier_label else ""
+
+            # Read actual section sizes from the live layout (individual upgrades override defaults)
+            _struct_els = json.loads(state["layout_json_string"]).get("structure", [])
+            _act_beams  = [e for e in _struct_els if len(e.get("geometry", [])) == 2]
+            _act_cols   = [e for e in _struct_els if len(e.get("geometry", [])) == 1]
+
+            def _bsec(el):
+                a = el.get("attributes", {})
+                if a.get("section"):                  return a["section"]
+                if a.get("width") and a.get("depth"): return f"{a['width']}x{a['depth']}mm"
+                return None
+
+            def _csec(el):
+                a = el.get("attributes", {})
+                if a.get("section"):    return a["section"]
+                if a.get("dimensions"): return str(a["dimensions"])
+                return None
+
+            _b_freq: dict = {}
+            for _s in [_bsec(e) for e in _act_beams if _bsec(e)]:
+                _b_freq[_s] = _b_freq.get(_s, 0) + 1
+            _c_freq: dict = {}
+            for _s in [_csec(e) for e in _act_cols if _csec(e)]:
+                _c_freq[_s] = _c_freq.get(_s, 0) + 1
+
+            _actual_beam_str = (max(_b_freq, key=_b_freq.get) + (" (mixed)" if len(_b_freq) > 1 else "")) if _b_freq else None
+            _actual_col_str  = (max(_c_freq, key=_c_freq.get) + (" (mixed)" if len(_c_freq) > 1 else "")) if _c_freq else None
+
             print(f"\nWhat structural material are you working with? [current: {current}{tier_note}]")
             for i, mat in enumerate(BASE_MATERIALS, 1):
                 active = base_current == mat
                 display_sec = DEFAULT_SECTIONS.get(current if active else mat, DEFAULT_SECTIONS[mat])
                 marker = f"  ← active{tier_note}" if active else ""
-                print(f"  {i}. {mat:6s} — beam {display_sec['beam_width_mm']}x{display_sec['beam_depth_mm']}mm | col {display_sec['col_dims']}mm{marker}")
+                if active and _actual_beam_str:
+                    beam_disp = _actual_beam_str
+                    col_disp  = _actual_col_str or f"{display_sec['col_dims']}mm"
+                else:
+                    beam_disp = f"{display_sec['beam_width_mm']}x{display_sec['beam_depth_mm']}mm"
+                    col_disp  = f"{display_sec['col_dims']}mm"
+                print(f"  {i}. {mat:6s} — beam {beam_disp} | col {col_disp}{marker}")
             print("  4. Right-size sections — find the minimum that still works")
             print("  [Enter] — keep current")
             raw = input("Your choice [1/2/3/4 or RCC/STEEL/TIMBER]: ").strip().upper()
@@ -1007,8 +1041,18 @@ def build_evaluate_node(llm):
             layout_str = state["layout_json_string"]
         elif material_override:
             print(f"\nRunning structural checks for {material_override}...")
-            layout_str = apply_material_override(state["layout_json_string"], material_override)
-            state["layout_json_string"] = layout_str
+            # Only reset sections to material defaults when the material is actually changing.
+            # If every element already carries the target material, the layout has been saved
+            # with individually upgraded sections — preserve them by skipping the override.
+            _existing_mats = {
+                ((el.get("attributes") or {}).get("material") or "RCC").upper()
+                for el in json.loads(state["layout_json_string"]).get("structure", [])
+            }
+            if _existing_mats <= {material_override.upper()}:
+                layout_str = state["layout_json_string"]
+            else:
+                layout_str = apply_material_override(state["layout_json_string"], material_override)
+                state["layout_json_string"] = layout_str
         else:
             print("\nRunning structural checks...")
             layout_str = state["layout_json_string"]

@@ -61,11 +61,13 @@ _LOCATION_INDEX: dict[str, float] = {
 }
 
 # ── Occupancy day-rate multipliers (applied to Component B labour) ─────────────
+# HIGH reduced from 1.7 → 1.35: a 70 % uplift was overcounting coordination
+# overhead already captured in Component E (occupancy coordination cost).
 _OCC_DAY_RATE: dict[str, float] = {
     "VACANT":   1.0,
-    "LOW":      1.2,
-    "HIGH":     1.7,
-    "CRITICAL": 2.5,
+    "LOW":      1.15,
+    "HIGH":     1.35,
+    "CRITICAL": 2.0,
 }
 
 # ── Building context labour multipliers ───────────────────────────────────────
@@ -76,10 +78,18 @@ _CTX_LABOR: dict[str, float] = {
 }
 
 # ── Labour position multipliers (access difficulty) ───────────────────────────
+# ADD operations: midroom requires hauling materials across the floor — 2.8× is
+# appropriate. REMOVE operations have a separate (lower) table because the element
+# is already in place; access is easier and staging needs are different.
 _POS_LABOR: dict[str, float] = {
     "corner":  1.0,
     "wall":    1.4,
-    "midroom": 2.8,
+    "midroom": 1.9,
+}
+_POS_LABOR_REMOVE: dict[str, float] = {
+    "corner":  1.0,
+    "wall":    1.15,
+    "midroom": 1.6,
 }
 
 # ── Heritage multipliers ───────────────────────────────────────────────────────
@@ -87,19 +97,27 @@ _HERITAGE_LABOR_MULT = 1.9
 _HERITAGE_DEMO_MULT  = 1.8
 
 # ── Base worker-days per intervention type ─────────────────────────────────────
-# Calibrated for Barcelona, EXISTING_KNOWN, HIGH occupancy, floor 1.
-# NOTE: these values need calibration against Barcelona market data Q4 2024.
+# RCC baseline. Apply _MATERIAL_LABOR_FACTOR for steel/timber (see below).
 _BASE_WORKER_DAYS: dict[str, float] = {
-    "ADD_COL_CORNER":   9.0,
-    "ADD_COL_WALL":    11.0,
-    "ADD_COL_MIDROOM": 15.0,
-    "ADD_BEAM":         7.0,
-    "REMOVE_ELEMENT":  12.0,
-    "UPSIZE_SAME_MAT": 10.0,
-    "CHANGE_MATERIAL": 18.0,
+    "ADD_COL_CORNER":   4.0,
+    "ADD_COL_WALL":     5.0,
+    "ADD_COL_MIDROOM":  6.0,
+    "ADD_BEAM":         3.0,
+    "REMOVE_BEAM":      2.0,
+    "REMOVE_COL":       4.0,
+    "UPSIZE_SAME_MAT":  4.0,
+    "CHANGE_MATERIAL": 10.0,
 }
 
-_BASE_DAY_RATE_EUR = 480.0   # EUR/day, Barcelona baseline
+_BASE_DAY_RATE_EUR = 370.0   # EUR/day, 2-person Barcelona crew baseline
+
+# ── Material labour factors (relative to RCC = 1.0) ──────────────────────────
+# Steel and timber need no curing and less formwork — significantly faster.
+_MATERIAL_LABOR_FACTOR: dict[str, float] = {
+    "RCC":    1.0,
+    "STEEL":  0.45,
+    "TIMBER": 0.60,
+}
 
 # ── Material placement rates (EUR per m³) ─────────────────────────────────────
 _MATERIAL_RATE_EUR: dict[str, float] = {
@@ -116,18 +134,29 @@ _MOBILIZATION_EUR: dict[str, float] = {
     "CRITICAL": 1_200.0,
 }
 
-# ── Temp-works flat cost (EUR) — triggered for REMOVE_ELEMENT, CHANGE_MATERIAL ─
+# ── Temp-works flat cost (EUR) — triggered for REMOVE_COL, CHANGE_MATERIAL ─────
 _TEMP_WORKS_MID_EUR = 2_800.0
 
 # ── Professional fees: % of non-material subtotal (A+B+C+D+E+G) ──────────────
 _PROFESSIONAL_FEE_PCT = 0.12
 
+# ── New-build rates (EUR/m³, coordinated project, Barcelona 2024) ─────────────
+# Material supply = _MATERIAL_RATE_EUR. These are installation/erection rates only.
+# Calibrated to CYPE 2024: GL24h timber at €869/m³ supply + €1,500/m³ erection.
+_INSTALL_RATE_NEW_EUR: dict[str, float] = {
+    "RCC":    800.0,    # formwork, rebar labour, pour, cure
+    "STEEL":  3_000.0,  # crane, bolted connections, alignment
+    "TIMBER": 1_500.0,  # frame erection, mechanical connections
+}
+_PERMIT_BASE_EUR   = 1_200.0   # ICIO 4 % PEM + tasa + visado, Barcelona
+_FEE_PCT_NEW_BUILD = 0.18      # architect + structural engineer + safety coordinator
+
 # ── Financial Cost score bands (EUR mid → score 1–10 → label) ────────────────
 _FC_BANDS: list[tuple[float, int, str]] = [
-    (6_000,        1, "Negligible"),
-    (22_000,       3, "Low"),
-    (60_000,       5, "Moderate"),
-    (150_000,      7, "High"),
+    (2_000,        1, "Negligible"),
+    (8_000,        3, "Low"),
+    (25_000,       5, "Moderate"),
+    (80_000,       7, "High"),
     (float("inf"), 10, "Very High"),
 ]
 
@@ -215,16 +244,18 @@ _LPS_POSITION_WEIGHT: dict[str, float] = {
 _LPS_UPSIZE_RATE     = 0.9
 _LPS_CHANGE_MAT_RATE = 0.4
 
-# LPS for REMOVE_ELEMENT: position-based hardcoded values
+# LPS for REMOVE_BEAM / REMOVE_COL: position-based hardcoded values
+# Midroom columns carry the most tributary load — hardest to remove (highest sensitivity).
+# Corner columns carry the least — can often be eliminated with an edge beam.
 _LPS_REMOVE_COL: dict[str, float] = {
-    "corner":  8.5,
-    "wall":    7.5,
-    "midroom": 5.5,
+    "corner":  5.0,
+    "wall":    7.0,
+    "midroom": 9.0,
 }
 _LPS_REMOVE_BEAM = 7.0
 
 # ── Adaptability: Regulatory Footprint (RF) parameters ───────────────────────
-_RF_BASE_NORMAL       = 7.0
+_RF_BASE_NORMAL       = 5.0
 _RF_BASE_HERITAGE     = 2.0   # when heritage_ratchet is True
 _RF_P8_BONUS          = 1.5
 _RF_P7_BONUS          = 1.0
@@ -486,7 +517,7 @@ def _classify_element(
     """
     Returns a typed intervention dict:
       type            — ADD_COL_CORNER | ADD_COL_WALL | ADD_COL_MIDROOM |
-                        ADD_BEAM | REMOVE_ELEMENT | UPSIZE_SAME_MAT | CHANGE_MATERIAL
+                        ADD_BEAM | REMOVE_BEAM | REMOVE_COL | UPSIZE_SAME_MAT | CHANGE_MATERIAL
       position        — "corner"|"wall"|"midroom" for columns; "perimeter"|"internal" for beams
       material        — resulting material (uppercase)
       material_before — prior material for CHANGE_MATERIAL; else None
@@ -509,7 +540,7 @@ def _classify_element(
         if is_added:
             typ = "ADD_BEAM"
         elif is_removed:
-            typ = "REMOVE_ELEMENT"
+            typ = "REMOVE_BEAM"
         elif mat_changed:
             typ = "CHANGE_MATERIAL"
         else:
@@ -530,7 +561,7 @@ def _classify_element(
                "wall":   "ADD_COL_WALL",
                "midroom":"ADD_COL_MIDROOM"}.get(pos_class, "ADD_COL_MIDROOM")
     elif is_removed:
-        typ = "REMOVE_ELEMENT"
+        typ = "REMOVE_COL"
     elif mat_changed:
         typ = "CHANGE_MATERIAL"
     else:
@@ -578,6 +609,8 @@ def _compute_financial_cost(
             "_financial_cost_score": 0,
             "financial_cost_label": "Negligible",
             "financial_cost_range": {"low": 0.0, "mid": 0.0, "high": 0.0, "currency": "EUR"},
+            "overhead_mid_eur": 0.0,
+            "intervention_mid_eur": 0.0,
             "dominant_cost_driver": "—",
         }
 
@@ -589,73 +622,136 @@ def _compute_financial_cost(
     # A — Mobilisation
     a = _MOBILIZATION_EUR.get(occupancy_class, 640.0) * loc
 
-    # B — Labour
+    # B — Labour (days × position × material factor × day rate)
     b = 0.0
     for iv in interventions:
         days     = _BASE_WORKER_DAYS.get(iv["type"], 10.0)
-        pos_m    = _POS_LABOR.get(iv["position"], 1.0) if not iv["is_beam"] else 1.0
-        day_rate = _BASE_DAY_RATE_EUR * occ_m * ctx_m * hr_m * loc
-        b       += days * pos_m * day_rate
+        if not iv["is_beam"]:
+            pos_m = (_POS_LABOR_REMOVE if iv["type"] == "REMOVE_COL" else _POS_LABOR).get(iv["position"], 1.0)
+        else:
+            pos_m = 1.0
+        mat_key    = next((k for k in _MATERIAL_LABOR_FACTOR if k in iv["material"]), "RCC")
+        mat_factor = _MATERIAL_LABOR_FACTOR[mat_key]
+        day_rate   = _BASE_DAY_RATE_EUR * occ_m * ctx_m * hr_m * loc
+        b         += days * pos_m * mat_factor * day_rate
 
-    # C — Temporary works (shoring/propping for removal or material change)
-    needs_temp = any(iv["type"] in ("REMOVE_ELEMENT", "CHANGE_MATERIAL") for iv in interventions)
+    # C — Temporary works (shoring/propping for column removal or material change only)
+    # Beam removal does not require shoring — no temp works charge.
+    needs_temp = any(iv["type"] in ("REMOVE_COL", "CHANGE_MATERIAL") for iv in interventions)
     c = _TEMP_WORKS_MID_EUR * loc if needs_temp else 0.0
 
     # D — Logistics (floor level + element count)
     d = _floor_logistics_eur(floor_level) * len(interventions) * loc
 
-    # E — Occupancy coordination cost (fraction of labour as on-site management)
-    e_frac = {"VACANT": 0.0, "LOW": 0.05, "HIGH": 0.10, "CRITICAL": 0.20}
-    e = b * e_frac.get(occupancy_class, 0.10)
+    # E — Occupancy coordination (scheduling, safety management overhead on labour)
+    # Reduced from 10% HIGH → 4%: the occupancy uplift in _OCC_DAY_RATE already
+    # captures the main cost impact; E now covers only residual coordination.
+    e_frac = {"VACANT": 0.0, "LOW": 0.02, "HIGH": 0.04, "CRITICAL": 0.08}
+    e = b * e_frac.get(occupancy_class, 0.04)
 
     # F — Material (volume × rate per m³)
     f = 0.0
     for iv in interventions:
-        if iv["type"] not in ("REMOVE_ELEMENT",):
+        if iv["type"] not in ("REMOVE_BEAM", "REMOVE_COL"):
             vol     = _element_volume_m3(iv["element"])
             mat_key = next((k for k in _MATERIAL_RATE_EUR if k in iv["material"]), "RCC")
             f      += vol * _MATERIAL_RATE_EUR[mat_key]
 
-    # G — Demolition (for REMOVE_ELEMENT and the demolition phase of CHANGE_MATERIAL)
+    # G — Demolition (for removals and the demolition phase of CHANGE_MATERIAL)
     g = 0.0
     hr_demo = _HERITAGE_DEMO_MULT if heritage_ratchet else 1.0
     for iv in interventions:
-        if iv["type"] in ("REMOVE_ELEMENT", "CHANGE_MATERIAL"):
+        if iv["type"] in ("REMOVE_BEAM", "REMOVE_COL", "CHANGE_MATERIAL"):
             vol      = _element_volume_m3(iv["element"])
             src_mat  = (iv.get("material_before") or iv["material"])
             demo_rate = 280.0 if "RCC" in src_mat else 120.0
             g        += vol * demo_rate * hr_demo * loc
 
     # H — Professional fees (12 % of non-material subtotal A+B+C+D+E+G)
-    non_material = a + b + c + d + e + g
-    h = non_material * _PROFESSIONAL_FEE_PCT
+    # Split proportionally between overhead and intervention groups.
+    overhead_base     = a + c                          # fixed per project
+    intervention_base = b + d + e + f + g              # scales with what you do
+    h_overhead        = overhead_base     * _PROFESSIONAL_FEE_PCT
+    h_intervention    = intervention_base * _PROFESSIONAL_FEE_PCT
 
-    total_mid  = a + b + c + d + e + f + g + h
-    total_low  = round(total_mid * 0.55, 0)
-    total_mid  = round(total_mid, 0)
-    total_high = round(total_mid * 2.00, 0)
+    overhead_mid     = round(overhead_base     + h_overhead,     0)
+    intervention_mid = round(intervention_base + h_intervention, 0)
+    total_mid        = overhead_mid + intervention_mid
+
+    total_low  = round(total_mid * 0.70, 0)
+    total_high = round(total_mid * 1.50, 0)
 
     components = {
-        "Component A — Mobilisation":          a,
-        "Component B — Labour":                b,
-        "Component C — Temp Works":            c,
-        "Component D — Logistics":             d,
+        "Component A — Mobilisation":           a,
+        "Component B — Labour":                 b,
+        "Component C — Temp Works":             c,
+        "Component D — Logistics":              d,
         "Component E — Occupancy Coordination": e,
-        "Component F — Material":              f,
-        "Component G — Demolition":            g,
-        "Component H — Professional Fees":     h,
+        "Component F — Material":               f,
+        "Component G — Demolition":             g,
+        "Component H — Professional Fees":      h_overhead + h_intervention,
     }
     dominant = max(components, key=lambda k: components[k])
     label, score = _financial_cost_label(total_mid)
 
     return {
-        "_financial_cost_score": score,
-        "financial_cost_label":  label,
+        "_financial_cost_score":  score,
+        "financial_cost_label":   label,
         "financial_cost_range": {
             "low": total_low, "mid": total_mid, "high": total_high, "currency": "EUR",
         },
-        "dominant_cost_driver": dominant,
+        "overhead_mid_eur":      overhead_mid,
+        "intervention_mid_eur":  intervention_mid,
+        "dominant_cost_driver":  dominant,
     }
+
+
+def _compute_total_build_cost(all_elements: list[dict], location: str = "Barcelona") -> dict:
+    """
+    Volume-based new-build cost for the complete current structure.
+    Supply = _MATERIAL_RATE_EUR; installation = _INSTALL_RATE_NEW_EUR.
+    Calibrated to CYPE 2024 Barcelona reference: GL24h at €869/m³ supply + €1,500/m³ erection.
+    Professional fees (18 %) and a permit base charge are added on top of the PEM.
+    """
+    if not all_elements:
+        return {
+            "total_build_mid_eur":  0.0, "total_build_low_eur":  0.0,
+            "total_build_high_eur": 0.0, "total_build_label":    "—",
+            "total_build_pem_eur":  0.0, "total_build_vol_m3":   {},
+        }
+
+    loc = _LOCATION_INDEX.get(location, 1.0)
+    vol_by_mat: dict[str, float] = {}
+    for el in all_elements:
+        mat = el.get("attributes", {}).get("material", "RCC").upper()
+        mat_key = next((k for k in _MATERIAL_RATE_EUR if k in mat), "RCC")
+        vol_by_mat[mat_key] = vol_by_mat.get(mat_key, 0.0) + _element_volume_m3(el)
+
+    material_cost = sum(vol * _MATERIAL_RATE_EUR[k]                  * loc for k, vol in vol_by_mat.items())
+    install_cost  = sum(vol * _INSTALL_RATE_NEW_EUR.get(k, 1_500.0)  * loc for k, vol in vol_by_mat.items())
+    pem       = material_cost + install_cost
+    fees      = pem * _FEE_PCT_NEW_BUILD
+    total_mid = round(pem + fees + _PERMIT_BASE_EUR * loc, 0)
+    label, _  = _financial_cost_label(total_mid)
+
+    return {
+        "total_build_mid_eur":  total_mid,
+        "total_build_low_eur":  round(total_mid * 0.70, 0),
+        "total_build_high_eur": round(total_mid * 1.50, 0),
+        "total_build_label":    label,
+        "total_build_pem_eur":  round(pem, 0),
+        "total_build_vol_m3":   {k: round(v, 3) for k, v in vol_by_mat.items()},
+    }
+
+
+def _element_avoided_cost(el: dict, location: str = "Barcelona") -> float:
+    """Build cost of a single element at new-construction rates (supply + install + 18 % fees)."""
+    mat = el.get("attributes", {}).get("material", "RCC").upper()
+    mat_key = next((k for k in _MATERIAL_RATE_EUR if k in mat), "RCC")
+    vol = _element_volume_m3(el)
+    loc = _LOCATION_INDEX.get(location, 1.0)
+    unit = (_MATERIAL_RATE_EUR[mat_key] + _INSTALL_RATE_NEW_EUR.get(mat_key, 1_500.0)) * loc
+    return vol * unit * (1.0 + _FEE_PCT_NEW_BUILD)
 
 # ### V4 END ───────────────────────────────────────────────────────────────────
 
@@ -668,7 +764,7 @@ def _compute_admin_burden(
     occupancy_class:  str,
     building_context: str,
     heritage_ratchet: bool,
-    is_condominium:   bool = True,   # conservative default; TODO: derive from ownership state
+    is_condominium:   bool = False,  # default False; set True via settings for condominium buildings
     location:         str  = "Barcelona",  # TODO: read from state when location key added
 ) -> dict:
     """
@@ -703,7 +799,7 @@ def _compute_admin_burden(
         triggered.append("P4")
 
     # P5 — Neighbor / party wall notification
-    has_removal   = any(iv["type"] == "REMOVE_ELEMENT" for iv in interventions)
+    has_removal   = any(iv["type"] in ("REMOVE_BEAM", "REMOVE_COL") for iv in interventions)
     has_perimeter = any(
         (not iv["is_beam"] and iv["position"] in ("wall", "corner")) or
         (iv["is_beam"] and iv["position"] == "perimeter")
@@ -738,6 +834,7 @@ def _compute_admin_burden(
     during_mid = max(
         _PROCESS_DURATION["P2"][1],
         *[_PROCESS_DURATION[p][1] for p in ("P3", "P4", "P5") if p in triggered],
+        0,
     )
     during_best = max(
         _PROCESS_DURATION["P2"][0],
@@ -834,7 +931,7 @@ def _single_element_scores(iv: dict, is_new_building: bool) -> tuple[float, floa
     pos        = iv["position"]
     mat        = iv["material"]
     is_beam    = iv["is_beam"]
-    is_removal = (typ == "REMOVE_ELEMENT")
+    is_removal = (typ in ("REMOVE_BEAM", "REMOVE_COL"))
     is_upsize  = (typ == "UPSIZE_SAME_MAT")
     n          = iv.get("n_beams_connected", 2)
 
@@ -999,10 +1096,6 @@ def build_cost_flexibility_node():
             state.get("layout_before_change")
             or state.get("original_layout_json_string")
         )
-        if not before_str:
-            print("  No before-snapshot — skipping cost/flexibility analysis.")
-            state["cost_flexibility"] = None
-            return state
 
         try:
             layout_data  = json.loads(layout_str)
@@ -1012,6 +1105,29 @@ def build_cost_flexibility_node():
             outline      = []
             all_elements = []
 
+        # Always compute total new-build cost for the full current structure
+        tbc = _compute_total_build_cost(all_elements)
+        if tbc["total_build_mid_eur"]:
+            vol_str = ", ".join(f"{v:.3f} m³ {k}" for k, v in tbc["total_build_vol_m3"].items())
+            print(
+                f"  Full structure build cost: {tbc['total_build_label']} "
+                f"(EUR {tbc['total_build_mid_eur']:,.0f}  "
+                f"range {tbc['total_build_low_eur']:,.0f}–{tbc['total_build_high_eur']:,.0f})"
+                f"  [{vol_str}]"
+            )
+
+        if not before_str:
+            print("  No before-snapshot — showing build cost only.")
+            state["cost_flexibility"] = {
+                "total_build_cost": tbc,
+                "summary": (
+                    f"Full structure: {tbc['total_build_label']} "
+                    f"(EUR {tbc['total_build_mid_eur']:,.0f} / "
+                    f"{tbc['total_build_low_eur']:,.0f}–{tbc['total_build_high_eur']:,.0f})"
+                ),
+            }
+            return state
+
         diff           = _detect_changes(before_str, layout_str)
         added          = diff["added"]
         removed        = diff["removed"]
@@ -1019,8 +1135,15 @@ def build_cost_flexibility_node():
         changed_before = diff["changed_before"]
 
         if not added and not removed and not changed_after:
-            print("  No structural changes — skipping.")
-            state["cost_flexibility"] = None
+            print("  No structural changes — showing build cost only.")
+            state["cost_flexibility"] = {
+                "total_build_cost": tbc,
+                "summary": (
+                    f"Full structure: {tbc['total_build_label']} "
+                    f"(EUR {tbc['total_build_mid_eur']:,.0f} / "
+                    f"{tbc['total_build_low_eur']:,.0f}–{tbc['total_build_high_eur']:,.0f})"
+                ),
+            }
             return state
 
         # ### V4 START ─────────────────────────────────────────────────────────
@@ -1072,6 +1195,11 @@ def build_cost_flexibility_node():
             ad["_adaptability_score"],
         )
 
+        # Design-phase savings: avoided new-build cost for each removed element
+        design_savings_eur = round(sum(_element_avoided_cost(el) for el in removed), 0)
+        if design_savings_eur:
+            print(f"  Design-phase saving (not building removed elements): EUR {design_savings_eur:,.0f}")
+
         # Summary string — labels only, no decimal scores (Change 5)
         parts = []
         if added:         parts.append(f"{len(added)} added")
@@ -1081,9 +1209,12 @@ def build_cost_flexibility_node():
 
         fc_r = fc["financial_cost_range"]
         summary = (
+            f"Full structure: {tbc['total_build_label']} (EUR {tbc['total_build_mid_eur']:,.0f}) | "
             f"{change_desc} | "
             f"Cost: {fc['financial_cost_label']} "
-            f"({fc_r['currency']} {fc_r['low']:,.0f}–{fc_r['high']:,.0f}) | "
+            f"({fc_r['currency']} {fc_r['mid']:,.0f} total"
+            f" / {fc['intervention_mid_eur']:,.0f} intervention"
+            f" / {fc['overhead_mid_eur']:,.0f} overhead) | "
             f"Admin: {ab['admin_burden_label']} "
             f"({ab['admin_critical_path_weeks']['mid']} wks mid) | "
             f"Adaptability: {ad['adaptability_label']} "
@@ -1100,9 +1231,14 @@ def build_cost_flexibility_node():
             "_admin_burden_score":      ab["_admin_burden_score"],
             "_adaptability_score":      ad["_adaptability_score"],
             "_adaptability_subscores":  ad["_adaptability_subscores"],
-            # Financial Cost
+            # Total structure build cost (new construction, volume-based)
+            "total_build_cost":         tbc,
+            "design_savings_eur":       design_savings_eur,
+            # Financial Cost (last modification, renovation rates)
             "financial_cost_label":     fc["financial_cost_label"],
             "financial_cost_range":     fc["financial_cost_range"],
+            "overhead_mid_eur":         fc["overhead_mid_eur"],
+            "intervention_mid_eur":     fc["intervention_mid_eur"],
             "dominant_cost_driver":     fc["dominant_cost_driver"],
             # Administrative Burden
             "admin_burden_label":       ab["admin_burden_label"],

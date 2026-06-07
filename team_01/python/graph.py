@@ -106,7 +106,7 @@ def _route_from_evaluate(state: AgentState) -> str:
 
 
 def _route_from_cost_flexibility(state: AgentState) -> str:
-    if state.get("came_from") in ("modify", "structural_change"):
+    if state.get("came_from") in ("modify", "structural_change", "generate_grid"):
         return "comparison"
     return END
 
@@ -234,13 +234,31 @@ def run_agent(prompt: str, ctx: Any) -> str:
                     attrs["material"] = material
                     is_beam = len(el.get("geometry", [])) == 2
                     cur_sec = attrs.get("section", "")
-                    # Preserve individually upgraded sections
-                    if is_beam and global_beam_sec and cur_sec and cur_sec != global_beam_sec:
-                        count += 1
-                        continue
-                    if not is_beam and global_col_sec and cur_sec and cur_sec != global_col_sec:
-                        count += 1
-                        continue
+                    # Preserve individually upgraded sections.
+                    # STEEL: compare section codes (e.g. "IPE300").
+                    # TIMBER/RCC: compare depth×width for beams, dimensions string for columns.
+                    if is_beam:
+                        if is_steel and global_beam_sec and cur_sec and cur_sec != global_beam_sec:
+                            count += 1
+                            continue
+                        elif not is_steel:
+                            cur_d = str(attrs.get("depth", ""))
+                            cur_w = str(attrs.get("width", ""))
+                            if cur_d and cur_w and (
+                                cur_d != str(sec["beam_depth_mm"]) or
+                                cur_w != str(sec["beam_width_mm"])
+                            ):
+                                count += 1
+                                continue
+                    else:
+                        if is_steel and global_col_sec and cur_sec and cur_sec != global_col_sec:
+                            count += 1
+                            continue
+                        elif not is_steel:
+                            cur_dims = attrs.get("dimensions", "")
+                            if cur_dims and cur_dims != sec["col_dims"]:
+                                count += 1
+                                continue
                     if is_beam:
                         attrs["depth"] = str(sec["beam_depth_mm"])
                         attrs["width"] = str(sec["beam_width_mm"])
@@ -353,23 +371,46 @@ def _write_evaluation_report(
         lines.append("")
         lines.append("| Metric | Value |")
         lines.append("|--------|-------|")
-        if cf.get("financial_cost_label") is not None:
-            # V4 path — active once cost_flexibility.py is updated
-            fc_range = cf.get("financial_cost_range", {})
-            curr = fc_range.get("currency", "EUR")
-            low  = fc_range.get("low",  0)
-            high = fc_range.get("high", 0)
-            lines.append(f"| Financial Cost | {cf['financial_cost_label']} ({curr} {low:,.0f} – {high:,.0f}) |")
-            lines.append(f"| Cost Driver | {cf.get('dominant_cost_driver', '—')} |")
-            lines.append(f"| Admin Burden | {cf.get('admin_burden_label', '—')} |")
-            crit = cf.get("admin_critical_path_weeks", {})
-            lines.append(f"| Admin Critical Path | {crit.get('mid', '—')} wks (mid) |")
-            lines.append(f"| Dominant Process | {cf.get('dominant_admin_process', '—')} |")
-            lines.append(f"| Adaptability | {cf.get('adaptability_label', '—')} ({cf.get('adaptability_confidence', '—')} confidence) |")
-            lines.append(f"| Adaptability Constraint | {cf.get('adaptability_constraint', '—')} |")
-            lines.append(f"| Decision Signal | {cf.get('decision_signal', '—')} |")
-            if cf.get("heritage_ratchet_triggered_this_intervention"):
-                lines.append("| Heritage Ratchet | Triggered this intervention — permanent |")
+        if cf.get("financial_cost_label") is not None or cf.get("total_build_cost"):
+            # V4 path
+            tbc = cf.get("total_build_cost", {})
+            if tbc and tbc.get("total_build_mid_eur"):
+                vol_str = "  ·  ".join(
+                    f"{v:.3f} m³ {k}" for k, v in tbc.get("total_build_vol_m3", {}).items()
+                )
+                lines.append(
+                    f"| **Total Structure Build Cost** | "
+                    f"**{tbc['total_build_label']} "
+                    f"(EUR {tbc['total_build_mid_eur']:,.0f} / "
+                    f"{tbc['total_build_low_eur']:,.0f}–{tbc['total_build_high_eur']:,.0f})** |"
+                )
+                lines.append(f"| ↳ Volume | {vol_str} |")
+                lines.append(f"| ↳ PEM (works budget) | EUR {tbc['total_build_pem_eur']:,.0f} |")
+            ds = cf.get("design_savings_eur", 0)
+            if ds:
+                lines.append(f"| Design-Phase Saving | EUR {ds:,.0f} (avoided new-build cost of removed elements) |")
+            if cf.get("financial_cost_label") is None:
+                # only total build cost, no modification diff — stop here
+                lines.append("")
+            else:
+                fc_range = cf.get("financial_cost_range", {})
+                curr = fc_range.get("currency", "EUR")
+                mid  = fc_range.get("mid",  0)
+                intervention_eur = cf.get("intervention_mid_eur", 0)
+                overhead_eur     = cf.get("overhead_mid_eur", 0)
+                lines.append(f"| Last Modification Cost | {cf['financial_cost_label']} ({curr} {mid:,.0f}) |")
+                lines.append(f"| ↳ Intervention | {curr} {intervention_eur:,.0f} (labour, demolition, material) |")
+                lines.append(f"| ↳ Overhead | {curr} {overhead_eur:,.0f} (mobilisation, temp works, fees) |")
+                lines.append(f"| Cost Driver | {cf.get('dominant_cost_driver', '—')} |")
+                lines.append(f"| Admin Burden | {cf.get('admin_burden_label', '—')} |")
+                crit = cf.get("admin_critical_path_weeks", {})
+                lines.append(f"| Admin Critical Path | {crit.get('mid', '—')} wks (mid) |")
+                lines.append(f"| Dominant Process | {cf.get('dominant_admin_process', '—')} |")
+                lines.append(f"| Adaptability | {cf.get('adaptability_label', '—')} ({cf.get('adaptability_confidence', '—')} confidence) |")
+                lines.append(f"| Adaptability Constraint | {cf.get('adaptability_constraint', '—')} |")
+                lines.append(f"| Decision Signal | {cf.get('decision_signal', '—')} |")
+                if cf.get("heritage_ratchet_triggered_this_intervention"):
+                    lines.append("| Heritage Ratchet | Triggered this intervention — permanent |")
         else:
             # V3 fallback path — active until cost_flexibility.py is updated to V4
             if cf.get("cost_added_usd") is not None:
