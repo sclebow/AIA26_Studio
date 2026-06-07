@@ -23,7 +23,7 @@ from nodes.reason import SYSTEM_PROMPT as REASON_SYSTEM_PROMPT
 # Test cases — 3 household profiles, same Q1→Q5 question sequence each
 # ---------------------------------------------------------------------------
 
-_CHECK_DESCRIPTION = lambda p: bool(p.get("latest_prompt_useful")) and bool(p.get("description", "").strip())
+_CHECK_DESCRIPTION = lambda p: p.get("latest_prompt_useful") is False and bool(p.get("description", "").strip())
 _CHECK_ROOMS       = lambda p: bool(p.get("latest_prompt_useful")) and bool(p.get("graph", {}).get("programs")) and bool(p.get("graph", {}).get("not_adjacency_pairs"))
 _CHECK_IGNORE      = lambda p: p.get("latest_prompt_useful") is False
 
