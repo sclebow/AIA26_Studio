@@ -436,9 +436,9 @@ Swiftlet must be running in Rhino 8 before launching `main.py`.
 ```bash
 cd team_03/python
 
-# Industrial layout + user prompt
+# Industrial layout + user prompt (positional prompt still works)
 python main.py --layout industrial_005 "place a cnc machine in the workshop"
-python main.py --layout industrial_005 "check visibility in the fabrication hall"
+python main.py --layout industrial_005 --prompt "check visibility in the fabrication hall"
 python main.py --layout industrial_03  "place a forklift path through the loading bay"
 
 # Populate an empty layout (triggers the Populate Agent)
@@ -454,6 +454,39 @@ python test_spatial_graph.py --session        # static matplotlib
 # Smoke test
 python test_bootstrap.py --layout industrial_005
 ```
+
+### Orchestrator CLI (subprocess)
+
+`main.py` is also the CLI an external **orchestrator** calls as a subprocess. It takes
+explicit flags and prints a stable, machine-readable block:
+
+```bash
+# Orchestrator-provided layout as a JSON string (no on-disk layout file needed)
+python main.py --prompt "add a window to the south wall of the living room" \
+               --layout_json '{ "layoutId": "Layout-101", "outline": [...], "rooms": [...], ... }'
+```
+
+- `--prompt` (required) — the instruction. A positional prompt is still accepted for
+  back-compat (`main.py --layout industrial_005 "..."`).
+- `--layout_json` (optional) — a full layout as a JSON string. When present it **overrides**
+  the on-disk layout: `main.py` parses it (clear error + non-zero exit on bad JSON), writes
+  it to the workspace session, and sets `ctx.layout_data` to it before `run_agent`. No
+  `--layout` file lookup or "resume session?" prompt happens in this mode.
+- **Output** (parse the markers):
+  ```
+  Final Response:
+  <agent response>
+
+  Edited Layout JSON:
+  <edited layout JSON or "No layout changes">
+  ```
+  The edited layout is read back from `workspace/session_active.json` (or, if the run was
+  approved and closed, the newest `output/<layoutId>_*.json`); if it equals the input it
+  prints `No layout changes`.
+- **Back-and-forth:** the agent's checkpoints still read from the console (`input()`), so the
+  orchestrator can answer follow-up questions over stdin while the run is in progress.
+- On any failure the CLI still prints the markers (`Final Response: Agent error: …` /
+  `No layout changes`) and exits non-zero, so the orchestrator never gets a bare crash.
 
 **Session management:** On startup, if `workspace/session_active.json` exists, the agent asks to resume or start fresh. Base layout files are never modified.
 
