@@ -1,0 +1,339 @@
+[
+  {
+    "node": "evaluate",
+    "test": "E1",
+    "prompt_variant": "-",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 12.21,
+    "tokens_in": 334,
+    "tokens_out": 696,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are evaluating how well a residential layout matches a household's needs. Return valid JSON with exactly this shape: {\"fit_score\":0,\"summary\":\"\",\"strengths\":[],\"concerns\":[],\"routine_analysis\":\"\"}.\nRules:\n- fit_score is an integer from 0 to 100.\n- summary is a short paragraph summarizing the overall match.\n- strengths is a list of concise positive points.\n- concerns is a list of concise mismatch or risk points.\n- routine_analysis explains how the layout may support daily life across the day based on the brief.\n- Use the structured graph and description from the brief, and use the layout JSON as the source of truth for what exists now.\n- If daylight information is present in the layout, include it in the reasoning.\n- Do not invent rooms or performance data that are not present.\n",
+    "response": {
+      "fit_score": 75,
+      "summary": "The layout meets basic adjacency requirements with kitchen and living room connected, and separates bedrooms for privacy. However, the compact kitchen size may limit functionality, and no additional rooms are included beyond the brief's requirements.",
+      "strengths": [
+        "Kitchen and living room are adjacently placed to support meal preparation and relaxation",
+        "Two distinct bedrooms provide privacy for occupants"
+      ],
+      "concerns": [
+        "Kitchen area (8m\u00b2) is small and may feel cramped for cooking and storage",
+        "No additional rooms (e.g., bathroom, storage) included despite unspecified household needs"
+      ],
+      "routine_analysis": "Morning routines in the kitchen would flow smoothly to the living room for meals or relaxation. Bedrooms provide private spaces for rest, while the adjacency between kitchen and living supports casual social interactions. The layout prioritizes core functional areas but may struggle with storage or multi-tasking in the compact kitchen."
+    }
+  },
+  {
+    "node": "evaluate",
+    "test": "E2",
+    "prompt_variant": "-",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 13.06,
+    "tokens_in": 295,
+    "tokens_out": 1123,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are evaluating how well a residential layout matches a household's needs. Return valid JSON with exactly this shape: {\"fit_score\":0,\"summary\":\"\",\"strengths\":[],\"concerns\":[],\"routine_analysis\":\"\"}.\nRules:\n- fit_score is an integer from 0 to 100.\n- summary is a short paragraph summarizing the overall match.\n- strengths is a list of concise positive points.\n- concerns is a list of concise mismatch or risk points.\n- routine_analysis explains how the layout may support daily life across the day based on the brief.\n- Use the structured graph and description from the brief, and use the layout JSON as the source of truth for what exists now.\n- If daylight information is present in the layout, include it in the reasoning.\n- Do not invent rooms or performance data that are not present.\n",
+    "response": {
+      "fit_score": 30,
+      "summary": "The layout significantly underperforms in meeting the brief's requirements, as it provides only one bedroom instead of the required three. While the kitchen is present, the severe shortage of sleeping spaces creates critical functional gaps for a household needing multiple bedrooms.",
+      "strengths": [
+        "Includes a dedicated kitchen space",
+        "Basic room types align with the brief's program requirements"
+      ],
+      "concerns": [
+        "Only one bedroom available (requires three per brief)",
+        "No additional sleeping spaces to accommodate household size",
+        "Lack of adjacency relationships may impact functional flow"
+      ],
+      "routine_analysis": "The layout can support basic meal preparation in the kitchen but fails to address sleeping/privacy needs. With only one bedroom, the household would face severe spatial constraints for rest, storage, and personal activities. The absence of required bedrooms would disrupt daily routines like nighttime sleeping and morning preparation, making this layout unsuitable for the stated requirements."
+    }
+  },
+  {
+    "node": "evaluate",
+    "test": "E3",
+    "prompt_variant": "-",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 9.29,
+    "tokens_in": 334,
+    "tokens_out": 667,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are evaluating how well a residential layout matches a household's needs. Return valid JSON with exactly this shape: {\"fit_score\":0,\"summary\":\"\",\"strengths\":[],\"concerns\":[],\"routine_analysis\":\"\"}.\nRules:\n- fit_score is an integer from 0 to 100.\n- summary is a short paragraph summarizing the overall match.\n- strengths is a list of concise positive points.\n- concerns is a list of concise mismatch or risk points.\n- routine_analysis explains how the layout may support daily life across the day based on the brief.\n- Use the structured graph and description from the brief, and use the layout JSON as the source of truth for what exists now.\n- If daylight information is present in the layout, include it in the reasoning.\n- Do not invent rooms or performance data that are not present.\n",
+    "response": {
+      "fit_score": 70,
+      "summary": "The layout meets basic program requirements with two bedrooms, a kitchen, and a living room. Adjacency between kitchen and living room supports daily routines, but room sizes may limit functionality for larger households.",
+      "strengths": [
+        "Correct program composition (2 bedrooms, kitchen, living room)",
+        "Kitchen-living adjacency facilitates meal preparation and relaxation workflows",
+        "Separate bedrooms provide privacy"
+      ],
+      "concerns": [
+        "Kitchen area (8m\u00b2) may be insufficient for cooking and storage",
+        "Smaller bedroom (10m\u00b2) could limit furniture placement",
+        "No additional spaces for multi-generational living"
+      ],
+      "routine_analysis": "Morning routines would benefit from kitchen-living adjacency for breakfast preparation. Evening relaxation in the living room (20m\u00b2) is well-supported. The smaller bedroom may restrict furniture placement for sleeping and storage, while the compact kitchen could create congestion during meal prep. Daytime activities would rely on the living room as a central space."
+    }
+  },
+  {
+    "node": "evaluate",
+    "test": "E4",
+    "prompt_variant": "-",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 10.34,
+    "tokens_in": 265,
+    "tokens_out": 470,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are evaluating how well a residential layout matches a household's needs. Return valid JSON with exactly this shape: {\"fit_score\":0,\"summary\":\"\",\"strengths\":[],\"concerns\":[],\"routine_analysis\":\"\"}.\nRules:\n- fit_score is an integer from 0 to 100.\n- summary is a short paragraph summarizing the overall match.\n- strengths is a list of concise positive points.\n- concerns is a list of concise mismatch or risk points.\n- routine_analysis explains how the layout may support daily life across the day based on the brief.\n- Use the structured graph and description from the brief, and use the layout JSON as the source of truth for what exists now.\n- If daylight information is present in the layout, include it in the reasoning.\n- Do not invent rooms or performance data that are not present.\n",
+    "response": {
+      "fit_score": 0,
+      "summary": "The layout is completely unimplemented, with no rooms or spatial relationships defined. This fails to meet basic requirements for housing two bedrooms, a kitchen, and a living area, or their necessary adjacencies.",
+      "strengths": [],
+      "concerns": [
+        "No rooms exist in the layout",
+        "No adjacency relationships defined (violating the required kitchen-living adjacency)",
+        "No daylight information provided",
+        "No furniture or functional elements included"
+      ],
+      "routine_analysis": "Without any spatial configuration, the layout cannot support daily routines. Morning activities like cooking (kitchen) and relaxation (living) cannot occur, and there are no bedrooms for sleeping. The absence of rooms makes it impossible to establish movement patterns or access relationships."
+    }
+  },
+  {
+    "node": "evaluate",
+    "test": "E1",
+    "prompt_variant": "-",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 3.04,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are evaluating how well a residential layout matches a household's needs. Return valid JSON with exactly this shape: {\"fit_score\":0,\"summary\":\"\",\"strengths\":[],\"concerns\":[],\"routine_analysis\":\"\"}.\nRules:\n- fit_score is an integer from 0 to 100.\n- summary is a short paragraph summarizing the overall match.\n- strengths is a list of concise positive points.\n- concerns is a list of concise mismatch or risk points.\n- routine_analysis explains how the layout may support daily life across the day based on the brief.\n- Use the structured graph and description from the brief, and use the layout JSON as the source of truth for what exists now.\n- If daylight information is present in the layout, include it in the reasoning.\n- Do not invent rooms or performance data that are not present.\n",
+    "response": null
+  },
+  {
+    "node": "evaluate",
+    "test": "E2",
+    "prompt_variant": "-",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.32,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are evaluating how well a residential layout matches a household's needs. Return valid JSON with exactly this shape: {\"fit_score\":0,\"summary\":\"\",\"strengths\":[],\"concerns\":[],\"routine_analysis\":\"\"}.\nRules:\n- fit_score is an integer from 0 to 100.\n- summary is a short paragraph summarizing the overall match.\n- strengths is a list of concise positive points.\n- concerns is a list of concise mismatch or risk points.\n- routine_analysis explains how the layout may support daily life across the day based on the brief.\n- Use the structured graph and description from the brief, and use the layout JSON as the source of truth for what exists now.\n- If daylight information is present in the layout, include it in the reasoning.\n- Do not invent rooms or performance data that are not present.\n",
+    "response": null
+  },
+  {
+    "node": "evaluate",
+    "test": "E3",
+    "prompt_variant": "-",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.11,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are evaluating how well a residential layout matches a household's needs. Return valid JSON with exactly this shape: {\"fit_score\":0,\"summary\":\"\",\"strengths\":[],\"concerns\":[],\"routine_analysis\":\"\"}.\nRules:\n- fit_score is an integer from 0 to 100.\n- summary is a short paragraph summarizing the overall match.\n- strengths is a list of concise positive points.\n- concerns is a list of concise mismatch or risk points.\n- routine_analysis explains how the layout may support daily life across the day based on the brief.\n- Use the structured graph and description from the brief, and use the layout JSON as the source of truth for what exists now.\n- If daylight information is present in the layout, include it in the reasoning.\n- Do not invent rooms or performance data that are not present.\n",
+    "response": null
+  },
+  {
+    "node": "evaluate",
+    "test": "E4",
+    "prompt_variant": "-",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.18,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are evaluating how well a residential layout matches a household's needs. Return valid JSON with exactly this shape: {\"fit_score\":0,\"summary\":\"\",\"strengths\":[],\"concerns\":[],\"routine_analysis\":\"\"}.\nRules:\n- fit_score is an integer from 0 to 100.\n- summary is a short paragraph summarizing the overall match.\n- strengths is a list of concise positive points.\n- concerns is a list of concise mismatch or risk points.\n- routine_analysis explains how the layout may support daily life across the day based on the brief.\n- Use the structured graph and description from the brief, and use the layout JSON as the source of truth for what exists now.\n- If daylight information is present in the layout, include it in the reasoning.\n- Do not invent rooms or performance data that are not present.\n",
+    "response": null
+  },
+  {
+    "node": "evaluate",
+    "test": "E1",
+    "prompt_variant": "-",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.75,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are evaluating how well a residential layout matches a household's needs. Return valid JSON with exactly this shape: {\"fit_score\":0,\"summary\":\"\",\"strengths\":[],\"concerns\":[],\"routine_analysis\":\"\"}.\nRules:\n- fit_score is an integer from 0 to 100.\n- summary is a short paragraph summarizing the overall match.\n- strengths is a list of concise positive points.\n- concerns is a list of concise mismatch or risk points.\n- routine_analysis explains how the layout may support daily life across the day based on the brief.\n- Use the structured graph and description from the brief, and use the layout JSON as the source of truth for what exists now.\n- If daylight information is present in the layout, include it in the reasoning.\n- Do not invent rooms or performance data that are not present.\n",
+    "response": null
+  },
+  {
+    "node": "evaluate",
+    "test": "E2",
+    "prompt_variant": "-",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.35,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are evaluating how well a residential layout matches a household's needs. Return valid JSON with exactly this shape: {\"fit_score\":0,\"summary\":\"\",\"strengths\":[],\"concerns\":[],\"routine_analysis\":\"\"}.\nRules:\n- fit_score is an integer from 0 to 100.\n- summary is a short paragraph summarizing the overall match.\n- strengths is a list of concise positive points.\n- concerns is a list of concise mismatch or risk points.\n- routine_analysis explains how the layout may support daily life across the day based on the brief.\n- Use the structured graph and description from the brief, and use the layout JSON as the source of truth for what exists now.\n- If daylight information is present in the layout, include it in the reasoning.\n- Do not invent rooms or performance data that are not present.\n",
+    "response": null
+  },
+  {
+    "node": "evaluate",
+    "test": "E3",
+    "prompt_variant": "-",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.21,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are evaluating how well a residential layout matches a household's needs. Return valid JSON with exactly this shape: {\"fit_score\":0,\"summary\":\"\",\"strengths\":[],\"concerns\":[],\"routine_analysis\":\"\"}.\nRules:\n- fit_score is an integer from 0 to 100.\n- summary is a short paragraph summarizing the overall match.\n- strengths is a list of concise positive points.\n- concerns is a list of concise mismatch or risk points.\n- routine_analysis explains how the layout may support daily life across the day based on the brief.\n- Use the structured graph and description from the brief, and use the layout JSON as the source of truth for what exists now.\n- If daylight information is present in the layout, include it in the reasoning.\n- Do not invent rooms or performance data that are not present.\n",
+    "response": null
+  },
+  {
+    "node": "evaluate",
+    "test": "E4",
+    "prompt_variant": "-",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.42,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are evaluating how well a residential layout matches a household's needs. Return valid JSON with exactly this shape: {\"fit_score\":0,\"summary\":\"\",\"strengths\":[],\"concerns\":[],\"routine_analysis\":\"\"}.\nRules:\n- fit_score is an integer from 0 to 100.\n- summary is a short paragraph summarizing the overall match.\n- strengths is a list of concise positive points.\n- concerns is a list of concise mismatch or risk points.\n- routine_analysis explains how the layout may support daily life across the day based on the brief.\n- Use the structured graph and description from the brief, and use the layout JSON as the source of truth for what exists now.\n- If daylight information is present in the layout, include it in the reasoning.\n- Do not invent rooms or performance data that are not present.\n",
+    "response": null
+  },
+  {
+    "node": "evaluate",
+    "test": "E1",
+    "prompt_variant": "-",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 5.88,
+    "tokens_in": 351,
+    "tokens_out": 430,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are evaluating how well a residential layout matches a household's needs. Return valid JSON with exactly this shape: {\"fit_score\":0,\"summary\":\"\",\"strengths\":[],\"concerns\":[],\"routine_analysis\":\"\"}.\nRules:\n- fit_score is an integer from 0 to 100.\n- summary is a short paragraph summarizing the overall match.\n- strengths is a list of concise positive points.\n- concerns is a list of concise mismatch or risk points.\n- routine_analysis explains how the layout may support daily life across the day based on the brief.\n- Use the structured graph and description from the brief, and use the layout JSON as the source of truth for what exists now.\n- If daylight information is present in the layout, include it in the reasoning.\n- Do not invent rooms or performance data that are not present.\n",
+    "response": {
+      "fit_score": 72,
+      "summary": "The layout successfully delivers all required program types and respects the key adjacency requirement between kitchen and living areas, supporting a functional daily workflow. However, the absence of specified access relationships and limited information about bedroom-to-common-area connectivity creates some uncertainty about overall circulation and household convenience.",
+      "strengths": [
+        "All four required rooms present: two bedrooms, kitchen, and living area",
+        "Kitchen-living adjacency implemented, supporting meal preparation and social gathering integration",
+        "Bedroom sizes are reasonable (12m\u00b2 and 10m\u00b2) for single occupancy or guest use",
+        "Living area (20m\u00b2) provides adequate social and relaxation space",
+        "Kitchen size (8m\u00b2) is functional for a small household"
+      ],
+      "concerns": [
+        "No access pairs specified in brief, but layout provides no information about entry points, circulation paths, or how bedrooms connect to common areas",
+        "Bedroom isolation not explicitly addressed\u2014unclear if bedrooms have direct hallway access or must pass through living/kitchen",
+        "No adjacency constraints defined between bedrooms and living/kitchen, leaving potential for poor privacy or circulation",
+        "Missing information on entry/exit points, which affects daily routine efficiency",
+        "No daylight or orientation data provided, limiting assessment of bedroom quality and kitchen functionality"
+      ],
+      "routine_analysis": "Morning and evening routines would depend heavily on bedroom-to-kitchen circulation, which is not documented. If bedrooms are well-separated from the kitchen-living cluster, residents may experience inefficient paths to breakfast or evening activities. The kitchen-living adjacency supports daytime meal preparation and social interaction, but without knowing bedroom access routes, it's difficult to assess whether the layout minimizes disruption during private rest periods or supports natural flow between sleeping, eating, and living zones throughout the day."
+    }
+  },
+  {
+    "node": "evaluate",
+    "test": "E2",
+    "prompt_variant": "-",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 4.82,
+    "tokens_in": 314,
+    "tokens_out": 372,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are evaluating how well a residential layout matches a household's needs. Return valid JSON with exactly this shape: {\"fit_score\":0,\"summary\":\"\",\"strengths\":[],\"concerns\":[],\"routine_analysis\":\"\"}.\nRules:\n- fit_score is an integer from 0 to 100.\n- summary is a short paragraph summarizing the overall match.\n- strengths is a list of concise positive points.\n- concerns is a list of concise mismatch or risk points.\n- routine_analysis explains how the layout may support daily life across the day based on the brief.\n- Use the structured graph and description from the brief, and use the layout JSON as the source of truth for what exists now.\n- If daylight information is present in the layout, include it in the reasoning.\n- Do not invent rooms or performance data that are not present.\n",
+    "response": {
+      "fit_score": 25,
+      "summary": "The layout significantly underdelivers against the brief requirements. The household needs 3 bedrooms and a kitchen, but only 2 bedrooms and 1 kitchen are provided. The missing bedroom represents a critical shortfall for the stated household composition. Additionally, the complete absence of adjacency relationships suggests either isolation between spaces or missing circulation/connection information, which raises concerns about functional flow and accessibility.",
+      "strengths": [
+        "Kitchen is present and appropriately sized at 8 m\u00b2 for basic meal preparation",
+        "Two bedrooms provided offer some sleeping accommodation",
+        "Bedroom sizes (12 m\u00b2 each) are reasonable for residential standards"
+      ],
+      "concerns": [
+        "One bedroom missing: brief specifies 3 bedrooms but layout provides only 2",
+        "No adjacency data recorded: unclear how rooms connect or relate spatially",
+        "No access pairs defined: circulation routes and entry points are undefined",
+        "Potential isolation: lack of adjacency information suggests rooms may not be functionally connected",
+        "Incomplete household accommodation: insufficient sleeping spaces for stated needs"
+      ],
+      "routine_analysis": "Daily routines cannot be adequately supported. Morning and evening routines requiring access between bedrooms and kitchen are undefined due to missing adjacency information. The household cannot be properly accommodated with only 2 of 3 required bedrooms\u2014this creates a fundamental mismatch with occupancy needs. Without documented room connections, it is unclear whether the kitchen is accessible from bedrooms or if there are proper circulation paths for daily movement through the home."
+    }
+  },
+  {
+    "node": "evaluate",
+    "test": "E3",
+    "prompt_variant": "-",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 5.81,
+    "tokens_in": 351,
+    "tokens_out": 418,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are evaluating how well a residential layout matches a household's needs. Return valid JSON with exactly this shape: {\"fit_score\":0,\"summary\":\"\",\"strengths\":[],\"concerns\":[],\"routine_analysis\":\"\"}.\nRules:\n- fit_score is an integer from 0 to 100.\n- summary is a short paragraph summarizing the overall match.\n- strengths is a list of concise positive points.\n- concerns is a list of concise mismatch or risk points.\n- routine_analysis explains how the layout may support daily life across the day based on the brief.\n- Use the structured graph and description from the brief, and use the layout JSON as the source of truth for what exists now.\n- If daylight information is present in the layout, include it in the reasoning.\n- Do not invent rooms or performance data that are not present.\n",
+    "response": {
+      "fit_score": 72,
+      "summary": "The layout successfully delivers all required program spaces with the correct adjacency relationship between kitchen and living areas. However, the brief lacks detail on household composition, circulation patterns, and bedroom-to-common-area relationships, making a complete evaluation difficult. Room sizes are modest but functional for a small household.",
+      "strengths": [
+        "All four required rooms present (2 bedrooms, kitchen, living)",
+        "Kitchen-living adjacency correctly implemented, supporting open-plan workflow",
+        "Living room (20 m\u00b2) is appropriately sized as the primary social space",
+        "Bedroom sizes (12 m\u00b2 and 10 m\u00b2) are adequate for single occupancy"
+      ],
+      "concerns": [
+        "No specified access/circulation paths\u2014unclear how bedrooms connect to common areas or if there are hallways",
+        "Kitchen at 8 m\u00b2 is compact; functionality depends on layout efficiency not visible in room list",
+        "Brief provides no household size, age, or mobility requirements to validate bedroom count and adjacencies",
+        "No information on bathroom, entry, or service spaces\u2014critical for daily routine",
+        "Bedroom-to-living adjacency not specified; potential noise or privacy issues if bedrooms open directly to living area"
+      ],
+      "routine_analysis": "Morning and evening routines depend on access patterns not defined in the brief. If bedrooms have private hallway access, circulation is efficient. Kitchen-living adjacency supports meal preparation and dining/socializing flow. Without bathroom location data, hygiene routines cannot be assessed. The modest total area (~50 m\u00b2) suggests a compact unit suitable for 1\u20132 occupants; suitability for larger households is unclear. Lack of daylight information prevents evaluation of natural light distribution across the day."
+    }
+  },
+  {
+    "node": "evaluate",
+    "test": "E4",
+    "prompt_variant": "-",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 4.29,
+    "tokens_in": 287,
+    "tokens_out": 243,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are evaluating how well a residential layout matches a household's needs. Return valid JSON with exactly this shape: {\"fit_score\":0,\"summary\":\"\",\"strengths\":[],\"concerns\":[],\"routine_analysis\":\"\"}.\nRules:\n- fit_score is an integer from 0 to 100.\n- summary is a short paragraph summarizing the overall match.\n- strengths is a list of concise positive points.\n- concerns is a list of concise mismatch or risk points.\n- routine_analysis explains how the layout may support daily life across the day based on the brief.\n- Use the structured graph and description from the brief, and use the layout JSON as the source of truth for what exists now.\n- If daylight information is present in the layout, include it in the reasoning.\n- Do not invent rooms or performance data that are not present.\n",
+    "response": {
+      "fit_score": 0,
+      "summary": "The layout cannot be evaluated as no spatial data has been provided. The layout JSON is empty, making it impossible to assess whether the residential design accommodates the household's needs for two bedrooms, a kitchen, and living area, or whether the required kitchen-living adjacency is satisfied.",
+      "strengths": [],
+      "concerns": [
+        "No layout data provided - empty JSON prevents any spatial analysis",
+        "Unable to verify kitchen-living adjacency requirement",
+        "Cannot assess bedroom separation or privacy",
+        "No room dimensions, doorways, or circulation patterns available",
+        "Impossible to evaluate daily routine flow through spaces"
+      ],
+      "routine_analysis": "Without layout information, daily routines cannot be analyzed. A functional residential layout should support: morning routines with accessible bedrooms and bathrooms, kitchen-living adjacency for meal preparation and dining, and logical circulation between private (bedrooms) and shared spaces (kitchen/living). None of these can be verified from the current data."
+    }
+  }
+]
