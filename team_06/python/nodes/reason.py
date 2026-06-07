@@ -5,7 +5,7 @@ import re
 SYSTEM_PROMPT = (
     "You are an architect assistant preparing search input for layout retrieval. "
     "Return one JSON object with exactly this shape: "
-    '{"latest_prompt_useful":true,"graph":{"programs":[],"access_pairs":[],"adjacency_pairs":[],"not_adjacency_pairs":[]},"description":""}. '
+    '{"latest_prompt_useful":true,"graph":{"programs":[],"access_pairs":[],"adjacency_pairs":[],"not_adjacency_pairs":[]},"household":[],"description":""}. '
     "Use only JSON, with no explanation.\n"
     "Rules:\n"
     "- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n"
@@ -24,8 +24,12 @@ SYSTEM_PROMPT = (
     "- graph.access_pairs contains pairs of program names that should be connected by doors.\n"
     "- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n"
     "- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n"
-    "- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n"
+    "- household is a list of people or household members mentioned by the user. Each item must have exactly this shape: {\"name\":\"\",\"relationship\":\"\",\"info\":\"\"}.\n"
+    "- Use household for names and simple person-level information such as age, role, or relationship.\n"
+    "- Keep household lightweight. If a field is unknown, return an empty string for that field instead of inventing details.\n"
+    "- description is only for preferences, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields or household entries.\n"
     "- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n"
+    "- Do not restate household names again in description when they are already represented in household.\n"
     "- If no summary exists yet, build it from the latest user input.\n"
     "- Do not invent missing information.\n"
 )
@@ -84,6 +88,10 @@ def _has_search_input(graph: dict, description: str) -> bool:
     return any(graph.get(key) for key in graph) or bool(description.strip())
 
 
+def _has_household_input(household: object) -> bool:
+    return isinstance(household, list) and len(household) > 0
+
+
 def _wants_evaluation(user_prompt: str) -> bool:
     if not isinstance(user_prompt, str):
         return False
@@ -95,12 +103,33 @@ def _normalize_payload(value: object) -> dict:
         return {
             "latest_prompt_useful": False,
             "graph": _empty_graph(),
+            "household": [],
             "description": "",
         }
+
+    household_raw = value.get("household") if isinstance(value.get("household"), list) else []
+    household: list[dict[str, str]] = []
+    for member in household_raw:
+        if not isinstance(member, dict):
+            continue
+        name = member.get("name", "") if isinstance(member.get("name"), str) else ""
+        relationship = member.get("relationship", "") if isinstance(member.get("relationship"), str) else ""
+        info = member.get("info", "") if isinstance(member.get("info"), str) else ""
+        name = name.strip()
+        relationship = relationship.strip()
+        info = info.strip()
+        if not name and not relationship and not info:
+            continue
+        household.append({
+            "name": name,
+            "relationship": relationship,
+            "info": info,
+        })
 
     return {
         "latest_prompt_useful": bool(value.get("latest_prompt_useful")),
         "graph": _normalize_graph(value.get("graph")),
+        "household": household,
         "description": value.get("description", "").strip() if isinstance(value.get("description"), str) else "",
     }
 
@@ -225,6 +254,7 @@ def build_reason_node(llm):
             payload = raw_payload
 
         existing_graph = _normalize_graph(payload.get("graph"))
+        existing_household = payload.get("household") if isinstance(payload.get("household"), list) else []
         existing_description = payload.get("description", "") if isinstance(payload.get("description"), str) else ""
         feedback_history = state.get("feedback_history", [])
 
@@ -232,11 +262,12 @@ def build_reason_node(llm):
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": (
                 f"Current graph: {json.dumps(existing_graph)}\n"
+                f"Current household: {json.dumps(existing_household)}\n"
                 f"Current description: {json.dumps(existing_description)}\n"
                 f"Feedback history: {json.dumps(feedback_history)}\n"
                 f"User input: {user_prompt}\n"
                 "Return the full updated search summary. Keep graph fields only for information that fits the graph structure. "
-                "Put only non-graph information in description. Do not summarize the graph again in prose."
+                "Keep people in household. Put only non-graph, non-household information in description. Do not summarize the graph again in prose."
             )}
         ]
         try:
@@ -246,6 +277,7 @@ def build_reason_node(llm):
             latest_prompt_useful = parsed_payload["latest_prompt_useful"]
             updated_search_payload = {
                 "graph": parsed_payload["graph"],
+                "household": parsed_payload["household"],
                 "description": parsed_payload["description"],
             }
 
@@ -259,15 +291,37 @@ def build_reason_node(llm):
 
             current_search_payload = {
                 "graph": existing_graph,
+                "household": existing_household,
                 "description": existing_description,
             }
 
-            if wants_evaluation and _has_search_input(existing_graph, existing_description):
+            if wants_evaluation and (_has_search_input(existing_graph, existing_description) or _has_household_input(existing_household)):
                 return {
                     "iteration": iteration + 1,
                     "topology_graph_json_string": json.dumps(current_search_payload),
                     "clarification": None,
                     "reason_result": "evaluate",
+                }
+
+            if _has_household_input(parsed_payload["household"]):
+                updated_household_payload = {
+                    "graph": existing_graph,
+                    "household": parsed_payload["household"],
+                    "description": existing_description,
+                }
+
+                clarification = _clarification_for_state(
+                    updated_household_payload["graph"],
+                    updated_household_payload["description"],
+                    latest_prompt_useful,
+                    user_prompt,
+                )
+
+                return {
+                    "iteration": iteration + 1,
+                    "topology_graph_json_string": json.dumps(updated_household_payload),
+                    "reason_result": "feedback",
+                    "clarification": clarification,
                 }
 
             clarification = _clarification_for_state(
@@ -277,7 +331,7 @@ def build_reason_node(llm):
                 user_prompt,
             )
 
-            if wants_evaluation and not _has_search_input(existing_graph, existing_description):
+            if wants_evaluation and not (_has_search_input(existing_graph, existing_description) or _has_household_input(existing_household)):
                 clarification = "I can evaluate the layout once I have your room requirements or household preferences. Please describe what you need first."
 
             return {

@@ -63,11 +63,25 @@ def _format_pairs(pairs: Any) -> list[str]:
 def _build_brief(topology_graph_json_string: str | None) -> dict[str, Any] | None:
     payload = _safe_json_loads(topology_graph_json_string)
     graph = payload.get("graph") if isinstance(payload.get("graph"), dict) else {}
+    household = payload.get("household") if isinstance(payload.get("household"), list) else []
     description = payload.get("description") if isinstance(payload.get("description"), str) else ""
 
     programs = graph.get("programs") if isinstance(graph.get("programs"), list) else []
     brief = {
         "rooms": _format_programs(programs),
+        "household": [
+            {
+                "name": member.get("name", "").strip() if isinstance(member, dict) and isinstance(member.get("name"), str) else "",
+                "relationship": member.get("relationship", "").strip() if isinstance(member, dict) and isinstance(member.get("relationship"), str) else "",
+                "info": member.get("info", "").strip() if isinstance(member, dict) and isinstance(member.get("info"), str) else "",
+            }
+            for member in household
+            if isinstance(member, dict)
+            and any(
+                isinstance(member.get(field), str) and member.get(field).strip()
+                for field in ("name", "relationship", "info")
+            )
+        ],
         "access": _format_pairs(graph.get("access_pairs")),
         "adjacency": _format_pairs(graph.get("adjacency_pairs")),
         "separation": _format_pairs(graph.get("not_adjacency_pairs")),
@@ -76,7 +90,7 @@ def _build_brief(topology_graph_json_string: str | None) -> dict[str, Any] | Non
     }
 
     has_content = any(
-        [brief["rooms"], brief["access"], brief["adjacency"], brief["separation"], brief["description"]]
+        [brief["rooms"], brief["household"], brief["access"], brief["adjacency"], brief["separation"], brief["description"]]
     )
     return brief if has_content else None
 

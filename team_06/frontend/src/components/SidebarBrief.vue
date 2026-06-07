@@ -27,6 +27,20 @@ const roomChips = computed(() => {
     })
 })
 
+const householdChips = computed(() => {
+  const household = Array.isArray(props.parsedInput?.household) ? props.parsedInput.household : []
+  return household
+    .map((member) => {
+      if (!member || typeof member !== 'object') return ''
+      const name = typeof member.name === 'string' ? member.name.trim() : ''
+      const relationship = typeof member.relationship === 'string' ? member.relationship.trim() : ''
+      if (name) return name
+      if (relationship) return relationship
+      return ''
+    })
+    .filter(Boolean)
+})
+
 const specificationText = computed(() => {
   const value = props.parsedInput?.description || props.parsedInput?.summary || ''
   return typeof value === 'string' ? value.trim() : ''
@@ -59,19 +73,11 @@ const specificationChips = computed(() => {
       <img :src="userIcon" alt="Households" width="20" height="20" style="opacity:0.6;" />
       Households
     </div>
-    <ul class="sidebar-list">
-      <template v-if="props.parsedInput?.access?.length || props.parsedInput?.adjacency?.length || props.parsedInput?.separation?.length">
-        <li v-for="(pair, i) in props.parsedInput.access ?? []" :key="`access-${i}`">
-          Access: {{ pair }}
-        </li>
-        <li v-for="(pair, i) in props.parsedInput.adjacency ?? []" :key="`adjacency-${i}`">
-          Adjacent: {{ pair }}
-        </li>
-        <li v-for="(pair, i) in props.parsedInput.separation ?? []" :key="`separation-${i}`">
-          Separate: {{ pair }}
-        </li>
-      </template>
-      <li v-else class="sidebar-empty-text">No households yet</li>
+    <div v-if="householdChips.length" class="spec-chip-list">
+      <span v-for="chip in householdChips" :key="chip" class="spec-chip">{{ chip }}</span>
+    </div>
+    <ul v-else class="sidebar-list">
+      <li class="sidebar-empty-text">No households yet</li>
     </ul>
   </section>
   <section class="sidebar-section">
