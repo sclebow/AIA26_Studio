@@ -64,13 +64,11 @@ export function formatDaylight(value) {
 // Keyed by `attributes.program` string.
 
 export const PROGRAM_COLORS = {
-  bed:     '#4A7CA8',
+  bed:     '#0082c2ff',
   bath:    '#C8F4F0',
-  kitchen: '#00C7D4',
-  living:  '#009FA6',
-  foyer:   '#0082C2',
-  study:   '#5A8FAF',
-  extra:   '#7A8FA3',
+  living:  '#00e0cdff',
+  foyer:   '#009fa6ff',
+  extra:   '#00c7d4ff',
 }
 
 /**

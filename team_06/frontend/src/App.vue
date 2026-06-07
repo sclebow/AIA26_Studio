@@ -13,7 +13,7 @@ import { ref } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import ChatPanel from './components/ChatPanel.vue'
 import WorkSpace from './components/WorkSpace.vue'
-import { getAgentResponse } from './mock/agentMock.js'
+import { clearSession, restoreLayout, sendChatMessage, uploadBoundaryLayout } from './api/agentClient.js'
 
 const tab = ref('brief')
 const chatHistory = ref([])
@@ -24,30 +24,35 @@ const layoutHistory = ref([])
 const boundary = ref(null)
 
 // ─── Boundary upload ──────────────────────────────────────────────────────────
-function handleLayoutLoaded(json) {
+async function handleLayoutLoaded(json) {
   boundary.value = json
+
+  try {
+    await uploadBoundaryLayout(json)
+  } catch (error) {
+    chatHistory.value.push({
+      id: Date.now(),
+      role: 'agent',
+      text: `Could not upload boundary layout: ${error.message}`,
+      timestamp: new Date().toISOString()
+    })
+  }
+
   if (json) {
-    // Use whatever is in the JSON directly — rooms, outline, everything
     agentState.value = {
       layoutId: json.layoutId || 'Boundary',
       outline: json.outline || json.apartment?.geometry || [],
       rooms: json.rooms || [],
       attributes: json.apartment?.attributes || {}
     }
-    layoutHistory.value.push({ ...agentState.value, _savedAt: new Date().toISOString() })
-    if (layoutHistory.value.length > 15) layoutHistory.value.shift()
   } else {
-    // File cleared — remove layout
     agentState.value = null
   }
 }
 
 // ─── Shared applier ───────────────────────────────────────────────────────────
-// Applies an AgentResponse onto local state.
-// To connect a real agent, swap getAgentResponse/getAgentResponseForSidebarAdd
-// with API calls that return the same shape — this function stays unchanged.
 function applyAgentResponse(response) {
-  if (response.parsedInput) parsedInput.value = response.parsedInput
+  if (response.brief !== undefined) parsedInput.value = response.brief
   if (response.layout) {
     agentState.value = response.layout
     layoutHistory.value.push({ ...response.layout, _savedAt: new Date().toISOString() })
@@ -62,25 +67,54 @@ function applyAgentResponse(response) {
 }
 
 // ─── Chat path ────────────────────────────────────────────────────────────────
-function handleUserMessage(message) {
+async function handleUserMessage(message) {
   chatHistory.value.push({ id: Date.now(), role: 'user', text: message, timestamp: new Date().toISOString() })
-  setTimeout(() => {
-    const response = getAgentResponse(message, { parsedInput: parsedInput.value, layout: agentState.value, boundary: boundary.value })
+
+  try {
+    const response = await sendChatMessage(message)
     applyAgentResponse(response)
-  }, 800)
+  } catch (error) {
+    chatHistory.value.push({
+      id: Date.now(),
+      role: 'agent',
+      text: `Backend error: ${error.message}`,
+      timestamp: new Date().toISOString()
+    })
+  }
 }
 
 // ─── New chat (full reset) ────────────────────────────────────────────────────
-function handleNewChat() {
+async function handleNewChat() {
+  try {
+    await clearSession()
+  } catch (error) {
+    chatHistory.value.push({
+      id: Date.now(),
+      role: 'agent',
+      text: `Could not clear backend session: ${error.message}`,
+      timestamp: new Date().toISOString()
+    })
+  }
   chatHistory.value = []
   agentState.value = null
   parsedInput.value = null
   boundary.value = null
+  tab.value = 'brief'
 }
 
 // ─── Restore from history ─────────────────────────────────────────────────────
-function handleRestore(layout) {
+async function handleRestore(layout) {
   agentState.value = layout
+  try {
+    await restoreLayout(layout)
+  } catch (error) {
+    chatHistory.value.push({
+      id: Date.now(),
+      role: 'agent',
+      text: `Could not restore layout in backend session: ${error.message}`,
+      timestamp: new Date().toISOString()
+    })
+  }
 }
 
 // ─── Sidebar path ─────────────────────────────────────────────────────────────
