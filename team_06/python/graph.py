@@ -52,6 +52,8 @@ class AgentState(TypedDict, total=False):
     search_results_json_string: str | None         # Search candidates
     layout_id: str | None         # Layout ID to be selected
     evaluation_json_string: str | None             # NEW - evaluation results
+    adaptation_issues: list[str] | None           # Validation or tool issues collected during adaptation
+    adaptation_failed: bool | None                # Whether adaptation failed and the graph fell back to the selected layout
     #-----------results from nodes (for routing)-----------
     preprocess_result: str                         # Which node to go to after preprocess
     reason_result: str                             # Optional reason outcome label
@@ -59,6 +61,7 @@ class AgentState(TypedDict, total=False):
     select_result: str                             # NEW - which node to go to after select: "success" | "failed"
     adapt_result: str | None                       # NEW - result from adapt node: "success" | "failed"
     daylight_result: str | None                    # Result from daylight node
+    daylight_issues: list[str] | None             # Daylight problems preserved for evaluation if analysis cannot run
     
     # REMOVED: messages, pending_tool_calls, tool_catalog
         
@@ -99,13 +102,15 @@ def _route_after_adapt(state: AgentState) -> str:
     result = state.get("adapt_result")
     return {
         "daylight": "daylight",
+        "fallback_selected": "daylight",
     }.get(result, "feedback")
 
 def _route_after_daylight(state: AgentState) -> str:
     result = state.get("daylight_result")
     return {
         "evaluate": "evaluate",
-    }.get(result, "feedback")
+        "failed": "evaluate",
+    }.get(result, "evaluate")
 
 # ---------------------------------------------------------------------------
 # Graph wiring — add nodes and edges here.
@@ -172,7 +177,8 @@ def build_graph(ctx: Any, status_callback: Callable[[list[str]], None] | None = 
     })
     workflow.add_conditional_edges("adapt", _route_after_adapt, {
         "daylight": "daylight",
-        "select": "select"
+        "select": "select",
+        "feedback": "feedback"
     })
     workflow.add_conditional_edges("daylight", _route_after_daylight, {
         "evaluate": "evaluate",

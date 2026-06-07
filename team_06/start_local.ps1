@@ -20,6 +20,7 @@ if (-not (Test-Path (Join-Path $frontendDir 'package.json'))) {
 $backendCommand = "Set-Location '$backendDir'; & '$pythonExe' '$backendScript' --serve --host 127.0.0.1 --port $backendPort"
 $frontendCommand = "Set-Location '$frontendDir'; npm run dev -- --host 127.0.0.1 --port $frontendPort --strictPort"
 $frontendUrl = 'http://127.0.0.1:5173'
+$backendHealthUrl = "http://127.0.0.1:$backendPort/health"
 
 function Stop-ListenerOnPort([int]$Port) {
   $listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
@@ -70,6 +71,18 @@ Start-Process powershell -ArgumentList @(
   '-ExecutionPolicy', 'Bypass',
   '-Command', $frontendCommand
 )
+
+for ($attempt = 0; $attempt -lt 20; $attempt++) {
+  try {
+    $response = Invoke-WebRequest -UseBasicParsing -Uri $backendHealthUrl -TimeoutSec 2
+    if ($response.StatusCode -eq 200) {
+      break
+    }
+  } catch {
+    # Wait for the backend to finish booting.
+  }
+  Start-Sleep -Milliseconds 500
+}
 
 for ($attempt = 0; $attempt -lt 20; $attempt++) {
   try {

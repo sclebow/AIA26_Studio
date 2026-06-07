@@ -1,8 +1,9 @@
 from typing import Any
 from tools.layout_utils import save_layout
 import json
+import re
 from pathlib import Path
-from tools.layout_evaluator import RULES, normalize_program
+from tools.layout_evaluator import normalize_program
 
 
 def _load_layout_by_id(layout_id: str, repo_root: Path) -> dict | None:
@@ -38,24 +39,24 @@ def _composed_adapted_layout_id(input_layout: dict, selected_layout_id: str | No
     return f"{input_layout_id}__{selected_layout_id}"
 
 
-def _call_adapt_tool(mcp_client: Any, layout_data: dict, input_layout: dict) -> dict | None:
+def _call_adapt_tool(mcp_client: Any, layout_data: dict, input_layout: dict) -> tuple[dict | None, str | None]:
     result = mcp_client.call_tool("adapt_layout_06", {
         "layout_json": layout_data,
         "input_layout": input_layout
     })
 
     if not result or (isinstance(result, str) and result.startswith("Error")):
-        return None
+        return None, str(result) if result else "The adaptation tool returned no result."
     if isinstance(result, dict) and "error" in result:
-        return None
+        return None, str(result.get("error") or "The adaptation tool returned an error.")
     if not isinstance(result, dict):
-        return None
+        return None, "The adaptation tool returned an unexpected response."
 
     adapted = result.get("adapted_layout", layout_data)
     if not adapted:
-        return None
+        return None, "The adaptation tool did not return an adapted layout."
 
-    return adapted
+    return adapted, None
 
 
 def _room_counts(layout_data: dict) -> dict[str, int]:
@@ -68,48 +69,48 @@ def _room_counts(layout_data: dict) -> dict[str, int]:
     return counts
 
 
-def _validate_adapted_layout(reference_layout: dict, adapted_layout: dict) -> list[str]:
-    issues: list[str] = []
-    reference_counts = _room_counts(reference_layout)
-    adapted_counts = _room_counts(adapted_layout)
-
-    for program, count in reference_counts.items():
-        if adapted_counts.get(program, 0) < count:
-            issues.append(f"Missing room(s) after adaptation: expected at least {count} {program}, found {adapted_counts.get(program, 0)}.")
-
-    for room in adapted_layout.get("rooms", []):
-        program = normalize_program(room.get("attributes", {}).get("program", ""))
-        if program not in RULES:
-            continue
-
-        geom = room.get("geometry", [])
-        area = room.get("attributes", {}).get("area", 0.0)
-        room_name = room.get("name", room.get("id", "room"))
-        rule = RULES[program]
-
-        if isinstance(area, (int, float)) and area > 0 and area < rule["min_area"]:
-            issues.append(f"Area too small after adaptation: {room_name} is {area:.1f} m2, minimum for {program} is {rule['min_area']} m2.")
-
-        if geom and len(geom) >= 3:
-            xs = [pt[0] for pt in geom]
-            ys = [pt[1] for pt in geom]
-            width = max(xs) - min(xs)
-            height = max(ys) - min(ys)
-            if width > 0 and height > 0:
-                min_edge = min(width, height)
-                ratio = max(width / height, height / width)
-                if min_edge < rule["min_edge"]:
-                    issues.append(f"Room edge too small after adaptation: {room_name} has min edge {min_edge:.1f}m, minimum for {program} is {rule['min_edge']}m.")
-                if ratio > rule["max_ratio"]:
-                    issues.append(f"Room proportion too stretched after adaptation: {room_name} has ratio {ratio:.1f}:1, maximum for {program} is {rule['max_ratio']}:1.")
-
-    return issues
+def _has_required_programs(layout_data: dict) -> tuple[bool, list[str]]:
+    counts = _room_counts(layout_data)
+    missing: list[str] = []
+    if counts.get("bath", 0) < 1 and counts.get("bathroom", 0) < 1:
+        missing.append("bathroom")
+    if counts.get("living", 0) < 1 and counts.get("living_room", 0) < 1:
+        missing.append("living room")
+    return len(missing) == 0, missing
 
 def build_adapt_node(mcp_client: Any) -> Any:
     """Adapt layout using MCP tool adapt_layout_06."""
 
+    def _final_failure_message(reasons: list[str]) -> str:
+        cleaned = [reason.strip() for reason in reasons if isinstance(reason, str) and reason.strip()]
+        meaningful = [reason for reason in cleaned if not reason.startswith("Trying layout ")]
+
+        if not meaningful:
+            return (
+                "Sorry, your request could not be satisfied within the uploaded boundary. "
+                "Would you like to refine the brief, continue without the boundary, or continue with the selected layout?"
+            )
+
+        first_reason = meaningful[0]
+        match = re.match(r"Layout (.+?) failed adaptation in the MCP tool: (.+)", first_reason)
+        if match:
+            layout_id, tool_reason = match.groups()
+            base_reason = f"The selected layout {layout_id} could not fit inside the uploaded boundary."
+            tool_reason = tool_reason.strip()
+            if tool_reason and tool_reason.lower() not in {"unknown tool error.", "the adaptation tool returned no result."}:
+                base_reason = f"{base_reason} Reason: {tool_reason}"
+        else:
+            base_reason = first_reason
+
+        return (
+            "Sorry, your request could not be satisfied within the uploaded boundary. "
+            f"{base_reason} "
+            "Would you like to refine the brief, continue without the boundary, or continue with the selected layout?"
+        )
+
     def adapt(state: dict) -> dict:
         layout_json = state.get("layout_json_string")
+        current_layout_id = state.get("layout_id")
         input_layout_json = state.get("input_layout_json_string")
         iteration = state.get("iteration", 0)
 
@@ -127,6 +128,8 @@ def build_adapt_node(mcp_client: Any) -> Any:
             repo_root = Path(__file__).resolve().parent.parent.parent
             candidates = _parse_candidates(state.get("search_results_json_string"))
             attempt_logs: list[str] = []
+            fallback_layout_id = current_layout_id
+            fallback_layout_json = layout_json
 
             layouts_to_try: list[tuple[str | None, dict]] = []
             if candidates:
@@ -137,6 +140,9 @@ def build_adapt_node(mcp_client: Any) -> Any:
                     candidate_layout = _load_layout_by_id(candidate_id, repo_root)
                     if candidate_layout:
                         layouts_to_try.append((candidate_id, candidate_layout))
+                        if fallback_layout_json is None:
+                            fallback_layout_id = candidate_id
+                            fallback_layout_json = json.dumps(candidate_layout)
 
             if not layouts_to_try and layout_json:
                 if isinstance(layout_json, str):
@@ -148,7 +154,9 @@ def build_adapt_node(mcp_client: Any) -> Any:
             if not layouts_to_try:
                 return {
                     "adapt_result": "failed",
-                    "clarification": "No layout candidate available for adaptation.",
+                    "clarification": _final_failure_message(["No layout candidate was available for adaptation."]),
+                    "adaptation_issues": ["No layout candidate available for adaptation."],
+                    "adaptation_failed": True,
                     "iteration": iteration + 1,
                 }
 
@@ -181,15 +189,18 @@ def build_adapt_node(mcp_client: Any) -> Any:
                         "rooms": layout_data.get("rooms", []),
                     }
 
-                adapted = _call_adapt_tool(mcp_client, layout_data, candidate_input_layout)
+                adapted, adapt_error = _call_adapt_tool(mcp_client, layout_data, candidate_input_layout)
                 if not adapted:
-                    message = f"Layout {candidate_label} failed adaptation in the MCP tool."
+                    message = f"Layout {candidate_label} failed adaptation in the MCP tool: {adapt_error or 'unknown tool error.'}"
                     attempt_logs.append(message)
                     continue
 
-                validation_issues = _validate_adapted_layout(layout_data, adapted)
-                if validation_issues:
-                    message = f"Layout {candidate_label} failed validation: {'; '.join(validation_issues)}"
+                has_required_programs, missing_programs = _has_required_programs(adapted)
+                if not has_required_programs:
+                    message = (
+                        f"The adapted layout for {candidate_label} is missing required spaces: "
+                        f"{', '.join(missing_programs)}."
+                    )
                     attempt_logs.append(message)
                     continue
 
@@ -201,23 +212,34 @@ def build_adapt_node(mcp_client: Any) -> Any:
                 edited_path = repo_root / "team_06_edited_layout.json"
                 save_layout(adapted, state, edited_path)
 
-                return {
+                result = {
                     "adapt_result": "success",
                     "layout_id": adapted_layout_id,
                     "layout_json_string": json.dumps(adapted),
+                    "adaptation_failed": False,
                     "iteration": iteration + 1,
                 }
 
+                return result
+
             return {
-                "adapt_result": "failed",
-                "clarification": "\n".join(attempt_logs + ["None of the retrieved layouts could be adapted to the input boundary. You can ignore the boundary or select another layout."]),
+                "adapt_result": "fallback_selected" if fallback_layout_json else "failed",
+                "clarification": None if fallback_layout_json else _final_failure_message(attempt_logs),
+                "adaptation_issues": attempt_logs,
+                "adaptation_failed": True,
+                "layout_id": fallback_layout_id,
+                "layout_json_string": fallback_layout_json,
                 "iteration": iteration + 1,
             }
 
         except Exception as e:
             return {
-                "adapt_result": "failed",
-                "clarification": f"Adaptation failed: {str(e)}",
+                "adapt_result": "fallback_selected" if layout_json else "failed",
+                "clarification": None if layout_json else _final_failure_message([f"Adaptation failed: {str(e)}"]),
+                "adaptation_issues": [f"Adaptation failed: {str(e)}"],
+                "adaptation_failed": True,
+                "layout_id": current_layout_id,
+                "layout_json_string": layout_json,
                 "iteration": iteration + 1,
             }
 

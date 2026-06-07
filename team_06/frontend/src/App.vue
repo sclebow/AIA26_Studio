@@ -48,6 +48,10 @@ function removeChatMessage(id) {
   chatHistory.value = chatHistory.value.filter(message => message.id !== id)
 }
 
+function clearBoundaryUploadErrors() {
+  chatHistory.value = chatHistory.value.filter(message => message.text !== 'Could not upload boundary layout: Failed to fetch' && !message.text.startsWith('Could not upload boundary layout: Request failed with status'))
+}
+
 function formatStatusMessages(messages) {
   if (!messages?.length) return 'Thinking'
   return messages[messages.length - 1]
@@ -66,6 +70,7 @@ async function handleLayoutLoaded(json) {
 
   try {
     await uploadBoundaryLayout(json)
+    clearBoundaryUploadErrors()
   } catch (error) {
     pushChatMessage('agent', `Could not upload boundary layout: ${error.message}`)
   }
