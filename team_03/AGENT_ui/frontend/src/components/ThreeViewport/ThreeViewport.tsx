@@ -2,16 +2,18 @@ import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react'
 import { Canvas, useThree, useFrame } from '@react-three/fiber'
 import { OrbitControls, Grid, ContactShadows } from '@react-three/drei'
 import * as THREE from 'three'
-import FloorPlanRenderer from './FloorPlanRenderer'
+import FloorPlanRenderer, { type RenderMode } from './FloorPlanRenderer'
 import PulseHighlight from './PulseHighlight'
 import Labels3D from './Labels3D'
 import ViewCube from './ViewCube'
-import SelectionPanel from './SelectionPanel'
+import ObserverMarker from './ObserverMarker'
+import IsovistSurface from './IsovistSurface'
 import { useTheme } from '../common/ThemeToggle'
 import { LayoutJSON, LayerVisibility } from '../../types'
 import type { NodeLinkData } from '../GraphPanel/graphDataMapper'
 
 const EMPTY_SET = new Set<string>()
+const PERSON_HEIGHT = 1.7
 
 interface ThreeViewportProps {
   layout: LayoutJSON
@@ -20,11 +22,27 @@ interface ThreeViewportProps {
   layers: LayerVisibility
   graphData?: NodeLinkData | null
   modifiedIds?: Set<string>
+  /** Push the observer point to the backend (→ MCP → Grasshopper) on release. */
+  onObserverPoint?: (x: number, y: number, height: number, pointStr: string) => void
+  /** Push an ordered path of floor points to the backend on finish. */
+  onObserverPath?: (points: Array<{ x: number; y: number }>) => void
+  /** Visibility isovist polygon (layout metres) returned by set_observer — drawn on the floor. */
+  isovist?: [number, number][] | null
+  /** Fired when the observer changes (place/move/draw/clear) so a stale isovist can be cleared. */
+  onObserverChanged?: () => void
+  /** Controlled labels toggle (shared with the graph). Falls back to internal state. */
+  showLabels?: boolean
+  onToggleLabels?: () => void
+  /** When true (agent running), suppress auto-recenter on layout reloads. */
+  isAgentRunning?: boolean
+  /** Bumps when the user explicitly picks/uploads a layout → triggers fit-to-screen. */
+  fitSignal?: number
 }
 
 interface SceneProps extends ThreeViewportProps {
   isDark: boolean
   showLabels: boolean
+  renderMode: RenderMode
 }
 
 // ── Camera angle tracker — writes to a ref, never triggers re-renders ──
@@ -41,38 +59,15 @@ function CameraTracker({ anglesRef }: { anglesRef: React.MutableRefObject<{ azim
   return null
 }
 
-// ── Auto-fit: set orbit target to geometry center on layout change ─────
-function BoundsFitter({ layout, onFit }: { layout: LayoutJSON; onFit: () => void }) {
-  const threeState = useThree()
-  const fittedRef = useRef<string | null>(null)
-
+// ── Exposes the live camera + renderer to the parent so DOM-level handlers
+//    (e.g. click-to-place) can raycast against the floor. Updates on camera
+//    swaps (ortho/persp). ──────────────────────────────────────────────────
+function ViewportRefBridge({ threeRef }: { threeRef: React.MutableRefObject<{ camera: THREE.Camera; gl: THREE.WebGLRenderer } | null> }) {
+  const camera = useThree(s => s.camera)
+  const gl = useThree(s => s.gl)
   useEffect(() => {
-    if (fittedRef.current === layout.layoutId) return
-    fittedRef.current = layout.layoutId
-
-    const { controls } = threeState
-
-    // Compute center of geometry
-    const pts = layout.outline
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
-    for (const [x, y] of pts) {
-      minX = Math.min(minX, x); maxX = Math.max(maxX, x)
-      minY = Math.min(minY, y); maxY = Math.max(maxY, y)
-    }
-    const cx = (minX + maxX) / 2
-    const cz = (minY + maxY) / 2
-
-    // Set orbit target to geometry center
-    if (controls) {
-      const ctrl = controls as any
-      ctrl.target.set(cx, 0, cz)
-      ctrl.update()
-    }
-
-    // Trigger Center view (top-front-right) after target is set
-    requestAnimationFrame(() => onFit())
-  }) // Runs every render but guarded by ref
-
+    threeRef.current = { camera, gl }
+  }, [camera, gl, threeRef])
   return null
 }
 
@@ -88,9 +83,9 @@ function CameraController({ viewCommand }: { viewCommand: string | null }) {
     const viewName = viewCommand.split('__')[0]
 
     // Offsets relative to the current orbit target (geometry center)
-    const offsets: Record<string, { off: [number, number, number]; up?: [number, number, number] }> = {
-      top: { off: [0, dist, 0.001], up: [0, 0, -1] },
-      bottom: { off: [0, -dist, 0.001], up: [0, 0, 1] },
+    const offsets: Record<string, { off: [number, number, number] }> = {
+      top: { off: [0, dist, 0.001] },
+      bottom: { off: [0, -dist, 0.001] },
       front: { off: [0, 0, dist] },
       back: { off: [0, 0, -dist] },
       right: { off: [dist, 0, 0] },
@@ -112,12 +107,198 @@ function CameraController({ viewCommand }: { viewCommand: string | null }) {
       target.y + view.off[1],
       target.z + view.off[2]
     )
-    if (view.up) camera.up.set(...view.up)
-    else camera.up.set(0, 1, 0)
+    camera.up.set(0, 1, 0)
     camera.lookAt(target)
     ctrl.update()
   }, [viewCommand, camera, controls])
 
+  return null
+}
+
+const easeInOutCubic = (t: number) =>
+  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+
+interface FitTarget { toTarget: THREE.Vector3; toPos: THREE.Vector3; toZoom: number }
+
+// Tight fit from the *actual* world-space bounds of the rendered floor-plan
+// meshes (the geometry is offset to the origin, so layout coords can't be used
+// directly). Projects the AABB corners onto the camera's screen axes so the
+// geometry just fills the viewport, keeping the current view direction. Returns
+// null if no geometry is mounted yet. Handles ortho (zoom) + perspective (dist).
+function computeFitTarget(
+  camera: THREE.Camera,
+  scene: THREE.Scene,
+  size: { width: number; height: number },
+): FitTarget | null {
+  const box = new THREE.Box3()
+  const tmp = new THREE.Box3()
+  scene.traverse(obj => {
+    const m = obj as THREE.Mesh
+    if (m.isMesh && m.userData && m.userData.elementId) {
+      tmp.setFromObject(m)
+      if (!tmp.isEmpty() && isFinite(tmp.min.x)) box.union(tmp)
+    }
+  })
+  if (box.isEmpty()) return null
+
+  const target = box.getCenter(new THREE.Vector3())
+
+  // Keep the current view direction; fall back to the default iso angle.
+  const dir = camera.position.clone().sub(target)
+  if (dir.lengthSq() < 1e-6) dir.set(0.577, 0.577, 0.577)
+  dir.normalize()
+
+  // Camera screen basis (right/up) for the kept direction.
+  const f = dir.clone().negate()
+  const worldUp = Math.abs(f.y) > 0.999 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0)
+  const right = new THREE.Vector3().crossVectors(f, worldUp).normalize()
+  const up = new THREE.Vector3().crossVectors(right, f) // unit (right ⟂ f)
+
+  // Half-extents of the AABB projected onto the screen axes (relative to center).
+  let halfR = 0, halfU = 0
+  const c = new THREE.Vector3()
+  const { min, max } = box
+  for (const xx of [min.x, max.x]) {
+    for (const yy of [min.y, max.y]) {
+      for (const zz of [min.z, max.z]) {
+        c.set(xx - target.x, yy - target.y, zz - target.z)
+        halfR = Math.max(halfR, Math.abs(c.dot(right)))
+        halfU = Math.max(halfU, Math.abs(c.dot(up)))
+      }
+    }
+  }
+
+  const margin = 1.08 // just barely covers the viewport
+  const aspect = size.width / size.height
+  const ortho = camera as THREE.OrthographicCamera
+  if (ortho.isOrthographicCamera) {
+    const frustumH = ortho.top - ortho.bottom
+    const visH = Math.max(2 * halfU, (2 * halfR) / aspect) * margin
+    const toZoom = frustumH / visH
+    const dist = Math.max(max.x - min.x, max.z - min.z, 10) // clip planes only
+    return { toTarget: target, toPos: target.clone().add(dir.multiplyScalar(dist)), toZoom }
+  }
+  const persp = camera as THREE.PerspectiveCamera
+  const tanV = Math.tan((persp.fov * Math.PI) / 180 / 2)
+  const tanH = tanV * persp.aspect
+  const dist = Math.max(halfU / tanV, halfR / tanH) * margin
+  return { toTarget: target, toPos: target.clone().add(dir.multiplyScalar(dist)), toZoom: persp.zoom }
+}
+
+interface FitAnim {
+  t: number; dur: number; ortho: boolean
+  fromPos: THREE.Vector3; toPos: THREE.Vector3
+  fromTarget: THREE.Vector3; toTarget: THREE.Vector3
+  fromZoom: number; toZoom: number
+}
+
+// ── Fit-to-screen — smoothly centers + zooms the layout to just fill the
+//    viewport. Runs on the Center button (fitCommand), on layout change, and on
+//    the initial mount (snapped). The actual bounds computation is deferred to
+//    the next frame so freshly-loaded geometry is mounted first. ──
+function FitController({ fitCommand, layout, lockView, fitSignal }: { fitCommand: string | null; layout: LayoutJSON; lockView?: boolean; fitSignal?: number }) {
+  const { camera, controls, size, scene } = useThree()
+  const anim = useRef<FitAnim | null>(null)
+  const pending = useRef<{ animated: boolean } | null>(null)
+  const lastFit = useRef<string | null>(null)
+  const lastSignal = useRef<number | undefined>(fitSignal)
+  const armed = useRef(false)        // a user layout pick is waiting for its geometry
+  const didInitialFit = useRef(false)
+
+  const requestFit = useCallback((animated: boolean) => { pending.current = { animated } }, [])
+
+  // Center button.
+  useEffect(() => {
+    if (!fitCommand || lastFit.current === fitCommand) return
+    lastFit.current = fitCommand
+    requestFit(true)
+  }, [fitCommand, requestFit])
+
+  // Explicit Layout-Loader pick → arm a fit. The actual fit runs when the new
+  // geometry arrives (layout-object effect below), so we measure the right thing.
+  useEffect(() => {
+    if (fitSignal === lastSignal.current) return
+    lastSignal.current = fitSignal
+    armed.current = true
+  }, [fitSignal])
+
+  // The layout object changes for many reasons (agent edits, chat replies,
+  // path/person, periodic reloads). Only fit on the initial mount, or when a
+  // user pick is armed — never for in-place updates. Skip while the agent runs.
+  useEffect(() => {
+    if (lockView) return
+    if (!didInitialFit.current) {
+      didInitialFit.current = true
+      requestFit(false)            // snap to fit on first load
+    } else if (armed.current) {
+      armed.current = false
+      requestFit(true)             // animate the user's explicit switch
+    }
+  }, [layout, lockView, requestFit])
+
+  useFrame((_, delta) => {
+    if (!controls) return
+    const ctrl = controls as any
+
+    // Kick off a fit once the (possibly new) geometry is mounted.
+    if (pending.current) {
+      const fit = computeFitTarget(camera, scene, size)
+      if (fit) {
+        const animated = pending.current.animated
+        pending.current = null
+        anim.current = {
+          t: 0, dur: animated ? 0.6 : 0.0001, ortho: (camera as THREE.OrthographicCamera).isOrthographicCamera,
+          fromPos: camera.position.clone(), toPos: fit.toPos,
+          fromTarget: ctrl.target.clone(), toTarget: fit.toTarget,
+          fromZoom: (camera as any).zoom ?? 1, toZoom: fit.toZoom,
+        }
+      }
+      // else: geometry not ready yet — try again next frame.
+    }
+
+    const a = anim.current
+    if (!a) return
+    a.t = Math.min(1, a.t + delta / a.dur)
+    const e = easeInOutCubic(a.t)
+    camera.position.lerpVectors(a.fromPos, a.toPos, e)
+    ctrl.target.lerpVectors(a.fromTarget, a.toTarget, e)
+    if (a.ortho) {
+      ;(camera as THREE.OrthographicCamera).zoom = a.fromZoom + (a.toZoom - a.fromZoom) * e
+      camera.updateProjectionMatrix()
+    }
+    camera.up.set(0, 1, 0)
+    camera.lookAt(ctrl.target)
+    ctrl.update()
+    if (a.t >= 1) anim.current = null
+  })
+
+  return null
+}
+
+// ── Drag-to-orbit from the ViewCube — consumes the latest desired az/el each
+//    frame (via a ref, so no per-mousemove React renders) and orbits the camera
+//    around the current target, keeping its distance. ─────────────────────────
+function DragOrbitController({ cmdRef }: { cmdRef: React.MutableRefObject<{ az: number; el: number } | null> }) {
+  const { camera, controls } = useThree()
+  useFrame(() => {
+    const cmd = cmdRef.current
+    if (!cmd || !controls) return
+    cmdRef.current = null
+    const ctrl = controls as any
+    const target = ctrl.target as THREE.Vector3
+    const dist = camera.position.distanceTo(target) || 40
+    const { az, el } = cmd
+    // Same spherical convention as CameraTracker (azimuth = atan2(x, z)).
+    const dir = {
+      x: Math.cos(el) * Math.sin(az),
+      y: Math.sin(el),
+      z: Math.cos(el) * Math.cos(az),
+    }
+    camera.position.set(target.x + dir.x * dist, target.y + dir.y * dist, target.z + dir.z * dist)
+    camera.up.set(0, 1, 0)
+    camera.lookAt(target)
+    ctrl.update()
+  })
   return null
 }
 
@@ -183,7 +364,7 @@ function RendererConfig({ isDark }: { isDark: boolean }) {
   return null
 }
 
-function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels, modifiedIds }: SceneProps & { modifiedIds?: Set<string> }) {
+function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels, renderMode, modifiedIds }: SceneProps & { modifiedIds?: Set<string> }) {
   const bounds = useMemo(() => {
     const pts = layout.outline
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
@@ -198,7 +379,25 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
 
   const center = useMemo(() => ({ x: bounds.cx, z: bounds.cz }), [bounds])
 
-  const bgColor = isDark ? '#1a1b24' : '#ffffff'
+  // Centroid (world coords) of the selected element — drives a point light that
+  // makes the selection glow and cast onto its neighbours in *every* render mode.
+  const selectedCenter = useMemo(() => {
+    if (!selectedId) return null
+    const groups = [layout.rooms, layout.doors, layout.windows, layout.furniture, layout.mep, layout.structure]
+    for (const g of groups) {
+      const el = g.find(e => e.id === selectedId)
+      if (el && el.geometry.length) {
+        let sx = 0, sy = 0
+        for (const [x, y] of el.geometry) { sx += x; sy += y }
+        const n = el.geometry.length
+        const h = (el.attributes as { height?: number }).height ?? 2.6
+        return { x: sx / n, y: sy / n, h: Math.max(h * 0.8, 1.6) }
+      }
+    }
+    return null
+  }, [selectedId, layout])
+
+  const bgColor = isDark ? '#15101f' : '#ffffff'
 
   return (
     <>
@@ -209,13 +408,15 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
       {isDark && <color attach="background" args={[bgColor]} />}
       <fog attach="fog" args={[bgColor, 120, 280]} />
 
-      {/* Lighting — neutral colors, strong directional for dark mode, pure white for light */}
-      <ambientLight intensity={isDark ? 0.45 : 0.9} color={isDark ? '#b0b4bc' : '#ffffff'} />
+      {/* Lighting — sci-fi cool lavender tint for dark mode, pure white for light.
+          Lower ambient + stronger key light so cast shadows read clearly. */}
+      <ambientLight intensity={isDark ? 0.38 : 0.9} color={isDark ? '#b9a8e8' : '#ffffff'} />
       <directionalLight
         position={[bounds.w * 0.4, bounds.maxDim * 1.5, bounds.h * 0.6]}
-        intensity={isDark ? 1.4 : 0.6}
-        color={isDark ? '#e8e6ef' : '#ffffff'}
-        castShadow={isDark}
+        intensity={isDark ? 1.7 : 0.9}
+        color={isDark ? '#e9e2ff' : '#ffffff'}
+        castShadow
+        shadow-radius={4}
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
         shadow-camera-left={-bounds.maxDim}
@@ -228,22 +429,22 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
       />
       <directionalLight
         position={[-bounds.w * 0.3, bounds.maxDim * 0.5, -bounds.h * 0.5]}
-        intensity={isDark ? 0.25 : 0.3}
-        color={isDark ? '#8892a0' : '#ffffff'}
+        intensity={isDark ? 0.3 : 0.3}
+        color={isDark ? '#8b5cf6' : '#ffffff'}
       />
 
-      {/* Accent point lights — only for dark mode */}
+      {/* Accent point lights — purple glow, only for dark mode */}
       <pointLight
         position={[0, bounds.maxDim * 0.4, 0]}
-        intensity={isDark ? 0.20 : 0}
-        color={isDark ? '#a0a8b8' : '#ffffff'}
+        intensity={isDark ? 0.28 : 0}
+        color={isDark ? '#a78bfa' : '#ffffff'}
         distance={bounds.maxDim * 2.5}
         decay={2}
       />
       <pointLight
         position={[bounds.w * 0.3, 1, bounds.h * 0.3]}
-        intensity={isDark ? 0.15 : 0}
-        color={isDark ? '#b0a898' : '#ffffff'}
+        intensity={isDark ? 0.18 : 0}
+        color={isDark ? '#c4b5fd' : '#ffffff'}
         distance={bounds.maxDim * 2}
         decay={2}
       />
@@ -267,15 +468,33 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
         args={[200, 200]}
         cellSize={1}
         cellThickness={0.5}
-        cellColor={isDark ? '#1e2028' : '#e0e2e6'}
+        cellColor={isDark ? '#241a3a' : '#e0e2e6'}
         sectionSize={5}
         sectionThickness={1}
-        sectionColor={isDark ? '#282a34' : '#d0d2d6'}
+        sectionColor={isDark ? '#3a2b5c' : '#d0d2d6'}
         fadeDistance={100}
         fadeStrength={2.0}
         infiniteGrid
-        position={[0, 0.01, 0]}
+        // Sit ~6mm BELOW the room floor (which is at y=0.01) so the grid never
+        // shares the floor plane — avoids z-fighting/clipping with the geometry.
+        position={[0, 0.004, 0]}
       />
+
+      {/* Selected-object glow — illuminates and casts shadow onto neighbours in
+          every render mode (coords = world − centred-group offset). */}
+      {selectedCenter && (
+        <pointLight
+          position={[selectedCenter.x - center.x, selectedCenter.h, selectedCenter.y - center.z]}
+          color="#a78bfa"
+          intensity={3.2}
+          distance={bounds.maxDim * 0.9}
+          decay={2}
+          castShadow
+          shadow-mapSize-width={1024}
+          shadow-mapSize-height={1024}
+          shadow-bias={-0.0005}
+        />
+      )}
 
       {/* Floor plan */}
       <FloorPlanRenderer
@@ -284,6 +503,7 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
         selectedId={selectedId}
         onSelect={onSelect}
         isDark={isDark}
+        renderMode={renderMode}
       />
 
       {/* 3D Labels */}
@@ -302,23 +522,52 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
         minDistance={5}
         maxDistance={150}
         maxPolarAngle={Math.PI / 2.1}
-        target={[0, 0, 0]}
+        mouseButtons={{
+          LEFT: undefined as any,
+          MIDDLE: THREE.MOUSE.PAN,
+          RIGHT: THREE.MOUSE.ROTATE,
+        }}
       />
     </>
   )
 }
 
-export default function ThreeViewport({ layout, selectedId, onSelect, layers, graphData, modifiedIds }: ThreeViewportProps) {
+export default function ThreeViewport({ layout, selectedId, onSelect, layers, graphData, modifiedIds, onObserverPoint, onObserverPath, isovist, onObserverChanged, showLabels: showLabelsProp, onToggleLabels, isAgentRunning, fitSignal }: ThreeViewportProps) {
   const { theme, colors } = useTheme()
   const isDark = theme === 'dark'
-  const [showLabels, setShowLabels] = useState(true)
+  const [internalShowLabels, setInternalShowLabels] = useState(true)
+  // Controlled by App (shared with the graph) when provided; else internal.
+  const showLabels = showLabelsProp ?? internalShowLabels
+  const toggleLabels = onToggleLabels ?? (() => setInternalShowLabels(v => !v))
   const [isOrtho, setIsOrtho] = useState(true)
+  const [renderMode, setRenderMode] = useState<RenderMode>('rendered')
   const [viewCommand, setViewCommand] = useState<string | null>(null)
+  const [fitCommand, setFitCommand] = useState<string | null>(null)
+  const fitCounter = useRef(0)
+  const orbitCmdRef = useRef<{ az: number; el: number } | null>(null)
+  const [personMode, setPersonMode] = useState(false)
+  const [personPos, setPersonPos] = useState<{ x: number; y: number } | null>(null)
+  const [placing, setPlacing] = useState(false)
+  const [pathMode, setPathMode] = useState(false)
+  const [pathPoints, setPathPoints] = useState<Array<{ x: number; y: number }>>([])
+  // When the user picks the other mode while one observer is already armed, we ask
+  // which of the two to keep. `switchPrompt` = the mode they're trying to switch TO.
+  const [switchPrompt, setSwitchPrompt] = useState<'person' | 'path' | null>(null)
+  const threeRef = useRef<{ camera: THREE.Camera; gl: THREE.WebGLRenderer } | null>(null)
   const cameraAnglesRef = useRef({ azimuth: 0.75, elevation: 0.6 })
-  const clickScreenPosRef = useRef<{ x: number; y: number } | null>(null)
-  const [clickScreenPos, setClickScreenPos] = useState<{ x: number; y: number } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const viewCounter = useRef(0)
+
+  // Geometry centre — same formula as FloorPlanRenderer's centred group.
+  const geoCenter = useMemo(() => {
+    const pts = layout.outline
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+    for (const [x, y] of pts) {
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x)
+      minY = Math.min(minY, y); maxY = Math.max(maxY, y)
+    }
+    return { x: (minX + maxX) / 2, z: (minY + maxY) / 2 }
+  }, [layout])
 
   const cameraConfig = useMemo(() => {
     const pts = layout.outline
@@ -335,13 +584,157 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
     }
   }, [layout])
 
+  const personStr = personPos
+    ? `${personPos.x.toFixed(2)},${personPos.y.toFixed(2)},${PERSON_HEIGHT.toFixed(2)}`
+    : ''
+
+  // Observer readiness — only ONE observer (PERSON or PATH) is armed at a time.
+  const hasPerson = personPos !== null
+  const hasPath = pathPoints.length > 0
+  const personReady = hasPerson
+  const pathReady = pathPoints.length >= 2
+  const activeMode: 'person' | 'path' | null = personReady ? 'person' : pathReady ? 'path' : null
+
+  // Run the visibility analysis on demand (explicit button — no auto-run on place).
+  // PERSON → static visibility at the point; PATH → traverse + visibility.
+  const runAnalysis = useCallback(() => {
+    if (personPos) {
+      const str = `${personPos.x.toFixed(2)},${personPos.y.toFixed(2)},${PERSON_HEIGHT.toFixed(2)}`
+      onObserverPoint?.(personPos.x, personPos.y, PERSON_HEIGHT, str)
+    } else if (pathPoints.length >= 2) {
+      onObserverPath?.(pathPoints)
+    }
+  }, [personPos, pathPoints, onObserverPoint, onObserverPath])
+
+  const handleTogglePerson = useCallback(() => {
+    if (personMode) { setPersonMode(false); setPlacing(false); return }  // exit edit (keep ghost)
+    if (hasPath) { setSwitchPrompt('person'); return }                   // ask before discarding the path
+    setPathMode(false)
+    setPersonMode(true); setPlacing(true)
+  }, [personMode, hasPath])
+
+  const raycastFloor = useCallback((e: React.MouseEvent): { x: number; y: number } | null => {
+    const t = threeRef.current
+    if (!t) return null
+    const rect = t.gl.domElement.getBoundingClientRect()
+    const ndcX = ((e.clientX - rect.left) / rect.width) * 2 - 1
+    const ndcY = -((e.clientY - rect.top) / rect.height) * 2 + 1
+    const rc = new THREE.Raycaster()
+    rc.setFromCamera(new THREE.Vector2(ndcX, ndcY), t.camera)
+    const hit = new THREE.Vector3()
+    if (rc.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit)) {
+      return { x: hit.x + geoCenter.x, y: hit.z + geoCenter.z }
+    }
+    return null
+  }, [geoCenter])
+
+  // Click anywhere on the floor to (re)place the person.
+  const handlePlacementClick = useCallback((e: React.MouseEvent) => {
+    const pt = raycastFloor(e)
+    if (pt) {
+      setPersonPos(pt)        // armed — analysis runs via the Run button
+      setPlacing(false)
+      onObserverChanged?.()   // discard any isovist from a previous run
+    }
+  }, [raycastFloor, onObserverChanged])
+
+  const handleObserverMove = useCallback((x: number, y: number) => {
+    setPersonPos({ x, y })
+  }, [])
+
+  const handleObserverRelease = useCallback((x: number, y: number) => {
+    setPersonPos({ x, y })   // armed — analysis runs via the Run button
+    onObserverChanged?.()
+  }, [onObserverChanged])
+
+  // While dragging the person, suppress geometry selection — otherwise the
+  // synthesized click on pointer-up (over a room) would open its detail panel.
+  const draggingObserverRef = useRef(false)
+  const handleObserverDragStart = useCallback(() => { draggingObserverRef.current = true }, [])
+  const handleObserverDragEnd = useCallback(() => {
+    // Keep the guard up briefly so the trailing click is swallowed too.
+    setTimeout(() => { draggingObserverRef.current = false }, 150)
+  }, [])
+  const guardedSelect = useCallback((id: string | null) => {
+    if (draggingObserverRef.current) return
+    onSelect(id)
+  }, [onSelect])
+
+  const handleCopyPersonStr = useCallback(() => {
+    if (personStr) navigator.clipboard?.writeText(personStr).catch(() => {})
+  }, [personStr])
+
   const handleMissedClick = useCallback(() => {
+    if (draggingObserverRef.current) return
     onSelect(null)
   }, [onSelect])
+
+  const finishPath = useCallback(() => {
+    setPathMode(false)   // finish drawing; keep points (run via the Run button)
+  }, [])
+
+  const handlePathClick = useCallback((e: React.MouseEvent) => {
+    if (e.detail > 1) return
+    const pt = raycastFloor(e)
+    if (pt) { setPathPoints(prev => [...prev, pt]); onObserverChanged?.() }
+  }, [raycastFloor, onObserverChanged])
+
+  const handlePathDoubleClick = useCallback(() => {
+    if (pathPoints.length >= 2) {
+      setPathMode(false) // finish drawing; run via the Run button
+    }
+  }, [pathPoints])
+
+  const handleTogglePath = useCallback(() => {
+    if (pathMode) { setPathMode(false); return }       // pause drawing (keep points)
+    if (hasPerson) { setSwitchPrompt('path'); return } // ask before discarding the person
+    setPersonMode(false); setPlacing(false)
+    setPathMode(true)
+  }, [pathMode, hasPerson])
+
+  // Confirm a mode switch: discard the OTHER observer and arm the chosen one.
+  const confirmSwitch = useCallback((target: 'person' | 'path') => {
+    if (target === 'person') {
+      setPathPoints([]); setPathMode(false)
+      setPersonMode(true); setPlacing(true)
+    } else {
+      setPersonPos(null); setPersonMode(false); setPlacing(false)
+      setPathMode(true)
+    }
+    setSwitchPrompt(null)
+    onObserverChanged?.()
+  }, [onObserverChanged])
+
+  const handleUpdatePathPoint = useCallback((index: number, x: number, y: number) => {
+    setPathPoints(prev => prev.map((pt, i) => i === index ? { x, y } : pt))
+  }, [])
+
+  const handleReleasePathPoint = useCallback((index: number, x: number, y: number) => {
+    setPathPoints(prev => prev.map((pt, i) => i === index ? { x, y } : pt))
+    onObserverChanged?.()
+  }, [onObserverChanged])
+
+  useEffect(() => {
+    if (!pathMode) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setPathPoints([]); setPathMode(false) }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [pathMode])
 
   const handleViewChange = useCallback((view: string) => {
     viewCounter.current++
     setViewCommand(view + '__' + viewCounter.current)
+  }, [])
+
+  const handleFit = useCallback(() => {
+    fitCounter.current++
+    setFitCommand('fit__' + fitCounter.current)
+  }, [])
+
+  const handleCubeOrbit = useCallback((az: number, el: number) => {
+    orbitCmdRef.current = { az, el }
   }, [])
 
   const handleToggleOrtho = useCallback(() => {
@@ -352,20 +745,11 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
     onSelect(null)
   }, [onSelect])
 
-  const handleContainerClick = useCallback((e: React.MouseEvent) => {
-    const rect = containerRef.current?.getBoundingClientRect()
-    if (rect) {
-      // Store in ref (no re-render); SelectionPanel reads it via prop only when selectedId changes
-      const pos = { x: e.clientX - rect.left, y: e.clientY - rect.top }
-      clickScreenPosRef.current = pos
-      setClickScreenPos(pos)
-    }
-  }, [])
 
-  const bgColor = isDark ? '#1a1b24' : '#ffffff'
+  const bgColor = isDark ? '#15101f' : '#ffffff'
 
   return (
-    <div ref={containerRef} onClick={handleContainerClick} style={{ width: '100%', height: '100%', position: 'relative' }}>
+    <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
       <Canvas
         camera={{ position: cameraConfig.position, fov: cameraConfig.fov, near: 0.1, far: 500 }}
         style={{ width: '100%', height: '100%', background: bgColor, transition: 'background 0.3s ease' }}
@@ -374,107 +758,507 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
         onPointerMissed={handleMissedClick}
       >
         <CameraTracker anglesRef={cameraAnglesRef} />
+        <ViewportRefBridge threeRef={threeRef} />
         <CameraController viewCommand={viewCommand} />
+        <FitController fitCommand={fitCommand} layout={layout} lockView={isAgentRunning} fitSignal={fitSignal} />
+        <DragOrbitController cmdRef={orbitCmdRef} />
         <OrthoController isOrtho={isOrtho} />
-        <BoundsFitter layout={layout} onFit={() => handleViewChange('top-front-right')} />
         <SceneContent
           layout={layout}
           selectedId={selectedId}
-          onSelect={onSelect}
+          onSelect={guardedSelect}
           layers={layers}
           isDark={isDark}
           showLabels={showLabels}
+          renderMode={renderMode}
           modifiedIds={modifiedIds}
         />
+        {isovist && isovist.length >= 3 && (
+          <IsovistSurface
+            points={isovist}
+            center={geoCenter}
+            color={isDark ? '#ffe082' : '#f59e0b'}
+            opacity={0.25}
+          />
+        )}
+        {personPos && (
+          <ObserverMarker
+            center={geoCenter}
+            position={personPos}
+            isDark={isDark}
+            ghost={!personMode}
+            onMove={personMode ? handleObserverMove : () => {}}
+            onRelease={personMode ? handleObserverRelease : () => {}}
+            onDragStart={personMode ? handleObserverDragStart : undefined}
+            onDragEnd={personMode ? handleObserverDragEnd : undefined}
+          />
+        )}
+        {pathPoints.length > 0 && (
+          <ObserverMarker
+            center={geoCenter}
+            position={{ x: 0, y: 0 }}
+            isDark={isDark}
+            ghost={!pathMode}
+            onMove={() => {}}
+            onRelease={() => {}}
+            pathMode
+            pathPoints={pathPoints}
+            onUpdatePathPoint={handleUpdatePathPoint}
+            onReleasePathPoint={handleReleasePathPoint}
+          />
+        )}
       </Canvas>
 
-      {/* Labels toggle button */}
-      <button
-        onClick={() => setShowLabels(v => !v)}
-        title={showLabels ? 'Hide labels' : 'Show labels'}
-        style={{
-          position: 'absolute',
-          top: 12,
-          right: 468,
-          zIndex: 20,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          background: colors.panelBg,
-          border: `1px solid ${showLabels ? colors.accent + '44' : colors.border}`,
-          borderRadius: 8,
-          padding: '5px 10px',
-          color: showLabels ? colors.accent : colors.muted,
-          fontSize: 9,
-          fontWeight: 600,
-          letterSpacing: '0.04em',
-          textTransform: 'uppercase',
-          cursor: 'pointer',
-          fontFamily: colors.font,
-          transition: 'color 0.2s, border-color 0.2s',
-        }}
-      >
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M3 7V5a2 2 0 012-2h2" /><path d="M17 3h2a2 2 0 012 2v2" />
-          <path d="M21 17v2a2 2 0 01-2 2h-2" /><path d="M7 21H5a2 2 0 01-2-2v-2" />
-          <line x1="7" y1="12" x2="17" y2="12" /><line x1="7" y1="8" x2="13" y2="8" />
-          <line x1="7" y1="16" x2="15" y2="16" />
-        </svg>
-        {showLabels ? 'Labels ON' : 'Labels'}
-      </button>
+      {/* Placement overlay — while picking a spot, capture clicks here so the
+          viewport geometry (and orbit/deselect) never react to the click. */}
+      {personMode && placing && (
+        <div
+          onClick={handlePlacementClick}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 15,
+            cursor: 'crosshair',
+          }}
+        />
+      )}
 
-      {/* Center/fit button */}
-      <button
-        onClick={() => handleViewChange('top-front-right')}
-        title="Center geometry"
-        style={{
-          position: 'absolute',
-          top: 12,
-          right: 556,
-          zIndex: 20,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          background: colors.panelBg,
-          border: `1px solid ${colors.border}`,
-          borderRadius: 8,
-          padding: '5px 10px',
-          color: colors.muted,
-          fontSize: 9,
-          fontWeight: 600,
-          letterSpacing: '0.04em',
-          textTransform: 'uppercase',
-          cursor: 'pointer',
-          fontFamily: colors.font,
-          transition: 'color 0.2s, border-color 0.2s',
-        }}
-      >
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <circle cx="12" cy="12" r="3" />
-          <line x1="12" y1="2" x2="12" y2="6" />
-          <line x1="12" y1="18" x2="12" y2="22" />
-          <line x1="2" y1="12" x2="6" y2="12" />
-          <line x1="18" y1="12" x2="22" y2="12" />
-        </svg>
-        Center
-      </button>
+      {/* Path drawing overlay — captures all clicks while path mode is active. */}
+      {pathMode && (
+        <div
+          onClick={handlePathClick}
+          onDoubleClick={handlePathDoubleClick}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 15,
+            cursor: 'crosshair',
+          }}
+        />
+      )}
 
-      {/* ViewCube + Ortho toggle */}
-      <ViewCube
-        onViewChange={handleViewChange}
-        isOrtho={isOrtho}
-        onToggleOrtho={handleToggleOrtho}
-        cameraAnglesRef={cameraAnglesRef}
-      />
+      {/* Observer mode switch prompt — only ONE observer (PERSON or PATH) at a time */}
+      {switchPrompt && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 40,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.35)',
+        }}>
+          <div style={{
+            background: colors.panelBg, border: `1px solid ${colors.border}`,
+            borderRadius: 12, padding: 18, width: 300, maxWidth: '80%',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.45)', fontFamily: colors.font,
+            backdropFilter: 'blur(8px)',
+          }}>
+            <div style={{
+              fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+              color: colors.text, fontFamily: colors.fontHeading, marginBottom: 8,
+            }}>Choose observer</div>
+            <div style={{ fontSize: 12, color: colors.muted, lineHeight: 1.5, marginBottom: 14 }}>
+              You already have a {switchPrompt === 'person' ? 'PATH' : 'PERSON'} observer ready.
+              Only one can be active — which do you want to use? The other is discarded.
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {(['person', 'path'] as const).map(m => {
+                const isTarget = m === switchPrompt
+                return (
+                  <button key={m} onClick={() => confirmSwitch(m)} style={{
+                    flex: 1, padding: '8px 0', borderRadius: 8, cursor: 'pointer',
+                    fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+                    fontFamily: colors.font,
+                    background: isTarget ? colors.accent : 'transparent',
+                    color: isTarget ? (isDark ? '#0a0612' : '#ffffff') : colors.muted,
+                    border: `1px solid ${isTarget ? colors.accent : colors.border}`,
+                  }}>{m}</button>
+                )
+              })}
+            </div>
+            <button onClick={() => setSwitchPrompt(null)} style={{
+              marginTop: 10, width: '100%', padding: '6px 0', borderRadius: 8, cursor: 'pointer',
+              background: 'transparent', border: 'none', color: colors.muted,
+              fontSize: 11, fontFamily: colors.font,
+            }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Compact controls row — top-right, left of ViewCube */}
+      <div style={{
+        position: 'absolute',
+        top: 12,
+        right: 102,
+        zIndex: 20,
+        display: 'flex',
+        flexDirection: 'row',
+        gap: 4,
+        alignItems: 'center',
+      }}>
+        {/* Clear path — only visible when path exists */}
+        {pathPoints.length > 0 && (
+          <button
+            onClick={() => { setPathPoints([]); onObserverChanged?.() }}
+            title="Clear path"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              background: colors.panelBg,
+              border: `1px solid ${colors.border}`,
+              borderRadius: 8, padding: '5px 8px',
+              color: colors.muted, fontSize: 10, fontWeight: 600,
+              letterSpacing: '0.04em', textTransform: 'uppercase',
+              cursor: 'pointer', fontFamily: colors.font,
+              transition: 'color 0.2s, border-color 0.2s',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#ef4444'; (e.currentTarget as HTMLElement).style.borderColor = '#ef4444' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = colors.muted; (e.currentTarget as HTMLElement).style.borderColor = colors.border }}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        )}
+
+        {/* Path toggle */}
+        <button
+          onClick={handleTogglePath}
+          title={pathMode ? 'Pause path drawing' : pathPoints.length > 0 ? 'Resume path drawing' : 'Draw an observer path (click points, dbl-click to finish)'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: colors.panelBg,
+            border: `1px solid ${pathMode ? colors.accent + '44' : colors.border}`,
+            borderRadius: 8, padding: '5px 10px',
+            color: pathMode ? colors.accent : colors.muted,
+            fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
+            textTransform: 'uppercase', cursor: 'pointer',
+            fontFamily: colors.font, transition: 'color 0.2s, border-color 0.2s',
+          }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="4" cy="20" r="2" fill="currentColor" stroke="none" />
+            <circle cx="12" cy="4" r="2" fill="currentColor" stroke="none" />
+            <circle cx="20" cy="14" r="2" fill="currentColor" stroke="none" />
+            <path d="M5.5 18.5L10.5 5.5M13.5 5.5L18.5 12.5" />
+          </svg>
+          {pathMode ? 'Path ON' : 'Path'}
+        </button>
+
+        {/* Person toggle */}
+        <button
+          onClick={handleTogglePerson}
+          title={personMode ? 'Hide observer point' : 'Place a draggable 1.7m person'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: colors.panelBg,
+            border: `1px solid ${personMode ? colors.accent + '44' : colors.border}`,
+            borderRadius: 8, padding: '5px 10px',
+            color: personMode ? colors.accent : colors.muted,
+            fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
+            textTransform: 'uppercase', cursor: 'pointer',
+            fontFamily: colors.font, transition: 'color 0.2s, border-color 0.2s',
+          }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="12" cy="6" r="3" />
+            <path d="M12 9v8" /><path d="M8 13h8" /><path d="M9 21l3-4 3 4" />
+          </svg>
+          {personMode ? 'Person ON' : 'Person'}
+        </button>
+
+        {/* Run visibility analysis (explicit trigger → MCP set_observer) */}
+        {activeMode && (
+          <button
+            onClick={runAnalysis}
+            title={`Run ${activeMode} visibility analysis`}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: colors.accent,
+              border: `1px solid ${colors.accent}`,
+              borderRadius: 8, padding: '5px 10px',
+              color: isDark ? '#0a0612' : '#ffffff',
+              fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
+              textTransform: 'uppercase', cursor: 'pointer',
+              fontFamily: colors.font, transition: 'all 0.2s',
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+              <polygon points="6 4 20 12 6 20 6 4" />
+            </svg>
+            Run {activeMode}
+          </button>
+        )}
+
+        {/* Center/fit */}
+        <button
+          onClick={handleFit}
+          title="Center & fit geometry"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: colors.panelBg,
+            border: `1px solid ${colors.border}`,
+            borderRadius: 8, padding: '5px 10px',
+            color: colors.muted,
+            fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
+            textTransform: 'uppercase', cursor: 'pointer',
+            fontFamily: colors.font, transition: 'color 0.2s, border-color 0.2s',
+          }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="12" cy="12" r="3" />
+            <line x1="12" y1="2" x2="12" y2="6" />
+            <line x1="12" y1="18" x2="12" y2="22" />
+            <line x1="2" y1="12" x2="6" y2="12" />
+            <line x1="18" y1="12" x2="22" y2="12" />
+          </svg>
+          Center
+        </button>
+
+        {/* Labels toggle */}
+        <button
+          onClick={toggleLabels}
+          title={showLabels ? 'Hide labels' : 'Show labels'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: colors.panelBg,
+            border: `1px solid ${showLabels ? colors.accent + '44' : colors.border}`,
+            borderRadius: 8, padding: '5px 10px',
+            color: showLabels ? colors.accent : colors.muted,
+            fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
+            textTransform: 'uppercase', cursor: 'pointer',
+            fontFamily: colors.font, transition: 'color 0.2s, border-color 0.2s',
+          }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 7V5a2 2 0 012-2h2" /><path d="M17 3h2a2 2 0 012 2v2" />
+            <path d="M21 17v2a2 2 0 01-2 2h-2" /><path d="M7 21H5a2 2 0 01-2-2v-2" />
+            <line x1="7" y1="12" x2="17" y2="12" /><line x1="7" y1="8" x2="13" y2="8" />
+            <line x1="7" y1="16" x2="15" y2="16" />
+          </svg>
+          {showLabels ? 'Labels ON' : 'Labels'}
+        </button>
+      </div>
+
+      {/* ViewCube + render-mode buttons — one absolute column, no overlaps */}
+      <div style={{
+        position: 'absolute',
+        top: 12,
+        right: 8,
+        zIndex: 20,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 8,
+      }}>
+        <ViewCube
+          onViewChange={handleViewChange}
+          isOrtho={isOrtho}
+          onToggleOrtho={handleToggleOrtho}
+          cameraAnglesRef={cameraAnglesRef}
+          onOrbitDrag={handleCubeOrbit}
+        />
+
+        {/* Render-mode switch (Rhino-style): Rendered / Shaded / Wireframe / Ghosted */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+          width: 84,
+        }}>
+          {([
+            ['rendered', 'RENDERED'],
+            ['shaded', 'SHADED'],
+            ['wireframe', 'WIRE'],
+            ['ghosted', 'GHOST'],
+          ] as [RenderMode, string][]).map(([mode, label]) => {
+            const active = renderMode === mode
+            return (
+              <button
+                key={mode}
+                onClick={() => setRenderMode(mode)}
+                title={`${label} view`}
+                style={{
+                  width: '100%',
+                  background: active ? colors.accentDim : colors.panelBg,
+                  border: `1px solid ${active ? colors.accent + '88' : colors.border}`,
+                  borderRadius: 6,
+                  padding: '4px 6px',
+                  color: active ? colors.accent : colors.muted,
+                  fontSize: 9,
+                  fontWeight: 700,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  fontFamily: colors.font,
+                  transition: 'color 0.2s, border-color 0.2s, background 0.2s',
+                }}
+                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = colors.accent }}
+                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = colors.muted }}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       {/* Selection detail panel */}
-      <SelectionPanel
-        selectedId={selectedId}
-        layout={layout}
-        graphData={graphData || null}
-        onClose={handleClosePanel}
-        clickPosition={clickScreenPos}
-      />
+      {/* Path HUD — mutually exclusive with observer point HUD (personMode and pathMode can't both be true) */}
+      {pathMode && (
+        <div style={{
+          position: 'absolute',
+          bottom: 16,
+          left: 16,
+          zIndex: 240,
+          background: colors.panelBg,
+          border: `1px solid ${colors.accent}44`,
+          borderRadius: 10,
+          padding: '10px 12px',
+          fontFamily: colors.font,
+          minWidth: 210,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+        }}>
+          <div style={{
+            fontSize: 10,
+            fontWeight: 600,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            color: colors.accent,
+            marginBottom: 6,
+          }}>
+            Observer Path
+          </div>
+          <div style={{ fontSize: 12, color: colors.text, marginBottom: 6 }}>
+            {pathPoints.length} point{pathPoints.length !== 1 ? 's' : ''} placed
+          </div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+            {pathPoints.length >= 2 && (
+              <button
+                onClick={finishPath}
+                style={{
+                  flex: 1,
+                  padding: '4px 8px',
+                  borderRadius: 6,
+                  border: `1px solid ${colors.accent}`,
+                  background: colors.accentDim,
+                  color: colors.accent,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  letterSpacing: '0.04em',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  fontFamily: colors.font,
+                }}
+              >
+                Done
+              </button>
+            )}
+            {pathPoints.length > 0 && (
+              <button
+                onClick={() => setPathPoints([])}
+                style={{
+                  flex: 1,
+                  padding: '4px 8px',
+                  borderRadius: 6,
+                  border: `1px solid ${colors.border}`,
+                  background: 'transparent',
+                  color: colors.muted,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  letterSpacing: '0.04em',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  fontFamily: colors.font,
+                }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <div style={{ fontSize: 10, color: colors.muted, letterSpacing: '0.02em' }}>
+            {pathPoints.length < 2
+              ? 'Click to add points. Dbl-click or Done (min 2 pts).'
+              : 'Click to add more. Dbl-click or Done to finish. Esc to cancel.'}
+          </div>
+        </div>
+      )}
+
+      {/* Observer point output HUD — high z-index so floating panels never cover it */}
+      {personMode && (
+        <div style={{
+          position: 'absolute',
+          bottom: 16,
+          left: 16,
+          zIndex: 240,
+          background: colors.panelBg,
+          border: `1px solid ${colors.accent}44`,
+          borderRadius: 10,
+          padding: '10px 12px',
+          fontFamily: colors.font,
+          minWidth: 210,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+        }}>
+          <div style={{
+            fontSize: 10,
+            fontWeight: 600,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            color: colors.accent,
+            marginBottom: 6,
+          }}>
+            Observer Point (person 1.7m)
+          </div>
+          {personPos ? (
+            <>
+              <div style={{ display: 'flex', gap: 12, fontSize: 12, color: colors.text, marginBottom: 6 }}>
+                <span>X <b>{personPos.x.toFixed(2)}</b></span>
+                <span>Y <b>{personPos.y.toFixed(2)}</b></span>
+                <span style={{ color: colors.muted }}>h 1.70</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <code style={{
+                  flex: 1,
+                  fontSize: 12,
+                  padding: '4px 6px',
+                  borderRadius: 6,
+                  background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+                  color: colors.text,
+                  userSelect: 'all',
+                }}>
+                  "{personStr}"
+                </code>
+                <button
+                  onClick={handleCopyPersonStr}
+                  title="Copy string"
+                  style={{
+                    background: 'transparent',
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: 6,
+                    padding: '4px 6px',
+                    color: colors.muted,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                </button>
+              </div>
+              <div style={{ fontSize: 10, color: colors.muted, marginTop: 6, letterSpacing: '0.02em' }}>
+                {placing ? 'Click on the floor to place.' : 'Drag the figure, or toggle again to re-place. Sent to MCP on release.'}
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: 12, color: colors.muted, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{
+                display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+                background: colors.accent, boxShadow: `0 0 6px ${colors.accent}`,
+              }} />
+              Click on the floor to place the person.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -29,6 +29,10 @@ export interface ScoreData {
 
 export interface DashboardProps {
   scores: ScoreData | null;
+  /** Run the deterministic analysis on the current layout and populate the dashboard. */
+  onAnalyze?: () => void;
+  /** True while an analysis request is in flight. */
+  analyzing?: boolean;
 }
 
 const TOOL_SCORES: Array<{
@@ -60,12 +64,14 @@ const EmptyState: React.FC = () => {
         display: 'grid',
         gridTemplateColumns: 'repeat(5, 1fr)',
         gap: '4px',
+        width: '100%',
       }}>
         {TOOL_SCORES.map(tool => (
           <div key={tool.key} style={{
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
+            minWidth: 0,
             padding: '8px 2px',
             borderRadius: '8px',
             background: isDark ? 'rgba(139, 92, 246, 0.02)' : 'rgba(0,0,0,0.02)',
@@ -79,12 +85,16 @@ const EmptyState: React.FC = () => {
               letterSpacing: '-0.03em',
             }}>--</span>
             <span style={{
-              fontSize: 8,
+              fontSize: 9,
               fontWeight: 600,
-              letterSpacing: '0.08em',
+              letterSpacing: '0.04em',
               textTransform: 'uppercase',
               color: colors.muted,
               opacity: 0.5,
+              maxWidth: '100%',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
             }}>{tool.label}</span>
           </div>
         ))}
@@ -112,10 +122,10 @@ const EmptyState: React.FC = () => {
           <span style={{ fontSize: 28, fontWeight: 800, opacity: 0.12 }}>?</span>
         </div>
         <div>
-          <div style={{ fontSize: 11, opacity: 0.6, letterSpacing: '0.04em' }}>
+          <div style={{ fontSize: 12, opacity: 0.6, letterSpacing: '0.04em' }}>
             Run the agent to generate
           </div>
-          <div style={{ fontSize: 11, opacity: 0.6, letterSpacing: '0.04em' }}>
+          <div style={{ fontSize: 12, opacity: 0.6, letterSpacing: '0.04em' }}>
             layout analysis scores
           </div>
         </div>
@@ -124,14 +134,15 @@ const EmptyState: React.FC = () => {
   );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ scores }) => {
+const Dashboard: React.FC<DashboardProps> = ({ scores, onAnalyze, analyzing }) => {
   const { colors } = useTheme();
 
   const panelStyle: React.CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
     height: '100%',
-    overflow: 'auto',
+    overflowY: 'auto',
+    overflowX: 'hidden',
   };
 
   return (
@@ -148,12 +159,37 @@ const Dashboard: React.FC<DashboardProps> = ({ scores }) => {
         </svg>
         <span style={{
           color: colors.text,
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: 600,
-          letterSpacing: '0.06em',
+          letterSpacing: '0.12em',
           textTransform: 'uppercase',
-          fontFamily: colors.font,
+          fontFamily: colors.fontHeading,
         }}>Analysis Dashboard</span>
+        {onAnalyze && (
+          <button
+            onClick={onAnalyze}
+            disabled={analyzing}
+            title="Run analysis on the current layout"
+            style={{
+              marginLeft: 'auto',
+              display: 'flex', alignItems: 'center', gap: 5,
+              background: colors.accentDim ?? (colors.accent + '18'),
+              border: `1px solid ${colors.accent}55`,
+              borderRadius: 6, padding: '4px 10px',
+              color: colors.accent,
+              fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+              textTransform: 'uppercase', fontFamily: colors.font,
+              cursor: analyzing ? 'default' : 'pointer',
+              opacity: analyzing ? 0.6 : 1,
+              transition: 'opacity 0.2s',
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            {analyzing ? 'Analyzing…' : scores ? 'Re-analyze' : 'Analyze'}
+          </button>
+        )}
       </div>
 
       {!scores ? (
@@ -164,9 +200,10 @@ const Dashboard: React.FC<DashboardProps> = ({ scores }) => {
             display: 'grid',
             gridTemplateColumns: 'repeat(5, 1fr)',
             gap: '4px',
+            width: '100%',
           }}>
             {TOOL_SCORES.map(tool => (
-              <div key={tool.key} style={{ display: 'flex', justifyContent: 'center' }}>
+              <div key={tool.key} style={{ display: 'flex', justifyContent: 'center', minWidth: 0 }}>
                 <ScoreCard
                   name={tool.label}
                   score={scores[tool.key] as number}

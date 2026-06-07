@@ -86,7 +86,7 @@ const LayoutDropzone: React.FC<LayoutDropzoneProps> = ({ onUpload }) => {
           background: `${colors.success}1a`,
           border: `1px solid ${colors.success}40`,
           color: colors.success,
-          fontSize: '11px',
+          fontSize: '12px',
           fontFamily: '"SF Mono", "Fira Code", monospace',
         }}>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={colors.success} strokeWidth="3">

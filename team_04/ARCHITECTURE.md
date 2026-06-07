@@ -141,9 +141,9 @@ These tools are exposed through the canonical local tool client in `agent/mcp_cl
 
 Team 04 now has three active notebook harnesses for geometry workflows:
 
-- `test_generate_building_boundary.ipynb`: single-building boundary generation and Grasshopper handoff.
-- `test_two_building_workflow.ipynb`: two-building placement sequencing with requested-point checks and remaining-position analysis.
-- `test_multi_building_shape_transformations.ipynb`: many-building stress test across `L`, `I`, `Y`, `T`, `H`, `X`, and `O`, including move, orientation, rotation, mirroring, and site-fit checks.
+- `notebooks/test_generate_building_boundary.ipynb`: single-building boundary generation and Grasshopper handoff.
+- `notebooks/test_two_building_workflow.ipynb`: two-building placement sequencing with requested-point checks and remaining-position analysis.
+- `notebooks/test_multi_building_shape_transformations.ipynb`: many-building stress test across `L`, `I`, `Y`, `T`, `H`, `X`, and `O`, including move, orientation, rotation, mirroring, and site-fit checks.
 
 There is also one live notebook harness under `team_04/tests/` for direct MCP verification:
 

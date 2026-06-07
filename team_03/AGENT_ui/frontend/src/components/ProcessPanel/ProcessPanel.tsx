@@ -97,11 +97,7 @@ const ProcessPanel: React.FC<ProcessPanelProps> = ({ nodeStatuses }) => {
     <div style={{
       display: 'flex',
       flexDirection: 'column',
-      height: '100%',
-      overflowY: 'auto',
       overflowX: 'hidden',
-      scrollbarWidth: 'thin',
-      scrollbarColor: `${lineColor} transparent`,
       padding: '12px 8px',
       boxSizing: 'border-box',
     }}>
@@ -119,11 +115,11 @@ const ProcessPanel: React.FC<ProcessPanelProps> = ({ nodeStatuses }) => {
         </svg>
         <span style={{
           color: colors.text,
-          fontSize: '11px',
+          fontSize: '12px',
           fontWeight: 600,
-          letterSpacing: '0.06em',
+          letterSpacing: '0.12em',
           textTransform: 'uppercase',
-          fontFamily: colors.font,
+          fontFamily: colors.fontHeading,
         }}>
           Pipeline
         </span>
@@ -153,7 +149,7 @@ const ProcessPanel: React.FC<ProcessPanelProps> = ({ nodeStatuses }) => {
                 {/* "parallel" micro-label */}
                 <div style={{
                   color: muteColor,
-                  fontSize: '8px',
+                  fontSize: '10px',
                   letterSpacing: '0.1em',
                   textTransform: 'uppercase',
                   textAlign: 'center',

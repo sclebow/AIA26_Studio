@@ -3,7 +3,10 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from langchain_openai import ChatOpenAI
+try:
+    from langchain_openai import ChatOpenAI
+except ModuleNotFoundError:  # pragma: no cover - exercised when LLM deps are absent in unit tests
+    ChatOpenAI = Any  # type: ignore[misc,assignment]
 
 
 def create_chat_llm(

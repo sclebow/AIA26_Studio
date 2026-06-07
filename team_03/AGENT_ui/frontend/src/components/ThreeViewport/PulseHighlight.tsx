@@ -37,8 +37,10 @@ export default function PulseHighlight({ modifiedIds }: PulseHighlightProps) {
             ei: mat.emissiveIntensity,
           })
         }
-        mat.emissive.setHex(0x6B7B9E)
-        mat.emissiveIntensity = 0.1 + pulse * 0.3
+        // Bright accent-purple pulse so a newly added/moved object clearly
+        // stands out in the viewport.
+        mat.emissive.setHex(0xA78BFA)
+        mat.emissiveIntensity = 0.35 + pulse * 0.65
       } else if (isTracked) {
         const orig = tracked.current.get(eid)!
         mat.emissive.setHex(orig.emissive)

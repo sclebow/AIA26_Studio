@@ -3,12 +3,14 @@ from __future__ import annotations
 from typing import Any
 
 from .mcp_client import LocalToolClient
+from .tools.site_boundary_graph import build_site_boundary_graph
 
 
 def build_notebook_demo_tool_client(
     site_boundary: list[list[float]],
     *,
     site_summary: str = "Notebook local site context for end-to-end placement test.",
+    site_objects: list[dict[str, Any]] | None = None,
     setback_m: float = 5.0,
     spatial_intention_score: float = 0.91,
     performance_score: float = 0.88,
@@ -16,6 +18,8 @@ def build_notebook_demo_tool_client(
 ) -> LocalToolClient:
     normalized_site_boundary = _normalize_boundary(site_boundary)
     site_area_sqm = _polygon_area_xy(normalized_site_boundary)
+    normalized_site_objects = _normalize_site_objects(site_objects)
+    site_boundary_graph = build_site_boundary_graph(normalized_site_boundary)
 
     def site_boundary_reader(layout_json: str = "") -> dict[str, Any]:
         del layout_json
@@ -24,6 +28,8 @@ def build_notebook_demo_tool_client(
             "data": {
                 "site_boundary": normalized_site_boundary,
                 "site_area_sqm": site_area_sqm,
+                "site_objects": normalized_site_objects,
+                "site_boundary_graph": site_boundary_graph,
             },
         }
 
@@ -34,6 +40,8 @@ def build_notebook_demo_tool_client(
             "data": {
                 "summary": site_summary,
                 "site_area_sqm": site_area_sqm,
+                "site_objects": normalized_site_objects,
+                "site_boundary_graph": site_boundary_graph,
             },
         }
 
@@ -188,3 +196,22 @@ def _polygon_area_xy(boundary: list[list[float]]) -> float:
         x2, y2 = boundary[index + 1][0], boundary[index + 1][1]
         area += (x1 * y2) - (x2 * y1)
     return abs(area) * 0.5
+
+
+def _normalize_site_objects(site_objects: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+    for item in site_objects or []:
+        if not isinstance(item, dict):
+            continue
+        record = dict(item)
+        points = record.get("points")
+        if isinstance(points, list):
+            normalized_points = []
+            for point in points:
+                if isinstance(point, (list, tuple)) and len(point) >= 2:
+                    normalized_points.append(
+                        [float(point[0]), float(point[1]), float(point[2]) if len(point) > 2 else 0.0]
+                    )
+            record["points"] = normalized_points
+        normalized.append(record)
+    return normalized

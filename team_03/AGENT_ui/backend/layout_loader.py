@@ -4,13 +4,20 @@ Utilities for discovering, loading, and validating layout JSON files.
 from __future__ import annotations
 
 import json
+import os
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# Absolute path to the shared layout directory.
-LAYOUT_DIR = Path(
-    r"E:\IAAC Local GIT Repositories\AIA26_Studio\team_03\layout"
-)
+# Resolve layout directory: env override → sibling /layout → fallback hardcoded path.
+_env = os.environ.get("LAYOUT_DIR")
+if _env:
+    LAYOUT_DIR = Path(_env)
+else:
+    LAYOUT_DIR = (Path(__file__).parent / ".." / ".." / "layout").resolve()
+if not LAYOUT_DIR.exists():
+    LAYOUT_DIR = Path(r"C:\Users\ramyayoub\Desktop\IAAC\Master\Semester-3\AIA Studio\GRP-03_studio\AIA26_Studio\team_03\layout")
+print(f"[layout_loader] LAYOUT_DIR: {LAYOUT_DIR} (exists: {LAYOUT_DIR.exists()})")
 
 REQUIRED_KEYS = {"layoutId", "outline", "rooms"}
 
@@ -75,3 +82,26 @@ def validate_layout(data: dict) -> bool:
     Required: layoutId, outline, rooms.
     """
     return REQUIRED_KEYS.issubset(data.keys())
+
+
+_SAFE_NAME_RE = re.compile(r"[^A-Za-z0-9_-]+")
+
+
+def _sanitize_name(name: str) -> str:
+    """Reduce *name* to a safe file stem (alphanumerics, '_' and '-')."""
+    cleaned = _SAFE_NAME_RE.sub("_", (name or "").strip()).strip("_")
+    return cleaned or "AI_layout"
+
+
+def save_generated_layout(name: str, data: dict, subdir: str = "AI_GENERATED") -> Path:
+    """
+    Write a NEW (AI-generated) layout into LAYOUT_DIR/<subdir>/<name>.json,
+    creating the subdirectory if needed. Unlike save_layout(), this creates a new
+    file rather than overwriting an existing one. Returns the Path written.
+    """
+    target_dir = LAYOUT_DIR / subdir
+    target_dir.mkdir(parents=True, exist_ok=True)
+    path = target_dir / f"{_sanitize_name(name)}.json"
+    with path.open("w", encoding="utf-8") as fh:
+        json.dump(data, fh, indent=2)
+    return path

@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import GlassPanel from '../common/GlassPanel';
 import { useTheme } from '../common/ThemeToggle';
 import LayoutDropzone from './LayoutDropzone';
@@ -30,6 +30,7 @@ const LayoutLoader: React.FC<LayoutLoaderProps> = ({
 }) => {
   const { colors, theme } = useTheme();
   const isDark = theme === 'dark';
+  const [showCopyCheckmark, setShowCopyCheckmark] = useState(false);
 
   const handleSelectChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -38,6 +39,16 @@ const LayoutLoader: React.FC<LayoutLoaderProps> = ({
     },
     [onSelect]
   );
+
+  const handleCopyPath = useCallback(async () => {
+    const layout = layouts.find(l => l.name === selectedLayout);
+    const path = layout?.path;
+    if (path) {
+      await navigator.clipboard.writeText(path);
+      setShowCopyCheckmark(true);
+      setTimeout(() => setShowCopyCheckmark(false), 1500);
+    }
+  }, [selectedLayout, layouts]);
 
   const grouped = layouts.reduce<Record<string, LayoutInfo[]>>((acc, layout) => {
     const cat = layout.category || 'Other';
@@ -55,7 +66,7 @@ const LayoutLoader: React.FC<LayoutLoaderProps> = ({
     borderRadius: '8px',
     padding: '9px 36px 9px 12px',
     color: selectedLayout ? colors.text : colors.muted,
-    fontSize: '13px',
+    fontSize: '12px',
     fontFamily: colors.font,
     cursor: 'pointer',
     outline: 'none',
@@ -79,10 +90,11 @@ const LayoutLoader: React.FC<LayoutLoaderProps> = ({
         </svg>
         <span style={{
           color: colors.text,
-          fontSize: '13px',
-          fontWeight: 600,
-          letterSpacing: '0.04em',
+          fontSize: '12px',
+          fontWeight: 700,
+          letterSpacing: '0.12em',
           textTransform: 'uppercase',
+          fontFamily: colors.fontHeading,
         }}>Layout Loader</span>
       </div>
 
@@ -90,60 +102,78 @@ const LayoutLoader: React.FC<LayoutLoaderProps> = ({
         <div>
           <label style={{
             color: colors.muted,
-            fontSize: '11px',
+            fontSize: '12px',
             letterSpacing: '0.04em',
             marginBottom: '6px',
             display: 'block',
             fontFamily: colors.font,
           }}>Select a layout</label>
-          <div style={{ position: 'relative', marginBottom: '14px' }}>
-            <select
-              style={selectStyle}
-              value={selectedLayout ?? ''}
-              onChange={handleSelectChange}
-            >
-              <option value="" disabled style={{ background: optionBg, color: colors.muted }}>
-                Choose a layout...
-              </option>
-              {Object.entries(grouped).map(([category, items]) => (
-                <optgroup key={category} label={category} style={{ background: optionBg, color: colors.muted }}>
-                  {items.map(layout => (
-                    <option
-                      key={layout.name}
-                      value={layout.name}
-                      style={{ background: optionBg, color: optionColor }}
-                    >
-                      {layout.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            <span style={{
-              position: 'absolute',
-              right: '10px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              pointerEvents: 'none',
-            }}>
-              <ChevronIcon color={colors.muted} />
-            </span>
-          </div>
-
-          {selectedLayout && (
-            <div style={{
-              padding: '6px 10px',
-              borderRadius: '6px',
-              background: colors.accentDim,
-              border: `1px solid ${colors.border}`,
-              color: colors.accent,
-              fontSize: '11px',
-              fontFamily: '"SF Mono", "Fira Code", monospace',
-              marginBottom: '14px',
-            }}>
-              {layouts.find(l => l.name === selectedLayout)?.path ?? selectedLayout}
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10 }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <select
+                style={selectStyle}
+                value={selectedLayout ?? ''}
+                onChange={handleSelectChange}
+              >
+                <option value="" disabled style={{ background: optionBg, color: colors.muted }}>
+                  Choose a layout...
+                </option>
+                {Object.entries(grouped).map(([category, items]) => (
+                  <optgroup key={category} label={category} style={{ background: optionBg, color: colors.muted }}>
+                    {items.map(layout => (
+                      <option
+                        key={layout.name}
+                        value={layout.name}
+                        style={{ background: optionBg, color: optionColor }}
+                      >
+                        {layout.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <span style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                pointerEvents: 'none',
+              }}>
+                <ChevronIcon color={colors.muted} />
+              </span>
             </div>
-          )}
+            {selectedLayout && layouts.find(l => l.name === selectedLayout)?.path && (
+              <button
+                onClick={handleCopyPath}
+                title="Copy layout path"
+                style={{
+                  background: 'transparent',
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 5,
+                  padding: '3px 6px',
+                  cursor: 'pointer',
+                  color: colors.muted,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'color 0.15s',
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = colors.text; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = colors.muted; }}
+              >
+                {showCopyCheckmark ? (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                )}
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <div style={{

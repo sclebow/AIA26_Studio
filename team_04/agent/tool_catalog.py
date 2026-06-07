@@ -19,6 +19,7 @@ TOOL_GROUPS: dict[str, tuple[str, ...]] = {
         "site_boundary_reader",
         "context_reader",
         "legal_constraints_reader",
+        "analyze_site_boundary",
     ),
     SHAPE_GROUP: (
         "shape_library_loader",
@@ -34,6 +35,7 @@ TOOL_GROUPS: dict[str, tuple[str, ...]] = {
     ),
     MANIPULATION_GROUP: (
         "modify_building_boundary",
+        "modify_building_wings",
         "scale_shape_tool",
         "stretch_arm_tool",
         "width_modifier_tool",
@@ -53,6 +55,7 @@ TOOL_GROUPS: dict[str, tuple[str, ...]] = {
     POSITION_ANALYSIS_GROUP: (
         "remaining_buildable_positions",
         "requested_position_checker",
+        "measure_boundary_proximity",
     ),
 }
 

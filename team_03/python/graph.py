@@ -28,6 +28,7 @@ from nodes.profile_agent import build_profile_agent_node
 from nodes.space_type_agent import build_space_type_agent_node
 from nodes.query_agent import build_query_agent_node
 from nodes.populate_agent import build_populate_agent_node
+from nodes.memory import build_memory_node
 from nodes.checkpoint import build_user_checkpoint_node
 from nodes.explain import explain_node
 from nodes.output import output_node
@@ -147,6 +148,21 @@ class AgentState(TypedDict):
     # first one is loaded into object_queue; current_zone tracks the active zone.
     zone_queue:    Annotated[list[dict] | None, _keep_last]
     current_zone:  Annotated[str | None,        _keep_last]
+
+    # Conversational memory — durable per-layout facts distilled from user
+    # messages. memory_text is the working memory injected into reason each
+    # turn; memory_loaded guards the one-time file read. Persisted to
+    # memory/<layout_name>.md by the memory node (see nodes/memory.py).
+    memory_text:   Annotated[str | None,  _keep_last]
+    memory_loaded: Annotated[bool | None, _keep_last]
+    # Recently removed User Rules — recovery trail so "recover the rule I deleted"
+    # works within a session. Maintained by the memory node.
+    removed_rules: Annotated[list | None, _keep_last]
+
+    # Latest human-readable narrative from the reason LLM (final_response or the
+    # prose around a tool decision). Shown by the checkpoint as the "Agent"
+    # chat message so the user need not scroll to the raw response preview.
+    agent_message: Annotated[str | None, _keep_last]
 
 
 # ---------------------------------------------------------------------------
@@ -271,8 +287,11 @@ def _route_after_checkpoint(state: AgentState) -> str:
     if state.get("user_approved") and not zone_queue:
         return "approved"
 
-    # Empty input with no zones left → done
-    if (state.get("_query_mode") is False
+    # Empty input with no zones left → done. Only auto-exit when the user gave NO
+    # actionable instruction; a real reply (e.g. answering a conflict question like
+    # "isolation") must loop back to reason, not end the session.
+    if (not user_input
+            and state.get("_query_mode") is False
             and not state.get("placement_history")
             and not zone_queue):
         return "query_done"
@@ -508,6 +527,7 @@ def build_graph(ctx: Any) -> Any:
         return {"adjustment_count": state.get("adjustment_count", 0) + 1}
 
     populate_agent   = build_populate_agent_node(ctx.llm, ctx.knowledge_dir)
+    memory           = build_memory_node(ctx.llm)
     reason           = build_reason_node(ctx.llm)
     tool             = build_tool_node(ctx.mcp_client, ctx.tools, ctx.workspace_path)
     add_objects      = build_add_objects_node(ctx.mcp_client, ctx.workspace_path)
@@ -526,6 +546,7 @@ def build_graph(ctx: Any) -> Any:
     graph.add_node("space_type_agent", space_type_agent)
     graph.add_node("query_agent",      query_agent)
     graph.add_node("query_end",        query_end_node)
+    graph.add_node("memory",           memory)
     graph.add_node("reason",           reason)
     graph.add_node("increment_adjustment", increment_adjustment_node)
     graph.add_node("populate_agent",   populate_agent)
@@ -681,16 +702,40 @@ def build_graph(ctx: Any) -> Any:
             last_msg = last.content if hasattr(last, "content") else last.get("content", "")
         else:
             last_msg = ""
-        keywords = ["populate", "fill", "set up", "setup", "generate layout"]
-        if any(k in last_msg.lower() for k in keywords):
+        m = last_msg.lower()
+        # Unambiguous "fill the whole space" intent → populate.
+        if any(k in m for k in ("populate", "fill", "generate layout", "generate a layout")):
             return "populate_agent"
-        return "reason"
+        # "set up" / "setup" is ambiguous: "set up a production line / the room"
+        # means populate, but "set up a QC zone / a station" is a TARGETED
+        # placement and must go to reason, not the zone-by-zone populate flow.
+        if "set up" in m or "setup" in m:
+            whole_space = any(w in m for w in (
+                "production line", "assembly line", " line", "whole", "entire",
+                "from scratch", "empty", "layout", "the room", "this room",
+            ))
+            targeted = any(t in m for t in (
+                "zone", "station", "corner", "a desk", "a rack", "a conveyor",
+                "a machine", "a table", "a cnc", "a workbench",
+            ))
+            if whole_space and not targeted:
+                return "populate_agent"
+        # The initial user prompt enters here — route through memory so the
+        # agent loads/updates its per-layout memory before reasoning.
+        return "memory"
 
     graph.add_conditional_edges(
         "populate_check", _route_after_populate_check,
-        {"populate_agent": "populate_agent", "reason": "reason"},
+        {"populate_agent": "populate_agent", "memory": "memory"},
     )
-    graph.add_edge("populate_agent", "reason")
+    # populate_agent fills the object queue from the populate prompt — still a
+    # user message, so pass through memory before reason drains the queue.
+    graph.add_edge("populate_agent", "memory")
+
+    # Memory always feeds reason. Every user-message entry point (startup,
+    # populate, checkpoint "continue") converges here; internal tool/adjustment
+    # loops route directly to reason and never re-trigger memory distillation.
+    graph.add_edge("memory", "reason")
 
     # Reason routes to: place an object, execute a tool, or move to analysis.
     # "finish" goes to analysis_fan_out which triggers all Group 1 nodes in parallel.
@@ -761,7 +806,7 @@ def build_graph(ctx: Any) -> Any:
     # User checkpoint: approve → explain → output; otherwise loop back for changes.
     graph.add_conditional_edges(
         "user_checkpoint", _route_after_checkpoint,
-        {"approved": "explain", "continue": "reason",
+        {"approved": "explain", "continue": "memory",
          "query_done": "query_end", "next_zone": "next_zone"},
     )
 
@@ -865,6 +910,10 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
         "placement_profile":     None,
         "zone_queue":            [],
         "current_zone":          None,
+        "memory_text":           None,   # loaded from disk by the memory node
+        "memory_loaded":         None,
+        "removed_rules":         [],
+        "agent_message":         None,
     }
 
 

@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import GlassPanel from '../common/GlassPanel';
 import { useTheme } from '../common/ThemeToggle';
 import MessageBubble, { Message } from './MessageBubble';
+import ChatOptionsPanel from './ChatOptionsPanel';
+import type { CheckpointState } from '../../hooks/useAgentState';
 
 export type { Message };
 
@@ -11,15 +12,19 @@ export interface ChatPanelProps {
   isAgentRunning: boolean;
   onReset: () => void;
   onCancel: () => void;
+  checkpoint?: CheckpointState | null;
+  onDecision?: (value: string) => void;
+  /** Discrete "what the agent is doing now" line under the typing indicator. */
+  statusText?: string | null;
 }
 
-const TypingIndicator: React.FC = () => {
+const TypingIndicator: React.FC<{ statusText?: string | null }> = ({ statusText }) => {
   const { colors } = useTheme();
   return (
     <div style={{
       display: 'flex',
-      alignItems: 'center',
-      gap: '6px',
+      flexDirection: 'column',
+      gap: '3px',
       padding: '8px 0 4px 8px',
     }}>
       <style>{`
@@ -27,25 +32,44 @@ const TypingIndicator: React.FC = () => {
           0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
           40% { transform: translateY(-4px); opacity: 1; }
         }
+        @keyframes statusFade { from { opacity: 0; } to { opacity: 1; } }
       `}</style>
-      {[0, 1, 2].map(i => (
-        <span key={i} style={{
-          display: 'inline-block',
-          width: '6px',
-          height: '6px',
-          borderRadius: '50%',
-          background: colors.accent,
-          animation: `typingBounce 1.2s ease-in-out ${i * 0.2}s infinite`,
-        }} />
-      ))}
-      <span style={{
-        color: colors.muted,
-        fontSize: '12px',
-        marginLeft: '4px',
-        fontFamily: colors.font,
-      }}>
-        Agent is thinking
-      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {[0, 1, 2].map(i => (
+          <span key={i} style={{
+            display: 'inline-block',
+            width: '6px',
+            height: '6px',
+            borderRadius: '50%',
+            background: colors.accent,
+            animation: `typingBounce 1.2s ease-in-out ${i * 0.2}s infinite`,
+          }} />
+        ))}
+        <span style={{
+          color: colors.muted,
+          fontSize: '12px',
+          marginLeft: '4px',
+          fontFamily: colors.font,
+        }}>
+          Agent is thinking
+        </span>
+      </div>
+      {statusText && (
+        <span
+          key={statusText}
+          style={{
+            color: colors.accent,
+            fontSize: '12px',
+            marginLeft: '8px',
+            fontFamily: colors.font,
+            opacity: 0.85,
+            fontStyle: 'italic',
+            animation: 'statusFade 0.3s ease',
+          }}
+        >
+          {statusText}
+        </span>
+      )}
     </div>
   );
 };
@@ -73,7 +97,7 @@ const StopIcon: React.FC = () => (
   </svg>
 );
 
-const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSend, isAgentRunning, onReset, onCancel }) => {
+const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSend, isAgentRunning, onReset, onCancel, checkpoint, onDecision, statusText }) => {
   const { colors } = useTheme();
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -105,22 +129,23 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSend, isAgentRunning,
     overflow: 'hidden',
   };
 
+  // Header sized to match App's sectionHeaderStyle (Layers/Pipeline/Properties).
   const headerStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    padding: '14px 16px 12px',
+    padding: '7px 12px',
     borderBottom: `1px solid ${colors.border}`,
     flexShrink: 0,
   };
 
   const headerTitleStyle: React.CSSProperties = {
-    color: colors.text,
-    fontSize: '13px',
-    fontWeight: 600,
-    letterSpacing: '0.04em',
+    color: colors.muted,
+    fontSize: '10px',
+    fontWeight: 700,
+    letterSpacing: '0.14em',
     textTransform: 'uppercase',
-    fontFamily: colors.font,
+    fontFamily: colors.fontHeading,
   };
 
   const statusDotStyle: React.CSSProperties = {
@@ -138,9 +163,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSend, isAgentRunning,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '26px',
-    height: '26px',
-    borderRadius: '6px',
+    width: '20px',
+    height: '20px',
+    borderRadius: '5px',
     border: `1px solid ${enabled ? (danger ? colors.warning + '55' : colors.border) : colors.border}`,
     background: 'transparent',
     color: enabled ? (danger ? colors.warning : colors.muted) : colors.border,
@@ -175,7 +200,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSend, isAgentRunning,
     borderRadius: '8px',
     padding: '9px 12px',
     color: colors.text,
-    fontSize: '13.5px',
+    fontSize: '12px',
     fontFamily: colors.font,
     resize: 'none',
     outline: 'none',
@@ -212,7 +237,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSend, isAgentRunning,
     justifyContent: 'center',
     height: '100%',
     color: colors.muted,
-    fontSize: '13px',
+    fontSize: '12px',
     gap: '8px',
     fontFamily: colors.font,
   };
@@ -254,44 +279,53 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSend, isAgentRunning,
           </div>
         </div>
 
-        <div className="chat-messages" style={messagesAreaStyle}>
-          {messages.length === 0 ? (
-            <div style={emptyStateStyle}>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={colors.accentDim} strokeWidth="1.5">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-              <span>Send a message to start</span>
+        {/* Body row: conversation column (left) + options panel (right) */}
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row' }}>
+          {/* Conversation column */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <div className="chat-messages" style={messagesAreaStyle}>
+              {messages.length === 0 ? (
+                <div style={emptyStateStyle}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={colors.accentDim} strokeWidth="1.5">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                  <span>Send a message to start</span>
+                </div>
+              ) : (
+                messages.map(msg => (
+                  <MessageBubble key={msg.id} message={msg} />
+                ))
+              )}
+              {isAgentRunning && <TypingIndicator statusText={statusText} />}
+              <div ref={messagesEndRef} />
             </div>
-          ) : (
-            messages.map(msg => (
-              <MessageBubble key={msg.id} message={msg} />
-            ))
-          )}
-          {isAgentRunning && <TypingIndicator />}
-          <div ref={messagesEndRef} />
-        </div>
 
-        <div style={inputAreaStyle}>
-          <textarea
-            ref={inputRef}
-            className="chat-textarea"
-            style={textareaStyle}
-            value={inputValue}
-            onChange={e => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={isAgentRunning ? 'Agent is running...' : 'Message the agent... (Enter to send)'}
-            disabled={isAgentRunning}
-            rows={1}
-          />
-          <button
-            style={sendButtonStyle}
-            onClick={handleSend}
-            disabled={isAgentRunning || !inputValue.trim()}
-            title="Send message"
-            aria-label="Send message"
-          >
-            <SendIcon />
-          </button>
+            <div style={inputAreaStyle}>
+              <textarea
+                ref={inputRef}
+                className="chat-textarea"
+                style={textareaStyle}
+                value={inputValue}
+                onChange={e => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={isAgentRunning ? 'Agent is running...' : 'Message the agent... (Enter to send)'}
+                disabled={isAgentRunning}
+                rows={1}
+              />
+              <button
+                style={sendButtonStyle}
+                onClick={handleSend}
+                disabled={isAgentRunning || !inputValue.trim()}
+                title="Send message"
+                aria-label="Send message"
+              >
+                <SendIcon />
+              </button>
+            </div>
+          </div>
+
+          {/* Right-side options panel (suggestions / memory / actions) */}
+          {onDecision && <ChatOptionsPanel checkpoint={checkpoint ?? null} onDecision={onDecision} />}
         </div>
       </div>
     </>

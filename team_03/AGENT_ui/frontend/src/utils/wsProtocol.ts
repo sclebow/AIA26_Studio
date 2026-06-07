@@ -11,6 +11,34 @@ export interface AgentResponse {
   tool_calls?: ToolCallCardProps[];
 }
 
+/** A chat line from the agent (narrative / streamed text). */
+export interface AgentSay {
+  type: 'agent_say';
+  content: string;
+}
+
+export interface CheckpointSuggestion {
+  key: string;   // "s1".."s5"
+  label: string;
+}
+
+/** Structured checkpoint payload that drives the right-side options panel. */
+export interface AgentCheckpoint {
+  type: 'agent_checkpoint';
+  agentMessage: string;
+  score?: number | null;
+  grade?: string | null;
+  suggestions: CheckpointSuggestion[];
+  rules: string[];
+  actions: { approve: boolean; end: boolean; yes: boolean };
+}
+
+/** A decision selected from the options panel (chip token), sent to the agent. */
+export interface ChatDecision {
+  type: 'chat_decision';
+  value: string;
+}
+
 export interface AgentEvent {
   type: 'agent_event';
   node: string;
@@ -31,9 +59,37 @@ export interface SelectionSync {
   source: string;
 }
 
+export interface ObserverPoint {
+  type: 'observer_point';
+  x: number;
+  y: number;
+  height: number;
+  point_str: string; // "x,y,h" in layout metres
+}
+
+export interface ObserverPathMessage {
+  type: 'observer_path';
+  path_str: string; // "x1,y1;x2,y2;..." in layout metres
+  height: number;
+}
+
+/** Result of a set_observer run: the visibility isovist polygon to draw. */
+export interface ObserverResult {
+  type: 'observer_result';
+  mode: 'person' | 'path';
+  status: string;
+  isovist: [number, number][] | null; // closed polygon in layout metres
+}
+
 export type WSMessage =
   | ChatMessage
   | AgentResponse
+  | AgentSay
+  | AgentCheckpoint
   | AgentEvent
   | StateUpdate
-  | SelectionSync;
+  | SelectionSync
+  | ObserverPoint
+  | ObserverPathMessage
+  | ObserverResult
+  | ChatDecision;
