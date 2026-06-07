@@ -16,6 +16,7 @@ import { useWebSocket } from './hooks/useWebSocket';
 import { useSelectionSync } from './hooks/useSelectionSync';
 import { useLayoutState } from './hooks/useLayoutState';
 import { useAgentState } from './hooks/useAgentState';
+import type { ViewAction } from './hooks/useAgentState';
 import WelcomePage from "./components/WelcomePage";
 import OnboardingPage, { OnboardingData, LAYOUT_STATUS, WORKFLOWS } from "./components/OnboardingPage";
 import type { LayerVisibility, LayerName } from './types';
@@ -52,7 +53,9 @@ export default function App() {
   const [showLabels, setShowLabels] = useState(true);   // shared: 3D labels + graph labels
   const [layoutFitSignal, setLayoutFitSignal] = useState(0);  // bumps only on explicit layout pick → triggers viewport fit-to-screen
   const [isovist, setIsovist] = useState<[number, number][] | null>(null);  // visibility surface from set_observer
+  const [agentObserver, setAgentObserver] = useState<{ mode: 'person' | 'path'; point?: [number, number]; path?: [number, number][] } | null>(null);  // observer placed by the chat agent
   const [analyzing, setAnalyzing] = useState(false);          // Analysis Dashboard "Analyze" button in flight
+  const [dashboardFocus, setDashboardFocus] = useState<string | null>(null); // gauge highlighted by chat view chips
   const [viewMode, setViewMode] = useState<ViewMode>('geometry');
   const [displayMode, setDisplayMode] = useState<ViewMode>('geometry');
   const [animPhase, setAnimPhase] = useState<'idle' | 'out' | 'in'>('idle');
@@ -81,7 +84,14 @@ export default function App() {
       case 'agent_checkpoint': agentState.handleAgentCheckpoint(msg); break;
       case 'state_update':     layoutState.updateFromWS(msg);         break;
       case 'selection_sync':   applyRemoteSelection(msg.elementId, msg.source); break;
-      case 'observer_result':  setIsovist(msg.status === 'ok' ? msg.isovist : null); break;
+      case 'observer_result': {
+        const ao = msg.status === 'ok' ? (msg.agentObserver ?? null) : null;
+        setIsovist(msg.status === 'ok' ? msg.isovist : null);
+        setAgentObserver(ao);
+        // Agent-placed observer → make sure the 3D viewport is visible so it shows.
+        if (ao && viewMode === 'graph') switchMode('geometry');
+        break;
+      }
     }
   };
   useEffect(() => ws.subscribe((msg) => dispatchRef.current(msg)), [ws]);
@@ -232,6 +242,41 @@ export default function App() {
     }
   }, [layoutState, analyzing]);
 
+  // Chat viewport controls — the UI equivalent of the terminal's checkpoint
+  // toggles (1=BEFORE, 2=AFTER, 3/4/5=collision/visibility/paths, 0=clear).
+  // BEFORE/AFTER swap the 3D viewport's layout; the analysis chips run the
+  // deterministic analysis and highlight the matching Dashboard gauge.
+  const handleView = useCallback(async (action: ViewAction) => {
+    switch (action) {
+      case 'before': {
+        const name = layoutState.selectedLayoutName;
+        if (name) {
+          try {
+            const res = await fetch(`/api/layouts/${encodeURIComponent(name)}`);
+            if (res.ok) layoutState.previewLayout(await res.json());
+          } catch { /* ignore — keep current view */ }
+        }
+        if (viewMode !== 'geometry') switchMode('geometry');
+        break;
+      }
+      case 'after':
+        layoutState.endPreview();
+        if (viewMode !== 'geometry') switchMode('geometry');
+        break;
+      case 'collision':
+      case 'visibility':
+      case 'path':
+        setDashboardFocus(action);
+        await handleAnalyze();
+        break;
+      case 'clear':
+        layoutState.endPreview();
+        setDashboardFocus(null);
+        setIsovist(null);
+        break;
+    }
+  }, [layoutState, viewMode, switchMode, handleAnalyze]);
+
   const handleViewportSelect = useCallback((id: string | null) => { select(id, 'viewport'); }, [select]);
   const handleGraphSelect    = useCallback((id: string | null) => { select(id, 'graph'); }, [select]);
 
@@ -311,7 +356,8 @@ export default function App() {
     onObserverPoint: handleObserverPoint,
     onObserverPath: handleObserverPath,
     isovist,
-    onObserverChanged: () => setIsovist(null),
+    agentObserver,
+    onObserverChanged: () => { setIsovist(null); setAgentObserver(null); },
     showLabels,
     onToggleLabels: () => setShowLabels(v => !v),
     isAgentRunning: agentState.isAgentRunning,
@@ -558,7 +604,7 @@ export default function App() {
           <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', borderBottom: panelBorder, minHeight: 0 }}>
             <div style={sectionHeaderStyle}><span>Analysis</span></div>
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-              <Dashboard scores={layoutState.scores} onAnalyze={handleAnalyze} analyzing={analyzing} />
+              <Dashboard scores={layoutState.scores} onAnalyze={handleAnalyze} analyzing={analyzing} focusMetric={dashboardFocus} />
             </div>
           </div>
 
@@ -608,6 +654,7 @@ export default function App() {
             onCancel={handleChatCancel}
             checkpoint={agentState.checkpoint}
             onDecision={handleChatDecision}
+            onView={handleView}
             statusText={agentState.currentStatus}
             ws={ws}
           />

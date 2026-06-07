@@ -22,14 +22,24 @@ export interface CheckpointSuggestion {
   label: string;
 }
 
+/** A furniture change reported at a checkpoint (ADDED / MOVED + detail). */
+export interface CheckpointChange {
+  action: string;   // "ADDED" | "MOVED"
+  text: string;     // "desk   at (1.0, 2.0)  [workshop]"
+}
+
 /** Structured checkpoint payload that drives the right-side options panel. */
 export interface AgentCheckpoint {
   type: 'agent_checkpoint';
   agentMessage: string;
   score?: number | null;
+  prevScore?: number | null;
   grade?: string | null;
   suggestions: CheckpointSuggestion[];
   rules: string[];
+  violations?: string[];
+  changes?: CheckpointChange[];
+  doorChanges?: string[];
   actions: { approve: boolean; end: boolean; yes: boolean };
 }
 
@@ -79,6 +89,8 @@ export interface ObserverResult {
   mode: 'person' | 'path';
   status: string;
   isovist: [number, number][] | null; // closed polygon in layout metres
+  /** Present when the chat agent placed the observer — draws a read-only ghost marker. */
+  agentObserver?: { mode: 'person' | 'path'; point?: [number, number]; path?: [number, number][] } | null;
 }
 
 export type WSMessage =

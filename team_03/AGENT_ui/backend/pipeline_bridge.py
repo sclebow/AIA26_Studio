@@ -268,24 +268,36 @@ class CheckpointParser:
     prompt appears, take_checkpoint() returns the payload (or None)."""
 
     _SCORE_RE = re.compile(r"LAYOUT SCORE:\s*([\d.]+)\s*/\s*100\s*Grade:\s*(\S+)")
+    _PREV_RE = re.compile(r"Previous:\s*([\d.]+)\s*/\s*100")
     _SUG_RE = re.compile(r"^\s*(s\d)\s*=\s*(.+?)\s*$")
     _RULE_RE = re.compile(r"^\s*\d+\.\s+(.*\S)\s*$")
     _AGENT_SEP_RE = re.compile(r"^[─\-]{10,}$")  # ──── or ----
     # "  collision        85.2/100  (weight 0.40, +34.10) ..."
     _BREAKDOWN_RE = re.compile(r"^\s*([A-Za-z_]+)\s+([\d.]+)\s*/\s*100\s+\(weight\s+([\d.]+)")
+    # "  - BLOCKED: desk overlaps wall" / "  - some free-text violation"
+    _VIOL_RE = re.compile(r"^\s*-\s*(.+\S)\s*$")
+    # "  ADDED  desk   at (1.0, 2.0)  [workshop]" / "  MOVED  rack  (..) -> (..) [..]"
+    _CHANGE_RE = re.compile(r"^\s*(ADDED|MOVED)\s+(.+\S)\s*$")
+    # "  ADDED: door-3" / "  REMOVED: door-1" / "  MODIFIED: door-2"
+    _DOOR_RE = re.compile(r"^\s*(ADDED|REMOVED|MODIFIED):\s*(.+\S)\s*$")
 
     def __init__(self) -> None:
         self.reset()
 
     def reset(self) -> None:
         self._score: Optional[float] = None
+        self._prev_score: Optional[float] = None
         self._grade: Optional[str] = None
         self._suggestions: list[dict] = []
         self._rules: list[str] = []
         self._breakdown: dict[str, dict] = {}   # tool -> {score, weight}
+        self._violations: list[str] = []
+        self._changes: list[dict] = []          # {action: ADDED|MOVED, text}
+        self._door_changes: list[str] = []
         self._actions = {"approve": True, "end": True, "yes": False}
         self._agent_lines: list[str] = []
-        self._mode: Optional[str] = None  # 'suggestions' | 'rules' | 'agent' | 'breakdown'
+        # 'suggestions' | 'rules' | 'agent' | 'breakdown' | 'violations' | 'changes' | 'doors'
+        self._mode: Optional[str] = None
         self._ready = False
 
     def feed(self, line: str) -> None:
@@ -300,9 +312,34 @@ class CheckpointParser:
             self._grade = m.group(2)
             return
 
+        # Previous score (printed right under LAYOUT SCORE when a prior exists),
+        # used by the UI to show the delta. Capture once.
+        if self._prev_score is None:
+            pm = self._PREV_RE.search(line)
+            if pm:
+                try:
+                    self._prev_score = float(pm.group(1))
+                except ValueError:
+                    self._prev_score = None
+                return
+
         # Section headers
         if stripped.startswith("Score breakdown:"):
             self._mode = "breakdown"
+            return
+        if stripped.startswith("Collision violations"):
+            self._mode = "violations"
+            return
+        if stripped.startswith("Furniture changes made"):
+            self._mode = "changes"
+            return
+        if stripped.startswith("Door changes detected"):
+            self._mode = "doors"
+            return
+        # These end any open block but carry no list items we capture.
+        if stripped.startswith("Viewport:") or stripped.startswith("Placed in ") or \
+           stripped.startswith("Structural integrity fixes"):
+            self._mode = None
             return
         if stripped.startswith("Suggestions:"):
             self._mode = "suggestions"
@@ -361,6 +398,33 @@ class CheckpointParser:
             # any other non-blank line ends the breakdown section
             self._mode = None
 
+        if self._mode == "violations":
+            vm = self._VIOL_RE.match(line)
+            if vm:
+                self._violations.append(vm.group(1))
+                return
+            if stripped == "":
+                return
+            self._mode = None  # non-matching, non-blank line ends the block
+
+        if self._mode == "changes":
+            cm = self._CHANGE_RE.match(line)
+            if cm:
+                self._changes.append({"action": cm.group(1), "text": cm.group(2)})
+                return
+            if stripped == "":
+                return
+            self._mode = None
+
+        if self._mode == "doors":
+            dm = self._DOOR_RE.match(line)
+            if dm:
+                self._door_changes.append(f"{dm.group(1)}: {dm.group(2)}")
+                return
+            if stripped == "":
+                return
+            self._mode = None
+
         # Detect 'yes' availability from the actions hints
         if "proceed to next zone" in stripped:
             self._actions["yes"] = True
@@ -376,10 +440,14 @@ class CheckpointParser:
             "type": "agent_checkpoint",
             "agentMessage": agent_msg,
             "score": self._score,
+            "prevScore": self._prev_score,
             "grade": self._grade,
             "suggestions": list(self._suggestions),
             "rules": list(self._rules),
             "breakdown": dict(self._breakdown),
+            "violations": list(self._violations),
+            "changes": list(self._changes),
+            "doorChanges": list(self._door_changes),
             "actions": dict(self._actions),
         }
         self.reset()

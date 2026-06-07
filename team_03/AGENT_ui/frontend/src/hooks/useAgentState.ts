@@ -38,13 +38,22 @@ function phraseForNode(node: string): string {
   return NODE_PHRASES[node] || `Working on ${node.replace(/_/g, ' ')}…`;
 }
 
+/** A viewport view command from the chat — the UI equivalent of the terminal's
+ *  checkpoint toggles (1=BEFORE, 2=AFTER, 3=collision, 4=visibility, 5=paths,
+ *  0=clear). Driven entirely on the frontend (does not go to the agent). */
+export type ViewAction = 'before' | 'after' | 'collision' | 'visibility' | 'path' | 'clear';
+
 /** Active checkpoint options shown in the chat's right-side panel. */
 export interface CheckpointState {
   agentMessage: string;
   score?: number | null;
+  prevScore?: number | null;
   grade?: string | null;
   suggestions: { key: string; label: string }[];
   rules: string[];
+  violations: string[];
+  changes: { action: string; text: string }[];
+  doorChanges: string[];
   actions: { approve: boolean; end: boolean; yes: boolean };
 }
 
@@ -191,9 +200,13 @@ export function useAgentState(options?: UseAgentStateOptions): UseAgentStateRetu
     setCheckpoint({
       agentMessage: cp.agentMessage,
       score: cp.score,
+      prevScore: cp.prevScore,
       grade: cp.grade,
       suggestions: cp.suggestions || [],
       rules: cp.rules || [],
+      violations: cp.violations || [],
+      changes: cp.changes || [],
+      doorChanges: cp.doorChanges || [],
       actions: cp.actions || { approve: true, end: true, yes: false },
     });
     setIsAgentRunning(false);

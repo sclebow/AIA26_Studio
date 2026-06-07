@@ -33,6 +33,8 @@ export interface DashboardProps {
   onAnalyze?: () => void;
   /** True while an analysis request is in flight. */
   analyzing?: boolean;
+  /** Tool gauge to highlight (driven by the chat's Collision/Visibility/Paths view chips). */
+  focusMetric?: string | null;
 }
 
 const TOOL_SCORES: Array<{
@@ -134,7 +136,7 @@ const EmptyState: React.FC = () => {
   );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ scores, onAnalyze, analyzing }) => {
+const Dashboard: React.FC<DashboardProps> = ({ scores, onAnalyze, analyzing, focusMetric }) => {
   const { colors } = useTheme();
 
   const panelStyle: React.CSSProperties = {
@@ -203,7 +205,11 @@ const Dashboard: React.FC<DashboardProps> = ({ scores, onAnalyze, analyzing }) =
             width: '100%',
           }}>
             {TOOL_SCORES.map(tool => (
-              <div key={tool.key} style={{ display: 'flex', justifyContent: 'center', minWidth: 0 }}>
+              <div key={tool.key} style={{
+                display: 'flex', justifyContent: 'center', minWidth: 0, borderRadius: 8,
+                boxShadow: focusMetric === tool.key ? `0 0 0 2px ${colors.accent}` : 'none',
+                transition: 'box-shadow 0.2s',
+              }}>
                 <ScoreCard
                   name={tool.label}
                   score={scores[tool.key] as number}

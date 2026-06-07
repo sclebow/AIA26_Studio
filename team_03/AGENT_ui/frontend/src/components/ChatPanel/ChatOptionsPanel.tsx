@@ -1,11 +1,23 @@
 import React, { useState, useCallback } from 'react';
 import { useTheme } from '../common/ThemeToggle';
-import type { CheckpointState } from '../../hooks/useAgentState';
+import type { CheckpointState, ViewAction } from '../../hooks/useAgentState';
 
 export interface ChatOptionsPanelProps {
   checkpoint: CheckpointState | null;
   onDecision: (value: string) => void;
+  /** Drive the UI viewport/analysis from the chat (terminal toggle parity). */
+  onView?: (action: ViewAction) => void;
 }
+
+// The terminal's viewport toggles, adapted to the UI's own viewport + dashboard.
+const VIEW_CHIPS: { action: ViewAction; key: string; label: string }[] = [
+  { action: 'before',     key: '1', label: 'Before (original)' },
+  { action: 'after',      key: '2', label: 'After (current)' },
+  { action: 'collision',  key: '3', label: 'Collision' },
+  { action: 'visibility', key: '4', label: 'Visibility' },
+  { action: 'path',       key: '5', label: 'Paths' },
+  { action: 'clear',      key: '0', label: 'Clear overlays' },
+];
 
 const MONO = '"Share Tech Mono", "SF Mono", "Fira Code", ui-monospace, monospace';
 
@@ -20,12 +32,17 @@ const sectionLabel: (color: string) => React.CSSProperties = (color) => ({
   fontFamily: MONO,
 });
 
-const ChatOptionsPanel: React.FC<ChatOptionsPanelProps> = ({ checkpoint, onDecision }) => {
+const ChatOptionsPanel: React.FC<ChatOptionsPanelProps> = ({ checkpoint, onDecision, onView }) => {
   const { colors, theme } = useTheme();
   const isDark = theme === 'dark';
   const [ruleText, setRuleText] = useState('');
 
   const awaiting = !!checkpoint;
+
+  // Score delta vs the previous checkpoint (mirrors the terminal's ▲/▼).
+  const delta = (checkpoint?.score != null && checkpoint?.prevScore != null)
+    ? checkpoint.score - checkpoint.prevScore
+    : null;
 
   const addRule = useCallback(() => {
     const t = ruleText.trim();
@@ -72,14 +89,51 @@ const ChatOptionsPanel: React.FC<ChatOptionsPanelProps> = ({ checkpoint, onDecis
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <span style={{ ...sectionLabel(colors.muted), margin: 0 }}>Options</span>
         {checkpoint?.score != null && (
-          <span style={{
-            fontFamily: MONO, fontSize: 10, fontWeight: 700,
-            color: checkpoint.score >= 80 ? colors.success : checkpoint.score >= 50 ? '#FBBF24' : colors.error,
-          }}>
-            {Math.round(checkpoint.score)}/100{checkpoint.grade ? ` ${checkpoint.grade}` : ''}
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{
+              fontFamily: MONO, fontSize: 10, fontWeight: 700,
+              color: checkpoint.score >= 80 ? colors.success : checkpoint.score >= 50 ? '#FBBF24' : colors.error,
+            }}>
+              {Math.round(checkpoint.score)}/100{checkpoint.grade ? ` ${checkpoint.grade}` : ''}
+            </span>
+            {delta != null && Math.abs(delta) >= 0.05 && (
+              <span style={{
+                fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                color: delta > 0 ? colors.success : colors.error,
+              }}>
+                {delta > 0 ? `▲ +${delta.toFixed(1)}` : `▼ ${delta.toFixed(1)}`}
+              </span>
+            )}
           </span>
         )}
       </div>
+
+      {/* Viewport — terminal toggle parity, adapted to the UI's own viewport */}
+      {awaiting && onView && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={sectionLabel(colors.accent)}>Viewport</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
+            {VIEW_CHIPS.map(v => (
+              <button
+                key={v.action}
+                onClick={() => onView(v.action)}
+                title={`(${v.key}) ${v.label}`}
+                style={{
+                  textAlign: 'left', padding: '6px 8px', borderRadius: 7,
+                  border: `1px solid ${colors.border}`,
+                  background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                  color: colors.text, fontSize: 9.5, lineHeight: 1.25,
+                  cursor: 'pointer', fontFamily: MONO,
+                  transition: 'background 0.15s, border-color 0.15s',
+                }}
+              >
+                <span style={{ opacity: 0.55, fontWeight: 700, marginRight: 5 }}>{v.key}</span>
+                {v.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {!awaiting && (
         <div style={{ fontSize: 10, color: colors.muted, fontFamily: MONO, lineHeight: 1.5 }}>
@@ -98,6 +152,53 @@ const ChatOptionsPanel: React.FC<ChatOptionsPanelProps> = ({ checkpoint, onDecis
               <span style={{ opacity: 0.7, fontWeight: 700, marginRight: 6 }}>{s.key}</span>
               {s.label}
             </button>
+          ))}
+        </div>
+      )}
+
+      {/* Collision violations */}
+      {awaiting && checkpoint!.violations.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={sectionLabel(colors.error)}>Violations ({checkpoint!.violations.length})</div>
+          {checkpoint!.violations.map((v, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 4,
+              fontSize: 9.5, color: colors.text, fontFamily: MONO, lineHeight: 1.3,
+            }}>
+              <span style={{ color: colors.error, flexShrink: 0 }}>–</span>
+              <span style={{ flex: 1 }}>{v}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Furniture changes */}
+      {awaiting && checkpoint!.changes.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={sectionLabel(colors.accent)}>Changes ({checkpoint!.changes.length})</div>
+          {checkpoint!.changes.map((c, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 4,
+              fontSize: 9.5, color: colors.text, fontFamily: MONO, lineHeight: 1.3,
+            }}>
+              <span style={{
+                flexShrink: 0, fontWeight: 700,
+                color: c.action === 'ADDED' ? colors.success : '#FBBF24',
+              }}>{c.action}</span>
+              <span style={{ flex: 1 }}>{c.text}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Door changes */}
+      {awaiting && checkpoint!.doorChanges.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={sectionLabel('#FBBF24')}>Door changes</div>
+          {checkpoint!.doorChanges.map((d, i) => (
+            <div key={i} style={{
+              fontSize: 9.5, color: colors.text, fontFamily: MONO, lineHeight: 1.3, marginBottom: 4,
+            }}>{d}</div>
           ))}
         </div>
       )}

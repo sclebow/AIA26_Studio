@@ -30,6 +30,8 @@ interface ThreeViewportProps {
   isovist?: [number, number][] | null
   /** Fired when the observer changes (place/move/draw/clear) so a stale isovist can be cleared. */
   onObserverChanged?: () => void
+  /** Observer placed by the chat agent (read-only ghost marker drawn alongside the isovist). */
+  agentObserver?: { mode: 'person' | 'path'; point?: [number, number]; path?: [number, number][] } | null
   /** Controlled labels toggle (shared with the graph). Falls back to internal state. */
   showLabels?: boolean
   onToggleLabels?: () => void
@@ -532,7 +534,7 @@ function SceneContent({ layout, selectedId, onSelect, layers, isDark, showLabels
   )
 }
 
-export default function ThreeViewport({ layout, selectedId, onSelect, layers, graphData, modifiedIds, onObserverPoint, onObserverPath, isovist, onObserverChanged, showLabels: showLabelsProp, onToggleLabels, isAgentRunning, fitSignal }: ThreeViewportProps) {
+export default function ThreeViewport({ layout, selectedId, onSelect, layers, graphData, modifiedIds, onObserverPoint, onObserverPath, isovist, onObserverChanged, agentObserver, showLabels: showLabelsProp, onToggleLabels, isAgentRunning, fitSignal }: ThreeViewportProps) {
   const { theme, colors } = useTheme()
   const isDark = theme === 'dark'
   const [internalShowLabels, setInternalShowLabels] = useState(true)
@@ -805,6 +807,29 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
             pathPoints={pathPoints}
             onUpdatePathPoint={handleUpdatePathPoint}
             onReleasePathPoint={handleReleasePathPoint}
+          />
+        )}
+        {/* Agent-placed observer — read-only ghost marker (person or path). */}
+        {agentObserver?.mode === 'person' && agentObserver.point && (
+          <ObserverMarker
+            center={geoCenter}
+            position={{ x: agentObserver.point[0], y: agentObserver.point[1] }}
+            isDark={isDark}
+            ghost
+            onMove={() => {}}
+            onRelease={() => {}}
+          />
+        )}
+        {agentObserver?.mode === 'path' && agentObserver.path && agentObserver.path.length > 0 && (
+          <ObserverMarker
+            center={geoCenter}
+            position={{ x: 0, y: 0 }}
+            isDark={isDark}
+            ghost
+            onMove={() => {}}
+            onRelease={() => {}}
+            pathMode
+            pathPoints={agentObserver.path.map(p => ({ x: p[0], y: p[1] }))}
           />
         )}
       </Canvas>

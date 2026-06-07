@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useTheme } from '../common/ThemeToggle';
 import MessageBubble, { Message } from './MessageBubble';
 import ChatOptionsPanel from './ChatOptionsPanel';
-import type { CheckpointState } from '../../hooks/useAgentState';
+import type { CheckpointState, ViewAction } from '../../hooks/useAgentState';
 
 export type { Message };
 
@@ -14,9 +14,16 @@ export interface ChatPanelProps {
   onCancel: () => void;
   checkpoint?: CheckpointState | null;
   onDecision?: (value: string) => void;
+  onView?: (action: ViewAction) => void;
   statusText?: string | null;
   ws: { send: (data: any) => void; subscribe: (cb: (msg: any) => void) => () => void };
 }
+
+// Bare viewport-toggle tokens (terminal parity) → UI view actions.
+const TOKEN_VIEW: Record<string, ViewAction> = {
+  '1': 'before', '2': 'after', '3': 'collision',
+  '4': 'visibility', '5': 'path', '0': 'clear',
+};
 
 const TypingIndicator: React.FC<{ statusText?: string | null }> = ({ statusText }) => {
   const { colors } = useTheme();
@@ -85,7 +92,7 @@ interface PureChatMessage {
 
 const ChatPanel: React.FC<ChatPanelProps> = ({
   messages, onSend, isAgentRunning, onReset, onCancel,
-  checkpoint, onDecision, statusText, ws,
+  checkpoint, onDecision, onView, statusText, ws,
 }) => {
   const { colors, theme } = useTheme();
   const isDark = theme === 'dark';
@@ -135,6 +142,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
     if (chatMode === 'agent') {
       if (isAgentRunning) return;
+      // Terminal parity: while a checkpoint is open, a bare 0–5 drives the UI
+      // viewport/analysis (like the terminal toggles) instead of the agent.
+      if (checkpoint && onView && TOKEN_VIEW[text]) {
+        onView(TOKEN_VIEW[text]);
+        setInputValue('');
+        return;
+      }
       onSend(text);
     } else {
       // Pure chat mode
@@ -156,7 +170,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       setPureLoading(true);
     }
     setInputValue('');
-  }, [inputValue, chatMode, isAgentRunning, onSend, ws]);
+  }, [inputValue, chatMode, isAgentRunning, onSend, ws, checkpoint, onView]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -380,7 +394,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
           {/* Options panel — agent mode only */}
           {chatMode === 'agent' && onDecision && (
-            <ChatOptionsPanel checkpoint={checkpoint ?? null} onDecision={onDecision} />
+            <ChatOptionsPanel checkpoint={checkpoint ?? null} onDecision={onDecision} onView={onView} />
           )}
         </div>
       </div>

@@ -29,6 +29,7 @@ import api_routes
 import mcp_bridge
 import agent_runner
 import isovist
+import spatial_assistant
 from session_manager import SessionManager
 from websocket_manager import ConnectionManager, MessageType
 
@@ -69,6 +70,57 @@ def _live_layout_json() -> str:
         pass
     st = session.get_session() or {}
     return json.dumps(st["layout"]) if st.get("layout") else ""
+
+
+# Small rolling chat history for the spatial assistant (so follow-ups like
+# "now check collisions" keep context). Capped; the system prompt always carries
+# the current layout + observer so mild staleness is harmless.
+_spatial_history: "list[dict]" = []
+
+
+async def _handle_spatial(content: str, websocket: WebSocket) -> None:
+    """Answer an observer/visibility/path question with the Rhino-free spatial
+    assistant: it runs deterministic analysis, draws the result in the viewport,
+    and replies in chat."""
+    layout_json = _live_layout_json()
+    if not layout_json:
+        await manager.send_personal(websocket, {
+            "type": MessageType.agent_response.value,
+            "content": "Load a layout first, then ask me about visibility, a person, or a path.",
+        })
+        return
+    try:
+        layout = json.loads(layout_json)
+    except Exception:
+        await manager.send_personal(websocket, {
+            "type": MessageType.agent_response.value,
+            "content": "I couldn't read the current layout. Try reloading it.",
+        })
+        return
+
+    from _runtime.config import load_settings
+    from pipeline_bridge import get_active_model
+    settings = load_settings()
+    model = get_active_model() or settings.llm_model
+
+    async def emit(msg: dict) -> None:
+        await manager.send_personal(websocket, msg)
+
+    try:
+        answer = await spatial_assistant.handle(
+            content, list(_spatial_history), layout, session.get_observer(),
+            emit, session.set_observer, settings.api_key, model,
+        )
+    except Exception as exc:
+        answer = f"Spatial analysis error: {exc}"
+
+    _spatial_history.append({"role": "user", "content": content})
+    _spatial_history.append({"role": "assistant", "content": answer})
+    del _spatial_history[:-6]  # keep the last 3 exchanges
+
+    await manager.send_personal(websocket, {
+        "type": MessageType.agent_response.value, "content": answer,
+    })
 
 
 def _isovist_for_point(layout_json: str, point_str) -> "list | None":
@@ -134,6 +186,10 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 if agent_runner.is_active():
                     # A run is in progress → feed the message to the checkpoint.
                     agent_runner.submit_decision(content)
+                elif spatial_assistant.is_spatial_query(content):
+                    # Observer / visibility / path question → lightweight assistant
+                    # (pure Python, no Rhino). Draws into the viewport + answers.
+                    await _handle_spatial(content, websocket)
                 else:
                     # Start a new real-pipeline session for the selected layout.
                     sess = session.get_session() or {}
@@ -170,6 +226,13 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 # Visibility surface for the 3D viewport — computed in the backend
                 # (GH's isovist is degenerate), height-aware, doors as openings.
                 iso = _isovist_for_point(data["layout_json"], data.get("point_str"))
+                # Remember it so the chat agent can answer about "the person already placed".
+                session.set_observer({
+                    "mode": "person",
+                    "point_str": data.get("point_str"),
+                    "height": data.get("height", 1.7),
+                    "isovist": iso,
+                })
                 await manager.send_personal(websocket, {
                     "type": "observer_result",
                     "mode": "person",
@@ -191,6 +254,12 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     },
                 )
                 iso = _isovist_for_path(data["layout_json"], data.get("path_str"), data.get("height"))
+                session.set_observer({
+                    "mode": "path",
+                    "path_str": data.get("path_str"),
+                    "height": data.get("height", 1.7),
+                    "isovist": iso,
+                })
                 await manager.send_personal(websocket, {
                     "type": "observer_result",
                     "mode": "path",

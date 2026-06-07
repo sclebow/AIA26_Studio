@@ -376,6 +376,16 @@ A draggable point representing a 1.7m-tall person, placed interactively in the A
 
 The output string also appears live in a viewport HUD (bottom-left, with copy button) for manual use.
 
+**Chat-driven observer (AGENT_ui):** the observer is no longer UI-only. The AGENT_ui chat now
+**auto-routes** observer/visibility/path questions to a Rhino-free **spatial assistant**
+(`AGENT_ui/backend/spatial_assistant.py`) that can place a person / start a path from natural
+language ("place a person in the center of the workshop", "start a path from the warehouse
+entrance to the bathroom"), run a **visibility-obstruction analysis** (which furniture blocks
+the view / which objects are hidden, via `isovist.analyze_obstructions`), and answer about an
+observer the user **already placed** (persisted in `SessionManager.observer`). It draws the
+isovist + a ghost marker live in the 3D viewport. See `AGENT_ui/CLAUDE.md` → "Spatial
+assistant". (Pure Python — works even when Swiftlet/Rhino is down.)
+
 ---
 
 ## Configuration (`.env` at repo root)
@@ -391,13 +401,16 @@ The output string also appears live in a viewport HUD (bottom-left, with copy bu
 | `DEBUG_GRAPH` | Print graph debug info | `false` |
 | `LAYOUT_FILE` | Layout name (env alt to `--layout`) | — |
 
-**Cost policy — use the cheapest model (Haiku):** the model is read from `.env`
+**Cost policy — prefer the cheapest model (Haiku):** the model is read from `.env`
 (`ANTHROPIC_MODEL`, etc.); there is no hardcoded default in `_runtime/config.py`.
 The agent is standardized on **`claude-haiku-4-5`** (Haiku 4.5 — the cheapest
-Anthropic model). The terminal (`main.py`) follows `.env`; the **AGENT_ui backend
-hard-forces Haiku** for the `anthropic` provider in `pipeline_bridge.build_context`
-so the web agent can never run a pricier Claude (Opus/Sonnet) even if `.env` is
-changed. Keep `ANTHROPIC_MODEL = "claude-haiku-4-5"` in `.env` for the terminal too.
+Anthropic model). The terminal (`main.py`) follows `.env`. The **AGENT_ui backend no
+longer hard-forces Haiku** (changed in the 2026-06-07 UI_fix commit): `build_context`
+uses `get_active_model() or settings.llm_model`, so it follows `.env` unless the UI
+switches the active model at runtime via a `model_switch` WebSocket message
+(`haiku` → `claude-haiku-4-5-20251001`, `sonnet` → `claude-sonnet-4-6`). **Sonnet is
+therefore selectable from the UI** — mind the cost. Keep `ANTHROPIC_MODEL =
+"claude-haiku-4-5"` in `.env` as the default for both the terminal and the web agent.
 
 **Important:** Grasshopper tool calls can take >2 minutes. Set `REQUEST_TIMEOUT_SECONDS=300` or higher.
 
