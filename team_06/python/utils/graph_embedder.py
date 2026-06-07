@@ -177,16 +177,12 @@ def extract_features(G: nx.Graph) -> list[float]:
         for w in WINDOW_COUNT:
             features.append(float(program_window_counts.get((program, w), 0)))
 
-    # --- F: Boundary shape and proportions
+    # --- F: Boundary shape
     # shape: one-hot encoding [rectangular, L-shape, other]
     shape = G.graph.get('shape', 'other') # default to 'other' if not specified
     features.append(1.0 if shape == 'rectangular' else 0.0)
     features.append(1.0 if shape == 'L-shape'     else 0.0)
     features.append(1.0 if shape == 'other'        else 0.0)
-
-    # aspect_ratio and compactness: raw floats
-    features.append(G.graph.get('aspect_ratio', 1.0))
-    features.append(G.graph.get('compactness',  1.0))
 
 
     return features
@@ -207,8 +203,6 @@ def build_query_vector(
         centrality: Optional[list] = None,
         windows: Optional[list[tuple[str, int]]] = None,
         shape: Optional[str] = None,  # 'rectangular' | 'L-shape' | 'other' | None
-        aspect_ratio: Optional[float] = None,
-        compactness: Optional[float] = None,
         ) -> list[float]:
     """Build a query feature vector from program and size preferences.
 
@@ -318,7 +312,7 @@ def build_query_vector(
         for w in WINDOW_COUNT:
             features.append(float(query_window_counts.get((program, w), 0)))
 
-    # --- F: Boundary shape and proportions
+    # --- F: Boundary shape
     # Shape: one-hot — if None, all zeros (no preference)
     if shape is not None:
         features.append(1.0 if shape == 'rectangular' else 0.0)
@@ -327,9 +321,7 @@ def build_query_vector(
     else:
         features.extend([0.0, 0.0, 0.0])
 
-    # Aspect ratio and compactness: use provided value or 0.0 (no preference)
-    features.append(aspect_ratio if aspect_ratio is not None else 0.0)
-    features.append(compactness  if compactness  is not None else 0.0)
+    # Aspect ratio and compactness handled as hard filters in search() — not included in query vector since they are not part of the layout vectors.
 
     return features
 
@@ -374,6 +366,16 @@ class RuleBasedEmbedder:
             for layout_id, G in layout_graphs.items()
         }
 
+        # Fast lookup for hard filters — no graph traversal at query time  
+        self.metadata = {
+            layout_id: {
+                'total_area':   G.graph.get('total_area', 0.0),
+                'aspect_ratio': G.graph.get('aspect_ratio', 1.0),
+                'compactness':  G.graph.get('compactness', 1.0),           
+            }
+            for layout_id, G in layout_graphs.items()
+        }     
+
     def search(
         self,
         programs: list,
@@ -383,8 +385,12 @@ class RuleBasedEmbedder:
         centrality: Optional[list] = None,
         windows: Optional[list[tuple[str, int]]] = None,
         shape: Optional[str] = None,
+        total_area: Optional[float] = None,
+        area_tolerance: float = 10.0,
         aspect_ratio: Optional[float] = None,
+        aspect_ratio_tolerance: float = 0.5,
         compactness: Optional[float] = None,
+        compactness_tolerance: float = 0.2,
         top_k: int = 3,
     ) -> list[tuple[str, float]]:
         """Find the top-k layouts with AT LEAST the requested room counts.
@@ -480,16 +486,27 @@ class RuleBasedEmbedder:
             adjacency_pairs=adjacency_pairs, 
             centrality=centrality,
             windows=windows,
-            shape=shape,
-            aspect_ratio=aspect_ratio,
-            compactness=compactness)
+            shape=shape)
 
         scores = []
         for layout_id, layout_vec in self.index.items():
+            meta = self.metadata[layout_id]
+
+            # Hard filters
+            if total_area is not None:
+                if abs(meta['total_area'] - total_area) > area_tolerance:
+                    continue
+            if aspect_ratio is not None:
+                if abs(meta['aspect_ratio'] - aspect_ratio) > aspect_ratio_tolerance:
+                    continue
+            if compactness is not None:
+                if abs(meta['compactness'] - compactness) > compactness_tolerance:
+                    continue
             if not check_required_counts(layout_vec):
                 continue
             if has_excluded_adjacencies(layout_id):
                 continue
+
             scores.append((layout_id, cosine_similarity(query_vec, layout_vec)))
 
         scores.sort(key=lambda x: x[1], reverse=True)
