@@ -1,5 +1,4 @@
 import json
-import logging
 from pathlib import Path
 from typing import Any
 from tools.graph_searcher import GraphSearcher
@@ -47,6 +46,50 @@ def _pair_list_from_search_payload(payload: dict[str, Any], key: str) -> list[tu
     return pairs
 
 
+def _float_from_search_payload(payload: dict[str, Any], key: str) -> float | None:
+    graph_payload = payload.get("graph") if isinstance(payload.get("graph"), dict) else payload
+    value = graph_payload.get(key)
+    return float(value) if isinstance(value, (int, float)) else None
+
+
+def _str_from_search_payload(payload: dict[str, Any], key: str) -> str | None:
+    graph_payload = payload.get("graph") if isinstance(payload.get("graph"), dict) else payload
+    value = graph_payload.get(key)
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _centrality_list_from_search_payload(payload: dict[str, Any]) -> list[tuple[str, str]]:
+    graph_payload = payload.get("graph") if isinstance(payload.get("graph"), dict) else payload
+    centrality_list = graph_payload.get("centrality")
+    if not isinstance(centrality_list, list):
+        return []
+    
+    result = []
+    for item in centrality_list:
+        if not isinstance(item, (list, tuple)) or len(item) != 2:
+            continue
+        program, level = item
+        if isinstance(program, str) and program.strip() and isinstance(level, str) and level.strip():
+            result.append((program.strip().lower(), level.strip().lower()))
+    return result
+
+
+def _window_list_from_search_payload(payload: dict[str, Any]) -> list[tuple[str, int]]:
+    graph_payload = payload.get("graph") if isinstance(payload.get("graph"), dict) else payload
+    window_list = graph_payload.get("windows")
+    if not isinstance(window_list, list):
+        return []
+    
+    result = []
+    for item in window_list:
+        if not isinstance(item, (list, tuple)) or len(item) != 2:
+            continue
+        program, count = item
+        if isinstance(program, str) and program.strip() and isinstance(count, int):
+            result.append((program.strip().lower(), count))
+    return result
+
+
 def _description_from_search_payload(payload: dict[str, Any]) -> str:
     description = payload.get("description")
     if isinstance(description, str):
@@ -88,6 +131,12 @@ def _run_graph_search(
     access_pairs: list[tuple[str, str]],
     adjacency_pairs: list[tuple[str, str]],
     not_adjacency_pairs: list[tuple[str, str]],
+    centrality: list[tuple[str, str]],
+    windows: list[tuple[str, int]],
+    shape: str | None,
+    total_area: float | None,
+    aspect_ratio: float | None,
+    compactness: float | None,
     top_k: int,
     repo_root: Path,
 ) -> list[tuple[str, float]]:
@@ -100,6 +149,12 @@ def _run_graph_search(
         access_pairs=access_pairs,
         adjacency_pairs=adjacency_pairs,
         not_adjacency_pairs=not_adjacency_pairs,
+        centrality=centrality or None,
+        windows=windows or None,
+        shape=shape,
+        total_area=total_area,
+        aspect_ratio=aspect_ratio,
+        compactness=compactness,
         top_k=top_k,
     )
     return results
@@ -174,9 +229,15 @@ def build_search_node() -> Any:
         access_pairs = _pair_list_from_search_payload(search_payload, "access_pairs")
         adjacency_pairs = _pair_list_from_search_payload(search_payload, "adjacency_pairs")
         not_adjacency_pairs = _pair_list_from_search_payload(search_payload, "not_adjacency_pairs")
+        centrality = _centrality_list_from_search_payload(search_payload)
+        windows = _window_list_from_search_payload(search_payload)
+        shape = _str_from_search_payload(search_payload, "shape")
+        total_area = _float_from_search_payload(search_payload, "total_area")
+        aspect_ratio = _float_from_search_payload(search_payload, "aspect_ratio")
+        compactness = _float_from_search_payload(search_payload, "compactness")
         description_query = _description_from_search_payload(search_payload)
 
-        if not programs and not access_pairs and not adjacency_pairs and not not_adjacency_pairs and not description_query:
+        if not programs and not description_query:
             return {
                 "search_result": "failed",
                 "search_results_json_string": json.dumps([]),
@@ -194,6 +255,12 @@ def build_search_node() -> Any:
                 access_pairs,
                 adjacency_pairs,
                 not_adjacency_pairs,
+                centrality,
+                windows,
+                shape,
+                total_area,
+                aspect_ratio,
+                compactness,
                 top_k,
                 repo_root,
             ) if programs else []
