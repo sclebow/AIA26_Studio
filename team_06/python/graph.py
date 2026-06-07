@@ -240,14 +240,10 @@ def _build_initial_state(prompt: str, ctx: Any, session: dict | None = None) -> 
         session["feedback_history"] = []
 
     layout_json = session.get("layout_json_string")
+    if layout_json is None and getattr(ctx, "layout_data", None):
+        layout_json = json.dumps(ctx.layout_data)
 
     input_layout_json = session.get("input_layout_json_string")
-    if input_layout_json is None and hasattr(ctx, 'input_layout_path') and ctx.input_layout_path:
-        try:
-            with open(ctx.input_layout_path, 'r') as f:
-                input_layout_json = json.dumps(json.load(f))
-        except:
-            pass
 
     return {
         "user_prompt": prompt,
