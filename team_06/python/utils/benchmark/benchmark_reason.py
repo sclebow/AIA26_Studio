@@ -4,7 +4,7 @@ Benchmark runner for the `reason` node.
 Run from team_06/python/:
     python utils/benchmark/benchmark_reason.py
 
-Tests 3 household profiles (family, single, retired) × R1-R5 and multi-turn (MT1-MT2) across all providers.
+Tests 3 input buckets (household, topology, additional) × 3 turns each, plus multi-turn (MT1-MT2), across all providers.
 Results saved to utils/benchmark/benchmark_reason_results.json.
 """
 from __future__ import annotations
@@ -20,45 +20,63 @@ from benchmark_common import (
 from nodes.reason import SYSTEM_PROMPT as REASON_SYSTEM_PROMPT
 
 # ---------------------------------------------------------------------------
-# Test cases — 3 household profiles, same Q1→Q5 question sequence each
+# Test cases — 9 test IDs × 3 user profiles = 27 single-prompt tests
 # ---------------------------------------------------------------------------
 
-_CHECK_DESCRIPTION = lambda p: p.get("latest_prompt_useful") is False and bool(p.get("description", "").strip())
-_CHECK_ROOMS       = lambda p: bool(p.get("latest_prompt_useful")) and bool(p.get("graph", {}).get("programs")) and bool(p.get("graph", {}).get("not_adjacency_pairs"))
-_CHECK_IGNORE      = lambda p: p.get("latest_prompt_useful") is False
+_CHECK_STORED    = lambda p: p.get("latest_prompt_useful") is False and bool(p.get("description", "").strip())
+_CHECK_SEARCH    = lambda p: bool(p.get("latest_prompt_useful")) and bool(p.get("graph", {}).get("programs"))
+_CHECK_ADJACENCY = lambda p: bool(p.get("latest_prompt_useful")) and (
+    bool(p.get("graph", {}).get("adjacency_pairs")) or
+    bool(p.get("graph", {}).get("not_adjacency_pairs"))
+)
+_CHECK_COMBINED  = lambda p: (
+    bool(p.get("latest_prompt_useful")) and
+    bool(p.get("graph", {}).get("programs")) and
+    bool(p.get("description", "").strip())
+)
+_CHECK_IGNORE    = lambda p: p.get("latest_prompt_useful") is False
 
-REASON_TURN_SETS = [
+USER_PROFILES = [
     {
-        "id": "family",
-        "label": "Family with kids",
-        "turns": [
-            {"id": "R1", "input": "We are a couple, I am 42 my partner is 38, we have two kids aged 8 and 5", "check": _CHECK_DESCRIPTION},
-            {"id": "R2", "input": "We have a medium-sized dog",                                                 "check": _CHECK_DESCRIPTION},
-            {"id": "R3", "input": "I work from home, my partner works in an office, kids play in the living room after school", "check": _CHECK_DESCRIPTION},
-            {"id": "R4", "input": "3 bedrooms, 2 bathrooms, kitchen next to living room, master bedroom not next to kids room", "check": _CHECK_ROOMS},
-            {"id": "R5", "input": "Ok",                                                                         "check": _CHECK_IGNORE},
+        "id": "single",
+        "tests": [
+            {"id": "household-people",    "input": "I live alone, I am 35",                                                                                        "check": _CHECK_STORED},
+            {"id": "household-lifestyle", "input": "I have a cat, I work from home full time",                                                                     "check": _CHECK_STORED},
+            {"id": "rooms-basic",         "input": "1 bedroom and a bathroom",                                                                                     "check": _CHECK_SEARCH},
+            {"id": "rooms-full",          "input": "bedroom, home office, kitchen, living room",                                                                   "check": _CHECK_SEARCH},
+            {"id": "adjacency",           "input": "home office not next to bedroom, kitchen next to living room",                                                 "check": _CHECK_ADJACENCY},
+            {"id": "combined-basic",      "input": "I live alone and work from home. I need a bedroom and a home office",                                          "check": _CHECK_COMBINED},
+            {"id": "combined-full",       "input": "I am 35, single, I work from home. Bedroom, home office not next to bedroom, kitchen, living room",            "check": _CHECK_COMBINED},
+            {"id": "ignore-ack",          "input": "Ok",                                                                                                           "check": _CHECK_IGNORE},
+            {"id": "ignore-eval",         "input": "Evaluate the current layout",                                                                                  "check": _CHECK_IGNORE},
         ],
     },
     {
-        "id": "single",
-        "label": "Single professional",
-        "turns": [
-            {"id": "R1", "input": "I live alone, I am 35",                                                      "check": _CHECK_DESCRIPTION},
-            {"id": "R2", "input": "I have a cat",                                                               "check": _CHECK_DESCRIPTION},
-            {"id": "R3", "input": "I work from home full time and go to the gym in the mornings",               "check": _CHECK_DESCRIPTION},
-            {"id": "R4", "input": "I need a bedroom, a home office, a kitchen, and a living room. Office should not be next to bedroom", "check": _CHECK_ROOMS},
-            {"id": "R5", "input": "That looks fine",                                                            "check": _CHECK_IGNORE},
+        "id": "family",
+        "tests": [
+            {"id": "household-people",    "input": "We are a couple with two kids aged 8 and 5",                                                                   "check": _CHECK_STORED},
+            {"id": "household-lifestyle", "input": "We have a medium-sized dog, I work from home and my partner commutes",                                         "check": _CHECK_STORED},
+            {"id": "rooms-basic",         "input": "3 bedrooms and 2 bathrooms",                                                                                   "check": _CHECK_SEARCH},
+            {"id": "rooms-full",          "input": "3 bedrooms, 2 bathrooms, kitchen, living room, playroom",                                                      "check": _CHECK_SEARCH},
+            {"id": "adjacency",           "input": "master bedroom not next to kids rooms, kitchen next to living room",                                           "check": _CHECK_ADJACENCY},
+            {"id": "combined-basic",      "input": "We are a couple with 2 kids. 3 bedrooms, kitchen next to living room",                                         "check": _CHECK_COMBINED},
+            {"id": "combined-full",       "input": "Family of 4 with a dog, I work from home. 3 bedrooms, master not next to kids room, kitchen next to living",   "check": _CHECK_COMBINED},
+            {"id": "ignore-ack",          "input": "Ok",                                                                                                           "check": _CHECK_IGNORE},
+            {"id": "ignore-eval",         "input": "Evaluate the current layout",                                                                                  "check": _CHECK_IGNORE},
         ],
     },
     {
         "id": "retired",
-        "label": "Retired couple",
-        "turns": [
-            {"id": "R1", "input": "My husband and I are both retired, I am 68 and he is 71",                   "check": _CHECK_DESCRIPTION},
-            {"id": "R2", "input": "We have a small dog",                                                        "check": _CHECK_DESCRIPTION},
-            {"id": "R3", "input": "We cook together every day, we enjoy reading and we each have a hobby room", "check": _CHECK_DESCRIPTION},
-            {"id": "R4", "input": "One master bedroom, a spacious kitchen, living room, two hobby rooms. Kitchen should be next to living room, bedroom not next to hobby rooms", "check": _CHECK_ROOMS},
-            {"id": "R5", "input": "Yes",                                                                        "check": _CHECK_IGNORE},
+        "tests": [
+            {"id": "household-people",    "input": "My husband and I are both retired, I am 68 and he is 71",                                                      "check": _CHECK_STORED},
+            {"id": "household-lifestyle", "input": "We have a small dog, we cook together every day",                                                              "check": _CHECK_STORED},
+            {"id": "rooms-basic",         "input": "One master bedroom and a large bathroom",                                                                      "check": _CHECK_SEARCH},
+            {"id": "rooms-full",          "input": "master bedroom, large kitchen, living room, two hobby rooms",                                                  "check": _CHECK_SEARCH},
+            {"id": "adjacency",           "input": "kitchen next to living room, bedroom not next to hobby rooms",                                                 "check": _CHECK_ADJACENCY},
+            {"id": "combined-basic",      "input": "We are a retired couple. One bedroom, spacious kitchen next to living room",                                   "check": _CHECK_COMBINED},
+            {"id": "combined-full",       "input": "Retired couple with a small dog, we cook daily. Master bedroom, large kitchen next to living, two hobby rooms", "check": _CHECK_COMBINED},
+            {"id": "ignore-ack",          "input": "That sounds good",                                                                                             "check": _CHECK_IGNORE},
+            {"id": "ignore-eval",         "input": "Can you evaluate the layout?",                                                                                 "check": _CHECK_IGNORE},
         ],
     },
 ]
@@ -87,11 +105,11 @@ MULTITURN_SEQUENCE = [
 
 def run_reason(llm, model: str) -> list[dict]:
     rows = []
-    for turn_set in REASON_TURN_SETS:
-        for turn in turn_set["turns"]:
+    for profile in USER_PROFILES:
+        for test in profile["tests"]:
             msgs = [
                 {"role": "system", "content": REASON_SYSTEM_PROMPT},
-                {"role": "user",   "content": build_user_message(turn["input"])},
+                {"role": "user",   "content": build_user_message(test["input"])},
             ]
             t0 = time.perf_counter()
             try:
@@ -99,7 +117,7 @@ def run_reason(llm, model: str) -> list[dict]:
                 latency               = time.perf_counter() - t0
                 parsed                = json.loads(_strip_fence(response.content))
                 tokens_in, tokens_out = _tokens(response)
-                correct               = turn["check"](parsed)
+                correct               = test["check"](parsed)
                 error                 = None
                 llm_output            = parsed
             except Exception as exc:
@@ -110,7 +128,7 @@ def run_reason(llm, model: str) -> list[dict]:
                 llm_output            = None
 
             rows.append({
-                "node": "reason", "test": turn["id"], "turn_set": turn_set["id"],
+                "node": "reason", "test": test["id"], "profile": profile["id"],
                 "provider": provider_label(model), "model": model,
                 "latency": round(latency, 2),
                 "tokens_in": tokens_in, "tokens_out": tokens_out,
@@ -167,8 +185,7 @@ def run_reason_multiturn(llm, model: str) -> list[dict]:
 
 if __name__ == "__main__":
     all_rows: list[dict] = []
-    turns_per_set      = len(REASON_TURN_SETS[0]["turns"])
-    calls_per_provider = (len(REASON_TURN_SETS) * turns_per_set) + len(MULTITURN_SEQUENCE)
+    calls_per_provider = (len(USER_PROFILES) * len(USER_PROFILES[0]["tests"])) + len(MULTITURN_SEQUENCE)
 
     for provider in PROVIDERS:
         print(f"\n> {provider.upper()}", flush=True)
