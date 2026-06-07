@@ -1,23 +1,5 @@
 import json
-from pathlib import Path
-from _runtime.llm import llm_invoke
-
-_PREFERRED = {"provider": "google", "model": "gemini-2.5-flash-lite"}
-
-# Load new parsed prompt schema
-PARSED_PROMPT_SCHEMA_PATH = Path(__file__).parent.parent / "rules" / "parsed_prompt_schema.json"
-if not PARSED_PROMPT_SCHEMA_PATH.exists():
-    raise FileNotFoundError(str(PARSED_PROMPT_SCHEMA_PATH.resolve()))
-PARSED_PROMPT_SCHEMA = json.loads(PARSED_PROMPT_SCHEMA_PATH.read_text(encoding="utf-8"))
-
-
-# Define the question list (could be loaded from a questions.json file)
-QUESTION_LIST = [
-    "Please describe the people living in the household (name, age, relationship, special needs if any).",
-    "Do you have any pets? If so, what type and size?",
-    "What are the main activities at home (e.g., work, cook, hobbies)? When do they happen and who participates?",
-    "Do you have preferences for rooms (type, size, connections, usage times, or who uses them)?"
-]
+import re
 
 # Global system prompt for LLM reliability
 SYSTEM_PROMPT = (
@@ -202,11 +184,7 @@ def build_reason_node(llm):
             )}
         ]
         try:
-              
-            try:
-                response = llm_invoke(llm, llm_messages, **_PREFERRED)
-            except ValueError:
-                response = llm.invoke(llm_messages)
+            response = llm.invoke(llm_messages)
             parsed_payload = _normalize_payload(json.loads(response.content.strip()))
             latest_prompt_useful = parsed_payload["latest_prompt_useful"]
             updated_search_payload = {
