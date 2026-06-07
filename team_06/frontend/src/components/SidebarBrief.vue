@@ -26,39 +26,38 @@ const roomChips = computed(() => {
       return `${room.count} ${label}`
     })
 })
+
+const specificationText = computed(() => {
+  const value = props.parsedInput?.description || props.parsedInput?.summary || ''
+  return typeof value === 'string' ? value.trim() : ''
+})
+
+const specificationChips = computed(() => {
+  const value = specificationText.value
+  if (!value || value.length > 60) return []
+
+  const parts = value
+    .split(/[,;]|\s+and\s+/i)
+    .map((part) => part.trim())
+    .filter(Boolean)
+
+  if (!parts.length || parts.some((part) => part.length > 32)) {
+    return value ? [value] : []
+  }
+
+  return parts
+})
 </script>
 
 <template>
-  <section class="sidebar-section">
-    <div class="sidebar-section-title">
-      <img :src="messageIcon" alt="Description" width="20" height="20" style="opacity:0.6;" />
-      Description
-    </div>
-    <ul class="sidebar-list">
-      <template v-if="props.parsedInput?.description || props.parsedInput?.summary">
-        <li>{{ props.parsedInput.description || props.parsedInput.summary }}</li>
-      </template>
-      <li v-else>No brief details yet</li>
-    </ul>
-  </section>
+
+
+  
 
   <section class="sidebar-section">
     <div class="sidebar-section-title">
-      <img :src="boxIcon" alt="Rooms" width="20" height="20" style="opacity:0.6;" />
-      Rooms
-    </div>
-    <div v-if="roomChips.length" class="room-chip-list">
-      <span v-for="chip in roomChips" :key="chip" class="room-chip">{{ chip }}</span>
-    </div>
-    <ul v-else class="sidebar-list">
-      <li>No rooms requested yet</li>
-    </ul>
-  </section>
-
-  <section class="sidebar-section">
-    <div class="sidebar-section-title">
-      <img :src="userIcon" alt="Connections" width="20" height="20" style="opacity:0.6;" />
-      Connections
+      <img :src="userIcon" alt="Households" width="20" height="20" style="opacity:0.6;" />
+      Households
     </div>
     <ul class="sidebar-list">
       <template v-if="props.parsedInput?.access?.length || props.parsedInput?.adjacency?.length || props.parsedInput?.separation?.length">
@@ -72,18 +71,35 @@ const roomChips = computed(() => {
           Separate: {{ pair }}
         </li>
       </template>
-      <li v-else>No room relationships yet</li>
+      <li v-else class="sidebar-empty-text">No households yet</li>
     </ul>
   </section>
-
   <section class="sidebar-section">
     <div class="sidebar-section-title">
-      <img :src="messageIcon" alt="Extra" width="20" height="20" style="opacity:0.6;" />
-      Routine
+      <img :src="boxIcon" alt="Rooms" width="20" height="20" style="opacity:0.6;" />
+      Rooms
     </div>
-    <ul class="sidebar-list">
-      <li>Disabled for now</li>
+    <div v-if="roomChips.length" class="room-chip-list">
+      <span v-for="chip in roomChips" :key="chip" class="room-chip">{{ chip }}</span>
+    </div>
+    <ul v-else class="sidebar-list">
+      <li class="sidebar-empty-text">No rooms requested yet</li>
     </ul>
+  </section>
+    <section class="sidebar-section">
+    <div class="sidebar-section-title">
+      <img :src="messageIcon" alt="Specifications" width="20" height="20" style="opacity:0.6;" />
+      Specifications
+    </div>
+      <div v-if="specificationChips.length" class="spec-chip-list">
+        <span v-for="chip in specificationChips" :key="chip" class="spec-chip">{{ chip }}</span>
+      </div>
+      <ul v-else-if="specificationText" class="sidebar-list">
+        <li>{{ specificationText }}</li>
+      </ul>
+      <ul v-else class="sidebar-list">
+        <li class="sidebar-empty-text">No specifications yet</li>
+      </ul>
   </section>
 </template>
 
@@ -96,7 +112,7 @@ const roomChips = computed(() => {
   align-items: center;
   font-size: var(--font-size-bold);
   font-weight: 600;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
   color: var(--color-text-secondary);
   gap: 8px;
 }
@@ -119,6 +135,11 @@ const roomChips = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+.sidebar-empty-text {
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+  font-style: italic;
 }
 .sidebar-list-input-row { list-style: none; }
 .sidebar-list-input {
@@ -145,5 +166,22 @@ const roomChips = computed(() => {
   font-size: var(--font-size-small);
   font-weight: 500;
   line-height: 1.2;
+}
+.spec-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.spec-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f5f7fa;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-small);
+  font-weight: 500;
+  line-height: 1.2;
+  border: 1px solid var(--color-border);
 }
 </style>

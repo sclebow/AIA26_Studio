@@ -72,7 +72,7 @@ def _build_brief(topology_graph_json_string: str | None) -> dict[str, Any] | Non
         "adjacency": _format_pairs(graph.get("adjacency_pairs")),
         "separation": _format_pairs(graph.get("not_adjacency_pairs")),
         "description": description.strip(),
-        "summary": description.strip() or (", ".join(programs) if programs else ""),
+        "summary": description.strip(),
     }
 
     has_content = any(

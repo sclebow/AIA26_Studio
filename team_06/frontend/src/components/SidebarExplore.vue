@@ -1,4 +1,6 @@
 <script setup>
+import searchIcon from '../assets/icons/search.svg'
+
 const props = defineProps({
   results: { type: Array, default: () => [] },
   agentState: { type: Object, default: null }
@@ -14,7 +16,10 @@ function formatScore(score) {
 
 <template>
   <section class="sidebar-section">
-    <div class="sidebar-section-title">Explore</div>
+    <div class="sidebar-section-title">
+      <img :src="searchIcon" alt="Explore" width="20" height="20" style="opacity:0.6;" />
+      Explore
+    </div>
     <template v-if="props.results && props.results.length">
       <ul class="history-list">
         <li
@@ -45,7 +50,7 @@ function formatScore(score) {
   align-items: center;
   font-size: var(--font-size-bold);
   font-weight: 600;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   color: var(--color-text-secondary);
   gap: 8px;
 }
@@ -96,8 +101,9 @@ function formatScore(score) {
   margin-top: 2px;
 }
 .sidebar-empty {
-  font-size: var(--font-size-standard);
+  margin: 0 0 0 28px;
+  font-size: var(--font-size-small);
   color: var(--color-text-secondary);
-  margin: 0;
+  font-style: italic;
 }
 </style>

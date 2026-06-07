@@ -41,7 +41,7 @@ const emit = defineEmits(['restore'])
   align-items: center;
   font-size: var(--font-size-bold);
   font-weight: 600;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   color: var(--color-text-secondary);
   gap: 8px;
 }
@@ -80,8 +80,9 @@ const emit = defineEmits(['restore'])
   margin-top: 2px;
 }
 .sidebar-empty {
-  font-size: var(--font-size-standard);
+  margin: 0 0 0 28px;
+  font-size: var(--font-size-small);
   color: var(--color-text-secondary);
-  margin: 0;
+  font-style: italic;
 }
 </style>
