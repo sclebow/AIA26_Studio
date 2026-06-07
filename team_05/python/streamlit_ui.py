@@ -138,6 +138,10 @@ for _k, _v in {
     "arch_advice_rows": [],
     "_advice_mat_sig": "",
     "agent": LangGraphAgent(),
+    "client_profile": {},
+    "client_summary": "",
+    "client_template": {},
+    "client_applied": False,
 }.items():
     if _k not in st.session_state:
         st.session_state[_k] = _v
@@ -926,6 +930,55 @@ with st.sidebar:
     else:
         st.info("Upload JSON files to begin.")
 
+    # ── Client DNA ───────────────────────────────────────────────────────────
+    st.divider()
+    st.markdown("### Client DNA")
+    st.caption("Upload up to 3 past project CSVs to learn this client's spending habits.")
+
+    _dna_uploads = st.file_uploader(
+        "Past project CSVs (max 3)",
+        type=["csv"],
+        accept_multiple_files=True,
+        label_visibility="collapsed",
+        key="dna_uploader",
+    )
+
+    if _dna_uploads:
+        if len(_dna_uploads) > 3:
+            st.warning("Please upload a maximum of 3 CSV files.")
+        else:
+            if st.button("Analyse Client Profile", use_container_width=True):
+                from client_profile import parse_budget_csv, analyze_profiles, generate_summary, propose_template
+                _dna_datasets = []
+                for _f in _dna_uploads:
+                    _rows = parse_budget_csv(_f)
+                    if _rows:
+                        _dna_datasets.append(_rows)
+                if _dna_datasets:
+                    _profile = analyze_profiles(_dna_datasets)
+                    st.session_state.client_profile  = _profile
+                    st.session_state.client_summary  = generate_summary(_profile)
+                    st.session_state.client_applied  = False
+                    if st.session_state.layout:
+                        st.session_state.client_template = propose_template(_profile, st.session_state.layout)
+                    st.success(f"Profile built from {len(_dna_datasets)} project(s). See **Client DNA** tab.")
+                else:
+                    st.error("Could not parse CSVs. Expected columns: room, area, cost (+ optional: category, rate, floor_finish, wall_finish).")
+
+    if st.session_state.get("client_profile"):
+        if st.session_state.layout and st.button(
+            "Apply to Current Project", use_container_width=True, key="apply_dna_sidebar"
+        ):
+            from client_profile import propose_template, apply_template
+            _tmpl = propose_template(st.session_state.client_profile, st.session_state.layout)
+            st.session_state.client_template = _tmpl
+            _updated = apply_template(_tmpl, st.session_state.layout)
+            st.session_state.layout = _updated
+            if st.session_state.selected_plan_key in st.session_state.layouts:
+                st.session_state.layouts[st.session_state.selected_plan_key] = _updated
+            st.session_state.client_applied = True
+            st.rerun()
+
 # =============================================================================
 # MAIN — floor plan (left) + chat (right)
 # =============================================================================
@@ -1003,11 +1056,12 @@ def render_sustainability_tab():
 
 # ---------------------------------------------------------
 
-tab_floor, tab_advice, tab_sustainability, tab_match = st.tabs([
+tab_floor, tab_advice, tab_sustainability, tab_match, tab_dna = st.tabs([
     "Floor Plan & Chat",
     "Architectural Advice",
     "Sustainability Analysis",
     "Cost Matching",
+    "Client DNA",
 ])
 
 with tab_sustainability:
@@ -1204,6 +1258,7 @@ with tab_floor:
                     plans=st.session_state.layouts,
                     active_plan_key=st.session_state.selected_plan_key,
                     history=st.session_state.messages[:-1],
+                    client_profile=st.session_state.get("client_profile") or None,
                 )
                 updated = st.session_state.agent.get_updated_layout()
                 if updated is not None and st.session_state.layout is not None:
@@ -1864,6 +1919,146 @@ with tab_match:
 
 
 
+
+# ──────────────────────────── CLIENT DNA ─────────────────────────────────────
+with tab_dna:
+    st.markdown("#### Client DNA — Spending Profile")
+
+    if not st.session_state.get("client_profile"):
+        st.info(
+            "Upload up to 3 past project CSVs in the sidebar and click "
+            "**Analyse Client Profile** to get started.\n\n"
+            "**Expected CSV columns:** `room`, `area`, `cost` — optional: "
+            "`category`, `rate`, `floor_finish`, `wall_finish`, `ceiling`"
+        )
+    else:
+        _dna_profile = st.session_state.client_profile
+        _dna_summary = st.session_state.get("client_summary", "")
+        _dna_cats    = _dna_profile.get("categories", {})
+        _dna_ranked  = _dna_profile.get("ranked_categories", [])
+
+        # ── summary card ──────────────────────────────────────────────────────
+        st.markdown(_dna_summary)
+
+        # ── charts ────────────────────────────────────────────────────────────
+        if _dna_ranked and _dna_cats:
+            st.divider()
+            st.markdown("#### Spending by Category")
+
+            _ch_labels = [c.capitalize() for c in _dna_ranked]
+            _ch_pcts   = [_dna_cats[c]["avg_budget_pct"] for c in _dna_ranked]
+            _ch_rates  = [_dna_cats[c]["avg_rate_per_m2"] for c in _dna_ranked]
+
+            _ch_col1, _ch_col2 = st.columns(2)
+            with _ch_col1:
+                _fig_pct = go.Figure(go.Bar(
+                    x=_ch_labels, y=_ch_pcts,
+                    marker_color="#F06913",
+                    text=[f"{p:.0f}%" for p in _ch_pcts],
+                    textposition="outside",
+                ))
+                _fig_pct.update_layout(
+                    title="Budget allocation (%)",
+                    yaxis_title="% of total budget",
+                    paper_bgcolor="#ffffff", plot_bgcolor="#f7f7f7",
+                    height=300, margin=dict(l=10, r=10, t=40, b=10),
+                    font=dict(color="#111"),
+                )
+                st.plotly_chart(_fig_pct, use_container_width=True)
+
+            with _ch_col2:
+                _fig_rate = go.Figure(go.Bar(
+                    x=_ch_labels, y=_ch_rates,
+                    marker_color="#3b82f6",
+                    text=[f"{r:,.0f}" for r in _ch_rates],
+                    textposition="outside",
+                ))
+                _fig_rate.update_layout(
+                    title="Average rate per m²",
+                    yaxis_title="Rate (currency/m²)",
+                    paper_bgcolor="#ffffff", plot_bgcolor="#f7f7f7",
+                    height=300, margin=dict(l=10, r=10, t=40, b=10),
+                    font=dict(color="#111"),
+                )
+                st.plotly_chart(_fig_rate, use_container_width=True)
+
+        # ── template proposal ─────────────────────────────────────────────────
+        _dna_template = st.session_state.get("client_template", {})
+
+        if not _dna_template and st.session_state.layout:
+            from client_profile import propose_template as _propose_tpl
+            _dna_template = _propose_tpl(_dna_profile, st.session_state.layout)
+            st.session_state.client_template = _dna_template
+
+        if _dna_template and st.session_state.layout:
+            st.divider()
+            st.markdown("#### Proposed Spending Template")
+            st.caption(
+                "Rates and finishes are suggested from this client's past projects. "
+                "▲ = more expensive than current · ▼ = cheaper than current."
+            )
+
+            _currency = st.session_state.layout.get("project", {}).get("currency", "")
+            _tpl_rows = []
+            for _tid, _t in _dna_template.items():
+                _delta = _t["delta_cost"]
+                _sign  = "▲" if _delta > 0 else ("▼" if _delta < 0 else "–")
+                _tpl_rows.append({
+                    "Room":                               _t["room_name"],
+                    "Category":                           _t["category"].capitalize(),
+                    f"Current rate ({_currency}/m²)":    int(_t["current_rate"]),
+                    f"Suggested rate ({_currency}/m²)":  int(_t["suggested_rate"]),
+                    f"Current cost ({_currency})":        int(_t["current_cost"]),
+                    f"Suggested cost ({_currency})":      int(_t["suggested_cost"]),
+                    f"Delta ({_currency})":               f"{_sign} {abs(int(_delta)):,}",
+                    "Preferred floor":                    _t["preferred_floor"] or "—",
+                    "Preferred wall":                     _t["preferred_wall"]  or "—",
+                    "Source":                             _t["data_source"],
+                })
+
+            st.table(pd.DataFrame(_tpl_rows))
+
+            _total_cur  = sum(_t["current_cost"]  for _t in _dna_template.values())
+            _total_sugg = sum(_t["suggested_cost"] for _t in _dna_template.values())
+            _total_d    = _total_sugg - _total_cur
+
+            _m1, _m2, _m3 = st.columns(3)
+            _m1.metric("Current room total",  f"{_total_cur:,.0f} {_currency}")
+            _m2.metric("Suggested room total", f"{_total_sugg:,.0f} {_currency}")
+            _m3.metric("Difference", f"{_total_d:+,.0f} {_currency}", delta_color="inverse")
+
+            st.divider()
+            if not st.session_state.get("client_applied"):
+                if st.button(
+                    "Apply Template to Current Project",
+                    use_container_width=True,
+                    key="apply_dna_tab",
+                    type="primary",
+                ):
+                    from client_profile import apply_template as _apply_tpl
+                    _updated = _apply_tpl(_dna_template, st.session_state.layout)
+                    st.session_state.layout = _updated
+                    if st.session_state.selected_plan_key in st.session_state.layouts:
+                        st.session_state.layouts[st.session_state.selected_plan_key] = _updated
+                    st.session_state.client_applied = True
+                    st.toast("Client DNA template applied — floor plan and costs updated.", icon="✅")
+                    st.rerun()
+            else:
+                st.success(
+                    "Template applied to the current project. "
+                    "The floor plan heatmap and cost table reflect the client's spending habits."
+                )
+                if st.button("Re-apply Template", use_container_width=True, key="reapply_dna_tab"):
+                    from client_profile import apply_template as _apply_tpl
+                    _updated = _apply_tpl(_dna_template, st.session_state.layout)
+                    st.session_state.layout = _updated
+                    if st.session_state.selected_plan_key in st.session_state.layouts:
+                        st.session_state.layouts[st.session_state.selected_plan_key] = _updated
+                    st.toast("Template re-applied.", icon="✅")
+                    st.rerun()
+
+        elif not st.session_state.layout:
+            st.info("Upload a layout in the sidebar to generate a spending template.")
 
 # ── multi-plan comparison (all saved plans) ─────────────────────────────────
 if len(st.session_state.layouts) >= 2:
