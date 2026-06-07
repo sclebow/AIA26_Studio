@@ -1,0 +1,1399 @@
+[
+  {
+    "node": "reason",
+    "test": "R1",
+    "turn_set": "family",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 8.01,
+    "tokens_in": 427,
+    "tokens_out": 361,
+    "correct": false,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": false,
+      "graph": {
+        "programs": [],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": "Household composition: couple (42, 38) with two children (8, 5)"
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R2",
+    "turn_set": "family",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 3.35,
+    "tokens_in": 406,
+    "tokens_out": 261,
+    "correct": false,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": false,
+      "graph": {
+        "programs": [],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": "We have a medium-sized dog"
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R3",
+    "turn_set": "family",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 7.03,
+    "tokens_in": 420,
+    "tokens_out": 411,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": true,
+      "graph": {
+        "programs": [
+          "home office",
+          "office",
+          "living room"
+        ],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": "I work from home, my partner works in an office, kids play in the living room after school"
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R4",
+    "turn_set": "family",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 40.88,
+    "tokens_in": 421,
+    "tokens_out": 607,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": true,
+      "graph": {
+        "programs": [
+          "bedroom",
+          "bedroom",
+          "bedroom",
+          "bathroom",
+          "bathroom",
+          "kitchen",
+          "living room"
+        ],
+        "access_pairs": [],
+        "adjacency_pairs": [
+          [
+            "kitchen",
+            "living room"
+          ]
+        ],
+        "not_adjacency_pairs": [
+          [
+            "master bedroom",
+            "kids room"
+          ]
+        ]
+      },
+      "description": ""
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R5",
+    "turn_set": "family",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 3.49,
+    "tokens_in": 401,
+    "tokens_out": 220,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": false,
+      "graph": {
+        "programs": [],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": ""
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R1",
+    "turn_set": "single",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 7.11,
+    "tokens_in": 409,
+    "tokens_out": 418,
+    "correct": false,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": false,
+      "graph": {
+        "programs": [],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": "I live alone"
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R2",
+    "turn_set": "single",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 5.99,
+    "tokens_in": 404,
+    "tokens_out": 360,
+    "correct": false,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": false,
+      "graph": {
+        "programs": [],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": "I have a cat"
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R3",
+    "turn_set": "single",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 22.32,
+    "tokens_in": 414,
+    "tokens_out": 658,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": true,
+      "graph": {
+        "programs": [
+          "home office"
+        ],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": "User works from home full time and goes to the gym in the mornings"
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R4",
+    "turn_set": "single",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 7.23,
+    "tokens_in": 424,
+    "tokens_out": 349,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": true,
+      "graph": {
+        "programs": [
+          "bedroom",
+          "home office",
+          "kitchen",
+          "living room"
+        ],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": [
+          [
+            "bedroom",
+            "home office"
+          ]
+        ]
+      },
+      "description": ""
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R5",
+    "turn_set": "single",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 4.42,
+    "tokens_in": 403,
+    "tokens_out": 222,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": false,
+      "graph": {
+        "programs": [],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": ""
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R1",
+    "turn_set": "retired",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 5.91,
+    "tokens_in": 419,
+    "tokens_out": 360,
+    "correct": false,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": false,
+      "graph": {
+        "programs": [],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": "My husband and I are both retired, I am 68 and he is 71"
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R2",
+    "turn_set": "retired",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 7.05,
+    "tokens_in": 405,
+    "tokens_out": 352,
+    "correct": false,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": false,
+      "graph": {
+        "programs": [],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": "We have a small dog"
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R3",
+    "turn_set": "retired",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 24.02,
+    "tokens_in": 416,
+    "tokens_out": 1074,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": true,
+      "graph": {
+        "programs": [
+          "kitchen",
+          "hobby room",
+          "hobby room"
+        ],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": "Household enjoys cooking together daily, reading, and each member has a personal hobby room"
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R4",
+    "turn_set": "retired",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 7.69,
+    "tokens_in": 429,
+    "tokens_out": 417,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": true,
+      "graph": {
+        "programs": [
+          "master bedroom",
+          "kitchen",
+          "living room",
+          "hobby room",
+          "hobby room"
+        ],
+        "access_pairs": [],
+        "adjacency_pairs": [
+          [
+            "kitchen",
+            "living room"
+          ]
+        ],
+        "not_adjacency_pairs": [
+          [
+            "master bedroom",
+            "hobby room"
+          ]
+        ]
+      },
+      "description": ""
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R5",
+    "turn_set": "retired",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 3.83,
+    "tokens_in": 401,
+    "tokens_out": 190,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": false,
+      "graph": {
+        "programs": [],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": ""
+    }
+  },
+  {
+    "node": "reason_multiturn",
+    "test": "MT1",
+    "prompt_variant": "current",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 2.9,
+    "tokens_in": 408,
+    "tokens_out": 160,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": true,
+      "graph": {
+        "programs": [
+          "bedroom",
+          "bedroom",
+          "kitchen"
+        ],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": ""
+    }
+  },
+  {
+    "node": "reason_multiturn",
+    "test": "MT2",
+    "prompt_variant": "current",
+    "provider": "cloudflare",
+    "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+    "latency": 8.98,
+    "tokens_in": 420,
+    "tokens_out": 350,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": true,
+      "graph": {
+        "programs": [
+          "bedroom",
+          "bedroom",
+          "kitchen",
+          "bathroom"
+        ],
+        "access_pairs": [
+          [
+            "bedroom",
+            "bathroom"
+          ]
+        ],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": ""
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R1",
+    "turn_set": "family",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.56,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R2",
+    "turn_set": "family",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.02,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R3",
+    "turn_set": "family",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.03,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R4",
+    "turn_set": "family",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R5",
+    "turn_set": "family",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.16,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R1",
+    "turn_set": "single",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.06,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R2",
+    "turn_set": "single",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.13,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R3",
+    "turn_set": "single",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.12,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R4",
+    "turn_set": "single",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.07,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R5",
+    "turn_set": "single",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.1,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R1",
+    "turn_set": "retired",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.08,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R2",
+    "turn_set": "retired",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.09,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R3",
+    "turn_set": "retired",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.1,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R4",
+    "turn_set": "retired",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.07,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R5",
+    "turn_set": "retired",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.15,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason_multiturn",
+    "test": "MT1",
+    "prompt_variant": "current",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.25,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason_multiturn",
+    "test": "MT2",
+    "prompt_variant": "current",
+    "provider": "openai",
+    "model": "gpt-5-nano",
+    "latency": 2.15,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R1",
+    "turn_set": "family",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.61,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R2",
+    "turn_set": "family",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.86,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R3",
+    "turn_set": "family",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.61,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R4",
+    "turn_set": "family",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.79,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R5",
+    "turn_set": "family",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.87,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R1",
+    "turn_set": "single",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.63,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R2",
+    "turn_set": "single",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.66,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R3",
+    "turn_set": "single",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.71,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R4",
+    "turn_set": "single",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.78,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R5",
+    "turn_set": "single",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.75,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R1",
+    "turn_set": "retired",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.56,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R2",
+    "turn_set": "retired",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.62,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R3",
+    "turn_set": "retired",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.55,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R4",
+    "turn_set": "retired",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.65,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R5",
+    "turn_set": "retired",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.67,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason_multiturn",
+    "test": "MT1",
+    "prompt_variant": "current",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.59,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason_multiturn",
+    "test": "MT2",
+    "prompt_variant": "current",
+    "provider": "google",
+    "model": "gemini-2.5-flash-lite",
+    "latency": 2.8,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "correct": false,
+    "error": "RateLimitError",
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": null
+  },
+  {
+    "node": "reason",
+    "test": "R1",
+    "turn_set": "family",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 1.19,
+    "tokens_in": 466,
+    "tokens_out": 100,
+    "correct": false,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": false,
+      "graph": {
+        "programs": [],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": "Household of 4: two adults (ages 42 and 38) and two children (ages 8 and 5)"
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R2",
+    "turn_set": "family",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 0.98,
+    "tokens_in": 446,
+    "tokens_out": 78,
+    "correct": false,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": false,
+      "graph": {
+        "programs": [],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": "Medium-sized dog in household"
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R3",
+    "turn_set": "family",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 1.7,
+    "tokens_in": 459,
+    "tokens_out": 107,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": true,
+      "graph": {
+        "programs": [
+          "home office",
+          "living room"
+        ],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": "User works from home and needs a dedicated home office. Partner works in an office outside the home. Children play in the living room after school."
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R4",
+    "turn_set": "family",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 1.53,
+    "tokens_in": 464,
+    "tokens_out": 119,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": true,
+      "graph": {
+        "programs": [
+          "bedroom",
+          "bedroom",
+          "bedroom",
+          "bathroom",
+          "bathroom",
+          "kitchen",
+          "living room"
+        ],
+        "access_pairs": [],
+        "adjacency_pairs": [
+          [
+            "kitchen",
+            "living room"
+          ]
+        ],
+        "not_adjacency_pairs": [
+          [
+            "bedroom",
+            "bedroom"
+          ]
+        ]
+      },
+      "description": "Master bedroom should not be adjacent to kids' bedrooms."
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R5",
+    "turn_set": "family",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 0.89,
+    "tokens_in": 440,
+    "tokens_out": 71,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": false,
+      "graph": {
+        "programs": [],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": ""
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R1",
+    "turn_set": "single",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 7.29,
+    "tokens_in": 447,
+    "tokens_out": 79,
+    "correct": false,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": false,
+      "graph": {
+        "programs": [],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": "Single occupant, age 35"
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R2",
+    "turn_set": "single",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 12.21,
+    "tokens_in": 443,
+    "tokens_out": 75,
+    "correct": false,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": false,
+      "graph": {
+        "programs": [],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": "Has a cat"
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R3",
+    "turn_set": "single",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 12.32,
+    "tokens_in": 454,
+    "tokens_out": 87,
+    "correct": false,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": false,
+      "graph": {
+        "programs": [],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": "User works from home full time and goes to the gym in the mornings."
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R4",
+    "turn_set": "single",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 11.36,
+    "tokens_in": 463,
+    "tokens_out": 92,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": true,
+      "graph": {
+        "programs": [
+          "bedroom",
+          "home office",
+          "kitchen",
+          "living room"
+        ],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": [
+          [
+            "home office",
+            "bedroom"
+          ]
+        ]
+      },
+      "description": ""
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R5",
+    "turn_set": "single",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 13.29,
+    "tokens_in": 442,
+    "tokens_out": 71,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": false,
+      "graph": {
+        "programs": [],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": ""
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R1",
+    "turn_set": "retired",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 11.33,
+    "tokens_in": 457,
+    "tokens_out": 83,
+    "correct": false,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": false,
+      "graph": {
+        "programs": [],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": "Retired couple, ages 68 and 71"
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R2",
+    "turn_set": "retired",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 12.42,
+    "tokens_in": 444,
+    "tokens_out": 76,
+    "correct": false,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": false,
+      "graph": {
+        "programs": [],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": "Small dog in household"
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R3",
+    "turn_set": "retired",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 11.73,
+    "tokens_in": 455,
+    "tokens_out": 113,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": true,
+      "graph": {
+        "programs": [
+          "kitchen",
+          "living room",
+          "hobby room",
+          "hobby room"
+        ],
+        "access_pairs": [],
+        "adjacency_pairs": [
+          [
+            "kitchen",
+            "living room"
+          ]
+        ],
+        "not_adjacency_pairs": []
+      },
+      "description": "Household enjoys cooking together daily and reading. Two separate hobby rooms needed for individual hobbies."
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R4",
+    "turn_set": "retired",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 11.83,
+    "tokens_in": 469,
+    "tokens_out": 104,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": true,
+      "graph": {
+        "programs": [
+          "bedroom",
+          "kitchen",
+          "living room",
+          "hobby room",
+          "hobby room"
+        ],
+        "access_pairs": [],
+        "adjacency_pairs": [
+          [
+            "kitchen",
+            "living room"
+          ]
+        ],
+        "not_adjacency_pairs": [
+          [
+            "bedroom",
+            "hobby room"
+          ]
+        ]
+      },
+      "description": ""
+    }
+  },
+  {
+    "node": "reason",
+    "test": "R5",
+    "turn_set": "retired",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 12.37,
+    "tokens_in": 440,
+    "tokens_out": 71,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": false,
+      "graph": {
+        "programs": [],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": ""
+    }
+  },
+  {
+    "node": "reason_multiturn",
+    "test": "MT1",
+    "prompt_variant": "current",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 11.35,
+    "tokens_in": 449,
+    "tokens_out": 79,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": true,
+      "graph": {
+        "programs": [
+          "bedroom",
+          "bedroom",
+          "kitchen"
+        ],
+        "access_pairs": [],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": ""
+    }
+  },
+  {
+    "node": "reason_multiturn",
+    "test": "MT2",
+    "prompt_variant": "current",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5",
+    "latency": 12.43,
+    "tokens_in": 456,
+    "tokens_out": 89,
+    "correct": true,
+    "error": null,
+    "system_prompt": "You are an architect assistant preparing search input for layout retrieval. Return one JSON object with exactly this shape: {\"latest_prompt_useful\":true,\"graph\":{\"programs\":[],\"access_pairs\":[],\"adjacency_pairs\":[],\"not_adjacency_pairs\":[]},\"description\":\"\"}. Use only JSON, with no explanation.\nRules:\n- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n- Return the full updated summary, not just a delta.\n- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n- graph.access_pairs contains pairs of program names that should be connected by doors.\n- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n- For now, description is only for household information, furniture or furnishing preferences, and other non-graph constraints that do not fit the graph fields.\n- Do not restate room programs, room counts, or room relationships in description when they are already represented in graph.\n- If no summary exists yet, build it from the latest user input.\n- Do not invent missing information.\n",
+    "response": {
+      "latest_prompt_useful": true,
+      "graph": {
+        "programs": [
+          "bedroom",
+          "bedroom",
+          "kitchen",
+          "bathroom"
+        ],
+        "access_pairs": [
+          [
+            "bedroom",
+            "bathroom"
+          ]
+        ],
+        "adjacency_pairs": [],
+        "not_adjacency_pairs": []
+      },
+      "description": ""
+    }
+  }
+]
