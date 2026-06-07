@@ -149,6 +149,48 @@ Do these in order:
 
 If `main.py` cannot reach the MCP server, confirm Grasshopper is running and `mcp.json` points at the correct HTTP endpoint.
 
+### Team 06 local UI run
+
+Team 06 now has a frontend plus a FastAPI backend.
+
+Recommended one-command startup on Windows:
+
+```powershell
+cd team_06
+.\start_local.ps1
+```
+
+If PowerShell execution policy blocks scripts:
+
+```powershell
+cd team_06
+.\start_local.cmd
+```
+
+This opens two terminals:
+
+- backend on `http://127.0.0.1:8000`
+- frontend via Vite in `team_06/frontend`
+
+Manual startup is also available:
+
+```powershell
+cd team_06/python
+python main.py
+```
+
+```powershell
+cd team_06/frontend
+npm run dev
+```
+
+For Team 06 terminal-only prompting, keep using CLI mode explicitly:
+
+```powershell
+cd team_06/python
+python main.py --prompt "I want a 2 bedroom apartment"
+```
+
 ### Per-team directory layout
 
 Replace `team_01` with your folder (`team_02`, …).

@@ -205,6 +205,7 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
     updated_session = {
     "layout_json_string": final_state.get("layout_json_string"),
     "layout_id": final_state.get("layout_id"),
+    "input_layout_json_string": final_state.get("input_layout_json_string"),
     "topology_graph_json_string": final_state.get("topology_graph_json_string"),
     "feedback_history": final_state.get("feedback_history", []),
     "needs_user_input": final_state.get("needs_user_input", False),
@@ -229,8 +230,8 @@ def _build_initial_state(prompt: str, ctx: Any, session: dict | None = None) -> 
     if not layout_json:
         layout_json = json.dumps(getattr(ctx, "layout_data", {}), indent=2)
 
-    input_layout_json = None
-    if hasattr(ctx, 'input_layout_path') and ctx.input_layout_path:
+    input_layout_json = session.get("input_layout_json_string")
+    if input_layout_json is None and hasattr(ctx, 'input_layout_path') and ctx.input_layout_path:
         try:
             with open(ctx.input_layout_path, 'r') as f:
                 input_layout_json = json.dumps(json.load(f))

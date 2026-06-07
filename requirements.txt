@@ -12,3 +12,6 @@ shapely
 matplotlib
 seaborn
 numpy
+fastapi
+uvicorn
+python-multipart
