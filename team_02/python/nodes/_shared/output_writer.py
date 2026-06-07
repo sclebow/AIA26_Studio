@@ -40,6 +40,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from nodes._shared.utils import persona_display_label
+
 _SOURCE_TAG = "Sensi"
 
 
@@ -60,8 +62,10 @@ def write_analysis_to_layout(state: dict, layout_output_dir: Path) -> None:
         print("[output_writer] Could not parse layout JSON: {}".format(exc))
         return
 
-    persona   = state.get("persona_detected", "Neutral")
-    depth     = state.get("comfort_depth", "analyze")
+    # persona_detected / comfort_depth were removed in v4 — use the live fields, so the
+    # written metadata reflects the real persona + action (not a "Neutral"/"analyze" stub).
+    persona   = persona_display_label(state.get("persona_profile") or {}) or "Neutral"
+    depth     = state.get("action") or "analyze"
     layout_id = state.get("layout_id", "")
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 

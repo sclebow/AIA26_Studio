@@ -1,6 +1,6 @@
 """
 DETAIL_RESPOND node — answers specific follow-up questions about the current analysis.
-Reached when intent="follow_up": user is asking about existing results, not requesting
+Reached when action="follow_up": user is asking about existing results, not requesting
 a new analysis run. Has full access to all cached data and specialist interpretations.
 No length restriction — answers as thoroughly as the question requires.
 """

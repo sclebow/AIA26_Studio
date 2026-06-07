@@ -68,7 +68,7 @@ flowchart TB
 
     %% ── ⑤ EDIT TOOLS — multi-edit: N ops in one turn, ONE re-score ───────────
     subgraph EDITS["⑤ EDIT TOOLS — decompose → mutate all → re-score → compare"]
-        EDIT_PLANNER["EDIT_PLalANNER<br/>prompt → ops list<br/>'add 2 plants and change glazing' → 2 ops"]:::llm
+        EDIT_PLANNER["EDIT_PLANNER<br/>prompt → ops list<br/>'add 2 plants and change glazing' → 2 ops"]:::llm
         APPLY_EDITS["APPLY_EDITS<br/>mutate every op · accumulate layout_diffs"]:::py
         COMPARE_VERSIONS["COMPARE_VERSIONS<br/>before/after delta per sense"]:::py
         PREVIEW["PREVIEW — 'what if'<br/>score a CLONE · predicted ripple · NOT committed"]:::tool
@@ -100,7 +100,7 @@ flowchart TB
         direction TB
         REPORT_API["/api/report<br/>scores → a prompt per room"]:::report
         RENDER["/api/render-room<br/>prompt + scores → rendered room"]:::report
-        COMPARE["before / after<br/>compare-room · compare-initial"]:::report
+        COMPARE["before / after · initial → now<br/>/api/compare-initial"]:::report
         IMG_MODEL{{"image generation<br/>Google Nano Banana · OpenAI gpt-image-1"}}:::vision
         EXPORTS[("download<br/>PNG · JSON: edited layout + scores + prompts")]:::output
         REPORT_API --> RENDER --> IMG_MODEL
@@ -175,4 +175,4 @@ flowchart TB
     ANALYZE -.->|"caches scores"| SESSION
     SESSION -.->|"later · user opens The Vision · reads scores"| REPORT_API
     SESSION -.->|"scores + room attributes"| RENDER
-    SESSION -.->|"current layout + last edit"| COMPARE
+    SESSION -.->|"current layout (vs the initial on-disk)"| COMPARE

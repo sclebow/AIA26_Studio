@@ -31,6 +31,7 @@ docs/
 - [image-output-phase1.md](week08/image-output-phase1.md) — generative per-room "feeling" render (FocusCard), IMAGE_PROVIDER google/openai.
 - [image-output-phase2.md](week08/image-output-phase2.md) — before/after wipe slider + per-sense deltas (historical; the per-edit `/api/compare-room` it describes was later removed — before/after is now always initial → now via `/api/compare-initial`).
 - [image-provider-benchmark.md](week08/image-provider-benchmark.md) — Google vs OpenAI head-to-head (latency/cost/visual); committed to Google. Samples in benchmark/.
+- [edit-checkpoints-interactive.md](week08/edit-checkpoints-interactive.md) — multi-edit (edit_planner→apply_edits), Checkpoints (working draft → commit/restore, Vision = committed), and interactive answers (linkify + bidirectional cross-highlighting).
 - [reference/report-vision-pipeline.md](reference/report-vision-pipeline.md) — current consolidated overview of the Report/Vision (model, prompts, scoring, before/after, exports).
 
 ## Tooling (root)

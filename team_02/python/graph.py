@@ -59,7 +59,7 @@ LAYOUT MODE FLOW (v4)
   └────────────────────────────────────────────────────────────────────────────┘
   ┌─ INSIGHT TOOLS ────────────────────────────────────────────────────────────┐
   │  topologic  → topologic_analysis → respond → evaluator → what_next        │
-  │  biophilic  → biophilic_audit → [add_furniture if plants_needed]          │
+  │  biophilic  → biophilic_audit → [apply_edits if plants_needed]            │
   │               → analyze → compare_versions → score_interpreter → respond  │
   │  compare    → persona_comparison → score_interpreter → respond            │
   └────────────────────────────────────────────────────────────────────────────┘

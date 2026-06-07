@@ -301,7 +301,7 @@ def _apply_overrides(llm: Any, provider: str | None, model: str | None) -> Any:
 
 # ---------------------------------------------------------------------------
 # Simple LLM call — no tool catalog, just system + user message → string
-# Used by chitchat, respond, and route_intent nodes.
+# Used by chitchat, respond, and other free-text reasoning nodes.
 # ---------------------------------------------------------------------------
 
 def _strip_think_tags(text: str) -> str:

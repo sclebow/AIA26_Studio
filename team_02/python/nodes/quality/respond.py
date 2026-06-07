@@ -246,9 +246,8 @@ def build_respond_node(llm):
     """Return the respond node function, capturing the LLM instance."""
 
     def respond_node(state):
-        # Persona: flat schema (persona_compiler v2) with legacy fallback
+        # Persona: flat schema (persona_compiler v2); plain fallback if absent.
         persona_profile  = state.get("persona_profile") or {}
-        persona_detected = state.get("persona_detected", "")
         user_name_state  = state.get("user_name", "")
 
         if persona_profile:
@@ -271,7 +270,7 @@ def build_respond_node(llm):
                 parts.append(f"comfort weights: {wt_str}")
             persona = "; ".join(parts)
         else:
-            persona  = persona_detected or "Neutral"
+            persona  = "Neutral"
             p_name   = user_name_state or "User"
             p_role   = state.get("user_type", "client")
 
