@@ -1,8 +1,17 @@
 from __future__ import annotations
 import json
 import math
+import sys
 from pathlib import Path
 from typing import Any, TypedDict
+
+
+def _safe_input(prompt: str, default: str = "") -> str:
+    """Return `default` silently when stdin is not a terminal (orchestrator / headless mode)."""
+    if not sys.stdin.isatty():
+        print(f"{prompt}{default}  [auto]")
+        return default
+    return input(prompt)
 from langgraph.graph import END, START, StateGraph
 from nodes.reason import build_reason_node
 from nodes.modify import build_modify_node, DEFAULT_SECTIONS, BEAM_SECTION_UPGRADE, COL_SECTION_UPGRADE
@@ -153,7 +162,7 @@ def build_generate_grid_node(edited_layout_path):
                 )
                 print(f"  {i+1}. {n_cols} columns · {n_beams} beams · max span {round(max_span, 2)}m")
             while True:
-                raw = input(f"Choose option [1-{len(options)}, Enter=1]: ").strip()
+                raw = _safe_input(f"Choose option [1-{len(options)}, Enter=1]: ", "").strip()
                 if not raw:
                     chosen = options[0]
                     print("[generate_grid] Using option 1")
@@ -205,9 +214,9 @@ def build_graph(ctx: Any) -> Any:
     return graph.compile()
 
 
-def run_agent(prompt: str, ctx: Any) -> str:
+def run_agent(prompt: str, ctx: Any, layout_data: dict | None = None) -> tuple[str, str | None]:
     app = build_graph(ctx)
-    initial_state = _build_initial_state(prompt, ctx)
+    initial_state = _build_initial_state(prompt, ctx, layout_data=layout_data)
     final_state = app.invoke(initial_state)
 
     # Persist material override to JSON after graph completes (survives multiple modify cycles)
@@ -312,7 +321,8 @@ def run_agent(prompt: str, ctx: Any) -> str:
         live_load_kNm2=final_state.get("live_load_kNm2"),
     )
 
-    return final_response
+    edited_layout_json = final_state.get("layout_json_string") or None
+    return final_response, edited_layout_json
 
 
 def _write_evaluation_report(
@@ -508,9 +518,13 @@ def _load_all_layouts() -> list[dict[str, Any]]:
     return all_layouts
 
 
-def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
+def _build_initial_state(prompt: str, ctx: Any, layout_data: dict | None = None) -> AgentState:
+    # Orchestrator-provided layout wins over everything — no menu shown
+    if layout_data is not None:
+        layouts = [layout_data]
+        print(f"[layout] Using orchestrator-provided layout: {layout_data.get('layoutId', '?')}")
     # Prefer the edited layout (current working state with structure) if it exists
-    if ctx.edited_layout_path.exists():
+    elif ctx.edited_layout_path.exists():
         edited = json.loads(ctx.edited_layout_path.read_text(encoding="utf-8"))
         layouts = [edited]
     else:
@@ -524,7 +538,7 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
                 tag = " [has structure]" if has_structure else ""
                 print(f"  {i+1}. {lid}  ({n_rooms} rooms){tag}")
             while True:
-                raw = input(f"Choose layout [1-{len(layouts)}, Enter=1]: ").strip()
+                raw = _safe_input(f"Choose layout [1-{len(layouts)}, Enter=1]: ", "").strip()
                 if not raw:
                     layouts = [layouts[0]]
                     print(f"[layout] Using {layouts[0].get('layoutId', 'layout-1')}")

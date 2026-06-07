@@ -2,7 +2,16 @@ from __future__ import annotations
 import json
 import math
 import re
+import sys
 from pathlib import Path
+
+
+def _safe_input(prompt: str, default: str = "") -> str:
+    """Return `default` silently when stdin is not a terminal (orchestrator / headless mode)."""
+    if not sys.stdin.isatty():
+        print(f"{prompt}{default}  [auto]")
+        return default
+    return input(prompt)
 from nodes.comparison import print_diff
 
 SETTINGS_PATH = Path(__file__).parent.parent.parent / "team_01_settings.json"
@@ -658,6 +667,30 @@ def _detect_find_min(messages: list) -> str | None:
 
 def _ask_sdl_ll(state: dict) -> None:
     """Prompt for SDL and LL, update state in place, and persist to settings."""
+    _pt = _get_user_request(state.get("messages", [])).upper()
+
+    # Derive SDL default from prompt keywords (headless mode only; ignored when interactive)
+    if any(k in _pt for k in ["LIGHT TIMBER", "LIGHT WOOD", "TIMBER FLOOR", "WOOD FLOOR"]):
+        _sdl_default = "1"
+    elif any(k in _pt for k in ["LIGHT CONCRETE", "THIN SLAB"]):
+        _sdl_default = "2"
+    elif any(k in _pt for k in ["HEAVY FLOOR", "HEAVY SLAB", "HEAVY BUILD", "RAISED FLOOR", "THICK SLAB"]):
+        _sdl_default = "4"
+    elif "STANDARD" in _pt:
+        _sdl_default = "3"
+    else:
+        _sdl_default = ""   # keep current
+
+    # Derive LL default from occupancy keywords
+    if any(k in _pt for k in ["RESIDENTIAL", "APARTMENT", "APARTMENTS", "HOME", "HOMES", "HOUSING", "DOMESTIC", "LIVING"]):
+        _ll_default = "1"
+    elif any(k in _pt for k in ["OFFICE", "OFFICES", "WORKPLACE", "WORK SPACE", "CO-WORKING"]):
+        _ll_default = "2"
+    elif any(k in _pt for k in ["RETAIL", "SHOP", "SHOPPING", "PUBLIC", "COMMERCIAL", "STORE", "MARKET"]):
+        _ll_default = "3"
+    else:
+        _ll_default = ""   # keep current
+
     cur_sdl = state.get("sdl_kNm2") or SDL_KNM2
     print(f"\nWhat kind of floor build-up are you designing? [current: {cur_sdl} kN/m²]")
     print("  1. Light timber floor — 1.5 kN/m²  (wood framing, light finishes)")
@@ -665,7 +698,7 @@ def _ask_sdl_ll(state: dict) -> None:
     print("  3. Standard           — 3.5 kN/m²  (125mm slab + finishes + partitions)")
     print("  4. Heavy              — 5.0 kN/m²  (thick slab, heavy finishes, raised floor)")
     print("  [Enter] — keep current")
-    raw_sdl = input("Your choice [1-4 or Enter]: ").strip()
+    raw_sdl = _safe_input("Your choice [1-4 or Enter]: ", _sdl_default).strip()
     state["sdl_kNm2"] = {"1": 1.5, "2": 2.5, "3": 3.5, "4": 5.0}.get(raw_sdl, cur_sdl)
     print(f"  Floor load: {state['sdl_kNm2']} kN/m²")
 
@@ -675,7 +708,7 @@ def _ask_sdl_ll(state: dict) -> None:
     print("  2. Offices             — 3.0 kN/m²")
     print("  3. Retail / public     — 5.0 kN/m²")
     print("  [Enter] — keep current")
-    raw_ll = input("Your choice [1-3 or Enter]: ").strip()
+    raw_ll = _safe_input("Your choice [1-3 or Enter]: ", _ll_default).strip()
     state["live_load_kNm2"] = {"1": 2.0, "2": 3.0, "3": 5.0}.get(raw_ll, cur_ll)
     print(f"  Live load: {state['live_load_kNm2']} kN/m²")
 
@@ -1010,14 +1043,16 @@ def build_evaluate_node(llm):
                 print(f"  {i}. {mat:6s} — beam {beam_disp} | col {col_disp}{marker}")
             print("  4. Right-size sections — find the minimum that still works")
             print("  [Enter] — keep current")
-            raw = input("Your choice [1/2/3/4 or RCC/STEEL/TIMBER]: ").strip().upper()
+            _pt = _get_user_request(state.get("messages", [])).upper()
+            _mat_default = next((m for m in BASE_MATERIALS if m in _pt), "")
+            raw = _safe_input("Your choice [1/2/3/4 or RCC/STEEL/TIMBER]: ", _mat_default).strip().upper()
             lookup = {"1": "RCC", "2": "STEEL", "3": "TIMBER"}
             if raw == "4":
                 print("\nWhich material should I optimise for?")
                 for i, mat in enumerate(BASE_MATERIALS, 1):
                     xs_sec = DEFAULT_SECTIONS.get(f"{mat}_XS", DEFAULT_SECTIONS[mat])
                     print(f"  {i}. {mat:6s} — starting from {xs_sec['beam_width_mm']}x{xs_sec['beam_depth_mm']}mm beams | {xs_sec['col_dims']}mm cols")
-                raw2 = input("Your choice [1/2/3 or RCC/STEEL/TIMBER]: ").strip().upper()
+                raw2 = _safe_input("Your choice [1/2/3 or RCC/STEEL/TIMBER]: ", "TIMBER").strip().upper()
                 selected = lookup.get(raw2) or (raw2 if raw2 in BASE_MATERIALS else None) or "RCC"
                 state["material_override"] = selected
                 _ask_sdl_ll(state)
@@ -1072,7 +1107,7 @@ def build_evaluate_node(llm):
                     f"(beams {next_sec['beam_width_mm']}x{next_sec['beam_depth_mm']}mm "
                     f"| cols {next_sec['col_dims']}mm)?"
                 )
-                if input("Try it? [y/N]: ").strip().lower() == "y":
+                if _safe_input("Try it? [y/N]: ", "y").strip().lower() == "y":
                     state["evaluation_result"] = json.dumps(result)
                     state["pending_structural_change"] = {"type": "tier_upgrade", "tier": next_tier}
                     state["layout_before_change"] = layout_str
@@ -1135,7 +1170,7 @@ def build_evaluate_node(llm):
                 status = "PASS" if ws.get("overall_PASS", True) else "FAIL"
                 print(f"\nWhat-if result: {status}. Apply removal of {', '.join(remove_cols)} permanently?")
                 print("  Connected beams will be merged across the removed column.")
-                if input("Apply? [y/N]: ").strip().lower() == "y":
+                if _safe_input("Apply? [y/N]: ", "n").strip().lower() == "y":
                     state["evaluation_result"] = json.dumps(result)
                     state["pending_structural_change"] = {
                         "type":       "remove_element",
@@ -1179,7 +1214,7 @@ def build_evaluate_node(llm):
                 print("  Removing a beam eliminates its load path between the two endpoint columns.")
                 print("  Adjacent parallel beams will carry additional tributary load.")
                 print("  Re-evaluation will run automatically after removal.")
-                if input(f"\nRemove {b_list} permanently? [y/N]: ").strip().lower() == "y":
+                if _safe_input(f"\nRemove {b_list} permanently? [y/N]: ", "n").strip().lower() == "y":
                     state["evaluation_result"] = json.dumps(result)
                     state["pending_structural_change"] = {
                         "type":       "remove_element",
@@ -1277,7 +1312,7 @@ def build_evaluate_node(llm):
                         print(f"     {payload['note']}")
                 print("  [Enter] — keep as-is")
 
-                raw_choice = input("Choice [1-N, comma-separated or range, or Enter]: ").strip()
+                raw_choice = _safe_input("Choice [1-N, comma-separated or range, or Enter]: ", "").strip()
                 if raw_choice:
                     tokens = []
                     for part in raw_choice.replace(" ", ",").split(","):
@@ -1316,7 +1351,7 @@ def build_evaluate_node(llm):
                 print(f"  {i}. {alt}")
             print("  [Enter or text] — describe what you'd like to change")
 
-            raw = input("Choice: ").strip()
+            raw = _safe_input("Choice: ", "1").strip()
             if raw.isdigit():
                 idx = int(raw) - 1
                 chosen = alts[idx] if 0 <= idx < len(alts) else raw

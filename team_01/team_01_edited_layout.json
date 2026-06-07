@@ -694,6 +694,38 @@
       }
     },
     {
+      "id": "D2",
+      "name": "Col_D2",
+      "geometry": [
+        [
+          5.8,
+          1.5
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "material": "TIMBER",
+        "conflict": null,
+        "dimensions": "100x100"
+      }
+    },
+    {
+      "id": "D3",
+      "name": "Col_D3",
+      "geometry": [
+        [
+          5.8,
+          1.75
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "material": "TIMBER",
+        "conflict": null,
+        "dimensions": "100x100"
+      }
+    },
+    {
       "id": "D5",
       "name": "Col_D5",
       "geometry": [
@@ -1078,6 +1110,30 @@
       }
     },
     {
+      "id": "D1-D2",
+      "name": "Beam_D1-D2",
+      "geometry": [
+        [
+          5.8,
+          0
+        ],
+        [
+          5.8,
+          1.5
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "length": 1.5,
+        "isWallAligned": null,
+        "structuralRole": null,
+        "material": "TIMBER",
+        "conflict": null,
+        "depth": "240",
+        "width": "100"
+      }
+    },
+    {
       "id": "D1-E1",
       "name": "Beam_D1-E1",
       "geometry": [
@@ -1099,6 +1155,78 @@
         "conflict": null,
         "depth": "240",
         "width": "100"
+      }
+    },
+    {
+      "id": "D2-D3",
+      "name": "Beam_D2-D3",
+      "geometry": [
+        [
+          5.8,
+          1.5
+        ],
+        [
+          5.8,
+          1.75
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "length": 0.25,
+        "isWallAligned": null,
+        "structuralRole": null,
+        "material": "TIMBER",
+        "conflict": null,
+        "depth": "240",
+        "width": "100"
+      }
+    },
+    {
+      "id": "D2-E2",
+      "name": "Beam_D2-E2",
+      "geometry": [
+        [
+          5.8,
+          1.5
+        ],
+        [
+          9.3,
+          1.5
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "length": 3.5,
+        "isWallAligned": null,
+        "structuralRole": null,
+        "material": "TIMBER",
+        "conflict": null,
+        "depth": "240",
+        "width": "100"
+      }
+    },
+    {
+      "id": "D3-D5",
+      "name": "Beam_D3-D5",
+      "geometry": [
+        [
+          5.8,
+          1.75
+        ],
+        [
+          5.8,
+          5.5
+        ]
+      ],
+      "attributes": {
+        "type": "internal",
+        "length": 3.75,
+        "isWallAligned": null,
+        "structuralRole": null,
+        "material": "TIMBER",
+        "conflict": null,
+        "depth": "300",
+        "width": "120"
       }
     },
     {
@@ -1414,27 +1542,27 @@
       }
     },
     {
-      "id": "D1-D2",
-      "name": "Beam_D1-D2",
+      "id": "B3-C3",
+      "name": "Beam_B3-C3",
       "geometry": [
         [
-          5.8,
-          0
+          3.2,
+          1.75
         ],
         [
           5.8,
-          5.5
+          1.75
         ]
       ],
       "attributes": {
         "type": "internal",
-        "length": 1.5,
+        "length": 0.3,
         "isWallAligned": null,
         "structuralRole": null,
         "material": "TIMBER",
         "conflict": null,
-        "depth": "360",
-        "width": "150"
+        "depth": "240",
+        "width": "100"
       }
     }
   ]
