@@ -17,12 +17,12 @@ import pandas as pd
 
 # ── column name aliases ────────────────────────────────────────────────────────
 _COL_ALIASES: dict[str, list[str]] = {
-    "room":         ["room", "room_name", "name", "space", "room name"],
+    "room":         ["room", "room_name", "room name", "name", "space"],
     "category":     ["category", "type", "room_type", "room type"],
     "area":         ["area", "area_m2", "area (m2)", "area(m2)", "size", "sqm", "m2"],
-    "cost":         ["cost", "total_cost", "total", "budget", "amount",
+    "cost":         ["cost", "total_cost", "total cost", "total", "budget", "amount",
                      "cost ($)", "cost (aed)", "cost (usd)", "cost (eur)", "construction cost"],
-    "rate":         ["rate", "rate_per_m2", "rate/m2", "rate ($/m2)", "rate per m2", "rate per sqm"],
+    "rate":         ["rate", "rate_per_m2", "rate/m2", "rate ($/m2)", "rate per m2", "rate (aed/m2)", "rate per sqm"],
     "floor_finish": ["floor_finish", "floor finish", "floor", "floor material", "flooring"],
     "wall_finish":  ["wall_finish", "wall finish", "wall", "wall material", "walls"],
     "ceiling":      ["ceiling", "ceiling_material", "ceiling finish", "ceiling material"],
@@ -135,9 +135,13 @@ def analyze_profiles(datasets: list[list[dict]]) -> dict:
     cat_ceilings: dict[str, list[str]]   = defaultdict(list)
     project_totals: list[float] = []
 
+    project_areas: list[float] = []
+
     for dataset in datasets:
         proj_total = sum(r["total_cost"] for r in dataset)
+        proj_area  = sum(r["area_m2"]    for r in dataset)
         project_totals.append(proj_total)
+        project_areas.append(proj_area)
         for r in dataset:
             cat = r["category"]
             if r["rate_per_m2"] > 0:
@@ -154,6 +158,8 @@ def analyze_profiles(datasets: list[list[dict]]) -> dict:
                 cat_ceilings[cat].append(r["ceiling"])
 
     avg_total = sum(project_totals) / len(project_totals) if project_totals else 0
+    avg_area  = sum(project_areas)  / len(project_areas)  if project_areas  else 0
+    avg_cost_per_m2 = round(avg_total / avg_area, 0) if avg_area > 0 else 0
 
     def _top(lst: list, n: int = 2) -> list[str]:
         return [x for x, _ in Counter(lst).most_common(n)] if lst else []
@@ -181,6 +187,8 @@ def analyze_profiles(datasets: list[list[dict]]) -> dict:
     return {
         "num_projects":      len(datasets),
         "avg_total_budget":  round(avg_total, 0),
+        "avg_cost_per_m2":   avg_cost_per_m2,
+        "avg_total_area_m2": round(avg_area, 1),
         "project_totals":    [round(t, 0) for t in project_totals],
         "categories":        categories,
         "ranked_categories": [cat for cat, _ in ranked],
@@ -192,16 +200,17 @@ def generate_summary(profile: dict) -> str:
     if not profile:
         return "_No profile data available._"
 
-    n      = profile.get("num_projects", 0)
-    avg    = profile.get("avg_total_budget", 0)
-    ranked = profile.get("ranked_categories", [])
-    cats   = profile.get("categories", {})
-    totals = profile.get("project_totals", [])
+    n             = profile.get("num_projects", 0)
+    avg           = profile.get("avg_total_budget", 0)
+    avg_per_m2    = profile.get("avg_cost_per_m2", 0)
+    ranked        = profile.get("ranked_categories", [])
+    cats          = profile.get("categories", {})
+    totals        = profile.get("project_totals", [])
 
     lines = [
         f"**Client Spending Profile** _(based on {n} past project{'s' if n != 1 else ''})_",
         "",
-        f"Average project budget: **{avg:,.0f}**",
+        f"Average project budget: **{avg:,.0f}** · **{avg_per_m2:,.0f} per m²**",
     ]
     if len(totals) > 1:
         spread = max(totals) - min(totals)
@@ -210,16 +219,16 @@ def generate_summary(profile: dict) -> str:
         )
 
     if ranked:
-        lines += ["", "**Where the money goes:**"]
+        lines += ["", "**Spending breakdown:**"]
         for cat in ranked[:6]:
             info   = cats.get(cat, {})
             pct    = info.get("avg_budget_pct", 0)
             rate   = info.get("avg_rate_per_m2", 0)
             floors = info.get("preferred_floor", [])
-            bar    = "█" * max(1, int(pct / 4)) + "░" * max(0, 25 - int(pct / 4))
-            finish = f"  ·  prefers _{', '.join(floors)}_" if floors else ""
+            finish = f", with a preference for {floors[0]} floors" if floors else ""
             lines.append(
-                f"  **{cat.capitalize()}** {bar} {pct:.0f}%  ·  {rate:,.0f}/m²{finish}"
+                f"  • **{cat.capitalize()}** takes up {pct:.0f}% of the budget "
+                f"at an average of {rate:,.0f}/m²{finish}."
             )
 
     patterns = []
@@ -258,6 +267,11 @@ def propose_template(profile: dict, layout: dict) -> dict:
     for room in rooms:
         raw_cat       = room.get("category", room.get("name", "other"))
         cat_norm      = _normalise_category(raw_cat)
+        # If the category is generic ("common"/"other"), try the room name for a better match
+        if cat_norm in ("common", "other"):
+            name_cat = _normalise_category(room.get("name", ""))
+            if name_cat not in ("common", "other"):
+                cat_norm = name_cat
         info          = cats.get(cat_norm, {})
         current_rate  = room.get("rate_per_m2", 0)
         suggested_rate = info.get("avg_rate_per_m2", current_rate)

@@ -808,24 +808,6 @@ with st.sidebar:
     )
 
     
-    # Process Uploads
-    if uploads:
-        for uploaded in uploads:
-            # Skip files that are likely schema/definitions
-            if "schema" in uploaded.name:
-                continue
-                
-            try:
-                loaded_layout = json.load(uploaded)
-                # Only save if it actually contains rooms
-                if "rooms" in loaded_layout:
-                    plan_key = _unique_plan_key(st.session_state.layouts, uploaded.name)
-                    st.session_state.layouts[plan_key] = loaded_layout
-                else:
-                    st.warning(f"Skipped {uploaded.name}: No 'rooms' data found.")
-            except Exception as e:
-                st.error(f"Failed to parse {uploaded.name}: {e}")
-
     # 1. Global Sensitivity Engine (Top-level, stable location)
     st.divider()
     st.markdown("### Global Sensitivity Engine")
@@ -841,20 +823,24 @@ with st.sidebar:
         "carbon_tax": st.session_state.carbon_tax
     }
 
-    # 2. File Processing
+    # 2. File Processing — load each file exactly once per session (name-stable dedup)
     if uploads:
         uploaded_ids = set(st.session_state._uploaded_ids)
         added_count = 0
         failed_names: list[str] = []
         for uploaded in uploads:
-            file_uid = getattr(uploaded, "file_id", uploaded.name)
+            file_uid = uploaded.name  # stable across reruns; file_id changes every rerun
             if file_uid in uploaded_ids:
                 continue
             if len(st.session_state.layouts) >= 5:
                 st.warning("Maximum 5 plans can be saved at once.")
                 break
             try:
+                uploaded.seek(0)
                 loaded_layout = json.load(uploaded)
+                if "rooms" not in loaded_layout:
+                    uploaded_ids.add(file_uid)  # mark seen; skip silently (likely a schema def file)
+                    continue
                 plan_key = _unique_plan_key(st.session_state.layouts, uploaded.name)
                 st.session_state.layouts[plan_key] = loaded_layout
                 uploaded_ids.add(file_uid)
@@ -970,13 +956,20 @@ with st.sidebar:
             "Apply to Current Project", use_container_width=True, key="apply_dna_sidebar"
         ):
             from client_profile import propose_template, apply_template
+            _old_total = sum(r.get("total_cost", 0) for r in st.session_state.layout.get("rooms", []))
             _tmpl = propose_template(st.session_state.client_profile, st.session_state.layout)
             st.session_state.client_template = _tmpl
             _updated = apply_template(_tmpl, st.session_state.layout)
+            _new_total = sum(r.get("total_cost", 0) for r in _updated.get("rooms", []))
             st.session_state.layout = _updated
-            if st.session_state.selected_plan_key in st.session_state.layouts:
-                st.session_state.layouts[st.session_state.selected_plan_key] = _updated
+            _active_key = st.session_state.selected_plan_key
+            if _active_key:
+                st.session_state.layouts[_active_key] = _updated
             st.session_state.client_applied = True
+            st.toast(
+                f"Client DNA applied — total changed from {_old_total:,.0f} to {_new_total:,.0f}",
+                icon="✅",
+            )
             st.rerun()
 
 # =============================================================================
@@ -1208,13 +1201,15 @@ with tab_floor:
             _render_element_panel()
 
            # --- COST BREAKDOWN TABLE (CRASH-PROOF) ---
+            if st.session_state.get("client_applied"):
+                st.info("Client DNA template applied. Rates and costs below reflect the client's spending profile.")
             with st.expander("Cost Breakdown Table", expanded=True):
                 # We build the data first
                 df = build_cost_df(st.session_state.layout)
-                
+
                 if not df.empty:
                     # st.table is static and avoids the 'width' errors completely
-                    st.table(df) 
+                    st.table(df)
                 else:
                     st.info("No cost data available in this layout.")
         # ────────────────────────────── CHAT ─────────────────────────────────────────
@@ -2011,9 +2006,8 @@ with tab_dna:
                     f"Current cost ({_currency})":        int(_t["current_cost"]),
                     f"Suggested cost ({_currency})":      int(_t["suggested_cost"]),
                     f"Delta ({_currency})":               f"{_sign} {abs(int(_delta)):,}",
-                    "Preferred floor":                    _t["preferred_floor"] or "—",
-                    "Preferred wall":                     _t["preferred_wall"]  or "—",
-                    "Source":                             _t["data_source"],
+                    "Preferred floor finish":             _t["preferred_floor"] or "—",
+                    "Preferred wall finish":              _t["preferred_wall"]  or "—",
                 })
 
             st.table(pd.DataFrame(_tpl_rows))
@@ -2036,12 +2030,18 @@ with tab_dna:
                     type="primary",
                 ):
                     from client_profile import apply_template as _apply_tpl
+                    _old_total = sum(r.get("total_cost", 0) for r in st.session_state.layout.get("rooms", []))
                     _updated = _apply_tpl(_dna_template, st.session_state.layout)
+                    _new_total = sum(r.get("total_cost", 0) for r in _updated.get("rooms", []))
                     st.session_state.layout = _updated
-                    if st.session_state.selected_plan_key in st.session_state.layouts:
-                        st.session_state.layouts[st.session_state.selected_plan_key] = _updated
+                    _active_key = st.session_state.selected_plan_key
+                    if _active_key:
+                        st.session_state.layouts[_active_key] = _updated
                     st.session_state.client_applied = True
-                    st.toast("Client DNA template applied — floor plan and costs updated.", icon="✅")
+                    st.toast(
+                        f"Client DNA applied — total changed from {_old_total:,.0f} to {_new_total:,.0f}",
+                        icon="✅",
+                    )
                     st.rerun()
             else:
                 st.success(
@@ -2050,11 +2050,17 @@ with tab_dna:
                 )
                 if st.button("Re-apply Template", use_container_width=True, key="reapply_dna_tab"):
                     from client_profile import apply_template as _apply_tpl
+                    _old_total = sum(r.get("total_cost", 0) for r in st.session_state.layout.get("rooms", []))
                     _updated = _apply_tpl(_dna_template, st.session_state.layout)
+                    _new_total = sum(r.get("total_cost", 0) for r in _updated.get("rooms", []))
                     st.session_state.layout = _updated
-                    if st.session_state.selected_plan_key in st.session_state.layouts:
-                        st.session_state.layouts[st.session_state.selected_plan_key] = _updated
-                    st.toast("Template re-applied.", icon="✅")
+                    _active_key = st.session_state.selected_plan_key
+                    if _active_key:
+                        st.session_state.layouts[_active_key] = _updated
+                    st.toast(
+                        f"Template re-applied — total changed from {_old_total:,.0f} to {_new_total:,.0f}",
+                        icon="✅",
+                    )
                     st.rerun()
 
         elif not st.session_state.layout:
