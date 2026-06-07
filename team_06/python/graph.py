@@ -38,6 +38,7 @@ STATUS_MESSAGES = {
 
 class AgentState(TypedDict, total=False):
     user_prompt: str                               # NEW - the raw use message prompt
+    forced_layout_id: str | None                   # Optional direct select request from the UI
     iteration: int                                 # current tool-call count
     final_response: str | None                     # set when the agent is done
     clarification: str | None                      # question for user clarification (set by all nodes except preprocess)
@@ -220,6 +221,7 @@ def run_agent(
     "layout_id": final_state.get("layout_id"),
     "input_layout_json_string": final_state.get("input_layout_json_string"),
     "topology_graph_json_string": final_state.get("topology_graph_json_string"),
+    "search_results_json_string": final_state.get("search_results_json_string"),
     "evaluation_json_string": final_state.get("evaluation_json_string"),
     "feedback_history": final_state.get("feedback_history", []),
     "needs_user_input": final_state.get("needs_user_input", False),
@@ -248,6 +250,7 @@ def _build_initial_state(prompt: str, ctx: Any, session: dict | None = None) -> 
 
     return {
         "user_prompt": prompt,
+        "forced_layout_id": session.get("forced_layout_id"),
         "feedback_history": session.get("feedback_history", []),
         "clarification": session.get("clarification"),
         "needs_user_input": False,
@@ -258,7 +261,7 @@ def _build_initial_state(prompt: str, ctx: Any, session: dict | None = None) -> 
         "layout_json_string": layout_json,
         "input_layout_json_string": input_layout_json,
         "topology_graph_json_string": session.get("topology_graph_json_string"),
-        "search_results_json_string": None,
+        "search_results_json_string": session.get("search_results_json_string"),
         "layout_id": session.get("layout_id"),
         "evaluation_json_string": session.get("evaluation_json_string"),
         "preprocess_result": None,

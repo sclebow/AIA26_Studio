@@ -121,6 +121,18 @@ export async function restoreLayout(layout) {
   })
 }
 
+export async function selectLayout(layoutId) {
+  const payload = await request('/select-layout', {
+    method: 'POST',
+    body: JSON.stringify({
+      session_id: getSessionId(),
+      layout_id: layoutId
+    })
+  })
+  setSessionId(payload.session_id)
+  return payload
+}
+
 export async function clearSession() {
   const sessionId = getSessionId()
   await request('/session', {

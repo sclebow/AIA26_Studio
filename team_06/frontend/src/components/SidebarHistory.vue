@@ -23,7 +23,7 @@ const emit = defineEmits(['restore'])
           :class="{ active: props.agentState?.layoutId === item.layoutId }"
           @click="emit('restore', item)"
         >
-          <div class="history-item-id">{{ item.layoutId?.length > 10 ? item.layoutId.slice(0, 10) + '…' : item.layoutId }}</div>
+          <div class="history-item-id">{{ item.layoutId?.length > 18 ? item.layoutId.slice(0, 18) + '…' : item.layoutId }}</div>
           <div class="history-item-desc">{{ item.apartment.attributes?.description || '–' }}</div>
         </li>
       </ul>

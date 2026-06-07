@@ -9,9 +9,10 @@ const props = defineProps({
   tab: String,
   parsedInput: { type: Object, default: null },
   history: { type: Array, default: () => [] },
+  exploreResults: { type: Array, default: () => [] },
   agentState: { type: Object, default: null }
 })
-const emit = defineEmits(['change', 'restore'])
+const emit = defineEmits(['change', 'restore', 'selectCandidate'])
 </script>
 
 <template>
@@ -19,7 +20,7 @@ const emit = defineEmits(['change', 'restore'])
     <SidebarHeader :tab="props.tab" @change="emit('change', $event)" />
     <div class="sidebar-content">
       <SidebarBrief v-if="props.tab === 'brief'" :parsedInput="props.parsedInput" />
-      <SidebarExplore v-else-if="props.tab === 'explore'" />
+      <SidebarExplore v-else-if="props.tab === 'explore'" :results="props.exploreResults" :agentState="props.agentState" @selectCandidate="emit('selectCandidate', $event)" />
       <SidebarHistory v-else :history="props.history" :agentState="props.agentState" @restore="emit('restore', $event)" />
     </div>
   </aside>

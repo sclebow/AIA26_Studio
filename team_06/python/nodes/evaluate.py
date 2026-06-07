@@ -96,7 +96,7 @@ def _normalize_evaluation(value: object) -> dict[str, Any]:
 
     chat_summary = value.get("chat_summary")
     if not isinstance(chat_summary, str) or not chat_summary.strip():
-        summary_parts = [f"This layout scores {fit_score}/100."]
+        summary_parts = []
         if strengths:
             summary_parts.append(f"It works best for {strengths[0].lower()}.")
         if concerns:
@@ -165,7 +165,6 @@ def _normalize_evaluation(value: object) -> dict[str, Any]:
 
 def _format_evaluation_message(evaluation: dict[str, Any]) -> str:
     parts = []
-    parts.append(f"Fit score: {evaluation['fit_score']}/100")
     if evaluation.get("chat_summary"):
         parts.append(evaluation["chat_summary"])
     parts.append(FIXED_CLOSING_SENTENCE)

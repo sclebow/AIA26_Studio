@@ -10,6 +10,14 @@ LAYOUT_ID_PATTERN = re.compile(r"\b(layout-\d+)\b", re.IGNORECASE)
 
 def build_preprocess_node() -> Any:
     def preprocess(state: dict) -> dict:
+        forced_layout_id = state.get("forced_layout_id")
+        if isinstance(forced_layout_id, str) and forced_layout_id.strip():
+            return {
+                "preprocess_result": "select",
+                "layout_id": forced_layout_id.strip(),
+                "forced_layout_id": None,
+            }
+
         user_prompt = state.get("user_prompt", "").lower()
         if any(keyword in user_prompt for keyword in end_keywords):
             return {

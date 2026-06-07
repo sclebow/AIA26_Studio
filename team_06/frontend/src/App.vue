@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <div class="app-layout">
-      <Sidebar :tab="tab" @change="tab = $event" :parsedInput="parsedInput" :history="layoutHistory" :agentState="agentState" @restore="handleRestore" />
+      <Sidebar :tab="tab" @change="tab = $event" :parsedInput="parsedInput" :history="layoutHistory" :exploreResults="exploreResults" :agentState="agentState" @restore="handleRestore" @selectCandidate="handleSelectCandidate" />
       <WorkSpace :agentState="agentState" :parsedInput="parsedInput" @layoutLoaded="handleLayoutLoaded" />
       <ChatPanel :chat="chatHistory" :isBusy="isSending" @send="handleUserMessage" @newChat="handleNewChat" />
     </div>
@@ -13,13 +13,14 @@ import { onMounted, ref } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import ChatPanel from './components/ChatPanel.vue'
 import WorkSpace from './components/WorkSpace.vue'
-import { clearSession, restoreLayout, sendChatMessage, startFreshSession, uploadBoundaryLayout } from './api/agentClient.js'
+import { clearSession, restoreLayout, selectLayout, sendChatMessage, startFreshSession, uploadBoundaryLayout } from './api/agentClient.js'
 
 const tab = ref('brief')
 const chatHistory = ref([])
 const agentState = ref(null)
 const parsedInput = ref(null)
 const layoutHistory = ref([])
+const exploreResults = ref([])
 const isSending = ref(false)
 
 const boundary = ref(null)
@@ -57,6 +58,14 @@ function formatStatusMessages(messages) {
   return messages[messages.length - 1]
 }
 
+function attachExploreResults(layout) {
+  if (!layout) return null
+  return {
+    ...layout,
+    searchResults: exploreResults.value
+  }
+}
+
 onMounted(async () => {
   await startFreshSession()
   chatHistory.value = []
@@ -76,13 +85,13 @@ async function handleLayoutLoaded(json) {
   }
 
   if (json) {
-    agentState.value = {
+    agentState.value = attachExploreResults({
       layoutId: json.layoutId || 'Boundary',
       outline: json.outline || json.apartment?.geometry || [],
       rooms: json.rooms || [],
       attributes: json.apartment?.attributes || {},
       evaluation: null
-    }
+    })
   } else {
     agentState.value = null
   }
@@ -90,11 +99,16 @@ async function handleLayoutLoaded(json) {
 
 function applyAgentResponse(response) {
   if (response.brief !== undefined) parsedInput.value = response.brief
+  if (response.search_results !== undefined) {
+    exploreResults.value = Array.isArray(response.search_results) ? response.search_results : []
+  }
   if (response.layout) {
-    const layoutWithEvaluation = { ...response.layout, evaluation: response.evaluation ?? null }
+    const layoutWithEvaluation = attachExploreResults({ ...response.layout, evaluation: response.evaluation ?? null })
     agentState.value = layoutWithEvaluation
     layoutHistory.value.push({ ...layoutWithEvaluation, _savedAt: new Date().toISOString() })
     if (layoutHistory.value.length > 15) layoutHistory.value.shift()
+  } else if (agentState.value) {
+    agentState.value = attachExploreResults(agentState.value)
   }
   pushChatMessage('agent', response.message)
 }
@@ -129,16 +143,35 @@ async function handleNewChat() {
   chatHistory.value = []
   agentState.value = null
   parsedInput.value = null
+  exploreResults.value = []
   boundary.value = null
   tab.value = 'brief'
 }
 
 async function handleRestore(layout) {
-  agentState.value = layout
+  agentState.value = attachExploreResults(layout)
   try {
-    await restoreLayout(layout)
+    await restoreLayout(agentState.value)
   } catch (error) {
     pushChatMessage('agent', `Could not restore layout in backend session: ${error.message}`)
+  }
+}
+
+async function handleSelectCandidate(candidate) {
+  if (!candidate?.layoutId || isSending.value) return
+
+  const statusMessageId = pushChatMessage('status', 'Loading selected layout', { isLoading: true })
+  isSending.value = true
+
+  try {
+    const response = await selectLayout(candidate.layoutId)
+    removeChatMessage(statusMessageId)
+    applyAgentResponse(response)
+  } catch (error) {
+    updateChatMessage(statusMessageId, 'Selection failed', { isLoading: false, tone: 'error' })
+    pushChatMessage('agent', `Could not select layout: ${error.message}`)
+  } finally {
+    isSending.value = false
   }
 }
 </script>

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import threading
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -12,6 +13,9 @@ from pydantic import BaseModel
 
 from _runtime.bootstrap import bootstrap
 from graph import run_agent
+
+
+MAX_UNIQUE_SEARCH_RESULTS = 4
 
 
 def _safe_json_loads(raw: str | None) -> dict[str, Any]:
@@ -87,6 +91,107 @@ def _parse_evaluation(raw_evaluation: str | None) -> dict[str, Any] | None:
     return payload or None
 
 
+def _load_layout_by_id(layout_id: str) -> dict[str, Any] | None:
+    repo_root = Path(__file__).resolve().parent.parent
+    pf_path = repo_root / "layout_inputs" / "Planfinder_Dataset" / "pf_jsons" / f"{layout_id}.json"
+    if not pf_path.exists():
+        return None
+    try:
+        payload = json.loads(pf_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _rounded_points(points: Any) -> list[list[float]]:
+    if not isinstance(points, list):
+        return []
+
+    rounded: list[list[float]] = []
+    for point in points:
+        if not isinstance(point, list) or len(point) < 2:
+            continue
+        x, y = point[0], point[1]
+        if not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
+            continue
+        rounded.append([round(float(x), 1), round(float(y), 1)])
+    return rounded
+
+
+def _layout_signature(layout: dict[str, Any]) -> str:
+    rooms = layout.get("rooms") if isinstance(layout.get("rooms"), list) else []
+
+    normalized_rooms: list[dict[str, Any]] = []
+    for room in rooms:
+        if not isinstance(room, dict):
+            continue
+        attributes = room.get("attributes") if isinstance(room.get("attributes"), dict) else {}
+        normalized_rooms.append({
+            "program": attributes.get("program"),
+            "area": round(float(attributes.get("area")), 1) if isinstance(attributes.get("area"), (int, float)) else None,
+            "geometry": _rounded_points(room.get("geometry")),
+        })
+
+    normalized_rooms.sort(key=lambda item: json.dumps(item, sort_keys=True))
+
+    payload = {
+        "outline": _rounded_points(layout.get("outline")),
+        "rooms": normalized_rooms,
+    }
+    return json.dumps(payload, sort_keys=True)
+
+
+def _parse_search_results(raw_search_results: str | None) -> list[dict[str, Any]]:
+    if not raw_search_results:
+        return []
+
+    try:
+        payload = json.loads(raw_search_results)
+    except json.JSONDecodeError:
+        return []
+
+    if not isinstance(payload, list):
+        return []
+
+    results: list[dict[str, Any]] = []
+    seen_signatures: set[str] = set()
+    for candidate in payload:
+        if not isinstance(candidate, dict):
+            continue
+
+        layout_id = candidate.get("layoutId") or candidate.get("id")
+        if not isinstance(layout_id, str) or not layout_id.strip():
+            continue
+
+        layout = _load_layout_by_id(layout_id.strip())
+        if not layout:
+            continue
+
+        signature = _layout_signature(layout)
+        if signature in seen_signatures:
+            continue
+        seen_signatures.add(signature)
+
+        score = candidate.get("score")
+        try:
+            numeric_score = float(score)
+        except (TypeError, ValueError):
+            numeric_score = None
+
+        results.append({
+            "layoutId": layout_id.strip(),
+            "score": round(numeric_score * 100) if numeric_score is not None and numeric_score <= 1 else round(numeric_score) if numeric_score is not None else None,
+            "raw_score": numeric_score,
+            "layout": layout,
+            "name": candidate.get("name"),
+        })
+
+        if len(results) >= MAX_UNIQUE_SEARCH_RESULTS:
+            break
+
+    return results
+
+
 class ChatRequest(BaseModel):
     session_id: str | None = None
     message: str
@@ -95,6 +200,11 @@ class ChatRequest(BaseModel):
 class LayoutRequest(BaseModel):
     session_id: str
     layout_json: str | None = None
+
+
+class LayoutSelectRequest(BaseModel):
+    session_id: str
+    layout_id: str
 
 
 class SessionRequest(BaseModel):
@@ -145,6 +255,7 @@ def _build_chat_payload(session_id: str, response: str, updated_session: dict[st
         "brief": _build_brief(updated_session.get("topology_graph_json_string")),
         "layout": _parse_layout(updated_session.get("layout_json_string")),
         "evaluation": _parse_evaluation(updated_session.get("evaluation_json_string")),
+        "search_results": _parse_search_results(updated_session.get("search_results_json_string")),
         "needs_user_input": updated_session.get("needs_user_input", False),
         "status_messages": updated_session.get("status_messages", []),
     }
@@ -264,6 +375,15 @@ def restore_layout(body: LayoutRequest) -> dict[str, Any]:
     session["layout_json_string"] = body.layout_json
     _session_store()[sid] = session
     return {"ok": True, "session_id": sid}
+
+
+@app.post("/select-layout")
+def select_layout(body: LayoutSelectRequest) -> dict[str, Any]:
+    sid, session = _get_or_create_session(body.session_id)
+    session["forced_layout_id"] = body.layout_id
+    response, updated_session = run_agent(f"select {body.layout_id}", app.state.ctx, session)
+    _session_store()[sid] = updated_session
+    return _build_chat_payload(sid, response, updated_session)
 
 
 @app.delete("/session")
