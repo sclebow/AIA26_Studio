@@ -20,11 +20,12 @@ class LangGraphAgent:
         plans: dict[str, dict] | None = None,
         active_plan_key: str | None = None,
         history: list[dict] | None = None,
+        client_profile: dict | None = None,
     ) -> str:
         """Route input to the appropriate backend and return the response text."""
         self._updated_layout = None  # reset on each call
 
-        context = self._build_context(user_input, layout, plans, active_plan_key, history)
+        context = self._build_context(user_input, layout, plans, active_plan_key, history, client_profile)
 
         if self._should_compare_plans(user_input, plans) and plans:
             response = self._compare_plans(user_input, plans, active_plan_key)
@@ -185,6 +186,7 @@ class LangGraphAgent:
         plans: dict[str, dict] | None,
         active_plan_key: str | None,
         history: list[dict] | None,
+        client_profile: dict | None = None,
     ) -> dict:
         ctx: dict = {"user_input": user_input}
         if layout:
@@ -196,6 +198,12 @@ class LangGraphAgent:
                 ctx["active_plan_key"] = active_plan_key
         if history:
             ctx["history"] = history[-10:]
+        if client_profile:
+            try:
+                from client_profile import generate_summary
+                ctx["client_profile_summary"] = generate_summary(client_profile)
+            except Exception:
+                pass
         return ctx
 
     @staticmethod
