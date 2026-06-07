@@ -14,6 +14,10 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
+  isBusy: {
+    type: Boolean,
+    default: false
+  },
   index: {
     type: Number,
     default: 0
@@ -51,7 +55,7 @@ watch(() => props.chat.length, () => {
       </div>
     </div>
     <footer class="chat-box-bar">
-      <ChatBox @send="msg => emit('send', msg)" />
+      <ChatBox :disabled="props.isBusy" @send="msg => emit('send', msg)" />
     </footer>
   </section>
 </template>
@@ -191,6 +195,7 @@ watch(() => props.chat.length, () => {
   font-size: var(--font-size-standard);
   word-break: break-word;
   display: inline-block;
+  white-space: pre-wrap;
 }
 .chat-msg.user {
   align-self: flex-end;
@@ -212,5 +217,17 @@ watch(() => props.chat.length, () => {
   padding: 0;
   font-size: var(--font-size-standard);
   box-shadow: none;
+}
+.chat-msg.status {
+  align-self: flex-start;
+  background: transparent;
+  color: var(--color-text-primary);
+  border: none;
+  margin-right: auto;
+  margin-left: 0;
+  text-align: left;
+  font-size: 0.92rem;
+  padding: 0;
+  font-weight: 600;
 }
 </style>

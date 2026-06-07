@@ -1,4 +1,4 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000').replace(/\/$/, '')
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8001').replace(/\/$/, '')
 const SESSION_KEY = 'inhabit-session-id'
 
 function getSessionId() {
@@ -18,6 +18,22 @@ function resetSessionId() {
   const sessionId = crypto.randomUUID()
   window.sessionStorage.setItem(SESSION_KEY, sessionId)
   return sessionId
+}
+
+export async function startFreshSession() {
+  const existingSessionId = window.sessionStorage.getItem(SESSION_KEY)
+  if (existingSessionId) {
+    try {
+      await request('/session', {
+        method: 'DELETE',
+        body: JSON.stringify({ session_id: existingSessionId })
+      })
+    } catch {
+      // Ignore stale backend cleanup failures and still rotate the local session id.
+    }
+  }
+
+  resetSessionId()
 }
 
 async function request(path, options = {}) {
@@ -44,16 +60,43 @@ async function request(path, options = {}) {
   return response.json()
 }
 
-export async function sendChatMessage(message) {
-  const payload = await request('/chat', {
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+export async function sendChatMessage(message, onStatusUpdate) {
+  const startPayload = await request('/chat/start', {
     method: 'POST',
     body: JSON.stringify({
       session_id: getSessionId(),
       message
     })
   })
-  setSessionId(payload.session_id)
-  return payload
+  setSessionId(startPayload.session_id)
+
+  let lastStatusKey = ''
+  while (true) {
+    const statusPayload = await request(`/chat/status/${getSessionId()}`, {
+      method: 'GET'
+    })
+
+    const statusMessages = statusPayload.status_messages ?? []
+    const statusKey = JSON.stringify(statusMessages)
+    if (statusKey !== lastStatusKey) {
+      lastStatusKey = statusKey
+      onStatusUpdate?.(statusMessages)
+    }
+
+    if (statusPayload.status === 'completed') {
+      return statusPayload.result
+    }
+
+    if (statusPayload.status === 'failed') {
+      throw new Error(statusPayload.error || 'Chat request failed')
+    }
+
+    await sleep(400)
+  }
 }
 
 export async function uploadBoundaryLayout(layout) {
