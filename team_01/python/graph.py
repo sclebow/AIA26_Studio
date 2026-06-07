@@ -46,6 +46,17 @@ class AgentState(TypedDict):
     sdl_kNm2: float | None
     find_minimum_done: bool | None
     cost_flexibility: dict | None
+    # ### V4 START — context inputs for three-pillar cost/flexibility model
+    # All five keys are loaded from team_01_settings.json at session start.
+    # Absent settings keys fall back to the listed defaults.
+    building_occupancy_class: str | None   # "VACANT"|"LOW"|"HIGH"|"CRITICAL"; default HIGH
+    building_context: str | None           # "NEW"|"EXISTING_KNOWN"|"EXISTING_UNKNOWN"; default EXISTING_KNOWN
+    floor_level: int | None                # positive = above grade, negative = basement; default 1
+    heritage_status: bool                  # pre-existing heritage designation; immutable after init
+    heritage_ratchet: bool                 # persistent building flag; seeded from heritage_status;
+                                           # set True by cost_flexibility node when P4 triggers;
+                                           # never reset to False within a session
+    # ### V4 END
 
 
 _EVAL_KEYWORDS = frozenset({
@@ -332,24 +343,48 @@ def _write_evaluation_report(
         lines.append("")
         lines.append(comparison)
         lines.append("")
+    # ### V4 MODIFIED — dual-path: reads V4 field names when present, falls back to V3 field
+    # names for sessions still running the old cost_flexibility.py. V3 path is removed once
+    # cost_flexibility.py is migrated; also hardened all V3 field accesses to .get() to
+    # prevent KeyError if the dict is partially populated.
     if cost_flexibility:
         cf = cost_flexibility
         lines.append("## Cost & Flexibility Analysis")
         lines.append("")
         lines.append("| Metric | Value |")
         lines.append("|--------|-------|")
-        if cf.get("cost_added_usd") is not None:
-            lines.append(f"| Material added | +${cf['cost_added_usd']:,.0f} |")
-            lines.append(f"| Material saved | -${abs(cf['cost_saved_usd']):,.0f} |")
-            lines.append(f"| Net cost change | ${cf['net_cost_usd']:+,.0f} |")
+        if cf.get("financial_cost_label") is not None:
+            # V4 path — active once cost_flexibility.py is updated
+            fc_range = cf.get("financial_cost_range", {})
+            curr = fc_range.get("currency", "EUR")
+            low  = fc_range.get("low",  0)
+            high = fc_range.get("high", 0)
+            lines.append(f"| Financial Cost | {cf['financial_cost_label']} ({curr} {low:,.0f} – {high:,.0f}) |")
+            lines.append(f"| Cost Driver | {cf.get('dominant_cost_driver', '—')} |")
+            lines.append(f"| Admin Burden | {cf.get('admin_burden_label', '—')} |")
+            crit = cf.get("admin_critical_path_weeks", {})
+            lines.append(f"| Admin Critical Path | {crit.get('mid', '—')} wks (mid) |")
+            lines.append(f"| Dominant Process | {cf.get('dominant_admin_process', '—')} |")
+            lines.append(f"| Adaptability | {cf.get('adaptability_label', '—')} ({cf.get('adaptability_confidence', '—')} confidence) |")
+            lines.append(f"| Adaptability Constraint | {cf.get('adaptability_constraint', '—')} |")
+            lines.append(f"| Decision Signal | {cf.get('decision_signal', '—')} |")
+            if cf.get("heritage_ratchet_triggered_this_intervention"):
+                lines.append("| Heritage Ratchet | Triggered this intervention — permanent |")
         else:
-            lines.append(f"| Net cost change | ${cf.get('material_cost_usd', 0):+,.0f} |")
-        lines.append(f"| Disruption | {cf['disruption_label']} ({cf['disruption_score']}/10) |")
-        lines.append(f"| Spatial Penalty | {cf['spatial_penalty']:.2f} |")
-        lines.append(f"| Flexibility | {cf['flexibility_score']:.1f}/10 — {cf['flexibility_label']} |")
+            # V3 fallback path — active until cost_flexibility.py is updated to V4
+            if cf.get("cost_added_usd") is not None:
+                lines.append(f"| Material added | +${cf['cost_added_usd']:,.0f} |")
+                lines.append(f"| Material saved | -${abs(cf.get('cost_saved_usd', 0)):,.0f} |")
+                lines.append(f"| Net cost change | ${cf.get('net_cost_usd', 0):+,.0f} |")
+            else:
+                lines.append(f"| Net cost change | ${cf.get('material_cost_usd', 0):+,.0f} |")
+            lines.append(f"| Disruption | {cf.get('disruption_label', '—')} ({cf.get('disruption_score', 0)}/10) |")
+            lines.append(f"| Spatial Penalty | {cf.get('spatial_penalty', 0):.2f} |")
+            lines.append(f"| Flexibility | {cf.get('flexibility_score', 0):.1f}/10 — {cf.get('flexibility_label', '—')} |")
         lines.append("")
-        lines.append(f"> {cf['summary']}")
-        lines.append("")
+        if cf.get("summary"):
+            lines.append(f"> {cf['summary']}")
+            lines.append("")
     report_path.write_text("\n".join(lines), encoding="utf-8")
     print(f"[report] saved {report_path.name}")
 
@@ -529,6 +564,13 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
         "sdl_kNm2": _settings_load(SETTINGS_PATH, "sdl_kNm2"),
         "find_minimum_done": False,
         "cost_flexibility": None,
+        # ### V4 START — initialize context inputs; absent settings keys fall back to defaults
+        "building_occupancy_class": _settings_load(SETTINGS_PATH, "building_occupancy_class") or "HIGH",
+        "building_context":         _settings_load(SETTINGS_PATH, "building_context") or "EXISTING_KNOWN",
+        "floor_level":              int(_settings_load(SETTINGS_PATH, "floor_level") or 1),
+        "heritage_status":          bool(_settings_load(SETTINGS_PATH, "heritage_status") or False),
+        "heritage_ratchet":         bool(_settings_load(SETTINGS_PATH, "heritage_status") or False),
+        # ### V4 END
     }
 
 
