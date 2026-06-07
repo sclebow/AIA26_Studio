@@ -202,10 +202,10 @@ def extract_features(G: nx.Graph) -> list[float]:
 # ============================================================================
 
 def build_query_vector(
-        programs: list, # Can be list[str] or list[tuple[str, str]]
+        programs: list[str | tuple[str, str]], # Can be list[str] or list[tuple[str, str]]
         access_pairs: Optional[list[tuple[str, str]]] = None,
         adjacency_pairs: Optional[list[tuple[str, str]]] = None,
-        centrality: Optional[list] = None,
+        centrality: Optional[list[tuple[str, str]]] = None,
         windows: Optional[list[tuple[str, int]]] = None,
         shape: Optional[str] = None,  # 'rectangular' | 'L-shape' | 'other' | None
         ) -> list[float]:
@@ -279,17 +279,10 @@ def build_query_vector(
     # --- D: Connectivity centrality preference
     query_connectivity_counts = {}
     if centrality:
-        for item in centrality:
-            if isinstance(item, tuple):
-                program, level = item
+        for program, level in centrality:
                 canonical = normalize_program(program)
                 key = (canonical, level)
                 query_connectivity_counts[key] = query_connectivity_counts.get(key, 0) + 1
-            else:
-                canonical = normalize_program(item)
-                for level in CONNECTIVITY_LEVELS:
-                    key = (canonical, level)
-                    query_connectivity_counts[key] = query_connectivity_counts.get(key, 0) + 1 / len(CONNECTIVITY_LEVELS)
 
     for program in PROGRAMS:
         for level in CONNECTIVITY_LEVELS:
@@ -298,18 +291,10 @@ def build_query_vector(
     # --- E: Window exposure per program type
     query_window_counts = {}
     if windows:
-        for item in windows:
-            if isinstance(item, tuple):
-                program, w = item
-                canonical = normalize_program(program)
-                key = (canonical, w)
-                query_window_counts[key] = query_window_counts.get(key, 0) + 1
-            else:
-                # string only — no window preference, distribute evenly
-                canonical = normalize_program(item)
-                for w in WINDOW_COUNT:
-                    key = (canonical, w)
-                    query_window_counts[key] = query_window_counts.get(key, 0) + 1 / len(WINDOW_COUNT)
+        for program, w in windows:
+            canonical = normalize_program(program)
+            key = (canonical, w)
+            query_window_counts[key] = query_window_counts.get(key, 0) + 1
 
     for program in PROGRAMS:
         for w in WINDOW_COUNT:
@@ -385,7 +370,7 @@ class RuleBasedEmbedder:
         access_pairs: Optional[list[tuple[str, str]]] = None,
         adjacency_pairs: Optional[list[tuple[str, str]]] = None,
         not_adjacency_pairs: Optional[list[tuple[str, str]]] = None,
-        centrality: Optional[list] = None,
+        centrality: Optional[list[tuple[str, str]]] = None,
         windows: Optional[list[tuple[str, int]]] = None,
         shape: Optional[str] = None,
         total_area: Optional[float] = None,
@@ -402,7 +387,7 @@ class RuleBasedEmbedder:
             access_pairs:    whether the programs must be directly connected by doors
             adjacency_pairs: whether the programs must be adjacent (share a wall)
             not_adjacency_pairs: whether the programs must NOT be adjacent (share a wall)
-            centrality:     List of str or (str, connectivity) tuples (peripheral == 0.0 /connected <= 0.4 /central > 0.4)
+            centrality:     List of (program, connectivity) tuples (peripheral == 0.0 /connected <= 0.4 /central > 0.4)
             windows:         List of (program, window_count) tuples
             shape:          Preferred apartment shape ('rectangular' | 'L-shape' | 'other')
             aspect_ratio:   Preferred aspect ratio
