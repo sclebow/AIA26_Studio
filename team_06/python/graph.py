@@ -1,5 +1,4 @@
 from __future__ import annotations
-import logging
 import json
 from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
@@ -22,8 +21,16 @@ from nodes.daylight import build_daylight_node
 # - run_agent   : called from main.py; builds and runs the graph once
 # =============================================================================
 
-logging.basicConfig(level=logging.INFO, format='%(message)s')
-logger = logging.getLogger(__name__)
+STATUS_MESSAGES = {
+    "preprocess": "Reviewing request.",
+    "reason": "Interpreting layout requirements.",
+    "search": "Searching candidate layouts.",
+    "select": "Loading the selected layout.",
+    "adapt": "Adapting the layout to the provided boundary.",
+    "daylight": "Running daylight analysis.",
+    "evaluate": "Evaluating layout fit.",
+    "feedback": "Preparing the response.",
+}
 
 # ---------------------------------------------------------------------------
 # State — the data that every node can read and write.
@@ -34,6 +41,8 @@ class AgentState(TypedDict, total=False):
     iteration: int                                 # current tool-call count
     final_response: str | None                     # set when the agent is done
     clarification: str | None                      # question for user clarification (set by all nodes except preprocess)
+    needs_user_input: bool                         # explicit signal that the caller should collect another user turn
+    status_messages: list[str]                     # progress updates for CLI/UI consumers
     feedback_history: list[str]                    # NEW - keep track of feedback given by the user
     graph_top_k: int                               # Candidate budget for graph search
     #-----------jsons for tools-----------
@@ -104,6 +113,7 @@ def _route_after_daylight(state: AgentState) -> str:
 
 def build_graph(ctx: Any) -> Any:
     """Build the layout agent graph."""
+    status_updates: list[str] = []
     reason = build_reason_node(ctx.llm)
     preprocess = build_preprocess_node()
     search = build_search_node()
@@ -113,30 +123,27 @@ def build_graph(ctx: Any) -> Any:
     evaluate = build_evaluate_node(ctx.llm)
     feedback = build_feedback_node()
     
-    # Wrap nodes to log entry/exit
-    def make_logged_node(node_fn, node_name):
-        def logged_wrapper(state):
-            logger.info(f"▶️  Entering node: {node_name}")
-            try:
-                result = node_fn(state)
-                logger.info(f"✅ {node_name} completed")
-                return result
-            except Exception as e:
-                logger.error(f"❌ {node_name} failed: {str(e)}", exc_info=True)
-                raise
-        return logged_wrapper
+    def make_instrumented_node(node_fn, node_name):
+        def instrumented_wrapper(state):
+            status_message = STATUS_MESSAGES.get(node_name, f"Running {node_name}.")
+            status_updates.append(status_message)
+            print(f"Status: {status_message}", flush=True)
+            result = node_fn(state)
+            result["status_messages"] = list(status_updates)
+            return result
+        return instrumented_wrapper
     
     workflow = StateGraph(AgentState)
     
     # Add nodes
-    workflow.add_node("reason", make_logged_node(reason, "reason"))
-    workflow.add_node("preprocess", make_logged_node(preprocess, "preprocess"))
-    workflow.add_node("search", make_logged_node(search, "search"))
-    workflow.add_node("select", make_logged_node(select, "select"))
-    workflow.add_node("adapt", make_logged_node(adapt, "adapt"))
-    workflow.add_node("daylight", make_logged_node(daylight, "daylight"))
-    workflow.add_node("evaluate", make_logged_node(evaluate, "evaluate"))
-    workflow.add_node("feedback", make_logged_node(feedback, "feedback"))
+    workflow.add_node("reason", make_instrumented_node(reason, "reason"))
+    workflow.add_node("preprocess", make_instrumented_node(preprocess, "preprocess"))
+    workflow.add_node("search", make_instrumented_node(search, "search"))
+    workflow.add_node("select", make_instrumented_node(select, "select"))
+    workflow.add_node("adapt", make_instrumented_node(adapt, "adapt"))
+    workflow.add_node("daylight", make_instrumented_node(daylight, "daylight"))
+    workflow.add_node("evaluate", make_instrumented_node(evaluate, "evaluate"))
+    workflow.add_node("feedback", make_instrumented_node(feedback, "feedback"))
     
     workflow.add_edge(START, "preprocess")
     
@@ -171,7 +178,9 @@ def build_graph(ctx: Any) -> Any:
     })
     workflow.add_edge("evaluate", "feedback")
     
-    return workflow.compile()
+    app = workflow.compile()
+    app._status_updates = status_updates
+    return app
 
 
 # ---------------------------------------------------------------------------
@@ -181,23 +190,16 @@ def build_graph(ctx: Any) -> Any:
 def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, dict]:
     if session is None:
         session = {}
-    
-    logger.info(f"🚀 Analyzing your prompt...")
+
+    print("Status: Analyzing your request.", flush=True)
     
     app = build_graph(ctx)
     initial_state = _build_initial_state(prompt, ctx, session)
     final_state = app.invoke(initial_state)
-    
-    # Optional: log the entire graph at the end for debugging
-    logger.info("\nWorkflow graph (Mermaid):")
-    logger.info(app.get_graph().draw_mermaid())
 
     final_response = final_state.get("final_response")
     if final_response is None:
-        logger.error(f"❌ Agent finished without final_response!")
         raise RuntimeError("Agent finished without setting final_response")
-    
-    logger.info(f"✅ Done")
     
     # Return response + updated session for next turn
     updated_session = {
@@ -205,6 +207,8 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
     "layout_id": final_state.get("layout_id"),
     "topology_graph_json_string": final_state.get("topology_graph_json_string"),
     "feedback_history": final_state.get("feedback_history", []),
+    "needs_user_input": final_state.get("needs_user_input", False),
+    "status_messages": list(getattr(app, "_status_updates", [])),
 }
     
     return final_response, updated_session
@@ -237,6 +241,8 @@ def _build_initial_state(prompt: str, ctx: Any, session: dict | None = None) -> 
         "user_prompt": prompt,
         "feedback_history": session.get("feedback_history", []),
         "clarification": session.get("clarification"),
+        "needs_user_input": False,
+        "status_messages": [],
         "iteration": 0,
         "final_response": None,
         "graph_top_k": 4,

@@ -1,10 +1,7 @@
 from typing import Any
 import json
-import logging
 from pathlib import Path
 from tools.layout_utils import save_layout
-
-logger = logging.getLogger(__name__)
 
 def build_daylight_node(mcp_client: Any) -> Any:
     """Attach daylight analysis to the current layout using MCP tool daylight_06."""

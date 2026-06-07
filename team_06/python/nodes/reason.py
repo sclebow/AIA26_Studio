@@ -1,8 +1,5 @@
 import json
-import logging
 import re
-
-logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = (
     "You are an architect assistant preparing search input for layout retrieval. "
@@ -177,7 +174,6 @@ def build_reason_node(llm):
             }
 
             if latest_prompt_useful:
-                logger.info(f"[REASON] Updated search summary: {json.dumps(updated_search_payload)}")
                 return {
                     "iteration": iteration + 1,
                     "topology_graph_json_string": json.dumps(updated_search_payload),
@@ -189,7 +185,6 @@ def build_reason_node(llm):
                 "graph": existing_graph,
                 "description": existing_description,
             }
-            logger.info(f"[REASON] Latest prompt not useful. Keeping current summary: {json.dumps(current_search_payload)}")
 
             return {
                 "iteration": iteration + 1,

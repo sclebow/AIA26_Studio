@@ -15,7 +15,8 @@ def build_preprocess_node() -> Any:
         if any(keyword in user_prompt for keyword in end_keywords):
             return {
                 "preprocess_result": "end",
-                "final_response": "Layout finalized."
+                "final_response": "Layout finalized.",
+                "needs_user_input": False,
             }
         
         layout_match = LAYOUT_ID_PATTERN.search(user_prompt)

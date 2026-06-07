@@ -110,7 +110,6 @@ def build_adapt_node(mcp_client: Any) -> Any:
 
     def adapt(state: dict) -> dict:
         layout_json = state.get("layout_json_string")
-        print("[ADAPT] layout_json_string at adapt entry:", (layout_json[:300] if isinstance(layout_json, str) else str(layout_json)))
         input_layout_json = state.get("input_layout_json_string")
         iteration = state.get("iteration", 0)
 
@@ -171,7 +170,6 @@ def build_adapt_node(mcp_client: Any) -> Any:
             for candidate_id, layout_data in layouts_to_try:
                 candidate_label = candidate_id or "current layout"
                 attempt_logs.append(f"Trying layout {candidate_label}.")
-                print(f"[ADAPT] Trying layout {candidate_label}")
                 candidate_input_layout = input_layout
                 if not candidate_input_layout.get("rooms"):
                     candidate_input_layout = layout_data
@@ -180,14 +178,12 @@ def build_adapt_node(mcp_client: Any) -> Any:
                 if not adapted:
                     message = f"Layout {candidate_label} failed adaptation in the MCP tool."
                     attempt_logs.append(message)
-                    print(f"[ADAPT] {message}")
                     continue
 
                 validation_issues = _validate_adapted_layout(layout_data, adapted)
                 if validation_issues:
                     message = f"Layout {candidate_label} failed validation: {'; '.join(validation_issues)}"
                     attempt_logs.append(message)
-                    print(f"[ADAPT] {message}")
                     continue
 
                 adapted_layout_id = _composed_adapted_layout_id(input_layout, candidate_id)

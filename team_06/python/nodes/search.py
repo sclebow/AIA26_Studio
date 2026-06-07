@@ -1,11 +1,8 @@
 import json
 from pathlib import Path
 from typing import Any
-import logging
 from tools.graph_searcher import GraphSearcher
 from tools.embedding_matcher import match_layouts
-
-logger = logging.getLogger(__name__)
 
 
 def _parse_search_payload(payload_json: str | None) -> dict[str, Any]:
@@ -104,7 +101,6 @@ def _run_graph_search(
         not_adjacency_pairs=not_adjacency_pairs,
         top_k=top_k,
     )
-    logger.info(f"🔍 Graph search returned {len(results)} candidates")
     return results
 
 
@@ -180,7 +176,6 @@ def build_search_node() -> Any:
         description_query = _description_from_search_payload(search_payload)
 
         if not programs and not access_pairs and not adjacency_pairs and not not_adjacency_pairs and not description_query:
-            logger.error("❌ No structured search payload provided")
             return {
                 "search_result": "failed",
                 "search_results_json_string": json.dumps([]),
@@ -204,22 +199,17 @@ def build_search_node() -> Any:
 
             # 2) Description embedding retrieval from the human-readable query.
             description_results = _run_description_search(description_query, descriptions, top_k)
-            logger.info(f"🔍 Description search returned {len(description_results)} candidates")
 
             # 3) Merge both ranked lists with reciprocal rank fusion.
             candidates = _merge_ranked_results(graph_results, description_results, descriptions, top_k)
-            logger.info(f"📌 Top candidates: {[candidate['id'] for candidate in candidates]}")
 
             if not candidates:
-                logger.warning("⚠️  No matching layouts found")
                 return {
                     "search_result": "failed",
                     "search_results_json_string": json.dumps([]),
                     "clarification": "No matching layout found. How would you like to proceed? (Type 'end' to exit or write a new request)",
                     "iteration": iteration + 1,
                 }
-
-            logger.info(f"✅ Found {len(candidates)} layouts")
 
             top_layout_id = candidates[0]["id"]
             has_input_layout = bool(state.get("input_layout_json_string"))
@@ -245,7 +235,6 @@ def build_search_node() -> Any:
 
             return result_state
         except Exception as e:
-            logger.error(f"❌ Search failed: {str(e)}", exc_info=True)
             return {
                 "search_result": "failed",
                 "search_results_json_string": json.dumps([]),

@@ -15,9 +15,7 @@ def _next_select_result(state: dict) -> str:
 
 def build_select_node():
     def select(state: dict) -> dict:
-        print("[SELECT] Entered select node")
         layout_id = state.get("layout_id")
-        print("[SELECT] layout_id:", layout_id)
 
         if not layout_id:
             return {
@@ -28,13 +26,11 @@ def build_select_node():
         repo_root = Path(__file__).parent.parent.parent
         layout = _load_layout_by_id(layout_id, repo_root)
         if not layout:
-            print(f"[SELECT] Layout {layout_id} not found.")
             return {
                 "select_result": "failed",
                 "clarification": f"Layout {layout_id} not found. How would you like to proceed?"
             }
 
-        print("[SELECT] Selected layout:", json.dumps(layout)[:300])
         return {
             "select_result": _next_select_result(state),
             "layout_id": layout_id,
