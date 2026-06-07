@@ -56,6 +56,7 @@ export default function App() {
   const [checkpoints, setCheckpoints]         = useState([]);
   const [hasUncommitted, setHasUncommitted]   = useState(false);
   const [uncommittedDelta, setUncommittedDelta] = useState({});
+  const [viewedTurn, setViewedTurn]           = useState(null); // a checkpoint being reviewed
 
   // Inspire / persona
   const [inspireMessage, setInspireMessage]   = useState("");
@@ -166,6 +167,7 @@ export default function App() {
   }, [routeResponse]);
 
   const sendChat = useCallback(async (text) => {
+    setViewedTurn(null); // a new message returns the panel to the live working draft
     setChatMessages((m) => [...m, { id: nextId(), role: "u", text }]);
     setThinking(true);
     try {
@@ -188,6 +190,19 @@ export default function App() {
     } catch { /* leave uncommitted state as-is on failure */ }
   }, []);
 
+  const viewCheckpoint = useCallback(async (id) => {
+    try {
+      const d = await api.viewCheckpoint(id);
+      if (!d.ok) return;
+      setViewedTurn({
+        id: "cp" + d.id, checkpointId: d.id, action: "checkpoint", label: d.label,
+        scores_json: d.scores_json || "", conflicts_json: d.conflicts_json || "",
+        suggestions_json: d.suggestions_json || "",
+      });
+    } catch { /* ignore */ }
+  }, []);
+  const clearViewedCheckpoint = useCallback(() => setViewedTurn(null), []);
+
   const restoreCheckpoint = useCallback(async (id) => {
     try {
       const d = await api.restore(id);
@@ -195,6 +210,7 @@ export default function App() {
       if (d.checkpoints) setCheckpoints(d.checkpoints);
       setHasUncommitted(!!d.has_uncommitted);
       setUncommittedDelta({});
+      setViewedTurn(null);
       setLayoutVersion((v) => v + 1); // working draft changed → re-fetch the canvas
       setChatMessages((m) => [...m, { id: nextId(), role: "s",
         text: `Restored to "${d.restored_label}" — the canvas now shows that checkpoint.` }]);
@@ -257,6 +273,9 @@ export default function App() {
             uncommittedDelta={uncommittedDelta}
             onCommit={commitCheckpoint}
             onRestore={restoreCheckpoint}
+            viewedTurn={viewedTurn}
+            onViewCheckpoint={viewCheckpoint}
+            onClearView={clearViewedCheckpoint}
           />
         </SelectionProvider>
       )}

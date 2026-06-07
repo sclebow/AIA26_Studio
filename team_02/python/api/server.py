@@ -219,6 +219,16 @@ def commit_checkpoint(req: CommitReq) -> dict:
     }
 
 
+@app.post("/api/checkpoint")
+def view_checkpoint(req: RestoreReq) -> dict:
+    """Return a checkpoint's scored state for review (non-destructive)."""
+    sid, slot = _slot(req.session_id)
+    data = checkpoints.view(slot["session"], req.checkpoint_id)
+    if data is None:
+        return {"session_id": sid, "ok": False, "error": "Checkpoint not found."}
+    return {"session_id": sid, "ok": True, **data}
+
+
 @app.post("/api/restore")
 def restore_checkpoint(req: RestoreReq) -> dict:
     """Roll the working draft back to a checkpoint (discards uncommitted edits)."""

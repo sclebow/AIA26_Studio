@@ -30,12 +30,13 @@ function CheckpointChip({ cp, active, onSelect }) {
   );
 }
 
-export default function CheckpointsStrip({ checkpoints = [], onRestore }) {
+export default function CheckpointsStrip({ checkpoints = [], onRestore, onView, viewedId = null }) {
   const [open, setOpen] = useState(true);
-  const [selectedId, setSelectedId] = useState(null);
   if (!checkpoints.length) return null;
 
-  const selected = checkpoints.find((c) => c.id === selectedId) || null;
+  // Single source of truth = the parent's viewed checkpoint. Click a chip to review
+  // its scores on the canvas; restore acts on the one you're viewing.
+  const viewed = checkpoints.find((c) => c.id === viewedId) || null;
 
   return (
     <div className={"timeline-strip" + (open ? " open" : " collapsed")}>
@@ -45,15 +46,14 @@ export default function CheckpointsStrip({ checkpoints = [], onRestore }) {
       {open ? (
         <div className="tl-chips-row">
           {checkpoints.map((cp) => (
-            <CheckpointChip key={cp.id} cp={cp} active={cp.id === selectedId}
-              onSelect={(id) => setSelectedId(id === selectedId ? null : id)} />
+            <CheckpointChip key={cp.id} cp={cp} active={cp.id === viewedId}
+              onSelect={(id) => onView?.(id)} />
           ))}
-          {selected && (
+          {viewed && (
             <button className="layer-pill" style={{ marginLeft: 8, whiteSpace: "nowrap" }}
               onClick={() => {
-                if (window.confirm(`Restore to "${selected.label}"? This discards any uncommitted edits.`)) {
-                  onRestore?.(selected.id);
-                  setSelectedId(null);
+                if (window.confirm(`Restore to "${viewed.label}"? This discards any uncommitted edits.`)) {
+                  onRestore?.(viewed.id);
                 }
               }}>
               ↺ restore

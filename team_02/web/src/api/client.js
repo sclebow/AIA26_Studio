@@ -48,6 +48,8 @@ export const compareInitial   = (force = false) => post("/api/compare-initial", 
 // Checkpoints (Task 3): commit the working draft as a milestone; restore rolls back to one.
 export const commit           = (label)        => post("/api/commit", { label });
 export const restore          = (checkpointId) => post("/api/restore", { checkpoint_id: checkpointId });
+// View a checkpoint's scored state for review (non-destructive).
+export const viewCheckpoint   = (checkpointId) => post("/api/checkpoint", { checkpoint_id: checkpointId });
 
 // ── SSE: inspire rounds stream progress, then a final result ──────────────
 // callbacks: { onSession(id), onProgress(msg), onResult(data) }

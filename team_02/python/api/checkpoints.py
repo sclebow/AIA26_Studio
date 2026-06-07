@@ -75,31 +75,33 @@ def _sense_means(scores_json: str) -> dict:
     return means
 
 
+def _kind_label(d: dict) -> str:
+    """One terse word for a single edit's kind."""
+    attr = str(d.get("attribute", "")).lower()
+    nv = str(d.get("new_value", "")).lower()
+    if attr == "furniture":
+        if "plant" in nv:
+            return "Plants"
+        for t in ("rug", "sofa", "couch", "chair", "table", "desk", "shelf", "cabinet", "bed", "cushion"):
+            if t in nv:
+                return t.capitalize()
+        return "Furniture"
+    if "glaz" in attr:
+        return "Glazing"
+    if "material" in attr:
+        mat = d.get("new_value", "")
+        return mat.capitalize() if isinstance(mat, str) and mat and " " not in mat else "Material"
+    return "Edit"
+
+
 def _label_from_diffs(diffs: list) -> str:
-    """Auto-label a commit from its accumulated edit diffs."""
-    parts = []
-    for d in diffs or []:
-        room = d.get("room_name", "")
-        attr = str(d.get("attribute", "")).lower()
-        new = d.get("new_value", "")
-        if attr == "furniture":
-            parts.append(f"{new} in {room}")
-        elif "glaz" in attr:
-            parts.append(f"glazing in {room}")
-        elif "material" in attr:
-            parts.append(f"{attr.replace('material', ' material').strip()} in {room}")
-        elif room:
-            parts.append(f"{attr or 'change'} in {room}")
-    seen = []
-    for p in parts:
-        if p and p not in seen:
-            seen.append(p)
-    if not seen:
-        return "Edited"
-    label = "; ".join(seen[:3])
-    if len(seen) > 3:
-        label += f" +{len(seen) - 3} more"
-    return label
+    """Terse auto-label (<= 2 words) when the user didn't name the checkpoint:
+    one kind ('Plants', 'Glazing', 'Wood') or a count ('3 edits')."""
+    diffs = [d for d in (diffs or []) if d]
+    if not diffs:
+        return "Edit"
+    labels = list(dict.fromkeys(_kind_label(d) for d in diffs))
+    return labels[0] if len(labels) == 1 else f"{len(diffs)} edits"
 
 
 # ── queries ──────────────────────────────────────────────────────────────────
@@ -222,6 +224,21 @@ def commit(session: dict, label: str | None = None) -> dict | None:
     session["committed_scores_json"] = session.get("last_scores_json", "")
     session["pending_diffs"] = []
     return cp
+
+
+def view(session: dict, checkpoint_id: int) -> dict | None:
+    """Read a checkpoint's scored state for review (NON-destructive — does not touch
+    the working draft). Powers clicking a checkpoint to see its scores in the panel."""
+    cp = next((c for c in session.get("checkpoints", []) if c["id"] == checkpoint_id), None)
+    if cp is None:
+        return None
+    return {
+        "id": cp["id"],
+        "label": cp["label"],
+        "scores_json": cp.get("scores_json", ""),
+        "conflicts_json": cp.get("conflicts_json", ""),
+        "suggestions_json": cp.get("suggestions_json", ""),
+    }
 
 
 def restore(session: dict, checkpoint_id: int) -> dict | None:

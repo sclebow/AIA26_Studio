@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import ChatThread from "../ui/ChatThread.jsx";
 import InteractiveMessage from "../ui/InteractiveMessage.jsx";
@@ -54,7 +54,8 @@ const LAYER_REQUIRES = { plan: null, comfort: "scores", graph: "topology", mater
 const LAYER_RUN_MSG = { comfort: "analyse the layout", graph: "map the topology of the layout" };
 
 export default function LayoutModeScreen({ messages, turns, thinking, persona, layoutId, layoutVersion = 0, onSend, onReport,
-  checkpoints = [], hasUncommitted = false, uncommittedDelta = {}, onCommit, onRestore }) {
+  checkpoints = [], hasUncommitted = false, uncommittedDelta = {}, onCommit, onRestore,
+  viewedTurn = null, onViewCheckpoint, onClearView }) {
   const [chatOpen,     setChatOpen]     = useState(true);
   const [profileOpen,  setProfileOpen]  = useState(false);
   const [capOpen,      setCapOpen]      = useState(false);
@@ -73,10 +74,17 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
 
   useEffect(() => { if (latestTurn?.scores_json) setActiveTurnId(null); }, [latestTurn?.id]); // eslint-disable-line
 
-  // auto-focus the worst room when a fresh analysis lands
+  // After an analysis, auto-focus the worst room; after an EDIT, focus the room you
+  // just changed so its new scores are in front of you (not a jump to the worst room).
   useEffect(() => {
     const rs = roomScores(activeTurn);
-    if (rs.length) setActiveRoom(rs.reduce((a, b) => ((a.overallScore || 1) <= (b.overallScore || 1) ? a : b)).roomName);
+    if (!rs.length) return;
+    const edited = (activeTurn?.layout_diffs || []).find((d) => d?.room_name)?.room_name;
+    if (activeTurn?.action === "edit" && edited && rs.some((r) => r.roomName === edited)) {
+      setActiveRoom(edited);
+    } else {
+      setActiveRoom(rs.reduce((a, b) => ((a.overallScore || 1) <= (b.overallScore || 1) ? a : b)).roomName);
+    }
   }, [activeTurn?.id]); // eslint-disable-line
 
   // auto-reveal the topology graph when a topology turn lands (its data is fresh,
@@ -85,11 +93,29 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
     if (activeTurn?.action === "topologic") setLayers((l) => ({ ...l, graph: true }));
   }, [activeTurn?.id]); // eslint-disable-line
 
-  const rooms         = roomScores(activeTurn);
+  // panelTurn drives the score panel/canvas: a clicked checkpoint (read-only review)
+  // overrides the live turn so the rings + FocusCard show that milestone's scores.
+  const panelTurn     = viewedTurn || activeTurn;
+  const rooms         = roomScores(panelTurn);
   // closed vocabulary for the chat linkifier — the current layout's room names.
   const roomNames     = rooms.map((r) => r.roomName).filter(Boolean);
   const avg           = layoutScore(rooms);
-  const conflicts     = conflictCount(activeTurn);
+  const conflicts     = conflictCount(panelTurn);
+
+  // Rooms whose overall score moved on the latest EDIT turn — pulsed on the canvas so
+  // the change is felt. Suppressed while reviewing a checkpoint.
+  const prevTurn      = turns.length > 1 ? turns[turns.length - 2] : null;
+  const changedRooms  = useMemo(() => {
+    if (viewedTurn || activeTurn?.action !== "edit") return new Set();
+    const prevMap = {};
+    roomScores(prevTurn).forEach((r) => { prevMap[r.roomName] = r.overallScore; });
+    const s = new Set();
+    roomScores(activeTurn).forEach((r) => {
+      const p = prevMap[r.roomName];
+      if (p == null || Math.abs((r.overallScore || 0) - (p || 0)) > 0.005) s.add(r.roomName);
+    });
+    return s;
+  }, [activeTurn?.id, viewedTurn]); // eslint-disable-line
   const ringClass     = avg == null ? "" : avg >= 0.65 ? "score-pass" : avg >= 0.45 ? "score-warn" : "score-fail";
   const initial       = persona?.name?.charAt(0).toUpperCase() || "";
 
@@ -198,8 +224,21 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
             )}
           </div>
 
+          {viewedTurn && (
+            <div className="lm-viewing-banner" style={{
+              position: "absolute", top: 44, left: "50%", transform: "translateX(-50%)", zIndex: 6,
+              fontFamily: "var(--font-mono)", fontSize: 12, padding: "4px 10px", borderRadius: 8,
+              background: "rgba(10,10,10,.85)", border: "1px solid rgba(var(--fg-rgb),.15)", color: "rgba(var(--fg-rgb),.8)",
+            }}>
+              viewing checkpoint · {viewedTurn.label}
+              <button className="layer-pill" style={{ marginLeft: 8 }} onClick={() => onClearView?.()}>back to current ✕</button>
+            </div>
+          )}
+
           <div className={"lm-viewer" + (activeRoom && rooms.length > 0 ? " has-focus" : "")}>
-            <SensePlan ref={planRef} rooms={rooms} layoutId={layoutId} layoutVersion={layoutVersion} layers={layers} graphData={activeTurn?.graph_data} diffs={activeTurn?.layout_diffs || []} />
+            <SensePlan ref={planRef} rooms={rooms} layoutId={layoutId} layoutVersion={layoutVersion} layers={layers}
+              graphData={panelTurn?.graph_data} diffs={viewedTurn ? [] : (activeTurn?.layout_diffs || [])}
+              changedRooms={changedRooms} pulseKey={activeTurn?.id} />
 
             {/* reading-aids legend — a horizontal strip in the top canvas band,
                 sharing the row with Expand All (card-less) */}
@@ -213,12 +252,13 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
             {/* focus card (right overlay, on room select — the plan reflows left for it) */}
             <AnimatePresence>
               {activeRoom && rooms.length > 0 && (
-                <FocusCard key="focus-card" turn={activeTurn} persona={persona} onClose={() => setActiveRoom(null)} onFix={send} />
+                <FocusCard key="focus-card" turn={panelTurn} persona={persona} onClose={() => setActiveRoom(null)} onFix={send} />
               )}
             </AnimatePresence>
           </div>
 
-          <CheckpointsStrip checkpoints={checkpoints} onRestore={onRestore} />
+          <CheckpointsStrip checkpoints={checkpoints} onRestore={onRestore}
+            onView={onViewCheckpoint} viewedId={viewedTurn ? viewedTurn.checkpointId : null} />
         </div>
       </div>
 

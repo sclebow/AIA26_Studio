@@ -94,7 +94,7 @@ function PlanTooltip({ info }) {
   );
 }
 
-const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion = 0, layers = DEFAULT_LAYERS, graphData = null, diffs = [] }, ref) {
+const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion = 0, layers = DEFAULT_LAYERS, graphData = null, diffs = [], changedRooms = new Set(), pulseKey = 0 }, ref) {
   const [layout, setLayout] = useState(null);
   const [err, setErr] = useState("");
   const [hover, setHover] = useState(null);
@@ -169,7 +169,7 @@ const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion
           {layers.plan && <WallsLayer outline={layout.outline} structure={layout.structure} fy={fy} />}
           <RoomsLayer rooms={layout.rooms} scoredByName={scoredByName} plan={layers.plan} comfort={layers.comfort}
             activeRoom={activeRoom} setActiveRoom={setActiveRoom} focusRoom={focusRoom} setHoverRoom={setSelHoverRoom}
-            focusSense={focusSense} fy={fy} u={u} onHover={setHover} />
+            focusSense={focusSense} changedRooms={changedRooms} pulseKey={pulseKey} fy={fy} u={u} onHover={setHover} />
           {layers.plan && <OpeningsLayer doors={layout.doors} windows={layout.windows} fy={fy} />}
           {layers.plan && <FurnitureLayer furniture={layout.furniture} fy={fy} u={u} onHover={setHover} />}
         </g>
