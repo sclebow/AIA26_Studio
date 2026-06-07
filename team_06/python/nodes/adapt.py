@@ -170,9 +170,16 @@ def build_adapt_node(mcp_client: Any) -> Any:
             for candidate_id, layout_data in layouts_to_try:
                 candidate_label = candidate_id or "current layout"
                 attempt_logs.append(f"Trying layout {candidate_label}.")
-                candidate_input_layout = input_layout
-                if not candidate_input_layout.get("rooms"):
+                candidate_input_layout = dict(input_layout) if isinstance(input_layout, dict) else {}
+                if not candidate_input_layout:
                     candidate_input_layout = layout_data
+                elif not candidate_input_layout.get("rooms") and layout_data.get("rooms"):
+                    # Preserve the uploaded boundary/outline and only borrow rooms when
+                    # the uploaded JSON is boundary-only.
+                    candidate_input_layout = {
+                        **candidate_input_layout,
+                        "rooms": layout_data.get("rooms", []),
+                    }
 
                 adapted = _call_adapt_tool(mcp_client, layout_data, candidate_input_layout)
                 if not adapted:

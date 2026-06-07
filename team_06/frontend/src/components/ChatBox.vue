@@ -5,10 +5,11 @@
       type="text"
       v-model="inputMsg"
       @keyup.enter="sendMessage"
+      :disabled="disabled"
       placeholder="What do you want to create next?"
     />
     <div class="chatbox-bottom-row">
-      <button v-if="inputMsg.trim()" class="chatbox-send-btn" @click="sendMessage">
+      <button v-if="inputMsg.trim()" class="chatbox-send-btn" :disabled="disabled" @click="sendMessage">
         <img :src="sendWhiteIcon" alt="Send" width="16" height="16"  />
       </button>
     </div>
@@ -21,6 +22,9 @@ import plusIcon from '../assets/icons/plus_simple.svg'
 import sendWhiteIcon from '../assets/icons/send-white.svg'
 
 const emit = defineEmits(['send'])
+defineProps({
+  disabled: { type: Boolean, default: false }
+})
 const inputMsg = ref('')
 
 function sendMessage() {

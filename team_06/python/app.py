@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from contextlib import asynccontextmanager
 from typing import Any
 from uuid import uuid4
@@ -99,6 +100,7 @@ class SessionRequest(BaseModel):
 async def lifespan(_: FastAPI):
     app.state.ctx = bootstrap()
     app.state.sessions = {}
+    app.state.chat_runs = {}
     try:
         yield
     finally:
@@ -119,12 +121,47 @@ def _session_store() -> dict[str, dict[str, Any]]:
     return app.state.sessions
 
 
+def _chat_run_store() -> dict[str, dict[str, Any]]:
+    return app.state.chat_runs
+
+
 def _get_or_create_session(session_id: str | None) -> tuple[str, dict[str, Any]]:
     sid = session_id or str(uuid4())
     sessions = _session_store()
     session = sessions.setdefault(sid, {"feedback_history": []})
     session.setdefault("feedback_history", [])
     return sid, session
+
+
+def _build_chat_payload(session_id: str, response: str, updated_session: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "session_id": session_id,
+        "message": response,
+        "brief": _build_brief(updated_session.get("topology_graph_json_string")),
+        "layout": _parse_layout(updated_session.get("layout_json_string")),
+        "needs_user_input": updated_session.get("needs_user_input", False),
+        "status_messages": updated_session.get("status_messages", []),
+    }
+
+
+def _run_chat_in_background(session_id: str, message: str) -> None:
+    run_state = _chat_run_store()[session_id]
+
+    def on_status(messages: list[str]) -> None:
+        run_state["status"] = "running"
+        run_state["status_messages"] = list(messages)
+
+    try:
+        _, session = _get_or_create_session(session_id)
+        response, updated_session = run_agent(message, app.state.ctx, session, status_callback=on_status)
+        _session_store()[session_id] = updated_session
+        run_state["status"] = "completed"
+        run_state["status_messages"] = updated_session.get("status_messages", [])
+        run_state["result"] = _build_chat_payload(session_id, response, updated_session)
+        run_state["error"] = None
+    except Exception as exc:
+        run_state["status"] = "failed"
+        run_state["error"] = str(exc)
 
 
 @app.get("/health")
@@ -138,14 +175,47 @@ def chat(body: ChatRequest) -> dict[str, Any]:
     response, updated_session = run_agent(body.message, app.state.ctx, session)
     _session_store()[sid] = updated_session
 
-    return {
-        "session_id": sid,
-        "message": response,
-        "brief": _build_brief(updated_session.get("topology_graph_json_string")),
-        "layout": _parse_layout(updated_session.get("layout_json_string")),
-        "needs_user_input": updated_session.get("needs_user_input", False),
-        "status_messages": updated_session.get("status_messages", []),
+    return _build_chat_payload(sid, response, updated_session)
+
+
+@app.post("/chat/start")
+def start_chat(body: ChatRequest) -> dict[str, Any]:
+    sid, _ = _get_or_create_session(body.session_id)
+    existing_run = _chat_run_store().get(sid)
+    if existing_run and existing_run.get("status") == "running":
+        return {
+            "session_id": sid,
+            "status": "running",
+            "status_messages": existing_run.get("status_messages", []),
+        }
+
+    _chat_run_store()[sid] = {
+        "status": "running",
+        "status_messages": [],
+        "result": None,
+        "error": None,
     }
+    worker = threading.Thread(target=_run_chat_in_background, args=(sid, body.message), daemon=True)
+    worker.start()
+    return {"session_id": sid, "status": "running", "status_messages": []}
+
+
+@app.get("/chat/status/{session_id}")
+def get_chat_status(session_id: str) -> dict[str, Any]:
+    run_state = _chat_run_store().get(session_id)
+    if run_state is None:
+        raise HTTPException(status_code=404, detail="No active chat run for this session")
+
+    payload = {
+        "session_id": session_id,
+        "status": run_state.get("status", "running"),
+        "status_messages": run_state.get("status_messages", []),
+    }
+    if run_state.get("status") == "completed":
+        payload["result"] = run_state.get("result")
+    if run_state.get("status") == "failed":
+        payload["error"] = run_state.get("error") or "Chat run failed"
+    return payload
 
 
 @app.post("/upload-layout")
@@ -193,4 +263,5 @@ def restore_layout(body: LayoutRequest) -> dict[str, Any]:
 @app.delete("/session")
 def clear_session(body: SessionRequest) -> dict[str, bool]:
     _session_store().pop(body.session_id, None)
+    _chat_run_store().pop(body.session_id, None)
     return {"ok": True}

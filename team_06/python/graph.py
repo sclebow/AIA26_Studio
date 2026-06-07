@@ -1,6 +1,6 @@
 from __future__ import annotations
 import json
-from typing import Any, TypedDict
+from typing import Any, Callable, TypedDict
 from langgraph.graph import END, START, StateGraph
 from nodes.preprocess import build_preprocess_node
 from nodes.reason import build_reason_node
@@ -111,7 +111,7 @@ def _route_after_daylight(state: AgentState) -> str:
 # Graph wiring — add nodes and edges here.
 # ---------------------------------------------------------------------------
 
-def build_graph(ctx: Any) -> Any:
+def build_graph(ctx: Any, status_callback: Callable[[list[str]], None] | None = None) -> Any:
     """Build the layout agent graph."""
     status_updates: list[str] = []
     reason = build_reason_node(ctx.llm)
@@ -128,6 +128,8 @@ def build_graph(ctx: Any) -> Any:
             status_message = STATUS_MESSAGES.get(node_name, f"Running {node_name}.")
             status_updates.append(status_message)
             print(f"Status: {status_message}", flush=True)
+            if status_callback is not None:
+                status_callback(list(status_updates))
             result = node_fn(state)
             result["status_messages"] = list(status_updates)
             return result
@@ -187,13 +189,18 @@ def build_graph(ctx: Any) -> Any:
 # Entry point — called from main.py.
 # ---------------------------------------------------------------------------
 
-def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, dict]:
+def run_agent(
+    prompt: str,
+    ctx: Any,
+    session: dict | None = None,
+    status_callback: Callable[[list[str]], None] | None = None,
+) -> tuple[str, dict]:
     if session is None:
         session = {}
 
     print("Status: Analyzing your request.", flush=True)
     
-    app = build_graph(ctx)
+    app = build_graph(ctx, status_callback=status_callback)
     initial_state = _build_initial_state(prompt, ctx, session)
     final_state = app.invoke(initial_state)
 
@@ -227,8 +234,6 @@ def _build_initial_state(prompt: str, ctx: Any, session: dict | None = None) -> 
         session["feedback_history"] = []
 
     layout_json = session.get("layout_json_string")
-    if not layout_json:
-        layout_json = json.dumps(getattr(ctx, "layout_data", {}), indent=2)
 
     input_layout_json = session.get("input_layout_json_string")
     if input_layout_json is None and hasattr(ctx, 'input_layout_path') and ctx.input_layout_path:

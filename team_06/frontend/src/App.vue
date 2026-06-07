@@ -3,39 +3,71 @@
     <div class="app-layout">
       <Sidebar :tab="tab" @change="tab = $event" :parsedInput="parsedInput" :history="layoutHistory" :agentState="agentState" @restore="handleRestore" />
       <WorkSpace :agentState="agentState" :parsedInput="parsedInput" @layoutLoaded="handleLayoutLoaded" />
-      <ChatPanel :chat="chatHistory" @send="handleUserMessage" @newChat="handleNewChat" />
+      <ChatPanel :chat="chatHistory" :isBusy="isSending" @send="handleUserMessage" @newChat="handleNewChat" />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import ChatPanel from './components/ChatPanel.vue'
 import WorkSpace from './components/WorkSpace.vue'
-import { clearSession, restoreLayout, sendChatMessage, uploadBoundaryLayout } from './api/agentClient.js'
+import { clearSession, restoreLayout, sendChatMessage, startFreshSession, uploadBoundaryLayout } from './api/agentClient.js'
 
 const tab = ref('brief')
 const chatHistory = ref([])
 const agentState = ref(null)
 const parsedInput = ref(null)
 const layoutHistory = ref([])
+const isSending = ref(false)
 
 const boundary = ref(null)
 
-// ─── Boundary upload ──────────────────────────────────────────────────────────
+function pushChatMessage(role, text, extra = {}) {
+  const id = `${Date.now()}-${chatHistory.value.length}-${role}`
+  chatHistory.value.push({
+    id,
+    role,
+    text,
+    timestamp: new Date().toISOString(),
+    ...extra
+  })
+  return id
+}
+
+function updateChatMessage(id, text, extra = {}) {
+  const target = chatHistory.value.find(message => message.id === id)
+  if (target) {
+    target.text = text
+    Object.assign(target, extra)
+  }
+}
+
+function removeChatMessage(id) {
+  chatHistory.value = chatHistory.value.filter(message => message.id !== id)
+}
+
+function formatStatusMessages(messages) {
+  if (!messages?.length) return 'Thinking'
+  return messages[messages.length - 1]
+}
+
+onMounted(async () => {
+  await startFreshSession()
+  chatHistory.value = []
+  agentState.value = null
+  parsedInput.value = null
+  boundary.value = null
+})
+
 async function handleLayoutLoaded(json) {
   boundary.value = json
 
   try {
     await uploadBoundaryLayout(json)
   } catch (error) {
-    chatHistory.value.push({
-      id: Date.now(),
-      role: 'agent',
-      text: `Could not upload boundary layout: ${error.message}`,
-      timestamp: new Date().toISOString()
-    })
+    pushChatMessage('agent', `Could not upload boundary layout: ${error.message}`)
   }
 
   if (json) {
@@ -50,7 +82,6 @@ async function handleLayoutLoaded(json) {
   }
 }
 
-// ─── Shared applier ───────────────────────────────────────────────────────────
 function applyAgentResponse(response) {
   if (response.brief !== undefined) parsedInput.value = response.brief
   if (response.layout) {
@@ -58,42 +89,35 @@ function applyAgentResponse(response) {
     layoutHistory.value.push({ ...response.layout, _savedAt: new Date().toISOString() })
     if (layoutHistory.value.length > 15) layoutHistory.value.shift()
   }
-  chatHistory.value.push({
-    id: Date.now(),
-    role: 'agent',
-    text: response.message,
-    timestamp: new Date().toISOString()
-  })
+  pushChatMessage('agent', response.message)
 }
 
-// ─── Chat path ────────────────────────────────────────────────────────────────
 async function handleUserMessage(message) {
-  chatHistory.value.push({ id: Date.now(), role: 'user', text: message, timestamp: new Date().toISOString() })
+  if (isSending.value) return
+
+  pushChatMessage('user', message)
+  const statusMessageId = pushChatMessage('status', 'Thinking', { isLoading: true })
+  isSending.value = true
 
   try {
-    const response = await sendChatMessage(message)
+    const response = await sendChatMessage(message, messages => {
+      updateChatMessage(statusMessageId, formatStatusMessages(messages), { isLoading: true })
+    })
+    removeChatMessage(statusMessageId)
     applyAgentResponse(response)
   } catch (error) {
-    chatHistory.value.push({
-      id: Date.now(),
-      role: 'agent',
-      text: `Backend error: ${error.message}`,
-      timestamp: new Date().toISOString()
-    })
+    updateChatMessage(statusMessageId, 'Request failed', { isLoading: false, tone: 'error' })
+    pushChatMessage('agent', `Backend error: ${error.message}`)
+  } finally {
+    isSending.value = false
   }
 }
 
-// ─── New chat (full reset) ────────────────────────────────────────────────────
 async function handleNewChat() {
   try {
     await clearSession()
   } catch (error) {
-    chatHistory.value.push({
-      id: Date.now(),
-      role: 'agent',
-      text: `Could not clear backend session: ${error.message}`,
-      timestamp: new Date().toISOString()
-    })
+    pushChatMessage('agent', `Could not clear backend session: ${error.message}`)
   }
   chatHistory.value = []
   agentState.value = null
@@ -102,22 +126,14 @@ async function handleNewChat() {
   tab.value = 'brief'
 }
 
-// ─── Restore from history ─────────────────────────────────────────────────────
 async function handleRestore(layout) {
   agentState.value = layout
   try {
     await restoreLayout(layout)
   } catch (error) {
-    chatHistory.value.push({
-      id: Date.now(),
-      role: 'agent',
-      text: `Could not restore layout in backend session: ${error.message}`,
-      timestamp: new Date().toISOString()
-    })
+    pushChatMessage('agent', `Could not restore layout in backend session: ${error.message}`)
   }
 }
-
-// ─── Sidebar path ─────────────────────────────────────────────────────────────
 </script>
 
 <style src="./style.css"></style>
