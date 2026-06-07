@@ -108,8 +108,7 @@ def classify_betweenness(bc: float) -> str:
 
         central     BC > 0.4       Most or all paths between rooms pass through
                                    this room. Primary circulation hub.
-                                   Typical: living room in RPLAN, main corridor
-                                   (extra) in Planfinder.
+                                   Typical: main corridor (extra) in Planfinder.
 
     Returns:
         'peripheral' | 'connected' | 'central'

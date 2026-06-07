@@ -10,7 +10,6 @@ import networkx as nx
 # Import graph builders
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils.parser.schema_to_graph import create_graph_from_layout
 from utils.graph_embedder import RuleBasedEmbedder
 from typing import Optional
 
@@ -45,8 +44,10 @@ class GraphSearcher:
         access_pairs: Optional[list[tuple[str, str]]] = None,
         adjacency_pairs: Optional[list[tuple[str, str]]] = None,
         not_adjacency_pairs: Optional[list[tuple[str, str]]] = None,
-        centrality: Optional[list] = None,
+        centrality: Optional[list[tuple[str, str]]] = None,
+        windows: Optional[list[tuple[str, int]]] = None,
         shape: Optional[str] = None,
+        total_area: Optional[float] = None,
         aspect_ratio: Optional[float] = None,
         compactness: Optional[float] = None,
         top_k: int | None = None,
@@ -62,8 +63,10 @@ class GraphSearcher:
             access_pairs:    match door connections between programs
             adjacency_pairs: match wall adjacencies between programs
             not_adjacency_pairs: whether the programs must NOT be adjacent
-            centrality:     prefer centrally-located program types
+            centrality:     list of (program, connectivity) tuples
+            windows:        list of (program, window_count) tuples
             shape:          preferred apartment shape
+            total_area:     preferred total area in sqm
             aspect_ratio:   preferred aspect ratio
             compactness:    preferred compactness
             top_k:         max results to return; None = return all that pass.
@@ -78,7 +81,9 @@ class GraphSearcher:
             adjacency_pairs=adjacency_pairs,
             not_adjacency_pairs=not_adjacency_pairs,
             centrality=centrality,
+            windows=windows,
             shape=shape,
+            total_area=total_area,
             aspect_ratio=aspect_ratio,
             compactness=compactness,
             top_k=k)
