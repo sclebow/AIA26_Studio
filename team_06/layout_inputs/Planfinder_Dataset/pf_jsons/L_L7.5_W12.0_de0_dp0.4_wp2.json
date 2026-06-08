@@ -59,7 +59,7 @@
     ],
     "attributes": {
       "area": 82.9521,
-      "description": "1 bed., 1 bath., 1 kitchen., 1 living."
+      "description": "2 bedrooms, 2 bathrooms, 1 living room, 2 extra rooms."
     }
   },
   "outline": [
@@ -114,36 +114,6 @@
     [
       6.93,
       1.68
-    ]
-  ],
-  "door_point": [
-    4.935,
-    0.0
-  ],
-  "door_points": [
-    [
-      4.515,
-      2.1
-    ],
-    [
-      5.67,
-      3.78
-    ],
-    [
-      5.67,
-      6.72
-    ],
-    [
-      3.99,
-      0.63
-    ],
-    [
-      4.515,
-      3.885
-    ],
-    [
-      4.515,
-      7.14
     ]
   ],
   "rooms": [
@@ -375,22 +345,6 @@
     }
   ],
   "doors": [
-    {
-      "id": "door-2",
-      "name": "Door 2",
-      "geometry": [
-        [
-          5.67,
-          3.78
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-2",
-          "room-4"
-        ]
-      }
-    },
     {
       "id": "door-3",
       "name": "Door 3",

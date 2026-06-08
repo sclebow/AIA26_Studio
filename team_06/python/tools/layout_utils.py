@@ -4,14 +4,22 @@ from functools import lru_cache
 
 @lru_cache(maxsize=1)
 def load_all_layouts() -> list[dict]:
-    """Load all layouts from sample_layouts.json."""
-    repo_root = Path(__file__).resolve().parent.parent.parent
-    layouts_path = repo_root / "layout_inputs" / "sample_layouts.json"
-    return json.loads(layouts_path.read_text(encoding="utf-8"))
+    """Load all Planfinder layouts from pf_jsons."""
+    planfinder_dir = Path(__file__).resolve().parent.parent.parent / "layout_inputs" / "Planfinder_Dataset" / "pf_jsons"
+    if not planfinder_dir.exists():
+        return []
+
+    layouts: list[dict] = []
+    for layout_path in planfinder_dir.glob("*.json"):
+        try:
+            layouts.append(json.loads(layout_path.read_text(encoding="utf-8")))
+        except Exception:
+            continue
+    return layouts
 
 def load_planfinder_layout(layout_id: str) -> dict | None:
     """Look up a layout by ID in the Planfinder_Dataset directory."""
-    planfinder_dir = Path(__file__).resolve().parent.parent.parent / "layout_inputs" / "Planfinder_Dataset"
+    planfinder_dir = Path(__file__).resolve().parent.parent.parent / "layout_inputs" / "Planfinder_Dataset" / "pf_jsons"
     candidate = planfinder_dir / f"{layout_id}.json"
     if candidate.exists():
         return json.loads(candidate.read_text(encoding="utf-8"))
@@ -19,11 +27,10 @@ def load_planfinder_layout(layout_id: str) -> dict | None:
 
 
 def load_and_save_layout(layout_id: str, state: dict, save_path: Path) -> dict:
-    """Load layout by ID, update state, and save to file."""
+    """Load a Planfinder layout by ID, update state, and save to file."""
     all_layouts = load_all_layouts()
     layout = next((l for l in all_layouts if l.get("layoutId") == layout_id), None)
 
-    # Fallback: check Planfinder dataset
     if not layout:
         layout = load_planfinder_layout(layout_id)
 
