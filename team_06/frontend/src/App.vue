@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <div class="app-layout">
-      <Sidebar :tab="tab" @change="tab = $event" :parsedInput="parsedInput" :history="layoutHistory" :exploreResults="exploreResults" :agentState="agentState" @restore="handleRestore" @selectCandidate="handleSelectCandidate" />
+      <Sidebar :tab="tab" @change="handleTabChange" :parsedInput="parsedInput" :history="layoutHistory" :exploreResults="exploreResults" :agentState="agentState" @restore="handleRestore" @selectCandidate="handleSelectCandidate" />
       <WorkSpace :agentState="agentState" :parsedInput="parsedInput" @layoutLoaded="handleLayoutLoaded" />
       <ChatPanel :chat="chatHistory" :isBusy="isSending" @send="handleUserMessage" @newChat="handleNewChat" />
     </div>
@@ -22,6 +22,7 @@ const parsedInput = ref(null)
 const layoutHistory = ref([])
 const exploreResults = ref([])
 const isSending = ref(false)
+const hasUserSelectedTab = ref(false)
 
 const boundary = ref(null)
 
@@ -74,6 +75,18 @@ function attachRoutine(layout, routine = null) {
   }
 }
 
+function handleTabChange(nextTab) {
+  hasUserSelectedTab.value = true
+  tab.value = nextTab
+}
+
+function applySearchResults(searchResults) {
+  exploreResults.value = Array.isArray(searchResults) ? searchResults : []
+  if (!hasUserSelectedTab.value && exploreResults.value.length > 0) {
+    tab.value = 'explore'
+  }
+}
+
 onMounted(async () => {
   await startFreshSession()
   chatHistory.value = []
@@ -108,7 +121,7 @@ async function handleLayoutLoaded(json) {
 function applyAgentResponse(response) {
   if (response.brief !== undefined) parsedInput.value = response.brief
   if (response.search_results !== undefined) {
-    exploreResults.value = Array.isArray(response.search_results) ? response.search_results : []
+    applySearchResults(response.search_results)
   }
   if (response.layout) {
     const layoutWithEvaluation = attachRoutine(
@@ -129,7 +142,7 @@ function applyPartialResponse(response) {
 
   if (response.brief !== undefined) parsedInput.value = response.brief
   if (response.search_results !== undefined) {
-    exploreResults.value = Array.isArray(response.search_results) ? response.search_results : []
+    applySearchResults(response.search_results)
   }
   if (response.layout) {
     agentState.value = attachRoutine(attachExploreResults({
@@ -151,6 +164,8 @@ function applyPartialResponse(response) {
 async function handleUserMessage(message) {
   if (isSending.value) return
 
+  hasUserSelectedTab.value = false
+  tab.value = 'brief'
   pushChatMessage('user', message)
   const statusMessageId = pushChatMessage('status', 'Thinking', { isLoading: true })
   isSending.value = true
@@ -181,6 +196,7 @@ async function handleNewChat() {
   parsedInput.value = null
   exploreResults.value = []
   boundary.value = null
+  hasUserSelectedTab.value = false
   tab.value = 'brief'
 }
 
