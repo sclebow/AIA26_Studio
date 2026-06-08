@@ -29,6 +29,7 @@ import api_routes
 import mcp_bridge
 import agent_runner
 import isovist
+import spatial_assistant
 from session_manager import SessionManager
 from websocket_manager import ConnectionManager, MessageType
 
@@ -69,6 +70,57 @@ def _live_layout_json() -> str:
         pass
     st = session.get_session() or {}
     return json.dumps(st["layout"]) if st.get("layout") else ""
+
+
+# Small rolling chat history for the spatial assistant (so follow-ups like
+# "now check collisions" keep context). Capped; the system prompt always carries
+# the current layout + observer so mild staleness is harmless.
+_spatial_history: "list[dict]" = []
+
+
+async def _handle_spatial(content: str, websocket: WebSocket) -> None:
+    """Answer an observer/visibility/path question with the Rhino-free spatial
+    assistant: it runs deterministic analysis, draws the result in the viewport,
+    and replies in chat."""
+    layout_json = _live_layout_json()
+    if not layout_json:
+        await manager.send_personal(websocket, {
+            "type": MessageType.agent_response.value,
+            "content": "Load a layout first, then ask me about visibility, a person, or a path.",
+        })
+        return
+    try:
+        layout = json.loads(layout_json)
+    except Exception:
+        await manager.send_personal(websocket, {
+            "type": MessageType.agent_response.value,
+            "content": "I couldn't read the current layout. Try reloading it.",
+        })
+        return
+
+    from _runtime.config import load_settings
+    from pipeline_bridge import get_active_model
+    settings = load_settings()
+    model = get_active_model() or settings.llm_model
+
+    async def emit(msg: dict) -> None:
+        await manager.send_personal(websocket, msg)
+
+    try:
+        answer = await spatial_assistant.handle(
+            content, list(_spatial_history), layout, session.get_observer(),
+            emit, session.set_observer, settings.api_key, model,
+        )
+    except Exception as exc:
+        answer = f"Spatial analysis error: {exc}"
+
+    _spatial_history.append({"role": "user", "content": content})
+    _spatial_history.append({"role": "assistant", "content": answer})
+    del _spatial_history[:-6]  # keep the last 3 exchanges
+
+    await manager.send_personal(websocket, {
+        "type": MessageType.agent_response.value, "content": answer,
+    })
 
 
 def _isovist_for_point(layout_json: str, point_str) -> "list | None":
@@ -132,8 +184,21 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             if msg_type == "chat_message":
                 content = data.get("content", "")
                 if agent_runner.is_active():
-                    # A run is in progress → feed the message to the checkpoint.
-                    agent_runner.submit_decision(content)
+                    # A pipeline run is paused at its checkpoint. A STRONG observer
+                    # intent ("move the person", "place an observer") means the user
+                    # switched to spatial work → abort the stale run and handle it,
+                    # so the pipeline can't keep eating every message. Weak wording
+                    # (path/view) stays a checkpoint decision so we don't hijack a
+                    # real placement run.
+                    if spatial_assistant.is_strong_spatial_query(content):
+                        agent_runner.abort_session(websocket)
+                        await _handle_spatial(content, websocket)
+                    else:
+                        agent_runner.submit_decision(content)
+                elif spatial_assistant.is_spatial_query(content):
+                    # Observer / visibility / path question → lightweight assistant
+                    # (pure Python, no Rhino). Draws into the viewport + answers.
+                    await _handle_spatial(content, websocket)
                 else:
                     # Start a new real-pipeline session for the selected layout.
                     sess = session.get_session() or {}
@@ -151,31 +216,51 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 await manager.broadcast(data)
 
             elif msg_type == "observer_point":
-                # Push the draggable person point to Grasshopper via MCP (the
-                # unified set_observer tool, PERSON / static visibility).
-                # Use the LIVE layout GH currently shows (workspace), not the base,
-                # so the isovist runs on the real floor + placed objects.
                 data["layout_json"] = _live_layout_json()
-                # Fails gracefully (status "error") if Swiftlet/Rhino is down.
-                result = await mcp_bridge.push_observer(data)
-                await manager.send_personal(
-                    websocket,
-                    {
-                        "type": MessageType.agent_event.value,
-                        "node": "set_observer",
-                        "status": "completed" if result.get("status") == "ok" else "error",
-                        "data": result,
-                    },
-                )
-                # Visibility surface for the 3D viewport — computed in the backend
-                # (GH's isovist is degenerate), height-aware, doors as openings.
-                iso = _isovist_for_point(data["layout_json"], data.get("point_str"))
-                await manager.send_personal(websocket, {
-                    "type": "observer_result",
-                    "mode": "person",
-                    "status": result.get("status"),
-                    "isovist": iso,
-                })
+                is_live = bool(data.get("live"))  # True while the person is being dragged
+
+                if is_live:
+                    # Fast path: Python isovist only — no MCP/Grasshopper push.
+                    # Skipping GH keeps drag updates at ~5ms instead of >100ms.
+                    iso = _isovist_for_point(data["layout_json"], data.get("point_str"))
+                    if iso:
+                        session.set_observer({
+                            "mode": "person",
+                            "point_str": data.get("point_str"),
+                            "height": data.get("height", 1.7),
+                            "isovist": iso,
+                        })
+                        await manager.send_personal(websocket, {
+                            "type": "observer_result",
+                            "mode": "person",
+                            "status": "ok",
+                            "isovist": iso,
+                        })
+                else:
+                    # Full path: MCP push to Grasshopper + Python isovist.
+                    result = await mcp_bridge.push_observer(data)
+                    await manager.send_personal(
+                        websocket,
+                        {
+                            "type": MessageType.agent_event.value,
+                            "node": "set_observer",
+                            "status": "completed" if result.get("status") == "ok" else "error",
+                            "data": result,
+                        },
+                    )
+                    iso = _isovist_for_point(data["layout_json"], data.get("point_str"))
+                    session.set_observer({
+                        "mode": "person",
+                        "point_str": data.get("point_str"),
+                        "height": data.get("height", 1.7),
+                        "isovist": iso,
+                    })
+                    await manager.send_personal(websocket, {
+                        "type": "observer_result",
+                        "mode": "person",
+                        "status": result.get("status"),
+                        "isovist": iso,
+                    })
 
             elif msg_type == "observer_path":
                 # Unified set_observer tool, PATH mode. Use the live workspace layout.
@@ -191,12 +276,89 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     },
                 )
                 iso = _isovist_for_path(data["layout_json"], data.get("path_str"), data.get("height"))
+                session.set_observer({
+                    "mode": "path",
+                    "path_str": data.get("path_str"),
+                    "height": data.get("height", 1.7),
+                    "isovist": iso,
+                })
                 await manager.send_personal(websocket, {
                     "type": "observer_result",
                     "mode": "path",
                     "status": result.get("status"),
                     "isovist": iso,
                 })
+
+            elif msg_type == "model_switch":
+                # Switch the active Anthropic model (haiku / sonnet).
+                # Only applies when LLM_PROVIDER=anthropic.
+                from pipeline_bridge import set_active_model
+                key = str(data.get("model", "haiku"))
+                try:
+                    full_model = set_active_model(key)
+                    await manager.send_personal(websocket, {
+                        "type": "model_switch_ack",
+                        "model": key,
+                        "full_model": full_model,
+                        "status": "ok",
+                    })
+                except ValueError as exc:
+                    await manager.send_personal(websocket, {
+                        "type": "model_switch_ack",
+                        "status": "error",
+                        "detail": str(exc),
+                    })
+
+            elif msg_type == "pure_chat":
+                # Pure chatbot — direct Anthropic call, no pipeline, no LangGraph.
+                content = str(data.get("content", "")).strip()
+                history = data.get("history", [])  # [{role, content}, ...]
+                if not content:
+                    continue
+                try:
+                    import anthropic
+                    from _runtime.config import load_settings
+                    from pipeline_bridge import get_active_model
+
+                    settings = load_settings()
+                    model = get_active_model() or settings.llm_model
+
+                    client = anthropic.AsyncAnthropic(api_key=settings.api_key)
+
+                    # Build messages: history + new user message
+                    messages = [
+                        {"role": m["role"], "content": m["content"]}
+                        for m in history
+                        if m.get("role") in ("user", "assistant") and m.get("content")
+                    ]
+                    messages.append({"role": "user", "content": content})
+
+                    response = await client.messages.create(
+                        model=model,
+                        max_tokens=1024,
+                        system=(
+                            "You are a helpful architectural design assistant specializing in "
+                            "spatial analysis, accessibility, layout planning, and architectural "
+                            "concepts. Answer clearly and concisely. You are NOT running any "
+                            "tools or workflow — this is a direct conversation."
+                        ),
+                        messages=messages,
+                    )
+                    reply = "".join(
+                        block.text for block in response.content
+                        if getattr(block, "type", None) == "text"
+                    )
+                    await manager.send_personal(websocket, {
+                        "type": "pure_chat_response",
+                        "content": reply,
+                        "model": model,
+                    })
+                except Exception as exc:
+                    await manager.send_personal(websocket, {
+                        "type": "pure_chat_response",
+                        "content": f"Error: {exc}",
+                        "model": "",
+                    })
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)

@@ -27,12 +27,41 @@ export interface ScoreData {
   };
 }
 
+export interface OverlayToggles {
+  collision: boolean;
+  visibility: boolean;
+  path: boolean;
+}
+
+export type ToolLoadState = 'idle' | 'loading' | 'active' | 'error';
+export interface ToolStatus { state: ToolLoadState; message?: string }
+export type OverlayLoadStatus = Record<keyof OverlayToggles, ToolStatus>;
+
+// Inject the pulse keyframe once into the document head.
+if (typeof document !== 'undefined' && !document.getElementById('overlay-pulse-kf')) {
+  const s = document.createElement('style');
+  s.id = 'overlay-pulse-kf';
+  s.textContent = `
+    @keyframes overlay-pulse {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0.4; }
+    }
+  `;
+  document.head.appendChild(s);
+}
+
 export interface DashboardProps {
   scores: ScoreData | null;
-  /** Run the deterministic analysis on the current layout and populate the dashboard. */
-  onAnalyze?: () => void;
-  /** True while an analysis request is in flight. */
-  analyzing?: boolean;
+  /** Tool gauge to highlight. */
+  focusMetric?: string | null;
+  /** Current on/off state of each viewport overlay. */
+  overlayToggles?: OverlayToggles;
+  /** Per-tool load / error state for visual feedback. */
+  overlayLoadStatus?: OverlayLoadStatus;
+  /** Toggle a specific overlay on or off. */
+  onToggleOverlay?: (key: keyof OverlayToggles) => void;
+  /** True when a person/path observer is placed and ready to run. */
+  observerReady?: boolean;
 }
 
 const TOOL_SCORES: Array<{
@@ -134,8 +163,15 @@ const EmptyState: React.FC = () => {
   );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ scores, onAnalyze, analyzing }) => {
-  const { colors } = useTheme();
+const OVERLAY_TOOLS: Array<{ key: keyof OverlayToggles; label: string; title: string }> = [
+  { key: 'visibility', label: 'Visibility', title: 'Toggle visibility / isovist overlay in viewport' },
+  { key: 'path',       label: 'Paths',      title: 'Toggle path analysis overlay in viewport' },
+  { key: 'collision',  label: 'Collision',  title: 'Toggle collision heatmap overlay in viewport' },
+];
+
+const Dashboard: React.FC<DashboardProps> = ({ scores, focusMetric, overlayToggles, overlayLoadStatus, onToggleOverlay, observerReady }) => {
+  const { colors, theme } = useTheme();
+  const isDark = theme === 'dark';
 
   const panelStyle: React.CSSProperties = {
     display: 'flex',
@@ -164,33 +200,97 @@ const Dashboard: React.FC<DashboardProps> = ({ scores, onAnalyze, analyzing }) =
           letterSpacing: '0.12em',
           textTransform: 'uppercase',
           fontFamily: colors.fontHeading,
-        }}>Analysis Dashboard</span>
-        {onAnalyze && (
-          <button
-            onClick={onAnalyze}
-            disabled={analyzing}
-            title="Run analysis on the current layout"
-            style={{
-              marginLeft: 'auto',
-              display: 'flex', alignItems: 'center', gap: 5,
-              background: colors.accentDim ?? (colors.accent + '18'),
-              border: `1px solid ${colors.accent}55`,
-              borderRadius: 6, padding: '4px 10px',
-              color: colors.accent,
-              fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-              textTransform: 'uppercase', fontFamily: colors.font,
-              cursor: analyzing ? 'default' : 'pointer',
-              opacity: analyzing ? 0.6 : 1,
-              transition: 'opacity 0.2s',
-            }}
-          >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            {analyzing ? 'Analyzing…' : scores ? 'Re-analyze' : 'Analyze'}
-          </button>
-        )}
+        }}>Analysis</span>
       </div>
+
+      {/* Viewport overlay toggles — always visible, independent of scores */}
+      {onToggleOverlay && (
+        <div style={{
+          display: 'flex', gap: 5, marginBottom: 10, flexShrink: 0,
+        }}>
+          {OVERLAY_TOOLS.map(t => {
+            const active   = overlayToggles?.[t.key] ?? false;
+            const status   = overlayLoadStatus?.[t.key] ?? { state: 'idle' as ToolLoadState };
+            const loading  = status.state === 'loading';
+            const hasError = status.state === 'error';
+            const ready    = t.key === 'visibility' && observerReady && !active && !loading && !hasError;
+
+            // Border / background / text color
+            const borderColor = hasError ? colors.error + '99'
+              : active        ? colors.accent + '88'
+              : ready         ? colors.success + '66'
+              : loading       ? colors.accent + '55'
+              : colors.border;
+
+            const bgColor = hasError ? colors.error + '14'
+              : active    ? colors.accent + '1f'
+              : ready     ? colors.success + '12'
+              : loading   ? colors.accent + '0d'
+              : isDark    ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)';
+
+            const textColor = hasError ? colors.error
+              : active    ? colors.accent
+              : ready     ? colors.success
+              : loading   ? colors.accent
+              : colors.muted;
+
+            const dotColor = hasError ? colors.error
+              : active    ? colors.accent
+              : ready     ? colors.success
+              : loading   ? colors.accent
+              : colors.muted;
+
+            const tooltipTitle = hasError && status.message
+              ? `Error: ${status.message}`
+              : ready
+              ? 'Observer placed — click to run visibility analysis'
+              : loading
+              ? 'Running…'
+              : t.title;
+
+            return (
+              <button
+                key={t.key}
+                onClick={() => onToggleOverlay(t.key)}
+                title={tooltipTitle}
+                style={{
+                  flex: 1, position: 'relative',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                  padding: '5px 4px',
+                  borderRadius: 7,
+                  border: `1px solid ${borderColor}`,
+                  background: bgColor,
+                  color: textColor,
+                  fontSize: 9.5, fontWeight: 700, letterSpacing: '0.05em',
+                  textTransform: 'uppercase', fontFamily: colors.font,
+                  cursor: loading ? 'default' : 'pointer',
+                  transition: 'background 0.15s, border-color 0.15s, color 0.15s',
+                  animation: loading ? 'overlay-pulse 1s ease-in-out infinite' : 'none',
+                }}
+              >
+                {/* Status dot */}
+                <span style={{
+                  width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+                  background: dotColor,
+                  opacity: active || ready || loading || hasError ? 1 : 0.35,
+                  transition: 'background 0.15s',
+                }} />
+
+                {t.label}
+
+                {/* Error badge — small "!" in top-right corner */}
+                {hasError && (
+                  <span style={{
+                    position: 'absolute', top: 2, right: 3,
+                    fontSize: 7, fontWeight: 900, color: colors.error,
+                    lineHeight: 1, letterSpacing: 0,
+                  }}>!</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {!scores ? (
         <EmptyState />
@@ -203,7 +303,11 @@ const Dashboard: React.FC<DashboardProps> = ({ scores, onAnalyze, analyzing }) =
             width: '100%',
           }}>
             {TOOL_SCORES.map(tool => (
-              <div key={tool.key} style={{ display: 'flex', justifyContent: 'center', minWidth: 0 }}>
+              <div key={tool.key} style={{
+                display: 'flex', justifyContent: 'center', minWidth: 0, borderRadius: 8,
+                boxShadow: focusMetric === tool.key ? `0 0 0 2px ${colors.accent}` : 'none',
+                transition: 'box-shadow 0.2s',
+              }}>
                 <ScoreCard
                   name={tool.label}
                   score={scores[tool.key] as number}

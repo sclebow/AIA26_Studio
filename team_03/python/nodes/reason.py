@@ -153,16 +153,38 @@ def build_reason_node(llm: Any):
             other_calls  = [t for t in tool_calls if t["name"] not in place_names]
 
             if place_calls:
-                # Signal the graph to route to add_objects on the next edge.
-                # Only the first place_object call is taken per turn so the LLM
-                # can review analysis results before placing the next object.
-                updates["object_to_place"] = place_calls[0]["arguments"]
-                print(f"Placing object: {place_calls[0]['arguments'].get('objects_list', '')}")
-                if len(place_calls) > 1:
-                    updates["object_queue"] = [c["arguments"] for c in place_calls[1:]]
-                    print(f"[reason] Queued {len(place_calls) - 1} additional object(s)")
-                # Do NOT clear object_queue here — populate_agent may have filled it.
-                # Only overwrite if the LLM explicitly queued more objects.
+                current_zone = state.get("current_zone", "")
+                filtered_calls = []
+                skipped_calls = []
+                for call in place_calls:
+                    call_room = call["arguments"].get("room_name", "")
+                    # During populate phase, only allow placements in current zone
+                    # OR in any room if no zone is set (manual user placement)
+                    if current_zone and call_room and call_room.lower() != current_zone.lower():
+                        skipped_calls.append(call)
+                        print(f"[reason] Zone guard: blocked placement in '{call_room}' — current zone is '{current_zone}'")
+                    else:
+                        filtered_calls.append(call)
+
+                if not filtered_calls and skipped_calls:
+                    print(f"[reason] Zone guard: blocked placement in other zones — injecting zone constraint")
+                    zone_msg = (
+                        f"ZONE CONSTRAINT: You are currently working on zone '{current_zone}'. "
+                        f"Do NOT place objects in any other room until this zone is approved. "
+                        f"If there are collision violations, use move_object to fix them within '{current_zone}'. "
+                        f"Do NOT call place_objects for any other room."
+                    )
+                    updates["object_to_place"] = {}
+                    updates["pending_tool_calls"] = []
+                    updates["final_response"] = ""
+                    updates["messages"] = [{"role": "user", "content": zone_msg}]
+                elif filtered_calls:
+                    updates["object_to_place"] = filtered_calls[0]["arguments"]
+                    print(f"Placing object: {filtered_calls[0]['arguments'].get('objects_list', '')}")
+                    remaining = filtered_calls[1:] + skipped_calls
+                    if remaining:
+                        updates["object_queue"] = [c["arguments"] for c in remaining]
+                        print(f"[reason] Queued {len(remaining)} additional object(s)")
             else:
                 # Clear with {} — _keep_last treats None as "no update" and
                 # would preserve the stale value from a previous placement.

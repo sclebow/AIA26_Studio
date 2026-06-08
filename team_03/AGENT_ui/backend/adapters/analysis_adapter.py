@@ -93,9 +93,21 @@ def run_collision(
             wall_thickness=wall_thickness,
             compare_layout=compare_layout,
         )
-        # Strip the internal _grid_meta key — large lists of cell indices that
-        # are not JSON-friendly and not needed by the web app.
-        result.pop("_grid_meta", None)
+        # Move _grid_meta → grid_viz (renamed, kept for Three.js overlay rendering).
+        # The raw cell-index lists are the data the viewport needs to draw the
+        # collision heatmap; they're large but JSON-serializable and bounded by
+        # the grid size (typically <50 KB for industrial layouts).
+        gm = result.pop("_grid_meta", None)
+        if gm:
+            result["grid_viz"] = {
+                "violation_cells": gm.get("violation_cells", []),
+                "warning_cells":   gm.get("warning_cells",   []),
+                "ox":   gm.get("ox",   0),
+                "oy":   gm.get("oy",   0),
+                "cols": gm.get("cols", 0),
+                "rows": gm.get("rows", 0),
+                "cs":   gm.get("cs",   0.10),
+            }
         return result
     except Exception as exc:
         return {

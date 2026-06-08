@@ -8,6 +8,7 @@ interface Labels3DProps {
   layout: LayoutJSON
   isDark: boolean
   center: { x: number; z: number }
+  bgOpacity?: number
 }
 
 interface LabelItem {
@@ -37,7 +38,7 @@ function getHeight(name: string, type: string): number {
   return 1.3
 }
 
-export default function Labels3D({ layout, isDark, center }: Labels3DProps) {
+export default function Labels3D({ layout, isDark, center, bgOpacity = 0.75 }: Labels3DProps) {
   const labels = useMemo(() => {
     const items: LabelItem[] = []
 
@@ -136,11 +137,11 @@ export default function Labels3D({ layout, isDark, center }: Labels3DProps) {
           style={{ pointerEvents: 'none' }}
         >
           <div style={{
-            background: isDark ? 'rgba(22,24,32,0.82)' : 'rgba(255,255,255,0.88)',
+            background: isDark ? `rgba(22,24,32,${bgOpacity})` : `rgba(255,255,255,${bgOpacity})`,
             color: typeColors[label.type] || (isDark ? '#aabbcc' : '#334455'),
-            padding: '3px 8px',
+            padding: '1px 4px',
             borderRadius: 4,
-            fontSize: 12,
+            fontSize: 8,
             fontWeight: 600,
             fontFamily: '-apple-system, system-ui, sans-serif',
             whiteSpace: 'nowrap',
@@ -166,11 +167,11 @@ export default function Labels3D({ layout, isDark, center }: Labels3DProps) {
           style={{ pointerEvents: 'none' }}
         >
           <div style={{
-            background: isDark ? 'rgba(22,24,32,0.88)' : 'rgba(255,255,255,0.92)',
+            background: isDark ? `rgba(22,24,32,${bgOpacity})` : `rgba(255,255,255,${bgOpacity})`,
             color: typeColors.room,
             padding: '2px 8px',
             borderRadius: 5,
-            fontSize: 11,
+            fontSize: 8,
             fontWeight: 700,
             fontFamily: '-apple-system, system-ui, sans-serif',
             whiteSpace: 'nowrap',

@@ -21,6 +21,8 @@ class MessageType(str, Enum):
     observer_point = "observer_point"
     observer_path = "observer_path"
     chat_decision = "chat_decision"
+    version_saved = "version_saved"
+    analysis_overlay = "analysis_overlay"
 
 
 class ConnectionManager:
