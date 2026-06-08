@@ -50,7 +50,7 @@ export default function App() {
 
   // UI state
   const [layerVisibility, setLayerVisibility] = useState<LayerVisibility>(defaultVisibility);
-  const [showLabels, setShowLabels] = useState(true);   // shared: 3D labels + graph labels
+  const [showLabels, setShowLabels] = useState(false);  // shared: 3D labels + graph labels
   const [layoutFitSignal, setLayoutFitSignal] = useState(0);  // bumps only on explicit layout pick → triggers viewport fit-to-screen
   const [isovist, setIsovist] = useState<[number, number][] | null>(null);  // visibility surface from set_observer
   const [agentObserver, setAgentObserver] = useState<{ mode: 'person' | 'path'; point?: [number, number]; path?: [number, number][] } | null>(null);  // observer placed by the chat agent
