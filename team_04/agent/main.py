@@ -4,6 +4,7 @@ import argparse
 import json
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 from langchain_openai import ChatOpenAI
 
@@ -17,7 +18,9 @@ from .tool_catalog import ToolCatalog
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the Team 04 TerraPilot agent.")
-    parser.add_argument("prompt", help="User prompt for the site-design workflow")
+    parser.add_argument("--prompt", required=True, help="User prompt for the site-design workflow")
+    parser.add_argument("--layout_json", default=None, help="Optional JSON string representing the input layout")
+    parser.add_argument("--layout_file", default=None, help="Optional path to a JSON file representing the input layout (use instead of --layout_json to avoid shell quoting issues)")
     parser.add_argument("--decision-provider", help="Optional provider override for supervisor/tool-routing calls")
     parser.add_argument("--decision-model", help="Optional model override for supervisor/tool-routing calls")
     parser.add_argument("--report-provider", help="Optional provider override for final report generation")
@@ -52,6 +55,24 @@ def main() -> None:
     active_decision_model = args.decision_model
     active_report_provider = args.report_provider
     active_report_model = args.report_model
+
+    input_layout: dict[str, object] = {}
+    if args.layout_file is not None and args.layout_json is not None:
+        print("Error: --layout_json and --layout_file cannot be used together.", file=sys.stderr)
+        sys.exit(1)
+    if args.layout_file is not None:
+        try:
+            input_layout = json.loads(Path(args.layout_file).read_text(encoding="utf-8-sig"))
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"Error: --layout_file could not be read as JSON: {exc}", file=sys.stderr)
+            sys.exit(1)
+    elif args.layout_json is not None:
+        try:
+            input_layout = json.loads(args.layout_json)
+        except json.JSONDecodeError as exc:
+            print(f"Error: --layout_json is not valid JSON: {exc}", file=sys.stderr)
+            sys.exit(1)
+
     try:
         settings = load_settings()
         active_decision_provider = active_decision_provider or settings.decision_llm_provider or settings.llm_provider
@@ -61,8 +82,13 @@ def main() -> None:
 
         local_client = build_default_local_tool_client()
         mcp_client = HttpMcpClient(settings.mcp_endpoint, settings.request_timeout_seconds)
-        mcp_client.initialize()
-        client = CompositeToolClient([local_client, mcp_client])
+        try:
+            mcp_client.initialize()
+            client = CompositeToolClient([local_client, mcp_client])
+        except Exception as mcp_exc:
+            print(f"[warning] MCP server unreachable ({mcp_exc}); running with local tools only.", file=sys.stderr)
+            mcp_client.close()
+            client = local_client
         discovered_tools = client.list_tools()
         catalog = ToolCatalog.from_discovered_tools(discovered_tools)
         llm = ChatOpenAI(
@@ -85,7 +111,7 @@ def main() -> None:
             decision_engine=engine,
             tool_client=client,
             catalog=catalog,
-            initial_layout={},
+            initial_layout=input_layout,
             max_optimization_cycles=settings.max_optimization_cycles,
             planner=planner,
         )
@@ -95,7 +121,30 @@ def main() -> None:
             json.dumps(output_payload, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
+
+        placed_buildings = final_state.get("placed_buildings") or []
+        has_edits = bool(placed_buildings or final_state.get("geometry_id") or input_layout)
+        edited_layout: dict[str, object] | None = None
+        if has_edits:
+            edited_layout = dict(input_layout)
+            edited_layout.update(
+                {
+                    "placed_buildings": placed_buildings,
+                    "site_boundary": final_state.get("site_boundary", []),
+                    "site_context": final_state.get("site_context", {}),
+                    "shape_context": final_state.get("shape_context", {}),
+                    "violations": final_state.get("violations", []),
+                    "placement_fit_summary": final_state.get("placement_fit_summary", {}),
+                }
+            )
+
+        print("Final Response:")
         print(final_response)
+        print("Edited Layout JSON:")
+        if edited_layout is not None:
+            print(json.dumps(edited_layout, indent=2, ensure_ascii=False))
+        else:
+            print("No layout changes")
     except Exception as exc:
         error_message = str(exc)
         raise

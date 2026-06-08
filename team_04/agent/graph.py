@@ -88,7 +88,7 @@ def run_agent(
     initial_layout: dict[str, Any] | None = None,
     max_optimization_cycles: int = 4,
     planner: Planner | None = None,
-    recursion_limit: int = 64,
+    recursion_limit: int = 128,
 ) -> AgentState:
     app = build_agent_graph(decision_engine, tool_client, catalog, planner=planner)
     initial_state = build_initial_state(
@@ -261,6 +261,15 @@ def _build_constraint_node(
     def check_constraints(state: AgentState) -> AgentState:
         allowed_names = set(catalog.names_for_action("check_constraints"))
         tool_calls = [{"name": name, "arguments": {}} for name in allowed_names]
+        if not tool_calls:
+            return {
+                "constraint_results": {"_note": "No constraint tools available; no violations assumed."},
+                "checked_geometry_id": state.get("geometry_id"),
+                "violations": [],
+                "replan_required": True,
+                "replan_reason": "No constraint tools available; assuming no violations.",
+                "error": None,
+            }
         records, aggregate, layout_json, geometry_id = _execute_tool_calls(
             tool_client=tool_client,
             tool_calls=tool_calls,
@@ -303,6 +312,13 @@ def _build_evaluation_node(
     def evaluate(state: AgentState) -> AgentState:
         allowed_names = set(catalog.names_for_action("evaluate"))
         tool_calls = [{"name": name, "arguments": {}} for name in allowed_names]
+        if not tool_calls:
+            return {
+                "evaluation_results": {"_note": "No evaluation tools available; skipping."},
+                "replan_required": True,
+                "replan_reason": "No evaluation tools available; skipping evaluation.",
+                "error": None,
+            }
         records, aggregate, layout_json, geometry_id = _execute_tool_calls(
             tool_client=tool_client,
             tool_calls=tool_calls,
