@@ -153,119 +153,121 @@ If `main.py` cannot reach the MCP server, confirm Grasshopper is running and `mc
 
 Replace `team_01` with your folder (`team_02`, …).
 
+| Path | Role |
+|------|------|
+| `layout_input/layout_schema.json` | **Only this file** is loaded by the agent (`bootstrap.py`) as building context. Extra `layout_schema.json` copies under a team folder are not used unless you change the code. |
+| `team_01/edited_layout.json` | Written when a tool returns (pretty-printed JSON when possible). |
+| `team_01/grasshopper_mcp_requests.txt` | Example `tools/call` payload for debugging/docs. |
+| `team_01/gh/` | Grasshopper clusters and working definition. |
+| `team_01/python/main.py` | CLI: prompt → `bootstrap()` → `run_agent()` → closes MCP client. |
+| `team_01/python/graph.py` | `StateGraph`, `AgentState`, `build_graph()`, `run_agent()` — **main place to change workflow**. |
+| `team_01/python/nodes/reason.py` | LLM step and structured decision (`final` vs `tool`). |
+| `team_01/python/nodes/tools.py` | Runs MCP `tools/call`, injects `layout_json` from state, writes `edited_layout.json`. |
+| `team_01/python/_runtime/bootstrap.py` | Builds `Context` (LLM, MCP, tools, layout, paths). |
+| `team_01/python/_runtime/config.py` | Loads repo-root `.env` and `mcp.json`. |
+| `team_01/python/_runtime/mcp_client.py` | HTTP MCP client (`initialize`, `tools/list`, `tools/call`). |
+| `team_01/python/_runtime/llm.py` | OpenAI-compatible chat + JSON schema from discovered tools. |
 
-Edited Layout JSON: 
-{
-    "layoutId": "Layout-101",
-    
-    "outline": [[0.0, 0.0], [9.0, 0.0], [9.0, 5.0], [0.0, 5.0], [0.0, 0.0]],
-  
-    "rooms": [
-      {
-        "id": "room-1",
-        "name": "Living Room",
-        "geometry": [[0.0, 0.0], [5.0, 0.0], [5.0, 5.0], [0.0, 5.0], [0.0, 0.0]],
-        "attributes": {
-          "area": 25.0
-        }
-      },
-      {
-        "id": "room-2",
-        "name": "Bedroom 1",
-        "geometry": [[5.0, 0.0], [9.0, 0.0], [9.0, 5.0], [5.0, 5.0], [5.0, 0.0]],
-        "attributes": {
-          "area": 20.0
-        }
-      }
-    ],
-  
-    "doors": [
-      {
-        "id": "door-1",
-        "type": "wooden",
-        "name": "Bedroom Door",
-        "geometry": [[5.0, 2.0], [5.0, 2.9]],
-        "attributes": {
-          "connectsRooms": ["room-1", "room-2"]
-        }
-      },
-      {
-        "id": "door-2",
-        "type": "wooden",
-        "name": "Living Room Door",
-        "geometry": [[5.0, 2.0], [5.0, 2.9]],
-        "attributes": {
-          "connectsRooms": ["room-1", "room-2"]
-        }
-      }
-    ],
-  
-    "windows": [
-      {
-        "id": "window-1",
-        "type:":"sliding",
-        "name": "Living Room Window",
-        "geometry": [[0.0, 2.0], [0.0, 3.5]],
-        "attributes": {
-          "roomId": "room-1"
-        }
-      },
-      {
-        "id": "window-2",
-        "type:":"sliding",
-        "name": "Living Room South Window",
-        "geometry": [[2.0, 0.0], [3.5, 0.0]],
-        "attributes": {
-          "roomId": "room-1"
-        }
-      }
-    ],
-  
-    "furniture": [
-      {
-        "id": "furn-1",
-        "name": "Main Couch",
-        "geometry": [[2.0, 3.0], [4.0, 3.0], [4.0, 4.0], [2.0, 4.0], [2.0, 3.0]],
-        "attributes": {
-          "roomId": "room-1"
-        }
-      }
-    ],
-  
-    "mep": [
-      {
-        "id": "mep-1",
-        "name": "Living Room AC",
-        "geometry": [[2.5, 4.5], [3.5, 4.5], [3.5, 4.8], [2.5, 4.8], [2.5, 4.5]],
-        "attributes": {
-          "system": "hvac"
-        }
-      },
-      {
-        "id": "mep-2",
-        "name": "Main Breaker Box",
-        "geometry": [[0.2, 0.2], [0.8, 0.2], [0.8, 0.5], [0.2, 0.5], [0.2, 0.2]],
-        "attributes": {
-          "system": "electrical"
-        }
-      }
-    ],
-  
-    "structure": [
-      {
-        "id": "wall-1",
-        "name": "North Interior Wall",
-        "geometry": [[5.0, 0.0], [5.0, 5.0]],
-        "attributes": {}
-      }
-    ]
-  }
+Always run commands from **`team_XX/python`** so imports (`graph`, `_runtime`) resolve.
+
+### Python virtual environment
+
+Create the venv **once**, in a folder you remember (repo root is a common choice):
+
+**Windows (PowerShell):**
+
+```powershell
+cd C:\path\to\AIA26_Studio
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 ```
 
----
+**macOS / Linux:**
 
-## Benchmarking
+```bash
+cd /path/to/AIA26_Studio
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
-To help evaluate your agent's performance, we can make an edit to the `llm.py` file to allow different providers and models to be used with each call of the `call_llm` function.  This allows us to use small models for simple tasks and larger models for more complex tasks, and compare the results.
+Use the **same** activated environment whenever you run `pip` or `python main.py`.
 
-Please refer to the `llm.py` example file added to `./examples/updated_call_llm/llm.py` for an example of how to modify the `call_llm` function to accept a `provider` and `model` argument.  Then whenever you call optionally `call_llm` from a node, you can specify which provider and model to use for that call.  
+### Configure
+
+#### Environment variables (`.env`)
+
+Put **`.env`** at the **repository root** (next to `requirements.txt`). Start from **`.env.example`**.
+
+Set **`LLM_PROVIDER`** to one of: `local`, `google`, `cloudflare`, `openai`, or `anthropic`. Each provider needs its own keys/endpoints as in `.env.example`. Pick **one** provider per team and stay consistent.
+
+**Cloudflare** is a practical default: free tier, no credit card for the Workers AI path described in the course. Docs: [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/).
+
+**Anthropic** is configured in code for an OpenAI-compatible style endpoint; if you see failures around structured JSON or tool schemas, switch provider or ask instructors—do not assume it will behave identically to OpenAI.
+
+**`MAX_ITERATIONS`** caps tool rounds (default **`4`** if unset). **`DEBUG_GRAPH`** is read into settings but **the graph does not print step traces yet**; it is reserved until that wiring exists.
+
+#### MCP endpoint (`mcp.json`)
+
+The agent reads **`mcp.json` at the repo root**. It must contain an **`mcpServers`** object. The code uses the **first key** in that object and takes the MCP HTTP URL from **`url`** or from **`args[0]`** (see **`mcp.example.json`**). To use another entry, **put that server first** or edit **`_runtime/config.py`** to select a server key explicitly.
+
+`mcp.json` is **gitignored** (machine-specific). Use **`mcp.example.json`** as a template and Grasshopper’s **Copy MCP Config** when testing Swiftlet.
+
+### Run
+
+```bash
+cd team_01/python
+python main.py "delete the kitchen"
+python main.py "add a window to Bedroom 1"
+```
+
+The run lists tools from the MCP server, injects **`layout_input/layout_schema.json`** into the prompt, prints the final reply, and writes tool output to that team’s **`edited_layout.json`** when the response is JSON (otherwise as text).
+
+### Agent graph (`team_XX/python/graph.py`)
+
+**Reason** calls the LLM. If the model returns **`action: "tool"`**, **tool** runs MCP `tools/call` and appends messages; then **reason** runs again until **`action: "final"`**.
+
+```mermaid
+flowchart LR
+    START([START]) --> reason[reason node]
+    reason -->|final_response set| END([END])
+    reason -->|pending_tool_calls| tool[tool node]
+    tool --> reason
+```
+
+- **State:** `messages`, `pending_tool_calls`, `final_response`, `iteration` / `max_iterations`, `tool_catalog`, `layout_json_string`.
+- **Allowlist:** Only tools from `tools/list` at startup; unknown names error out.
+- **`layout_json`:** If the model puts `layout_json` in arguments, the tool node replaces it with the current full layout string from state.
+
+### Example MCP tool calls (`delete_room`, `add_window`)
+
+`nodes/reason.py` is written to work with layout-editing tools exposed by Grasshopper. Examples include **`delete_room`** and **`add_window`** (names and parameters must match what your definition cluster publishes in **`tools/list`**).
+
+- **`delete_room`:** Resolve the room name (must match the layout JSON—e.g. `rooms[].name` in `layout_input/layout_schema.json`), call with schema-compliant arguments (often `room_name`), then after the tool result reply with **`action: "final"`** and point to **`edited_layout.json`** when appropriate.
+- **`add_window`:** Adds a window to the layout (updates the `windows` array and related fields per your MCP tool’s `inputSchema`). Use the parameter names and types from **`tools/list`** / your definition cluster; the layout’s `windows` entries use `id`, `name`, `geometry` (two points), and optional `attributes` such as `roomId`, as in the sample schema.
+
+Example shape for **`delete_room`** (URL/port depend on your setup); see also `team_01/grasshopper_mcp_requests.txt` (copies exist under other teams):
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "method": "tools/call",
+  "params": {
+    "name": "delete_room",
+    "arguments": {
+      "room_name": "kitchen",
+      "layout_json": "<stringified layout JSON>"
+    }
+  }
+}
+```
+
+For **`add_window`**, the same JSON-RPC envelope applies; only `params.name` and `params.arguments` change to match your Swiftlet tool definition (still including `layout_json` when the tool expects the current layout string, same as above).
+
+The Python client sends these over **HTTP POST** to the endpoint in `mcp.json`.
+
+**Before changing the graph or prompts**, read **`graph.py`**, **`nodes/reason.py`**, and **`nodes/tools.py`** so you understand state and tool arguments.
+
+LangGraph quickstart: https://docs.langchain.com/oss/python/langgraph/quickstart
