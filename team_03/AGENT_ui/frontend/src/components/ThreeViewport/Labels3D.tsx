@@ -38,7 +38,7 @@ function getHeight(name: string, type: string): number {
   return 1.3
 }
 
-export default function Labels3D({ layout, isDark, center, bgOpacity = 0.8 }: Labels3DProps) {
+export default function Labels3D({ layout, isDark, center, bgOpacity = 0.75 }: Labels3DProps) {
   const labels = useMemo(() => {
     const items: LabelItem[] = []
 

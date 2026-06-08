@@ -216,38 +216,51 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 await manager.broadcast(data)
 
             elif msg_type == "observer_point":
-                # Push the draggable person point to Grasshopper via MCP (the
-                # unified set_observer tool, PERSON / static visibility).
-                # Use the LIVE layout GH currently shows (workspace), not the base,
-                # so the isovist runs on the real floor + placed objects.
                 data["layout_json"] = _live_layout_json()
-                # Fails gracefully (status "error") if Swiftlet/Rhino is down.
-                result = await mcp_bridge.push_observer(data)
-                await manager.send_personal(
-                    websocket,
-                    {
-                        "type": MessageType.agent_event.value,
-                        "node": "set_observer",
-                        "status": "completed" if result.get("status") == "ok" else "error",
-                        "data": result,
-                    },
-                )
-                # Visibility surface for the 3D viewport — computed in the backend
-                # (GH's isovist is degenerate), height-aware, doors as openings.
-                iso = _isovist_for_point(data["layout_json"], data.get("point_str"))
-                # Remember it so the chat agent can answer about "the person already placed".
-                session.set_observer({
-                    "mode": "person",
-                    "point_str": data.get("point_str"),
-                    "height": data.get("height", 1.7),
-                    "isovist": iso,
-                })
-                await manager.send_personal(websocket, {
-                    "type": "observer_result",
-                    "mode": "person",
-                    "status": result.get("status"),
-                    "isovist": iso,
-                })
+                is_live = bool(data.get("live"))  # True while the person is being dragged
+
+                if is_live:
+                    # Fast path: Python isovist only — no MCP/Grasshopper push.
+                    # Skipping GH keeps drag updates at ~5ms instead of >100ms.
+                    iso = _isovist_for_point(data["layout_json"], data.get("point_str"))
+                    if iso:
+                        session.set_observer({
+                            "mode": "person",
+                            "point_str": data.get("point_str"),
+                            "height": data.get("height", 1.7),
+                            "isovist": iso,
+                        })
+                        await manager.send_personal(websocket, {
+                            "type": "observer_result",
+                            "mode": "person",
+                            "status": "ok",
+                            "isovist": iso,
+                        })
+                else:
+                    # Full path: MCP push to Grasshopper + Python isovist.
+                    result = await mcp_bridge.push_observer(data)
+                    await manager.send_personal(
+                        websocket,
+                        {
+                            "type": MessageType.agent_event.value,
+                            "node": "set_observer",
+                            "status": "completed" if result.get("status") == "ok" else "error",
+                            "data": result,
+                        },
+                    )
+                    iso = _isovist_for_point(data["layout_json"], data.get("point_str"))
+                    session.set_observer({
+                        "mode": "person",
+                        "point_str": data.get("point_str"),
+                        "height": data.get("height", 1.7),
+                        "isovist": iso,
+                    })
+                    await manager.send_personal(websocket, {
+                        "type": "observer_result",
+                        "mode": "person",
+                        "status": result.get("status"),
+                        "isovist": iso,
+                    })
 
             elif msg_type == "observer_path":
                 # Unified set_observer tool, PATH mode. Use the live workspace layout.

@@ -261,6 +261,38 @@ async def start_session(
                         sr = out.get("scoring_results")
                         if isinstance(sr, dict):
                             emit_scores(sr.get("total_score"), sr.get("grade"), sr.get("breakdown") or {})
+
+                        # Collision node → push grid-based heatmap to the 3D viewport.
+                        # The pipeline's collision_results still carry _grid_meta (the
+                        # adapter only moves it to grid_viz for the HTTP path).
+                        if node == "collision":
+                            cr = out.get("collision_results") or {}
+                            gm = cr.get("_grid_meta") or cr.get("grid_viz")
+                            if gm and (gm.get("violation_cells") or gm.get("warning_cells")):
+                                emit({
+                                    "type": MessageType.analysis_overlay.value,
+                                    "kind": "collision",
+                                    "grid_viz": {
+                                        "violation_cells": gm.get("violation_cells", []),
+                                        "warning_cells":   gm.get("warning_cells",   []),
+                                        "ox":   gm.get("ox",   0),
+                                        "oy":   gm.get("oy",   0),
+                                        "cols": gm.get("cols", 0),
+                                        "rows": gm.get("rows", 0),
+                                        "cs":   gm.get("cs",   0.10),
+                                    },
+                                })
+
+                        # Orientation node → push arrow data for each object.
+                        elif node == "orientation":
+                            or_r = out.get("orientation_results") or {}
+                            results = or_r.get("results", [])
+                            if results:
+                                emit({
+                                    "type": MessageType.analysis_overlay.value,
+                                    "kind": "orientation",
+                                    "results": results,
+                                })
                 elif etype == "on_chain_error" and node:
                     emit_event(node, "error", str((ev.get("data") or {}).get("error", "")))
             return final_state
@@ -284,6 +316,24 @@ async def start_session(
                 final_state = agent_loop.run_until_complete(consume(app, initial_state))
 
             final_response = (final_state or {}).get("final_response") or "Session complete."
+
+            # If the run was approved, the output node saved a timestamped revision
+            # to team_03/output/. Tell the UI so it refreshes the Version History
+            # panel and switches the viewport to the newly-saved version.
+            try:
+                m = re.search(r"saved to\s+(.+\.json)", str(final_response))
+                if m:
+                    from pathlib import Path as _Path
+                    saved = _Path(m.group(1).strip().strip('"').strip("'"))
+                    emit({
+                        "type": MessageType.version_saved.value,
+                        "file": saved.name,
+                        "id": saved.stem,
+                        "name": (ctx.layout_name if ctx else None),
+                    })
+            except Exception:
+                pass
+
             # Strip the "final_response" prefix if the explain node prepended it
             clean_response = str(final_response)
             if clean_response.startswith("final_response"):

@@ -1,23 +1,12 @@
 import React, { useState, useCallback } from 'react';
 import { useTheme } from '../common/ThemeToggle';
-import type { CheckpointState, ViewAction } from '../../hooks/useAgentState';
+import type { CheckpointState } from '../../hooks/useAgentState';
 
 export interface ChatOptionsPanelProps {
   checkpoint: CheckpointState | null;
   onDecision: (value: string) => void;
-  /** Drive the UI viewport/analysis from the chat (terminal toggle parity). */
-  onView?: (action: ViewAction) => void;
 }
 
-// The terminal's viewport toggles, adapted to the UI's own viewport + dashboard.
-const VIEW_CHIPS: { action: ViewAction; key: string; label: string }[] = [
-  { action: 'before',     key: '1', label: 'Before (original)' },
-  { action: 'after',      key: '2', label: 'After (current)' },
-  { action: 'collision',  key: '3', label: 'Collision' },
-  { action: 'visibility', key: '4', label: 'Visibility' },
-  { action: 'path',       key: '5', label: 'Paths' },
-  { action: 'clear',      key: '0', label: 'Clear overlays' },
-];
 
 const MONO = '"Share Tech Mono", "SF Mono", "Fira Code", ui-monospace, monospace';
 
@@ -32,7 +21,7 @@ const sectionLabel: (color: string) => React.CSSProperties = (color) => ({
   fontFamily: MONO,
 });
 
-const ChatOptionsPanel: React.FC<ChatOptionsPanelProps> = ({ checkpoint, onDecision, onView }) => {
+const ChatOptionsPanel: React.FC<ChatOptionsPanelProps> = ({ checkpoint, onDecision }) => {
   const { colors, theme } = useTheme();
   const isDark = theme === 'dark';
   const [ruleText, setRuleText] = useState('');
@@ -108,32 +97,6 @@ const ChatOptionsPanel: React.FC<ChatOptionsPanelProps> = ({ checkpoint, onDecis
         )}
       </div>
 
-      {/* Viewport — terminal toggle parity, adapted to the UI's own viewport */}
-      {awaiting && onView && (
-        <div style={{ marginBottom: 14 }}>
-          <div style={sectionLabel(colors.accent)}>Viewport</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
-            {VIEW_CHIPS.map(v => (
-              <button
-                key={v.action}
-                onClick={() => onView(v.action)}
-                title={`(${v.key}) ${v.label}`}
-                style={{
-                  textAlign: 'left', padding: '6px 8px', borderRadius: 7,
-                  border: `1px solid ${colors.border}`,
-                  background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-                  color: colors.text, fontSize: 9.5, lineHeight: 1.25,
-                  cursor: 'pointer', fontFamily: MONO,
-                  transition: 'background 0.15s, border-color 0.15s',
-                }}
-              >
-                <span style={{ opacity: 0.55, fontWeight: 700, marginRight: 5 }}>{v.key}</span>
-                {v.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {!awaiting && (
         <div style={{ fontSize: 10, color: colors.muted, fontFamily: MONO, lineHeight: 1.5 }}>

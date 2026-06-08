@@ -30,7 +30,7 @@ from typing import Any, Callable, Optional
 from _runtime.config import load_settings
 from _runtime.mcp_client import McpClient
 from _runtime.llm import create_chat_llm, get_llm_response_format
-from _runtime.session import create_session
+from _runtime.session import create_session, save_session
 from _runtime.bootstrap import Context
 
 
@@ -61,6 +61,32 @@ def set_active_model(model_key: str) -> str:
 def get_active_model() -> Optional[str]:
     """Return the currently active model string, or None to use .env default."""
     return _active_model
+
+
+# ---------------------------------------------------------------------------
+# Pinned version — when the user selects a revision in the Version History panel,
+# the chat must run on THAT layout, not the base. build_context normally always
+# starts a fresh session from the base file; a pin overrides the working layout.
+# ---------------------------------------------------------------------------
+
+_pinned_layout: Optional[dict] = None
+_pinned_for: Optional[str] = None  # base layout name the pin belongs to
+
+
+def set_pinned_layout(layout_name: Optional[str], data: Optional[dict]) -> None:
+    """Pin a specific version as the working layout for `layout_name` (or clear
+    with data=None). The next chat run (build_context) uses it instead of the
+    base file. Selecting a different base layout should clear this."""
+    global _pinned_layout, _pinned_for
+    _pinned_layout = data
+    _pinned_for = layout_name if data is not None else None
+
+
+def get_pinned_layout(layout_name: str) -> Optional[dict]:
+    """Return the pinned version for `layout_name`, or None when no pin applies."""
+    if _pinned_layout is not None and _pinned_for == layout_name:
+        return _pinned_layout
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -167,6 +193,15 @@ def build_context(layout_name: str, progress: Optional[Callable[[str], None]] = 
     # Always start fresh from the base layout (base file is never modified).
     layout_data = create_session(resolved_layout, workspace_path)
     _say(f"Loaded layout '{name}'.")
+
+    # If the user picked a revision in the Version History panel, run the chat on
+    # THAT layout instead of the base one (overwrite the live workspace file so
+    # reload / Grasshopper / observer all see the selected version too).
+    pinned = get_pinned_layout(name)
+    if pinned is not None:
+        layout_data = pinned
+        save_session(pinned, workspace_path)
+        _say(f"Using the selected revision of '{name}'.")
 
     # Merge the onboarding profile into this layout's memory BEFORE the MCP probe,
     # so it's recorded even if Rhino/Swiftlet is down.

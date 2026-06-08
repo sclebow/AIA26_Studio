@@ -75,6 +75,8 @@ export interface ObserverPoint {
   y: number;
   height: number;
   point_str: string; // "x,y,h" in layout metres
+  /** When true: skip MCP/GH push, compute Python isovist only (fast drag path). */
+  live?: boolean;
 }
 
 export interface ObserverPathMessage {
@@ -93,6 +95,37 @@ export interface ObserverResult {
   agentObserver?: { mode: 'person' | 'path'; point?: [number, number]; path?: [number, number][] } | null;
 }
 
+/** Collision / orientation analysis overlay — drives the Three.js viewport heatmap. */
+export interface AnalysisOverlay {
+  type: 'analysis_overlay';
+  kind: 'collision' | 'orientation';
+  /** Collision grid: cell indices + grid metadata (layout metres). */
+  grid_viz?: {
+    violation_cells: number[];
+    warning_cells: number[];
+    ox: number; oy: number;
+    cols: number; rows: number;
+    cs: number;
+  };
+  /** Orientation: one entry per object that has an 'orientation' field. */
+  results?: Array<{
+    object_id: string;
+    name: string;
+    facing_ok: boolean;
+    angle_diff: number;
+    orientation_deg: number;
+    target_direction_deg: number;
+  }>;
+}
+
+/** A new revision was saved to team_03/output/ (e.g. after Approve layout). */
+export interface VersionSaved {
+  type: 'version_saved';
+  file: string;          // output file name, e.g. "industrial_005_2026-06-07_22-41_final.json"
+  id: string;            // file stem
+  name?: string | null;  // base layout name the revision belongs to
+}
+
 export type WSMessage =
   | ChatMessage
   | AgentResponse
@@ -104,4 +137,6 @@ export type WSMessage =
   | ObserverPoint
   | ObserverPathMessage
   | ObserverResult
+  | AnalysisOverlay
+  | VersionSaved
   | ChatDecision;
