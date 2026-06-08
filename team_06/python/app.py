@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -16,6 +17,20 @@ from graph import run_agent
 
 
 MAX_UNIQUE_SEARCH_RESULTS = 4
+
+PROGRAM_ALIASES = {
+    "living": ["living", "living room", "living area"],
+    "bed": ["bed", "bedroom"],
+    "bath": ["bath", "bathroom"],
+    "foyer": ["foyer", "entry", "entrance", "entrance hall", "hall"],
+    "extra": ["extra", "storage", "study", "office", "workspace"],
+}
+
+PROGRAM_ALIAS_LOOKUP = {
+    alias: canonical
+    for canonical, aliases in PROGRAM_ALIASES.items()
+    for alias in aliases
+}
 
 
 def _safe_json_loads(raw: str | None) -> dict[str, Any]:
@@ -33,7 +48,7 @@ def _format_programs(programs: list[str]) -> list[dict[str, Any]]:
     for program in programs:
         if not isinstance(program, str) or not program.strip():
             continue
-        normalized = program.strip()
+        normalized = PROGRAM_ALIAS_LOOKUP.get(program.strip().lower(), program.strip().lower())
         counts[normalized] = counts.get(normalized, 0) + 1
 
     return [
@@ -60,13 +75,210 @@ def _format_pairs(pairs: Any) -> list[str]:
     return formatted
 
 
+def _normalize_whitespace(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip(" ,.;:")
+
+
+def _extract_fact_markers(text: str) -> set[str]:
+    normalized = _normalize_whitespace(text.lower())
+    markers: set[str] = set()
+
+    age_match = re.search(r"\b(?:is\s+)?(\d{1,3})(?:\s+years?\s+old)?\b", normalized)
+    if age_match and any(token in normalized for token in ["year", "old", "is "]):
+        markers.add(f"age:{age_match.group(1)}")
+
+    if re.search(r"\b(lives?|living) alone\b", normalized):
+        markers.add("living:alone")
+
+    if re.search(r"\b(works?|working) from home\b|\bwfh\b|\bremote\b", normalized):
+        markers.add("work:home")
+
+    pet_patterns = {
+        "cat": r"\b(cat|cats)\b",
+        "dog": r"\b(dog|dogs)\b",
+        "pet": r"\bpet|pets\b",
+    }
+    if re.search(r"\b(has|have|with)\b", normalized):
+        for pet_type, pattern in pet_patterns.items():
+            if re.search(pattern, normalized):
+                markers.add(f"pet:{pet_type}")
+
+    return markers
+
+
+def _is_redundant_fact_clause(candidate: str, existing_clauses: list[str]) -> bool:
+    candidate_markers = _extract_fact_markers(candidate)
+    if not candidate_markers:
+        return False
+
+    existing_markers: set[str] = set()
+    for clause in existing_clauses:
+        existing_markers.update(_extract_fact_markers(clause))
+    return candidate_markers.issubset(existing_markers)
+
+
+def _is_graph_like_item(text: str, programs: list[str]) -> bool:
+    normalized = _normalize_whitespace(text.lower())
+    normalized = re.sub(r"^(?:the user|they)\s+", "", normalized)
+    normalized = re.sub(r"^(?:require|requires|need|needs|want|wants|include|includes)\s+", "", normalized)
+    if not normalized:
+        return False
+
+    for program in {program for program in programs if isinstance(program, str)}:
+        aliases = PROGRAM_ALIASES.get(program, [program])
+        for alias in aliases:
+            pattern = rf"^(?:an?\s+|one\s+|two\s+|three\s+|\d+\s+)?{re.escape(alias)}s?$"
+            if re.fullmatch(pattern, normalized):
+                return True
+    return False
+
+
+def _is_graph_restatement_clause(clause: str, programs: list[str]) -> bool:
+    if not clause:
+        return False
+
+    text = _normalize_whitespace(clause.lower())
+    if not text:
+        return False
+
+    item_patterns: list[str] = []
+    seen_programs = {program for program in programs if isinstance(program, str)}
+    for program in seen_programs:
+        aliases = PROGRAM_ALIASES.get(program, [program])
+        alias_group = "|".join(re.escape(alias) for alias in aliases)
+        item_patterns.append(rf"(?:an?\s+|one\s+|two\s+|three\s+|\d+\s+)?(?:{alias_group})s?")
+
+    if not item_patterns:
+        return False
+
+    joined_pattern = r"^(?:" + "|".join(item_patterns) + r")(?:\s*(?:,|and)\s*(?:" + "|".join(item_patterns) + r"))*$"
+    return bool(re.fullmatch(joined_pattern, text))
+
+
+def _build_household_description(household: list[dict[str, Any]]) -> list[str]:
+    if not household:
+        return []
+
+    fragments: list[str] = []
+    if len(household) == 1:
+        fragments.append("lives alone")
+
+    for member in household:
+        if not isinstance(member, dict):
+            continue
+        relationship = member.get("relationship", "")
+        info = member.get("info", "")
+        relation_text = relationship.strip().lower() if isinstance(relationship, str) else ""
+        info_text = _normalize_whitespace(info) if isinstance(info, str) else ""
+        if relation_text and relation_text not in {"self", "me", "i"}:
+            fragments.append(relation_text)
+        if info_text:
+            fragments.append(info_text)
+
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for fragment in fragments:
+        key = fragment.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(fragment)
+    return deduped
+
+
+def _strip_graph_requirements(clause: str, programs: list[str]) -> str:
+    lowered = clause.lower()
+    if not any(token in lowered for token in ["require", "requires", "need", "needs", "want", "wants", "include", "includes"]):
+        return clause
+
+    fragments = [
+        _normalize_whitespace(part)
+        for part in re.split(r",|\band\b", clause, flags=re.IGNORECASE)
+    ]
+    kept = [fragment for fragment in fragments if fragment and not _is_graph_like_item(fragment, programs)]
+    if not kept or len(kept) == len(fragments):
+        return clause
+    return "; ".join(kept)
+
+
+def _is_internal_mapping_clause(clause: str) -> bool:
+    text = clause.lower()
+    return any(
+        phrase in text
+        for phrase in [
+            "considered as an additional bedroom",
+            "to be considered as an additional bedroom",
+            "represented as an additional bedroom",
+            "represented as an additional bed",
+            "translated to extra",
+            "translated to bed",
+        ]
+    )
+
+
+def _clean_description(description: str, programs: list[str], household: list[dict[str, Any]]) -> str:
+    clauses = re.split(r"(?<=[.;])\s+|\s*;\s*", description)
+    kept_clauses: list[str] = []
+    seen: set[str] = set()
+    for clause in clauses:
+        cleaned = _normalize_whitespace(_strip_graph_requirements(clause, programs))
+        if not cleaned or _is_graph_restatement_clause(cleaned, programs):
+            continue
+        if _is_internal_mapping_clause(cleaned):
+            continue
+        if _is_redundant_fact_clause(cleaned, kept_clauses):
+            continue
+        key = cleaned.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        kept_clauses.append(cleaned)
+
+    for household_clause in _build_household_description(household):
+        key = household_clause.lower()
+        if key in seen:
+            continue
+        if any(key in clause.lower() for clause in kept_clauses):
+            continue
+        if _is_redundant_fact_clause(household_clause, kept_clauses):
+            continue
+        seen.add(key)
+        kept_clauses.append(household_clause)
+
+    return "; ".join(kept_clauses)
+
+
+def _build_specifications(description: str) -> list[str]:
+    if not description:
+        return []
+
+    raw_parts = re.split(r"(?<=[.;])\s+|\s*;\s*|\s*,\s*(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)", description)
+    specs: list[str] = []
+    seen: set[str] = set()
+    for part in raw_parts:
+        cleaned = _normalize_whitespace(part)
+        if not cleaned:
+            continue
+        cleaned = re.sub(r"^(the user|they)\s+", "", cleaned, flags=re.IGNORECASE)
+        if _is_redundant_fact_clause(cleaned, specs):
+            continue
+        key = cleaned.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        specs.append(cleaned)
+    return specs
+
+
 def _build_brief(topology_graph_json_string: str | None) -> dict[str, Any] | None:
     payload = _safe_json_loads(topology_graph_json_string)
     graph = payload.get("graph") if isinstance(payload.get("graph"), dict) else {}
     household = payload.get("household") if isinstance(payload.get("household"), list) else []
-    description = payload.get("description") if isinstance(payload.get("description"), str) else ""
+    raw_description = payload.get("description") if isinstance(payload.get("description"), str) else ""
 
     programs = graph.get("programs") if isinstance(graph.get("programs"), list) else []
+    description = _clean_description(raw_description, programs, household)
+    specifications = _build_specifications(description)
     brief = {
         "rooms": _format_programs(programs),
         "household": [
@@ -85,12 +297,13 @@ def _build_brief(topology_graph_json_string: str | None) -> dict[str, Any] | Non
         "access": _format_pairs(graph.get("access_pairs")),
         "adjacency": _format_pairs(graph.get("adjacency_pairs")),
         "separation": _format_pairs(graph.get("not_adjacency_pairs")),
-        "description": description.strip(),
-        "summary": description.strip(),
+        "description": description,
+        "summary": description,
+        "specifications": specifications,
     }
 
     has_content = any(
-        [brief["rooms"], brief["household"], brief["access"], brief["adjacency"], brief["separation"], brief["description"]]
+        [brief["rooms"], brief["household"], brief["access"], brief["adjacency"], brief["separation"], brief["description"], brief["specifications"]]
     )
     return brief if has_content else None
 

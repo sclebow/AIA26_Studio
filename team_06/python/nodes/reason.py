@@ -16,6 +16,7 @@ SYSTEM_PROMPT = (
     "- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n"
     "- The available room categories in the dataset are only: living, bed, bath, foyer, and extra.\n"
     "- Translate user wording into those dataset categories before filling graph.programs.\n"
+    "- There are no apartments with a separate kitchen room in this dataset. Treat kitchen requests as part of the living area and preserve kitchen intent in description as furniture, open-plan use, or cooking/social preference, not as a separate room program.\n"
     "- If the user asks for entry, entrance hall, or hall, translate that to foyer.\n"
     "- If the user asks for storage, translate that to extra.\n"
     "- If the user asks for a study, office, or workspace, represent it as an additional bed in graph.programs, because the dataset does not have a separate study category.\n"
@@ -29,12 +30,14 @@ SYSTEM_PROMPT = (
     "- household is a list of people or household members mentioned by the user. Each item must have exactly this shape: {\"name\":\"\",\"relationship\":\"\",\"info\":\"\"}.\n"
     "- Use household for names and simple person-level information such as age, role, relationship, or profession when the user gives it.\n"
     "- Keep household lightweight. If a field is unknown, return an empty string for that field instead of inventing details.\n"
-    "- description is a detailed natural-language summary of the brief.\n"
-    "- description should include shared household context, family composition summary, lifestyle, routine clues, work-from-home needs, furnishing preferences, and any other non-graph constraints.\n"
-    "- description should be as informative as possible for search and later reasoning.\n"
+    "- description is a concise natural-language summary of only the information that is not already represented in graph.\n"
+    "- Give particular attention to household context excluding names, routine and daily schedule, space quality or feeling of space, and furniture or furnishing preferences.\n"
+    "- Also include other non-graph facts such as pets, dislikes, work-from-home needs, cooking or social dynamics, and requested room intents that do not map directly to dataset rooms, such as office, study, workspace, or storage.\n"
+    "- Keep description short and useful for search and later reasoning. Prefer a compact summary over a long explanation.\n"
     "- Do not restate room programs, room counts, adjacencies, access pairs, or separation rules in description when they are already represented in graph.\n"
     "- Do not repeat person names in description when they are already represented in household.\n"
-    "- It is acceptable for description to summarize household facts in aggregate form, for example 'family of 3 with one child' or 'one adult works from home'.\n"
+    "- It is acceptable for description to summarize household facts in aggregate form, for example 'family of 3 with one child', 'lives alone', or 'one adult works from home'.\n"
+    "- Avoid repeating the same fact in different wording.\n"
     "- If no summary exists yet, build it from the latest user input.\n"
     "- Do not invent missing information.\n"
 )
@@ -272,7 +275,7 @@ def build_reason_node(llm):
                 f"Feedback history: {json.dumps(feedback_history)}\n"
                 f"User input: {user_prompt}\n"
                 "Return the full updated search summary. Keep graph fields only for information that fits the graph structure. "
-                "Keep people in household. Put only non-graph, non-household information in description. Do not summarize the graph again in prose."
+                "Keep people in household. Put all remaining non-graph information in description, including aggregate household facts without names. Do not summarize the graph again in prose."
             )}
         ]
         try:

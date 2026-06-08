@@ -71,6 +71,35 @@ export function formatDaylight(value) {
   return `${numericValue.toFixed(2)} DA`
 }
 
+const PROGRAM_LABELS = {
+  bed: ['bedroom', 'bedrooms'],
+  bath: ['bathroom', 'bathrooms'],
+  living: ['living', 'living'],
+  kitchen: ['kitchen', 'kitchens'],
+  foyer: ['foyer', 'foyers'],
+  extra: ['extra', 'extra'],
+  study: ['study', 'studies'],
+}
+
+export function formatRoomProgram(program, count = null) {
+  if (typeof program !== 'string' || !program.trim()) return ''
+  const normalized = program.trim().toLowerCase()
+  const [singular, plural] = PROGRAM_LABELS[normalized] ?? [normalized, `${normalized}s`]
+  if (typeof count === 'number') {
+    const label = count === 1 ? singular : plural
+    return `${count} ${label}`
+  }
+  return singular
+}
+
+export function getRoomDisplayName(room) {
+  const programLabel = formatRoomProgram(room?.attributes?.program)
+  if (programLabel) return programLabel
+
+  const rawName = room?.name
+  return typeof rawName === 'string' ? rawName.trim().toLowerCase() : ''
+}
+
 // ─── Layout (program) palette ─────────────────────────────────────────────────
 // Keyed by `attributes.program` string.
 

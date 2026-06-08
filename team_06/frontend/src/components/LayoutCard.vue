@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { getDaylightColor, formatDaylight, PROGRAM_COLORS, toNumericValue } from '../utils/roomAnalysis.js'
+import { getDaylightColor, formatDaylight, PROGRAM_COLORS, toNumericValue, getRoomDisplayName } from '../utils/roomAnalysis.js'
 import { ROUTINE_TIMES } from '../mock/agentMock.js'
 
 const props = defineProps({
@@ -98,7 +98,7 @@ const displayId = computed(() => {
 
 function roomNameForId(id) {
   const r = props.layout?.rooms?.find(r => String(r.id) === String(id))
-  return r ? (r.name || r.attributes?.program || id) : id
+  return r ? (getRoomDisplayName(r) || id) : id
 }
 
 function scoreRingStyle(score) {
@@ -153,7 +153,7 @@ function hasItems(items) {
           <ul class="layout-summary-list">
             <li v-for="room in props.layout.rooms" :key="room.id" class="layout-summary-room-row">
               <span class="room-swatch" :style="{ background: getDaylightColor(room.attributes?.daylight ?? 0) }"></span>
-              {{ room.name || room.attributes?.program }} — {{ formatDaylight(room.attributes?.daylight) }}
+              {{ getRoomDisplayName(room) }} — {{ formatDaylight(room.attributes?.daylight) }}
             </li>
           </ul>
 
@@ -195,7 +195,7 @@ function hasItems(items) {
           <ul class="layout-summary-list">
             <li v-for="room in props.layout.rooms" :key="room.id" class="layout-summary-room-row">
               <span class="room-swatch" :style="{ background: PROGRAM_COLORS[room.attributes?.program] ?? '#ddd' }"></span>
-              {{ room.name || room.attributes?.program }} - {{ (room.attributes?.area ?? 0).toFixed(2) }} m²
+              {{ getRoomDisplayName(room) }} - {{ (room.attributes?.area ?? 0).toFixed(2) }} m²
             </li>
           </ul>
         </template>

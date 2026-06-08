@@ -7,17 +7,12 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['selectCandidate'])
-
-function formatScore(score) {
-  if (typeof score !== 'number' || Number.isNaN(score)) return null
-  return `${Math.max(0, Math.min(100, Math.round(score)))}%`
-}
 </script>
 
 <template>
   <section class="sidebar-section">
     <div class="sidebar-section-title">
-      <img :src="searchIcon" alt="Explore" width="20" height="20" style="opacity:0.6;" />
+      <img :src="searchIcon" alt="Matching layouts" width="20" height="20" style="opacity:0.6;" />
       Explore
     </div>
     <template v-if="props.results && props.results.length">
@@ -31,7 +26,6 @@ function formatScore(score) {
         >
           <div class="history-item-top">
             <div class="history-item-id">{{ item.layoutId?.length > 18 ? item.layoutId.slice(0, 18) + '…' : item.layoutId }}</div>
-            <div v-if="formatScore(item.score)" class="history-item-score">{{ formatScore(item.score) }}</div>
           </div>
           <div class="history-item-desc">{{ item.layout?.apartment?.attributes?.description || item.name || '–' }}</div>
         </li>
@@ -88,12 +82,6 @@ function formatScore(score) {
   font-size: var(--font-size-bold);
   font-weight: 600;
   color: var(--color-text-primary);
-}
-.history-item-score {
-  font-size: var(--font-size-standard);
-  font-weight: 600;
-  color: var(--color-blue);
-  flex-shrink: 0;
 }
 .history-item-desc {
   font-size: var(--font-size-standard);

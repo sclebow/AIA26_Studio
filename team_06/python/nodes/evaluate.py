@@ -1,5 +1,6 @@
 from typing import Any
 import json
+from pathlib import Path
 from tools.layout_evaluator import summarize_evaluation
 
 FIXED_CLOSING_SENTENCE = (
@@ -20,9 +21,11 @@ SYSTEM_PROMPT = (
     "- Pill labels must be tag-like, not sentence fragments, and must not repeat wording already used in chat_summary.\n"
     "- Example pill labels: coherent to brief, enough daylight, appropriate room size, bathroom without window.\n"
     "- Use the structured graph and description from the brief, and use the layout JSON as the source of truth for what exists now.\n"
+    "- If a Planfinder layout description is provided, use it as extra context about intended use or character, but do not let it override the actual layout JSON when they differ.\n"
     "- If daylight information is present in the layout, include it in the reasoning.\n"
     "- Treat a bathroom and a living space as baseline expected programs even if the user did not explicitly request them. Missing either should usually be a concern.\n"
     "- The dataset room categories are living, bed, bath, foyer, and extra. Interpret the layout using those categories.\n"
+    "- There are no apartments with a separate kitchen room in this dataset. Interpret kitchen as furnishing or open-plan use within the living area, not as a missing or expected standalone room.\n"
     "- Treat foyer as satisfying entry, entrance hall, or hall requests.\n"
     "- Treat extra as able to cover storage or circulation support.\n"
     "- If the brief asked for a study, an additional bedroom may satisfy it approximately when no separate study category exists; mention the approximation when relevant.\n"
@@ -72,6 +75,26 @@ def _build_layout_evaluation_payload(layout_data: dict[str, Any], topology_json:
     }
 
 
+def _load_planfinder_description(layout_id: str | None) -> str | None:
+    if not isinstance(layout_id, str) or not layout_id.strip():
+        return None
+
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    description_path = repo_root / "layout_inputs" / "Planfinder_Dataset" / "pf_descriptions" / f"{layout_id.strip()}.json"
+    if not description_path.exists():
+        return None
+
+    try:
+        payload = json.loads(description_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+    description = payload.get("description")
+    if not isinstance(description, str) or not description.strip():
+        return None
+    return description.strip()
+
+
 def _normalize_evaluation(value: object) -> dict[str, Any]:
     if not isinstance(value, dict):
         return {
@@ -110,7 +133,8 @@ def _normalize_evaluation(value: object) -> dict[str, Any]:
         ordered_rules = [
             (("bathroom without window",), "bathroom without window"),
             (("without window", "no window"), "without window"),
-            (("door", "connect", "access"), "poor access" if not positive else "good access"),
+            (("door", "connect", "access"), "good connectivity" if positive else "poor connectivity"),
+            (("circulation",), "good circulation" if positive else "poor circulation"),
             (("daylight", "bright", "light"), "enough daylight" if positive else "low daylight"),
             (("size", "spacious", "large", "small", "tight"), "appropriate room size" if positive else "tight room size"),
             (("brief", "fit", "match"), "coherent to brief" if positive else "poor brief fit"),
@@ -220,6 +244,7 @@ def build_evaluate_node(llm: Any) -> Any:
             layout_data = json.loads(layout_json) if isinstance(layout_json, str) else layout_json
             topology_json = state.get("topology_graph_json_string")
             evaluation_payload = _build_layout_evaluation_payload(layout_data, topology_json)
+            evaluation_payload["planfinder_description"] = _load_planfinder_description(evaluation_payload.get("layoutId"))
             llm_messages = [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": (

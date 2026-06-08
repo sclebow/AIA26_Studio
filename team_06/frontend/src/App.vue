@@ -23,6 +23,7 @@ const layoutHistory = ref([])
 const exploreResults = ref([])
 const isSending = ref(false)
 const hasUserSelectedTab = ref(false)
+const suppressAncillaryPartials = ref(false)
 
 const boundary = ref(null)
 
@@ -73,6 +74,11 @@ function attachRoutine(layout, routine = null) {
     ...layout,
     routine: routine ?? layout.routine ?? null
   }
+}
+
+function isSameLayout(nextLayout, currentLayout) {
+  if (!nextLayout || !currentLayout) return false
+  return Boolean(nextLayout.layoutId) && nextLayout.layoutId === currentLayout.layoutId
 }
 
 function handleTabChange(nextTab) {
@@ -145,18 +151,21 @@ function applyPartialResponse(response) {
     applySearchResults(response.search_results)
   }
   if (response.layout) {
+    const sameLayout = isSameLayout(response.layout, agentState.value)
     agentState.value = attachRoutine(attachExploreResults({
       ...response.layout,
-      evaluation: response.evaluation ?? agentState.value?.evaluation ?? null
-    }), response.routine ?? agentState.value?.routine ?? null)
-  } else if (response.routine && agentState.value) {
+      evaluation: suppressAncillaryPartials.value
+        ? null
+        : response.evaluation ?? (sameLayout ? agentState.value?.evaluation ?? null : null)
+    }), suppressAncillaryPartials.value ? null : response.routine ?? (sameLayout ? agentState.value?.routine ?? null : null))
+  } else if (response.routine && agentState.value && !suppressAncillaryPartials.value) {
     agentState.value = attachRoutine(attachExploreResults(agentState.value), response.routine)
-  } else if (response.evaluation && agentState.value) {
+  } else if (response.evaluation && agentState.value && !suppressAncillaryPartials.value) {
     agentState.value = attachRoutine(attachExploreResults({
       ...agentState.value,
       evaluation: response.evaluation
     }), response.routine ?? agentState.value?.routine ?? null)
-  } else if (agentState.value) {
+  } else if (agentState.value && !suppressAncillaryPartials.value) {
     agentState.value = attachRoutine(attachExploreResults(agentState.value), response.routine ?? agentState.value?.routine ?? null)
   }
 }
@@ -176,11 +185,14 @@ async function handleUserMessage(message) {
       applyPartialResponse(partialResult)
     })
     removeChatMessage(statusMessageId)
+    suppressAncillaryPartials.value = false
     applyAgentResponse(response)
   } catch (error) {
+    suppressAncillaryPartials.value = false
     updateChatMessage(statusMessageId, 'Request failed', { isLoading: false, tone: 'error' })
     pushChatMessage('agent', `Backend error: ${error.message}`)
   } finally {
+    suppressAncillaryPartials.value = false
     isSending.value = false
   }
 }
@@ -211,6 +223,21 @@ async function handleRestore(layout) {
 
 async function handleSelectCandidate(candidate) {
   if (!candidate?.layoutId || isSending.value) return
+  if (agentState.value?.layoutId !== candidate.layoutId) {
+    suppressAncillaryPartials.value = true
+    const candidateLayout = candidate.layout
+      ? {
+          ...candidate.layout,
+          layoutId: candidate.layoutId,
+          evaluation: null
+        }
+      : null
+
+    agentState.value = attachRoutine(
+      attachExploreResults(candidateLayout),
+      null
+    )
+  }
   await handleUserMessage(`select layout ${candidate.layoutId}`)
 }
 </script>

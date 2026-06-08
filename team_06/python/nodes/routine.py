@@ -42,7 +42,8 @@ SYSTEM_PROMPT = (
     "- Do not place multiple people in the bathroom at the same time slot unless the input explicitly requires shared bathroom use.\n"
     "- If a couple is present, prefer the largest available bedroom for that couple.\n"
     "- If the brief says that one bedroom is used as a study, interpret that as at least one resident working from home during the day when household information does not contradict it.\n"
-    "- If the layout has an extra room and the brief explicitly suggests work-from-home, study, or a dedicated quiet activity, that extra room may be used during the day.\n"
+    "- For work-from-home or study use, prefer a second bedroom when available. Otherwise use the living room, and only then fall back to the main bedroom.\n"
+    "- Do not use extra rooms as offices. Treat extra rooms as storage or circulation support only.\n"
     "- Do not use room ids that do not exist.\n"
     "- Keep colors as simple hex strings.\n"
 )
@@ -172,6 +173,31 @@ def _largest_bedroom_id(rooms: list[dict[str, str | None]]) -> str | None:
     return room_id if isinstance(room_id, str) and room_id else None
 
 
+def _office_room_id(rooms: list[dict[str, str | None]]) -> str | None:
+    bed_rooms = [room for room in rooms if room.get("program") == "bed"]
+    ranked_beds = sorted(
+        bed_rooms,
+        key=lambda room: float(room.get("area") or 0.0),
+        reverse=True,
+    )
+
+    if len(ranked_beds) >= 2:
+        room_id = ranked_beds[1].get("id")
+        if isinstance(room_id, str) and room_id:
+            return room_id
+
+    living = _first_room_id(rooms, "living")
+    if living:
+        return living
+
+    if ranked_beds:
+        room_id = ranked_beds[0].get("id")
+        if isinstance(room_id, str) and room_id:
+            return room_id
+
+    return None
+
+
 def _adult_member_indexes(household: list[dict[str, str]]) -> list[int]:
     indexes: list[int] = []
     for index, member in enumerate(household):
@@ -195,6 +221,7 @@ def _default_steps(profile: str, rooms: list[dict[str, str | None]]) -> list[str
     living = _first_room_id(rooms, "living")
     extra = _first_room_id(rooms, "extra")
     foyer = _first_room_id(rooms, "foyer")
+    office = _office_room_id(rooms)
 
     if profile == "child_school":
         return [
@@ -213,11 +240,11 @@ def _default_steps(profile: str, rooms: list[dict[str, str | None]]) -> list[str
         return [
             _fallback_room(bed, living),
             _fallback_room(bath, living, bed),
-            _fallback_room(extra, living, bed),
-            _fallback_room(living, extra, bed),
-            _fallback_room(extra, living, bed),
-            _fallback_room(living, extra, bed),
-            _fallback_room(living, extra, bed),
+            _fallback_room(office, living, bed),
+            _fallback_room(living, office, bed),
+            _fallback_room(office, living, bed),
+            _fallback_room(living, office, bed),
+            _fallback_room(living, office, bed),
             _fallback_room(living, bed),
             _fallback_room(bed, living),
         ]

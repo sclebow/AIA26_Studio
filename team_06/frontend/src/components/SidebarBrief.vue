@@ -3,28 +3,17 @@ import boxIcon from '../assets/icons/box.svg'
 import messageIcon from '../assets/icons/message.svg'
 import userIcon from '../assets/icons/user.svg'
 import { computed } from 'vue'
+import { formatRoomProgram } from '../utils/roomAnalysis.js'
 
 const props = defineProps({
   parsedInput: { type: Object, default: null }
 })
 
-const roomLabelMap = {
-  living: ['Living', 'Living'],
-  bed: ['Bedroom', 'Bedrooms'],
-  bath: ['Bathroom', 'Bathrooms'],
-  foyer: ['Foyer', 'Foyers'],
-  extra: ['Extra', 'Extras']
-}
-
 const roomChips = computed(() => {
   const rooms = Array.isArray(props.parsedInput?.rooms) ? props.parsedInput.rooms : []
   return rooms
     .filter((room) => typeof room?.name === 'string' && typeof room?.count === 'number' && room.count > 0)
-    .map((room) => {
-      const [singular, plural] = roomLabelMap[room.name] ?? [room.name, `${room.name}s`]
-      const label = room.count === 1 ? singular : plural
-      return `${room.count} ${label}`
-    })
+    .map((room) => formatRoomProgram(room.name, room.count))
 })
 
 const householdChips = computed(() => {
@@ -47,6 +36,13 @@ const specificationText = computed(() => {
 })
 
 const specificationChips = computed(() => {
+  if (Array.isArray(props.parsedInput?.specifications)) {
+    return props.parsedInput.specifications
+      .filter((item) => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean)
+  }
+
   const value = specificationText.value
   if (!value || value.length > 60) return []
 
@@ -60,6 +56,12 @@ const specificationChips = computed(() => {
   }
 
   return parts
+})
+
+const useSpecificationBlock = computed(() => {
+  if (!specificationText.value) return false
+  if (!specificationChips.value.length) return true
+  return specificationChips.value.length > 4 || specificationChips.value.some((chip) => chip.length > 36)
 })
 </script>
 
@@ -97,7 +99,7 @@ const specificationChips = computed(() => {
       <img :src="messageIcon" alt="Specifications" width="20" height="20" style="opacity:0.6;" />
       Specifications
     </div>
-      <div v-if="specificationChips.length" class="spec-chip-list">
+      <div v-if="specificationChips.length && !useSpecificationBlock" class="spec-chip-list">
         <span v-for="chip in specificationChips" :key="chip" class="spec-chip">{{ chip }}</span>
       </div>
       <div v-else-if="specificationText" class="spec-block-list">

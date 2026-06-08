@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { Stage, Layer, Group, Line, Text } from 'vue-konva'
-import { getRoomColor, getRoomSecondaryLabel, TOD_COLORS } from '../utils/roomAnalysis.js'
+import { getRoomColor, getRoomSecondaryLabel, TOD_COLORS, getRoomDisplayName } from '../utils/roomAnalysis.js'
 
 const props = defineProps({
   layout:      { type: Object, default: null },
@@ -93,8 +93,8 @@ const roomRenderData = computed(() => {
     fill: todFill ?? getRoomColor(room, vm),
     labelX: getLabelX(room.geometry),
     labelY: getLabelY(room.geometry),
-    nameText: room.attributes.program,
-    nameOffsetX: getTextWidth(room.attributes.program, 18) / 2,
+    nameText: getRoomDisplayName(room),
+    nameOffsetX: getTextWidth(getRoomDisplayName(room), 18) / 2,
     secondaryText: getRoomSecondaryLabel(room, vm),
     secondaryOffsetX: getTextWidth(getRoomSecondaryLabel(room, vm), 14) / 2,
   }))
@@ -116,7 +116,7 @@ const routineCircleData = computed(() => {
     if (!entries?.length) continue
     const cx = getLabelX(room.geometry)
     const cy = getLabelY(room.geometry)
-    const roomName = room.attributes?.program ?? ''
+    const roomName = getRoomDisplayName(room)
     const count = entries.length
     const totalWidth = (count - 1) * CIRCLE_SPACING
     entries.forEach((entry, i) => {
