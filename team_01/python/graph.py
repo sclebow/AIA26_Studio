@@ -1,8 +1,17 @@
 from __future__ import annotations
 import json
 import math
+import sys
 from pathlib import Path
 from typing import Any, TypedDict
+
+
+def _safe_input(prompt: str, default: str = "") -> str:
+    """Return `default` silently when stdin is not a terminal (orchestrator / headless mode)."""
+    if not sys.stdin.isatty():
+        print(f"{prompt}{default}  [auto]")
+        return default
+    return input(prompt)
 from langgraph.graph import END, START, StateGraph
 from nodes.reason import build_reason_node
 from nodes.modify import build_modify_node, DEFAULT_SECTIONS, BEAM_SECTION_UPGRADE, COL_SECTION_UPGRADE
@@ -46,6 +55,17 @@ class AgentState(TypedDict):
     sdl_kNm2: float | None
     find_minimum_done: bool | None
     cost_flexibility: dict | None
+    # ### V4 START — context inputs for three-pillar cost/flexibility model
+    # All five keys are loaded from team_01_settings.json at session start.
+    # Absent settings keys fall back to the listed defaults.
+    building_occupancy_class: str | None   # "VACANT"|"LOW"|"HIGH"|"CRITICAL"; default HIGH
+    building_context: str | None           # "NEW"|"EXISTING_KNOWN"|"EXISTING_UNKNOWN"; default EXISTING_KNOWN
+    floor_level: int | None                # positive = above grade, negative = basement; default 1
+    heritage_status: bool                  # pre-existing heritage designation; immutable after init
+    heritage_ratchet: bool                 # persistent building flag; seeded from heritage_status;
+                                           # set True by cost_flexibility node when P4 triggers;
+                                           # never reset to False within a session
+    # ### V4 END
 
 
 _EVAL_KEYWORDS = frozenset({
@@ -95,7 +115,7 @@ def _route_from_evaluate(state: AgentState) -> str:
 
 
 def _route_from_cost_flexibility(state: AgentState) -> str:
-    if state.get("came_from") in ("modify", "structural_change"):
+    if state.get("came_from") in ("modify", "structural_change", "generate_grid"):
         return "comparison"
     return END
 
@@ -142,7 +162,7 @@ def build_generate_grid_node(edited_layout_path):
                 )
                 print(f"  {i+1}. {n_cols} columns · {n_beams} beams · max span {round(max_span, 2)}m")
             while True:
-                raw = input(f"Choose option [1-{len(options)}, Enter=1]: ").strip()
+                raw = _safe_input(f"Choose option [1-{len(options)}, Enter=1]: ", "").strip()
                 if not raw:
                     chosen = options[0]
                     print("[generate_grid] Using option 1")
@@ -194,9 +214,9 @@ def build_graph(ctx: Any) -> Any:
     return graph.compile()
 
 
-def run_agent(prompt: str, ctx: Any) -> str:
+def run_agent(prompt: str, ctx: Any, layout_data: dict | None = None) -> tuple[str, str | None]:
     app = build_graph(ctx)
-    initial_state = _build_initial_state(prompt, ctx)
+    initial_state = _build_initial_state(prompt, ctx, layout_data=layout_data)
     final_state = app.invoke(initial_state)
 
     # Persist material override to JSON after graph completes (survives multiple modify cycles)
@@ -223,13 +243,31 @@ def run_agent(prompt: str, ctx: Any) -> str:
                     attrs["material"] = material
                     is_beam = len(el.get("geometry", [])) == 2
                     cur_sec = attrs.get("section", "")
-                    # Preserve individually upgraded sections
-                    if is_beam and global_beam_sec and cur_sec and cur_sec != global_beam_sec:
-                        count += 1
-                        continue
-                    if not is_beam and global_col_sec and cur_sec and cur_sec != global_col_sec:
-                        count += 1
-                        continue
+                    # Preserve individually upgraded sections.
+                    # STEEL: compare section codes (e.g. "IPE300").
+                    # TIMBER/RCC: compare depth×width for beams, dimensions string for columns.
+                    if is_beam:
+                        if is_steel and global_beam_sec and cur_sec and cur_sec != global_beam_sec:
+                            count += 1
+                            continue
+                        elif not is_steel:
+                            cur_d = str(attrs.get("depth", ""))
+                            cur_w = str(attrs.get("width", ""))
+                            if cur_d and cur_w and (
+                                cur_d != str(sec["beam_depth_mm"]) or
+                                cur_w != str(sec["beam_width_mm"])
+                            ):
+                                count += 1
+                                continue
+                    else:
+                        if is_steel and global_col_sec and cur_sec and cur_sec != global_col_sec:
+                            count += 1
+                            continue
+                        elif not is_steel:
+                            cur_dims = attrs.get("dimensions", "")
+                            if cur_dims and cur_dims != sec["col_dims"]:
+                                count += 1
+                                continue
                     if is_beam:
                         attrs["depth"] = str(sec["beam_depth_mm"])
                         attrs["width"] = str(sec["beam_width_mm"])
@@ -283,7 +321,8 @@ def run_agent(prompt: str, ctx: Any) -> str:
         live_load_kNm2=final_state.get("live_load_kNm2"),
     )
 
-    return final_response
+    edited_layout_json = final_state.get("layout_json_string") or None
+    return final_response, edited_layout_json
 
 
 def _write_evaluation_report(
@@ -332,24 +371,71 @@ def _write_evaluation_report(
         lines.append("")
         lines.append(comparison)
         lines.append("")
+    # ### V4 MODIFIED — dual-path: reads V4 field names when present, falls back to V3 field
+    # names for sessions still running the old cost_flexibility.py. V3 path is removed once
+    # cost_flexibility.py is migrated; also hardened all V3 field accesses to .get() to
+    # prevent KeyError if the dict is partially populated.
     if cost_flexibility:
         cf = cost_flexibility
         lines.append("## Cost & Flexibility Analysis")
         lines.append("")
         lines.append("| Metric | Value |")
         lines.append("|--------|-------|")
-        if cf.get("cost_added_usd") is not None:
-            lines.append(f"| Material added | +${cf['cost_added_usd']:,.0f} |")
-            lines.append(f"| Material saved | -${abs(cf['cost_saved_usd']):,.0f} |")
-            lines.append(f"| Net cost change | ${cf['net_cost_usd']:+,.0f} |")
+        if cf.get("financial_cost_label") is not None or cf.get("total_build_cost"):
+            # V4 path
+            tbc = cf.get("total_build_cost", {})
+            if tbc and tbc.get("total_build_mid_eur"):
+                vol_str = "  ·  ".join(
+                    f"{v:.3f} m³ {k}" for k, v in tbc.get("total_build_vol_m3", {}).items()
+                )
+                lines.append(
+                    f"| **Total Structure Build Cost** | "
+                    f"**{tbc['total_build_label']} "
+                    f"(EUR {tbc['total_build_mid_eur']:,.0f} / "
+                    f"{tbc['total_build_low_eur']:,.0f}–{tbc['total_build_high_eur']:,.0f})** |"
+                )
+                lines.append(f"| ↳ Volume | {vol_str} |")
+                lines.append(f"| ↳ PEM (works budget) | EUR {tbc['total_build_pem_eur']:,.0f} |")
+            ds = cf.get("design_savings_eur", 0)
+            if ds:
+                lines.append(f"| Design-Phase Saving | EUR {ds:,.0f} (avoided new-build cost of removed elements) |")
+            if cf.get("financial_cost_label") is None:
+                # only total build cost, no modification diff — stop here
+                lines.append("")
+            else:
+                fc_range = cf.get("financial_cost_range", {})
+                curr = fc_range.get("currency", "EUR")
+                mid  = fc_range.get("mid",  0)
+                intervention_eur = cf.get("intervention_mid_eur", 0)
+                overhead_eur     = cf.get("overhead_mid_eur", 0)
+                lines.append(f"| Last Modification Cost | {cf['financial_cost_label']} ({curr} {mid:,.0f}) |")
+                lines.append(f"| ↳ Intervention | {curr} {intervention_eur:,.0f} (labour, demolition, material) |")
+                lines.append(f"| ↳ Overhead | {curr} {overhead_eur:,.0f} (mobilisation, temp works, fees) |")
+                lines.append(f"| Cost Driver | {cf.get('dominant_cost_driver', '—')} |")
+                lines.append(f"| Admin Burden | {cf.get('admin_burden_label', '—')} |")
+                crit = cf.get("admin_critical_path_weeks", {})
+                lines.append(f"| Admin Critical Path | {crit.get('mid', '—')} wks (mid) |")
+                lines.append(f"| Dominant Process | {cf.get('dominant_admin_process', '—')} |")
+                lines.append(f"| Adaptability | {cf.get('adaptability_label', '—')} ({cf.get('adaptability_confidence', '—')} confidence) |")
+                lines.append(f"| Adaptability Constraint | {cf.get('adaptability_constraint', '—')} |")
+                lines.append(f"| Decision Signal | {cf.get('decision_signal', '—')} |")
+                if cf.get("heritage_ratchet_triggered_this_intervention"):
+                    lines.append("| Heritage Ratchet | Triggered this intervention — permanent |")
         else:
-            lines.append(f"| Net cost change | ${cf.get('material_cost_usd', 0):+,.0f} |")
-        lines.append(f"| Disruption | {cf['disruption_label']} ({cf['disruption_score']}/10) |")
-        lines.append(f"| Spatial Penalty | {cf['spatial_penalty']:.2f} |")
-        lines.append(f"| Flexibility | {cf['flexibility_score']:.1f}/10 — {cf['flexibility_label']} |")
+            # V3 fallback path — active until cost_flexibility.py is updated to V4
+            if cf.get("cost_added_usd") is not None:
+                lines.append(f"| Material added | +${cf['cost_added_usd']:,.0f} |")
+                lines.append(f"| Material saved | -${abs(cf.get('cost_saved_usd', 0)):,.0f} |")
+                lines.append(f"| Net cost change | ${cf.get('net_cost_usd', 0):+,.0f} |")
+            else:
+                lines.append(f"| Net cost change | ${cf.get('material_cost_usd', 0):+,.0f} |")
+            lines.append(f"| Disruption | {cf.get('disruption_label', '—')} ({cf.get('disruption_score', 0)}/10) |")
+            lines.append(f"| Spatial Penalty | {cf.get('spatial_penalty', 0):.2f} |")
+            lines.append(f"| Flexibility | {cf.get('flexibility_score', 0):.1f}/10 — {cf.get('flexibility_label', '—')} |")
         lines.append("")
-        lines.append(f"> {cf['summary']}")
-        lines.append("")
+        if cf.get("summary"):
+            lines.append(f"> {cf['summary']}")
+            lines.append("")
     report_path.write_text("\n".join(lines), encoding="utf-8")
     print(f"[report] saved {report_path.name}")
 
@@ -432,9 +518,13 @@ def _load_all_layouts() -> list[dict[str, Any]]:
     return all_layouts
 
 
-def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
+def _build_initial_state(prompt: str, ctx: Any, layout_data: dict | None = None) -> AgentState:
+    # Orchestrator-provided layout wins over everything — no menu shown
+    if layout_data is not None:
+        layouts = [layout_data]
+        print(f"[layout] Using orchestrator-provided layout: {layout_data.get('layoutId', '?')}")
     # Prefer the edited layout (current working state with structure) if it exists
-    if ctx.edited_layout_path.exists():
+    elif ctx.edited_layout_path.exists():
         edited = json.loads(ctx.edited_layout_path.read_text(encoding="utf-8"))
         layouts = [edited]
     else:
@@ -448,7 +538,7 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
                 tag = " [has structure]" if has_structure else ""
                 print(f"  {i+1}. {lid}  ({n_rooms} rooms){tag}")
             while True:
-                raw = input(f"Choose layout [1-{len(layouts)}, Enter=1]: ").strip()
+                raw = _safe_input(f"Choose layout [1-{len(layouts)}, Enter=1]: ", "").strip()
                 if not raw:
                     layouts = [layouts[0]]
                     print(f"[layout] Using {layouts[0].get('layoutId', 'layout-1')}")
@@ -529,6 +619,13 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
         "sdl_kNm2": _settings_load(SETTINGS_PATH, "sdl_kNm2"),
         "find_minimum_done": False,
         "cost_flexibility": None,
+        # ### V4 START — initialize context inputs; absent settings keys fall back to defaults
+        "building_occupancy_class": _settings_load(SETTINGS_PATH, "building_occupancy_class") or "HIGH",
+        "building_context":         _settings_load(SETTINGS_PATH, "building_context") or "EXISTING_KNOWN",
+        "floor_level":              int(_settings_load(SETTINGS_PATH, "floor_level") or 1),
+        "heritage_status":          bool(_settings_load(SETTINGS_PATH, "heritage_status") or False),
+        "heritage_ratchet":         bool(_settings_load(SETTINGS_PATH, "heritage_status") or False),
+        # ### V4 END
     }
 
 

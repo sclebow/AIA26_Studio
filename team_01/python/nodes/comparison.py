@@ -4,12 +4,15 @@ import re
 import time
 from collections import Counter
 
+# ### V4 MODIFIED — updated field language to match V4 three-pillar output
 SYSTEM_PROMPT = """You summarise a structural change for an architect in 2-4 plain sentences, like a colleague.
 
 Base everything on the change summary and cost/flexibility data provided. Rules, follow exactly:
 - Mention only element IDs that appear in the summary. Never invent an ID, room, or number.
 - Keep element types exactly as labelled in the summary — if it says "beams", call them beams; never call a beam a column.
-- Quote cost, flexibility and disruption figures exactly as given. Do not round or characterise a magnitude unless the number supports it.
+- The cost/flexibility data uses three pillars: Financial Cost (label + EUR range), Administrative Burden (label + critical-path weeks), and Adaptability (label + confidence level). Quote these labels exactly as given. Do not substitute old terms such as "flexibility score", "disruption score", or decimal scores.
+- The decision_signal field summarises the cross-pillar relationship (e.g. "balanced", "adaptability_premium", "cheap_and_locking"). Translate it into plain language only when it adds meaning; do not quote the raw key.
+- If heritage_ratchet_triggered_this_intervention is true, note that the building has been flagged for heritage review on all future modifications. Do not mention it if false.
 - First, say what changed and what it means.
 
 You MAY then suggest ONE next step to explore — but ONLY from this list of moves the system can perform, and ONLY when the data motivates it:

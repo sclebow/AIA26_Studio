@@ -14,14 +14,14 @@ All structural mathematics runs directly in Python (no LLM calculations). The LL
 Reads the floor plan walls and room corners, derives a column/beam grid, and presents layout options for the architect to choose from.
 
 ```
-python main.py "tag and audit"
+python main.py --prompt "tag and audit"
 ```
 
 ### 2. Evaluate the structure
 Prompts for material, floor build-up, and usage type, then runs first-principles checks on every beam and column. Shows a full pass/fail table and an [Advisor] interpretation in plain language.
 
 ```
-python main.py "evaluate the structural layout"
+python main.py --prompt "evaluate the structural layout"
 ```
 
 At the evaluation prompts:
@@ -51,25 +51,32 @@ Underutilisation thresholds: below 50% = over-engineered (suggest layout change)
 Simulates removing a column: traces connected beams to the nearest remaining support, re-evaluates the extended span, and shows whether the structure would still hold.
 
 ```
-python main.py "what if we remove column C2"
+python main.py --prompt "what if we remove column C2"
 ```
 
 ### 6. Compare before and after
 After every structural change (upgrade, removal, right-sizing), the agent shows exactly what changed and by how much — element by element — and writes an LLM summary of what the change means for the design.
 
-### 7. Cost and flexibility analysis
-After every modification:
-- **Material cost** in USD (volume × rate: RCC $350/m³, Steel $12,000/m³, Timber $800/m³)
-- **Flexibility score** 0–10 (how reversible the change is)
-- **Disruption score** 0–10 (construction impact)
-- **Spatial penalty** for mid-room column additions
+### 7. Cost and flexibility analysis (V4 — Three Pillars)
+After every modification, the agent computes three pillars:
+
+**Financial Cost** — EUR, CYPE 2024 Barcelona reference rates:
+- RCC: €1,150/m³ (supply + install) | Steel: €15,000/m³ | Timber: €1,500–2,450/m³
+- Includes material, labour, demolition, temporary works, professional fees (12%), municipal permit (€1,200 base)
+- **Total Structure Build Cost** = full frame from scratch (all beams + columns)
+- **Last Modification Cost** = cost of the most recent change only
+- **Design-Phase Saving** = avoided new-build cost when elements are removed during design
+
+**Administrative Burden** — critical-path weeks for permits and approvals (P0–P9 regulatory processes).
+
+**Adaptability** — how reversible and future-proof the change is (High / Medium / Low + confidence level).
 
 ### 8. Answer layout questions
 Direct questions about the layout are answered without running any calculations.
 
 ```
-python main.py "what rooms exist in this layout"
-python main.py "which beam has the longest span"
+python main.py --prompt "what rooms exist in this layout"
+python main.py --prompt "which beam has the longest span"
 ```
 
 ---
@@ -85,7 +92,7 @@ python main.py "which beam has the longest span"
 | Column stress | P/A | Material allowable MPa |
 | Column buckling | SF = P_cr/P | SF ≥ 3.0 |
 
-Materials: RCC (EC2 C25/30), Steel (EC3 S235), Timber (EN338 C16)
+Materials: RCC (EC2 C25/30), Steel (EC3 S235), Timber (EN338 C16 / GL24h for cost rates)
 
 ---
 
@@ -102,15 +109,40 @@ Materials: RCC (EC2 C25/30), Steel (EC3 S235), Timber (EN338 C16)
 
 ---
 
-## Test Prompts
+## CLI Usage
+
+### Interactive (human at terminal)
+```
+python main.py --prompt "tag and audit"
+python main.py --prompt "evaluate the structural layout"
+python main.py --prompt "what if we remove column C2"
+python main.py --prompt "what structural elements exist in this layout"
+python main.py --prompt "which beam has the longest span"
+```
+
+### Orchestrator / headless
+Pass the floor plan as a JSON string. Material, usage, and floor type can be
+set via natural language in the prompt — no interactive menu required:
 
 ```
-python main.py "tag and audit"
-python main.py "evaluate the structural layout"
-python main.py "what if we remove column C2"
-python main.py "what structural elements exist in this layout"
-python main.py "which beam has the longest span"
+python main.py --prompt "evaluate as TIMBER for residential use" --layout_json '{ ... }'
+python main.py --prompt "evaluate as STEEL for office use" --layout_json '{ ... }'
+python main.py --prompt "tag and audit" --layout_json '{ ... }'
 ```
+
+Output format (stable, machine-readable):
+```
+Final Response:
+<agent reply text>
+
+Edited Layout JSON:
+<full layout JSON with structure embedded, or "No layout changes">
+```
+
+Prompt keywords recognised in headless mode:
+- **Material**: `RCC`, `STEEL`, `TIMBER`
+- **Usage (LL)**: `residential/homes/apartments` → 2.0 kN/m² | `office/offices` → 3.0 | `retail/shop/public` → 5.0
+- **Floor build-up (SDL)**: `light timber/wood floor` → 1.5 | `light concrete` → 2.5 | `standard` → 3.5 | `heavy floor/slab` → 5.0
 
 ---
 
