@@ -8,13 +8,14 @@ import { polyPoints, centroid, dims } from "../lib/geometry.js";
 // The ring sits in the room's top-right corner (off the furniture) and animates
 // its fill when the displayed score changes (sense solo) via pathLength + a CSS
 // stroke-dasharray transition. Hovering a room raises its attributes (onHover).
-export default function RoomsLayer({ rooms = [], scoredByName, plan, comfort, activeRoom, setActiveRoom, focusSense, fy, u, onHover }) {
+export default function RoomsLayer({ rooms = [], scoredByName, plan, comfort, activeRoom, setActiveRoom, focusRoom, setHoverRoom, focusSense, changedRooms = new Set(), pulseKey = 0, fy, u, onHover }) {
   return rooms.map((room) => {
     const geo = room.geometry || [];
     if (geo.length < 3) return null;
     const name = room.name;
     const r = scoredByName[name];
-    const isFocus = name === activeRoom;
+    // focusRoom = hoverRoom ?? activeRoom — so a chat-message hover lights the plan too
+    const isFocus = name === (focusRoom ?? activeRoom);
     const pts = polyPoints(geo, fy);
     const { w, h, top, cx } = dims(geo);
     const [, cy] = centroid(geo);
@@ -35,13 +36,25 @@ export default function RoomsLayer({ rooms = [], scoredByName, plan, comfort, ac
     return (
       <g key={name} className={"spln-room" + (isFocus ? " is-focus" : "")}
         onClick={() => setActiveRoom(activeRoom === name ? null : name)}
-        onMouseMove={hoverPayload} onMouseLeave={() => onHover && onHover(null)}>
+        onMouseEnter={() => setHoverRoom && setHoverRoom(name)}
+        onMouseMove={hoverPayload}
+        onMouseLeave={() => { onHover && onHover(null); setHoverRoom && setHoverRoom(null); }}>
         {/* hit area + comfort tint */}
         {comfort
           ? <polygon className="spln-room-fill" points={pts} fill={focusSense ? SC[focusSense] : "rgb(var(--fg-rgb))"} fillOpacity={fillOp} />
           : plan ? <polygon points={pts} fill="transparent" /> : null}
         {plan && <polygon className="spln-room-wall" points={pts} fill="none" vectorEffect="non-scaling-stroke" />}
         {plan && <text className="spln-room-label" x={cx} y={fy(top) + u * 1.4} textAnchor="middle" fontSize={u * 1.1}>{name}</text>}
+
+        {/* score-changed pulse — a brief expanding ring so an edit's effect is felt.
+            Keyed by pulseKey so it remounts (replays) on each new edit turn. */}
+        {comfort && score != null && changedRooms.has(name) && (
+          <circle key={`pulse-${name}-${pulseKey}`} cx={rx} cy={ry} r={ringR} fill="none"
+            stroke={arcColor} strokeWidth={u * 0.18} opacity={0}>
+            <animate attributeName="r" values={`${ringR};${ringR * 2.7}`} dur="1.25s" begin="0s" repeatCount="2" fill="freeze" />
+            <animate attributeName="opacity" values="0.85;0" dur="1.25s" begin="0s" repeatCount="2" fill="freeze" />
+          </circle>
+        )}
 
         {comfort && score != null && (
           <g className="spln-score">

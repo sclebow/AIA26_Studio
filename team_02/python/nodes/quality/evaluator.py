@@ -60,7 +60,7 @@ def build_evaluator_node(llm):
     def evaluator_node(state: dict) -> dict:
         final_response: str = state.get("final_response") or ""
         user_type: str = state.get("user_type", "architect")
-        action: str = state.get("action", "") or state.get("intent", "") or "analyze"
+        action: str = state.get("action", "") or "analyze"
         persona_profile: dict = state.get("persona_profile") or {}
         loops: int = state.get("evaluator_loops", 0)
 

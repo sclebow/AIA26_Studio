@@ -22,7 +22,10 @@ export default function RoomGraph({ roomById, graphData = null, showLabels = fal
     const zoneCol = zi != null ? ZONE_COLORS[zi % ZONE_COLORS.length] : null;
     const fill = zoneCol || "rgb(var(--fg-rgb))";
     const expanded = expandedRooms?.has?.(rm.name);
-    const role = bridge ? "structural" : isolated ? "isolated" : "";
+    // topology FINDINGS live here (on the node), not in the legend: hub (most
+    // connected) · structural (bridge — removing it splits the plan) · isolated.
+    const isHub = rm.name === graphData?.metrics?.most_connected;
+    const role = [isHub && "hub", bridge && "structural", isolated && "isolated"].filter(Boolean).join(" · ");
     const x = rm.c[0], y = fy(rm.c[1]);
     const hoverInfo = (e) => onHoverNode && onHoverNode({
       x: e.clientX, y: e.clientY, kind: "node", name: rm.name, type: m.room_type,

@@ -62,7 +62,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T20:26:10",
+          "timestamp": "2026-06-02T11:02:46",
           "overallScore": 0.66,
           "comfortScores": {
             "thermal": 0.73,
@@ -114,7 +114,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T20:26:10",
+          "timestamp": "2026-06-02T11:02:46",
           "overallScore": 0.4,
           "comfortScores": {
             "thermal": 0.62,
@@ -159,22 +159,22 @@
         "roomType": "kitchen",
         "height": 2.8,
         "orientation": "S",
-        "glazingRatio": 0.25,
+        "glazingRatio": 0.1,
         "ventilationType": "mechanical",
         "floorMaterial": "ceramic",
         "analysis": {
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T20:26:10",
-          "overallScore": 0.41,
+          "timestamp": "2026-06-02T11:02:46",
+          "overallScore": 0.39,
           "comfortScores": {
-            "thermal": 0.44,
-            "visual": 0.69,
-            "acoustic": 0.4,
+            "thermal": 0.37,
+            "visual": 0.62,
+            "acoustic": 0.34,
             "spatial": 0.87,
             "olfactory": 0.3,
-            "tactile": 0.47
+            "tactile": 0.42
           },
           "conflicts": [],
           "suggestions": []
@@ -218,7 +218,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T20:26:10",
+          "timestamp": "2026-06-02T11:02:46",
           "overallScore": 0.46,
           "comfortScores": {
             "thermal": 0.62,
@@ -270,7 +270,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T20:26:10",
+          "timestamp": "2026-06-02T11:02:46",
           "overallScore": 0.49,
           "comfortScores": {
             "thermal": 0.54,
@@ -322,7 +322,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T20:26:10",
+          "timestamp": "2026-06-02T11:02:46",
           "overallScore": 0.4,
           "comfortScores": {
             "thermal": 0.57,
@@ -374,7 +374,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T20:26:10",
+          "timestamp": "2026-06-02T11:02:46",
           "overallScore": 0.69,
           "comfortScores": {
             "thermal": 0.73,
@@ -426,7 +426,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T20:26:10",
+          "timestamp": "2026-06-02T11:02:46",
           "overallScore": 0.5,
           "comfortScores": {
             "thermal": 0.57,
@@ -478,7 +478,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T20:26:10",
+          "timestamp": "2026-06-02T11:02:46",
           "overallScore": 0.44,
           "comfortScores": {
             "thermal": 0.67,
@@ -530,7 +530,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T20:26:10",
+          "timestamp": "2026-06-02T11:02:46",
           "overallScore": 0.75,
           "comfortScores": {
             "thermal": 0.73,
@@ -582,7 +582,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T20:26:10",
+          "timestamp": "2026-06-02T11:02:46",
           "overallScore": 0.5,
           "comfortScores": {
             "thermal": 0.57,
@@ -634,7 +634,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T20:26:10",
+          "timestamp": "2026-06-02T11:02:46",
           "overallScore": 0.52,
           "comfortScores": {
             "thermal": 0.62,
@@ -686,7 +686,7 @@
           "_source": "Sensi",
           "persona": "Neutral",
           "depth": "analyze",
-          "timestamp": "2026-05-31T20:26:10",
+          "timestamp": "2026-06-02T11:02:46",
           "overallScore": 0.71,
           "comfortScores": {
             "thermal": 0.86,
@@ -1076,7 +1076,7 @@
         "roomId": "room-3",
         "area": 1.5,
         "orientation": "S",
-        "glazingType": "triple"
+        "glazingType": "single"
       }
     },
     {
@@ -1749,9 +1749,9 @@
     "_source": "Sensi",
     "persona": "Neutral",
     "depth": "analyze",
-    "timestamp": "2026-05-31T20:26:10",
-    "overallScore": 0.5331,
+    "timestamp": "2026-06-02T11:02:46",
+    "overallScore": 0.5315,
     "bestRoom": "room-10",
-    "worstRoom": "room-2"
+    "worstRoom": "room-3"
   }
 }

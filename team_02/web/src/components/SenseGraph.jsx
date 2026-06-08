@@ -8,12 +8,19 @@ import { useSelection } from "../lib/selection.jsx";
  * 6 sense nodes in a ring; node size/vividness = how many rooms fail that sense;
  * edges = the canonical couplings, line-styled by provenance (verified=research=solid,
  * inferred=physics=dashed). Bus-wired: click a node to solo that sense everywhere.
+ *
+ * All geometry is PROPORTIONAL to `size` so it renders cleanly at any scale — the
+ * ring radius leaves room for the node label below the bottom node (otherwise
+ * "spatial" clips at small sizes), and glyph/label/stroke scale with the diagram.
  */
 const tierBasis = (tier) => (tier === "verified" ? "research" : "physics");
 
 export default function SenseGraph({ rooms, size = 320 }) {
   const { focusSense, toggleSense } = useSelection();
-  const cx = size / 2, cy = size / 2, R = size * 0.34;
+  const cx = size / 2, cy = size / 2, R = size * 0.30;
+  const glyphFs = size * 0.052;
+  const labelFs = size * 0.05;
+  const edgeW = Math.max(1.2, size * 0.011);
 
   const pos = useMemo(() => {
     const m = {};
@@ -22,7 +29,7 @@ export default function SenseGraph({ rooms, size = 320 }) {
       m[s] = [cx + R * Math.cos(a), cy + R * Math.sin(a)];
     });
     return m;
-  }, []);
+  }, [size]); // eslint-disable-line
 
   const failCount = useMemo(() => {
     const c = {}; SENSES.forEach(s => { c[s] = 0; });
@@ -41,15 +48,15 @@ export default function SenseGraph({ rooms, size = 320 }) {
         const col = sign === "+" ? SC[b] : "rgba(var(--fg-rgb),0.5)";
         return (
           <line key={i} x1={ax} y1={ay} x2={bx} y2={by}
-            stroke={col} strokeOpacity={dim ? 0.12 : 0.5} strokeWidth={1.8}
-            strokeDasharray={basisDash(tierBasis(tier))} />
+            stroke={col} strokeOpacity={dim ? 0.12 : 0.5} strokeWidth={edgeW}
+            strokeDasharray={basisDash(tierBasis(tier))} strokeLinecap="round" />
         );
       })}
       {/* nodes */}
       {SENSES.map((s) => {
         const [x, y] = pos[s];
         const frac = failCount[s] / nRooms;             // 0..1 of rooms failing this sense
-        const r = 12 + frac * 16;
+        const r = size * (0.058 + 0.05 * frac);
         const active = focusSense === s;
         const dim = focusSense && !active;
         return (
@@ -57,9 +64,9 @@ export default function SenseGraph({ rooms, size = 320 }) {
             <circle cx={x} cy={y} r={r} fill={SC[s]} fillOpacity={0.18 + frac * 0.5}
               stroke={SC[s]} strokeWidth={active ? 3 : 1.5} />
             <text x={x} y={y} textAnchor="middle" dominantBaseline="central"
-              fontFamily="var(--font-mono)" fontSize="13" fill="rgba(var(--fg-rgb),0.95)">{SI[s]}</text>
-            <text x={x} y={y + r + 11} textAnchor="middle"
-              fontFamily="var(--font-mono)" fontSize="9" fill="rgba(var(--fg-rgb),0.6)">{s}</text>
+              fontFamily="var(--font-mono)" fontSize={glyphFs} fill="rgba(var(--fg-rgb),0.95)">{SI[s]}</text>
+            <text x={x} y={y + r + labelFs * 1.05} textAnchor="middle"
+              fontFamily="var(--font-mono)" fontSize={labelFs} fill="rgba(var(--fg-rgb),0.6)">{s}</text>
           </g>
         );
       })}

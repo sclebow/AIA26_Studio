@@ -6,6 +6,7 @@ Updated v4: uses `action` field (replaces dead `intent in ("comfort","tools")` +
 from __future__ import annotations
 import json
 from _runtime.llm import call_llm_simple
+from nodes._shared.register import register_tone
 
 
 def _extract_worst_finding(scores_json: str) -> str:
@@ -45,22 +46,19 @@ What just ran and what to suggest:
                     or "run the full analysis for suggestions".
   detect          → Conflicts visible. Suggest: "get improvement suggestions" or
                     "ask me why [conflict room] is failing" or "run a what-if scenario".
-  full            → Scores + conflicts + suggestions all visible. Suggest: "try a what-if"
-                    (what if I change a material?), "compare to another persona", or a specific question.
-  follow_up       → Answered a specific question. Suggest continuing to dig or a what-if.
+  full            → Scores + conflicts + suggestions all visible. Suggest: a change to fix the
+                    weakest spot, "compare to another persona", or opening The Vision to see it rendered.
+  follow_up       → Answered a specific question. Suggest continuing to dig or making a change.
   overview        → Room list shown. Suggest running a comfort analysis.
   chitchat        → Nothing analysed yet. Offer to start.
-  change_material → Material was changed and scores updated. Suggest detect or full to see the impact.
-  modify_glazing  → Glazing changed and scores updated. Suggest detect or full.
-  add_furniture   → Furniture/plant added. Suggest biophilic audit or detect to see the impact.
+  edit            → One or more changes were applied and re-scored. Suggest the user COMMIT this as a
+                    checkpoint to keep it, detect/full to see the impact, or another change. (Edits live
+                    on a working draft until committed; The Vision shows the last committed checkpoint.)
   topologic       → Room connectivity shown. Suggest running comfort analysis next.
   biophilic       → Biophilic richness shown. Suggest adding plants or running detect.
   compare         → Two persona scores compared. Suggest picking the most relevant and running full.
 
-Register by user_type:
-  architect  → concise, technical: "Want to run a what-if on the glazing?"
-  client     → warm, plain: "Want me to suggest ways to fix the bedroom?"
-  learner    → educational: "A good next step would be checking for conflicts — want to try?"
+Voice for a {user_type}: {register_tone}
 
 Rules:
   - Maximum 2 sentences. Be specific — name the room or sense if you know it.
@@ -83,12 +81,11 @@ def build_what_next_node(llm):
 
     def what_next_node(state: dict) -> dict:
         user_type: str        = state.get("user_type", "architect")
-        action: str           = state.get("action", "") or state.get("intent", "")
+        action: str           = state.get("action", "")
         layout_id: str        = state.get("layout_id") or "?"
         persona_profile: dict = state.get("persona_profile") or {}
 
         # Map action → human-readable last_path for the LLM prompt
-        _edit_actions = {"change_material", "modify_glazing", "add_furniture"}
         _insight_actions = {"topologic", "biophilic", "compare"}
         _analysis_actions = {"analyze", "detect", "full"}
 
@@ -96,8 +93,8 @@ def build_what_next_node(llm):
             last_path = "overview (room list, no analysis)"
         elif action in _analysis_actions:
             last_path = f"comfort analysis — depth: {action}"
-        elif action in _edit_actions:
-            last_path = f"layout edit — {action.replace('_', ' ')}"
+        elif action == "edit":
+            last_path = "layout edit (one or more changes applied, re-scored)"
         elif action in _insight_actions:
             last_path = f"insight analysis — {action}"
         elif action == "chitchat":
@@ -116,6 +113,7 @@ def build_what_next_node(llm):
 
         system = _SYSTEM_PROMPT.format(
             user_type=user_type,
+            register_tone=register_tone(user_type),
             last_path=last_path,
             layout_id=layout_id,
             persona_summary=persona_summary,
