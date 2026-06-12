@@ -1,5 +1,18 @@
 # Team 04 Architecture
 
+## Planned Evolution (2026-06-12)
+
+`BACKEND_PLAN.md` defines the phased roadmap from the current view-only placement agent to a site-intelligent backend. The architectural commitments it introduces:
+
+- **Typed `DesignBrief`**: a one-shot LLM extraction node at graph start converts the user prompt into a typed brief (building count, shapes, areas, storeys, courtyard intent, parking, objective weights, explicit ambiguities). Downstream nodes read the brief, never re-parse the prompt; regex intent helpers in `decision_engine.py` become test-only fallbacks.
+- **Canonical `SiteModel`**: `read_site` builds one structured site object (boundary graph, per-side metadata, roads, placement grid, sun context, setbacks/buildable zone) that all tools consume — one source of truth instead of raw coordinate lists.
+- **Prompt diet**: supervisor prompt shrinks to role + active step + brief + catalog slice; every enforceable rule moves into deterministic planner guards or the argument-repair layer.
+- **Fitness assembly**: a deterministic `build_objectives(brief, site_model)` selects active NSGA-II objectives (view, sun, courtyard quality) and hard constraints (site fit, setbacks, separation, fire access, parking feasibility); grid/side alignment restricts the sampling space. The LLM sets weights only, via the brief.
+- **New tool families** under `agent/tools/`: `sun_analysis`, `road_context`, `site_grid`, `parking`, `circulation`, `courtyard`, plus per-wing heights in the wing graph and `view_3d`.
+- **Frontend last**: FastAPI contracts in `backend/` are extended (site-model payload, analysis overlays, per-wing hierarchy, SSE step events) only after the agent integration phase stabilizes.
+
+Each phase lands with a visualization notebook in `test_notebooks/`, deterministic regressions in `benchmarking/`, and same-commit updates to this file and `PROGRESS.md`.
+
 ## Canonical Structure
 
 The Team 04 codebase now has a single active LangGraph implementation in `team_04/agent/`.

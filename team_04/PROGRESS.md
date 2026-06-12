@@ -1,5 +1,22 @@
 # Team 04 Progress
 
+## 2026-06-12 Backend Improvement Plan Authored
+
+### Completed
+
+- [x] Wrote `BACKEND_PLAN.md` — the phased checklist for upgrading the agent from view-only placement to a site-intelligent backend: structured design-brief extraction (less prompt, more comprehension), sun analysis fitness via the single-diagonal worst-sun method, road/transportation context, grid and site-side alignment, parking from apartments-per-building, circulation + public/private access + fire-access constraints, courtyard comprehension, per-wing 3D heights, full agent integration, and frontend API connection last.
+- [x] Established the per-phase workflow contract: every capability ships as a deterministic tool in `agent/tools/`, with one visualization notebook in `test_notebooks/`, deterministic regressions in `benchmarking/`, and same-commit `PROGRESS.md` + `ARCHITECTURE.md` updates.
+- [x] Documented dependencies and parallelization (sun and roads can run in parallel after Phase 0; grid needs roads; circulation needs roads + parking; frontend wiring is last).
+
+### Active MVP Status
+
+- [ ] Phase 0 (typed `DesignBrief` extraction node, canonical `SiteModel`, supervisor prompt diet) is the next implementation target.
+- [ ] No sun, road, grid, parking, circulation, courtyard, or per-wing-height tooling exists yet — all tracked in `BACKEND_PLAN.md`.
+
+### Validation
+
+- [x] Confirmed the plan only references paths inside `team_04/` so merges with `main` stay conflict-free.
+
 ## 2026-06-04 Remaining-Area-Driven Second Building Seed
 
 ### Completed
