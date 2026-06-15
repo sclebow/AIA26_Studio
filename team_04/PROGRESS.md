@@ -1,5 +1,33 @@
 # Team 04 Progress
 
+## 2026-06-15 Phase 0 — Reasoning Core (Design Brief + Site Model)
+
+Implements Phase 0 of `BACKEND_PLAN.md`: move comprehension out of long prompt rules and into a typed brief + a structured site model. Tested with `C:\Users\tuemi\AppData\Local\Programs\Python\Python311\python.exe` (has shapely/topologicpy/langgraph/langchain_openai/pymoo).
+
+### Completed
+
+- [x] Added `BuildingSpec` and `DesignBrief` frozen dataclasses to `agent/models.py`, matching the existing `PlanStep` pattern (no Pydantic). `from_payload` validates and clamps junk (weights to [0,1], shapes to the allowed `I/L/T/U/H/Y/X/O/auto` set, count never below the number of explicit specs).
+- [x] Added `agent/brief.py` with a deterministic, LLM-free `extract_brief_fallback` (reuses the existing shape/area/rotation regex helpers, improved building-count detection so "two U-shaped buildings" resolves, not just the literal "two building") and `resolve_brief`, which prefers an engine's LLM extractor and falls back to regex on any failure.
+- [x] Added `BRIEF_PROMPT` + `OpenAIDecisionEngine.extract_brief` to `agent/decision_engine.py` — one short prompt that returns the typed brief and records `ambiguities` instead of inventing values.
+- [x] Added an `extract_brief` graph node at the start of the LangGraph (`START -> extract_brief -> planner`); idempotent, refines `target_building_count`/`building_intents` only when the layout did not set them, and is tolerant of engines without an `extract_brief` method (test stubs fall back to regex).
+- [x] Routed `_repair_generate_shape_decision` to read shape/area/rotation from the active building's brief spec first, falling back to prompt regex so existing direct-call tests are unchanged.
+- [x] Added `agent/tools/site_model.py` (`build_site_model`) — bundles boundary graph (corners/sides), per-side `adjacent_road` slots, and the setback/buildable zone into one structure with `roads`/`grid`/`sun` placeholders for Phases 1-3. Populated in the `read_site` node; surfaced (summarized) in the supervisor/report state snapshot.
+- [x] Prompt diet: shrank `SUPERVISOR_PROMPT` from ~30 rule lines to a short role + active step + design brief + schema (deterministic guards in `_apply_step_guard`/`_repair_generate_shape_decision` already enforce the removed rules).
+- [x] Added `design_brief` and `site_model` keys to `AgentState`.
+
+### Validation
+
+- [x] Added `benchmarking/test_design_brief.py` (16 deterministic tests: dataclass round-trip/clamping, fallback extraction across terse/verbose/vague/contradictory prompts, brief consumption in the repair layer, full-run brief-into-state, and site-model build). All pass.
+- [x] `test_agent_graph` (15) and `test_boundary_tools` (15) remain green — the new brief node does not regress existing flows.
+- [x] Added `test_notebooks/test_intent_extraction.ipynb`: prompt-set table (fallback), no-invention check, optional live-LLM table with `ambiguities`, and a SiteModel visualization (sides/corners/buildable zone). Code cells smoke-run clean.
+- [x] Pre-existing unrelated failure noted: `test_generate_building_boundary.test_l_shape_is_translated_and_closed` fails identically on the clean tree (a shapely floating-point centroid boundary, `50.0 not > 50.0`) — not introduced by Phase 0.
+
+### Active MVP Status
+
+- [x] The agent now comprehends short prompts into a typed brief that drives shape/count/area/rotation, instead of scattered regex on the raw prompt at each step.
+- [x] One canonical `SiteModel` exists with explicit slots for the next phases.
+- [ ] Phase 1 (sun analysis) is the next target; it writes into `site_model["sun"]` and adds a `sun_weight`-driven objective.
+
 ## 2026-06-12 Backend Improvement Plan Authored
 
 ### Completed

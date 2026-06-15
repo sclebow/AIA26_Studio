@@ -28,30 +28,33 @@ The single highest-leverage change. Replace keyword regex with structured LLM in
 
 ### 0.1 Typed Design Brief (intent extraction node)
 
-- [ ] Define a `DesignBrief` Pydantic model in `agent/models.py`:
-  - `building_count`, per-building: `shape_preference` (I/L/T/U/H/Y/X/O or `auto`), `footprint_area_sqm`, `storeys` or `height_m`, `use` (residential/office/mixed), `apartments_per_floor` hint.
-  - Site-level: `courtyard_requested` (bool + quality words like "quiet", "sunny"), `parking_requested`, `orientation_preferences`, `requested_positions`.
-  - Objective weights: `view_weight`, `sun_weight`, `alignment_weight` — inferred from emphasis in the prompt ("most important is daylight" → sun weight up).
-  - `ambiguities`: list of things the brief could not infer, used to drive `await_human` instead of guessing.
-- [ ] Add an `extract_brief` LangGraph node that runs **once** at the start: one short system prompt ("Extract a design brief from the user's request; fill the schema; leave unknown fields null; list ambiguities") + the schema. Use structured/JSON-mode output.
-- [ ] Replace `_infer_requested_building_type`, `_extract_explicit_building_area_sqm`, `_extract_requested_rotation`, `_mentions_explicit_building_area` call sites with brief lookups. Keep the regex helpers only as an offline fallback when no LLM is configured (tests).
-- [ ] Planner (`RuleBasedPlanner`) reads the brief instead of re-parsing `user_prompt`.
+> **Status: implemented 2026-06-15.** See the dated `PROGRESS.md` entry. One deviation from the plan: the brief is a **frozen dataclass with `from_payload`/`to_state`**, not Pydantic, to match the existing `PlanStep`/`RoutingDecision` convention and avoid a new dependency.
+
+- [x] Define a `DesignBrief` model in `agent/models.py` (as `BuildingSpec` + `DesignBrief` dataclasses):
+  - `building_count`, per-building: `shape_preference` (I/L/T/U/H/Y/X/O or `auto`), `footprint_area_sqm`, `storeys`, `use` (residential/office/mixed), `intent_text`.
+  - Site-level: `courtyard_requested` + `courtyard_qualities` ("quiet"/"sunny"/...), `parking_requested`, `requested_rotation_deg`.
+  - Objective weights: `view_weight`, `sun_weight`, `alignment_weight` — clamped to [0,1], raised from prompt emphasis.
+  - `ambiguities`: list of things the brief could not infer. (Wiring ambiguities into `await_human` is deferred to Phase 8 integration; the field is populated now.)
+  - _Deferred to later phases:_ `apartments_per_floor` (Phase 4), `height_m`/per-wing (Phase 7), `requested_positions` still flows via the layout payload.
+- [x] Add an `extract_brief` LangGraph node that runs **once** at the start (`START -> extract_brief -> planner`): short `BRIEF_PROMPT` + JSON output via `OpenAIDecisionEngine.extract_brief`, with a deterministic regex fallback (`agent/brief.py`).
+- [x] Replace `_infer_requested_building_type`, `_extract_explicit_building_area_sqm`, `_extract_requested_rotation`, `_mentions_explicit_building_area` call sites in `_repair_generate_shape_decision` with brief lookups (prefer the active building's spec, fall back to regex). Regex helpers retained as the offline fallback.
+- [x] Planner (`RuleBasedPlanner`) reads brief-derived `target_building_count`/`building_intents` from state (set by the brief node) instead of re-parsing `user_prompt`.
 
 ### 0.2 Canonical Site Model
 
-- [ ] Define a `SiteModel` structure in `agent/models.py` built once by `read_site` and stored in state: boundary polygon, boundary graph (corners/sides from `site_boundary_graph.py`), per-side metadata (length, orientation, adjacent road if any), setbacks/buildable zone (`site_setback.py`), placement grid (Phase 3), roads (Phase 2), sun context (Phase 1).
-- [ ] All downstream tools accept the `SiteModel` (or its sub-objects) instead of raw coordinate lists, so there is one source of truth.
+- [x] Define a `SiteModel` structure (`agent/tools/site_model.py`, `build_site_model`) built once by `read_site` and stored in `state["site_model"]`: boundary polygon, boundary graph (corners/sides from `site_boundary_graph.py`), per-side `adjacent_road` slot, setbacks/buildable zone (`site_setback.py`), and `roads`/`grid`/`sun` placeholders for Phases 1-3.
+- [~] All downstream tools accept the `SiteModel` instead of raw coordinate lists. _Partial:_ the model is built and summarized into the supervisor/report snapshot; migrating each existing tool to read it happens incrementally as Phases 1-3 land (those phases write into the model's slots).
 
 ### 0.3 Prompt Diet
 
-- [ ] Rewrite `SUPERVISOR_PROMPT` to ~10 lines: role, the active step goal, the brief, the relevant catalog slice, and "return JSON with this schema". Delete per-tool rules — argument completion already happens deterministically in `_repair_generate_shape_decision`; generalize that repair pattern to all tool families (defaults table per tool in `tool_catalog.py`).
-- [ ] Move every "never do X / always do Y" prompt rule into a deterministic guard in the planner or the repair layer. Rule of thumb: if violating the rule is detectable in code, enforce it in code.
+- [x] Rewrote `SUPERVISOR_PROMPT` to a short role + active step + design brief + output schema (~15 lines, down from ~30 rule lines). Per-tool argument rules removed — `_repair_generate_shape_decision` fills them deterministically.
+- [x] Moved the enforceable prompt rules into deterministic guards: `_apply_step_guard` coerces off-phase actions and filters disallowed tools; `_repair_generate_shape_decision` guarantees a valid non-empty `generate_building_boundary` call. _Deferred:_ generalizing the per-tool defaults table in `tool_catalog.py` to every tool family (only `generate_shape` is auto-repaired today).
 
 ### 0.4 Validation
 
-- [ ] Notebook `test_notebooks/test_intent_extraction.ipynb`: table of ≥15 varied short prompts (terse, verbose, vague, contradictory) → extracted brief side by side; show that vague prompts produce `ambiguities` instead of invented values.
-- [ ] Regression `benchmarking/test_design_brief.py`: schema validation, fallback parsing path, planner consumption of a brief.
-- [ ] Update `PROGRESS.md` + `ARCHITECTURE.md` (new node, new state keys, slimmed prompt).
+- [x] Notebook `test_notebooks/test_intent_extraction.ipynb`: 8-prompt table spanning terse/verbose/digits/vague/contradictory/layout-count/courtyard/view, fallback extraction table, no-invention check, optional live-LLM table with `ambiguities`, and a SiteModel visualization. Code cells smoke-run clean.
+- [x] Regression `benchmarking/test_design_brief.py`: dataclass validation/clamping, fallback parsing, brief consumption in the repair layer, full-run brief-into-state, site-model build (16 tests, all pass).
+- [x] Updated `PROGRESS.md` + `ARCHITECTURE.md` (new node, `design_brief`/`site_model` state keys, slimmed prompt).
 
 ---
 

@@ -2,7 +2,7 @@
 
 ## Planned Evolution (2026-06-12)
 
-`BACKEND_PLAN.md` defines the phased roadmap from the current view-only placement agent to a site-intelligent backend. The architectural commitments it introduces:
+`BACKEND_PLAN.md` defines the phased roadmap from the current view-only placement agent to a site-intelligent backend. **Phase 0 (reasoning core) is implemented** — see the 2026-06-15 entry in `PROGRESS.md`. The architectural commitments it introduces:
 
 - **Typed `DesignBrief`**: a one-shot LLM extraction node at graph start converts the user prompt into a typed brief (building count, shapes, areas, storeys, courtyard intent, parking, objective weights, explicit ambiguities). Downstream nodes read the brief, never re-parse the prompt; regex intent helpers in `decision_engine.py` become test-only fallbacks.
 - **Canonical `SiteModel`**: `read_site` builds one structured site object (boundary graph, per-side metadata, roads, placement grid, sun context, setbacks/buildable zone) that all tools consume — one source of truth instead of raw coordinate lists.
@@ -61,6 +61,8 @@ The graph now separates planning from execution:
 ```
 START
   ↓
+extract_brief        # Phase 0: free text -> typed DesignBrief (LLM or regex fallback)
+  ↓
 planner
   ↓
 central_reason
@@ -81,9 +83,10 @@ All tool spokes return to planner, which rebuilds the remaining task sequence.
 
 ## Node Responsibilities
 
-- `planner`: builds a typed task sequence from current state and selects the active plan step.
+- `extract_brief`: one-shot intent comprehension at graph start. Converts the raw prompt into a typed `DesignBrief` (LLM via `OpenAIDecisionEngine.extract_brief`, deterministic regex fallback via `agent/brief.py` otherwise). Idempotent; refines `target_building_count`/`building_intents` only when the layout did not provide them. Implemented in `agent/brief.py` (extractors) + `_build_extract_brief_node` in `graph.py`.
+- `planner`: builds a typed task sequence from current state and selects the active plan step. Reads brief-derived count/intents from state rather than re-parsing the prompt.
 - `central_reason`: now acts as a step-scoped supervisor. It only reasons over the active step, and only calls the LLM for `generate_shape` and `optimize`.
-- `read_site`: runs the site/context/legal-reader tool group automatically.
+- `read_site`: runs the site/context/legal-reader tool group automatically, then builds the canonical `SiteModel` (`agent/tools/site_model.py`) into `state["site_model"]` — boundary graph (corners/sides), per-side `adjacent_road` slots, and the setback/buildable zone, with `roads`/`grid`/`sun` placeholders for Phases 1-3.
 - `generate_shape`: executes only allowed shape-generation tool calls. The local boundary generator now supports `I`, `L`, `T`, `Y`, `H`, `X`, and `O` footprints plus direct translation, mirroring, and orientation or rotation parameters.
 - `check_requested_position`: evaluates a user-requested placement point for the current building and records geometric feasibility facts.
 - `check_constraints`: runs the full constraint suite automatically and derives violation categories.

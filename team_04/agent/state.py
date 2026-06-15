@@ -8,6 +8,8 @@ class AgentState(TypedDict, total=False):
     user_prompt: str
     workflow_mode: str
     layout_json: str
+    design_brief: dict[str, Any]
+    site_model: dict[str, Any]
     site_boundary: list[list[float]]
     building_intents: list[str]
     messages: list[str]
@@ -75,6 +77,8 @@ def build_initial_state(
         "user_prompt": user_prompt,
         "workflow_mode": workflow_mode,
         "layout_json": json.dumps(layout_payload),
+        "design_brief": {},
+        "site_model": {},
         "site_boundary": normalized_site_boundary,
         "building_intents": normalized_building_intents,
         "messages": [f"User prompt: {user_prompt}"],

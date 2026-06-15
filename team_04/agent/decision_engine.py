@@ -12,43 +12,69 @@ except ModuleNotFoundError:  # pragma: no cover - exercised when LLM deps are ab
     ChatOpenAI = Any  # type: ignore[misc,assignment]
 
 from .llm import resolve_active_llm
-from .models import PlanStep, RoutingDecision
+from .models import DesignBrief, PlanStep, RoutingDecision
 from .models import ToolCall
 from .tools.generate_building_boundary import get_boundary_planning_defaults
 from .tool_catalog import ToolCatalog
 
 
 SUPERVISOR_PROMPT = """
-You are the execution supervisor for one active plan step in a site design LangGraph agent.
+You execute the one active plan step of a site-design agent. Choose tool calls
+that serve the design brief; the runtime fills in missing arguments and enforces
+step/tool policy, so focus on intent, not bookkeeping. Use `await_human` only when
+the step truly cannot proceed without clarification.
 
 Active step:
 {active_step}
 
-Supervisor rules:
-- Only act on the active step.
-- If the active step is `generate_shape`, return `generate_shape` with one or more valid shape-generation tool calls.
-- For `generate_shape`, never return an empty `tool_calls` array.
-- For `generate_shape`, include all required arguments for the selected tool.
-- If you choose `generate_building_boundary`, you must provide `area`.
-- If tool parameter defaults are shown in the catalog, use them for omitted optional arguments rather than inventing new values.
-- If the active step is `optimize`, return `optimize` with one or more valid manipulation tool calls.
-- If the active step is `check_requested_position`, `place_building`, or `analyze_remaining_positions`, do not invent a different phase.
-- Use `await_human` only if the active step cannot proceed without clarification.
-- Do not switch to other workflow phases. Planning is handled elsewhere.
+Design brief (the user's intent — let it guide shape, area, and emphasis):
+{design_brief}
 
-Return JSON only with this shape:
+Return JSON only:
 {{
-    "action": "generate_shape|optimize|check_requested_position|place_building|analyze_remaining_positions|await_human",
+  "action": "{action}",
   "reasoning": "short explanation",
   "user_question": "only for await_human, else empty string",
   "tool_calls": [{{"name": "tool_name", "arguments": {{}}}}]
 }}
 
-Relevant tool catalog:
+Relevant tools:
 {tool_catalog}
 
 State snapshot:
 {state_snapshot}
+"""
+
+
+BRIEF_PROMPT = """
+You extract a structured design brief from a user's site-design request.
+Return JSON only, matching this schema (use null for anything you cannot infer —
+never invent values):
+{{
+  "building_count": <int, default 1>,
+  "buildings": [
+    {{
+      "shape_preference": "I|L|T|U|H|Y|X|O|auto",
+      "footprint_area_sqm": <number or null>,
+      "storeys": <int or null>,
+      "use": "residential|office|mixed",
+      "intent_text": "<short per-building intent, else empty>"
+    }}
+  ],
+  "courtyard_requested": <bool>,
+  "courtyard_qualities": ["quiet"|"sunny"|"private"|...],
+  "parking_requested": <bool>,
+  "requested_rotation_deg": <number or null>,
+  "view_weight": <0..1>, "sun_weight": <0..1>, "alignment_weight": <0..1>,
+  "ambiguities": ["<anything vague, contradictory, or missing>"]
+}}
+Rules:
+- One entry in "buildings" per building; length should match building_count when known.
+- Raise objective weights for whatever the user emphasizes (e.g. "daylight matters most" -> higher sun_weight). Default each weight to 0.5.
+- Put genuine gaps and contradictions in "ambiguities" instead of guessing.
+
+User request:
+{user_prompt}
 """
 
 
@@ -79,6 +105,11 @@ class DecisionEngine(Protocol):
 
     def build_report(self, state: dict[str, Any]) -> str:
         ...
+
+    # Optional: engines may expose extract_brief for LLM intent comprehension.
+    # The graph's extract_brief node detects it via getattr and falls back to the
+    # deterministic regex extractor when it is absent, so stub engines used in
+    # tests do not need to implement it.
 
 
 @dataclass(frozen=True)
@@ -320,6 +351,8 @@ class OpenAIDecisionEngine:
         content = self._invoke_json(
             system_prompt=SUPERVISOR_PROMPT.format(
                 active_step=json.dumps(active_step.to_state(), indent=2),
+                action=active_step.action,
+                design_brief=json.dumps(state.get("design_brief", {}), indent=2),
                 tool_catalog=catalog.render_for_action(active_step.action),
                 state_snapshot=json.dumps(snapshot, indent=2),
             ),
@@ -327,6 +360,25 @@ class OpenAIDecisionEngine:
         )
         decision = RoutingDecision.from_payload(content)
         return _repair_generate_shape_decision(decision, state, catalog, active_step)
+
+    def extract_brief(
+        self,
+        user_prompt: str,
+        layout_payload: dict[str, Any] | None = None,
+    ) -> DesignBrief:
+        """Comprehend the user's request into a typed :class:`DesignBrief`.
+
+        On any LLM/parse failure this raises, and the caller (``resolve_brief``)
+        falls back to the deterministic regex extractor.
+        """
+        del layout_payload  # The LLM reads the prompt directly; layout is a fallback concern.
+        payload = self._invoke_json(
+            system_prompt=BRIEF_PROMPT.format(user_prompt=user_prompt),
+            user_prompt=user_prompt,
+        )
+        if isinstance(payload, dict):
+            payload.setdefault("source", "llm")
+        return DesignBrief.from_payload(payload)
 
     def build_report(self, state: dict[str, Any]) -> str:
         snapshot = _build_state_snapshot(state)
@@ -357,9 +409,28 @@ class OpenAIDecisionEngine:
         return _parse_json_object(content)
 
 
+def _summarize_site_model(site_model: Any) -> dict[str, Any]:
+    """Compact view of the site model for prompts (full graph is too verbose)."""
+    if not isinstance(site_model, dict) or not site_model.get("available"):
+        return {"available": False}
+    setbacks = site_model.get("setbacks") if isinstance(site_model.get("setbacks"), dict) else {}
+    return {
+        "available": True,
+        "corner_count": len(site_model.get("corners", []) or []),
+        "side_count": len(site_model.get("sides", []) or []),
+        "site_area_sqm": setbacks.get("site_area_sqm"),
+        "buildable_area_sqm": setbacks.get("buildable_area_sqm"),
+        "has_roads": site_model.get("roads") is not None,
+        "has_grid": site_model.get("grid") is not None,
+        "has_sun": site_model.get("sun") is not None,
+    }
+
+
 def _build_state_snapshot(state: dict[str, Any]) -> dict[str, Any]:
     return {
         "plan": state.get("plan", []),
+        "design_brief": state.get("design_brief", {}),
+        "site_model_summary": _summarize_site_model(state.get("site_model", {})),
         "active_step_id": state.get("active_step_id"),
         "current_action": state.get("current_action"),
         "decision_reason": state.get("decision_reason"),
@@ -442,10 +513,28 @@ def _repair_generate_shape_decision(
     site_area_sqm = _extract_site_area_sqm(state)
     site_boundary = _extract_site_boundary_from_state(state)
     preferred_location = _select_generation_location_hint(state)
-    explicit_building_area_sqm = _extract_explicit_building_area_sqm(user_prompt)
-    inferred_building_type = _infer_requested_building_type(user_prompt)
-    requested_rotation = _extract_requested_rotation(user_prompt)
-    has_explicit_building_area = _mentions_explicit_building_area(user_prompt)
+
+    # Prefer the typed design brief for this building; fall back to prompt regex
+    # so direct unit-test calls (which pass no brief) keep their existing behaviour.
+    active_spec, brief_rotation = _active_brief_signals(state)
+
+    spec_shape = active_spec.get("shape_preference")
+    if isinstance(spec_shape, str) and spec_shape and spec_shape != "auto":
+        inferred_building_type = spec_shape
+    else:
+        inferred_building_type = _infer_requested_building_type(user_prompt)
+
+    spec_area = active_spec.get("footprint_area_sqm")
+    if isinstance(spec_area, (int, float)):
+        explicit_building_area_sqm = float(spec_area)
+        has_explicit_building_area = True
+    else:
+        explicit_building_area_sqm = _extract_explicit_building_area_sqm(user_prompt)
+        has_explicit_building_area = _mentions_explicit_building_area(user_prompt)
+
+    requested_rotation = (
+        brief_rotation if brief_rotation is not None else _extract_requested_rotation(user_prompt)
+    )
     fallback_arguments = {
         "area": explicit_building_area_sqm or _default_boundary_area(site_area_sqm, defaults["default_site_coverage_ratio"]),
         "building_type": inferred_building_type or tool_defaults["building_type"],
@@ -505,6 +594,28 @@ def _repair_generate_shape_decision(
         tool_calls=(ToolCall(name="generate_building_boundary", arguments=fallback_arguments),),
         user_question=decision.user_question,
     )
+
+
+def _active_brief_signals(state: dict[str, Any]) -> tuple[dict[str, Any], float | None]:
+    """Return (active building spec, brief rotation) for the current building.
+
+    Falls back to an empty spec and ``None`` rotation when no brief is present, so
+    callers transparently revert to prompt-regex parsing.
+    """
+    brief = state.get("design_brief")
+    if not isinstance(brief, dict) or not brief:
+        return {}, None
+
+    placed = state.get("placed_buildings", [])
+    index = len(placed) if isinstance(placed, list) else 0
+    buildings = brief.get("buildings", [])
+    spec: dict[str, Any] = {}
+    if isinstance(buildings, list) and 0 <= index < len(buildings) and isinstance(buildings[index], dict):
+        spec = buildings[index]
+
+    rotation = brief.get("requested_rotation_deg")
+    rotation_value = float(rotation) if isinstance(rotation, (int, float)) else None
+    return spec, rotation_value
 
 
 def _select_generation_location_hint(state: dict[str, Any]) -> list[float] | None:

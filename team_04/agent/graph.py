@@ -5,11 +5,13 @@ from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 
+from .brief import resolve_brief
 from .decision_engine import DecisionEngine, Planner, RuleBasedPlanner
 from .mcp_client import ToolClient
 from .models import PlanStep, RoutingDecision
 from .state import AgentState, build_initial_state
 from .tool_catalog import ToolCatalog
+from .tools.site_model import build_site_model
 
 
 def build_agent_graph(
@@ -21,6 +23,7 @@ def build_agent_graph(
     active_planner = planner or RuleBasedPlanner()
     graph = StateGraph(AgentState)
 
+    graph.add_node("extract_brief", _build_extract_brief_node(decision_engine))
     graph.add_node("planner", _build_planner_node(active_planner, catalog))
     graph.add_node("central_reason", _build_central_reason_node(decision_engine, catalog))
     graph.add_node("read_site", _build_group_executor(tool_client, catalog, "read_site"))
@@ -35,7 +38,8 @@ def build_agent_graph(
     graph.add_node("report", _build_report_node(decision_engine))
     graph.add_node("finish", lambda state: state)
 
-    graph.add_edge(START, "planner")
+    graph.add_edge(START, "extract_brief")
+    graph.add_edge("extract_brief", "planner")
     graph.add_conditional_edges(
         "planner",
         _route_from_planner,
@@ -97,6 +101,60 @@ def run_agent(
         max_optimization_cycles=max_optimization_cycles,
     )
     return app.invoke(initial_state, config={"recursion_limit": recursion_limit})
+
+
+def _build_extract_brief_node(decision_engine: DecisionEngine):
+    """One-shot intent comprehension at graph start.
+
+    Produces a typed DesignBrief (LLM when available, deterministic regex
+    otherwise) and refines count/intents in state so the planner and the
+    shape-generation repair layer never re-parse the raw prompt. Idempotent:
+    if a brief already exists in state it passes through unchanged.
+    """
+
+    def extract_brief_node(state: AgentState) -> AgentState:
+        if state.get("design_brief"):
+            return {}
+
+        user_prompt = state.get("user_prompt", "")
+        try:
+            layout_payload = json.loads(state.get("layout_json", "{}"))
+        except json.JSONDecodeError:
+            layout_payload = {}
+        if not isinstance(layout_payload, dict):
+            layout_payload = {}
+
+        brief = resolve_brief(decision_engine, user_prompt, layout_payload)
+        brief_payload = brief.to_state()
+
+        messages = list(state.get("messages", []))
+        ambiguity_note = (
+            f" Ambiguities: {len(brief.ambiguities)}." if brief.ambiguities else ""
+        )
+        messages.append(
+            f"Design brief ({brief.source}): {brief.building_count} building(s), "
+            f"shapes={[b.shape_preference for b in brief.buildings]}, "
+            f"courtyard={brief.courtyard_requested}, parking={brief.parking_requested}.{ambiguity_note}"
+        )
+
+        update: AgentState = {
+            "design_brief": brief_payload,
+            "messages": messages,
+        }
+
+        # Respect an explicit layout count; otherwise let the brief set it.
+        if "target_building_count" not in layout_payload:
+            update["target_building_count"] = brief.building_count
+
+        # Only seed building_intents from the brief when none were provided.
+        if not state.get("building_intents"):
+            intents = [spec.intent_text for spec in brief.buildings if spec.intent_text]
+            if intents:
+                update["building_intents"] = intents
+
+        return update
+
+    return extract_brief_node
 
 
 def _build_planner_node(planner: Planner, catalog: ToolCatalog):
@@ -216,6 +274,17 @@ def _build_group_executor(
             if not aggregate:
                 update["error"] = "Site-reading tools returned no context."
                 update["replan_reason"] = "Site-reading tools returned no usable context."
+            # Build the canonical site model once site reading is done.
+            site_boundary_for_model = _extract_site_boundary(state) or _find_site_boundary(aggregate)
+            if site_boundary_for_model:
+                try:
+                    layout_payload = json.loads(state.get("layout_json", "{}"))
+                except json.JSONDecodeError:
+                    layout_payload = {}
+                update["site_model"] = build_site_model(
+                    site_boundary_for_model,
+                    layout_payload if isinstance(layout_payload, dict) else {},
+                )
         elif action == "generate_shape":
             update["shape_context"] = aggregate if _aggregate_contains_boundary(aggregate) else state.get("shape_context", {})
             update["constraint_results"] = {}
