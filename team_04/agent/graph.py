@@ -6,6 +6,7 @@ from typing import Any
 from langgraph.graph import END, START, StateGraph
 
 from .brief import resolve_brief
+from .clarify import required_clarifications
 from .decision_engine import DecisionEngine, Planner, RuleBasedPlanner
 from .mcp_client import ToolClient
 from .models import PlanStep, RoutingDecision
@@ -39,7 +40,14 @@ def build_agent_graph(
     graph.add_node("finish", lambda state: state)
 
     graph.add_edge(START, "extract_brief")
-    graph.add_edge("extract_brief", "planner")
+    graph.add_conditional_edges(
+        "extract_brief",
+        _route_from_brief,
+        {
+            "await_human": "await_human",
+            "planner": "planner",
+        },
+    )
     graph.add_conditional_edges(
         "planner",
         _route_from_planner,
@@ -152,9 +160,25 @@ def _build_extract_brief_node(decision_engine: DecisionEngine):
             if intents:
                 update["building_intents"] = intents
 
+        # Interactive clarification (opt-in via layout flag). Ask the user back
+        # when a placement-critical field is missing, instead of guessing.
+        if bool(layout_payload.get("interactive_clarification")) and not state.get("clarification_resolved"):
+            request = required_clarifications(brief, layout_payload, state.get("site_model"))
+            if request is not None:
+                update["clarification_request"] = request.to_dict()
+                update["human_request"] = request.question_text()
+                messages.append(f"Clarification needed: {len(request.fields)} field(s).")
+
         return update
 
     return extract_brief_node
+
+
+def _route_from_brief(state: AgentState) -> str:
+    """After comprehension, pause for clarification if a critical gap remains."""
+    if state.get("clarification_request") and not state.get("clarification_resolved"):
+        return "await_human"
+    return "planner"
 
 
 def _build_planner_node(planner: Planner, catalog: ToolCatalog):

@@ -34,6 +34,9 @@ class AgentState(TypedDict, total=False):
     placement_fit_summary: dict[str, Any]
     tool_history: list[dict[str, Any]]
     human_request: str | None
+    clarification_request: dict[str, Any] | None
+    clarification_answers: dict[str, Any]
+    clarification_resolved: bool
     final_response: str | None
     replan_required: bool
     replan_reason: str | None
@@ -77,7 +80,9 @@ def build_initial_state(
         "user_prompt": user_prompt,
         "workflow_mode": workflow_mode,
         "layout_json": json.dumps(layout_payload),
-        "design_brief": {},
+        # Pre-seed the brief when resuming after clarification (else built fresh
+        # by the extract_brief node). Default {} keeps the normal first-run path.
+        "design_brief": layout_payload.get("design_brief") or {},
         "site_model": {},
         "site_boundary": normalized_site_boundary,
         "building_intents": normalized_building_intents,
@@ -103,6 +108,9 @@ def build_initial_state(
         "placement_fit_summary": {},
         "tool_history": [],
         "human_request": None,
+        "clarification_request": layout_payload.get("clarification_request"),
+        "clarification_answers": layout_payload.get("clarification_answers", {}) or {},
+        "clarification_resolved": bool(layout_payload.get("clarification_resolved", False)),
         "final_response": None,
         "replan_required": True,
         "replan_reason": "Initial planning required.",

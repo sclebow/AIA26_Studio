@@ -14,10 +14,11 @@ SSE event types:
 
 Decision graph hooks
 --------------------
-  1. User message   → intent node (immediately, before agent runs)
-  2. on_tool_start  → action node per tool call
-  3. Pareto results → branch node with one state-child per option
-  4. place_building → state node with building snapshot
+  1. User message     → intent node (immediately, before agent runs)
+  1b. extract_brief end → brief node (Phase 0 comprehension, before any tool)
+  2. on_tool_start    → action node per tool call
+  3. Pareto results   → branch node with one state-child per option
+  4. place_building   → state node with building snapshot
 """
 from __future__ import annotations
 
@@ -35,6 +36,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from ..decision_graph import (
     DecisionGraph,
     make_intent_node,
+    make_brief_node,
+    make_clarify_node,
     make_action_node,
     make_branch_nodes,
     make_state_node,
@@ -75,8 +78,9 @@ async def chat(
             "data": json.dumps(_node_event(graph.get_node(intent_id))),
         }
 
-        current_action_parent = intent_id   # action nodes hang off the intent
+        current_action_parent = intent_id   # action/brief nodes hang off the intent
         full_response = ""
+        brief_emitted = False                # Phase 0 brief node — at most one per turn
 
         try:
             state = await store.get_state(session_id)
@@ -84,8 +88,8 @@ async def chat(
             state["user_prompt"] = body.message
             state["messages"] = state.get("messages", []) + [f"User: {body.message}"]
 
-            from agent.graph import build_agent_graph
-            graph_agent = build_agent_graph()
+            from ..agent_runtime import get_agent_app
+            graph_agent = get_agent_app()
 
             async for event in graph_agent.astream_events(state, version="v2"):
                 if await request.is_disconnected():
@@ -147,6 +151,49 @@ async def chat(
                                 "event": "decision",
                                 "data": json.dumps(_node_event(graph.get_node(state_id))),
                             }
+
+                # 1b. extract_brief node end → Phase 0 comprehension node.
+                # The node runs first (START → extract_brief → planner), so the
+                # current parent is still the intent. It returns ``design_brief``
+                # only when it freshly comprehends (idempotent pass-through
+                # returns ``{}``), so its presence is the "new brief" signal.
+                elif (
+                    kind == "on_chain_end"
+                    and event.get("name") == "extract_brief"
+                    and not brief_emitted
+                ):
+                    node_output = data.get("output", {})
+                    brief_payload = (
+                        node_output.get("design_brief")
+                        if isinstance(node_output, dict) else None
+                    )
+                    if isinstance(brief_payload, dict):
+                        brief_id = make_brief_node(
+                            graph, brief_payload, current_action_parent
+                        )
+                        current_action_parent = brief_id   # actions now hang off the brief
+                        brief_emitted = True
+                        yield {
+                            "event": "decision",
+                            "data": json.dumps(_node_event(graph.get_node(brief_id))),
+                        }
+
+                    # The agent paused to ask the user back → emit a clarify node.
+                    clar_req = (
+                        node_output.get("clarification_request")
+                        if isinstance(node_output, dict) else None
+                    )
+                    if isinstance(clar_req, dict) and clar_req.get("fields"):
+                        clarify_id = make_clarify_node(graph, clar_req, current_action_parent)
+                        current_action_parent = clarify_id
+                        yield {
+                            "event": "clarify",
+                            "data": json.dumps(clar_req),
+                        }
+                        yield {
+                            "event": "decision",
+                            "data": json.dumps(_node_event(graph.get_node(clarify_id))),
+                        }
 
                 # Final graph output
                 elif kind == "on_chain_end" and event.get("name") == "LangGraph":

@@ -110,7 +110,7 @@ class ExplorerTree(BaseModel):
 class DecisionNodeSchema(BaseModel):
     node_id: str
     parent_id: str | None
-    type: str                        # intent | action | branch | select | state
+    type: str                        # intent | brief | clarify | action | branch | select | state
     label: str
     timestamp: str
     is_selected: bool
@@ -127,6 +127,29 @@ class DecisionGraphResponse(BaseModel):
     nodes: list[DecisionNodeSchema]
     edges: list[DecisionEdge]
     head: str | None                 # current_head node_id
+
+
+# ---------------------------------------------------------------------------
+# Interactive clarification
+# ---------------------------------------------------------------------------
+
+class ClarificationFieldSchema(BaseModel):
+    key: str                          # shape | side | view_side | size | use | count
+    question: str
+    options: list[str] = Field(default_factory=list)
+    multi: bool = False
+    allow_custom: bool = True
+    critical: bool = False
+
+
+class ClarificationRequestSchema(BaseModel):
+    summary: str
+    fields: list[ClarificationFieldSchema] = Field(default_factory=list)
+
+
+class ClarificationAnswer(BaseModel):
+    # field key -> chosen value(s). e.g. {"shape": "L", "view_side": ["south"]}
+    answers: dict[str, Any] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------

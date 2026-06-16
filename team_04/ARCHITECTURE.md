@@ -9,7 +9,7 @@
 - **Prompt diet**: supervisor prompt shrinks to role + active step + brief + catalog slice; every enforceable rule moves into deterministic planner guards or the argument-repair layer.
 - **Fitness assembly**: a deterministic `build_objectives(brief, site_model)` selects active NSGA-II objectives (view, sun, courtyard quality) and hard constraints (site fit, setbacks, separation, fire access, parking feasibility); grid/side alignment restricts the sampling space. The LLM sets weights only, via the brief.
 - **New tool families** under `agent/tools/`: `sun_analysis`, `road_context`, `site_grid`, `parking`, `circulation`, `courtyard`, plus per-wing heights in the wing graph and `view_3d`.
-- **Frontend last**: FastAPI contracts in `backend/` are extended (site-model payload, analysis overlays, per-wing hierarchy, SSE step events) only after the agent integration phase stabilizes.
+- **Frontend in lockstep (revised 2026-06-16)**: the original "frontend last (Phase 9)" rule is superseded — every backend phase that changes a UI-visible contract (a decision-graph node, a site/explorer overlay, an SSE event) ships its frontend counterpart in the **same commit**, under `team_04/frontend/`. Deeper FastAPI contract work (full site-model payload, analysis overlays, per-wing hierarchy) still lands as its phase does. Phase 0's counterpart is the `frontend/decision-graph/` module (`BriefNode` + payload contract).
 
 Each phase lands with a visualization notebook in `test_notebooks/`, deterministic regressions in `benchmarking/`, and same-commit updates to this file and `PROGRESS.md`.
 
@@ -37,20 +37,37 @@ This cleanup removes the previous ambiguity where two different graphs, two entr
 team_04/
 ├── agent/
 │   ├── __init__.py
+│   ├── brief.py            # Phase 0: regex-fallback DesignBrief extractor
+│   ├── clarify.py          # interactive clarification (ask-back) engine
 │   ├── config.py
 │   ├── decision_engine.py
-│   ├── graph.py
+│   ├── graph.py            # START → extract_brief → planner → …
 │   ├── main.py
 │   ├── mcp_client.py
-│   ├── models.py
+│   ├── models.py           # BuildingSpec / DesignBrief dataclasses
 │   ├── state.py
-│   └── tool_catalog.py
+│   ├── tool_catalog.py
+│   └── tools/
+│       └── site_model.py   # Phase 0: canonical SiteModel
+├── backend/                # FastAPI app + decision graph + routers
+│   ├── app.py
+│   ├── agent_runtime.py    # cached compiled agent app for the chat endpoint
+│   ├── decision_graph.py   # DAG + make_*_node (incl. make_brief_node)
+│   ├── schemas.py
+│   ├── session_store.py
+│   └── routers/            # sessions, chat (SSE), explorer, tools, decisions, clarify
+├── frontend/               # React Flow UI, kept in lockstep with the backend
+│   ├── README.md           # lockstep policy + usage
+│   ├── package.json tsconfig.json   # self-contained, node_modules git-ignored
+│   ├── dashboard/AgentDashboard.tsx # overall view (graph + plan + explorer)
+│   ├── decision-graph/     # BriefNode + BasicNodes (incl. ClarifyNode) + nodeTypes/adapters/types + CONTRACT.md
+│   ├── site/               # SiteCanvas.tsx + geometry.ts (2D plan)
+│   ├── explorer/           # ExplorerPanel.tsx (object hierarchy)
+│   ├── clarify/            # ClarifyPanel.tsx (agent ask-back chips)
+│   └── api/                # types.ts (mirror schemas) + client.ts (Team04Api)
+├── benchmarking/           # deterministic regressions (no LLM/MCP)
+├── test_notebooks/         # one visualization notebook per phase
 ├── legacy/
-│   ├── README.md
-│   ├── PY_legacy/
-│   └── python_legacy/
-├── tests/
-│   └── test_agent_graph.py
 └── main.py
 ```
 
@@ -62,6 +79,7 @@ The graph now separates planning from execution:
 START
   ↓
 extract_brief        # Phase 0: free text -> typed DesignBrief (LLM or regex fallback)
+  ├─ (critical gap + interactive_clarification) ─→ await_human → finish → END   # ask the user back
   ↓
 planner
   ↓
@@ -83,7 +101,7 @@ All tool spokes return to planner, which rebuilds the remaining task sequence.
 
 ## Node Responsibilities
 
-- `extract_brief`: one-shot intent comprehension at graph start. Converts the raw prompt into a typed `DesignBrief` (LLM via `OpenAIDecisionEngine.extract_brief`, deterministic regex fallback via `agent/brief.py` otherwise). Idempotent; refines `target_building_count`/`building_intents` only when the layout did not provide them. Implemented in `agent/brief.py` (extractors) + `_build_extract_brief_node` in `graph.py`.
+- `extract_brief`: one-shot intent comprehension at graph start. Converts the raw prompt into a typed `DesignBrief` (LLM via `OpenAIDecisionEngine.extract_brief`, deterministic regex fallback via `agent/brief.py` otherwise). Idempotent; refines `target_building_count`/`building_intents` only when the layout did not provide them. When the run opted in (`interactive_clarification`) and a **placement-critical** field is missing (shape / preferred side / view side), it raises a structured `clarification_request` (`agent/clarify.py`) and routes to `await_human` so the agent asks the user back instead of guessing. `apply_clarification_answers` merges the user's answers onto the brief + layout; `clarification_resolved` makes the resumed run proceed. Implemented in `agent/brief.py` + `agent/clarify.py` + `_build_extract_brief_node`/`_route_from_brief` in `graph.py`.
 - `planner`: builds a typed task sequence from current state and selects the active plan step. Reads brief-derived count/intents from state rather than re-parsing the prompt.
 - `central_reason`: now acts as a step-scoped supervisor. It only reasons over the active step, and only calls the LLM for `generate_shape` and `optimize`.
 - `read_site`: runs the site/context/legal-reader tool group automatically, then builds the canonical `SiteModel` (`agent/tools/site_model.py`) into `state["site_model"]` — boundary graph (corners/sides), per-side `adjacent_road` slots, and the setback/buildable zone, with `roads`/`grid`/`sun` placeholders for Phases 1-3.
@@ -96,6 +114,26 @@ All tool spokes return to planner, which rebuilds the remaining task sequence.
 - `analyze_remaining_positions`: queries the remaining site area for candidate locations before the next building cycle begins.
 - `await_human`: exits non-interactively with a clarification question in `final_response`.
 - `report`: builds the final narrative response.
+
+## Decision Graph and Frontend (Phase 0 counterpart)
+
+The backend tracks each session's design process as a DAG in `backend/decision_graph.py` and exposes it to the UI:
+
+- Node types: `intent → brief → [clarify] → action → branch → select → state`. The **`brief`** node (Phase 0) sits between the user message and the first tool and carries the typed `DesignBrief` in `payload.design_brief`. The **`clarify`** node appears when the agent pauses to ask the user back; its payload holds the structured `clarification_request` the UI renders as chips (`POST /sessions/{id}/clarify` to answer, then resume with a `/chat` turn).
+- `backend/routers/chat.py` streams nodes as SSE `decision` events while the agent runs. The live `extract_brief` graph node's `on_chain_end` is detected and emitted as the `brief` node (right after `intent`, before any `action`); it fires only when a brief is freshly comprehended (the node is idempotent and returns `{}` on pass-through).
+- `backend/routers/decisions.py` returns the full `{nodes, edges, head}` for `GET /sessions/{id}/decisions`, edges already React-Flow-ready.
+- `backend/agent_runtime.py` builds and caches the compiled agent app (engine + tool client + catalog) for the chat endpoint — previously `build_agent_graph()` was called with no arguments and never ran.
+
+The frontend lives under `team_04/frontend/` and gives an "overall view" of the agent — *what it has* and *how it reasoned* — from the existing backend routes:
+
+- `dashboard/AgentDashboard.tsx` — the composed screen: decision graph (left) + 2D site plan (centre) + explorer tree (right).
+- `decision-graph/` — `BriefNode.tsx` (Phase 0 comprehension) + `BasicNodes.tsx` (`intent/action/branch/select/state`), registered in `nodeTypes.ts`; `adapters.ts` converts `{nodes,edges,head}` + SSE events into React Flow inputs and runs a built-in `layoutLayered`; `types.ts` mirrors `agent/models.py` + `backend/schemas.py`; `CONTRACT.md` is the payload contract.
+- `site/SiteCanvas.tsx` (+ `geometry.ts`) — 2D plan: site boundary, buildable zone, placed buildings coloured by footprint family (I/L/T/U/H/Y/X/O), and the focused building's Pareto view-placement options as ghosts. This is where multi-building layouts, generated boundaries, shape transformations, and view-based placement become visible.
+- `explorer/ExplorerPanel.tsx` — Site → buildings → wings / view scores / Pareto option table, from `GET /sessions/{id}/explorer`.
+- `clarify/ClarifyPanel.tsx` — renders the agent's structured ask-back question as chips and POSTs answers to `POST /sessions/{id}/clarify`; `ClarifyNode` shows the pause in the decision graph.
+- `api/` — `types.ts` (mirror `backend/schemas.py`) + `client.ts` (`Team04Api`, typed client for every JSON route).
+
+Per the lockstep policy, each later phase adds its node/overlay component and a `CONTRACT.md` row in the same commit it lands the backend capability.
 
 ## Why This Structure
 

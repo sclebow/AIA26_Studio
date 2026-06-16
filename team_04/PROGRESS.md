@@ -1,5 +1,93 @@
 # Team 04 Progress
 
+## 2026-06-16 Interactive Clarification — the agent asks the user back
+
+Closes the Phase 0 loop where the brief populated `ambiguities` but never acted on them. When a prompt is too vague to place accurately, the agent now pauses and returns a **structured question** (shape / preferred side / view-optimisation side / size / use / count) instead of guessing — the brief's no-invention principle made interactive. Policy (chosen with the user): **ask only on critical gaps** (shape, side, view side); minor gaps fall back to documented defaults. Backend ↔ frontend ↔ notebook all wired. All under `team_04/`, conflict-free with `main`.
+
+### Completed
+
+- [x] `agent/clarify.py` — pure, deterministic clarification engine: `ClarificationField`/`ClarificationRequest` dataclasses, `required_clarifications(brief, layout, site_model)` (returns a structured question only when a critical field is missing), `apply_clarification_answers(...)` (merges answers onto the brief + layout: shape/size/use → brief specs, side → `requested_positions` via `side_to_point`, view side → `view_target_sides`, count → `target_building_count`), and `side_options`/`side_to_point` helpers.
+- [x] Graph wiring (`agent/graph.py`): `extract_brief` raises a `clarification_request` when `interactive_clarification` is set and a critical gap remains; new conditional edge `extract_brief → await_human | planner` (`_route_from_brief`). Idempotent resume via `clarification_resolved`. Opt-in flag keeps all existing non-interactive runs unchanged.
+- [x] State (`agent/state.py`): added `clarification_request`/`clarification_answers`/`clarification_resolved`; `build_initial_state` honors a pre-seeded `design_brief` + `clarification_resolved` from the layout so a resumed run uses the answered brief.
+- [x] Backend API: `backend/schemas.py` (`ClarificationFieldSchema`, `ClarificationRequestSchema`, `ClarificationAnswer`); new `backend/routers/clarify.py` (`GET /sessions/{id}/clarification`, `POST /sessions/{id}/clarify`); `decision_graph.make_clarify_node` + `clarify` node type; `chat.py` emits a `clarify` SSE event + node when the agent pauses; router registered in `app.py`.
+- [x] Frontend (lockstep): `clarify/ClarifyPanel.tsx` renders the structured question as chips (multi/single select + custom), disables submit until critical fields are answered, and POSTs answers; `ClarifyNode` for the decision graph (registered in `nodeTypes.ts`); `api/types.ts` + `api/client.ts` (`getClarification`/`submitClarification`); `CONTRACT.md` §3/§3b/§7 + `README.md` updated; barrels updated.
+- [x] Notebook `test_notebooks/end_to_end_api_agent.ipynb`: new "Interactive clarification" section — vague prompt → structured question → simulated chip answers → second run places accurately, exercising the real LLM.
+
+### Validation
+
+- [x] `benchmarking/test_clarify.py` — 7 deterministic tests (no LLM): critical-gap detection, no-clarification when fully specified, answer-merge onto brief+layout, post-answer self-sufficiency, side→point mapping, and the interactive graph pausing at `await_human` with no placement.
+- [x] Full suite: `python -m unittest discover benchmarking` → 85 pass, 1 pre-existing unrelated failure (`test_generate_building_boundary.test_l_shape_is_translated_and_closed`, the known shapely `50.0 not > 50.0` float issue). No regressions from the graph change.
+- [x] **Live LLM** check: vague prompt → Run 1 paused with all 6 fields, 0 placed; answered (L / Main Street / south / ~900 m² / office / 1) → Run 2 placed 1 building using the answered **L** shape and did not re-ask.
+- [x] `npm run typecheck` (frontend) → 0 errors with `ClarifyPanel` + `ClarifyNode` + clarify types/client.
+- [x] `py_compile` clean on all changed backend modules; `git status` shows only `team_04/` paths.
+
+### Active MVP Status
+
+- [x] The agent interacts: it asks the user back for placement-critical details and resumes with the answers, instead of fabricating values.
+- [x] Backend, frontend, and the end-to-end notebook share one clarification contract.
+- [ ] `view_side` is recorded (`view_target_sides`) but not yet fed into the optimizer as an attractor — that lands with Phase 2 (roads/attractors). Side answer drives `requested_positions` today.
+- [ ] Multi-turn resume in the live API currently needs a follow-up `/chat` call after `/clarify`; auto-resume is a future convenience.
+
+## 2026-06-16 Frontend — Agent Overview Dashboard (full decision graph + site plan + explorer)
+
+Builds the "overall view" of the agent on top of the existing backend contracts so the team can see *what the agent has* and *how it reasoned* in one screen — the full decision graph, the 2D site plan (multi-building layouts, footprint families, view-based Pareto placement), and the explorer tree. No backend changes; everything reads the routes that already exist. All under `team_04/frontend/`, so merges with `main` stay conflict-free.
+
+### Completed
+
+- [x] Completed the decision-graph node set: `decision-graph/BasicNodes.tsx` adds `IntentNode`, `ActionNode`, `BranchNode`, `SelectNode`, `StateNode` (compact accented cards) alongside the Phase 0 `BriefNode`; all six registered in `nodeTypes.ts`. Unknown future types still fall through to the React Flow default node.
+- [x] Added a dependency-free `layoutLayered` (depth→row, order→column) to `decision-graph/adapters.ts` so the graph renders without dagre/elkjs.
+- [x] `site/SiteCanvas.tsx` + `site/geometry.ts`: a 2D SVG plan that auto-fits north-up and draws the site boundary, the buildable zone (setbacks), every placed building coloured by footprint family (I/L/T/U/H/Y/X/O) with label + view score, and the focused building's Pareto view-placement options as ghosts (selected option highlighted). This surfaces multi-building workflows, generated boundaries, shape transformations, and view-analysis placement.
+- [x] `explorer/ExplorerPanel.tsx`: collapsible Site → Buildings → (wings, view score, Pareto placement table with rank/score/rotation/fit) from `GET /sessions/{id}/explorer`.
+- [x] `api/types.ts` + `api/client.ts`: TS types mirroring `backend/schemas.py` and a `Team04Api` typed client covering every JSON route (sessions, state, messages, explorer, site, buildings, options, view, decisions, select, tools).
+- [x] `dashboard/AgentDashboard.tsx`: composes decision graph + site plan + explorer into one screen; click-to-focus a building overlays its options; `↻ Refresh` re-fetches. Example wiring for the live SSE `decision` stream documented in `frontend/README.md`.
+- [x] Extended `decision-graph/CONTRACT.md` (new §6: explorer/geometry payloads) and rewrote `frontend/README.md` (dashboard usage, backend-surface→UI table, file tree). Updated the top-level `frontend/index.ts` barrel.
+
+### Validation
+
+- [x] `npm run typecheck` (`tsc --noEmit`, strict + `noUnusedLocals`/`noUnusedParameters`) passes with **0 errors** across the whole `frontend/` (decision graph, site canvas, explorer, dashboard, API client).
+- [x] All wire types cross-checked field-by-field against `backend/schemas.py` (`SiteInfo`, `WingInfo`, `PlacementOption`, `BuildingInfo`, `ExplorerTree`, `SessionInfo`, `ViewAnalysisResult`, `ToolCallResponse`) and the decision-node shape.
+- [x] `node_modules/` git-ignored; `git status` shows only `team_04/` paths.
+
+### Active MVP Status
+
+- [x] One dashboard now shows the agent end-to-end: reasoning DAG, the designed site/buildings, and the explorer hierarchy — all from live backend payloads.
+- [x] Building footprint families, two-/multi-building layouts, and Pareto view-placement are all visualized from the explorer payload.
+- [ ] 3D massing (per-wing heights, `view_3d`) is surfaced only as numbers today; a 3D view is deferred to Phase 7's frontend counterpart.
+- [ ] The dashboard refreshes on demand / per turn; full live SSE node-streaming into the graph is wired in the README example but not yet a built-in dashboard mode.
+
+## 2026-06-16 Phase 0 Frontend Lockstep — Decision-Graph Brief Node + `BriefNode` UI
+
+Surfaces the Phase 0 comprehension step (the typed `DesignBrief`) in the live decision graph and ships its React Flow counterpart, establishing the policy that **frontend is updated in the same commit as the backend phase** (the original "frontend last / Phase 9" rule is superseded). All changes stay inside `team_04/`, so merges with `main` stay conflict-free.
+
+### Completed
+
+- [x] Added a first-class `brief` node type to the decision graph: `make_brief_node` in `backend/decision_graph.py` (carries `payload.design_brief` = `DesignBrief.to_state()`), the node-type list in the module docstring, and the `DecisionNodeSchema` comment in `backend/schemas.py`.
+- [x] Wired the **live** `extract_brief` graph node into the chat SSE stream: `backend/routers/chat.py` detects the node's `on_chain_end` and emits a `decision` event of `type: "brief"`, hung off the `intent` node and before the first `action`. Guarded to fire once per turn and only when a brief is freshly comprehended (the node is idempotent and returns `{}` on pass-through).
+- [x] Fixed a pre-existing blocker that prevented the chat endpoint from ever running: `chat.py` called `build_agent_graph()` with no arguments (it requires `decision_engine`, `tool_client`, `catalog`). Added `backend/agent_runtime.py` — a cached builder mirroring `agent/main.py`'s wiring (settings → LLM engine + local/MCP tools + catalog → compiled app) — and routed `chat.py` through `get_agent_app()`.
+- [x] Added the `frontend/` module (new), kept in lockstep:
+  - `frontend/decision-graph/CONTRACT.md` — backend↔frontend payload contract (transport, per-type payloads, SSE event order, the no-invention guarantee for the brief, and an "add a node type per phase" checklist).
+  - `frontend/decision-graph/BriefNode.tsx` — React Flow custom node rendering the `DesignBrief` (count, shapes, objective-weight bars, courtyard/parking flags, `ambiguities`, `source = llm|fallback`). Self-contained inline styles; tolerant of the payload-less compact SSE node.
+  - `frontend/decision-graph/types.ts` (mirror `agent/models.py` + `backend/schemas.py`), `nodeTypes.ts` (React Flow registry, one component per phase), `adapters.ts` (backend `{nodes,edges,head}` + SSE events → React Flow), `index.ts` barrel.
+  - `frontend/README.md` — the lockstep policy, dependencies, a `DecisionGraphPanel` usage example (POST-SSE via `fetch-event-source`), and the per-phase frontend roadmap.
+- [x] Updated `test_notebooks/test_decision_graph.ipynb` to the Phase 0 reaction flow: each turn now builds a real `brief` node from `extract_brief_fallback` + a `SiteModel` summary, with the DAG viz, selected-path trace, and step-by-step replay all rendering the new `brief` type.
+- [x] Updated `ARCHITECTURE.md` (lockstep policy, new "Decision Graph and Frontend" section, refreshed Active Layout tree).
+
+### Validation
+
+- [x] Verified against the **real** compiled graph (local tools + a no-LLM dummy engine, breaking before any LLM/pymoo node) that `astream_events` emits `on_chain_end` named `extract_brief` whose output carries `design_brief` — confirming the SSE detection signal.
+- [x] Exercised the router's brief-emission logic against the real graph: produces a `brief` decision node with the correct `intent → brief` parent link and label `Brief: 1x [L] (fallback)`.
+- [x] `test_notebooks/test_decision_graph.ipynb` executes top-to-bottom on a fresh kernel (22 nodes; active path `USER → BRIEF → read_site → … → backtrack`).
+- [x] `py_compile` clean on `backend/{routers/chat.py,agent_runtime.py,decision_graph.py,schemas.py}`.
+- [x] `benchmarking/test_design_brief.py` brief/fallback/model tests pass; the 3 errors observed are all the `pymoo`-dependent full-run/placement tests (environment missing `pymoo`), not introduced by this change.
+- [~] Not run here: a full live `POST /chat` round-trip — needs the LLM env + `pymoo` + `fastapi`, none fully available in this kernel. Every isolatable piece (event shape, emission logic, compilation) was verified; the end-to-end SSE should be smoke-tested once the backend runs with credentials configured.
+
+### Active MVP Status
+
+- [x] The agent's comprehension step is now visible end-to-end: prompt → `brief` node (typed `DesignBrief`) → actions, both in the notebook and over the live SSE stream.
+- [x] Frontend lockstep policy established; `BriefNode` + payload contract are the Phase 0 deliverable.
+- [ ] Dedicated React Flow components for `intent/action/branch/select/state` still fall through to the default node — cosmetic, tracked for follow-up.
+- [ ] Phase 1 (sun analysis) remains the next backend target; its frontend counterpart is the sun-vector/facade-exposure overlay (per the roadmap in `frontend/README.md`).
+
 ## 2026-06-15 Phase 0 — Reasoning Core (Design Brief + Site Model)
 
 Implements Phase 0 of `BACKEND_PLAN.md`: move comprehension out of long prompt rules and into a typed brief + a structured site model. Tested with `C:\Users\tuemi\AppData\Local\Programs\Python\Python311\python.exe` (has shapely/topologicpy/langgraph/langchain_openai/pymoo).

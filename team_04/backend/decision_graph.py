@@ -8,6 +8,14 @@ React Flow or D3-DAG without transformation.
 Node types
 ----------
   intent  — user sends a chat message
+  brief   — Phase 0 comprehension: the typed DesignBrief extracted from the
+            prompt (count, shapes, courtyard, objective weights). Sits between
+            the user intent and the first action so the rest of the chain is
+            explained by what the agent *understood*, not by re-parsing text.
+  clarify — the agent paused to ask the user back: a structured question
+            (shape / side / view-side / size / use / count) raised when a
+            placement-critical field is missing. Carries the clarification
+            request payload; the UI renders it as chips and POSTs answers.
   action  — a tool fires (grouped per LangGraph step, not per micro-call)
   branch  — optimizer returns Pareto solutions; children = one per option
   select  — user picks an option from the explorer panel
@@ -132,6 +140,55 @@ def make_intent_node(graph: DecisionGraph, message: str) -> str:
         f"User: {message[:80]}",
         parent_id=graph.current_head(),
         payload={"user_message": message},
+    )
+
+
+def make_brief_node(
+    graph: DecisionGraph,
+    brief: dict[str, Any],
+    parent_id: str | None,
+    *,
+    label: str | None = None,
+) -> str:
+    """Phase 0 reasoning node — the typed DesignBrief the agent comprehended.
+
+    ``brief`` is a ``DesignBrief.to_state()`` dict. The node sits between the
+    user ``intent`` and the first ``action``: it records *what the agent
+    understood* (building count, per-building shapes, courtyard, objective
+    weights, source = llm|fallback) so the downstream chain reads as the
+    consequence of comprehension rather than re-parsing the raw prompt.
+    """
+    count = brief.get("building_count", 1)
+    shapes = [b.get("shape_preference", "auto") for b in brief.get("buildings", [])]
+    shape_str = " + ".join(shapes) if shapes else "auto"
+    source = brief.get("source", "fallback")
+    text = label or f"Brief: {count}x [{shape_str}] ({source})"
+    return graph.add_node(
+        "brief",
+        text,
+        parent_id=parent_id,
+        payload={"design_brief": brief},
+    )
+
+
+def make_clarify_node(
+    graph: DecisionGraph,
+    clarification_request: dict[str, Any],
+    parent_id: str | None,
+) -> str:
+    """Node for an interactive clarification — the agent asking the user back.
+
+    ``clarification_request`` is ``ClarificationRequest.to_dict()`` (a ``summary``
+    plus a list of ``fields``, each with chip ``options``). The UI renders it as a
+    form and POSTs answers to ``/sessions/{id}/clarify``.
+    """
+    fields = clarification_request.get("fields", []) if isinstance(clarification_request, dict) else []
+    keys = ", ".join(f.get("key", "?") for f in fields)
+    return graph.add_node(
+        "clarify",
+        f"Clarify: {keys}" if keys else "Clarification requested",
+        parent_id=parent_id,
+        payload={"clarification_request": clarification_request},
     )
 
 
