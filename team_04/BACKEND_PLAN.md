@@ -109,10 +109,13 @@ The agent must know its surroundings — at minimum the biggest road near the si
 
 Placement must read as intentional: buildings align to site sides and to a site grid, even when fitness alone wouldn't force it.
 
+> **Status: implemented (2026-06-17), incl. an adaptive warped grid.** See the dated `PROGRESS.md` entries. The grid no longer uses a single rigid angle: `derive_adaptive_site_grid` lets the **local axis angle change to match the site's complexity**, and a building orients to the local grid direction so it responds to a tapering site.
+
 ### 3.1 Tool: `agent/tools/site_grid.py`
 
-- [ ] `derive_site_grid(site_model, spacing, alignment_side=None)` → grid origin + two axis directions aligned to a reference side (default: the main-road side from Phase 2; fallback: longest side), clipped to the buildable zone. Returns grid lines for visualization and grid-node seed points.
-- [ ] `snap_to_grid(point, grid)` and `aligned_orientations(grid)` → the discrete orientation set {parallel, perpendicular} to the grid axes (± small offsets if allowed).
+- [x] `derive_site_grid(site_model, spacing, alignment_side=None)` → grid origin + two axis directions aligned to a reference side (default fallback: longest side; main-road side feeds it once Phase 2 lands), clipped to the buildable zone. Returns grid lines + grid-node seed points.
+- [x] `derive_adaptive_site_grid(...)` → **warped** grid (transfinite/Coons patch over the four edge-chains) whose local angle varies across the site (`angle_range_deg`); `local_grid_orientation` + `align_building_to_local_grid` orient a building to the local direction. Degenerates to the uniform grid on a rectangle.
+- [x] `snap_to_grid(point, grid)` and `aligned_orientations(grid)` → the discrete {parallel, perpendicular} orientation set (± small offsets if allowed).
 
 ### 3.2 Optimizer integration
 

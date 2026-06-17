@@ -1,5 +1,21 @@
 # Team 04 Progress
 
+## 2026-06-17 Phase 3 — Adaptive (warped) grid: angle changes to match site complexity
+
+Extends Phase 3 so the grid's **local axis angle adapts to the site's complexity** instead of using one rigid angle (per user request: "the angle between the grid can change to match the complexity of the site … the L-shape building responding to the site"). Additive — the uniform `derive_site_grid` is untouched.
+
+### Completed
+
+- [x] Added `derive_adaptive_site_grid` to `agent/tools/site_grid.py`: fits a **transfinite (Coons) patch** to the site's four principal edge-chains (sharpest-four corners frame the quad; intermediate vertices fall inside chains where the taper lives). Grid lines bend to follow the boundary; returns `angle_range_deg` (how much the local angle swings), `node_orientations` (per-node local direction), warped `grid_lines`, and `corner_indices`.
+- [x] Added `local_grid_orientation(grid, point)` (nearest-node local direction) and `align_building_to_local_grid(...)` (drops a footprint oriented to the local grid direction, optionally + a `corner_wing_rotation` obtuse bend) so a building **responds to the site** rather than sitting at one global angle.
+- [x] Fixed the orientation-spread metric to measure the smallest covering arc on the circle (a naive max-min folded near 0°/180° and wrongly reported a rectangle as fully warped). A rectangle now correctly reports `angle_range_deg ≈ 0` (degenerates to the uniform grid).
+
+### Validation
+
+- [x] Added 6 regressions to `benchmarking/test_site_grid.py` (rectangle does not warp; splayed pentagon warps `> 8°`; local orientation changes left↔right across the site; nodes stay inside the site; a placed building's long edge follows the local direction within 1°; triangle is unavailable). `python -m unittest team_04.benchmarking.test_site_grid` → 21 tests pass.
+- [x] Updated `test_notebooks/test_grid_alignment.ipynb` with section "1b. Adaptive grid — the angle changes to match the site's complexity": uniform vs. warped grid side by side, the warped green net, and a navy L oriented to the local grid direction at the main-road corner (matches the reference image). Notebook smoke-runs end to end; the pentagon reports a 50.8° local-angle swing vs. 0° uniform.
+- [x] Full `team_04/benchmarking` discovery: only the pre-existing unrelated `test_generate_building_boundary` float-boundary failure remains.
+
 ## 2026-06-17 Phase 3 — Site Grid & Side Alignment (no more random-looking placement)
 
 Implements Phase 3 of `BACKEND_PLAN.md` on a **complex non-orthogonal site**. Real buildings are not dropped at arbitrary rotations inside a plot — they sit on a site grid, **parallel to a preferred boundary**. Placement is now restricted to **grid-node positions × aligned orientations** ({parallel, perpendicular} to a chosen side) instead of a free 5 m sweep + 36 free rotations, with a **use-driven** rule (commercial hugs the frontage) and **obtuse footprints** that follow splayed corners. Deterministic tool + exhaustive optimizer + notebook + regressions + lockstep frontend — all under `team_04/`, conflict-free with `main`. (Phase 3 normally follows Phase 2/roads for the alignment side; built now with the documented **longest-side fallback** + an explicit `alignment_side`, so roads refine it later.)

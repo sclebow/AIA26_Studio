@@ -219,6 +219,169 @@ def align_building_to_grid(
 
 
 # ---------------------------------------------------------------------------
+# Adaptive (warped) grid — local axis angle follows the site complexity
+# ---------------------------------------------------------------------------
+
+def derive_adaptive_site_grid(
+    site_model: dict[str, Any],
+    *,
+    spacing: float = DEFAULT_SPACING_M,
+    divisions: tuple[int, int] | None = None,
+    alignment_side: int | None = None,
+    use_buildable_zone: bool = True,
+) -> dict[str, Any]:
+    """Build a **warped** placement grid whose local angle tracks the site shape.
+
+    `derive_site_grid` lays down one rigid lattice at a single angle. On a splayed
+    or tapering plot that single angle cannot stay parallel to every edge, so the
+    grid drifts away from the boundary. This function instead fits a transfinite
+    (Coons) patch to the site's four principal edge-chains: grid lines bend to
+    follow the taper, and **the angle between cells varies across the field** to
+    match the site's complexity. A building placed on a node can then orient to
+    the *local* grid direction (see ``local_grid_orientation``) rather than to one
+    global angle.
+
+    On a true rectangle the four chains are straight and parallel, so the patch
+    degenerates back to the uniform lattice (``angle_range_deg`` ~ 0) — the adaptive
+    grid is a strict generalisation.
+
+    Returns a dict with ``available``, ``corner_indices`` (the 4 chosen corners),
+    ``angle_deg`` (orientation at the patch centre), ``angle_range_deg`` (how much
+    the local angle swings — the "complexity" the grid absorbed), ``grid_lines``
+    (warped polylines for drawing), ``grid_nodes``, ``node_orientations`` (local
+    u-axis angle per node, deg), and ``divisions``.
+    """
+    boundary = site_model.get("boundary") if isinstance(site_model, dict) else None
+    if not isinstance(boundary, list) or len(boundary) < 3:
+        return {"available": False, "reason": "site_model boundary missing"}
+
+    coords = _ring(boundary)
+    n = len(coords)
+    if n < 4:
+        return {"available": False, "reason": "adaptive grid needs at least 4 corners"}
+
+    side_idx = (alignment_side if alignment_side is not None else _longest_side_index(coords)) % n
+    c = _select_quad_corners(coords, side_idx)
+    c0, c1, c2, c3 = c
+
+    # Four boundary chains, oriented so B and T share the s-direction, L and R the t.
+    B = _chain_fwd(coords, c0, c1)
+    R = _chain_fwd(coords, c1, c2)
+    T = list(reversed(_chain_fwd(coords, c2, c3)))   # c3 -> c2
+    L = list(reversed(_chain_fwd(coords, c3, c0)))   # c0 -> c3
+    P00, P10, P11, P01 = coords[c0], coords[c1], coords[c2], coords[c3]
+
+    def patch(s: float, t: float) -> tuple[float, float]:
+        bx, by = _sample_chain(B, s)
+        tx, ty = _sample_chain(T, s)
+        lx, ly = _sample_chain(L, t)
+        rx, ry = _sample_chain(R, t)
+        px = (1 - t) * bx + t * tx + (1 - s) * lx + s * rx - (
+            (1 - s) * (1 - t) * P00[0] + s * (1 - t) * P10[0]
+            + (1 - s) * t * P01[0] + s * t * P11[0]
+        )
+        py = (1 - t) * by + t * ty + (1 - s) * ly + s * ry - (
+            (1 - s) * (1 - t) * P00[1] + s * (1 - t) * P10[1]
+            + (1 - s) * t * P01[1] + s * t * P11[1]
+        )
+        return px, py
+
+    if divisions is not None:
+        nu, nv = max(1, int(divisions[0])), max(1, int(divisions[1]))
+    else:
+        nu = max(1, round(_chain_length(B) / spacing))
+        nv = max(1, round(_chain_length(L) / spacing))
+
+    clip = _clip_polygon(site_model, boundary, use_buildable_zone)
+
+    def local_angle(s: float, t: float) -> float:
+        h = 1e-3
+        x1, y1 = patch(min(1.0, s + h), t)
+        x0, y0 = patch(max(0.0, s - h), t)
+        return math.degrees(math.atan2(y1 - y0, x1 - x0))
+
+    # Grid lines: iso-t (parallel to the chosen side) and iso-s (perpendicular).
+    grid_lines: list[list[list[float]]] = []
+    s_vals = [i / nu for i in range(nu + 1)]
+    t_vals = [j / nv for j in range(nv + 1)]
+    for t in t_vals:
+        grid_lines.append([[round(x, 4), round(y, 4)] for x, y in (patch(s, t) for s in s_vals)])
+    for s in s_vals:
+        grid_lines.append([[round(x, 4), round(y, 4)] for x, y in (patch(s, t) for t in t_vals)])
+
+    # Nodes + local orientation, kept only where they fall inside the clip zone.
+    # Orientation is the directed along-side (u) tangent; the Coons map is smooth,
+    # so these vary continuously — no folding (folding near 0 would wrap to ~180).
+    grid_nodes: list[list[float]] = []
+    node_orientations: list[float] = []
+    for s in s_vals:
+        for t in t_vals:
+            px, py = patch(s, t)
+            if clip.intersects(_pt(px, py)):
+                grid_nodes.append([round(px, 4), round(py, 4)])
+                node_orientations.append(round(local_angle(s, t) % 360.0, 4))
+
+    angle_range = _angular_spread(node_orientations)
+
+    sides = site_model.get("sides") or []
+    return {
+        "available": True,
+        "adaptive": True,
+        "corner_indices": [c0, c1, c2, c3],
+        "alignment_side_index": side_idx,
+        "alignment_side_label": (sides[side_idx].get("label") if side_idx < len(sides) else f"side_{side_idx}"),
+        "angle_deg": round(local_angle(0.5, 0.5) % 360.0, 4),
+        "angle_range_deg": angle_range,
+        "spacing": spacing,
+        "divisions": [nu, nv],
+        "grid_nodes": grid_nodes,
+        "node_orientations": node_orientations,
+        "grid_lines": grid_lines,
+        "node_count": len(grid_nodes),
+    }
+
+
+def local_grid_orientation(grid: dict[str, Any], point: list[float]) -> float:
+    """Local grid u-axis angle (deg) nearest ``point``.
+
+    For an adaptive grid this is the per-node ``node_orientations`` value at the
+    closest node; for a uniform grid it is the single ``angle_deg``. This is the
+    angle a building's main wing should take to *respond to the site* at that spot.
+    """
+    if not grid.get("available"):
+        return 0.0
+    nodes = grid.get("grid_nodes") or []
+    orientations = grid.get("node_orientations")
+    if nodes and isinstance(orientations, list) and len(orientations) == len(nodes):
+        px, py = float(point[0]), float(point[1])
+        k = min(range(len(nodes)), key=lambda i: (nodes[i][0] - px) ** 2 + (nodes[i][1] - py) ** 2)
+        return float(orientations[k])
+    return float(grid.get("angle_deg", 0.0))
+
+
+def align_building_to_local_grid(
+    base_boundary: list[list[float]],
+    grid: dict[str, Any],
+    node_xy: list[float],
+    *,
+    perpendicular: bool = False,
+    extra_rotation_deg: float = 0.0,
+) -> list[list[float]]:
+    """Drop a centred base footprint at ``node_xy``, oriented to the *local* grid.
+
+    The footprint's long edge follows the local grid direction at ``node_xy`` (or
+    its perpendicular), so the building reads as responding to the site even where
+    the grid is warped. ``extra_rotation_deg`` lets a winged footprint bend a free
+    arm (e.g. ``corner_wing_rotation``) on top of the local alignment.
+    """
+    orientation = local_grid_orientation(grid, node_xy)
+    if perpendicular:
+        orientation += 90.0
+    orientation += extra_rotation_deg
+    return align_building_to_grid(base_boundary, grid, node_xy, orientation)
+
+
+# ---------------------------------------------------------------------------
 # Non-orthogonal corners (obtuse / splayed footprints)
 # ---------------------------------------------------------------------------
 
@@ -289,6 +452,102 @@ def _longest_side_index(coords: list[tuple[float, float]]) -> int:
         if L > best_len:
             best_len, best_i = L, i
     return best_i
+
+
+def _turn_angle(coords: list[tuple[float, float]], i: int) -> float:
+    """Unsigned turning angle (rad) at vertex i — larger = sharper corner."""
+    n = len(coords)
+    a, b, c = coords[(i - 1) % n], coords[i], coords[(i + 1) % n]
+    ang1 = math.atan2(b[1] - a[1], b[0] - a[0])
+    ang2 = math.atan2(c[1] - b[1], c[0] - b[0])
+    d = ang2 - ang1
+    while d > math.pi:
+        d -= 2 * math.pi
+    while d <= -math.pi:
+        d += 2 * math.pi
+    return abs(d)
+
+
+def _cyclic_dist(a: int, b: int, n: int) -> int:
+    d = abs(a - b) % n
+    return min(d, n - d)
+
+
+def _angular_spread(degs: list[float]) -> float:
+    """Smallest arc (deg) covering a set of directed angles on the circle.
+
+    ~0 when all tangents point the same way (a uniform/rectangular grid); grows
+    with how much the grid fans to absorb the site's taper. Robust to the 0/360
+    wraparound that a naive max-min would mishandle.
+    """
+    if len(degs) < 2:
+        return 0.0
+    rads = sorted((math.radians(d % 360.0)) for d in degs)
+    gaps = [rads[i + 1] - rads[i] for i in range(len(rads) - 1)]
+    gaps.append(rads[0] + 2 * math.pi - rads[-1])
+    return round(360.0 - math.degrees(max(gaps)), 4)
+
+
+def _select_quad_corners(coords: list[tuple[float, float]], alignment_side: int) -> list[int]:
+    """Pick four corner indices (ring order) that frame the site as a quad.
+
+    A 4-gon uses its own corners. A more complex polygon keeps the four sharpest
+    corners, so the remaining vertices fall *inside* the four edge-chains — that is
+    exactly where the taper lives and what makes the Coons grid fan. The corner
+    list is rotated so the chosen alignment side starts the first (bottom) chain.
+    """
+    n = len(coords)
+    if n == 4:
+        idxs = [0, 1, 2, 3]
+    else:
+        ranked = sorted(range(n), key=lambda i: _turn_angle(coords, i), reverse=True)[:4]
+        idxs = sorted(ranked)
+    start_v = alignment_side % n
+    best = min(range(len(idxs)), key=lambda k: _cyclic_dist(idxs[k], start_v, n))
+    return idxs[best:] + idxs[:best]
+
+
+def _chain_fwd(coords: list[tuple[float, float]], a: int, b: int) -> list[tuple[float, float]]:
+    """Boundary vertices from corner ``a`` forward (mod n) to corner ``b`` inclusive."""
+    n = len(coords)
+    out = [coords[a]]
+    i = a
+    while i != b:
+        i = (i + 1) % n
+        out.append(coords[i])
+    return out
+
+
+def _chain_length(points: list[tuple[float, float]]) -> float:
+    return sum(
+        math.hypot(points[i + 1][0] - points[i][0], points[i + 1][1] - points[i][1])
+        for i in range(len(points) - 1)
+    )
+
+
+def _sample_chain(points: list[tuple[float, float]], u: float) -> tuple[float, float]:
+    """Point at normalised arc-length ``u`` (0..1) along a polyline."""
+    if len(points) == 1:
+        return points[0]
+    u = min(1.0, max(0.0, u))
+    seg_lengths = [
+        math.hypot(points[i + 1][0] - points[i][0], points[i + 1][1] - points[i][1])
+        for i in range(len(points) - 1)
+    ]
+    total = sum(seg_lengths)
+    if total < 1e-12:
+        return points[0]
+    target = u * total
+    acc = 0.0
+    for i, seg in enumerate(seg_lengths):
+        if acc + seg >= target or i == len(seg_lengths) - 1:
+            f = (target - acc) / seg if seg > 1e-12 else 0.0
+            f = min(1.0, max(0.0, f))
+            x = points[i][0] + f * (points[i + 1][0] - points[i][0])
+            y = points[i][1] + f * (points[i + 1][1] - points[i][1])
+            return x, y
+        acc += seg
+    return points[-1]
 
 
 def _clip_polygon(site_model: dict[str, Any], boundary: list[list[float]], use_buildable: bool) -> Polygon:

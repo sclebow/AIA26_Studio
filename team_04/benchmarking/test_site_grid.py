@@ -22,9 +22,12 @@ from agent.tools.site_grid import (
     aligned_orientations,
     alignment_score,
     align_building_to_grid,
+    align_building_to_local_grid,
     corner_interior_angle,
     corner_wing_rotation,
+    derive_adaptive_site_grid,
     derive_site_grid,
+    local_grid_orientation,
     snap_to_grid,
 )
 from agent.tools.view_optimizer import (
@@ -122,6 +125,66 @@ class ObtuseCornerTests(unittest.TestCase):
         corner_angle = corner_interior_angle(model, 1)
         self.assertAlmostEqual(rot, corner_angle - 90.0, places=2)
         self.assertGreater(rot, 0.0)
+
+
+def _longest_edge_deg(boundary):
+    """Direction (deg, mod 180) of a footprint's longest edge."""
+    pts = boundary[:-1] if boundary[0] == boundary[-1] else boundary
+    best_ang, best_len = 0.0, -1.0
+    for i in range(len(pts)):
+        a, b = pts[i], pts[(i + 1) % len(pts)]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        L = math.hypot(dx, dy)
+        if L > best_len:
+            best_len, best_ang = L, math.degrees(math.atan2(dy, dx))
+    return best_ang % 180.0
+
+
+class AdaptiveGridTests(unittest.TestCase):
+    def test_rectangle_grid_does_not_warp(self) -> None:
+        # Four straight, parallel chains -> Coons patch reduces to a uniform grid.
+        grid = derive_adaptive_site_grid(build_site_model(ROT_SITE, {}), spacing=12.0)
+        self.assertTrue(grid["available"])
+        self.assertEqual(grid["corner_indices"], [0, 1, 2, 3])
+        self.assertLess(grid["angle_range_deg"], 1.0)
+
+    def test_splayed_site_grid_warps_to_match_complexity(self) -> None:
+        # On a non-orthogonal pentagon the local axis angle must vary across the
+        # field — this is "the angle changes to match the site's complexity".
+        grid = derive_adaptive_site_grid(build_site_model(PENTAGON, {}), spacing=12.0)
+        self.assertTrue(grid["available"])
+        self.assertGreater(grid["angle_range_deg"], 8.0)
+        self.assertEqual(grid["node_count"], len(grid["node_orientations"]))
+
+    def test_local_orientation_changes_across_the_site(self) -> None:
+        grid = derive_adaptive_site_grid(build_site_model(PENTAGON, {}), spacing=12.0)
+        nodes = grid["grid_nodes"]
+        left = min(nodes, key=lambda p: p[0])
+        right = max(nodes, key=lambda p: p[0])
+        a_left = local_grid_orientation(grid, left)
+        a_right = local_grid_orientation(grid, right)
+        diff = abs(((a_left - a_right + 180) % 360) - 180)
+        self.assertGreater(diff, 5.0)
+
+    def test_adaptive_nodes_lie_inside_the_site(self) -> None:
+        from agent.tools.view_analysis import _coerce_polygon_2d
+        from shapely.geometry import Point
+        grid = derive_adaptive_site_grid(build_site_model(PENTAGON, {}), spacing=12.0)
+        site = _coerce_polygon_2d(PENTAGON)
+        for node in grid["grid_nodes"]:
+            self.assertLessEqual(site.distance(Point(node[0], node[1])), 1e-6)
+
+    def test_building_orients_to_local_grid_direction(self) -> None:
+        grid = derive_adaptive_site_grid(build_site_model(PENTAGON, {}), spacing=12.0)
+        node = grid["grid_nodes"][len(grid["grid_nodes"]) // 2]
+        placed = align_building_to_local_grid(_ibuilding(), grid, node)
+        local = local_grid_orientation(grid, node) % 180.0
+        dev = abs(((_longest_edge_deg(placed) - local + 90) % 180) - 90)
+        self.assertLess(dev, 1.0)  # long edge follows the local grid direction
+
+    def test_adaptive_grid_unavailable_for_triangle(self) -> None:
+        tri = [[0, 0, 0], [100, 0, 0], [50, 90, 0], [0, 0, 0]]
+        self.assertFalse(derive_adaptive_site_grid(build_site_model(tri, {}))["available"])
 
 
 class AlignedPlacementTests(unittest.TestCase):
