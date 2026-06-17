@@ -2,7 +2,7 @@
 
 ## Planned Evolution (2026-06-12)
 
-`BACKEND_PLAN.md` defines the phased roadmap from the current view-only placement agent to a site-intelligent backend. **Phase 0 (reasoning core) is implemented** — see the 2026-06-15 entry in `PROGRESS.md`. The architectural commitments it introduces:
+`BACKEND_PLAN.md` defines the phased roadmap from the current view-only placement agent to a site-intelligent backend. **Phase 0 (reasoning core), Phase 1 (sun analysis fitness), and Phase 3 (site grid & side alignment) are implemented** — see the 2026-06-15 and 2026-06-17 entries in `PROGRESS.md`. (Phase 3 landed before Phase 2/roads using the documented longest-side fallback; the main-road side feeds it later.) The architectural commitments it introduces:
 
 - **Typed `DesignBrief`**: a one-shot LLM extraction node at graph start converts the user prompt into a typed brief (building count, shapes, areas, storeys, courtyard intent, parking, objective weights, explicit ambiguities). Downstream nodes read the brief, never re-parse the prompt; regex intent helpers in `decision_engine.py` become test-only fallbacks.
 - **Canonical `SiteModel`**: `read_site` builds one structured site object (boundary graph, per-side metadata, roads, placement grid, sun context, setbacks/buildable zone) that all tools consume — one source of truth instead of raw coordinate lists.
@@ -48,7 +48,10 @@ team_04/
 │   ├── state.py
 │   ├── tool_catalog.py
 │   └── tools/
-│       └── site_model.py   # Phase 0: canonical SiteModel
+│       ├── site_model.py   # Phase 0: canonical SiteModel
+│       ├── sun_analysis.py # Phase 1: worst-sun vectors, 2D + 3D facade exposure, worst side, 3D viz
+│       ├── site_grid.py    # Phase 3: grid from a chosen side, aligned orientations, obtuse corners
+│       └── view_optimizer.py # NSGA-II + objective registry (view, attractor, sun, alignment, frontage) + aligned placement
 ├── backend/                # FastAPI app + decision graph + routers
 │   ├── app.py
 │   ├── agent_runtime.py    # cached compiled agent app for the chat endpoint
@@ -134,6 +137,29 @@ The frontend lives under `team_04/frontend/` and gives an "overall view" of the 
 - `api/` — `types.ts` (mirror `backend/schemas.py`) + `client.ts` (`Team04Api`, typed client for every JSON route).
 
 Per the lockstep policy, each later phase adds its node/overlay component and a `CONTRACT.md` row in the same commit it lands the backend capability.
+
+## Sun Analysis Fitness (Phase 1)
+
+`agent/tools/sun_analysis.py` adds the "avoid the worst sun" capability. Per the team decision the sun is **one dominant diagonal vector** (a single azimuth + altitude — the low west-south-west summer sun as the worst case) rather than an annual simulation:
+
+- `compute_sun_vectors` / `worst_case_sun_vector` (+ `WORST_CASE_PRESETS`) returns the dominant vector with zero astronomy, or computes a real multi-hour set from a lightweight solar-position formula when `latitude`/`date`/`hours` are given.
+- `evaluate_sun_exposure` reuses `view_analysis.divide_boundary_into_test_points`; each facade point's exposure is `Σ max(0, cos(altitude)·cos(Δ))·weight`, zeroed when an obstacle's height-projected shadow blocks the vector. Returns `sun_exposure_score` ∈ [0,1] where **lower is better**, with a `return_ray_detail=False` fast path mirroring the view tools.
+- `identify_worst_sun_side` scores each `SiteModel` side and names the worst/best edge + compass sector — the direction sensitive facades (and Phase 6 courtyards) should turn away from.
+- `evaluate_sun_exposure_3d` is the practical multi-building path: it reuses `view_3d.build_facade_cells` to grid each side face by floor and does **real per-floor mutual shading** — an obstacle of height `h` shades a cell at height `z` only when `h > z` (shadow reach `(h-z)/tan(altitude)`), so a tall tower shades just the lower floors of a shorter neighbour. `visualize_sun_3d` renders the plotly 3D scene (facades as a continuous exposure heatmap + the sun vector at its true altitude), mirroring `view_3d.visualize_3d`. The 2D and 3D split mirrors `view_analysis`/`view_3d`: 2D is the optimizer inner loop, 3D is the post-hoc evaluation/visualization.
+
+The optimizer gains a `sun_avoidance` objective in `view_optimizer.OBJECTIVE_REGISTRY` (`1 - sun_exposure_score`, so it folds into the existing higher-is-better combined-score pattern alongside `unblocked_view`/`attractor_view`). `optimize_view_placement`/`optimize_two_building_placement` accept `sun_vectors` + `sun_weight`: single-building runs a true view-vs-sun Pareto front; two-building combines view + sun and inherits **mutual shading** because each building is already passed as the other's obstacle — so the joint NSGA-II returns a layout optimal for view *and* sun together. Consistent with the "Fitness assembly" commitment, the LLM only sets `sun_weight` (via the brief) — the geometry stays deterministic. Graph-node auto-assembly of the objective and populating `site_model["sun"]` are deferred to Phase 8.
+
+The lockstep frontend counterpart is `frontend/site/SunOverlay.tsx` (sun arrow + facade-exposure points + worst-side highlight), fed by the direct-tool endpoints `POST /tools/{sun_vectors,sun_exposure,worst_sun_side}` (see `frontend/decision-graph/CONTRACT.md` §7).
+
+## Site Grid & Side Alignment (Phase 3)
+
+`agent/tools/site_grid.py` makes placement read as *intentional* instead of random. Real buildings sit on a site grid, parallel to a preferred boundary — so the agent no longer rotates footprints freely inside the plot:
+
+- `derive_site_grid(site_model, spacing, alignment_side=None)` builds a grid from a **chosen side** (default: the longest side — the documented fallback until Phase 2's main-road side feeds it), with two orthonormal axes, lattice seed nodes clipped to the buildable zone, and grid lines for drawing. It works on arbitrary non-orthogonal polygons.
+- `aligned_orientations(grid)` is the discrete {parallel, perpendicular} set — the only orientations a building may take. `alignment_score`/`snap_to_grid`/`align_building_to_grid` support scoring and placement.
+- `corner_interior_angle`/`corner_wing_rotation` let a winged footprint (an L) follow a splayed corner: the free wing rotates to the *adjacent* side, so the arms spread to the corner's interior angle (obtuse on a non-orthogonal site) rather than a rigid 90°. This reuses the existing `parametric_shape` `end_rot` lever.
+
+The optimizer replaces the free 5 m sweep + 36 rotations with grid-aligned placement. `sample_valid_placements(grid=...)` enumerates grid nodes × aligned orientations (hard restriction by default). Because that discrete set is small, `optimize_aligned_placement` ranks it **exhaustively** (exact, deterministic, no NSGA-II) with a use-driven objective mix from `OBJECTIVE_REGISTRY`: the new `grid_alignment` and `boundary_proximity` objectives join view/sun, and commercial/office/retail/mixed buildings get a strong `boundary_proximity` weight so they line the chosen frontage while residential leans on view + sun. `place_buildings_aligned` sequences two-or-more buildings, each aligned and clearing the rest. This is the same "Fitness assembly" pattern (the LLM sets weights/use via the brief; geometry stays deterministic) and the same 2D-now / graph-integration-Phase-8 split as Phases 1. The lockstep frontend counterpart is `frontend/site/GridOverlay.tsx` via `POST /tools/{site_grid,aligned_placement}` (`CONTRACT.md` §8).
 
 ## Why This Structure
 

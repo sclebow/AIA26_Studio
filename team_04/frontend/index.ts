@@ -37,6 +37,8 @@ export { isBriefPayload } from './decision-graph';
 
 // Site plan
 export { SiteCanvas } from './site/SiteCanvas';
+export { SunOverlay } from './site/SunOverlay';
+export { GridOverlay } from './site/GridOverlay';
 export {
   computeBBox,
   makeProjector,
@@ -70,6 +72,14 @@ export type {
   ClarificationField,
   ClarificationRequest,
   ClarificationAnswers,
+  SunVector,
+  SunFacadePoint,
+  SunExposureResult,
+  SunSide,
+  WorstSunSide,
+  SiteGrid,
+  AlignedOption,
+  AlignedPlacementResult,
   Point,
   Polygon,
 } from './api/types';

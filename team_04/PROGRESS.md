@@ -1,5 +1,61 @@
 # Team 04 Progress
 
+## 2026-06-17 Phase 3 — Site Grid & Side Alignment (no more random-looking placement)
+
+Implements Phase 3 of `BACKEND_PLAN.md` on a **complex non-orthogonal site**. Real buildings are not dropped at arbitrary rotations inside a plot — they sit on a site grid, **parallel to a preferred boundary**. Placement is now restricted to **grid-node positions × aligned orientations** ({parallel, perpendicular} to a chosen side) instead of a free 5 m sweep + 36 free rotations, with a **use-driven** rule (commercial hugs the frontage) and **obtuse footprints** that follow splayed corners. Deterministic tool + exhaustive optimizer + notebook + regressions + lockstep frontend — all under `team_04/`, conflict-free with `main`. (Phase 3 normally follows Phase 2/roads for the alignment side; built now with the documented **longest-side fallback** + an explicit `alignment_side`, so roads refine it later.)
+
+### Completed
+
+- [x] `agent/tools/site_grid.py` — pure, LLM-free grid + alignment:
+  - `derive_site_grid(site_model, spacing, alignment_side=None)` → origin + two axes aligned to a chosen side (default: **longest side**), clipped to the buildable zone; returns `grid_lines` (drawing), `grid_nodes` (seed points), `angle_deg`, and the adjacent sides. Works on arbitrary non-orthogonal polygons.
+  - `aligned_orientations(grid)` → the discrete {parallel, perpendicular} orientation set (± optional offsets) — the **only** angles a building may take.
+  - `snap_to_grid`, `alignment_score` (1.0 = long edge parallel to a grid axis), `align_building_to_grid` (place a centred footprint at a node with an aligned orientation).
+  - `corner_interior_angle` / `corner_wing_rotation` → leaf-wing rotation so an L's free arm follows the *adjacent* site side, spreading the wings to the corner's interior angle (**obtuse on a splayed site**, not a rigid 90°). Reuses the existing `parametric_shape` `end_rot` lever.
+- [x] Optimizer integration (`agent/tools/view_optimizer.py`): grid-aware `sample_valid_placements(grid=...)` (grid nodes × aligned orientations, **hard restriction by default**); new `grid_alignment` + `boundary_proximity` objectives in `OBJECTIVE_REGISTRY`; `optimize_aligned_placement(...)` — **exhaustive** ranking over the (small) aligned candidate set with a **use-driven** default objective mix (commercial/office/retail/mixed → strong `boundary_proximity`; residential → view + sun), structurally guaranteeing every result is grid-aligned; `place_buildings_aligned(...)` — greedy sequential placement of two-or-more buildings, each aligned and clearing the rest by `min_separation`.
+- [x] Frontend lockstep: `backend/routers/tools.py` exposes `site_grid` / `aligned_placement` / `place_buildings_aligned`; `frontend/site/GridOverlay.tsx` draws grid lines + nodes + the chosen side + ranked aligned options; `frontend/api/{types.ts,client.ts}` add `SiteGrid`/`AlignedOption`/`AlignedPlacementResult` + `api.siteGrid/alignedPlacement`; `decision-graph/CONTRACT.md` §8 + `frontend/README.md` roadmap + `frontend/index.ts` barrel updated.
+
+### Validation
+
+- [x] `benchmarking/test_site_grid.py` — 15 deterministic tests (no LLM/MCP): grid aligns to the longest side, explicit `alignment_side` rotates the axis 90°, nodes lie inside the site, parallel+perpendicular orientation set, alignment score high-when-aligned / low-when-skew, snap returns a node, splayed-pentagon corners are obtuse, wing rotation follows the adjacent side, grid-mode sampling is all-aligned, the new objectives are registered, aligned options are all aligned + fit, **commercial hugs the frontage closer than residential**, and two buildings place without overlap at ≥ separation. All pass.
+- [x] Notebook `test_notebooks/test_grid_alignment.ipynb` (to the `test_view_analysis.ipynb` shape): complex splayed pentagon + derived grid, **free (4008 mixed-rotation) vs grid-aligned (98 parallel/perpendicular)** side-by-side, an **obtuse L** (wings spread 113° to follow the site) vs a rigid 90° L, **commercial (11 m from frontage) vs residential (17 m)** use-driven placement, and two buildings placed aligned together. Runs top-to-bottom clean on the py311 kernel (`MPLBACKEND=Agg`); figures not re-saved (no `nbconvert`/`nbclient`).
+- [x] `npm run typecheck` (frontend, strict) → 0 errors with `GridOverlay` + grid types/client. `py_compile` clean on the changed backend modules; `git status` shows only `team_04/` paths.
+
+### Active MVP Status
+
+- [x] Placement reads as **intentional**: buildings sit on the grid, parallel to the chosen side, and never at a random angle — the "it doesn't look random anymore" picture.
+- [x] Use-driven: commercial buildings line the frontage; residential sits back on view + sun. Footprints can go obtuse to match splayed sites.
+- [ ] The alignment side defaults to the longest side / an explicit index; the **main-road side** that should drive it lands with Phase 2 (roads). `derive_site_grid` already accepts `alignment_side` so Phase 2 just feeds it.
+- [ ] `read_site` does not yet build the grid into `site_model["grid"]` and the graph does not yet call `optimize_aligned_placement` — that is Phase 8 (agent integration); today the tool is called directly / via `/tools`.
+
+## 2026-06-17 Phase 1 — Sun Analysis Fitness (avoid the worst sun)
+
+Implements Phase 1 of `BACKEND_PLAN.md`: the agent now reasons about the sun as **one dominant diagonal vector** (the team's "single diagonal view" — e.g. the low west-south-west summer sun as the worst case) and can place / orient buildings to *avoid* that worst sun. Deterministic geometry tool, optimizer objective, visualization notebook, regressions, and the lockstep frontend overlay — all under `team_04/`, conflict-free with `main`. Verified with `C:\Users\tuemi\AppData\Local\Programs\Python\Python311\python.exe` (shapely/pymoo/matplotlib).
+
+### Completed
+
+- [x] `agent/tools/sun_analysis.py` — pure, LLM-free sun fitness (mirrors `view_analysis.py`):
+  - `compute_sun_vectors(...)` / `worst_case_sun_vector(...)` + `WORST_CASE_PRESETS` — the zero-astronomy "one diagonal" mode (default `summer_west`, az 255° / alt 18°), plus an optional real multi-hour mode (`latitude`/`date`/`hours`, daylight-only, irradiance-weighted) from a lightweight solar-position formula.
+  - `evaluate_sun_exposure(boundary, sun_vectors, obstacles)` — reuses `divide_boundary_into_test_points`; per facade point, exposure = Σ `max(0, cos(altitude)·cos(Δ))·weight`, **zeroed when an obstacle (height-projected shadow) blocks the vector**. Returns `sun_exposure_score` (0–1, **lower = better**), `worst_point`, and per-test-point detail. `return_ray_detail=False` fast path for the optimizer inner loop.
+  - `identify_worst_sun_side(site_model, sun_vectors)` — names the worst (and best) site edge + compass sector, driving the "turn the building away from that sun" rule.
+  - **(practical multi-building 3D, added 2026-06-17 per review):** `evaluate_sun_exposure_3d(boundary, height, sun_vectors, obstacles_with_heights)` — height-aware facade-cell grid (reuses `view_3d.build_facade_cells`) with **real per-floor mutual shading**: an obstacle of height `h` only shades a cell at height `z` when `h > z` (shadow reach `(h-z)/tan(altitude)`), so a 24 m tower shades only the lower floors of a 12 m block, not the floors above it — the behaviour a flat 2D projection cannot represent. `visualize_sun_3d(...)` renders the plotly 3D scene (facades coloured by sun exposure via a continuous heatmap, sun vector at true altitude), mirroring `view_3d.visualize_3d`.
+- [x] Optimizer integration (`agent/tools/view_optimizer.py`): new `sun_avoidance` objective in `OBJECTIVE_REGISTRY` (`1 - sun_exposure_score`, so it folds into the higher-is-better combined-score pattern like `attractor_view`). `optimize_view_placement` / `optimize_two_building_placement` take `sun_vectors` + `sun_weight`; single-building runs a true **view-vs-sun** 2-objective Pareto front; two-building combines view + sun **and** gets **mutual shading** for free (each building is already passed as the other's obstacle) → the joint NSGA-II yields a layout optimal for view *and* sun at once. Solutions expose `sun_exposure_score` / `sun_avoidance_score`.
+- [x] Frontend lockstep: `backend/routers/tools.py` exposes `sun_vectors` / `sun_exposure` / `sun_exposure_3d` / `worst_sun_side` for direct invocation; `frontend/site/SunOverlay.tsx` draws the sun arrow + facade-exposure points + worst-side highlight; `frontend/api/{types.ts,client.ts}` add `SunVector`/`SunExposureResult`/`WorstSunSide` + `api.sunVectors/sunExposure/worstSunSide`; `decision-graph/CONTRACT.md` §7 + `frontend/README.md` roadmap + `frontend/index.ts` barrel updated.
+
+### Validation
+
+- [x] `benchmarking/test_sun_analysis.py` — 20 deterministic tests (no LLM/MCP): preset vectors, multi-hour afternoon-is-westerly geometry, south-facade-more-exposed-than-north ordering, full-shadow zeroing, fast-path == detail-path score, worst-side identification (south sun → south worst, west preset → W/SW worst), the optimizer's `sun_avoidance` objective, **and the 3D height-aware path** (uniform exposure without obstacles, a tall neighbour shading only the lower floors, per-cell normalized exposure, fast-path omits cells). All pass.
+- [x] Notebook `test_notebooks/test_sun_analysis.ipynb` (rebuilt to the `test_view_analysis.ipynb` shape, per review): sun arrow + worst-side, single-building view-vs-sun Pareto, **two-building joint view+sun NSGA-II** with mutual shading and 2D facade-exposure site maps, a **3D per-floor mutual-shading** study (tower floors below 12 m graded in shadow 0.06→0.19, floors above at full 0.31), and the **3D plotly facade heatmap** (`visualize_sun_3d`). Code cells smoke-run clean top-to-bottom on the py311 kernel (`MPLBACKEND=Agg`, `pymoo`+`plotly` present); figures not re-saved (no `nbconvert`/`nbclient` in the kernel).
+- [x] `npm run typecheck` (frontend, strict) → 0 errors with `SunOverlay` + sun types/client.
+- [x] `py_compile` clean on `sun_analysis.py`, `view_optimizer.py`, `backend/routers/tools.py`; backend registry import needs `fastapi` (absent in this kernel) but the underlying functions are exercised by the tests. `git status` shows only `team_04/` paths.
+
+### Active MVP Status
+
+- [x] The optimizer can now trade outward view against worst-sun avoidance, weighted by the brief's `sun_weight`; the LLM only sets the weight, the geometry is deterministic.
+- [x] The worst-sun side is identifiable on the canonical `SiteModel`, ready for Phase 3 grid alignment and Phase 6 courtyard orientation.
+- [x] Two-or-more buildings are scored together and shade each other; the 3D path (`evaluate_sun_exposure_3d`) does exact per-floor mutual shading from real building heights and renders in 3D (`visualize_sun_3d`).
+- [ ] `read_site` does not yet populate `site_model["sun"]` and the graph does not yet auto-assemble the sun objective — that is Phase 8 (agent integration); today the optimizer takes `sun_vectors` directly.
+- [ ] The optimizer's NSGA-II inner loop still scores sun in 2D (fast); the 3D height-aware score is a post-hoc evaluation/visualization, same split as `view_analysis` (2D) vs `view_3d`. Per-wing heights (so one wing shades another) arrive in Phase 7.
+
 ## 2026-06-16 Interactive Clarification — the agent asks the user back
 
 Closes the Phase 0 loop where the brief populated `ambiguities` but never acted on them. When a prompt is too vague to place accurately, the agent now pauses and returns a **structured question** (shape / preferred side / view-optimisation side / size / use / count) instead of guessing — the brief's no-invention principle made interactive. Policy (chosen with the user): **ask only on critical gaps** (shape, side, view side); minor gaps fall back to documented defaults. Backend ↔ frontend ↔ notebook all wired. All under `team_04/`, conflict-free with `main`.

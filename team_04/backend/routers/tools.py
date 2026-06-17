@@ -11,6 +11,13 @@ Supported tools exposed here (add more as needed):
   two_building_optimizer — optimize_two_building_placement
   site_setback         — compute_buildable_zone + setback_summary
   sample_placements    — sample_valid_placements
+  sun_vectors          — compute_sun_vectors (worst-case preset or multi-hour)
+  sun_exposure         — evaluate_sun_exposure (2D facade exposure, lower=better)
+  sun_exposure_3d      — evaluate_sun_exposure_3d (per-floor mutual shading)
+  worst_sun_side       — identify_worst_sun_side (worst site edge)
+  site_grid            — derive_site_grid (grid aligned to a chosen side)
+  aligned_placement    — optimize_aligned_placement (grid-node × aligned orient.)
+  place_buildings_aligned — multi-building greedy aligned placement
 """
 from __future__ import annotations
 
@@ -68,6 +75,34 @@ def _lazy_registry() -> dict[str, Any]:
         from agent.tools.site_setback import compute_buildable_zone, setback_summary
         _REGISTRY["buildable_zone"] = compute_buildable_zone
         _REGISTRY["setback_summary"] = setback_summary
+    except Exception:
+        pass
+
+    try:
+        from agent.tools.sun_analysis import (
+            compute_sun_vectors,
+            evaluate_sun_exposure,
+            evaluate_sun_exposure_3d,
+            identify_worst_sun_side,
+            worst_case_sun_vector,
+        )
+        _REGISTRY["sun_vectors"] = compute_sun_vectors
+        _REGISTRY["worst_case_sun_vector"] = worst_case_sun_vector
+        _REGISTRY["sun_exposure"] = evaluate_sun_exposure
+        _REGISTRY["sun_exposure_3d"] = evaluate_sun_exposure_3d
+        _REGISTRY["worst_sun_side"] = identify_worst_sun_side
+    except Exception:
+        pass
+
+    try:
+        from agent.tools.site_grid import derive_site_grid
+        from agent.tools.view_optimizer import (
+            optimize_aligned_placement,
+            place_buildings_aligned,
+        )
+        _REGISTRY["site_grid"] = derive_site_grid
+        _REGISTRY["aligned_placement"] = optimize_aligned_placement
+        _REGISTRY["place_buildings_aligned"] = place_buildings_aligned
     except Exception:
         pass
 

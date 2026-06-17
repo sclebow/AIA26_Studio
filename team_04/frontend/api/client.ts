@@ -7,6 +7,7 @@
  */
 import type { DecisionGraphResponse } from '../decision-graph/types';
 import type {
+  AlignedPlacementResult,
   BuildingInfo,
   ChatMessage,
   ClarificationAnswers,
@@ -16,9 +17,13 @@ import type {
   SelectResponse,
   SessionCreate,
   SessionInfo,
+  SiteGrid,
   SiteInfo,
+  SunExposureResult,
+  SunVector,
   ToolCallResponse,
   ViewAnalysisResult,
+  WorstSunSide,
 } from './types';
 
 export class Team04Api {
@@ -99,6 +104,41 @@ export class Team04Api {
   }
   callTool<R = unknown>(toolName: string, args: Record<string, unknown>): Promise<ToolCallResponse<R>> {
     return this.post(`/tools/${toolName}`, { tool_name: toolName, arguments: args });
+  }
+
+  // --- Sun analysis (Phase 1) --------------------------------------------
+  /** Worst-case single diagonal vector, or pass astronomy args for multi-hour. */
+  sunVectors(args: Record<string, unknown> = {}): Promise<ToolCallResponse<SunVector[]>> {
+    return this.callTool('sun_vectors', args);
+  }
+  /** Facade exposure for a building boundary against the sun vectors (lower=better). */
+  sunExposure(
+    buildingBoundary: number[][],
+    sunVectors: SunVector[],
+    obstacles: unknown[] = [],
+  ): Promise<ToolCallResponse<SunExposureResult>> {
+    return this.callTool('sun_exposure', {
+      building_boundary: buildingBoundary,
+      sun_vectors: sunVectors,
+      obstacles,
+    });
+  }
+  /** Which site side takes the worst sun, given a site_model and sun vectors. */
+  worstSunSide(
+    siteModel: Record<string, unknown>,
+    sunVectors: SunVector[],
+  ): Promise<ToolCallResponse<WorstSunSide>> {
+    return this.callTool('worst_sun_side', { site_model: siteModel, sun_vectors: sunVectors });
+  }
+
+  // --- Site grid & side alignment (Phase 3) ------------------------------
+  /** Derive a placement grid aligned to a chosen site side (default: longest side). */
+  siteGrid(siteModel: Record<string, unknown>, args: Record<string, unknown> = {}): Promise<ToolCallResponse<SiteGrid>> {
+    return this.callTool('site_grid', { site_model: siteModel, ...args });
+  }
+  /** Rank grid-node × aligned-orientation placements (use-driven objective mix). */
+  alignedPlacement(args: Record<string, unknown>): Promise<ToolCallResponse<AlignedPlacementResult>> {
+    return this.callTool('aligned_placement', args);
   }
 }
 

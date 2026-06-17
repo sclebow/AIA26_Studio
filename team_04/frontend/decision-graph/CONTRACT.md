@@ -179,9 +179,10 @@ POST /sessions/{id}/decisions/{node_id}/select   { "reason": "..." }
 2. Frontend: add `<Type>Node.tsx`, register it in `nodeTypes.ts`, extend `types.ts`.
 3. Same commit: tick the phase row in `PROGRESS.md` and update `ARCHITECTURE.md`.
 
-Phase status: **`brief` shipped (Phase 0).** `intent/action/branch/select/state` predate Phase 0.
-Future overlays (sun rays, roads, grid, parking, circulation — Phases 1-5) attach to the
-**site/explorer** payloads, not the decision graph, and will get their own contract section.
+Phase status: **`brief` shipped (Phase 0); sun overlay shipped (Phase 1, see §7).**
+`intent/action/branch/select/state` predate Phase 0. Future overlays (roads, grid, parking,
+circulation — Phases 2-5) attach to the **site/explorer** or **/tools** payloads, not the
+decision graph, and get their own §7 sub-section.
 
 ---
 
@@ -213,3 +214,78 @@ WingInfo     = { wing_index, role, area_sqm, centroid }       // per-wing massin
 
 > Coordinates are world metres `[x, y]` (z sometimes present and ignored in 2D). `SiteCanvas`
 > auto-fits a north-up plan and colours buildings by `building_type` via `site/geometry.ts`.
+
+---
+
+## 7. Sun analysis overlay — Phase 1 (BACKEND_PLAN §1)
+
+Sun analysis attaches to the **direct-tool** endpoints (`POST /tools/{name}`) rather than the
+decision graph, so the UI can run an analysis without a chat turn. Backend source is
+`agent/tools/sun_analysis.py`; TS types live in `../api/types.ts`; `site/SunOverlay.tsx` renders
+the result. The `Team04Api` client wraps each call (`sunVectors`, `sunExposure`, `worstSunSide`).
+
+The sun is **one dominant diagonal vector** (team method): a single azimuth (compass bearing,
+CW from North) + altitude. Lower exposure = better (the objective is to *avoid* the worst sun).
+
+```
+POST /tools/sun_vectors      { worst_case_preset?: "summer_west"|...,           // default mode
+                               latitude?, date?, hours? }   // multi-hour mode (preset=null)
+→ SunVector[]   = { azimuth, altitude, weight, hour? }
+
+POST /tools/sun_exposure     { building_boundary: number[][], sun_vectors: SunVector[],
+                               obstacles?: (number[][] | {boundary,height})[] }
+→ SunExposureResult = { sun_exposure_score /* 0..1, LOWER better */, max_possible_per_point,
+                        test_point_count, sun_vectors, worst_point,
+                        per_test_point: [{ point, outward_normal, normalized_exposure, ... }] }
+
+POST /tools/worst_sun_side   { site_model: SiteModel, sun_vectors: SunVector[] }
+→ WorstSunSide = { available, worst_side, best_side, worst_compass_sector,
+                   per_side: [{ edge_index, compass_sector, sun_exposure_score, midpoint, ... }] }
+
+POST /tools/sun_exposure_3d  { building_boundary, building_height, sun_vectors,
+                               obstacles_with_heights: [{boundary, height}] }   // OTHER buildings + obstacles
+→ { sun_exposure_score_3d /* 0..1, LOWER better */, n_floors,
+    per_floor: [{ floor_number, z_level, sun_exposure_score }],
+    cells: [{ ...facade cell, sun_exposure }] }   // real per-floor mutual shading; cells drive the 3D heatmap
+```
+
+The 3D path mirrors the view tools (`view_analysis` 2D ↔ `view_3d`): an obstacle of height `h`
+only shades a facade cell at height `z` when `h > z`, so a tall building shades just the lower
+floors of a shorter neighbour. The notebook renders it with `visualize_sun_3d` (plotly).
+
+---
+
+## 8. Site grid & side alignment overlay — Phase 3 (BACKEND_PLAN §3)
+
+Like the sun overlay, grid alignment attaches to the **direct-tool** endpoints. Backend source is
+`agent/tools/site_grid.py` + `view_optimizer.optimize_aligned_placement`; TS types in
+`../api/types.ts`; `site/GridOverlay.tsx` renders it; `Team04Api` wraps it (`siteGrid`,
+`alignedPlacement`). The key idea: buildings sit on a grid **parallel to a chosen side** — they
+never rotate freely.
+
+```
+POST /tools/site_grid        { site_model: SiteModel, spacing?, alignment_side?, use_buildable_zone? }
+→ SiteGrid = { available, origin, u_axis, v_axis, angle_deg, spacing,
+               alignment_side_index, alignment_side_label,
+               grid_nodes: number[][], grid_lines: [[x,y],[x,y]][], adjacent_sides, node_count }
+
+POST /tools/aligned_placement { base_boundary, site_boundary, grid, use?,           // use drives objectives
+                                sun_vectors?, sun_weight?, reference_line?, site_setbacks?,
+                                other_buildings?, min_separation? }
+→ AlignedPlacementResult = { optimized, use, objective_configs, candidate_count, feasible_count,
+                             alignment_side_index, orientations: number[],
+                             options: [{ option_id, rank, combined_score, alignment_score /* ~1 */,
+                                         orientation_deg, centroid_xy, node_xy, boundary,
+                                         boundary_proximity_score, ... }] }
+```
+
+`GridOverlay` draws the grid lines + nodes, the chosen side (frontage), and the ranked aligned
+options (best solid). **Use-driven:** commercial/office/retail pick up a `boundary_proximity`
+objective and hug the chosen frontage; residential leans on view + sun. Every option is grid-aligned
+(`alignment_score ≈ 1`). `place_buildings_aligned` sequences several buildings, each clearing the
+rest by `min_separation`.
+
+`SunOverlay` draws: the sun arrow (light direction), each site side tinted/weighted by its
+exposure with the worst side flagged `☀`, and the focused building's facade test points coloured
+yellow (shaded) → red (hit). The same `sun_weight` (from the Phase 0 brief) that the UI shows is
+what the optimizer uses for the `sun_avoidance` objective — the LLM only sets the weight.

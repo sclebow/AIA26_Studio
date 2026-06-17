@@ -186,9 +186,9 @@ Enable it per session by setting `interactive_clarification: true` in the create
 | Backend phase | Frontend artifact |
 |---------------|-------------------|
 | 0 Reasoning core | `AgentDashboard` ✅ — `BriefNode` + full decision-graph node set + `SiteCanvas` (shapes/multi-building/view-placement) + `ExplorerPanel` + typed API client |
-| 1 Sun | sun-vector + facade-exposure overlay (site/explorer payload) |
+| 1 Sun | `SunOverlay` ✅ — sun-vector arrow + facade-exposure points + worst-side highlight, via `POST /tools/{sun_vectors,sun_exposure,worst_sun_side}` (`api.sunVectors/sunExposure/worstSunSide`); contract in `decision-graph/CONTRACT.md` §7 |
 | 2 Roads | main-road tag + per-side setback overlay |
-| 3 Grid | grid lines + aligned-orientation hint |
+| 3 Grid | `GridOverlay` ✅ — grid lines + nodes + chosen-side highlight + aligned placement options, via `POST /tools/{site_grid,aligned_placement}` (`api.siteGrid/alignedPlacement`); contract in `decision-graph/CONTRACT.md` §8 |
 | 4 Parking | parking-lot polygons + demand badge |
 | 5 Circulation/fire | entry points, routed paths, fire-access pass/fail |
 | 6 Courtyard | courtyard polygon + quality readout |

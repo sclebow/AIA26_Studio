@@ -120,6 +120,105 @@ export interface ViewAnalysisResult {
   per_floor: Array<Record<string, unknown>>;
 }
 
+// --- Sun analysis (Phase 1) ----------------------------------------------
+// Mirror agent/tools/sun_analysis.py. Returned via POST /tools/{sun_*}.
+
+export interface SunVector {
+  azimuth: number;   // compass bearing, degrees clockwise from North
+  altitude: number;  // degrees above the horizon
+  weight: number;
+  hour?: number;     // present only in multi-hour mode
+}
+
+export interface SunFacadePoint {
+  point: number[];
+  outward_normal: number[];
+  segment_index: number;
+  exposure: number;
+  normalized_exposure: number; // 0 (shaded) → 1 (fully hit)
+  vectors?: Array<Record<string, unknown>>;
+}
+
+export interface SunExposureResult {
+  sun_exposure_score: number;  // 0–1, LOWER is better (avoid the worst sun)
+  max_possible_per_point: number;
+  test_point_count: number;
+  sun_vectors: SunVector[];
+  worst_point: { point: number[]; normalized_exposure: number } | null;
+  per_test_point: SunFacadePoint[];
+}
+
+export interface SunSide {
+  edge_index: number;
+  label: string;
+  cardinal_hint: string;
+  outward_normal: number[];
+  midpoint: number[];
+  length_m: number;
+  sun_exposure_score: number;
+  compass_sector: string;
+}
+
+export interface WorstSunSide {
+  available: boolean;
+  worst_side?: SunSide;
+  best_side?: SunSide;
+  worst_compass_sector?: string;
+  per_side?: SunSide[];
+  sun_vectors?: SunVector[];
+  reason?: string;
+}
+
+// --- Site grid & side alignment (Phase 3) --------------------------------
+// Mirror agent/tools/site_grid.py + view_optimizer.optimize_aligned_placement.
+
+export interface SiteGrid {
+  available: boolean;
+  origin?: number[];
+  u_axis?: number[];          // along the chosen side
+  v_axis?: number[];          // perpendicular, inward
+  angle_deg?: number;
+  spacing?: number;
+  alignment_side_index?: number;
+  alignment_side_label?: string;
+  grid_nodes?: number[][];          // lattice seed points
+  grid_lines?: number[][][];        // [[x,y],[x,y]] segments for drawing
+  adjacent_sides?: number[];
+  node_count?: number;
+  reason?: string;
+}
+
+/** One grid-aligned placement option from optimize_aligned_placement. */
+export interface AlignedOption {
+  option_id: string;
+  rank: number;
+  combined_score: number;
+  unblocked_view_score: number;
+  sun_exposure_score: number | null;
+  boundary_proximity_score: number | null;
+  alignment_score: number;          // ~1.0 = parallel to the chosen side
+  orientation_deg: number;
+  centroid_xy: number[];
+  node_xy: number[] | null;
+  boundary: Polygon;
+  fits_within_site: boolean;
+  use?: string;
+  building_index?: number;
+}
+
+export interface AlignedPlacementResult {
+  optimized: boolean;
+  use?: string;
+  objective_configs?: Array<{ name: string; weight: number }>;
+  candidate_count?: number;
+  feasible_count?: number;
+  alignment_side_index?: number;
+  orientations?: number[];
+  option_count?: number;
+  options: AlignedOption[];
+  reason?: string;
+}
+
 // --- Direct tool invocation ----------------------------------------------
 
 export interface ToolCallResponse<R = unknown> {
