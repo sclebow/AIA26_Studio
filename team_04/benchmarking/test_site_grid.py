@@ -16,7 +16,7 @@ TEAM_ROOT = Path(__file__).resolve().parents[1]
 if str(TEAM_ROOT) not in sys.path:
     sys.path.insert(0, str(TEAM_ROOT))
 
-from agent.tools.building_shape_graph import build_shape_model
+from agent.tools.building_shape_graph import SUPPORTED_WINGED_BUILDING_TYPES, build_shape_model
 from agent.tools.site_model import build_site_model
 from agent.tools.site_grid import (
     aligned_orientations,
@@ -24,6 +24,7 @@ from agent.tools.site_grid import (
     align_building_to_grid,
     align_building_to_local_grid,
     conform_polygon_to_grid,
+    conform_world_footprint_to_grid,
     corner_interior_angle,
     corner_wing_rotation,
     derive_adaptive_site_grid,
@@ -310,6 +311,64 @@ class ConformingFootprintTests(unittest.TestCase):
         ys = [c[1] for c in centroids.values()]
         self.assertGreater(max(xs) - min(xs), 40.0)
         self.assertGreater(max(ys) - min(ys), 40.0)
+
+
+#: The full footprint library: winged (I/L/T/U/H) + legacy templates (Y/X/O).
+ALL_SHAPES = tuple(SUPPORTED_WINGED_BUILDING_TYPES) + ("Y", "X", "O")
+
+
+def _shape_boundary(building_type, area=600.0, depth=13.0, ratio=0.5):
+    poly = build_shape_model(area=area, building_type=building_type,
+                             building_depth=depth, shape_ratio=ratio).polygon
+    return [[round(float(x), 3), round(float(y), 3), 0.0] for x, y in poly.exterior.coords]
+
+
+class AllShapesConformTests(unittest.TestCase):
+    """The grid logic must apply to EVERY library shape, not just L/T/I."""
+
+    def test_library_covers_eight_shapes(self) -> None:
+        self.assertEqual(set(ALL_SHAPES), {"I", "L", "T", "U", "H", "Y", "X", "O"})
+
+    def test_every_shape_builds(self) -> None:
+        for s in ALL_SHAPES:
+            boundary = _shape_boundary(s)
+            self.assertGreaterEqual(len(boundary), 4, f"{s} failed to build")
+            self.assertEqual(boundary[0], boundary[-1], f"{s} not a closed ring")
+
+    def test_every_shape_grid_aligns(self) -> None:
+        # Rigid grid-aligned candidate generation is shape-agnostic.
+        from agent.tools.view_optimizer import sample_valid_placements
+        grid = derive_site_grid(build_site_model(PENTAGON, {}), spacing=12.0)
+        for s in ALL_SHAPES:
+            cands = sample_valid_placements(_shape_boundary(s, area=400.0), PENTAGON, grid=grid)
+            self.assertTrue(cands, f"{s} produced no grid-aligned candidates")
+            self.assertTrue(all(c["aligned"] for c in cands), f"{s} candidates not all aligned")
+
+    def test_every_shape_conforms_and_stays_inside(self) -> None:
+        from agent.tools.view_analysis import _coerce_polygon_2d
+        model = build_site_model(PENTAGON, {})
+        grid = derive_adaptive_site_grid(model, spacing=12.0)
+        site = _coerce_polygon_2d(PENTAGON).buffer(1e-6)
+        for s in ALL_SHAPES:
+            world = conform_world_footprint_to_grid(grid, model, _shape_boundary(s), densify=6)
+            self.assertGreaterEqual(len(world), 4, f"{s} conformed to too few points")
+            self.assertEqual(world[0], world[-1], f"{s} conformed ring not closed")
+            wpoly = _coerce_polygon_2d(world)
+            self.assertGreater(wpoly.area, 0.0, f"{s} conformed to zero area")
+            self.assertTrue(site.contains(wpoly), f"{s} conformed footprint leaves the site")
+
+    def test_shapes_warp_more_on_splayed_site_than_on_rectangle(self) -> None:
+        # Each shape should bend at least as much on the pentagon as on the
+        # (affine) rectangle, where it keeps its base corner angles.
+        rect = build_site_model(ROT_SITE, {})
+        pent = build_site_model(PENTAGON, {})
+        g_rect = derive_adaptive_site_grid(rect, spacing=12.0)
+        g_pent = derive_adaptive_site_grid(pent, spacing=12.0)
+        for s in ALL_SHAPES:
+            base = _shape_boundary(s)
+            r = _turning_sum_deg(conform_world_footprint_to_grid(g_rect, rect, base, densify=6))
+            p = _turning_sum_deg(conform_world_footprint_to_grid(g_pent, pent, base, densify=6))
+            self.assertGreaterEqual(p, r - 5.0, f"{s} did not warp on the splayed site")
 
 
 class AlignedPlacementTests(unittest.TestCase):

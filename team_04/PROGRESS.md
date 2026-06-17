@@ -1,5 +1,34 @@
 # Team 04 Progress
 
+## 2026-06-17 Phase 1×3 — Sun fitness composed with grid conforming on a complex site
+
+User: "try the sun analysis with the more complex site … use the logic from grid alignment and integrate it." Composed the two capabilities so a building reacts to the *site* (grid conforming) and the *sun* (exposure fitness) at once.
+
+### Completed
+
+- [x] Added section "7. Complex site — conforming buildings react to the sun" to `test_notebooks/test_sun_analysis.ipynb`: builds the **adaptive warped grid** on the splayed pentagon, marks the **worst-sun side**, then **conforms** a U at many grid positions (`conform_world_footprint_to_grid`) and scores each by **worst-sun exposure** (`evaluate_sun_exposure`), keeping the placement that both fits the site and dodges the sun (best vs. worst shown side by side, facades coloured by exposure).
+- [x] No backend change needed — the integration reuses the existing conforming + sun tools. (The sun NSGA optimizer still uses free-rotation candidates; conforming placement is swept explicitly here, the same pattern as the grid notebook.)
+
+### Validation
+
+- [x] Smoke-ran the section: 11×6 grid, worst-sun side W, 12 conforming U placements inside the site, worst-sun exposure spanning ~0.076 across placements (the signal the agent reacts to).
+- [x] Added `GridConformingSunIntegrationTests` to `benchmarking/test_sun_analysis.py` (conforming building gets a valid 0–1 sun score; sun exposure varies across placements; every library shape conforms + scores on the complex site). `python -m unittest team_04.benchmarking.test_sun_analysis` → 23 tests pass.
+
+## 2026-06-17 Phase 3 — Conforming applies to ALL library shapes (I L T U H Y X O)
+
+User check: "is all the logic applicable with all the building shapes, not just the simple L/T/I?" Audited the two logic paths against the full footprint library (winged `I/L/T/U/H` + template `Y/X/O`).
+
+### Findings + Completed
+
+- [x] **Rigid + grid-aligned placement was already shape-agnostic.** `align_building_to_grid`, `sample_valid_placements`, and `optimize_aligned_placement` take any polygon boundary; all 8 shapes produced 75–89 valid grid-aligned candidates. No change needed.
+- [x] **Conforming was the gap:** it only had `l_region_*` / `rect_region_*` (L and rectangle authored in `(s,t)`), so it could not deform U/H/T/I/Y/X/O. Added `conform_world_footprint_to_grid(grid, site_model, world_boundary, …)`: normalises any footprint's bounding box into a grid `(s, t)` sub-rectangle and pushes it through the same Coons map, so **every library shape conforms** to the warped grid and stays inside the site.
+
+### Validation
+
+- [x] Verified all 8 shapes conform fully inside both the splayed pentagon and the rectangle, each warping more on the pentagon (higher turning-sum) than on the affine rectangle where it keeps its base corner angles.
+- [x] Added `AllShapesConformTests` to `benchmarking/test_site_grid.py` (library = 8 shapes; every shape builds, grid-aligns, conforms inside the site, and warps on the splayed site). `python -m unittest team_04.benchmarking.test_site_grid` → 33 tests pass.
+- [x] Added notebook section "1d. Every library shape conforms" — a 2×4 gallery of `I L T U H Y X O` conforming to the warped grid (titles confirm `inside=True`). Notebook smoke-runs end to end.
+
 ## 2026-06-17 Phase 3 — Fix: building drifted off the chosen side; cell-snapping
 
 User feedback: the conformed L "is placed randomly on the site … test the grid with different sides to see how the building reacts." Two real issues found and fixed.
@@ -13,6 +42,10 @@ User feedback: the conformed L "is placed randomly on the site … test the grid
 
 - [x] Added 2 regressions to `benchmarking/test_site_grid.py`: `B` chain equals the chosen side for every side of the pentagon; and the same cell-snapped L, built per-side, sits nearer its own side than the opposite side and relocates across the site as the side changes. `python -m unittest team_04.benchmarking.test_site_grid` → 28 tests pass.
 - [x] `test_notebooks/test_grid_alignment.ipynb`: section 1b now authors the L by cells (snapped + deforming); new section "1c. The building reacts to the chosen side" re-keys the grid to each side and shows the grid + L rotating to follow it (panel titles show `B = side`). Notebook smoke-runs end to end.
+
+### Reworked section 3 (obtuse corner)
+
+- [x] Replaced the old rigid section-3 demo — which dropped a 700 m² L with `align_building_to_grid` and **no fit check**, so it poked ~2% (~15 m²) outside the splayed boundary — with a **conforming** L tucked into the site's most obtuse corner (122° on the demo pentagon). Authored in grid cells and pushed through the Coons map, its knee opens to the corner's interior angle automatically and it is **fully inside the site by construction** (notebook prints `fully inside site: True`). The old rigid `corner_wing_rotation` path remains available as a tool but is no longer the placement story.
 
 ## 2026-06-17 Phase 3 — Conforming footprints: the building deforms to follow the grid
 

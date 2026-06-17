@@ -462,6 +462,60 @@ def rect_region_in_grid_space(
     return [[s0, t0], [s1, t0], [s1, t1], [s0, t1], [s0, t0]]
 
 
+def conform_world_footprint_to_grid(
+    grid: dict[str, Any],
+    site_model: dict[str, Any],
+    world_boundary: list[list[float]],
+    *,
+    s0: float = 0.15,
+    t0: float = 0.10,
+    s_span: float = 0.60,
+    t_span: float = 0.60,
+    densify: int = 6,
+) -> list[list[float]]:
+    """Conform **any** footprint polygon (e.g. any `build_shape_model` shape) to the grid.
+
+    `conform_polygon_to_grid` needs a footprint already authored in ``(s, t)``
+    space, which only the L/rect helpers produce. This generalises it to every
+    library shape (I/L/T/U/H/Y/X/O, or any polygon): the footprint's bounding box
+    is normalised into the ``(s, t)`` sub-rectangle ``[s0, s0+s_span] x [t0,
+    t0+t_span]`` and pushed through the same Coons map, so the whole shape —
+    notches and all — bends to follow the warped grid and stays inside the site.
+
+    The shape's proportions are preserved up to the grid's local distortion (which
+    is the point: it deforms to the plot). Keep the target rectangle inside
+    ``[0, 1]²`` (the default does) to stay inside the site.
+    """
+    pts = world_boundary[:-1] if (len(world_boundary) > 1 and world_boundary[0] == world_boundary[-1]) else world_boundary
+    if len(pts) < 3:
+        return []
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    minx, maxx = min(xs), max(xs)
+    miny, maxy = min(ys), max(ys)
+    w = (maxx - minx) or 1.0
+    h = (maxy - miny) or 1.0
+
+    to_world = grid_world_mapper(grid, site_model)
+    steps = max(1, int(densify))
+    out: list[list[float]] = []
+    for i in range(len(pts)):
+        a, b = pts[i], pts[(i + 1) % len(pts)]
+        for k in range(steps):
+            f = k / steps
+            x = a[0] + (b[0] - a[0]) * f
+            y = a[1] + (b[1] - a[1]) * f
+            u = (x - minx) / w
+            v = (y - miny) / h
+            s = _clamp01(s0 + u * s_span)
+            t = _clamp01(t0 + v * t_span)
+            wx, wy = to_world(s, t)
+            out.append([round(wx, 4), round(wy, 4), 0.0])
+    if out:
+        out.append(out[0])
+    return out
+
+
 def l_region_in_cells(
     grid: dict[str, Any],
     i0: int,
