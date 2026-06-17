@@ -23,11 +23,16 @@ from agent.tools.site_grid import (
     alignment_score,
     align_building_to_grid,
     align_building_to_local_grid,
+    conform_polygon_to_grid,
     corner_interior_angle,
     corner_wing_rotation,
     derive_adaptive_site_grid,
     derive_site_grid,
+    grid_world_mapper,
+    l_region_in_cells,
+    l_region_in_grid_space,
     local_grid_orientation,
+    rect_region_in_grid_space,
     snap_to_grid,
 )
 from agent.tools.view_optimizer import (
@@ -185,6 +190,126 @@ class AdaptiveGridTests(unittest.TestCase):
     def test_adaptive_grid_unavailable_for_triangle(self) -> None:
         tri = [[0, 0, 0], [100, 0, 0], [50, 90, 0], [0, 0, 0]]
         self.assertFalse(derive_adaptive_site_grid(build_site_model(tri, {}))["available"])
+
+
+def _turning_sum_deg(boundary):
+    """Sum of |turning angle| over a closed footprint (deg). A straight-edged L
+    is ~540 (6 corners × 90); extra bend from following a warped grid adds to it."""
+    pts = boundary[:-1] if boundary[0] == boundary[-1] else boundary
+    total = 0.0
+    for i in range(len(pts)):
+        a, b, c = pts[(i - 1) % len(pts)], pts[i], pts[(i + 1) % len(pts)]
+        a1 = math.atan2(b[1] - a[1], b[0] - a[0])
+        a2 = math.atan2(c[1] - b[1], c[0] - b[0])
+        total += abs((a2 - a1 + math.pi) % (2 * math.pi) - math.pi)
+    return math.degrees(total)
+
+
+class ConformingFootprintTests(unittest.TestCase):
+    """A building authored in (s,t) space deforms to follow the warped grid."""
+
+    L_SPEC = dict(s0=0.15, t0=0.08, long_len=0.55, short_len=0.45, thick_s=0.16, thick_t=0.16)
+
+    def _conform_L(self, site):
+        model = build_site_model(site, {})
+        grid = derive_adaptive_site_grid(model, spacing=12.0)
+        st_L = l_region_in_grid_space(**self.L_SPEC)
+        return conform_polygon_to_grid(grid, model, st_L, densify=10)
+
+    def test_warps_on_splayed_site_but_stays_straight_on_rectangle(self) -> None:
+        rect_L = self._conform_L(ROT_SITE)     # parallelogram -> affine map -> straight edges
+        pent_L = self._conform_L(PENTAGON)     # splayed -> edges bend to follow the grid
+        rc, pc = _turning_sum_deg(rect_L), _turning_sum_deg(pent_L)
+        self.assertLess(rc, 545.0)             # ~540: just the L's own corners, no warp
+        self.assertGreater(pc, rc + 15.0)      # the splayed site bends the edges
+
+    def test_conformed_footprint_stays_inside_the_site(self) -> None:
+        from agent.tools.view_analysis import _coerce_polygon_2d
+        from shapely.geometry import Point
+        world_L = self._conform_L(PENTAGON)
+        site = _coerce_polygon_2d(PENTAGON)
+        for p in world_L:
+            self.assertLessEqual(site.distance(Point(p[0], p[1])), 1e-6)
+
+    def test_manipulation_in_grid_space_moves_world_footprint(self) -> None:
+        from agent.tools.view_analysis import _coerce_polygon_2d
+        from shapely.geometry import Point
+        model = build_site_model(PENTAGON, {})
+        grid = derive_adaptive_site_grid(model, spacing=12.0)
+        site = _coerce_polygon_2d(PENTAGON)
+
+        def centroid(spec):
+            w = conform_polygon_to_grid(grid, model, l_region_in_grid_space(**spec), densify=8)
+            for p in w:  # every manipulated variant stays conformed inside the site
+                self.assertLessEqual(site.distance(Point(p[0], p[1])), 1e-6)
+            c = _coerce_polygon_2d(w).centroid
+            return c.x, c.y
+
+        base = centroid(dict(s0=0.15, t0=0.10, long_len=0.4, short_len=0.4, thick_s=0.15, thick_t=0.15))
+        moved = centroid(dict(s0=0.45, t0=0.30, long_len=0.4, short_len=0.4, thick_s=0.15, thick_t=0.15))
+        self.assertGreater(math.dist(base, moved), 20.0)  # moving in (s,t) moves it in the world
+
+    def test_rectangle_region_conforms_to_a_quad(self) -> None:
+        model = build_site_model(PENTAGON, {})
+        grid = derive_adaptive_site_grid(model, spacing=12.0)
+        bar = conform_polygon_to_grid(grid, model, rect_region_in_grid_space(0.2, 0.2, len_s=0.5, len_t=0.2))
+        self.assertGreaterEqual(len(bar), 5)
+        self.assertEqual(bar[0], bar[-1])  # closed ring
+
+    def test_mapper_requires_adaptive_grid(self) -> None:
+        # A uniform grid has no corner_indices -> the conforming map is unavailable.
+        uniform = derive_site_grid(build_site_model(ROT_SITE, {}), spacing=12.0)
+        with self.assertRaises(ValueError):
+            grid_world_mapper(uniform, build_site_model(ROT_SITE, {}))
+
+    def test_grid_bottom_chain_is_always_the_chosen_side(self) -> None:
+        # The B (bottom) chain must equal the chosen side for EVERY side, even when
+        # that side's vertices are not the sharpest corners. Otherwise a building
+        # authored on the grid drifts to an unrelated part of the site (looks random).
+        model = build_site_model(PENTAGON, {})
+        n = len(PENTAGON) - 1
+        for side in range(n):
+            grid = derive_adaptive_site_grid(model, spacing=12.0, alignment_side=side)
+            c0, c1 = grid["corner_indices"][0], grid["corner_indices"][1]
+            self.assertEqual((c0, c1), (side, (side + 1) % n),
+                             f"side {side}: bottom chain {(c0, c1)} is not the chosen side")
+
+    def test_building_relocates_to_follow_the_chosen_side(self) -> None:
+        # Author the same cell-snapped L on grids keyed to different sides; its
+        # centroid should sit nearer the chosen side than the others on average.
+        from agent.tools.view_analysis import _coerce_polygon_2d
+        model = build_site_model(PENTAGON, {})
+        coords = PENTAGON[:-1]
+        n = len(coords)
+
+        def side_mid(s):
+            a, b = coords[s], coords[(s + 1) % n]
+            return ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+
+        centroids = {}
+        for side in range(n):
+            grid = derive_adaptive_site_grid(model, spacing=12.0, alignment_side=side)
+            nu, nv = grid["divisions"]
+            L = l_region_in_cells(grid, max(1, nu // 5), 1,
+                                  long_cells=max(2, nu // 2), short_cells=max(2, nv // 2),
+                                  thick_cells_s=max(1, nu // 6), thick_cells_t=max(1, nv // 6))
+            world = conform_polygon_to_grid(grid, model, L, densify=8)
+            c = _coerce_polygon_2d(world).centroid
+            centroids[side] = (c.x, c.y)
+
+        # The building authored near its chosen side sits nearer that side than the
+        # roughly-opposite side (two steps round) — it genuinely follows the side.
+        for side in range(n):
+            own = centroids[side]
+            self.assertLess(math.dist(own, side_mid(side)),
+                            math.dist(own, side_mid((side + 2) % n)),
+                            f"L for side {side} is not nearer side {side} than the opposite side")
+
+        # And changing the chosen side genuinely relocates it across the site.
+        xs = [c[0] for c in centroids.values()]
+        ys = [c[1] for c in centroids.values()]
+        self.assertGreater(max(xs) - min(xs), 40.0)
+        self.assertGreater(max(ys) - min(ys), 40.0)
 
 
 class AlignedPlacementTests(unittest.TestCase):

@@ -264,33 +264,17 @@ def derive_adaptive_site_grid(
     c = _select_quad_corners(coords, side_idx)
     c0, c1, c2, c3 = c
 
-    # Four boundary chains, oriented so B and T share the s-direction, L and R the t.
-    B = _chain_fwd(coords, c0, c1)
-    R = _chain_fwd(coords, c1, c2)
-    T = list(reversed(_chain_fwd(coords, c2, c3)))   # c3 -> c2
-    L = list(reversed(_chain_fwd(coords, c3, c0)))   # c0 -> c3
-    P00, P10, P11, P01 = coords[c0], coords[c1], coords[c2], coords[c3]
+    # Reusable transfinite (Coons) map of the unit square (s, t) onto the site.
+    cp = _coons_inputs(coords, (c0, c1, c2, c3))
 
     def patch(s: float, t: float) -> tuple[float, float]:
-        bx, by = _sample_chain(B, s)
-        tx, ty = _sample_chain(T, s)
-        lx, ly = _sample_chain(L, t)
-        rx, ry = _sample_chain(R, t)
-        px = (1 - t) * bx + t * tx + (1 - s) * lx + s * rx - (
-            (1 - s) * (1 - t) * P00[0] + s * (1 - t) * P10[0]
-            + (1 - s) * t * P01[0] + s * t * P11[0]
-        )
-        py = (1 - t) * by + t * ty + (1 - s) * ly + s * ry - (
-            (1 - s) * (1 - t) * P00[1] + s * (1 - t) * P10[1]
-            + (1 - s) * t * P01[1] + s * t * P11[1]
-        )
-        return px, py
+        return _coons_eval(cp, s, t)
 
     if divisions is not None:
         nu, nv = max(1, int(divisions[0])), max(1, int(divisions[1]))
     else:
-        nu = max(1, round(_chain_length(B) / spacing))
-        nv = max(1, round(_chain_length(L) / spacing))
+        nu = max(1, round(_chain_length(cp["B"]) / spacing))
+        nv = max(1, round(_chain_length(cp["L"]) / spacing))
 
     clip = _clip_polygon(site_model, boundary, use_buildable_zone)
 
@@ -379,6 +363,136 @@ def align_building_to_local_grid(
         orientation += 90.0
     orientation += extra_rotation_deg
     return align_building_to_grid(base_boundary, grid, node_xy, orientation)
+
+
+# ---------------------------------------------------------------------------
+# Conforming footprints — the building DEFORMS to follow the grid
+# ---------------------------------------------------------------------------
+#
+# `align_building_to_local_grid` still drops a *rigid* footprint at one local
+# angle. The functions below go further: a building is authored in the grid's
+# own (s, t) parameter space and pushed through the same Coons map, so its edges
+# bend along the warped grid lines and it stays conformed to the site no matter
+# how the plot is shaped. Manipulation (move / stretch / reshape) happens in
+# (s, t) space and the world footprint re-conforms automatically.
+
+def grid_world_mapper(grid: dict[str, Any], site_model: dict[str, Any]):
+    """Return ``to_world(s, t) -> [x, y]`` for an adaptive grid.
+
+    ``(s, t)`` are normalised grid coordinates in ``[0, 1]²``: ``s`` runs along
+    the chosen side, ``t`` inward. The map is the transfinite (Coons) patch the
+    grid was built from, so points follow the warped lattice exactly.
+    """
+    boundary = site_model.get("boundary") if isinstance(site_model, dict) else None
+    corners = grid.get("corner_indices")
+    if not isinstance(boundary, list) or not corners:
+        raise ValueError("grid_world_mapper needs an adaptive grid + its site_model boundary")
+    coords = _ring(boundary)
+    cp = _coons_inputs(coords, tuple(corners))
+
+    def to_world(s: float, t: float) -> list[float]:
+        x, y = _coons_eval(cp, s, t)
+        return [x, y]
+
+    return to_world
+
+
+def conform_polygon_to_grid(
+    grid: dict[str, Any],
+    site_model: dict[str, Any],
+    st_polygon: list[list[float]],
+    *,
+    densify: int = 8,
+) -> list[list[float]]:
+    """Map a footprint authored in ``(s, t)`` space into the warped site.
+
+    Each edge of ``st_polygon`` is sub-sampled (``densify`` steps) before being
+    mapped, so a straight edge in parameter space becomes a smooth curve that
+    follows the grid in world space. Returns a closed ``[[x, y, 0], ...]`` ring.
+    On a rectangular site the map is affine, so edges stay straight — conforming
+    is a strict generalisation of rigid placement.
+    """
+    to_world = grid_world_mapper(grid, site_model)
+    pts = st_polygon[:-1] if (len(st_polygon) > 1 and st_polygon[0] == st_polygon[-1]) else st_polygon
+    steps = max(1, int(densify))
+    out: list[list[float]] = []
+    for i in range(len(pts)):
+        a, b = pts[i], pts[(i + 1) % len(pts)]
+        for k in range(steps):
+            f = k / steps
+            s = _clamp01(a[0] + (b[0] - a[0]) * f)
+            t = _clamp01(a[1] + (b[1] - a[1]) * f)
+            x, y = to_world(s, t)
+            out.append([round(x, 4), round(y, 4), 0.0])
+    if out:
+        out.append(out[0])
+    return out
+
+
+def l_region_in_grid_space(
+    s0: float,
+    t0: float,
+    *,
+    long_len: float,
+    short_len: float,
+    thick_s: float,
+    thick_t: float,
+) -> list[list[float]]:
+    """An L-shaped region in ``(s, t)`` space (corner at ``(s0, t0)``).
+
+    Long arm runs along ``s`` (the chosen-side direction); short arm runs along
+    ``t``. Push the result through :func:`conform_polygon_to_grid` to get an L
+    that bends with the site — the building in the user's sketch. Use
+    :func:`rect_region_in_grid_space` for a plain bar.
+    """
+    from shapely.geometry import box
+    from shapely.ops import unary_union
+
+    long_arm = box(s0, t0, _clamp01(s0 + long_len), _clamp01(t0 + thick_t))
+    short_arm = box(s0, t0, _clamp01(s0 + thick_s), _clamp01(t0 + short_len))
+    poly = unary_union([long_arm, short_arm])
+    return [[x, y] for x, y in poly.exterior.coords]
+
+
+def rect_region_in_grid_space(
+    s0: float, t0: float, *, len_s: float, len_t: float
+) -> list[list[float]]:
+    """A rectangular region in ``(s, t)`` space — a bar that conforms to the grid."""
+    s1, t1 = _clamp01(s0 + len_s), _clamp01(t0 + len_t)
+    return [[s0, t0], [s1, t0], [s1, t1], [s0, t1], [s0, t0]]
+
+
+def l_region_in_cells(
+    grid: dict[str, Any],
+    i0: int,
+    j0: int,
+    *,
+    long_cells: int,
+    short_cells: int,
+    thick_cells_s: int,
+    thick_cells_t: int,
+) -> list[list[float]]:
+    """Author an L by **whole grid cells**, so its edges land on grid lines.
+
+    Cells are indexed ``(i, j)`` with ``i`` along the chosen side (0..``nu``) and
+    ``j`` inward (0..``nv``); ``grid['divisions']`` gives ``(nu, nv)``. Conforming
+    this region makes the building visibly occupy whole cells of the warped grid —
+    it reads as snapped to the grid, not floating at an arbitrary fraction.
+    """
+    nu, nv = grid["divisions"]
+    return l_region_in_grid_space(
+        i0 / nu, j0 / nv,
+        long_len=long_cells / nu, short_len=short_cells / nv,
+        thick_s=thick_cells_s / nu, thick_t=thick_cells_t / nv,
+    )
+
+
+def rect_region_in_cells(
+    grid: dict[str, Any], i0: int, j0: int, *, cells_s: int, cells_t: int
+) -> list[list[float]]:
+    """Author a bar by whole grid cells (edges land on grid lines)."""
+    nu, nv = grid["divisions"]
+    return rect_region_in_grid_space(i0 / nu, j0 / nv, len_s=cells_s / nu, len_t=cells_t / nv)
 
 
 # ---------------------------------------------------------------------------
@@ -491,20 +605,86 @@ def _angular_spread(degs: list[float]) -> float:
 def _select_quad_corners(coords: list[tuple[float, float]], alignment_side: int) -> list[int]:
     """Pick four corner indices (ring order) that frame the site as a quad.
 
-    A 4-gon uses its own corners. A more complex polygon keeps the four sharpest
-    corners, so the remaining vertices fall *inside* the four edge-chains — that is
-    exactly where the taper lives and what makes the Coons grid fan. The corner
-    list is rotated so the chosen alignment side starts the first (bottom) chain.
+    The **bottom (B) chain is always the chosen alignment side** ``a -> a+1`` — this
+    is what makes the grid (and any building authored on it) actually follow the
+    requested side instead of drifting to whichever corners happen to be sharpest.
+    The two remaining corners split the opposite arc (from ``a+1`` round to ``a``)
+    into roughly equal thirds, so the Coons quad is well-shaped and the
+    intermediate vertices (the taper) fall *inside* the side chains.
     """
     n = len(coords)
+    a = alignment_side % n
+    b = (a + 1) % n
     if n == 4:
-        idxs = [0, 1, 2, 3]
+        return [a, b, (a + 2) % n, (a + 3) % n]
+
+    # Vertices strictly between b and a, walking forward (the opposite arc).
+    arc: list[int] = []
+    i = b
+    while True:
+        i = (i + 1) % n
+        if i == a:
+            break
+        arc.append(i)
+
+    if len(arc) <= 2:
+        chosen = [a, b] + arc
     else:
-        ranked = sorted(range(n), key=lambda i: _turn_angle(coords, i), reverse=True)[:4]
-        idxs = sorted(ranked)
-    start_v = alignment_side % n
-    best = min(range(len(idxs)), key=lambda k: _cyclic_dist(idxs[k], start_v, n))
-    return idxs[best:] + idxs[:best]
+        # Cumulative perimeter from b along the arc to each arc vertex.
+        pts = [coords[b]] + [coords[k] for k in arc] + [coords[a]]
+        seg = [math.hypot(pts[j + 1][0] - pts[j][0], pts[j + 1][1] - pts[j][1]) for j in range(len(pts) - 1)]
+        total = sum(seg) or 1.0
+        cum: list[float] = []
+        run = 0.0
+        for j in range(len(arc)):
+            run += seg[j]
+            cum.append(run)
+        c2 = arc[min(range(len(arc)), key=lambda k: abs(cum[k] - total / 3.0))]
+        c3 = arc[min(range(len(arc)), key=lambda k: abs(cum[k] - 2.0 * total / 3.0))]
+        if c3 == c2:  # keep them distinct on short arcs
+            c3 = arc[(arc.index(c2) + 1) % len(arc)]
+        chosen = [a, b, c2, c3]
+
+    # Order around the ring starting at the chosen side, so B = a -> b.
+    return sorted(set(chosen), key=lambda v: (v - a) % n)
+
+
+def _clamp01(v: float) -> float:
+    return 0.0 if v < 0.0 else (1.0 if v > 1.0 else v)
+
+
+def _coons_inputs(coords: list[tuple[float, float]], corner_indices: tuple[int, int, int, int]) -> dict[str, Any]:
+    """Pre-compute the four boundary chains + corners for a Coons patch.
+
+    Oriented so the bottom (B) and top (T) chains share the s-direction, and the
+    left (L) and right (R) chains share the t-direction.
+    """
+    c0, c1, c2, c3 = corner_indices
+    return {
+        "B": _chain_fwd(coords, c0, c1),
+        "R": _chain_fwd(coords, c1, c2),
+        "T": list(reversed(_chain_fwd(coords, c2, c3))),  # c3 -> c2
+        "L": list(reversed(_chain_fwd(coords, c3, c0))),  # c0 -> c3
+        "P00": coords[c0], "P10": coords[c1], "P11": coords[c2], "P01": coords[c3],
+    }
+
+
+def _coons_eval(cp: dict[str, Any], s: float, t: float) -> tuple[float, float]:
+    """Evaluate the transfinite (Coons) map at parameter ``(s, t)`` in [0,1]²."""
+    bx, by = _sample_chain(cp["B"], s)
+    tx, ty = _sample_chain(cp["T"], s)
+    lx, ly = _sample_chain(cp["L"], t)
+    rx, ry = _sample_chain(cp["R"], t)
+    P00, P10, P11, P01 = cp["P00"], cp["P10"], cp["P11"], cp["P01"]
+    px = (1 - t) * bx + t * tx + (1 - s) * lx + s * rx - (
+        (1 - s) * (1 - t) * P00[0] + s * (1 - t) * P10[0]
+        + (1 - s) * t * P01[0] + s * t * P11[0]
+    )
+    py = (1 - t) * by + t * ty + (1 - s) * ly + s * ry - (
+        (1 - s) * (1 - t) * P00[1] + s * (1 - t) * P10[1]
+        + (1 - s) * t * P01[1] + s * t * P11[1]
+    )
+    return px, py
 
 
 def _chain_fwd(coords: list[tuple[float, float]], a: int, b: int) -> list[tuple[float, float]]:

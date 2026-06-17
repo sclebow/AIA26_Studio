@@ -1,5 +1,33 @@
 # Team 04 Progress
 
+## 2026-06-17 Phase 3 — Fix: building drifted off the chosen side; cell-snapping
+
+User feedback: the conformed L "is placed randomly on the site … test the grid with different sides to see how the building reacts." Two real issues found and fixed.
+
+### Completed
+
+- [x] **Bug: the grid's bottom edge was not always the chosen side.** `_select_quad_corners` picked the four sharpest corners, so when the chosen side's vertices were not among them (e.g. sides 2 and 3 of the demo pentagon, whose shared apex was the dropped vertex) the Coons patch keyed to *other* corners and a building authored on it landed in an unrelated spot — "random". Rewrote `_select_quad_corners` to **always anchor the bottom (`B`) chain on the chosen side** (`a -> a+1`) and split the opposite arc into ~thirds for the other two corners. Verified `B == chosen side` for all 5 sides.
+- [x] **"Looks random" vs. the grid:** added `l_region_in_cells` / `rect_region_in_cells` so a footprint is authored on **whole grid cells** (`i/nu`, `j/nv`); its edges then land *on* the drawn grid lines, so it visibly snaps to the grid like the sketch instead of floating at an arbitrary fraction.
+
+### Validation
+
+- [x] Added 2 regressions to `benchmarking/test_site_grid.py`: `B` chain equals the chosen side for every side of the pentagon; and the same cell-snapped L, built per-side, sits nearer its own side than the opposite side and relocates across the site as the side changes. `python -m unittest team_04.benchmarking.test_site_grid` → 28 tests pass.
+- [x] `test_notebooks/test_grid_alignment.ipynb`: section 1b now authors the L by cells (snapped + deforming); new section "1c. The building reacts to the chosen side" re-keys the grid to each side and shows the grid + L rotating to follow it (panel titles show `B = side`). Notebook smoke-runs end to end.
+
+## 2026-06-17 Phase 3 — Conforming footprints: the building deforms to follow the grid
+
+Follow-up to the adaptive grid (user feedback: "the building can never rotate and place freely like this … it should be constantly adapting to the site and have flexibility in manipulation like how I sketched"). A rigid footprint dropped at a single local angle still reads as "placed freely". Now a building is **authored in the grid's own `(s, t)` parameter space and pushed through the same Coons map**, so its edges bend along the warped grid lines and it conforms to the site; manipulation happens in `(s, t)` space and the world footprint re-conforms automatically.
+
+### Completed
+
+- [x] Refactored the Coons patch out of `derive_adaptive_site_grid` into reusable `_coons_inputs`/`_coons_eval` (no behaviour change) so the same map serves both the grid and the building.
+- [x] Added to `agent/tools/site_grid.py`: `grid_world_mapper(grid, site_model)` (returns `to_world(s,t)`), `conform_polygon_to_grid(...)` (maps an `(s,t)` footprint into the warped site, densifying edges so straight edges become curves that follow the grid), and `l_region_in_grid_space` / `rect_region_in_grid_space` (author an L or bar in grid space). On a rectangle the map is affine, so edges stay straight — conforming generalises rigid placement.
+
+### Validation
+
+- [x] Added 5 regressions to `benchmarking/test_site_grid.py` (warps on a splayed site but stays straight on a rectangle via a turning-sum metric; conformed footprint stays inside the site; manipulation in `(s,t)` moves the world footprint and every variant stays inside; rect region conforms to a closed quad; a uniform grid has no map and raises). `python -m unittest team_04.benchmarking.test_site_grid` → 26 tests pass.
+- [x] Reworked `test_notebooks/test_grid_alignment.ipynb` section 1b: the navy L now **deforms** to follow the warped grid (the sketch), plus a manipulation row (move along road / stretch long arm / deeper+thinner) each re-conforming inside the site. Notebook smoke-runs end to end.
+
 ## 2026-06-17 Phase 3 — Adaptive (warped) grid: angle changes to match site complexity
 
 Extends Phase 3 so the grid's **local axis angle adapts to the site's complexity** instead of using one rigid angle (per user request: "the angle between the grid can change to match the complexity of the site … the L-shape building responding to the site"). Additive — the uniform `derive_site_grid` is untouched.
