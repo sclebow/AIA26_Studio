@@ -115,7 +115,7 @@ Placement must read as intentional: buildings align to site sides and to a site 
 
 - [x] `derive_site_grid(site_model, spacing, alignment_side=None)` → grid origin + two axis directions aligned to a reference side (default fallback: longest side; main-road side feeds it once Phase 2 lands), clipped to the buildable zone. Returns grid lines + grid-node seed points.
 - [x] `derive_adaptive_site_grid(...)` → **warped** grid (transfinite/Coons patch over the four edge-chains) whose local angle varies across the site (`angle_range_deg`); `local_grid_orientation` + `align_building_to_local_grid` orient a building to the local direction. Degenerates to the uniform grid on a rectangle.
-- [x] **Conforming footprints**: `grid_world_mapper` + `conform_polygon_to_grid` push a footprint authored in grid `(s, t)` space (`l_region_in_grid_space`/`rect_region_in_grid_space`) through the Coons map, so the building **deforms to follow the warped grid** rather than sitting at a rigid angle; manipulation lives in `(s, t)` space and re-conforms to the site automatically.
+- [x] **Rigid local-grid placement**: `align_building_to_local_grid` + `local_grid_orientation` rotate a footprint to the local warped-grid direction at its node, preserving its **exact shape/area** (straight walls) for every library shape. (A footprint-*conforming* experiment that deformed the polygon through the Coons patch was tried and **removed** — it over-warped complex shapes like X/Y and blew up their area, which no real building does; the warped grid is used only as an orientation field.)
 - [x] `snap_to_grid(point, grid)` and `aligned_orientations(grid)` → the discrete {parallel, perpendicular} orientation set (± small offsets if allowed).
 
 ### 3.2 Optimizer integration

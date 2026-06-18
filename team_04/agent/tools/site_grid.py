@@ -18,6 +18,14 @@ instead of a free position sweep + 36 free rotations:
   footprint) tucked into a non-orthogonal site corner: the leaf wing follows the
   *adjacent* side, so its arms spread to the corner's interior angle (obtuse on a
   splayed site) instead of a rigid 90°.
+* `derive_adaptive_site_grid` — a *warped* grid (transfinite/Coons patch) whose
+  local axis angle follows a splayed site, with `local_grid_orientation` and
+  `align_building_to_local_grid` to place a building **rigidly** oriented to the
+  local grid direction. Buildings stay rigid (straight walls, exact shape); only
+  their orientation/position adapt to the site. (An earlier footprint-*conforming*
+  experiment that rubber-sheeted the polygon through the patch was removed — it
+  over-deformed complex shapes like X/Y and blew up their area, which no real
+  building does.)
 
 Pure geometry (Shapely in / dict out), deterministic, no LLM or MCP.
 """
@@ -353,200 +361,20 @@ def align_building_to_local_grid(
 ) -> list[list[float]]:
     """Drop a centred base footprint at ``node_xy``, oriented to the *local* grid.
 
-    The footprint's long edge follows the local grid direction at ``node_xy`` (or
-    its perpendicular), so the building reads as responding to the site even where
-    the grid is warped. ``extra_rotation_deg`` lets a winged footprint bend a free
-    arm (e.g. ``corner_wing_rotation``) on top of the local alignment.
+    This is the **realistic** placement: the footprint is rigid — its exact shape
+    (straight walls, area, vertex count) is preserved — and only *rotated* so its
+    long edge follows the local grid direction at ``node_xy`` (or its
+    perpendicular). On a warped grid the local direction varies by location, so
+    buildings in different spots take different orientations and the layout adapts
+    to the site without ever deforming a building. ``extra_rotation_deg`` lets a
+    winged footprint bend a free arm (e.g. ``corner_wing_rotation``) on top of the
+    local alignment.
     """
     orientation = local_grid_orientation(grid, node_xy)
     if perpendicular:
         orientation += 90.0
     orientation += extra_rotation_deg
     return align_building_to_grid(base_boundary, grid, node_xy, orientation)
-
-
-# ---------------------------------------------------------------------------
-# Conforming footprints — the building DEFORMS to follow the grid
-# ---------------------------------------------------------------------------
-#
-# `align_building_to_local_grid` still drops a *rigid* footprint at one local
-# angle. The functions below go further: a building is authored in the grid's
-# own (s, t) parameter space and pushed through the same Coons map, so its edges
-# bend along the warped grid lines and it stays conformed to the site no matter
-# how the plot is shaped. Manipulation (move / stretch / reshape) happens in
-# (s, t) space and the world footprint re-conforms automatically.
-
-def grid_world_mapper(grid: dict[str, Any], site_model: dict[str, Any]):
-    """Return ``to_world(s, t) -> [x, y]`` for an adaptive grid.
-
-    ``(s, t)`` are normalised grid coordinates in ``[0, 1]²``: ``s`` runs along
-    the chosen side, ``t`` inward. The map is the transfinite (Coons) patch the
-    grid was built from, so points follow the warped lattice exactly.
-    """
-    boundary = site_model.get("boundary") if isinstance(site_model, dict) else None
-    corners = grid.get("corner_indices")
-    if not isinstance(boundary, list) or not corners:
-        raise ValueError("grid_world_mapper needs an adaptive grid + its site_model boundary")
-    coords = _ring(boundary)
-    cp = _coons_inputs(coords, tuple(corners))
-
-    def to_world(s: float, t: float) -> list[float]:
-        x, y = _coons_eval(cp, s, t)
-        return [x, y]
-
-    return to_world
-
-
-def conform_polygon_to_grid(
-    grid: dict[str, Any],
-    site_model: dict[str, Any],
-    st_polygon: list[list[float]],
-    *,
-    densify: int = 8,
-) -> list[list[float]]:
-    """Map a footprint authored in ``(s, t)`` space into the warped site.
-
-    Each edge of ``st_polygon`` is sub-sampled (``densify`` steps) before being
-    mapped, so a straight edge in parameter space becomes a smooth curve that
-    follows the grid in world space. Returns a closed ``[[x, y, 0], ...]`` ring.
-    On a rectangular site the map is affine, so edges stay straight — conforming
-    is a strict generalisation of rigid placement.
-    """
-    to_world = grid_world_mapper(grid, site_model)
-    pts = st_polygon[:-1] if (len(st_polygon) > 1 and st_polygon[0] == st_polygon[-1]) else st_polygon
-    steps = max(1, int(densify))
-    out: list[list[float]] = []
-    for i in range(len(pts)):
-        a, b = pts[i], pts[(i + 1) % len(pts)]
-        for k in range(steps):
-            f = k / steps
-            s = _clamp01(a[0] + (b[0] - a[0]) * f)
-            t = _clamp01(a[1] + (b[1] - a[1]) * f)
-            x, y = to_world(s, t)
-            out.append([round(x, 4), round(y, 4), 0.0])
-    if out:
-        out.append(out[0])
-    return out
-
-
-def l_region_in_grid_space(
-    s0: float,
-    t0: float,
-    *,
-    long_len: float,
-    short_len: float,
-    thick_s: float,
-    thick_t: float,
-) -> list[list[float]]:
-    """An L-shaped region in ``(s, t)`` space (corner at ``(s0, t0)``).
-
-    Long arm runs along ``s`` (the chosen-side direction); short arm runs along
-    ``t``. Push the result through :func:`conform_polygon_to_grid` to get an L
-    that bends with the site — the building in the user's sketch. Use
-    :func:`rect_region_in_grid_space` for a plain bar.
-    """
-    from shapely.geometry import box
-    from shapely.ops import unary_union
-
-    long_arm = box(s0, t0, _clamp01(s0 + long_len), _clamp01(t0 + thick_t))
-    short_arm = box(s0, t0, _clamp01(s0 + thick_s), _clamp01(t0 + short_len))
-    poly = unary_union([long_arm, short_arm])
-    return [[x, y] for x, y in poly.exterior.coords]
-
-
-def rect_region_in_grid_space(
-    s0: float, t0: float, *, len_s: float, len_t: float
-) -> list[list[float]]:
-    """A rectangular region in ``(s, t)`` space — a bar that conforms to the grid."""
-    s1, t1 = _clamp01(s0 + len_s), _clamp01(t0 + len_t)
-    return [[s0, t0], [s1, t0], [s1, t1], [s0, t1], [s0, t0]]
-
-
-def conform_world_footprint_to_grid(
-    grid: dict[str, Any],
-    site_model: dict[str, Any],
-    world_boundary: list[list[float]],
-    *,
-    s0: float = 0.15,
-    t0: float = 0.10,
-    s_span: float = 0.60,
-    t_span: float = 0.60,
-    densify: int = 6,
-) -> list[list[float]]:
-    """Conform **any** footprint polygon (e.g. any `build_shape_model` shape) to the grid.
-
-    `conform_polygon_to_grid` needs a footprint already authored in ``(s, t)``
-    space, which only the L/rect helpers produce. This generalises it to every
-    library shape (I/L/T/U/H/Y/X/O, or any polygon): the footprint's bounding box
-    is normalised into the ``(s, t)`` sub-rectangle ``[s0, s0+s_span] x [t0,
-    t0+t_span]`` and pushed through the same Coons map, so the whole shape —
-    notches and all — bends to follow the warped grid and stays inside the site.
-
-    The shape's proportions are preserved up to the grid's local distortion (which
-    is the point: it deforms to the plot). Keep the target rectangle inside
-    ``[0, 1]²`` (the default does) to stay inside the site.
-    """
-    pts = world_boundary[:-1] if (len(world_boundary) > 1 and world_boundary[0] == world_boundary[-1]) else world_boundary
-    if len(pts) < 3:
-        return []
-    xs = [p[0] for p in pts]
-    ys = [p[1] for p in pts]
-    minx, maxx = min(xs), max(xs)
-    miny, maxy = min(ys), max(ys)
-    w = (maxx - minx) or 1.0
-    h = (maxy - miny) or 1.0
-
-    to_world = grid_world_mapper(grid, site_model)
-    steps = max(1, int(densify))
-    out: list[list[float]] = []
-    for i in range(len(pts)):
-        a, b = pts[i], pts[(i + 1) % len(pts)]
-        for k in range(steps):
-            f = k / steps
-            x = a[0] + (b[0] - a[0]) * f
-            y = a[1] + (b[1] - a[1]) * f
-            u = (x - minx) / w
-            v = (y - miny) / h
-            s = _clamp01(s0 + u * s_span)
-            t = _clamp01(t0 + v * t_span)
-            wx, wy = to_world(s, t)
-            out.append([round(wx, 4), round(wy, 4), 0.0])
-    if out:
-        out.append(out[0])
-    return out
-
-
-def l_region_in_cells(
-    grid: dict[str, Any],
-    i0: int,
-    j0: int,
-    *,
-    long_cells: int,
-    short_cells: int,
-    thick_cells_s: int,
-    thick_cells_t: int,
-) -> list[list[float]]:
-    """Author an L by **whole grid cells**, so its edges land on grid lines.
-
-    Cells are indexed ``(i, j)`` with ``i`` along the chosen side (0..``nu``) and
-    ``j`` inward (0..``nv``); ``grid['divisions']`` gives ``(nu, nv)``. Conforming
-    this region makes the building visibly occupy whole cells of the warped grid —
-    it reads as snapped to the grid, not floating at an arbitrary fraction.
-    """
-    nu, nv = grid["divisions"]
-    return l_region_in_grid_space(
-        i0 / nu, j0 / nv,
-        long_len=long_cells / nu, short_len=short_cells / nv,
-        thick_s=thick_cells_s / nu, thick_t=thick_cells_t / nv,
-    )
-
-
-def rect_region_in_cells(
-    grid: dict[str, Any], i0: int, j0: int, *, cells_s: int, cells_t: int
-) -> list[list[float]]:
-    """Author a bar by whole grid cells (edges land on grid lines)."""
-    nu, nv = grid["divisions"]
-    return rect_region_in_grid_space(i0 / nu, j0 / nv, len_s=cells_s / nu, len_t=cells_t / nv)
 
 
 # ---------------------------------------------------------------------------
@@ -701,10 +529,6 @@ def _select_quad_corners(coords: list[tuple[float, float]], alignment_side: int)
 
     # Order around the ring starting at the chosen side, so B = a -> b.
     return sorted(set(chosen), key=lambda v: (v - a) % n)
-
-
-def _clamp01(v: float) -> float:
-    return 0.0 if v < 0.0 else (1.0 if v > 1.0 else v)
 
 
 def _coons_inputs(coords: list[tuple[float, float]], corner_indices: tuple[int, int, int, int]) -> dict[str, Any]:

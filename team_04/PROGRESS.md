@@ -1,5 +1,21 @@
 # Team 04 Progress
 
+## 2026-06-17 Phase 3 — Removed footprint conforming; buildings stay rigid (realistic)
+
+User: "the conforming logic for the buildings is wrong — too deformed; X and Y aren't even following the grid, it's not the shape anymore and no realistic building would look like that." Correct. A diagnostic confirmed footprint conforming **blew up area 4–9×** and exploded vertex counts (X→73 verts), while rigid local-grid placement preserves **area_ratio 1.000 and the exact vertex count**.
+
+### Completed
+
+- [x] **Removed** the footprint-conforming functions from `agent/tools/site_grid.py`: `conform_polygon_to_grid`, `conform_world_footprint_to_grid`, `l_region_in_grid_space`, `rect_region_in_grid_space`, `l_region_in_cells`, `rect_region_in_cells`, `grid_world_mapper`, and the now-dead `_clamp01`. They rubber-sheeted the polygon through the Coons patch — unrealistic.
+- [x] Kept the adaptive **warped grid** (`derive_adaptive_site_grid`) as an **orientation field**, and `align_building_to_local_grid` / `local_grid_orientation` as the **realistic placement**: the building is a rigid footprint rotated to the local grid direction — straight walls, exact shape/area — so the layout adapts to the site while every building stays real. An L can still bend a free wing (`corner_wing_rotation`) for an obtuse corner.
+
+### Validation
+
+- [x] Rewrote `benchmarking/test_site_grid.py` (dropped the conforming tests; added `RigidLocalPlacementTests`: rigid placement preserves every shape's area + vertex count exactly; long edge follows the local grid; every shape places rigidly inside the site; the building re-orients per chosen side; the optimizer path stays shape-agnostic). 29 tests pass.
+- [x] Rewrote `benchmarking/test_sun_analysis.py` integration to `GridRigidSunIntegrationTests` (rigid placement asserts identical vertex count + area, gets a valid worst-sun score, and the score varies across placements). 23 tests pass.
+- [x] Rewrote `test_notebooks/test_grid_alignment.ipynb` sections 1b/1c/1d/3 to **rigid** local-grid placement (a U oriented to the local grid; the same U re-orienting per chosen side; all 8 library shapes placed rigidly with area preserved; a rigid obtuse-arm L at the most obtuse corner). Removed the duplicate stale Summary. Smoke-runs clean (shapes preserved, obtuse L inside).
+- [x] Rewrote `test_notebooks/test_sun_analysis.ipynb` §7 to place a **rigid** U at each grid node, oriented to the local grid, scored by worst-sun exposure (40 in-site placements, shape preserved, exposure spans 0.138). Fixed the tangled section-7 header / duplicate-summary ordering.
+
 ## 2026-06-17 Phase 1×3 — Sun fitness composed with grid conforming on a complex site
 
 User: "try the sun analysis with the more complex site … use the logic from grid alignment and integrate it." Composed the two capabilities so a building reacts to the *site* (grid conforming) and the *sun* (exposure fitness) at once.

@@ -16,7 +16,7 @@ if str(TEAM_ROOT) not in sys.path:
     sys.path.insert(0, str(TEAM_ROOT))
 
 from agent.tools.building_shape_graph import build_shape_model
-from agent.tools.site_grid import conform_world_footprint_to_grid, derive_adaptive_site_grid
+from agent.tools.site_grid import align_building_to_local_grid, derive_adaptive_site_grid
 from agent.tools.site_model import build_site_model
 from agent.tools.sun_analysis import (
     WORST_CASE_PRESETS,
@@ -53,49 +53,51 @@ SOUTH_SUN = [{"azimuth": 180.0, "altitude": 30.0, "weight": 1.0}]
 COMPLEX_SITE = [[0, 0, 0], [130, 18, 0], [150, 92, 0], [62, 128, 0], [-14, 74, 0], [0, 0, 0]]
 
 
-class GridConformingSunIntegrationTests(unittest.TestCase):
-    """Phase 1 (sun) composed with Phase 3 (grid conforming) on a complex site:
-    a building that deforms to follow the site still gets a usable worst-sun
-    signal that varies with placement, so the agent can react to the sun."""
+class GridRigidSunIntegrationTests(unittest.TestCase):
+    """Phase 1 (sun) composed with Phase 3 (grid alignment) on a complex site:
+    a RIGID building, oriented to the local grid at each grid node, keeps its exact
+    shape and still gets a worst-sun signal that varies with placement — so the
+    agent can react to the sun by choosing the best-oriented, lowest-exposure spot."""
 
     def _sweep(self, building_type):
         model = build_site_model(COMPLEX_SITE, {"default_setback": 6.0})
         grid = derive_adaptive_site_grid(model, spacing=12.0)
-        nu, nv = grid["divisions"]
         sun = compute_sun_vectors()  # worst-case western sun
         base = [[float(x), float(y), 0.0] for x, y in
-                build_shape_model(area=700.0, building_type=building_type,
-                                  building_depth=15.0, shape_ratio=0.5).polygon.exterior.coords]
+                build_shape_model(area=500.0, building_type=building_type,
+                                  building_depth=14.0, shape_ratio=0.5).polygon.exterior.coords]
+        base_verts = len(base)
+        base_area = _coerce_polygon_2d(base).area
         site_poly = _coerce_polygon_2d(COMPLEX_SITE)
         out = []
-        for i0 in range(1, max(2, nu - 3)):
-            for j0 in (1, max(2, nv // 3)):
-                world = conform_world_footprint_to_grid(
-                    grid, model, base, s0=i0 / nu, t0=j0 / nv,
-                    s_span=4.0 / nu, t_span=3.0 / nv, densify=6)
-                if not site_poly.contains(_coerce_polygon_2d(world)):
-                    continue
-                score = evaluate_sun_exposure(world, sun, piece_length=3.0)["sun_exposure_score"]
-                out.append((score, world))
+        for node in grid["grid_nodes"]:
+            placed = align_building_to_local_grid(base, grid, node)
+            # The placement must be RIGID: identical vertex count and area.
+            self.assertEqual(len(placed), base_verts)
+            self.assertAlmostEqual(_coerce_polygon_2d(placed).area, base_area, places=3)
+            if not site_poly.contains(_coerce_polygon_2d(placed)):
+                continue
+            score = evaluate_sun_exposure(placed, sun, piece_length=3.0)["sun_exposure_score"]
+            out.append((score, placed))
         return out
 
-    def test_conforming_building_gets_a_valid_sun_score(self) -> None:
+    def test_rigid_building_gets_a_valid_sun_score(self) -> None:
         sweep = self._sweep("U")
-        self.assertTrue(sweep, "no conforming U placement fitted the complex site")
-        for score, _world in sweep:
+        self.assertTrue(sweep, "no rigid U placement fitted the complex site")
+        for score, _placed in sweep:
             self.assertGreaterEqual(score, 0.0)
             self.assertLessEqual(score, 1.0)
 
-    def test_sun_exposure_varies_across_conforming_placements(self) -> None:
-        # The whole point: different conforming placements give a different worst-sun
-        # score, so the agent has a signal to react to (pick the lowest).
+    def test_sun_exposure_varies_across_placements(self) -> None:
+        # Different in-site placements give a different worst-sun score, so the agent
+        # has a signal to react to (pick the lowest) — without deforming the building.
         scores = [s for s, _ in self._sweep("U")]
         self.assertGreater(max(scores) - min(scores), 1e-3)
 
-    def test_every_shape_conforms_and_scores_on_the_complex_site(self) -> None:
+    def test_every_shape_places_rigidly_and_scores_on_the_complex_site(self) -> None:
         for s in ("I", "L", "T", "U", "H", "Y", "X", "O"):
             sweep = self._sweep(s)
-            self.assertTrue(sweep, f"shape {s} produced no in-site conforming placement")
+            self.assertTrue(sweep, f"shape {s} produced no in-site rigid placement")
             best = min(sweep, key=lambda r: r[0])[0]
             self.assertGreaterEqual(best, 0.0)
             self.assertLessEqual(best, 1.0)
