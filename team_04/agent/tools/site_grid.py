@@ -304,14 +304,17 @@ def derive_adaptive_site_grid(
     # Nodes + local orientation, kept only where they fall inside the clip zone.
     # Orientation is the directed along-side (u) tangent; the Coons map is smooth,
     # so these vary continuously — no folding (folding near 0 would wrap to ~180).
+    # node_params keeps each node's (s, t) so a footprint can be conformed locally.
     grid_nodes: list[list[float]] = []
     node_orientations: list[float] = []
+    node_params: list[list[float]] = []
     for s in s_vals:
         for t in t_vals:
             px, py = patch(s, t)
             if clip.intersects(_pt(px, py)):
                 grid_nodes.append([round(px, 4), round(py, 4)])
                 node_orientations.append(round(local_angle(s, t) % 360.0, 4))
+                node_params.append([round(s, 6), round(t, 6)])
 
     angle_range = _angular_spread(node_orientations)
 
@@ -328,6 +331,7 @@ def derive_adaptive_site_grid(
         "divisions": [nu, nv],
         "grid_nodes": grid_nodes,
         "node_orientations": node_orientations,
+        "node_params": node_params,
         "grid_lines": grid_lines,
         "node_count": len(grid_nodes),
     }
@@ -375,6 +379,184 @@ def align_building_to_local_grid(
         orientation += 90.0
     orientation += extra_rotation_deg
     return align_building_to_grid(base_boundary, grid, node_xy, orientation)
+
+
+# ---------------------------------------------------------------------------
+# Function-driven orientation — which wing sits perpendicular to the chosen side
+# ---------------------------------------------------------------------------
+#
+# A building is placed RIGIDLY on the straight grid (edges parallel/perpendicular
+# to the chosen side). Its *function* decides whether its longest wing runs along
+# the street (frontage) or perpendicular to it (deeper plan):
+#   retail / commercial / mixed  -> longest wing PARALLEL to the chosen side
+#   residential / office / ...    -> longest wing PERPENDICULAR to the chosen side
+# Edit FUNCTION_FRONTAGE to tune the rule per use.
+
+FUNCTION_FRONTAGE: dict[str, str] = {
+    "retail": "parallel",
+    "commercial": "parallel",
+    "shop": "parallel",
+    "mixed": "parallel",
+    "mixed-use": "parallel",
+    "residential": "perpendicular",
+    "apartment": "perpendicular",
+    "housing": "perpendicular",
+    "office": "perpendicular",
+}
+#: Used when a function is unknown — residential-style deep plan.
+DEFAULT_FRONTAGE = "perpendicular"
+
+
+def frontage_for_function(function: str | None) -> str:
+    """Return ``"parallel"`` or ``"perpendicular"`` (long wing vs the chosen side)."""
+    return FUNCTION_FRONTAGE.get(str(function or "").strip().lower(), DEFAULT_FRONTAGE)
+
+
+def building_long_axis_deg(base_boundary: list[list[float]]) -> float:
+    """The building's dominant ('length') axis in its base frame — the longer side
+    of its axis-aligned bounding box (0 if wider than tall, else 90).
+
+    Library footprints are authored axis-aligned, so this is a stable 0/90 (unlike
+    the longest single edge, which ties on symmetric shapes and picks a diagonal on
+    X). Using it as the 'length' keeps a placed building exactly grid-aligned.
+    """
+    pts = _ring(base_boundary)
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    return 0.0 if (max(xs) - min(xs)) >= (max(ys) - min(ys)) else 90.0
+
+
+def orientation_for_function(
+    base_boundary: list[list[float]],
+    grid: dict[str, Any],
+    function: str | None = None,
+    *,
+    frontage: str | None = None,
+    long_axis_deg: float | None = None,
+) -> float:
+    """Aligned orientation (deg) that puts the building's length parallel or
+    perpendicular to the chosen side, per its function.
+
+    ``frontage`` (``"parallel"``/``"perpendicular"``) overrides the function rule;
+    ``long_axis_deg`` overrides the building's dominant-axis detection (e.g. pass the
+    longest *wing*'s axis). The result is always one of the two grid-aligned
+    orientations, so the building's edges end up parallel **and** perpendicular to
+    the chosen side — never at a random angle.
+    """
+    if not grid.get("available"):
+        return 0.0
+    mode = frontage or frontage_for_function(function)
+    long_ang = long_axis_deg if long_axis_deg is not None else building_long_axis_deg(base_boundary)
+    grid_ang = float(grid.get("angle_deg", 0.0))
+    target = grid_ang if mode == "parallel" else grid_ang + 90.0
+    return round((target - long_ang) % 360.0, 4)
+
+
+def place_building_by_function(
+    base_boundary: list[list[float]],
+    grid: dict[str, Any],
+    node_xy: list[float],
+    function: str | None = None,
+    *,
+    frontage: str | None = None,
+    long_axis_deg: float | None = None,
+) -> list[list[float]]:
+    """Drop a building RIGIDLY at ``node_xy`` on the straight grid, oriented so its
+    length runs parallel or perpendicular to the chosen side per its function.
+
+    The footprint keeps its exact shape; only its (grid-aligned) orientation depends
+    on the function. Pair with an in-site node search to keep it inside the plot.
+    """
+    orientation = orientation_for_function(
+        base_boundary, grid, function, frontage=frontage, long_axis_deg=long_axis_deg
+    )
+    return align_building_to_grid(base_boundary, grid, node_xy, orientation)
+
+
+# ---------------------------------------------------------------------------
+# Gentle, size-preserving conforming (the building flexes to the grid)
+# ---------------------------------------------------------------------------
+
+def conform_building_to_grid(
+    base_boundary: list[list[float]],
+    grid: dict[str, Any],
+    site_model: dict[str, Any],
+    node_xy: list[float],
+    *,
+    bend: float = 0.6,
+) -> list[list[float]]:
+    """Flex a footprint to the warped grid while **keeping its shape and size**.
+
+    This is the realistic middle ground between a rigid drop and a full rubber-sheet:
+
+    * the footprint is mapped into a **local** ``(s, t)`` window sized to its *real*
+      extent using the grid's local Jacobian, so its arms gently follow the grid's
+      curvature without the area blow-up / shear a global bbox map produces;
+    * the result is blended with the rigid placement by ``bend`` ∈ [0, 1] —
+      ``bend=0`` is exactly rigid (no distortion), ``bend=1`` is full local conform.
+
+    On a rectangular site the map is affine, so conforming == rigid (zero
+    distortion) for any ``bend``. On a splayed site a long building gently bends to
+    follow the road/grid (like the sketched L) while a compact one stays nearly
+    rigid — every library shape (I/L/T/U/H/Y/X/O) stays recognisable.
+
+    Falls back to :func:`align_building_to_local_grid` when the grid is not adaptive.
+    """
+    bend = 0.0 if bend < 0.0 else (1.0 if bend > 1.0 else float(bend))
+    rigid = align_building_to_local_grid(base_boundary, grid, node_xy)
+    if bend <= 1e-9:
+        return rigid
+
+    boundary = site_model.get("boundary") if isinstance(site_model, dict) else None
+    corners = grid.get("corner_indices")
+    params = grid.get("node_params")
+    if not isinstance(boundary, list) or not corners or not params:
+        return rigid
+
+    coords = _ring(boundary)
+    cp = _coons_inputs(coords, tuple(corners))
+    s_n, t_n = _nearest_node_params(grid, node_xy)
+
+    # Local Jacobian magnitudes (world metres per unit s / t) at the placement node.
+    h = 1e-3
+    sx1, sy1 = _coons_eval(cp, min(1.0, s_n + h), t_n)
+    sx0, sy0 = _coons_eval(cp, max(0.0, s_n - h), t_n)
+    tx1, ty1 = _coons_eval(cp, s_n, min(1.0, t_n + h))
+    tx0, ty0 = _coons_eval(cp, s_n, max(0.0, t_n - h))
+    js = math.hypot(sx1 - sx0, sy1 - sy0) / (2 * h)
+    jt = math.hypot(tx1 - tx0, ty1 - ty0) / (2 * h)
+    if js < 1e-9 or jt < 1e-9:
+        return rigid
+
+    pts = base_boundary[:-1] if (len(base_boundary) > 1 and base_boundary[0] == base_boundary[-1]) else base_boundary
+    cx = sum(p[0] for p in pts) / len(pts)
+    cy = sum(p[1] for p in pts) / len(pts)
+
+    out: list[list[float]] = []
+    for i, p in enumerate(pts):
+        # Map the base-local offset into a local (s, t) offset sized by the Jacobian,
+        # so the footprint keeps its real size, then evaluate the warped patch.
+        ds = (p[0] - cx) / js
+        dt = (p[1] - cy) / jt
+        wx, wy = _coons_eval(cp, _clamp01(s_n + ds), _clamp01(t_n + dt))
+        # Blend rigid <-> conformed so `bend` controls how much it flexes.
+        rx, ry = rigid[i][0], rigid[i][1]
+        out.append([round((1 - bend) * rx + bend * wx, 4),
+                    round((1 - bend) * ry + bend * wy, 4), 0.0])
+    out.append(out[0])
+    return out
+
+
+def _nearest_node_params(grid: dict[str, Any], point: list[float]) -> tuple[float, float]:
+    nodes = grid.get("grid_nodes") or []
+    params = grid.get("node_params") or []
+    px, py = float(point[0]), float(point[1])
+    k = min(range(len(nodes)), key=lambda i: (nodes[i][0] - px) ** 2 + (nodes[i][1] - py) ** 2)
+    return float(params[k][0]), float(params[k][1])
+
+
+def _clamp01(v: float) -> float:
+    return 0.0 if v < 0.0 else (1.0 if v > 1.0 else v)
 
 
 # ---------------------------------------------------------------------------

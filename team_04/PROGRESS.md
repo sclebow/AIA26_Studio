@@ -1,5 +1,45 @@
 # Team 04 Progress
 
+## 2026-06-17 Phase 3 — Straight grid + function-driven orientation (pivot from warping)
+
+User: "It's wrong, not parallel, not following the grid, placed randomly. Just pick a side and draw the grid parallel and perpendicular — do not make it distorted. Place buildings perpendicular on the grid. Ask the user the building's function to decide which wing is perpendicular to the chosen side. Same for all types." Pivoted off the warped/conforming approach to a simple straight grid + rigid, function-oriented placement. (Confirmed via `AskUserQuestion`: rule = **by use**; function supplied as a parameter the agent asks for.)
+
+### Completed
+
+- [x] Added function-driven orientation to `agent/tools/site_grid.py`:
+  - `FUNCTION_FRONTAGE` (+ `frontage_for_function`): **commercial/retail/mixed → "parallel"** (long side along the street, max frontage); **residential/office/... → "perpendicular"** (deeper plan, light + privacy). Editable.
+  - `building_long_axis_deg` — the footprint's dominant axis = longer side of its axis-aligned bounding box (stable 0/90; the longest-edge proxy ties on symmetric shapes and picks a diagonal on X).
+  - `orientation_for_function` / `place_building_by_function` — rotate a footprint to one of the two **grid-aligned** orientations by function (or an explicit `frontage`/`long_axis_deg` override), so its edges end up parallel **and** perpendicular to the chosen side. The agent asks the user the function and passes `function=`.
+- [x] The straight grid (`derive_site_grid`) keyed to a chosen side remains the placement grid; the warped `derive_adaptive_site_grid` / `conform_*` stay in the backend but are **no longer used by the notebooks**.
+
+### Validation
+
+- [x] Diagnostic: the rectilinear winged shapes (I L T U H) place **0.0° off-grid** (every edge parallel/perpendicular), commercial → long side parallel, residential → perpendicular. Diagonal-armed Y/X/O keep their inherent arms (a diagonal cross can't be edge-aligned to one side) and orient by their dominant axis.
+- [x] Added `FunctionOrientationTests` to `benchmarking/test_site_grid.py` (use→frontage mapping; bbox long axis; winged shapes place perfectly grid-aligned; commercial parallel vs residential perpendicular; orientations differ by 90°; `frontage=` override). 41 grid tests pass.
+- [x] Rewrote `test_grid_alignment.ipynb`: §1b places a U by function (commercial vs residential) on the straight grid (`edges 0° off-grid`); §1c places every shape by function; **removed** the warped-grid §1d and the conforming obtuse-corner §3. Updated intro + summary.
+- [x] Rewrote `test_sun_analysis.ipynb` §7: straight grid keyed to the **sun-chosen side**, U placed rigidly by function, sun scored. With no obstacles, exposure depends on orientation, so it compares commercial (0.329) vs residential (0.207) worst-sun — the function/orientation drives the sun result. Updated `benchmarking/test_sun_analysis.py` to `GridFunctionSunIntegrationTests` (23 tests pass). Both notebooks smoke-run clean.
+
+## 2026-06-17 Phase 3 — Gentle, size-preserving conforming (the realistic middle ground)
+
+User: "I was happy with the L conforming … but the Y and X are too distorted; I want shapes exactly like the reference and manipulatable like the L — realistic, flexible, responsive to complex sites." So neither the full rubber-sheet (distorts X/Y) nor pure rigid (no flex) is right. Implemented the middle ground.
+
+### Completed
+
+- [x] Added `conform_building_to_grid(base, grid, site_model, node, *, bend=0.6)` to `agent/tools/site_grid.py`: maps the footprint into a **local `(s, t)` window sized to its real extent** via the grid's local **Jacobian**, then **blends rigid↔conformed by `bend`** ∈ [0,1]. The building gently follows the grid's curvature while keeping its width, recognisable shape, and area — no rubber-sheet blow-up. `bend=0` = rigid; on a rectangle (affine patch) conform == rigid (zero distortion). Falls back to rigid when the grid is not adaptive.
+- [x] Stored per-node `(s, t)` in the adaptive grid (`node_params`) so a footprint can be conformed at the right local window; re-added the `_clamp01` helper.
+
+### Validation (diagnostic)
+
+- [x] Across all 8 shapes: **rectangle area_ratio = 1.000** at every bend (zero distortion on simple sites); **pentagon area 0.94–0.98 at bend 0.6** with vertex counts preserved exactly — vs. the old 4–9× blow-up. Shapes stay recognisable.
+- [x] Added `GentleConformTests` to `benchmarking/test_site_grid.py` (bend=0 equals rigid; rectangle conform has zero distortion at any bend; splayed site preserves vertex count + area 0.8–1.25×; it actually bends a long bar; non-adaptive grid falls back to rigid). 34 grid tests pass.
+- [x] Reworked `benchmarking/test_sun_analysis.py` to `GridConformSunIntegrationTests` (conform keeps verts + area within tolerance, valid varying sun score, all 8 shapes). 23 sun tests pass.
+- [x] Notebooks back to **conforming** (gentle): `test_grid_alignment.ipynb` §1b/1c/1d/3 conform a U / all shapes / an obtuse L (area % shown per panel, shapes recognisable); `test_sun_analysis.ipynb` §7 conforms a U at each node + scores by worst-sun (40 placements, area ~99%). Both smoke-run clean.
+
+### Placement fix — front the chosen side (was "placed randomly")
+
+- [x] User report: in §1c the building floated in the interior, not aligned to any side. Root cause: the demo placed at the nearest *interior* node where the footprint fit, landing it where the warped grid points a different way. Replaced with `place_on_grid(base, grid, s_frac)`, which places the building **near the chosen side** (smallest `t`) at along-side fraction `s_frac`, oriented to the local grid there (parallel to the side). Verified per side: building **inside, 2–9 m off the chosen side, 0.5–10.7° of parallel**. §1b/1c/1d/3 now all front the chosen side (1b slides the U along the frontage; 1c fronts each side; 1d fronts the road for every shape; 3 tucks into the obtuse corner).
+- [x] Added `test_fronting_a_side_places_the_building_near_it` (every side: the near-side placement sits within 18 m of the chosen side). `team_04.benchmarking.test_site_grid` → 35 tests pass.
+
 ## 2026-06-17 Phase 3 — Removed footprint conforming; buildings stay rigid (realistic)
 
 User: "the conforming logic for the buildings is wrong — too deformed; X and Y aren't even following the grid, it's not the shape anymore and no realistic building would look like that." Correct. A diagnostic confirmed footprint conforming **blew up area 4–9×** and exploded vertex counts (X→73 verts), while rigid local-grid placement preserves **area_ratio 1.000 and the exact vertex count**.

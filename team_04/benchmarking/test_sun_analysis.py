@@ -16,7 +16,7 @@ if str(TEAM_ROOT) not in sys.path:
     sys.path.insert(0, str(TEAM_ROOT))
 
 from agent.tools.building_shape_graph import build_shape_model
-from agent.tools.site_grid import align_building_to_local_grid, derive_adaptive_site_grid
+from agent.tools.site_grid import derive_site_grid, place_building_by_function
 from agent.tools.site_model import build_site_model
 from agent.tools.sun_analysis import (
     WORST_CASE_PRESETS,
@@ -53,26 +53,26 @@ SOUTH_SUN = [{"azimuth": 180.0, "altitude": 30.0, "weight": 1.0}]
 COMPLEX_SITE = [[0, 0, 0], [130, 18, 0], [150, 92, 0], [62, 128, 0], [-14, 74, 0], [0, 0, 0]]
 
 
-class GridRigidSunIntegrationTests(unittest.TestCase):
-    """Phase 1 (sun) composed with Phase 3 (grid alignment) on a complex site:
-    a RIGID building, oriented to the local grid at each grid node, keeps its exact
-    shape and still gets a worst-sun signal that varies with placement — so the
-    agent can react to the sun by choosing the best-oriented, lowest-exposure spot."""
+class GridFunctionSunIntegrationTests(unittest.TestCase):
+    """Phase 1 (sun) composed with Phase 3 (straight grid + function placement) on a
+    complex site: a building placed RIGIDLY by function keeps its exact shape and gets
+    a worst-sun signal that varies with placement — so the agent reacts to the sun by
+    choosing the best spot."""
 
-    def _sweep(self, building_type):
+    def _sweep(self, building_type, function="residential"):
         model = build_site_model(COMPLEX_SITE, {"default_setback": 6.0})
-        grid = derive_adaptive_site_grid(model, spacing=12.0)
+        grid = derive_site_grid(model, spacing=12.0)  # straight grid
         sun = compute_sun_vectors()  # worst-case western sun
         base = [[float(x), float(y), 0.0] for x, y in
-                build_shape_model(area=500.0, building_type=building_type,
+                build_shape_model(area=480.0, building_type=building_type,
                                   building_depth=14.0, shape_ratio=0.5).polygon.exterior.coords]
         base_verts = len(base)
         base_area = _coerce_polygon_2d(base).area
         site_poly = _coerce_polygon_2d(COMPLEX_SITE)
         out = []
         for node in grid["grid_nodes"]:
-            placed = align_building_to_local_grid(base, grid, node)
-            # The placement must be RIGID: identical vertex count and area.
+            placed = place_building_by_function(base, grid, node, function)
+            # Rigid placement keeps the shape EXACT: same vertex count and area.
             self.assertEqual(len(placed), base_verts)
             self.assertAlmostEqual(_coerce_polygon_2d(placed).area, base_area, places=3)
             if not site_poly.contains(_coerce_polygon_2d(placed)):
@@ -81,23 +81,25 @@ class GridRigidSunIntegrationTests(unittest.TestCase):
             out.append((score, placed))
         return out
 
-    def test_rigid_building_gets_a_valid_sun_score(self) -> None:
+    def test_placed_building_gets_a_valid_sun_score(self) -> None:
         sweep = self._sweep("U")
-        self.assertTrue(sweep, "no rigid U placement fitted the complex site")
+        self.assertTrue(sweep, "no in-site U placement fitted the complex site")
         for score, _placed in sweep:
             self.assertGreaterEqual(score, 0.0)
             self.assertLessEqual(score, 1.0)
 
-    def test_sun_exposure_varies_across_placements(self) -> None:
-        # Different in-site placements give a different worst-sun score, so the agent
-        # has a signal to react to (pick the lowest) — without deforming the building.
-        scores = [s for s, _ in self._sweep("U")]
-        self.assertGreater(max(scores) - min(scores), 1e-3)
+    def test_function_orientation_changes_sun_exposure(self) -> None:
+        # With no obstacles, worst-sun exposure depends on ORIENTATION, which the
+        # function fixes — so commercial (parallel) and residential (perpendicular)
+        # give a different worst-sun score. That is the signal the agent reacts to.
+        com = min(s for s, _ in self._sweep("I", function="commercial"))
+        res = min(s for s, _ in self._sweep("I", function="residential"))
+        self.assertGreater(abs(com - res), 1e-3)
 
-    def test_every_shape_places_rigidly_and_scores_on_the_complex_site(self) -> None:
+    def test_every_shape_places_by_function_and_scores_on_the_complex_site(self) -> None:
         for s in ("I", "L", "T", "U", "H", "Y", "X", "O"):
             sweep = self._sweep(s)
-            self.assertTrue(sweep, f"shape {s} produced no in-site rigid placement")
+            self.assertTrue(sweep, f"shape {s} produced no in-site placement")
             best = min(sweep, key=lambda r: r[0])[0]
             self.assertGreaterEqual(best, 0.0)
             self.assertLessEqual(best, 1.0)

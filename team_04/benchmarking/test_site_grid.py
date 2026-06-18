@@ -19,15 +19,21 @@ if str(TEAM_ROOT) not in sys.path:
 from agent.tools.building_shape_graph import SUPPORTED_WINGED_BUILDING_TYPES, build_shape_model
 from agent.tools.site_model import build_site_model
 from agent.tools.site_grid import (
+    DEFAULT_FRONTAGE,
     aligned_orientations,
     alignment_score,
     align_building_to_grid,
     align_building_to_local_grid,
+    building_long_axis_deg,
+    conform_building_to_grid,
     corner_interior_angle,
     corner_wing_rotation,
     derive_adaptive_site_grid,
     derive_site_grid,
+    frontage_for_function,
     local_grid_orientation,
+    orientation_for_function,
+    place_building_by_function,
     snap_to_grid,
 )
 from agent.tools.view_optimizer import (
@@ -294,6 +300,180 @@ class RigidLocalPlacementTests(unittest.TestCase):
             cands = sample_valid_placements(_shape_boundary(s, area=400.0), PENTAGON, grid=grid)
             self.assertTrue(cands, f"{s} produced no grid-aligned candidates")
             self.assertTrue(all(c["aligned"] for c in cands), f"{s} candidates not all aligned")
+
+
+class GentleConformTests(unittest.TestCase):
+    """Gentle, size-preserving conform: the building flexes to the grid but stays
+    a recognisable shape (exact vertex count, ~preserved area) — not rubber-sheeted."""
+
+    def _grid(self, site):
+        return derive_adaptive_site_grid(build_site_model(site, {"default_setback": 6.0}), spacing=12.0)
+
+    def _centre_node(self, grid, site):
+        cx = sum(p[0] for p in site[:-1]) / (len(site) - 1)
+        cy = sum(p[1] for p in site[:-1]) / (len(site) - 1)
+        return snap_to_grid([cx, cy], grid)
+
+    def test_bend_zero_equals_rigid(self) -> None:
+        grid = self._grid(PENTAGON)
+        node = self._centre_node(grid, PENTAGON)
+        base = _shape_boundary("U")
+        rigid = align_building_to_local_grid(base, grid, node)
+        conf0 = conform_building_to_grid(base, grid, build_site_model(PENTAGON, {}), node, bend=0.0)
+        self.assertEqual(conf0, rigid)
+
+    def test_rectangle_conform_has_zero_distortion(self) -> None:
+        # On an affine (parallelogram) site the patch is affine -> conform == rigid,
+        # so the area is preserved exactly at any bend.
+        grid = self._grid(ROT_SITE)
+        node = self._centre_node(grid, ROT_SITE)
+        model = build_site_model(ROT_SITE, {})
+        for s in ALL_SHAPES:
+            base = _shape_boundary(s)
+            ba = _polygon_area(base)
+            for bend in (0.3, 0.6, 1.0):
+                w = conform_building_to_grid(base, grid, model, node, bend=bend)
+                self.assertEqual(len(w), len(base), f"{s} changed vertex count")
+                self.assertAlmostEqual(_polygon_area(w), ba, places=2,
+                                       msg=f"{s} distorted on an affine site at bend {bend}")
+
+    def test_splayed_conform_preserves_shape_and_size(self) -> None:
+        # On the pentagon every shape keeps its exact vertex count and its area stays
+        # close to the original (no 4-9x blow-up) — recognisable, not rubber-sheeted.
+        grid = self._grid(PENTAGON)
+        node = self._centre_node(grid, PENTAGON)
+        model = build_site_model(PENTAGON, {})
+        for s in ALL_SHAPES:
+            base = _shape_boundary(s)
+            ba = _polygon_area(base)
+            w = conform_building_to_grid(base, grid, model, node, bend=0.6)
+            self.assertEqual(len(w), len(base), f"{s} changed vertex count")
+            ratio = _polygon_area(w) / ba
+            self.assertGreater(ratio, 0.8, f"{s} lost too much area ({ratio:.2f})")
+            self.assertLess(ratio, 1.25, f"{s} blew up in area ({ratio:.2f})")
+
+    def test_conform_actually_bends_on_a_splayed_site(self) -> None:
+        # A long bar conforming on the pentagon must move at least one vertex away
+        # from its rigid position — i.e. it genuinely follows the grid.
+        grid = self._grid(PENTAGON)
+        node = self._centre_node(grid, PENTAGON)
+        base = _shape_boundary("I", area=900.0)  # a long bar exaggerates the bend
+        rigid = align_building_to_local_grid(base, grid, node)
+        conf = conform_building_to_grid(base, grid, build_site_model(PENTAGON, {}), node, bend=1.0)
+        max_shift = max(math.dist(rigid[i][:2], conf[i][:2]) for i in range(len(conf)))
+        self.assertGreater(max_shift, 0.5)
+
+    def test_falls_back_to_rigid_without_adaptive_grid(self) -> None:
+        uniform = derive_site_grid(build_site_model(ROT_SITE, {}), spacing=12.0)
+        node = uniform["grid_nodes"][0]
+        base = _shape_boundary("L")
+        out = conform_building_to_grid(base, uniform, build_site_model(ROT_SITE, {}), node, bend=0.8)
+        self.assertEqual(out, align_building_to_local_grid(base, uniform, node))
+
+    def test_fronting_a_side_places_the_building_near_it(self) -> None:
+        # Placing at a near-side node (small t) must put the building close to the
+        # CHOSEN side, not floating in the interior — for every side. (Fixes the
+        # "placed randomly, not aligned to any side" report.)
+        from shapely.geometry import LineString
+        from agent.tools.view_analysis import _coerce_polygon_2d
+        model = build_site_model(PENTAGON, {"default_setback": 6.0})
+        site = _coerce_polygon_2d(PENTAGON)
+        coords = PENTAGON[:-1]
+        n = len(coords)
+        base = _shape_boundary("U", area=480.0)
+        for side in range(n):
+            grid = derive_adaptive_site_grid(model, spacing=12.0, alignment_side=side)
+            params, nodes = grid["node_params"], grid["grid_nodes"]
+            order = sorted(range(len(nodes)), key=lambda i: abs(params[i][0] - 0.5) * 3.0 + params[i][1])
+            placed = next((c for c in (conform_building_to_grid(base, grid, model, nodes[i], bend=0.6)
+                                       for i in order) if site.contains(_coerce_polygon_2d(c))), None)
+            self.assertIsNotNone(placed, f"side {side}: no fronting placement fitted")
+            a, b = coords[side], coords[(side + 1) % n]
+            side_line = LineString([(a[0], a[1]), (b[0], b[1])])
+            self.assertLess(_coerce_polygon_2d(placed).distance(side_line), 18.0,
+                            f"side {side}: building is not fronting the chosen side")
+
+
+#: Rectilinear winged shapes — every edge can sit parallel/perpendicular to a side.
+WINGED_SHAPES = ("I", "L", "T", "U", "H")
+
+
+def _max_edge_off_grid(boundary, grid):
+    """Largest deviation (deg) of any footprint edge from parallel/perpendicular."""
+    gang = grid["angle_deg"] % 90
+    pts = boundary[:-1] if boundary[0] == boundary[-1] else boundary
+    worst = 0.0
+    for i in range(len(pts)):
+        p, q = pts[i], pts[(i + 1) % len(pts)]
+        if math.hypot(q[0] - p[0], q[1] - p[1]) < 1e-6:
+            continue
+        a = math.degrees(math.atan2(q[1] - p[1], q[0] - p[0])) % 90
+        worst = max(worst, min(abs(a - gang), abs(a - gang - 90), abs(a - gang + 90)))
+    return worst
+
+
+def _long_dir_vs_grid(placed, grid):
+    """Is the placed footprint's bbox longer along (parallel) or across (perp) the side?"""
+    ga = math.radians(grid["angle_deg"])
+    pts = placed[:-1]
+    us = [p[0] * math.cos(ga) + p[1] * math.sin(ga) for p in pts]
+    vs = [-p[0] * math.sin(ga) + p[1] * math.cos(ga) for p in pts]
+    return "parallel" if (max(us) - min(us)) >= (max(vs) - min(vs)) else "perpendicular"
+
+
+class FunctionOrientationTests(unittest.TestCase):
+    """A straight grid + RIGID placement whose orientation is chosen by the
+    building's function: commercial fronts the side (long axis parallel),
+    residential goes deep (long axis perpendicular)."""
+
+    def _grid(self):
+        return derive_site_grid(build_site_model(PENTAGON, {}), spacing=12.0)
+
+    def test_frontage_mapping_by_use(self) -> None:
+        self.assertEqual(frontage_for_function("commercial"), "parallel")
+        self.assertEqual(frontage_for_function("retail"), "parallel")
+        self.assertEqual(frontage_for_function("residential"), "perpendicular")
+        self.assertEqual(frontage_for_function("office"), "perpendicular")
+        self.assertEqual(frontage_for_function("something-unknown"), DEFAULT_FRONTAGE)
+
+    def test_building_long_axis_is_the_bbox_long_side(self) -> None:
+        wide = [[0, 0, 0], [30, 0, 0], [30, 10, 0], [0, 10, 0], [0, 0, 0]]
+        tall = [[0, 0, 0], [10, 0, 0], [10, 30, 0], [0, 30, 0], [0, 0, 0]]
+        self.assertEqual(building_long_axis_deg(wide), 0.0)
+        self.assertEqual(building_long_axis_deg(tall), 90.0)
+
+    def test_winged_shapes_place_perfectly_grid_aligned(self) -> None:
+        grid = self._grid()
+        node = grid["grid_nodes"][len(grid["grid_nodes"]) // 2]
+        for s in WINGED_SHAPES:
+            base = _shape_boundary(s)
+            for func in ("commercial", "residential"):
+                placed = place_building_by_function(base, grid, node, func)
+                self.assertLess(_max_edge_off_grid(placed, grid), 0.5,
+                                f"{s}/{func}: an edge is not parallel/perpendicular to the chosen side")
+
+    def test_commercial_fronts_parallel_residential_goes_perpendicular(self) -> None:
+        grid = self._grid()
+        node = grid["grid_nodes"][len(grid["grid_nodes"]) // 2]
+        bar = _shape_boundary("I", area=900.0)  # clearly elongated
+        com = place_building_by_function(bar, grid, node, "commercial")
+        res = place_building_by_function(bar, grid, node, "residential")
+        self.assertEqual(_long_dir_vs_grid(com, grid), "parallel")
+        self.assertEqual(_long_dir_vs_grid(res, grid), "perpendicular")
+
+    def test_commercial_and_residential_differ_by_90_degrees(self) -> None:
+        grid = self._grid()
+        bar = _shape_boundary("I", area=900.0)
+        o_com = orientation_for_function(bar, grid, "commercial")
+        o_res = orientation_for_function(bar, grid, "residential")
+        self.assertAlmostEqual(abs((o_com - o_res) % 180.0), 90.0, delta=0.5)
+
+    def test_frontage_override_beats_function(self) -> None:
+        grid = self._grid()
+        bar = _shape_boundary("I", area=900.0)
+        # force parallel even for a residential building
+        placed = place_building_by_function(bar, grid, grid["grid_nodes"][0], "residential", frontage="parallel")
+        self.assertEqual(_long_dir_vs_grid(placed, grid), "parallel")
 
 
 class AlignedPlacementTests(unittest.TestCase):
