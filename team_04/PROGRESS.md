@@ -1,5 +1,18 @@
 # Team 04 Progress
 
+## 2026-06-17 Shape library — fixed the Y and X footprints
+
+User: the Y and X building shapes were malformed (the agent struggled to find a side to align), and supplied reference letter shapes. Rebuilt **only** Y and X in `agent/tools/building_shape_graph.py`.
+
+### Completed
+
+- [x] Replaced the hand-written Y/X template vertex lists (which didn't read as letters) with **uniform-width bar unions**: `_letter_y_polygon` = a vertical stem that splits into two diagonal arms forming a V; `_letter_x_polygon` = two diagonal bars crossing at the centre. Both flat-ended (`buffer(cap_style=2, join_style=2)`), unioned, then scaled to the requested area. `O` is unchanged (`_O_TEMPLATE`); I/L/T/U/H (winged) untouched.
+- [x] Verified by rendering: Y is a clean letter Y (stem + V arms, bbox taller than wide so its length axis is the stem), X is a clean letter X (square bbox, symmetric). Both valid polygons, area exact.
+
+### Validation
+
+- [x] Full `team_04/benchmarking` suite still green except the pre-existing unrelated `test_generate_building_boundary` float-boundary failure (150 tests). The all-shapes and grid+sun integration tests build Y/X with the new geometry and pass.
+
 ## 2026-06-17 Phase 3 — Straight grid + function-driven orientation (pivot from warping)
 
 User: "It's wrong, not parallel, not following the grid, placed randomly. Just pick a side and draw the grid parallel and perpendicular — do not make it distorted. Place buildings perpendicular on the grid. Ask the user the building's function to decide which wing is perpendicular to the chosen side. Same for all types." Pivoted off the warped/conforming approach to a simple straight grid + rigid, function-oriented placement. (Confirmed via `AskUserQuestion`: rule = **by use**; function supplied as a parameter the agent asks for.)

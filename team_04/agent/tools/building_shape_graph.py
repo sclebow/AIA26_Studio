@@ -262,50 +262,59 @@ def _build_winged_shape(
     )
 
 
+#: Octagonal 'O' (ring-ish) footprint template, scaled to area at build time.
+_O_TEMPLATE: list[tuple[float, float]] = [
+    (-2.0, -1.0),
+    (-1.0, -2.0),
+    (1.0, -2.0),
+    (2.0, -1.0),
+    (2.0, 1.0),
+    (1.0, 2.0),
+    (-1.0, 2.0),
+    (-2.0, 1.0),
+]
+
+
+def _largest_polygon(geom: Any) -> Polygon:
+    if isinstance(geom, Polygon):
+        return geom
+    return max(geom.geoms, key=lambda part: part.area)
+
+
+def _letter_y_polygon(arm_width: float = 1.3, spread: float = 2.0, arm_len: float = 3.0, stem_len: float = 3.0) -> Polygon:
+    """A clean letter-Y footprint: a vertical stem that splits into two diagonal
+    arms forming a V, all of uniform width (union of three flat-ended bars)."""
+    half = arm_width / 2.0
+    stem = LineString([(0.0, -stem_len), (0.0, 0.0)]).buffer(half, cap_style=2, join_style=2)
+    left = LineString([(0.0, 0.0), (-spread, arm_len)]).buffer(half, cap_style=2, join_style=2)
+    right = LineString([(0.0, 0.0), (spread, arm_len)]).buffer(half, cap_style=2, join_style=2)
+    return _largest_polygon(unary_union([stem, left, right]))
+
+
+def _letter_x_polygon(arm_width: float = 1.3, reach: float = 2.6) -> Polygon:
+    """A clean letter-X footprint: two uniform-width diagonal bars crossing at the
+    centre (union of two flat-ended bars)."""
+    half = arm_width / 2.0
+    bar1 = LineString([(-reach, -reach), (reach, reach)]).buffer(half, cap_style=2, join_style=2)
+    bar2 = LineString([(-reach, reach), (reach, -reach)]).buffer(half, cap_style=2, join_style=2)
+    return _largest_polygon(unary_union([bar1, bar2]))
+
+
+def _scale_polygon_to_area(polygon: Polygon, area: float) -> Polygon:
+    scale = math.sqrt(area / polygon.area)
+    return affinity.scale(polygon, xfact=scale, yfact=scale, origin=(0.0, 0.0))
+
+
 def _build_legacy_shape(area: float, building_type: str) -> tuple[tuple[WingModel, ...], tuple[tuple[int, int], ...]]:
-    templates: dict[str, list[tuple[float, float]]] = {
-        "Y": [
-            (-1.0, -3.0),
-            (1.0, -3.0),
-            (1.0, -0.8),
-            (3.0, -0.8),
-            (3.0, 1.0),
-            (1.2, 1.0),
-            (0.0, 3.0),
-            (-1.2, 1.0),
-            (-3.0, 1.0),
-            (-3.0, -0.8),
-            (-1.0, -0.8),
-        ],
-        "X": [
-            (-3.0, -1.4),
-            (-1.4, -1.4),
-            (0.0, -3.0),
-            (1.4, -1.4),
-            (3.0, -1.4),
-            (1.4, 0.0),
-            (3.0, 1.4),
-            (1.4, 1.4),
-            (0.0, 3.0),
-            (-1.4, 1.4),
-            (-3.0, 1.4),
-            (-1.4, 0.0),
-        ],
-        "O": [
-            (-2.0, -1.0),
-            (-1.0, -2.0),
-            (1.0, -2.0),
-            (2.0, -1.0),
-            (2.0, 1.0),
-            (1.0, 2.0),
-            (-1.0, 2.0),
-            (-2.0, 1.0),
-        ],
-    }
-    if building_type not in templates:
+    if building_type == "Y":
+        polygon = _scale_polygon_to_area(_letter_y_polygon(), area)
+    elif building_type == "X":
+        polygon = _scale_polygon_to_area(_letter_x_polygon(), area)
+    elif building_type == "O":
+        polygon = Polygon(_scaled_template_polygon(area, _O_TEMPLATE))
+    else:
         raise ValueError(f"unsupported building_type: {building_type}")
 
-    polygon = Polygon(_scaled_template_polygon(area, templates[building_type]))
     nominal_span = math.sqrt(area)
     return (
         (
