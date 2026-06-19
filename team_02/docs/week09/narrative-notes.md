@@ -72,3 +72,32 @@ a-to-z deck assembles from these.
   and the demo's headline thermal/acoustic/olfactory conflicts are untouched (every delta
   reported). The rules are now packaged as a reusable `floor-plan-review` skill so the next
   layout — generated or hand-drawn — gets the same scrutiny automatically.
+
+## Session 3 — From bounding boxes to a drawing you can read
+
+- **The plan now reads like an architect drew it, not like a stack of rectangles.** The
+  canvas used to draw each room as its own bounding rectangle and each piece of furniture
+  as an anonymous labelled box — a grid of overlapping rectangles with the word "bed" or
+  "sofa" inside. We replaced that with real CAD linework: walls render as luminous bands
+  with thickness, doors keep their swing, windows now *break* the wall with a glazing
+  symbol, and every piece of furniture is a recognizable plan symbol (a bed with pillows,
+  a sofa with arms, a toilet, an island with hobs; a plant became a soft glowing orb).
+  Why it matters: the output stops looking auto-generated and starts looking *designed* —
+  the same shift in credibility we made to the data last session, now made to the picture.
+
+- **The walls had to be discovered, not read.** The layout JSON only lists a handful of
+  named partitions in `structure` (3 walls for a 6-room flat), so the old renderer leaned
+  on the room rectangles to show any interior divisions at all — which is *why* it looked
+  boxy. We now derive the full wall network from the shared edges of the room polygons
+  (merging the pieces of each wall line, tagging exterior vs interior), so the drawing's
+  structure comes from the geometry itself and each wall is individually addressable —
+  groundwork the upcoming wall/window **edit** tools (B3) will hook straight into.
+
+- **CAD-accurate, but still unmistakably Sensi.** The hard constraint was to read like a
+  real plan without becoming a heavy technical drawing — no black poché, no boxed
+  callouts. Walls are a wide low-opacity "mass" glow under a crisp hairline (reusing the
+  same luminous idiom as the relationship edges), the focused room lights with a soft
+  inner glow instead of a hard outline, and the comfort lens reads *better* than before
+  because the tint no longer fights a box border. The result holds from a 5-room studio
+  up to a 13-room house, and the interactivity the rest of the app depends on (room
+  selection, hover, comfort scoring) is untouched.

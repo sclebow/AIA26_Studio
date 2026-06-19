@@ -94,7 +94,7 @@ function PlanTooltip({ info }) {
   );
 }
 
-const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion = 0, layers = DEFAULT_LAYERS, graphData = null, diffs = [], changedRooms = new Set(), pulseKey = 0 }, ref) {
+const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion = 0, layers = DEFAULT_LAYERS, graphData = null, diffs = [], changedRooms = new Set(), pulseKey = 0, layoutData = null }, ref) {
   const [layout, setLayout] = useState(null);
   const [err, setErr] = useState("");
   const [hover, setHover] = useState(null);
@@ -105,12 +105,14 @@ const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion
   const { focusSense, activeSense, toggleSense, activeRoom, setActiveRoom, focusRoom, setHoverRoom: setSelHoverRoom } = useSelection();
 
   useEffect(() => {
+    // layoutData (dev harness / embedding) short-circuits the network fetch.
+    if (layoutData) { setLayout(layoutData); setErr(""); return; }
     let alive = true;
     api.getLayout()
       .then((d) => { if (alive) { setLayout(d.layout || null); setErr(d.layout ? "" : "no layout loaded yet"); } })
       .catch(() => { if (alive) setErr("could not load layout"); });
     return () => { alive = false; };
-  }, [layoutId, layoutVersion]);
+  }, [layoutId, layoutVersion, layoutData]);
 
   const scoredByName = useMemo(() => {
     const m = {}; (rooms || []).forEach((r) => { m[r.roomName] = r; }); return m;
@@ -166,12 +168,12 @@ const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion
       <svg ref={svgRef} className="sense-plan" viewBox={view.vb} preserveAspectRatio="xMidYMid meet">
         <MaterialDefs span={span} />
         <g opacity={layers.graph ? 0.4 : 1}>
-          {layers.plan && <WallsLayer outline={layout.outline} structure={layout.structure} fy={fy} />}
+          {layers.plan && <WallsLayer outline={layout.outline} rooms={layout.rooms} structure={layout.structure} fy={fy} />}
           <RoomsLayer rooms={layout.rooms} scoredByName={scoredByName} plan={layers.plan} comfort={layers.comfort}
             activeRoom={activeRoom} setActiveRoom={setActiveRoom} focusRoom={focusRoom} setHoverRoom={setSelHoverRoom}
             focusSense={focusSense} changedRooms={changedRooms} pulseKey={pulseKey} fy={fy} u={u} onHover={setHover} />
-          {layers.plan && <OpeningsLayer doors={layout.doors} windows={layout.windows} fy={fy} />}
-          {layers.plan && <FurnitureLayer furniture={layout.furniture} fy={fy} u={u} onHover={setHover} />}
+          {layers.plan && <OpeningsLayer doors={layout.doors} windows={layout.windows} fy={fy} u={u} />}
+          {layers.plan && <FurnitureLayer furniture={layout.furniture} rooms={layout.rooms} fy={fy} u={u} onHover={setHover} />}
         </g>
 
         {/* material orbs — float above the base, never dimmed by the graph lens */}
