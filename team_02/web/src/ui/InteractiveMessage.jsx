@@ -8,7 +8,7 @@ import { useSelection } from "../lib/selection.jsx";
  * Research-grounded (brushing-and-linking, deixis, Strobelt cue rules): the message
  * is not a dashboard — it POINTS. Three deterministic cues over a CLOSED vocabulary,
  * each its own NON-INTERFERING channel (no cue-stacking):
- *   - rooms  → a neutral underline + halo (hover lights the orb on the plan, and back)
+ *   - rooms  → a neutral underline + halo (hover lights the room on the plan, and back)
  *   - senses → their spectral glyph (∿ △ ○ □ ≈ ∶) in the sense hue (hover lights the lens)
  *   - scores → the 0-1 number tinted by pass/warn/fail, so a weak spot catches the eye
  * No LLM markup contract, no hallucinated UI.

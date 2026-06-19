@@ -44,13 +44,11 @@ function SpaceInput({ pos, onSend, onClose }) {
 //   graph   — ONE unified room-relationship graph: nodes (rooms) + structural
 //             adjacency + directional transmissive flow, all together. (Topology +
 //             flow used to be two lenses; they are the same graph, now merged.)
-const DEFAULT_LAYERS = { plan: true, comfort: true, graph: false, material: false };
+const DEFAULT_LAYERS = { plan: true, comfort: true, graph: false };
 
 // What each lens needs computed before it can show anything real. The graph needs
-// the TOPOLOGY node to have run (its NetworkX metrics drive the whole view). The
-// material lens is deterministic (reads floorMaterial straight off the layout), so
-// it needs nothing pre-computed.
-const LAYER_REQUIRES = { plan: null, comfort: "scores", graph: "topology", material: null };
+// the TOPOLOGY node to have run (its NetworkX metrics drive the whole view).
+const LAYER_REQUIRES = { plan: null, comfort: "scores", graph: "topology" };
 // If a lens isn't available yet, clicking it asks Sensi to run the analysis.
 const LAYER_RUN_MSG = { comfort: "analyse the layout", graph: "map the topology of the layout" };
 

@@ -36,7 +36,7 @@ _FOOTPRINT = {
     "shelf": (0.35, 1.0), "bookshelf": (0.35, 1.0), "cabinet": (0.5, 1.0),
     "dresser": (0.5, 1.2), "bed": (1.5, 2.0),
 }
-# Which senses an added element touches (drives the diff's sense_affected / future orbs).
+# Which senses an added element touches (drives the diff's sense_affected + the edit-guide hue).
 _ADD_SENSE = {
     "plant": "olfactory+visual", "rug": "tactile+acoustic", "cushion": "tactile+acoustic",
     "curtain": "acoustic+visual", "blind": "acoustic+visual", "drape": "acoustic+visual",
@@ -211,13 +211,34 @@ def next_id(layout: dict, key: str, prefix: str) -> str:
     return "{}-{}".format(prefix, maxn + 1)
 
 
+def _anchor(geom) -> Optional[list]:
+    """Centroid/midpoint of an element geometry (a segment or a footprint polygon).
+    Drives the edit-guide's focus point so the cue lands ON the changed element."""
+    if not geom:
+        return None
+    try:
+        xs = [float(p[0]) for p in geom]
+        ys = [float(p[1]) for p in geom]
+    except (TypeError, IndexError, ValueError):
+        return None
+    if not xs:
+        return None
+    return [round(sum(xs) / len(xs), 3), round(sum(ys) / len(ys), 3)]
+
+
 def make_layout_diff(room: Optional[dict], attribute: str,
                      old_value: Any, new_value: Any,
-                     sense_affected: str) -> dict:
-    """Build the structured diff payload for the frontend."""
+                     sense_affected: str,
+                     at: Optional[list] = None, el: Optional[list] = None) -> dict:
+    """Build the structured diff payload for the frontend.
+
+    Optional `at` (anchor point [x,y]) and `el` (the changed element's geometry —
+    a segment or footprint polygon) let the edit-guide focus EXACTLY on the changed
+    window/door/furniture. Room-wide edits (floor/wall material, ventilation, glazing)
+    omit both; the frontend falls back to the room polygon + centroid."""
     if room is None:
         return {}
-    return {
+    d = {
         "room_id":       room.get("id", ""),
         "room_name":     room.get("name", "unknown"),
         "attribute":     attribute,
@@ -225,6 +246,11 @@ def make_layout_diff(room: Optional[dict], attribute: str,
         "new_value":     new_value,
         "sense_affected": sense_affected,
     }
+    if at is not None:
+        d["at"] = at
+    if el is not None:
+        d["el"] = el
+    return d
 
 
 # ── Pure mutators ─────────────────────────────────────────────────────────────
@@ -312,7 +338,8 @@ def apply_add_furniture(layout: dict, room: Optional[dict],
         "attributes": {"roomId": room.get("id"), "type": ftype, "material": material},
     })
     sense = _ADD_SENSE.get(ftype, "tactile")
-    return make_layout_diff(room, "furniture", "none", f"added {ftype} ({material})", sense)
+    return make_layout_diff(room, "furniture", "none", f"added {ftype} ({material})", sense,
+                            at=_anchor(geo), el=geo)
 
 
 def apply_modify_glazing(layout: dict, room: Optional[dict],
@@ -384,6 +411,7 @@ def apply_add_window(layout: dict, room: Optional[dict],
         room, "window", "none",
         f"added {spot['facing']} window ({gt}); glazing {old_gr:.2f}->{new_gr:.2f}",
         "visual+thermal",
+        at=_anchor(spot["geometry"]), el=spot["geometry"],
     )
 
 
@@ -413,6 +441,7 @@ def apply_move_window(layout: dict, room: Optional[dict], target_hint: str = "")
     return make_layout_diff(
         room, "windowPosition",
         f"{old_orient} wall", f"{spot['facing']} wall", "visual+thermal",
+        at=_anchor(spot["geometry"]), el=spot["geometry"],
     )
 
 
@@ -443,10 +472,12 @@ def apply_remove_furniture(layout: dict, room: Optional[dict], name_or_type: str
     f = find_furniture(layout, room, name_or_type)
     if not f:
         return {}
+    f_geom = f.get("geometry")
     layout["furniture"] = [x for x in layout.get("furniture", []) if x is not f]
     return make_layout_diff(
         room, "furniture", f.get("name", "item"),
         f"removed {f.get('name', 'item')}", "spatial",
+        at=_anchor(f_geom), el=f_geom,
     )
 
 
@@ -461,6 +492,7 @@ def apply_remove_window(layout: dict, room: Optional[dict], hint: str = "") -> d
     if not wins:
         return {}
     win = _match_named(wins, hint) or wins[0]
+    win_geom = win.get("geometry")
     layout["windows"] = [w for w in layout.get("windows", []) if w is not win]
     attrs = room.setdefault("attributes", {})
     old_gr = float(attrs.get("glazingRatio", 0.10))
@@ -470,6 +502,7 @@ def apply_remove_window(layout: dict, room: Optional[dict], hint: str = "") -> d
         room, "window", win.get("name", "window"),
         f"removed {win.get('name', 'window')}; glazing {old_gr:.2f}->{new_gr:.2f}",
         "visual+thermal",
+        at=_anchor(win_geom), el=win_geom,
     )
 
 
@@ -496,8 +529,10 @@ def apply_remove_door(layout: dict, room: Optional[dict], hint: str = "") -> dic
             remaining[r] = remaining.get(r, 0) + 1
     if any(remaining.get(r, 0) == 0 for r in conn):
         return {}   # would isolate a room — apply_edits records the rejection
+    door_geom = door.get("geometry")
     layout["doors"] = [d for d in layout.get("doors", []) if d is not door]
     return make_layout_diff(
         room, "door", door.get("name", "door"),
         f"removed {door.get('name', 'door')}", "acoustic+olfactory",
+        at=_anchor(door_geom), el=door_geom,
     )

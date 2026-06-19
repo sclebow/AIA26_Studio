@@ -4,13 +4,12 @@ import { SC, SI } from "../lib/constants.js";
 import { useSelection } from "../lib/selection.jsx";
 import { centroid, dims } from "../lib/geometry.js";
 import { VALENCE } from "../lib/relationships.js";
-import { MaterialDefs } from "../lib/materials.jsx";
 import { exportSvgToPng } from "../lib/svgToPng.js";
 import WallsLayer from "./WallsLayer.jsx";
 import RoomsLayer from "./RoomsLayer.jsx";
 import OpeningsLayer from "./OpeningsLayer.jsx";
 import FurnitureLayer from "./FurnitureLayer.jsx";
-import MaterialLayer from "./MaterialLayer.jsx";
+import EditFocusLayer from "./EditFocusLayer.jsx";
 import BiophilicLayer from "./BiophilicLayer.jsx";
 import RoomGraph from "./RoomGraph.jsx";
 import GraphEdges from "./GraphEdges.jsx";
@@ -25,7 +24,7 @@ import SenseHub from "./SenseHub.jsx";
  *           per-room sense constellations (SenseHub), click a node to toggle its
  *           constellation, hover to preview.
  */
-const DEFAULT_LAYERS = { plan: true, comfort: true, graph: false, material: false };
+const DEFAULT_LAYERS = { plan: true, comfort: true, graph: false };
 
 function PlanTooltip({ info }) {
   if (!info) return null;
@@ -53,15 +52,22 @@ function PlanTooltip({ info }) {
       </div>
     );
   }
-  // a material orb (the room's floor material, + the last edit if it changed this room)
-  if (info.kind === "material") {
+  // an attribute edit-guide node — what the agent just changed in this room
+  if (info.kind === "change") {
+    const parts = String(info.sense || "").split("+").map((s) => s.trim()).filter(Boolean);
+    const hasFrom = info.from && info.from !== "none" && info.from !== "unset";
     return (
-      <div className="plan-tooltip" style={{ left: info.x + 14, top: info.y + 14 }}>
+      <div className="plan-tooltip" style={{ left: info.x + 14, top: info.y + 14, maxWidth: 240 }}>
         <div className="plan-tooltip-title">{info.title}</div>
-        <div className="plan-tooltip-row"><span>floor</span><span>{info.material}</span></div>
-        {info.changed && <div className="plan-tooltip-row"><span>changed</span><span>{info.from} → {info.to}</span></div>}
-        {info.changed && info.sense && (
-          <div className="plan-tooltip-row"><span>affects</span><span style={{ color: SC[info.sense] }}>{SI[info.sense]} {info.sense}</span></div>
+        {info.channel && <div className="plan-tooltip-row"><span>changed</span><span>{info.channel}</span></div>}
+        <div className="plan-tooltip-row"><span>{hasFrom ? "from → to" : "set"}</span><span>{hasFrom ? `${info.from} → ${info.to}` : info.to}</span></div>
+        {parts.length > 0 && (
+          <div className="plan-tooltip-row"><span>affects</span>
+            <span style={{ color: SC[parts[0]] }}>{parts.map((s) => `${SI[s] || ""} ${s}`).join(" + ")}</span></div>
+        )}
+        {info.impact != null && parts[0] && (
+          <div className="plan-tooltip-row"><span>{parts[0]} now</span>
+            <span style={{ color: SC[parts[0]] }}>{Number(info.impact).toFixed(2)}</span></div>
         )}
       </div>
     );
@@ -155,6 +161,7 @@ const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion
     const span = Math.max(x1 - x0, y1 - y0);
     const pad = span * 0.07 + 0.5;
     return { vb: `${x0 - pad} ${y0 - pad} ${(x1 - x0) + 2 * pad} ${(y1 - y0) + 2 * pad}`,
+             bounds: { x: x0 - pad, y: y0 - pad, w: (x1 - x0) + 2 * pad, h: (y1 - y0) + 2 * pad },
              fy: (y) => (y0 + y1) - y, span };
   }, [layout]);
 
@@ -180,7 +187,7 @@ const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion
   if (err) return <div className="ap-empty">{err}</div>;
   if (!layout || !view) return <div className="ap-empty">loading plan…</div>;
 
-  const { fy, span } = view;
+  const { fy, span, bounds } = view;
   const u = span * 0.012;
 
   const toggleRoom = (name) => setExpandedRooms((prev) => {
@@ -194,7 +201,6 @@ const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion
   return (
     <>
       <svg ref={svgRef} className={"sense-plan" + (bioLens ? " bio-on" : "")} viewBox={view.vb} preserveAspectRatio="xMidYMid meet">
-        <MaterialDefs span={span} />
         <g opacity={(layers.graph && !bioLens) ? 0.4 : 1}>
           {layers.plan && <WallsLayer outline={layout.outline} rooms={layout.rooms} structure={layout.structure} fy={fy} u={u} diffs={diffs} onHover={setHover} />}
           <RoomsLayer rooms={layout.rooms} scoredByName={scoredByName} plan={layers.plan} comfort={layers.comfort && !bioLens}
@@ -207,8 +213,10 @@ const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion
             changedRooms={changedRooms} pulseKey={pulseKey} />}
         </g>
 
-        {/* material orbs — float above the base, never dimmed by the graph lens (off in the green lens) */}
-        {layers.material && !bioLens && <MaterialLayer rooms={layout.rooms} fy={fy} u={u} diffs={diffs} onHover={setHover} />}
+        {/* edit-guide — the rest of the plan recedes and a focus pool lights what just changed (off in the green lens) */}
+        {!bioLens && <EditFocusLayer layout={layout} vb={bounds} fy={fy} u={u} diffs={diffs}
+          onHover={setHover} onSelectRoom={setActiveRoom} pulseKey={pulseKey}
+          senseScore={(name, sense) => scoredByName[name]?.comfortScores?.[sense]} />}
 
         {layers.graph && !bioLens && <>
           <GraphEdges roomById={roomById} graphData={graphData} doors={layout.doors} focusSense={focusSense} u={u} fy={fy} onHoverEdge={setHoverEdge} />

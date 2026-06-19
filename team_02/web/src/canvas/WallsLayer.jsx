@@ -11,8 +11,8 @@ import { materialColor, materialLabel } from "../lib/materials.jsx";
 //
 // When a segment carries a wall MATERIAL (room.attributes.wallMaterial, set by the
 // change_wall_material tool), its mass stroke is softly TINTED by that material — the same
-// orb/galaxy idiom as MaterialLayer's floor orbs, never a heavy fill. The wall that just
-// changed emits a slow ripple from its midpoint (mirrors MaterialLayer's ripple timing).
+// subtle glowing idiom as the edit-guide (focus pull, EditFocusLayer), never a heavy fill.
+// The wall that just changed also emits a slow ripple from its midpoint.
 //
 // NOTE: never put vectorEffect="non-scaling-stroke" on the mass stroke — that would lock
 // it to pixels and the wall would stop reading as thickness.

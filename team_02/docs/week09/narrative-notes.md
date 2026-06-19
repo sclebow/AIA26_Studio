@@ -133,3 +133,34 @@ a-to-z deck assembles from these.
   walls to cork" tinted the walls cork and lifted tactile 0.40→0.70-band while crossing off
   its suggestion; "add a window to the master bedroom" placed a north-facing window and
   moved visual 0.63→0.70 — each in a single, sound, re-scored turn.
+
+## Session 5 — The edit-guide: from a marker to a focus of light
+
+- **We stopped pointing AT the edit and started lighting it.** The old `MaterialLayer` was a
+  lens — a glossy material "marble" floating in every room, on only when you toggled it. We
+  killed the lens (the `material` toggle is gone) and asked a sharper question: how does the
+  agent's edit announce *where + what* it changed, at a glance, without text on an already-dense
+  plan? We explored hard — emissive orbs (depth, breath, a tether), then a whole family of
+  non-orb ideas — through a design critique + two five-advisor design councils + a dozen live
+  motion mockups, and landed on **Focus Pull**: when the agent edits, **the rest of the plan
+  steps into shadow and a soft pool of light lands on exactly what changed.** No marker, no
+  badge — the change is the only lit thing in a quiet room.
+
+- **The light is precise, and material edits glow as themselves.** `EditFocusLayer` renders
+  **nothing at rest**; on an edit it dims the plan (a masked scrim) and lights the change: an
+  added window's glass, a placed plant's footprint, a removed door's dashed ghost all
+  **ignite in place** on the wall, while room-wide edits (floor/ventilation) light the whole
+  room — a material change glows in the *actual finish* (cork reads as cork). A breathing focal
+  **iris** frames it, the **sense glyph** names the dimension, and per-edit life drifts within
+  (air wafts motes, light glints). This needed a small backend resolver: the diff now carries
+  an anchor `at` + the changed element's geometry `el`, so even *removals* (the element is gone
+  from the new layout) light the exact spot.
+
+- **Hover for the story, click to dive — and this closes B3 on the canvas.** Hover the focus and
+  a card reads `wood → cork`, the affected senses (`○ visual + △ thermal`), and the **score
+  impact** (`visual now 0.86`); click opens the room's full breakdown. B3 made edits sound and
+  re-scored; Focus Pull makes them *felt*. Proved live: a floor edit lit the bedroom cork; a
+  window lit the new glass on the wall; a two-part edit lit two zones under one shadow; a
+  question-only turn left the plan bright. The whole arc — marker → orb → focus of light — is
+  the session's story: the most on-brand answer was to add *no new shape at all*, only to move
+  the light.
