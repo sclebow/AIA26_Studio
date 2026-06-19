@@ -7,7 +7,7 @@ No length restriction — answers as thoroughly as the question requires.
 
 from __future__ import annotations
 import json
-from _runtime.llm import call_llm_simple
+from _runtime.llm import respond_text
 from nodes._shared.utils import grounded_facts
 from nodes._shared.register import register_tone
 
@@ -126,7 +126,7 @@ def build_detail_respond_node(llm):
         user_message = "\n".join(sections)
 
         print("[detail_respond] Answering specific follow-up question...")
-        response = call_llm_simple(llm, system, user_message)
+        response = respond_text(llm, system, user_message)
         print(f"[detail_respond] Response: {response[:80]}...")
 
         return {**state, "final_response": response}

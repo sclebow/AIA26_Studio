@@ -1,5 +1,5 @@
 import { SC, scoreColor, scoreOpacity } from "../lib/constants.js";
-import { polyPoints, centroid, dims } from "../lib/geometry.js";
+import { polyPoints, centroid, dims, ringAnchor } from "../lib/geometry.js";
 
 // Rooms. Split across the two tiers:
 //   plan    → wall outline + label + an invisible hit area (click / hover)
@@ -25,8 +25,15 @@ export default function RoomsLayer({ rooms = [], scoredByName, plan, comfort, ac
     const score = comfort ? lensScore : null;
     const arcColor = focusSense ? SC[focusSense] : scoreColor(score ?? 0);
     const ringR = Math.max(u * 1.5, Math.min(w, h) * 0.13) * (isFocus ? 1.12 : 1);
-    const rx = cx + w / 2 - ringR - u * 0.5;            // top-right corner inset
-    const ry = fy(top) + ringR + u * 0.5;
+    // Ideal top-right corner inset — correct for rectangular rooms. For concave
+    // (L-shaped) rooms this bbox corner can land in a neighbour's cell, so snap it
+    // back inside the actual polygon (ringAnchor; screen space = x, fy(y)).
+    const screenPts = geo.map(([x, y]) => [x, fy(y)]);
+    const [rx, ry] = ringAnchor(
+      screenPts,
+      [cx + w / 2 - ringR - u * 0.5, fy(top) + ringR + u * 0.5],
+      ringR,
+    );
 
     const hoverPayload = (e) => onHover && onHover({
       x: e.clientX, y: e.clientY, kind: "room", title: name,

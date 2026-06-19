@@ -54,6 +54,7 @@ const LAYER_REQUIRES = { plan: null, comfort: "scores", graph: "topology", mater
 const LAYER_RUN_MSG = { comfort: "analyse the layout", graph: "map the topology of the layout" };
 
 export default function LayoutModeScreen({ messages, turns, thinking, persona, layoutId, layoutVersion = 0, onSend, onReport,
+  streaming = false, onStop,
   checkpoints = [], hasUncommitted = false, uncommittedDelta = {}, onCommit, onRestore,
   viewedTurn = null, onViewCheckpoint, onClearView }) {
   const [chatOpen,     setChatOpen]     = useState(true);
@@ -194,8 +195,9 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
                 <div className="send-row" style={{ flex: 1 }}>
                   <textarea ref={taRef} className="sensi-input" placeholder="ask sensi about your layout…" value={draft}
                     onChange={e => { setDraft(e.target.value); e.target.style.height = "50px"; e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px"; }}
-                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} />
-                  <button className="btn-send" onClick={() => send()}>→</button>
+                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); streaming ? onStop?.() : send(); } }} />
+                  <button className="btn-send" onClick={() => (streaming ? onStop?.() : send())}
+                    title={streaming ? "stop generating" : "send"}>{streaming ? "■" : "→"}</button>
                 </div>
               </div>
             </motion.div>

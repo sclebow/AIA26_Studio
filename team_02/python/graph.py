@@ -148,6 +148,10 @@ from nodes.insights.persona_comparison import build_persona_comparison_node
 
 # ── Post-graph ────────────────────────────────────────────────────────────────
 from nodes._shared.output_writer import write_analysis_to_layout
+from _runtime.llm import (
+    set_token_sink, reset_token_sink,
+    set_message_start_sink, reset_message_start_sink,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -529,13 +533,34 @@ def build_graph(ctx: Any) -> Any:
 
 
 # ---------------------------------------------------------------------------
+# Compiled-graph cache — build once per ctx, not once per turn.
+#
+# build_graph() registers ~25 nodes and compiles the StateGraph; that work is
+# identical for every turn on the same ctx (ctx is built once at startup by
+# bootstrap()). Memoizing keyed by id(ctx) removes a full recompile from the
+# critical path of every /api/message. Tests that build a fresh ctx get a fresh
+# graph automatically.
+# ---------------------------------------------------------------------------
+
+_GRAPH_CACHE: dict[int, Any] = {}
+
+
+def _get_compiled_graph(ctx: Any) -> Any:
+    key = id(ctx)
+    app = _GRAPH_CACHE.get(key)
+    if app is None:
+        app = build_graph(ctx)
+        _GRAPH_CACHE[key] = app
+    return app
+
+
+# ---------------------------------------------------------------------------
 # run_agent
 # ---------------------------------------------------------------------------
 
-def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, dict]:
-    if session is None:
-        session = {}
-
+def _build_initial_state(prompt: str, session: dict) -> "AgentState":
+    """Build the per-turn initial graph state from the persisted session.
+    Shared by run_agent (invoke) and run_agent_stream (stream)."""
     initial_state: AgentState = {
         "raw_prompt": prompt,
         "has_image":  False,
@@ -601,10 +626,30 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
         "evaluator_loops":        0,
         "final_response":         None,
     }
+    return initial_state
 
-    app = build_graph(ctx)
-    final_state = app.invoke(initial_state)
 
+# Actions that (re)compute comfort scores this turn, invalidating everything
+# derived from the previous scores. detect/full repopulate the derived caches;
+# analyze/edit/biophilic clear them (the edited layout's old conflicts are stale).
+_RESCORED = {"analyze", "detect", "full", "edit", "biophilic"}
+_DERIVED_KEYS = ("last_conflicts_json", "last_suggestions_json",
+                 "conflict_reasoning", "suggestion_critique")
+
+
+def _carry_derived(final_state: "AgentState", session: dict, rescored_actions: set) -> dict:
+    """Persist the score-derived caches. On a re-scoring turn take final_state
+    verbatim (so cleared values stay cleared); otherwise fall back to the prior
+    session so the cache survives turns that don't touch scores."""
+    rescored = final_state.get("action", "") in rescored_actions
+    if rescored:
+        return {k: final_state.get(k, "") for k in _DERIVED_KEYS}
+    return {k: (final_state.get(k) or session.get(k, "")) for k in _DERIVED_KEYS}
+
+
+def _finalize(final_state: "AgentState", session: dict, ctx: Any) -> tuple[str, dict]:
+    """Post-graph: write output JSON and assemble the persisted session.
+    Shared by run_agent (invoke) and run_agent_stream (stream)."""
     response    = final_state.get("final_response") or ""
     action      = final_state.get("action", "")
     scores_ready = bool(final_state.get("last_scores_json"))
@@ -645,11 +690,14 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
         "layout_json_string":  final_state.get("layout_json_string")  or session.get("layout_json_string", ""),
         "layout_id":           final_state.get("layout_id")           or session.get("layout_id"),
         "last_scores_json":      final_state.get("last_scores_json")      or session.get("last_scores_json", ""),
-        "last_conflicts_json":   final_state.get("last_conflicts_json")   or session.get("last_conflicts_json", ""),
-        "last_suggestions_json": final_state.get("last_suggestions_json") or session.get("last_suggestions_json", ""),
+        # Conflicts/suggestions + their write-ups are DERIVED from the scores. When
+        # this turn re-scored (analyze/edit/biophilic clear them; detect/full set them
+        # fresh), take final_state VERBATIM — the `or session` fallback used elsewhere
+        # would resurrect stale pre-edit data and make a post-edit follow-up answer
+        # from conflicts computed on the old layout. For non-rescoring turns
+        # (follow_up/chitchat/…) keep the fallback so the cache survives the round-trip.
+        **(_carry_derived(final_state, session, _RESCORED)),
         "score_interpretation":  final_state.get("score_interpretation")  or session.get("score_interpretation", ""),
-        "conflict_reasoning":    final_state.get("conflict_reasoning")    or session.get("conflict_reasoning", ""),
-        "suggestion_critique":   final_state.get("suggestion_critique")   or session.get("suggestion_critique", ""),
         "has_analysis_results":  bool(final_state.get("last_scores_json")) or session.get("has_analysis_results", False),
         # Per-turn fields (cleared next turn — used by server to build response payload)
         "layout_updated":         final_state.get("layout_updated", False),
@@ -666,3 +714,64 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
     }
 
     return response, updated_session
+
+
+def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, dict]:
+    """Run one agent turn to completion and return (response, updated_session)."""
+    if session is None:
+        session = {}
+    initial_state = _build_initial_state(prompt, session)
+    app = _get_compiled_graph(ctx)
+    final_state = app.invoke(initial_state)
+    return _finalize(final_state, session, ctx)
+
+
+def run_agent_stream(
+    prompt: str,
+    ctx: Any,
+    session: dict | None = None,
+    *,
+    on_node=None,
+    on_token=None,
+    on_message_start=None,
+) -> tuple[str, dict]:
+    """Streaming sibling of run_agent. Drives the SAME compiled graph but reports
+    progress as it runs:
+
+      - on_node(node_name) fires once per node as the graph advances (for SSE
+        progress labels).
+      - on_token(text), when provided, is installed as the final-answer token sink
+        so the terminal text nodes (respond/detail_respond/chitchat) stream their
+        output token-by-token.
+      - on_message_start(), when provided, fires at the START of each terminal text
+        node (before its tokens) so the client can reset its buffer cleanly — this
+        is what makes the evaluator REVISE loop (respond runs twice) render right.
+
+    Returns (response, updated_session) IDENTICAL to run_agent — the SSE result
+    event carries the same payload as /api/message, so the contract is unchanged.
+    """
+    if session is None:
+        session = {}
+    initial_state = _build_initial_state(prompt, session)
+    app = _get_compiled_graph(ctx)
+
+    sink_token  = set_token_sink(on_token) if on_token is not None else None
+    start_token = set_message_start_sink(on_message_start) if on_message_start is not None else None
+    final_state: AgentState = initial_state
+    try:
+        # Dual mode: "updates" tells us which node just ran (progress labels);
+        # "values" carries the full accumulated state (last one = final state).
+        for mode, chunk in app.stream(initial_state, stream_mode=["updates", "values"]):
+            if mode == "updates":
+                if on_node:
+                    for node_name in chunk.keys():
+                        on_node(node_name)
+            elif mode == "values":
+                final_state = chunk
+    finally:
+        if sink_token is not None:
+            reset_token_sink(sink_token)
+        if start_token is not None:
+            reset_message_start_sink(start_token)
+
+    return _finalize(final_state, session, ctx)

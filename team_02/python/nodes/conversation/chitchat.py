@@ -7,7 +7,7 @@ them to ask for it plainly (the action_classifier routes that on the next turn).
 """
 
 from __future__ import annotations
-from _runtime.llm import call_llm_simple
+from _runtime.llm import respond_text
 from nodes._shared.register import register_label, register_tone, CAPABILITIES
 
 
@@ -47,7 +47,7 @@ def build_chitchat_node(llm):
         )
 
         print(f"[chitchat] Generating response for {user_type}...")
-        response = call_llm_simple(llm, system, raw_prompt)
+        response = respond_text(llm, system, raw_prompt)
 
         return {
             **state,

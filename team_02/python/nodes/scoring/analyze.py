@@ -55,9 +55,15 @@ def build_analyze_node(mcp_client):
         return {
             **state,
             "last_scores_json": scores_json,
-            # Clear stale conflict/suggestion data when re-scoring
+            # Re-scoring invalidates everything derived from the OLD scores: the
+            # conflicts/suggestions and their specialist write-ups. Clear them all so
+            # a later follow-up can't answer from stale data (a conflict question
+            # after an edit re-detects on the CURRENT layout instead). _finalize must
+            # honour these empties for re-scoring actions (no `or`-fallback resurrect).
             "last_conflicts_json":   "",
             "last_suggestions_json": "",
+            "conflict_reasoning":    "",
+            "suggestion_critique":   "",
         }
 
     return analyze_node

@@ -6,7 +6,7 @@ Incorporates specialist interpretations and any evaluator revision feedback.
 
 from __future__ import annotations
 import json as _json
-from _runtime.llm import call_llm_simple
+from _runtime.llm import respond_text
 from nodes._shared.utils import grounded_facts, grounded_extremes
 from nodes._shared.register import register_tone
 
@@ -352,7 +352,9 @@ def build_respond_node(llm):
         user_message = "\n".join(sections)
 
         print("[respond] Generating natural language report...")
-        response = call_llm_simple(llm, _SYSTEM_PROMPT, user_message)
+        # respond_text streams token-by-token when run_agent_stream installed a sink,
+        # otherwise behaves exactly as call_llm_simple (non-streaming /api/message).
+        response = respond_text(llm, _SYSTEM_PROMPT, user_message)
 
         # Resilience: the reasoning model occasionally returns an empty answer
         # (only a <think> block) — both on first pass and during the REVISE loop.

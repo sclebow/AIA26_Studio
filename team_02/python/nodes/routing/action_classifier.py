@@ -227,6 +227,28 @@ def build_action_classifier_node(llm):
                 print(f"[action_classifier] upgraded {action} -> follow_up (specific room/sense question w/ prior analysis)")
                 action = "follow_up"
 
+        # Edit-cache consistency: an edit re-scores the layout and invalidates the
+        # old conflicts/suggestions (analyze clears them — correct, they're stale).
+        # A follow_up that asks ABOUT conflicts/suggestions would then find nothing
+        # cached and answer from emptiness. Upgrade it to a fresh detect/full so the
+        # answer is computed on the CURRENT layout instead of silently coming back
+        # blank. (No extra cost on the normal path — only fires when the relevant
+        # cache is missing.)
+        if action == "follow_up":
+            pl = raw_prompt.lower()
+            has_conflicts   = bool(state.get("last_conflicts_json", "").strip())
+            has_suggestions = bool(state.get("last_suggestions_json", "").strip())
+            wants_suggest = any(w in pl for w in (
+                "suggest", "improve", "fix", "recommend", "make better", "enhance", "how do i"))
+            wants_conflict = any(w in pl for w in (
+                "conflict", "problem", "issue", "wrong", "clash", "fail"))
+            if wants_suggest and not has_suggestions:
+                print("[action_classifier] follow_up wants suggestions but none cached -> upgrading to full")
+                action = "full"
+            elif wants_conflict and not has_conflicts:
+                print("[action_classifier] follow_up wants conflicts but none cached -> upgrading to detect")
+                action = "detect"
+
         return {
             **state,
             "action": action,

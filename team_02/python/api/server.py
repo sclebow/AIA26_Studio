@@ -39,7 +39,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import hashlib
 
 from _runtime.bootstrap import bootstrap
-from graph import run_agent
+from graph import run_agent, run_agent_stream
 from inspire import run_inspire_round, profile_chat_reply
 from imaging import generate_image, build_room_prompt, build_change_clause, active_provider
 from nodes._shared.utils import unwrap_mcp_result, persona_display_label, layout_digits
@@ -201,6 +201,108 @@ def message(req: MessageReq) -> dict:
                      bool(new_session.get("layout_updated")))
     slot["session"] = new_session
     return {"session_id": sid, **contracts.agent_response_payload(msg, new_session, new_session)}
+
+
+# ── Streaming turn: per-node progress + token-by-token final answer (SSE) ─────────
+# Same agent turn as /api/message, but driven with run_agent_stream so the UI sees
+# live progress and the answer streams in. The terminal `result` event carries the
+# EXACT payload /api/message returns, so the contract is unchanged. /api/message
+# stays as a non-streaming fallback.
+
+_NODE_LABELS: dict[str, str] = {
+    "action_classifier": "Reading your request",
+    "load_layout":       "Loading the layout",
+    "analyze":           "Scoring the rooms",
+    "score_interpreter": "Interpreting the scores",
+    "detect":            "Detecting conflicts",
+    "conflict_reasoner": "Reasoning about conflicts",
+    "suggest":           "Generating suggestions",
+    "suggestion_critic": "Refining the suggestions",
+    "edit_planner":      "Planning the change",
+    "apply_edits":       "Applying the change",
+    "compare_versions":  "Comparing before and after",
+    "evaluator":         "Reviewing the answer",
+    "what_next":         "Thinking about next steps",
+    "topologic_analysis": "Analysing connectivity",
+    "biophilic_audit":   "Auditing greenery",
+    "persona_comparison": "Comparing personas",
+    "overview_respond":  "Listing the rooms",
+    "preview":           "Simulating the change",
+    "greet":             "Saying hello",
+    "quiz":              "Noting your answer",
+    "inspire":           "Dreaming up atmosphere",
+    "persona_compiler":  "Building your profile",
+}
+# Terminal text nodes stream their answer directly (tokens + message_start cover
+# them), so we don't also emit a trailing progress label for these.
+_TEXT_NODES = {"respond", "detail_respond", "chitchat"}
+
+
+def _sse(event: str, data: Any) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+@app.post("/api/message/stream")
+def message_stream(req: MessageReq) -> StreamingResponse:
+    """Run one agent turn, streaming progress + the answer as Server-Sent Events.
+
+    Events:
+      session       {session_id}
+      progress      {node, message}     — a step finished; human label for the UI
+      message_start {}                  — begin/replace the streamed answer buffer
+      token         {text}              — a chunk of the final answer
+      result        <agent_response_payload>  — same shape as /api/message
+      error         {message}           — the turn failed; UI shows it, keeps input
+    """
+    sid, slot = _slot(req.session_id)
+    q: "queue.Queue[tuple[str, Any]]" = queue.Queue()
+
+    def worker() -> None:
+        try:
+            msg, new_session = run_agent_stream(
+                req.text, _CTX, slot["session"],
+                on_node=lambda name: q.put(("progress", name)),
+                on_token=lambda text: q.put(("token", text)),
+                on_message_start=lambda: q.put(("message_start", None)),
+            )
+            # Maintain the checkpoint layer exactly as /api/message does.
+            _orig = _original_layout(new_session)
+            checkpoints.sync(new_session,
+                             json.dumps(_orig) if _orig else "",
+                             bool(new_session.get("layout_updated")))
+            slot["session"] = new_session
+            payload = {"session_id": sid,
+                       **contracts.agent_response_payload(msg, new_session, new_session)}
+            q.put(("result", payload))
+        except Exception as exc:  # a node raised — report, don't hang the client
+            import traceback
+            traceback.print_exc()
+            q.put(("error", str(exc)))
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    def gen():
+        yield _sse("session", {"session_id": sid})
+        while True:
+            kind, payload = q.get()
+            if kind == "progress":
+                node = payload
+                if node in _TEXT_NODES:
+                    continue  # the token stream itself is the progress signal
+                yield _sse("progress", {"node": node,
+                                        "message": _NODE_LABELS.get(node, "Working")})
+            elif kind == "message_start":
+                yield _sse("message_start", {})
+            elif kind == "token":
+                yield _sse("token", {"text": payload})
+            elif kind == "result":
+                yield _sse("result", payload)
+                break
+            elif kind == "error":
+                yield _sse("error", {"message": payload})
+                break
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
 
 
 @app.post("/api/commit")
