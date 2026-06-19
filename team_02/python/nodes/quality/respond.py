@@ -165,6 +165,9 @@ _FORMAT_EDIT = (
     "     listed, and NEVER invent, round, or alter a number (no values above 1.00). If a\n"
     "     room shows 'no change', say the change had no meaningful effect - do not invent one.\n"
     "  3. One short next step (e.g. detect conflicts, or try another change).\n\n"
+    "If COULD NOT APPLY is present, add ONE short plain sentence naming what was skipped and\n"
+    "why (e.g. it would block a door, or the room had no clear wall) - don't dwell on it.\n"
+    "If NOTES are present and relevant, you may mention the assumption in a few words.\n"
     "Lead with the change(s) and their impact - do NOT write a generic full-layout analysis.\n"
     "No score lists. No markdown. Plain sentences only.\n"
 )
@@ -340,6 +343,15 @@ def build_respond_node(llm):
             change_line = _format_changes(layout_diffs)
             sections += ["", "--- WHAT CHANGED (lead with this; may be several edits) ---",
                          change_line or "(an edit was applied to the layout)"]
+            rejected = [r for r in (state.get("rejected_edits") or []) if r]
+            if rejected:
+                lines = [f"- {r.get('phrase', 'an edit')}: {r.get('reason', 'could not apply')}" for r in rejected]
+                sections += ["", "--- COULD NOT APPLY (mention briefly + plainly, don't dwell) ---",
+                             "\n".join(lines)]
+            notes = [n for n in (state.get("edit_notes") or []) if n]
+            if notes:
+                sections += ["", "--- NOTES (surfaced assumptions to mention if relevant) ---",
+                             "; ".join(notes)]
         if compare_versions:
             sections += ["", "--- VERSION COMPARISON (use for the before-to-after delta) ---", compare_versions]
         if biophilic_summary:

@@ -101,3 +101,35 @@ a-to-z deck assembles from these.
   because the tint no longer fights a box border. The result holds from a 5-room studio
   up to a 13-room house, and the interactivity the rest of the app depends on (room
   selection, hover, comfort scoring) is untouched.
+
+## Session 4 — The agent can now do what it advises
+
+- **We picked the new edit tools by ROI, not by wishlist.** The agent could only do three
+  things (add furniture, change glazing, change material) yet kept *suggesting* changes it
+  couldn't execute — "add curtains to absorb sound", "upgrade the ventilation", "add a
+  window". We audited every suggestion against (a) what actually moves the comfort scores
+  and (b) how hard it is to build, and shipped the high-ROI set: **add a window, change a
+  wall's material (room-scoped + visible), modify ventilation, add curtains, relocate a
+  window, and a remove family (furniture / door / window)** — every one of them closing a
+  "suggests-but-can't-do" gap. Crucially we also closed the *measurement* gap: the score
+  model now credits soft furnishings (rugs, curtains) for sound absorption, reads wall
+  finish per-room, and lets a window's orientation move thermal — so the loop is honest,
+  *suggestion → edit → the score actually improves*. And when an edit fulfils a standing
+  suggestion, that suggestion is crossed off the list in the panel.
+
+- **Every edit now has architectural awareness baked in — floor-plan-review, live.** Edits
+  used to commit blind: a plant landed dead-centre in the room, "change the walls" silently
+  repainted *every* wall in the flat, nothing checked for overlaps. Now placement is sound
+  *by construction* (Shapely finds a clear floor spot against a wall for a plant, a clear
+  exterior span for a window, the window wall for a curtain), and the same architectural
+  rules the `floor-plan-review` skill uses run **in-process after every op**: if an edit
+  introduces a new collision, a blocked door, or a sealed-off room, that single op is
+  reverted and the agent says why — the good edits in the same sentence still land.
+
+- **The vocabulary got wider without a second pipeline.** All nine tools ride the exact same
+  ripple as the original three — `edit_planner` decomposes one sentence into several ops,
+  `apply_edits` mutates at the one chokepoint, the layout is re-scored **once**, and
+  `compare_versions` reports the before→after delta. We proved it live: "change the kitchen
+  walls to cork" tinted the walls cork and lifted tactile 0.40→0.70-band while crossing off
+  its suggestion; "add a window to the master bedroom" placed a north-facing window and
+  moved visual 0.63→0.70 — each in a single, sound, re-scored turn.

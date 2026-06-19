@@ -44,6 +44,11 @@ WINDOW_GAP       = 0.35   # a tall piece this close to glazing blocks the window
 TALL_TYPES = {"dresser", "wardrobe", "bookshelf", "cabinet", "shelf",
               "shelving", "fridge", "refrigerator", "armoire", "closet"}
 
+# Flat / soft furnishings that are NOT collision obstacles (rugs go under furniture,
+# curtains hang on the wall, cushions sit on a sofa). Excluded from overlap/containment.
+NON_OBSTACLE_TYPES = {"rug", "carpet", "curtain", "curtains", "blind", "blinds",
+                      "drape", "drapes", "shade", "cushion", "mat", "runner"}
+
 # Room kinds where a 0.70 m leaf is acceptable (you reach in, you don't walk in).
 UTILITY_NAME_HINTS = ("store", "linen", "pantry", "closet", "wardrobe")
 
@@ -176,19 +181,38 @@ class Layout:
     def __init__(self, path):
         self.path = path
         self.name = os.path.basename(path)
-        self.d = json.load(open(path, encoding="utf-8"))
+        self._build(json.load(open(path, encoding="utf-8")))
+
+    @classmethod
+    def from_dict(cls, d, name="<memory>"):
+        """Build a Layout from an in-memory layout dict (no file). Lets the edit
+        chokepoint validate a working layout before committing it."""
+        self = cls.__new__(cls)
+        self.path = None
+        self.name = name
+        self._build(d)
+        return self
+
+    def _build(self, d):
+        self.d = d
         self.rooms = {r["id"]: r for r in self.d.get("rooms", [])}
         self.cells = {rid: decompose(r["geometry"]) for rid, r in self.rooms.items()}
 
         # Obstacles = furniture only. MEP (exhaust hoods, ducts, wall units) is a
         # separate schema layer and legitimately overlaps counters / sits on walls,
-        # so it is not part of the furniture-collision ground truth.
+        # so it is not part of the furniture-collision ground truth. Flat / soft
+        # furnishings (rugs under furniture, curtains on the wall, cushions on a sofa)
+        # are likewise NOT collision obstacles — excluding them lets the agent add a
+        # rug under a sofa or a curtain at a window without a false overlap defect.
         self.obstacles = []
         for f in self.d.get("furniture", []):
+            ftype = f.get("attributes", {}).get("type", "")
+            if ftype.lower() in NON_OBSTACLE_TYPES:
+                continue
             self.obstacles.append({
                 "name": f["name"], "rect": bbox(f["geometry"]),
                 "roomId": f.get("attributes", {}).get("roomId"),
-                "type": f.get("attributes", {}).get("type", ""), "kind": "furniture",
+                "type": ftype, "kind": "furniture",
             })
 
     def obstacles_in(self, rid):
@@ -479,12 +503,26 @@ CHECKS = [check_overlaps, check_containment, check_swing, check_approach,
           check_scale, check_fixtures, check_furniture_gaps, check_bed_access]
 
 
-def audit(path):
-    lo = Layout(path)
+def _run_checks(lo):
     defects = []
     for chk in CHECKS:
-        chk(lo, defects)
+        try:
+            chk(lo, defects)
+        except Exception as e:  # noqa: BLE001 — a malformed element must not crash the audit
+            defects.append(f"{getattr(chk, '__name__', 'check')} errored: {e}")
     return defects
+
+
+def audit(path):
+    return _run_checks(Layout(path))
+
+
+def audit_layout(layout_dict):
+    """Run the architectural-soundness checks on an in-memory layout dict.
+
+    The graph entry point used by apply_edits to validate an edit before committing.
+    Returns the same human-readable defect strings as the CLI `audit(path)`."""
+    return _run_checks(Layout.from_dict(layout_dict))
 
 
 def main(argv):

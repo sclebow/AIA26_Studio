@@ -94,6 +94,13 @@ function matchStructure(structure, orient, coord, lo, hi, tol) {
 // → { segments: [{ id, orient, kind:'ext'|'int', x1,y1,x2,y2, coord, lo, hi, rooms[], material }], byId }
 export function deriveWalls({ outline = [], rooms = [], structure = [] } = {}, opts = {}) {
   const tol = opts.tol ?? WALL_TOL;
+  // Room-scoped wall finish (set by the change_wall_material edit tool). A segment's
+  // material falls back to this when no named `structure` partition overlaps it.
+  const wallMatById = new Map();
+  for (const r of rooms) {
+    const wm = r.attributes?.wallMaterial;
+    if (wm) wallMatById.set(r.id, wm);
+  }
   const buckets = new Map(); // "orient|quant(coord)" -> { orient, spans, coordSum, n }
   const diagonals = [];
 
@@ -122,11 +129,21 @@ export function deriveWalls({ outline = [], rooms = [], structure = [] } = {}, o
       const pos = bk.orient === "v"
         ? { x1: coord, y1: m.lo, x2: coord, y2: m.hi }
         : { x1: m.lo, y1: coord, x2: m.hi, y2: coord };
+      const roomIds = [...m.rooms];
+      // Per-room wall finishes touching this segment (deterministic order). An exterior
+      // wall faces one room; a shared partition can carry a different finish each side.
+      const roomMats = roomIds
+        .map((id) => ({ room: id, material: wallMatById.get(id) || null }))
+        .filter((x) => x.material)
+        .sort((a, b) => String(a.room).localeCompare(String(b.room)));
+      // A named `structure` partition still wins (back-compat); otherwise the room finish.
+      const structMat = matchStructure(structure, bk.orient, coord, m.lo, m.hi, tol);
       segments.push({
         id: `${bk.orient}@${coord.toFixed(2)}:${m.lo.toFixed(2)}-${m.hi.toFixed(2)}`,
         orient: bk.orient, kind: m.ext ? "ext" : "int", ...pos,
-        coord, lo: m.lo, hi: m.hi, rooms: [...m.rooms],
-        material: matchStructure(structure, bk.orient, coord, m.lo, m.hi, tol),
+        coord, lo: m.lo, hi: m.hi, rooms: roomIds,
+        material: structMat || (roomMats[0]?.material ?? null),
+        materials: roomMats,
       });
     }
   }
@@ -142,7 +159,7 @@ export function deriveWalls({ outline = [], rooms = [], structure = [] } = {}, o
       id: `d@${e.x1.toFixed(2)},${e.y1.toFixed(2)}-${e.x2.toFixed(2)},${e.y2.toFixed(2)}`,
       orient: "d", kind: isOutline ? "ext" : "int",
       x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2,
-      coord: null, lo: null, hi: null, rooms: room ? [room] : [], material: null,
+      coord: null, lo: null, hi: null, rooms: room ? [room] : [], material: null, materials: [],
     });
     if (typeof console !== "undefined") console.warn("[walls] non-axis-aligned edge passed through verbatim", e);
   }

@@ -7,6 +7,16 @@ from __future__ import annotations
 from typing import Any
 
 from api import checkpoints
+from comfort import suggestion_lifecycle as sugg_life
+
+
+def _surface_suggestions(sess: dict) -> str:
+    """Suggestions for the panel: fresh ones if this turn produced them, else the last
+    'sticky' set (so the list survives an edit re-score), with any suggestion the user has
+    fulfilled this session flagged applied:true for strike-through. Pure — persistence of
+    suggestions_sticky / applied_suggestions is handled in graph._finalize."""
+    surfaced = sess.get("last_suggestions_json", "") or sess.get("suggestions_sticky", "")
+    return sugg_life.overlay_applied(surfaced, sess.get("applied_suggestions", []))
 
 
 def screen_from_session(sess: dict) -> str:
@@ -34,7 +44,9 @@ def agent_response_payload(message: str, sess: dict, final_state: dict | None = 
         # Analysis panel data
         "scores_json":          sess.get("last_scores_json", ""),
         "conflicts_json":       sess.get("last_conflicts_json", ""),
-        "suggestions_json":     sess.get("last_suggestions_json", ""),
+        # Suggestions carry an applied:true flag on any the user has fulfilled this session,
+        # and persist (sticky) across an edit re-score so the panel can strike them off.
+        "suggestions_json":     _surface_suggestions(sess),
         "analysis_depth":       sess.get("action", ""),   # action doubles as depth label
         # Specialist interpretations
         "score_interpretation": sess.get("score_interpretation", ""),

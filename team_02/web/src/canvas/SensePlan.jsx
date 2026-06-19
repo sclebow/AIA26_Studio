@@ -11,6 +11,7 @@ import RoomsLayer from "./RoomsLayer.jsx";
 import OpeningsLayer from "./OpeningsLayer.jsx";
 import FurnitureLayer from "./FurnitureLayer.jsx";
 import MaterialLayer from "./MaterialLayer.jsx";
+import BiophilicLayer from "./BiophilicLayer.jsx";
 import RoomGraph from "./RoomGraph.jsx";
 import GraphEdges from "./GraphEdges.jsx";
 import SenseHub from "./SenseHub.jsx";
@@ -65,6 +66,30 @@ function PlanTooltip({ info }) {
       </div>
     );
   }
+  // a wall segment (its finish, + both sides when a shared partition differs)
+  if (info.kind === "wall") {
+    const sides = (info.sides || []).filter((s) => s && s !== "—");
+    return (
+      <div className="plan-tooltip" style={{ left: info.x + 14, top: info.y + 14 }}>
+        <div className="plan-tooltip-title">{info.title}</div>
+        <div className="plan-tooltip-row"><span>material</span><span>{info.material}</span></div>
+        {sides.length > 1 && sides[0] !== sides[1] && (
+          <div className="plan-tooltip-row"><span>sides</span><span>{sides.join(" / ")}</span></div>
+        )}
+      </div>
+    );
+  }
+  // a room under the green lens (its biophilic richness)
+  if (info.kind === "bio") {
+    const rec = info.rec;
+    return (
+      <div className="plan-tooltip" style={{ left: info.x + 14, top: info.y + 14 }}>
+        <div className="plan-tooltip-title">{rec.name}</div>
+        <div className="plan-tooltip-row"><span>biophilic</span><span style={{ color: "#9BD25A" }}>{rec.richness.toFixed(2)} · {rec.status}</span></div>
+        <div className="plan-tooltip-why">tap to see its fingerprint</div>
+      </div>
+    );
+  }
   // a graph room node (its topology metrics)
   if (info.kind === "node") {
     return (
@@ -94,7 +119,7 @@ function PlanTooltip({ info }) {
   );
 }
 
-const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion = 0, layers = DEFAULT_LAYERS, graphData = null, diffs = [], changedRooms = new Set(), pulseKey = 0, layoutData = null }, ref) {
+const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion = 0, layers = DEFAULT_LAYERS, graphData = null, diffs = [], changedRooms = new Set(), pulseKey = 0, layoutData = null, bioLens = false, onGreen, onLayout }, ref) {
   const [layout, setLayout] = useState(null);
   const [err, setErr] = useState("");
   const [hover, setHover] = useState(null);
@@ -113,6 +138,9 @@ const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion
       .catch(() => { if (alive) setErr("could not load layout"); });
     return () => { alive = false; };
   }, [layoutId, layoutVersion, layoutData]);
+
+  // Hand the loaded layout up so the biophilic fingerprint card can read it live.
+  useEffect(() => { if (layout && onLayout) onLayout(layout); }, [layout, onLayout]);
 
   const scoredByName = useMemo(() => {
     const m = {}; (rooms || []).forEach((r) => { m[r.roomName] = r; }); return m;
@@ -165,21 +193,24 @@ const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion
 
   return (
     <>
-      <svg ref={svgRef} className="sense-plan" viewBox={view.vb} preserveAspectRatio="xMidYMid meet">
+      <svg ref={svgRef} className={"sense-plan" + (bioLens ? " bio-on" : "")} viewBox={view.vb} preserveAspectRatio="xMidYMid meet">
         <MaterialDefs span={span} />
-        <g opacity={layers.graph ? 0.4 : 1}>
-          {layers.plan && <WallsLayer outline={layout.outline} rooms={layout.rooms} structure={layout.structure} fy={fy} />}
-          <RoomsLayer rooms={layout.rooms} scoredByName={scoredByName} plan={layers.plan} comfort={layers.comfort}
+        <g opacity={(layers.graph && !bioLens) ? 0.4 : 1}>
+          {layers.plan && <WallsLayer outline={layout.outline} rooms={layout.rooms} structure={layout.structure} fy={fy} u={u} diffs={diffs} onHover={setHover} />}
+          <RoomsLayer rooms={layout.rooms} scoredByName={scoredByName} plan={layers.plan} comfort={layers.comfort && !bioLens}
             activeRoom={activeRoom} setActiveRoom={setActiveRoom} focusRoom={focusRoom} setHoverRoom={setSelHoverRoom}
             focusSense={focusSense} changedRooms={changedRooms} pulseKey={pulseKey} fy={fy} u={u} onHover={setHover} />
           {layers.plan && <OpeningsLayer doors={layout.doors} windows={layout.windows} fy={fy} u={u} />}
           {layers.plan && <FurnitureLayer furniture={layout.furniture} rooms={layout.rooms} fy={fy} u={u} onHover={setHover} />}
+          {/* green lens: glow + leaf invites washed over the plan (room clicks fall through to RoomsLayer) */}
+          {bioLens && <BiophilicLayer layout={layout} fy={fy} u={u} onGreen={onGreen}
+            changedRooms={changedRooms} pulseKey={pulseKey} />}
         </g>
 
-        {/* material orbs — float above the base, never dimmed by the graph lens */}
-        {layers.material && <MaterialLayer rooms={layout.rooms} fy={fy} u={u} diffs={diffs} onHover={setHover} />}
+        {/* material orbs — float above the base, never dimmed by the graph lens (off in the green lens) */}
+        {layers.material && !bioLens && <MaterialLayer rooms={layout.rooms} fy={fy} u={u} diffs={diffs} onHover={setHover} />}
 
-        {layers.graph && <>
+        {layers.graph && !bioLens && <>
           <GraphEdges roomById={roomById} graphData={graphData} doors={layout.doors} focusSense={focusSense} u={u} fy={fy} onHoverEdge={setHoverEdge} />
           <RoomGraph roomById={roomById} graphData={graphData} showLabels={!layers.plan}
             expandedRooms={expandedRooms} onToggleRoom={toggleRoom} onHoverNode={handleHoverNode} fy={fy} u={u} />

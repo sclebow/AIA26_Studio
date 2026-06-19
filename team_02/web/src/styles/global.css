@@ -276,6 +276,36 @@ body {
 .fc-sense { width: 62px; flex: none; color: rgba(var(--fg-rgb), 0.6); text-transform: lowercase; }
 .fc-track { position: relative; flex: 1; height: 6px; border-radius: 999px; background: rgba(var(--fg-rgb), 0.08); }
 .fc-fill  { position: absolute; left: 0; top: 0; height: 100%; border-radius: 999px; transition: width var(--dur-base) var(--ease-out); }
+
+/* ── Biophilic green lens ──────────────────────────────────────────────────── */
+.bio-fill { transition: fill-opacity .4s ease; }
+.bio-room, .bio-invite { cursor: pointer; }
+.bio-card {
+  position: absolute; top: var(--space-3); right: var(--space-3); z-index: 51;
+  width: 320px; max-height: calc(100% - var(--space-6)); overflow-y: auto;
+  padding: var(--space-4);
+  background: rgba(18, 21, 15, 0.97);
+  border: 1px solid rgba(124,179,66,.30);
+  border-radius: var(--r-lg);
+  font-family: var(--font-mono);
+  color: rgba(var(--fg-rgb), 0.85);
+}
+.bio-card-hdr { display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px; }
+.bio-card-name  { flex: 1; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: rgba(var(--fg-rgb), .95); }
+.bio-card-score { font-size: 12px; }
+.bio-card-close { background: none; border: none; color: rgba(var(--fg-rgb), .5); font-size: 18px; cursor: pointer; line-height: 1; }
+.bio-card-close:hover { color: rgba(var(--fg-rgb), .9); }
+.bio-leaves { display: flex; flex-direction: column; gap: 10px; }
+.bio-leaf-row { display: grid; grid-template-columns: 20px 1fr auto; column-gap: 8px; row-gap: 1px; align-items: baseline; font-size: 11px; }
+.bio-leaf-mark { grid-column: 1; grid-row: 1 / span 2; align-self: center; letter-spacing: 1px; color: rgba(var(--fg-rgb),.3); }
+.bio-leaf-name { grid-column: 2; grid-row: 1; color: rgba(var(--fg-rgb), .78); }
+.bio-leaf-val  { grid-column: 3; grid-row: 1; text-align: right; color: rgba(var(--fg-rgb), .5); }
+.bio-leaf-benefit { grid-column: 2 / span 2; grid-row: 2; font-size: 10px; color: rgba(124,179,66,.62); }
+.bio-leaf-row.is-off .bio-leaf-name { opacity: .5; }
+.bio-leaf-row.is-off .bio-leaf-benefit { opacity: .4; }
+.bio-card-narr { margin-top: 14px; padding-top: 11px; border-top: 1px solid rgba(var(--fg-rgb),.08); font-size: 11px; color: rgba(var(--fg-rgb),.6); line-height: 1.55; }
+.bio-card-green { margin-top: 12px; width: 100%; padding: 7px; background: rgba(124,179,66,.12); border: 1px solid rgba(124,179,66,.42); border-radius: var(--r-md); color: rgba(174,224,106,.95); font-family: var(--font-mono); font-size: 11px; cursor: pointer; transition: background .14s; }
+.bio-card-green:hover { background: rgba(124,179,66,.2); }
 .fc-thresh{ position: absolute; top: -2px; width: 1px; height: 10px; background: rgba(var(--fg-rgb), 0.65); }
 .fc-val   { width: 30px; text-align: right; flex: none; }
 .fc-delta { font-size: 10px; color: rgba(var(--fg-rgb), 0.5); display: inline-flex; gap: 3px; align-items: center; white-space: nowrap; }
@@ -283,6 +313,9 @@ body {
 .fc-flag  { font-size: 10px; padding: 2px 8px; border: 1px solid; border-radius: 999px; background: rgba(var(--fg-rgb), 0.04); text-transform: lowercase; }
 .fc-sugg  { display: flex; gap: 6px; font-size: 11px; align-items: flex-start; }
 .fc-sugg-text { color: rgba(var(--fg-rgb), 0.7); line-height: 1.4; }
+/* a suggestion the user has fulfilled this session — crossed off, not removed */
+.fc-sugg-applied .fc-sugg-text { text-decoration: line-through; opacity: 0.5; }
+.fc-sugg-applied .fc-glyph { color: var(--good, #6fcf8f) !important; }
 .fc-why-toggle { font-size: 11px; color: rgba(var(--fg-rgb), 0.6); background: none; border: none; cursor: pointer; margin-top: 12px; padding: 0; }
 .fc-why-body   { font-size: 11px; color: rgba(var(--fg-rgb), 0.6); line-height: 1.5; margin-top: 6px; }
 .fc-why-list   { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
@@ -1335,14 +1368,13 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
   background:#171717;
   border:1px solid rgba(var(--fg-rgb),.10);
   border-radius:var(--r-lg);
-  width:480px; max-width:calc(100vw - 32px);
-  max-height:68vh;
+  width:540px; max-width:calc(100vw - 32px);
+  /* fixed height so toggling by action / by sense doesn't resize the panel */
+  height:min(74vh, 560px);
   display:flex;
   flex-direction:column;
   overflow:hidden;
   box-shadow:0 24px 60px rgba(0,0,0,.70);
-  transform:scale(1.2);
-  transform-origin:center center;
 }
 .cap-hdr {
   flex-shrink:0;
@@ -1409,32 +1441,51 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
 .arow-title { font-family:var(--font-mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:rgba(var(--fg-rgb), .35); margin-bottom:6px; }
 .arow-pills { display:flex; flex-wrap:wrap; }
 .arow-pills > * { margin-bottom:4px; margin-right:5px; }
+/* Capability chips — quiet neutral by default; a launchable chip lights up on hover
+   (it drops its phrase into the chat). A leading mark + shape encodes the TYPE
+   (◆ agentic = shape · ◇ analytic = study · · general = talk); a trailing dot = status. */
 .cpill {
   display:inline-flex;
-  align-items:center;
+  align-items:center; gap:5px;
   font-family:var(--font-mono);
-  font-size:11px; letter-spacing:.07em;
+  font-size:11px; letter-spacing:.06em;
   border-radius:var(--r-pill); padding:3px 9px;
-  border:1px solid transparent; white-space:nowrap;
+  border:1px solid rgba(var(--fg-rgb),.14);
+  background:rgba(var(--fg-rgb),.03);
+  color:rgba(var(--fg-rgb),.62);
+  white-space:nowrap; cursor:default; transition:border-color .14s, background .14s, color .14s;
 }
-.slive  { background:rgba(100,200,120,.10); border-color:rgba(100,200,120,.30); color:rgba(100,200,120,.95); }
-.soon   { background:rgba(212,185,106,.10); border-color:rgba(212,185,106,.32); color:rgba(212,185,106,.95); }
-.road   { background:rgba(210,85,85,.10);   border-color:rgba(210,85,85,.30);   color:rgba(210,85,85,.90);  }
-.crefine{ background:rgba(80,195,210,.10);  border-color:rgba(80,195,210,.28);  color:rgba(80,195,210,.90); }
+.cpill-type { font-size:10px; opacity:.6; }                  /* the ◆ / ◇ / · type mark */
+.cpill-dot  { width:6px; height:6px; border-radius:50%; flex-shrink:0; margin-left:1px; }  /* status */
+/* TYPE geometry — reinforces the leading mark */
+.cpill.type-analytic { border-radius:5px; }                  /* squared = a lens / panel */
+.cpill.type-general  { border-style:dashed; background:transparent; }
+.cpill.is-launch { cursor:pointer; }
+.cpill.is-launch:hover {
+  border-color:rgba(var(--fg-rgb),.42);
+  background:rgba(var(--fg-rgb),.07);
+  color:rgba(var(--fg-rgb),.95);
+}
+.cpill.is-launch:hover .cpill-type { opacity:.95; }
+.cpill.tier-soon { opacity:.5; }
+/* in the by-sense lever map a chip borrows its row's sense hue on hover */
+.srow .cpill.is-launch:hover { border-color:var(--sc); color:var(--sc); background:rgba(var(--fg-rgb),.04); }
+.srow-note { font-family:var(--font-mono); font-size:11px; color:rgba(var(--fg-rgb),.32); font-style:italic; }
+.cap-hint { flex-shrink:0; padding:9px 16px 0; font-family:var(--font-mono); font-size:11px; letter-spacing:.05em; color:rgba(var(--fg-rgb),.40); }
+.cap-sub { font-family:var(--font-mono); font-size:11px; letter-spacing:.06em; color:rgba(var(--fg-rgb),.38); margin:0 0 10px 2px; }
 .cap-legend {
   flex-shrink:0;
-  display:flex;
-  flex-wrap:wrap;
+  display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px;
   padding:10px 16px; border-top:1px solid rgba(var(--fg-rgb),.07);
 }
-.cap-legend > * { margin-right:14px; margin-bottom:2px; }
 .leg-item {
-  display:inline-flex;
-  align-items:center;
+  display:inline-flex; align-items:center; gap:5px;
   font-family:var(--font-mono);
-  font-size:11px; letter-spacing:.10em; color:rgba(var(--fg-rgb), .35);
+  font-size:11px; letter-spacing:.08em; color:rgba(var(--fg-rgb), .38);
 }
-.leg-dot { width:7px; height:7px; border-radius:50%; margin-right:5px; flex-shrink:0; }
+.leg-mk  { opacity:.7; }
+.leg-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.leg-sep { width:1px; height:12px; background:rgba(var(--fg-rgb),.12); }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    SENSI WORKSPACE — Layout Mode Screen (Phase 6)

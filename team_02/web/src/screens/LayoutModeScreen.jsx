@@ -9,6 +9,7 @@ import Capabilities from "../components/Capabilities.jsx";
 import SensePlan from "../canvas/SensePlan.jsx";
 import SenseKey from "../components/SenseKey.jsx";
 import FocusCard from "../components/FocusCard.jsx";
+import BiophilicCard from "../components/BiophilicCard.jsx";
 import LayerToggles from "../components/LayerToggles.jsx";
 import Legend from "../components/Legend.jsx";
 import CheckpointsStrip from "../components/CheckpointsStrip.jsx";
@@ -61,6 +62,8 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
   const [profileOpen,  setProfileOpen]  = useState(false);
   const [capOpen,      setCapOpen]      = useState(false);
   const [galaxyOpen,   setGalaxyOpen]   = useState(false);
+  const [bioLens,      setBioLens]      = useState(false);
+  const [planLayout,   setPlanLayout]   = useState(null);
   const [activeTurnId, setActiveTurnId] = useState(null);
   const [spaceInput,   setSpaceInput]   = useState(null);
   const [draft,        setDraft]        = useState("");
@@ -92,6 +95,11 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
   // and graph lenses are mutually exclusive so flow steps aside).
   useEffect(() => {
     if (activeTurn?.action === "topologic") setLayers((l) => ({ ...l, graph: true }));
+  }, [activeTurn?.id]); // eslint-disable-line
+
+  // "talk green to me" → biophilic action → slip into the green lens automatically.
+  useEffect(() => {
+    if (activeTurn?.action === "biophilic") setBioLens(true);
   }, [activeTurn?.id]); // eslint-disable-line
 
   // panelTurn drives the score panel/canvas: a clicked checkpoint (read-only review)
@@ -153,6 +161,27 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
     onSend(t);
   }, [draft, onSend]);
 
+  // Green lens: tap a bare room's "+leaf" (or the card button) → plant greenery via the
+  // add_plant edit tool. The edit re-renders the layout, so the biophilic glow + richness
+  // recompute live and the room blooms.
+  const greenRoom = useCallback((name) => send(`add a plant to the ${name}`), [send]);
+
+  // Capabilities menu doubles as a launcher: tapping a lever drops its phrase into
+  // the chat input (focused, caret at the end) for the user to finish + send.
+  const launchCap = useCallback((text) => {
+    setCapOpen(false);
+    setChatOpen(true);
+    setDraft(text);
+    requestAnimationFrame(() => {
+      const ta = taRef.current;
+      if (!ta) return;
+      ta.focus();
+      ta.style.height = "50px";
+      ta.style.height = Math.min(ta.scrollHeight, 120) + "px";
+      ta.setSelectionRange(text.length, text.length);
+    });
+  }, []);
+
   // Layer availability follows what's been computed.
   const dataReady = { scores: rooms.length > 0, topology: !!activeTurn?.graph_data?.nodes?.length };
   const layerAvailable = (k) => LAYER_REQUIRES[k] == null || dataReady[LAYER_REQUIRES[k]];
@@ -178,7 +207,7 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
         </div>
       </TopBar>
 
-      <Capabilities open={capOpen} onClose={() => setCapOpen(false)} />
+      <Capabilities open={capOpen} onClose={() => setCapOpen(false)} onLaunch={launchCap} />
 
       <div className="lm-body">
 
@@ -214,6 +243,8 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
             <span className="lm-controls-sep" aria-hidden="true" />
             <button className="layer-pill" title="3D relationship galaxy"
               onClick={() => rooms.length ? setGalaxyOpen(true) : onSend("analyse the layout")}>galaxy ↗</button>
+            <button className={"layer-pill" + (bioLens ? " on" : "")} title="biophilic lens — talk green to me"
+              onClick={() => rooms.length ? setBioLens(b => !b) : onSend("talk green to me")}>{bioLens ? "green ✕" : "green ❧"}</button>
             <button className="layer-pill lm-report-cta" title={hasUncommitted
                 ? "open The Vision — shows your last committed checkpoint (commit to include new edits)"
                 : "open The Vision — renders, prompts & scores per room"}
@@ -237,24 +268,41 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
             </div>
           )}
 
+          {bioLens && (
+            <div className="lm-green-banner" style={{
+              position: "absolute", top: 44, left: "50%", transform: "translateX(-50%)", zIndex: 6,
+              fontFamily: "var(--font-mono)", fontSize: 12, padding: "4px 12px", borderRadius: 999,
+              background: "rgba(18,21,15,.9)", border: "1px solid rgba(124,179,66,.4)", color: "rgba(174,224,106,.95)",
+            }}>
+              ❧ green lens — what shapes nature here
+              <button className="layer-pill" style={{ marginLeft: 10 }} onClick={() => setBioLens(false)}>back to normal ✕</button>
+            </div>
+          )}
+
           <div className={"lm-viewer" + (activeRoom && rooms.length > 0 ? " has-focus" : "")}>
             <SensePlan ref={planRef} rooms={rooms} layoutId={layoutId} layoutVersion={layoutVersion} layers={layers}
               graphData={panelTurn?.graph_data} diffs={viewedTurn ? [] : (activeTurn?.layout_diffs || [])}
-              changedRooms={changedRooms} pulseKey={activeTurn?.id} />
+              changedRooms={changedRooms} pulseKey={activeTurn?.id}
+              bioLens={bioLens} onGreen={greenRoom} onLayout={setPlanLayout} />
 
-            {/* reading-aids legend — a horizontal strip in the top canvas band,
-                sharing the row with Expand All (card-less) */}
-            <Legend layers={layers} />
+            {/* reading-aids: hidden under the green lens, which simplifies the canvas */}
+            {!bioLens && <Legend layers={layers} />}
 
             {/* sense-coupling key plan + filter, bottom-left (card-less) */}
-            <div className="lm-corner-left">
-              <SenseKey rooms={rooms} />
-            </div>
+            {!bioLens && (
+              <div className="lm-corner-left">
+                <SenseKey rooms={rooms} />
+              </div>
+            )}
 
-            {/* focus card (right overlay, on room select — the plan reflows left for it) */}
+            {/* right overlay on room select — the green lens swaps in the biophilic
+                fingerprint; otherwise the comfort focus card. */}
             <AnimatePresence>
               {activeRoom && rooms.length > 0 && (
-                <FocusCard key="focus-card" turn={panelTurn} persona={persona} onClose={() => setActiveRoom(null)} onFix={send} />
+                bioLens
+                  ? <BiophilicCard key="bio-card" layout={planLayout} roomName={activeRoom}
+                      onClose={() => setActiveRoom(null)} onGreen={greenRoom} />
+                  : <FocusCard key="focus-card" turn={panelTurn} persona={persona} onClose={() => setActiveRoom(null)} onFix={send} />
               )}
             </AnimatePresence>
           </div>

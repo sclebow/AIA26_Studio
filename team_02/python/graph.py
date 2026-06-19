@@ -187,6 +187,7 @@ class AgentState(TypedDict, total=False):
     action:           str   # unified action: analyze|detect|full|overview|follow_up|
                             #   chitchat|inspire|edit|preview|topologic|biophilic|compare
     edit_ops:         list  # validated ops from edit_planner: [{op, room, ...params}, ...]
+    planner_note:     str   # 'planner_llm_error' when the planner fell back to keywords
     target_room_hint: str   # LLM-extracted room name from prompt
     material_hint:    str   # LLM-extracted material name from prompt
 
@@ -213,6 +214,10 @@ class AgentState(TypedDict, total=False):
     layout_diff:                  dict   # most-recent single edit (used by /api/report featured room + respond)
     layout_diffs:                 list   # ALL edits applied this turn (multi-edit) — one dict per change
     layout_updated:               bool   # True when layout JSON was mutated this turn
+    rejected_edits:               list   # ops the soundness gate / resolver dropped: [{op, reason, phrase}]
+    edit_notes:                   list   # surfaced assumptions (count cap, glazing default, material snap)
+    applied_suggestions:          list   # {roomName, sense} the user has fulfilled — crossed off the list
+    suggestions_sticky:           str    # last non-empty suggestions_json, carried across an edit re-score
     # Predictive preview ("what if") — scored on a CLONE, never committed.
     preview_scores_json:          str    # hypothetical scores; NOT the canonical cache
     preview_diff:                 dict   # the hypothetical edit's diff (last, back-compat)
@@ -596,6 +601,10 @@ def _build_initial_state(prompt: str, session: dict) -> "AgentState":
         "score_interpretation":  session.get("score_interpretation", ""),
         "conflict_reasoning":    session.get("conflict_reasoning", ""),
         "suggestion_critique":   session.get("suggestion_critique", ""),
+        # Suggestion lifecycle (persist across turns so apply_edits can cross off fulfilled
+        # suggestions even after an edit re-score cleared last_suggestions_json).
+        "applied_suggestions":   session.get("applied_suggestions", []),
+        "suggestions_sticky":    session.get("suggestions_sticky", ""),
 
         # Per-turn fields (reset each turn)
         "action":                 "",
@@ -707,6 +716,14 @@ def _finalize(final_state: "AgentState", session: dict, ctx: Any) -> tuple[str, 
         "preview_diff":           final_state.get("preview_diff", {}),
         "preview_diffs":          final_state.get("preview_diffs", []),
         "preview_summary":        final_state.get("preview_summary", ""),
+        # Edit feedback (per-turn): what the soundness gate dropped + surfaced assumptions.
+        "rejected_edits":         final_state.get("rejected_edits", []),
+        "edit_notes":             final_state.get("edit_notes", []),
+        # Suggestion lifecycle (PERSISTS across turns): fulfilled suggestions accumulate,
+        # and the last non-empty suggestions list is kept sticky so it survives an edit
+        # re-score (which clears last_suggestions_json) and can still be crossed off.
+        "applied_suggestions":    final_state.get("applied_suggestions") or session.get("applied_suggestions", []),
+        "suggestions_sticky":     final_state.get("last_suggestions_json") or session.get("suggestions_sticky", ""),
         "graph_data":             final_state.get("graph_data", {}),
         "biophilic_data":         final_state.get("biophilic_data", {}),
         "persona_comparison_data": final_state.get("persona_comparison_data", {}),

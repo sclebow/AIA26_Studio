@@ -15,3 +15,8 @@ python-dotenv         # loads ../.env
 fastapi
 uvicorn[standard]
 pydantic
+
+# ── Spatial soundness (edit-tool placement + geometry validation) ─────────────
+# Shapely powers sound placement of new windows / furniture (clear-span, buffer,
+# representative_point). Self-contained wheels — no system libgeos needed.
+shapely
