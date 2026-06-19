@@ -1,6 +1,6 @@
 {
   "layoutId": "Layout-203",
-  "name": "Family Villa \u2014 Multi-Sense Conflicts (Persona Comparison)",
+  "name": "Family Villa — Multi-Sense Conflicts (Persona Comparison)",
   "description": "A multi-generational family home with issues spread across all 6 senses. Designed for demonstrating full analysis, topologic adjacency, persona comparison (Elderly 65+ vs Young Active), and biophilic audit. The foyer lacks glazing, the children's room is undersized spatially, and the kitchen creates acoustic conflict for the adjacent bedrooms.",
   "outline": [
     [
@@ -320,11 +320,11 @@
       "name": "Foyer to Living",
       "geometry": [
         [
-          0.5,
+          0.45,
           6
         ],
         [
-          1.4,
+          1.45,
           6
         ]
       ],
@@ -426,11 +426,11 @@
       "geometry": [
         [
           2,
-          4.5
+          4.55
         ],
         [
           2,
-          5.4
+          5.35
         ]
       ],
       "attributes": {
@@ -446,11 +446,11 @@
       "name": "Living to Laundry",
       "geometry": [
         [
-          6,
+          6.05,
           4
         ],
         [
-          6.9,
+          6.85,
           4
         ]
       ],
@@ -632,24 +632,24 @@
       "name": "Living Sofa",
       "geometry": [
         [
-          1,
-          2
+          1.0,
+          2.2
         ],
         [
-          5,
-          2
+          3.6,
+          2.2
         ],
         [
-          5,
-          3.5
+          3.6,
+          3.1
         ],
         [
-          1,
-          3.5
+          1.0,
+          3.1
         ],
         [
-          1,
-          2
+          1.0,
+          2.2
         ]
       ],
       "attributes": {
@@ -664,23 +664,23 @@
       "geometry": [
         [
           5.5,
-          1
+          1.2
         ],
         [
-          8.5,
-          1
+          7.3,
+          1.2
         ],
         [
-          8.5,
-          3
-        ],
-        [
-          5.5,
-          3
+          7.3,
+          2.1
         ],
         [
           5.5,
-          1
+          2.1
+        ],
+        [
+          5.5,
+          1.2
         ]
       ],
       "attributes": {
@@ -691,27 +691,27 @@
     },
     {
       "id": "furn-3",
-      "name": "Living Room Plant 1",
+      "name": "Living Plant 1",
       "geometry": [
         [
-          1.2,
-          5
+          3.5,
+          0.3
         ],
         [
-          1.7,
-          5
+          4.0,
+          0.3
         ],
         [
-          1.7,
-          5.5
+          4.0,
+          0.8
         ],
         [
-          1.2,
-          5.5
+          3.5,
+          0.8
         ],
         [
-          1.2,
-          5
+          3.5,
+          0.3
         ]
       ],
       "attributes": {
@@ -722,26 +722,26 @@
     },
     {
       "id": "furn-4",
-      "name": "Living Room Plant 2",
+      "name": "Living Plant 2",
       "geometry": [
         [
-          0.5,
+          0.4,
           4.5
         ],
         [
-          1,
+          0.9,
           4.5
         ],
         [
-          1,
-          5
+          0.9,
+          5.0
         ],
         [
-          0.5,
-          5
+          0.4,
+          5.0
         ],
         [
-          0.5,
+          0.4,
           4.5
         ]
       ],
@@ -756,24 +756,24 @@
       "name": "Kitchen Island",
       "geometry": [
         [
-          10,
-          1
+          10.0,
+          1.0
         ],
         [
-          13,
-          1
+          11.8,
+          1.0
         ],
         [
-          13,
-          2.5
+          11.8,
+          1.9
         ],
         [
-          10,
-          2.5
+          10.0,
+          1.9
         ],
         [
-          10,
-          1
+          10.0,
+          1.0
         ]
       ],
       "attributes": {
@@ -787,24 +787,24 @@
       "name": "Kitchen Counter",
       "geometry": [
         [
-          9,
-          3
+          13.4,
+          0.5
         ],
         [
-          13.5,
-          3
+          14.0,
+          0.5
         ],
         [
-          13.5,
+          14.0,
           3.5
         ],
         [
-          9,
+          13.4,
           3.5
         ],
         [
-          9,
-          3
+          13.4,
+          0.5
         ]
       ],
       "attributes": {
@@ -815,27 +815,89 @@
     },
     {
       "id": "furn-7",
+      "name": "Kitchen Sink",
+      "geometry": [
+        [
+          9.2,
+          3.4
+        ],
+        [
+          9.8,
+          3.4
+        ],
+        [
+          9.8,
+          4.0
+        ],
+        [
+          9.2,
+          4.0
+        ],
+        [
+          9.2,
+          3.4
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-3",
+        "type": "sink",
+        "material": "metal"
+      }
+    },
+    {
+      "id": "furn-8",
+      "name": "Refrigerator",
+      "geometry": [
+        [
+          9.1,
+          0.1
+        ],
+        [
+          9.8,
+          0.1
+        ],
+        [
+          9.8,
+          0.8
+        ],
+        [
+          9.1,
+          0.8
+        ],
+        [
+          9.1,
+          0.1
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-3",
+        "type": "fridge",
+        "material": "metal"
+      }
+    },
+    {
+      "id": "furn-9",
       "name": "Master Bed",
       "geometry": [
         [
-          9.5,
-          5
+          10.2,
+          7.0
         ],
         [
-          12.5,
-          5
+          12.0,
+          7.0
         ],
         [
-          12.5,
-          7.5
+          12.0,
+          9.0
         ],
         [
-          9.5,
-          7.5
+          10.2,
+          9.0
         ],
         [
-          9.5,
-          5
+          10.2,
+          7.0
         ]
       ],
       "attributes": {
@@ -845,28 +907,90 @@
       }
     },
     {
-      "id": "furn-8",
+      "id": "furn-10",
+      "name": "Master Nightstand L",
+      "geometry": [
+        [
+          9.75,
+          8.55
+        ],
+        [
+          10.2,
+          8.55
+        ],
+        [
+          10.2,
+          8.95
+        ],
+        [
+          9.75,
+          8.95
+        ],
+        [
+          9.75,
+          8.55
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-4",
+        "type": "nightstand",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-11",
+      "name": "Master Nightstand R",
+      "geometry": [
+        [
+          12.0,
+          8.55
+        ],
+        [
+          12.45,
+          8.55
+        ],
+        [
+          12.45,
+          8.95
+        ],
+        [
+          12.0,
+          8.95
+        ],
+        [
+          12.0,
+          8.55
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-4",
+        "type": "nightstand",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-12",
       "name": "Master Wardrobe",
       "geometry": [
         [
-          13,
-          4.5
+          12.0,
+          4.0
         ],
         [
-          14,
-          4.5
+          14.0,
+          4.0
         ],
         [
-          14,
-          8
+          14.0,
+          4.6
         ],
         [
-          13,
-          8
+          12.0,
+          4.6
         ],
         [
-          13,
-          4.5
+          12.0,
+          4.0
         ]
       ],
       "attributes": {
@@ -876,28 +1000,28 @@
       }
     },
     {
-      "id": "furn-9",
+      "id": "furn-13",
       "name": "Master Plant",
       "geometry": [
         [
-          9.5,
-          8
+          9.3,
+          5.7
         ],
         [
-          10,
-          8
+          9.8,
+          5.7
         ],
         [
-          10,
-          8.5
+          9.8,
+          6.2
         ],
         [
-          9.5,
-          8.5
+          9.3,
+          6.2
         ],
         [
-          9.5,
-          8
+          9.3,
+          5.7
         ]
       ],
       "attributes": {
@@ -907,28 +1031,28 @@
       }
     },
     {
-      "id": "furn-10",
+      "id": "furn-14",
       "name": "Children's Bed",
       "geometry": [
         [
-          2.5,
-          6.5
+          2.7,
+          7.0
         ],
         [
-          5,
-          6.5
+          4.1,
+          7.0
         ],
         [
-          5,
-          8.5
+          4.1,
+          8.9
         ],
         [
-          2.5,
-          8.5
+          2.7,
+          8.9
         ],
         [
-          2.5,
-          6.5
+          2.7,
+          7.0
         ]
       ],
       "attributes": {
@@ -938,28 +1062,28 @@
       }
     },
     {
-      "id": "furn-11",
+      "id": "furn-15",
       "name": "Children's Desk",
       "geometry": [
         [
+          4.2,
+          6.0
+        ],
+        [
+          5.2,
+          6.0
+        ],
+        [
           5.2,
           6.5
         ],
         [
-          6,
+          4.2,
           6.5
         ],
         [
-          6,
-          7.5
-        ],
-        [
-          5.2,
-          7.5
-        ],
-        [
-          5.2,
-          6.5
+          4.2,
+          6.0
         ]
       ],
       "attributes": {
@@ -969,34 +1093,158 @@
       }
     },
     {
-      "id": "furn-12",
+      "id": "furn-16",
       "name": "Guest Bed",
       "geometry": [
         [
-          6.5,
-          6.5
+          7.0,
+          7.0
         ],
         [
           8.5,
-          6.5
+          7.0
         ],
         [
           8.5,
-          8.5
+          9.0
         ],
         [
-          6.5,
-          8.5
+          7.0,
+          9.0
         ],
         [
-          6.5,
-          6.5
+          7.0,
+          7.0
         ]
       ],
       "attributes": {
         "roomId": "room-6",
         "type": "bed",
         "material": "fabric"
+      }
+    },
+    {
+      "id": "furn-17",
+      "name": "Guest Nightstand",
+      "geometry": [
+        [
+          8.5,
+          8.55
+        ],
+        [
+          8.95,
+          8.55
+        ],
+        [
+          8.95,
+          8.95
+        ],
+        [
+          8.5,
+          8.95
+        ],
+        [
+          8.5,
+          8.55
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-6",
+        "type": "nightstand",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-18",
+      "name": "Toilet",
+      "geometry": [
+        [
+          2.7,
+          4.1
+        ],
+        [
+          3.1,
+          4.1
+        ],
+        [
+          3.1,
+          4.75
+        ],
+        [
+          2.7,
+          4.75
+        ],
+        [
+          2.7,
+          4.1
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-7",
+        "type": "toilet",
+        "material": "ceramic"
+      }
+    },
+    {
+      "id": "furn-19",
+      "name": "Vanity",
+      "geometry": [
+        [
+          3.3,
+          4.1
+        ],
+        [
+          4.0,
+          4.1
+        ],
+        [
+          4.0,
+          4.6
+        ],
+        [
+          3.3,
+          4.6
+        ],
+        [
+          3.3,
+          4.1
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-7",
+        "type": "vanity",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-20",
+      "name": "Shower",
+      "geometry": [
+        [
+          4.0,
+          5.0
+        ],
+        [
+          4.9,
+          5.0
+        ],
+        [
+          4.9,
+          5.9
+        ],
+        [
+          4.0,
+          5.9
+        ],
+        [
+          4.0,
+          5.0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-7",
+        "type": "shower",
+        "material": "ceramic"
       }
     }
   ],

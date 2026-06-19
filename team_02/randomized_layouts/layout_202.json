@@ -1,6 +1,6 @@
 {
   "layoutId": "Layout-202",
-  "name": "Studio Loft \u2014 Acoustic & Olfactory Conflicts",
+  "name": "Studio Loft — Acoustic & Olfactory Conflicts",
   "description": "A compact loft where the kitchen sits between the living area and bedroom, creating acoustic conflict in both. All mechanical ventilation, hard surfaces, zero plants. Perfect demo for: detect, full analysis, add_furniture (plants), biophilic audit, change_material (floor).",
   "outline": [
     [
@@ -228,11 +228,11 @@
       "name": "Living to Bedroom",
       "geometry": [
         [
-          2,
+          4.6,
           4
         ],
         [
-          2.9,
+          5.5,
           4
         ]
       ],
@@ -271,11 +271,11 @@
       "geometry": [
         [
           7,
-          5
+          5.05
         ],
         [
           7,
-          5.9
+          5.85
         ]
       ],
       "attributes": {
@@ -291,11 +291,11 @@
       "name": "Study to Bathroom",
       "geometry": [
         [
-          8,
+          8.05,
           6
         ],
         [
-          8.9,
+          8.85,
           6
         ]
       ],
@@ -396,23 +396,23 @@
       "name": "Dining Table",
       "geometry": [
         [
-          0.5,
+          0.6,
           0.5
         ],
         [
-          3.5,
+          2.0,
           0.5
         ],
         [
-          3.5,
-          2
+          2.0,
+          1.3
         ],
         [
-          0.5,
-          2
+          0.6,
+          1.3
         ],
         [
-          0.5,
+          0.6,
           0.5
         ]
       ],
@@ -427,24 +427,24 @@
       "name": "Sofa",
       "geometry": [
         [
-          0.5,
-          2.5
+          0.6,
+          2.4
         ],
         [
-          4.5,
-          2.5
+          2.8,
+          2.4
         ],
         [
-          4.5,
-          3.5
+          2.8,
+          3.3
         ],
         [
-          0.5,
-          3.5
+          0.6,
+          3.3
         ],
         [
-          0.5,
-          2.5
+          0.6,
+          2.4
         ]
       ],
       "attributes": {
@@ -458,24 +458,24 @@
       "name": "Kitchen Counter",
       "geometry": [
         [
-          6,
-          0
+          6.1,
+          0.0
         ],
         [
-          10,
-          0
+          9.4,
+          0.0
         ],
         [
-          10,
-          0.8
+          9.4,
+          0.6
         ],
         [
-          6,
-          0.8
+          6.1,
+          0.6
         ],
         [
-          6,
-          0
+          6.1,
+          0.0
         ]
       ],
       "attributes": {
@@ -486,27 +486,58 @@
     },
     {
       "id": "furn-4",
+      "name": "Kitchen Sink",
+      "geometry": [
+        [
+          9.4,
+          0.0
+        ],
+        [
+          10.0,
+          0.0
+        ],
+        [
+          10.0,
+          0.6
+        ],
+        [
+          9.4,
+          0.6
+        ],
+        [
+          9.4,
+          0.0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-2",
+        "type": "sink",
+        "material": "metal"
+      }
+    },
+    {
+      "id": "furn-5",
       "name": "Kitchen Island",
       "geometry": [
         [
-          6.5,
-          1.5
+          6.6,
+          1.6
         ],
         [
-          9.5,
-          1.5
+          8.2,
+          1.6
         ],
         [
-          9.5,
-          2.8
+          8.2,
+          2.5
         ],
         [
-          6.5,
-          2.8
+          6.6,
+          2.5
         ],
         [
-          6.5,
-          1.5
+          6.6,
+          1.6
         ]
       ],
       "attributes": {
@@ -516,28 +547,59 @@
       }
     },
     {
-      "id": "furn-5",
+      "id": "furn-6",
+      "name": "Refrigerator",
+      "geometry": [
+        [
+          9.3,
+          1.5
+        ],
+        [
+          10.0,
+          1.5
+        ],
+        [
+          10.0,
+          2.2
+        ],
+        [
+          9.3,
+          2.2
+        ],
+        [
+          9.3,
+          1.5
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-2",
+        "type": "fridge",
+        "material": "metal"
+      }
+    },
+    {
+      "id": "furn-7",
       "name": "Bed",
       "geometry": [
         [
           0.5,
-          4.5
+          5.0
         ],
         [
-          3.5,
-          4.5
+          2.0,
+          5.0
         ],
         [
-          3.5,
-          6.5
-        ],
-        [
-          0.5,
-          6.5
+          2.0,
+          7.0
         ],
         [
           0.5,
-          4.5
+          7.0
+        ],
+        [
+          0.5,
+          5.0
         ]
       ],
       "attributes": {
@@ -547,59 +609,90 @@
       }
     },
     {
-      "id": "furn-6",
+      "id": "furn-8",
       "name": "Bedside Table",
       "geometry": [
         [
-          3.5,
-          4.5
+          2.0,
+          6.55
         ],
         [
-          4.5,
-          4.5
+          2.45,
+          6.55
         ],
         [
-          4.5,
-          5.5
+          2.45,
+          6.95
         ],
         [
-          3.5,
-          5.5
+          2.0,
+          6.95
         ],
         [
-          3.5,
-          4.5
+          2.0,
+          6.55
         ]
       ],
       "attributes": {
         "roomId": "room-3",
-        "type": "table",
+        "type": "nightstand",
         "material": "metal"
       }
     },
     {
-      "id": "furn-7",
+      "id": "furn-9",
+      "name": "Wardrobe",
+      "geometry": [
+        [
+          3.0,
+          4.0
+        ],
+        [
+          4.6,
+          4.0
+        ],
+        [
+          4.6,
+          4.6
+        ],
+        [
+          3.0,
+          4.6
+        ],
+        [
+          3.0,
+          4.0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-3",
+        "type": "dresser",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-10",
       "name": "Study Desk",
       "geometry": [
         [
-          7.5,
-          4.5
+          7.4,
+          4.0
         ],
         [
-          9.5,
-          4.5
+          8.6,
+          4.0
         ],
         [
-          9.5,
-          5.3
+          8.6,
+          4.6
         ],
         [
-          7.5,
-          5.3
+          7.4,
+          4.6
         ],
         [
-          7.5,
-          4.5
+          7.4,
+          4.0
         ]
       ],
       "attributes": {
@@ -609,34 +702,96 @@
       }
     },
     {
-      "id": "furn-8",
+      "id": "furn-11",
       "name": "Bookshelf",
       "geometry": [
         [
-          7.5,
-          5.5
+          7.0,
+          4.05
         ],
         [
-          9,
-          5.5
+          7.3,
+          4.05
         ],
         [
-          9,
-          6
+          7.3,
+          4.95
         ],
         [
-          7.5,
-          6
+          7.0,
+          4.95
         ],
         [
-          7.5,
-          5.5
+          7.0,
+          4.05
         ]
       ],
       "attributes": {
         "roomId": "room-4",
         "type": "bookshelf",
         "material": "metal"
+      }
+    },
+    {
+      "id": "furn-12",
+      "name": "Toilet",
+      "geometry": [
+        [
+          7.15,
+          6.25
+        ],
+        [
+          7.55,
+          6.25
+        ],
+        [
+          7.55,
+          6.9
+        ],
+        [
+          7.15,
+          6.9
+        ],
+        [
+          7.15,
+          6.25
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-5",
+        "type": "toilet",
+        "material": "ceramic"
+      }
+    },
+    {
+      "id": "furn-13",
+      "name": "Sink",
+      "geometry": [
+        [
+          9.3,
+          6.3
+        ],
+        [
+          9.8,
+          6.3
+        ],
+        [
+          9.8,
+          6.75
+        ],
+        [
+          9.3,
+          6.75
+        ],
+        [
+          9.3,
+          6.3
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-5",
+        "type": "sink",
+        "material": "ceramic"
       }
     }
   ],

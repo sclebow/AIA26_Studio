@@ -2,88 +2,2115 @@
   "layoutId": "Layout-204",
   "name": "Garden House — Multi-Zone Flanking",
   "description": "A single-storey 13-room family home, zoned like an architect would: a south-facing day/service band (Living → Dining → Kitchen → Pantry/Powder — the noisy + wet zone) and a cool, quiet north band of bedrooms, study, ensuite and family bath, joined by a central hallway spine. Bedrooms are buffered north, but a deliberate Kitchen→Hallway door lets kitchen noise and odour flank through the spine toward the private rooms, and the windowless interior Study sits right off the hallway — rich transmissive conflicts (acoustic / olfactory / thermal) across many adjacencies, plus a strong circulation hub for topology.",
-  "outline": [[0,0],[16,0],[16,11],[0,11],[0,0]],
+  "outline": [
+    [
+      0,
+      0
+    ],
+    [
+      16,
+      0
+    ],
+    [
+      16,
+      11
+    ],
+    [
+      0,
+      11
+    ],
+    [
+      0,
+      0
+    ]
+  ],
   "rooms": [
-    { "id": "room-1", "name": "Living Room", "geometry": [[0,0],[6,0],[6,5],[0,5],[0,0]],
-      "attributes": { "area": 30.0, "roomType": "living", "height": 3.0, "orientation": "S", "glazingRatio": 0.32, "ventilationType": "natural", "floorMaterial": "wood" } },
-    { "id": "room-2", "name": "Dining Room", "geometry": [[6,0],[9.5,0],[9.5,5],[6,5],[6,0]],
-      "attributes": { "area": 17.5, "roomType": "dining", "height": 3.0, "orientation": "S", "glazingRatio": 0.22, "ventilationType": "natural", "floorMaterial": "wood" } },
-    { "id": "room-3", "name": "Kitchen", "geometry": [[9.5,0],[13,0],[13,5],[9.5,5],[9.5,0]],
-      "attributes": { "area": 17.5, "roomType": "kitchen", "height": 2.8, "orientation": "S", "glazingRatio": 0.10, "ventilationType": "mechanical", "floorMaterial": "ceramic" } },
-    { "id": "room-4", "name": "Pantry", "geometry": [[13,0],[16,0],[16,2.5],[13,2.5],[13,0]],
-      "attributes": { "area": 7.5, "roomType": "circulation", "height": 2.8, "orientation": "E", "glazingRatio": 0.0, "ventilationType": "mechanical", "floorMaterial": "ceramic" } },
-    { "id": "room-5", "name": "Powder Room", "geometry": [[13,2.5],[16,2.5],[16,5],[13,5],[13,2.5]],
-      "attributes": { "area": 7.5, "roomType": "bathroom", "height": 2.8, "orientation": "E", "glazingRatio": 0.0, "ventilationType": "mechanical", "floorMaterial": "ceramic" } },
-    { "id": "room-6", "name": "Hallway", "geometry": [[0,5],[16,5],[16,6],[0,6],[0,5]],
-      "attributes": { "area": 16.0, "roomType": "circulation", "height": 2.8, "orientation": "N", "glazingRatio": 0.0, "ventilationType": "mechanical", "floorMaterial": "wood" } },
-    { "id": "room-7", "name": "Master Bedroom", "geometry": [[0,6],[5,6],[5,11],[0,11],[0,6]],
-      "attributes": { "area": 25.0, "roomType": "bedroom", "height": 2.8, "orientation": "N", "glazingRatio": 0.16, "ventilationType": "natural", "floorMaterial": "carpet" } },
-    { "id": "room-8", "name": "Master Ensuite", "geometry": [[5,8],[7,8],[7,11],[5,11],[5,8]],
-      "attributes": { "area": 6.0, "roomType": "bathroom", "height": 2.8, "orientation": "N", "glazingRatio": 0.0, "ventilationType": "mechanical", "floorMaterial": "ceramic" } },
-    { "id": "room-9", "name": "Study", "geometry": [[5,6],[7,6],[7,8],[5,8],[5,6]],
-      "attributes": { "area": 4.0, "roomType": "office", "height": 2.8, "orientation": "N", "glazingRatio": 0.0, "ventilationType": "mechanical", "floorMaterial": "wood" } },
-    { "id": "room-10", "name": "Bedroom 2", "geometry": [[7,6],[11,6],[11,11],[7,11],[7,6]],
-      "attributes": { "area": 20.0, "roomType": "bedroom", "height": 2.8, "orientation": "N", "glazingRatio": 0.20, "ventilationType": "natural", "floorMaterial": "wood" } },
-    { "id": "room-11", "name": "Family Bathroom", "geometry": [[11,6],[13,6],[13,8.5],[11,8.5],[11,6]],
-      "attributes": { "area": 5.0, "roomType": "bathroom", "height": 2.8, "orientation": "N", "glazingRatio": 0.05, "ventilationType": "mechanical", "floorMaterial": "ceramic" } },
-    { "id": "room-12", "name": "Linen Store", "geometry": [[11,8.5],[13,8.5],[13,11],[11,11],[11,8.5]],
-      "attributes": { "area": 5.0, "roomType": "circulation", "height": 2.8, "orientation": "N", "glazingRatio": 0.0, "ventilationType": "mechanical", "floorMaterial": "wood" } },
-    { "id": "room-13", "name": "Bedroom 3", "geometry": [[13,6],[16,6],[16,11],[13,11],[13,6]],
-      "attributes": { "area": 15.0, "roomType": "bedroom", "height": 2.8, "orientation": "E", "glazingRatio": 0.12, "ventilationType": "natural", "floorMaterial": "carpet" } }
+    {
+      "id": "room-1",
+      "name": "Living Room",
+      "geometry": [
+        [
+          0,
+          0
+        ],
+        [
+          6,
+          0
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          0,
+          5
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "attributes": {
+        "area": 30.0,
+        "roomType": "living",
+        "height": 3.0,
+        "orientation": "S",
+        "glazingRatio": 0.32,
+        "ventilationType": "natural",
+        "floorMaterial": "wood"
+      }
+    },
+    {
+      "id": "room-2",
+      "name": "Dining Room",
+      "geometry": [
+        [
+          6,
+          0
+        ],
+        [
+          9.5,
+          0
+        ],
+        [
+          9.5,
+          5
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          6,
+          0
+        ]
+      ],
+      "attributes": {
+        "area": 17.5,
+        "roomType": "dining",
+        "height": 3.0,
+        "orientation": "S",
+        "glazingRatio": 0.22,
+        "ventilationType": "natural",
+        "floorMaterial": "wood"
+      }
+    },
+    {
+      "id": "room-3",
+      "name": "Kitchen",
+      "geometry": [
+        [
+          9.5,
+          0
+        ],
+        [
+          13,
+          0
+        ],
+        [
+          13,
+          5
+        ],
+        [
+          9.5,
+          5
+        ],
+        [
+          9.5,
+          0
+        ]
+      ],
+      "attributes": {
+        "area": 17.5,
+        "roomType": "kitchen",
+        "height": 2.8,
+        "orientation": "S",
+        "glazingRatio": 0.1,
+        "ventilationType": "mechanical",
+        "floorMaterial": "ceramic"
+      }
+    },
+    {
+      "id": "room-4",
+      "name": "Pantry",
+      "geometry": [
+        [
+          13,
+          0
+        ],
+        [
+          16,
+          0
+        ],
+        [
+          16,
+          2.5
+        ],
+        [
+          13,
+          2.5
+        ],
+        [
+          13,
+          0
+        ]
+      ],
+      "attributes": {
+        "area": 7.5,
+        "roomType": "circulation",
+        "height": 2.8,
+        "orientation": "E",
+        "glazingRatio": 0.0,
+        "ventilationType": "mechanical",
+        "floorMaterial": "ceramic"
+      }
+    },
+    {
+      "id": "room-5",
+      "name": "Powder Room",
+      "geometry": [
+        [
+          13,
+          2.5
+        ],
+        [
+          16,
+          2.5
+        ],
+        [
+          16,
+          5
+        ],
+        [
+          13,
+          5
+        ],
+        [
+          13,
+          2.5
+        ]
+      ],
+      "attributes": {
+        "area": 7.5,
+        "roomType": "bathroom",
+        "height": 2.8,
+        "orientation": "E",
+        "glazingRatio": 0.0,
+        "ventilationType": "mechanical",
+        "floorMaterial": "ceramic"
+      }
+    },
+    {
+      "id": "room-6",
+      "name": "Hallway",
+      "geometry": [
+        [
+          0,
+          5
+        ],
+        [
+          16,
+          5
+        ],
+        [
+          16,
+          6
+        ],
+        [
+          0,
+          6
+        ],
+        [
+          0,
+          5
+        ]
+      ],
+      "attributes": {
+        "area": 16.0,
+        "roomType": "circulation",
+        "height": 2.8,
+        "orientation": "N",
+        "glazingRatio": 0.0,
+        "ventilationType": "mechanical",
+        "floorMaterial": "wood"
+      }
+    },
+    {
+      "id": "room-7",
+      "name": "Master Bedroom",
+      "geometry": [
+        [
+          0,
+          6
+        ],
+        [
+          5,
+          6
+        ],
+        [
+          5,
+          11
+        ],
+        [
+          0,
+          11
+        ],
+        [
+          0,
+          6
+        ]
+      ],
+      "attributes": {
+        "area": 25.0,
+        "roomType": "bedroom",
+        "height": 2.8,
+        "orientation": "N",
+        "glazingRatio": 0.16,
+        "ventilationType": "natural",
+        "floorMaterial": "carpet"
+      }
+    },
+    {
+      "id": "room-8",
+      "name": "Master Ensuite",
+      "geometry": [
+        [
+          5,
+          8
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          7,
+          11
+        ],
+        [
+          5,
+          11
+        ],
+        [
+          5,
+          8
+        ]
+      ],
+      "attributes": {
+        "area": 6.0,
+        "roomType": "bathroom",
+        "height": 2.8,
+        "orientation": "N",
+        "glazingRatio": 0.0,
+        "ventilationType": "mechanical",
+        "floorMaterial": "ceramic"
+      }
+    },
+    {
+      "id": "room-9",
+      "name": "Study",
+      "geometry": [
+        [
+          5,
+          6
+        ],
+        [
+          7,
+          6
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          5,
+          8
+        ],
+        [
+          5,
+          6
+        ]
+      ],
+      "attributes": {
+        "area": 4.0,
+        "roomType": "office",
+        "height": 2.8,
+        "orientation": "N",
+        "glazingRatio": 0.0,
+        "ventilationType": "mechanical",
+        "floorMaterial": "wood"
+      }
+    },
+    {
+      "id": "room-10",
+      "name": "Bedroom 2",
+      "geometry": [
+        [
+          7,
+          6
+        ],
+        [
+          11,
+          6
+        ],
+        [
+          11,
+          11
+        ],
+        [
+          7,
+          11
+        ],
+        [
+          7,
+          6
+        ]
+      ],
+      "attributes": {
+        "area": 20.0,
+        "roomType": "bedroom",
+        "height": 2.8,
+        "orientation": "N",
+        "glazingRatio": 0.2,
+        "ventilationType": "natural",
+        "floorMaterial": "wood"
+      }
+    },
+    {
+      "id": "room-11",
+      "name": "Family Bathroom",
+      "geometry": [
+        [
+          11,
+          6
+        ],
+        [
+          13,
+          6
+        ],
+        [
+          13,
+          8.5
+        ],
+        [
+          11,
+          8.5
+        ],
+        [
+          11,
+          6
+        ]
+      ],
+      "attributes": {
+        "area": 5.0,
+        "roomType": "bathroom",
+        "height": 2.8,
+        "orientation": "N",
+        "glazingRatio": 0.05,
+        "ventilationType": "mechanical",
+        "floorMaterial": "ceramic"
+      }
+    },
+    {
+      "id": "room-12",
+      "name": "Linen Store",
+      "geometry": [
+        [
+          11,
+          8.5
+        ],
+        [
+          13,
+          8.5
+        ],
+        [
+          13,
+          11
+        ],
+        [
+          11,
+          11
+        ],
+        [
+          11,
+          8.5
+        ]
+      ],
+      "attributes": {
+        "area": 5.0,
+        "roomType": "circulation",
+        "height": 2.8,
+        "orientation": "N",
+        "glazingRatio": 0.0,
+        "ventilationType": "mechanical",
+        "floorMaterial": "wood"
+      }
+    },
+    {
+      "id": "room-13",
+      "name": "Bedroom 3",
+      "geometry": [
+        [
+          13,
+          6
+        ],
+        [
+          16,
+          6
+        ],
+        [
+          16,
+          11
+        ],
+        [
+          13,
+          11
+        ],
+        [
+          13,
+          6
+        ]
+      ],
+      "attributes": {
+        "area": 15.0,
+        "roomType": "bedroom",
+        "height": 2.8,
+        "orientation": "E",
+        "glazingRatio": 0.12,
+        "ventilationType": "natural",
+        "floorMaterial": "carpet"
+      }
+    }
   ],
   "doors": [
-    { "id": "door-1",  "name": "Living to Hallway",      "geometry": [[3,5],[3.9,5]],      "attributes": { "connectsRooms": ["room-1","room-6"],  "width": 0.9 } },
-    { "id": "door-2",  "name": "Dining to Hallway",      "geometry": [[7.5,5],[8.4,5]],    "attributes": { "connectsRooms": ["room-2","room-6"],  "width": 0.9 } },
-    { "id": "door-3",  "name": "Living to Dining",       "geometry": [[6,2],[6,2.9]],      "attributes": { "connectsRooms": ["room-1","room-2"],  "width": 1.4 } },
-    { "id": "door-4",  "name": "Dining to Kitchen",      "geometry": [[9.5,2],[9.5,2.9]],  "attributes": { "connectsRooms": ["room-2","room-3"],  "width": 1.1 } },
-    { "id": "door-5",  "name": "Kitchen to Pantry",      "geometry": [[13,1],[13,1.9]],    "attributes": { "connectsRooms": ["room-3","room-4"],  "width": 0.8 } },
-    { "id": "door-6",  "name": "Kitchen to Hallway",     "geometry": [[11,5],[11.9,5]],    "attributes": { "connectsRooms": ["room-3","room-6"],  "width": 0.9 } },
-    { "id": "door-7",  "name": "Powder to Hallway",      "geometry": [[14,5],[14.9,5]],    "attributes": { "connectsRooms": ["room-5","room-6"],  "width": 0.8 } },
-    { "id": "door-8",  "name": "Master to Hallway",      "geometry": [[2,6],[2.9,6]],      "attributes": { "connectsRooms": ["room-7","room-6"],  "width": 0.9 } },
-    { "id": "door-9",  "name": "Master to Ensuite",      "geometry": [[5,9],[5,9.9]],      "attributes": { "connectsRooms": ["room-7","room-8"],  "width": 0.8 } },
-    { "id": "door-10", "name": "Study to Hallway",       "geometry": [[6,6],[6.9,6]],      "attributes": { "connectsRooms": ["room-9","room-6"],  "width": 0.8 } },
-    { "id": "door-11", "name": "Bedroom 2 to Hallway",   "geometry": [[8.5,6],[9.4,6]],    "attributes": { "connectsRooms": ["room-10","room-6"], "width": 0.9 } },
-    { "id": "door-12", "name": "Family Bath to Hallway", "geometry": [[11.5,6],[12.4,6]],  "attributes": { "connectsRooms": ["room-11","room-6"], "width": 0.8 } },
-    { "id": "door-13", "name": "Bedroom 3 to Hallway",   "geometry": [[14,6],[14.9,6]],    "attributes": { "connectsRooms": ["room-13","room-6"], "width": 0.9 } },
-    { "id": "door-14", "name": "Bedroom 2 to Linen",     "geometry": [[11,9.2],[11,10.1]], "attributes": { "connectsRooms": ["room-10","room-12"],"width": 0.7 } }
+    {
+      "id": "door-1",
+      "name": "Living to Hallway",
+      "geometry": [
+        [
+          3,
+          5
+        ],
+        [
+          3.9,
+          5
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-1",
+          "room-6"
+        ],
+        "width": 0.9
+      }
+    },
+    {
+      "id": "door-2",
+      "name": "Dining to Hallway",
+      "geometry": [
+        [
+          7.5,
+          5
+        ],
+        [
+          8.4,
+          5
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-2",
+          "room-6"
+        ],
+        "width": 0.9
+      }
+    },
+    {
+      "id": "door-3",
+      "name": "Living to Dining",
+      "geometry": [
+        [
+          6,
+          1.75
+        ],
+        [
+          6,
+          3.15
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-1",
+          "room-2"
+        ],
+        "width": 1.4
+      }
+    },
+    {
+      "id": "door-4",
+      "name": "Dining to Kitchen",
+      "geometry": [
+        [
+          9.5,
+          1.9
+        ],
+        [
+          9.5,
+          3.0
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-2",
+          "room-3"
+        ],
+        "width": 1.1
+      }
+    },
+    {
+      "id": "door-5",
+      "name": "Kitchen to Pantry",
+      "geometry": [
+        [
+          13,
+          1.05
+        ],
+        [
+          13,
+          1.85
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-3",
+          "room-4"
+        ],
+        "width": 0.8
+      }
+    },
+    {
+      "id": "door-6",
+      "name": "Kitchen to Hallway",
+      "geometry": [
+        [
+          11,
+          5
+        ],
+        [
+          11.9,
+          5
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-3",
+          "room-6"
+        ],
+        "width": 0.9
+      }
+    },
+    {
+      "id": "door-7",
+      "name": "Powder to Hallway",
+      "geometry": [
+        [
+          14.05,
+          5
+        ],
+        [
+          14.85,
+          5
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-5",
+          "room-6"
+        ],
+        "width": 0.8
+      }
+    },
+    {
+      "id": "door-8",
+      "name": "Master to Hallway",
+      "geometry": [
+        [
+          2,
+          6
+        ],
+        [
+          2.9,
+          6
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-7",
+          "room-6"
+        ],
+        "width": 0.9
+      }
+    },
+    {
+      "id": "door-9",
+      "name": "Master to Ensuite",
+      "geometry": [
+        [
+          5,
+          9.05
+        ],
+        [
+          5,
+          9.85
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-7",
+          "room-8"
+        ],
+        "width": 0.8
+      }
+    },
+    {
+      "id": "door-10",
+      "name": "Study to Hallway",
+      "geometry": [
+        [
+          6.05,
+          6
+        ],
+        [
+          6.85,
+          6
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-9",
+          "room-6"
+        ],
+        "width": 0.8
+      }
+    },
+    {
+      "id": "door-11",
+      "name": "Bedroom 2 to Hallway",
+      "geometry": [
+        [
+          8.5,
+          6
+        ],
+        [
+          9.4,
+          6
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-10",
+          "room-6"
+        ],
+        "width": 0.9
+      }
+    },
+    {
+      "id": "door-12",
+      "name": "Family Bath to Hallway",
+      "geometry": [
+        [
+          11.55,
+          6
+        ],
+        [
+          12.35,
+          6
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-11",
+          "room-6"
+        ],
+        "width": 0.8
+      }
+    },
+    {
+      "id": "door-13",
+      "name": "Bedroom 3 to Hallway",
+      "geometry": [
+        [
+          14,
+          6
+        ],
+        [
+          14.9,
+          6
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-13",
+          "room-6"
+        ],
+        "width": 0.9
+      }
+    },
+    {
+      "id": "door-14",
+      "name": "Bedroom 2 to Linen",
+      "geometry": [
+        [
+          11,
+          9.3
+        ],
+        [
+          11,
+          10.0
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-10",
+          "room-12"
+        ],
+        "width": 0.7
+      }
+    }
   ],
   "windows": [
-    { "id": "window-1",  "name": "Living South Window",   "geometry": [[1,0],[3,0]],     "attributes": { "roomId": "room-1",  "area": 3.0, "orientation": "S", "glazingType": "double" } },
-    { "id": "window-2",  "name": "Living West Window",    "geometry": [[0,2],[0,4]],     "attributes": { "roomId": "room-1",  "area": 2.5, "orientation": "W", "glazingType": "double" } },
-    { "id": "window-3",  "name": "Dining South Window",   "geometry": [[7,0],[8.5,0]],   "attributes": { "roomId": "room-2",  "area": 2.5, "orientation": "S", "glazingType": "double" } },
-    { "id": "window-4",  "name": "Kitchen South Window",  "geometry": [[10.5,0],[12,0]], "attributes": { "roomId": "room-3",  "area": 1.5, "orientation": "S", "glazingType": "single" } },
-    { "id": "window-5",  "name": "Powder East Window",    "geometry": [[16,3.3],[16,4]], "attributes": { "roomId": "room-5",  "area": 0.7, "orientation": "E", "glazingType": "single" } },
-    { "id": "window-6",  "name": "Master North Window",   "geometry": [[1,11],[3.5,11]], "attributes": { "roomId": "room-7",  "area": 2.5, "orientation": "N", "glazingType": "double" } },
-    { "id": "window-7",  "name": "Master West Window",    "geometry": [[0,7],[0,9]],     "attributes": { "roomId": "room-7",  "area": 2.0, "orientation": "W", "glazingType": "double" } },
-    { "id": "window-8",  "name": "Bedroom 2 North Window","geometry": [[8,11],[10,11]],  "attributes": { "roomId": "room-10", "area": 2.5, "orientation": "N", "glazingType": "double" } },
-    { "id": "window-9",  "name": "Bedroom 3 East Window", "geometry": [[16,7],[16,9.5]], "attributes": { "roomId": "room-13", "area": 2.0, "orientation": "E", "glazingType": "double" } },
-    { "id": "window-10", "name": "Bedroom 3 North Window","geometry": [[14,11],[15.5,11]],"attributes": { "roomId": "room-13", "area": 1.5, "orientation": "N", "glazingType": "triple" } }
+    {
+      "id": "window-1",
+      "name": "Living South Window",
+      "geometry": [
+        [
+          1,
+          0
+        ],
+        [
+          3,
+          0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-1",
+        "area": 3.0,
+        "orientation": "S",
+        "glazingType": "double"
+      }
+    },
+    {
+      "id": "window-2",
+      "name": "Living West Window",
+      "geometry": [
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          4
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-1",
+        "area": 2.5,
+        "orientation": "W",
+        "glazingType": "double"
+      }
+    },
+    {
+      "id": "window-3",
+      "name": "Dining South Window",
+      "geometry": [
+        [
+          7,
+          0
+        ],
+        [
+          8.5,
+          0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-2",
+        "area": 2.5,
+        "orientation": "S",
+        "glazingType": "double"
+      }
+    },
+    {
+      "id": "window-4",
+      "name": "Kitchen South Window",
+      "geometry": [
+        [
+          10.5,
+          0
+        ],
+        [
+          12,
+          0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-3",
+        "area": 1.5,
+        "orientation": "S",
+        "glazingType": "single"
+      }
+    },
+    {
+      "id": "window-5",
+      "name": "Powder East Window",
+      "geometry": [
+        [
+          16,
+          3.3
+        ],
+        [
+          16,
+          4
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-5",
+        "area": 0.7,
+        "orientation": "E",
+        "glazingType": "single"
+      }
+    },
+    {
+      "id": "window-6",
+      "name": "Master North Window",
+      "geometry": [
+        [
+          1,
+          11
+        ],
+        [
+          3.5,
+          11
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-7",
+        "area": 2.5,
+        "orientation": "N",
+        "glazingType": "double"
+      }
+    },
+    {
+      "id": "window-7",
+      "name": "Master West Window",
+      "geometry": [
+        [
+          0,
+          7
+        ],
+        [
+          0,
+          9
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-7",
+        "area": 2.0,
+        "orientation": "W",
+        "glazingType": "double"
+      }
+    },
+    {
+      "id": "window-8",
+      "name": "Bedroom 2 North Window",
+      "geometry": [
+        [
+          8,
+          11
+        ],
+        [
+          10,
+          11
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-10",
+        "area": 2.5,
+        "orientation": "N",
+        "glazingType": "double"
+      }
+    },
+    {
+      "id": "window-9",
+      "name": "Bedroom 3 East Window",
+      "geometry": [
+        [
+          16,
+          7
+        ],
+        [
+          16,
+          9.5
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-13",
+        "area": 2.0,
+        "orientation": "E",
+        "glazingType": "double"
+      }
+    },
+    {
+      "id": "window-10",
+      "name": "Bedroom 3 North Window",
+      "geometry": [
+        [
+          14,
+          11
+        ],
+        [
+          15.5,
+          11
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-13",
+        "area": 1.5,
+        "orientation": "N",
+        "glazingType": "triple"
+      }
+    }
   ],
   "furniture": [
-    { "id": "furn-1",  "name": "Living Sofa",     "geometry": [[1,1],[4,1],[4,2.5],[1,2.5],[1,1]],            "attributes": { "roomId": "room-1",  "type": "sofa",    "material": "fabric" } },
-    { "id": "furn-2",  "name": "Coffee Table",    "geometry": [[2,3],[3.5,3],[3.5,4],[2,4],[2,3]],            "attributes": { "roomId": "room-1",  "type": "table",   "material": "wood" } },
-    { "id": "furn-3",  "name": "Living Plant",    "geometry": [[5,3.8],[5.6,3.8],[5.6,4.4],[5,4.4],[5,3.8]],  "attributes": { "roomId": "room-1",  "type": "plant",   "material": "natural" } },
-    { "id": "furn-4",  "name": "Dining Table",    "geometry": [[6.7,1.5],[8.8,1.5],[8.8,3.5],[6.7,3.5],[6.7,1.5]], "attributes": { "roomId": "room-2", "type": "table", "material": "wood" } },
-    { "id": "furn-5",  "name": "Kitchen Island",  "geometry": [[10,1],[12.5,1],[12.5,2.3],[10,2.3],[10,1]],   "attributes": { "roomId": "room-3",  "type": "island",  "material": "stone" } },
-    { "id": "furn-6",  "name": "Kitchen Counter", "geometry": [[9.7,3.4],[12.8,3.4],[12.8,4],[9.7,4],[9.7,3.4]], "attributes": { "roomId": "room-3", "type": "counter", "material": "ceramic" } },
-    { "id": "furn-7",  "name": "Master Bed",      "geometry": [[0.5,6.5],[3.5,6.5],[3.5,8.5],[0.5,8.5],[0.5,6.5]], "attributes": { "roomId": "room-7", "type": "bed", "material": "fabric" } },
-    { "id": "furn-8",  "name": "Master Wardrobe", "geometry": [[4,6.3],[4.9,6.3],[4.9,9.5],[4,9.5],[4,6.3]],  "attributes": { "roomId": "room-7",  "type": "dresser", "material": "wood" } },
-    { "id": "furn-9",  "name": "Study Desk",      "geometry": [[5.3,6.3],[6.7,6.3],[6.7,7],[5.3,7],[5.3,6.3]], "attributes": { "roomId": "room-9", "type": "desk", "material": "wood" } },
-    { "id": "furn-10", "name": "Bedroom 2 Bed",   "geometry": [[7.5,6.5],[10.5,6.5],[10.5,8.5],[7.5,8.5],[7.5,6.5]], "attributes": { "roomId": "room-10", "type": "bed", "material": "fabric" } },
-    { "id": "furn-11", "name": "Bedroom 2 Desk",  "geometry": [[7.5,9.5],[9,9.5],[9,10.5],[7.5,10.5],[7.5,9.5]], "attributes": { "roomId": "room-10", "type": "desk", "material": "wood" } },
-    { "id": "furn-12", "name": "Bedroom 3 Bed",   "geometry": [[13.5,6.5],[15.5,6.5],[15.5,9],[13.5,9],[13.5,6.5]], "attributes": { "roomId": "room-13", "type": "bed", "material": "fabric" } },
-    { "id": "furn-13", "name": "Hallway Plant",   "geometry": [[0.4,5.3],[1,5.3],[1,5.8],[0.4,5.8],[0.4,5.3]], "attributes": { "roomId": "room-6", "type": "plant", "material": "natural" } }
+    {
+      "id": "furn-1",
+      "name": "Living Sofa",
+      "geometry": [
+        [
+          0.8,
+          0.4
+        ],
+        [
+          3.4,
+          0.4
+        ],
+        [
+          3.4,
+          1.3
+        ],
+        [
+          0.8,
+          1.3
+        ],
+        [
+          0.8,
+          0.4
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-1",
+        "type": "sofa",
+        "material": "fabric"
+      }
+    },
+    {
+      "id": "furn-2",
+      "name": "Coffee Table",
+      "geometry": [
+        [
+          1.6,
+          1.9
+        ],
+        [
+          2.7,
+          1.9
+        ],
+        [
+          2.7,
+          2.5
+        ],
+        [
+          1.6,
+          2.5
+        ],
+        [
+          1.6,
+          1.9
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-1",
+        "type": "table",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-3",
+      "name": "Living Plant",
+      "geometry": [
+        [
+          5.2,
+          3.9
+        ],
+        [
+          5.7,
+          3.9
+        ],
+        [
+          5.7,
+          4.4
+        ],
+        [
+          5.2,
+          4.4
+        ],
+        [
+          5.2,
+          3.9
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-1",
+        "type": "plant",
+        "material": "natural"
+      }
+    },
+    {
+      "id": "furn-4",
+      "name": "Dining Table",
+      "geometry": [
+        [
+          6.9,
+          1.8
+        ],
+        [
+          8.7,
+          1.8
+        ],
+        [
+          8.7,
+          2.8
+        ],
+        [
+          6.9,
+          2.8
+        ],
+        [
+          6.9,
+          1.8
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-2",
+        "type": "table",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-5",
+      "name": "Kitchen Island",
+      "geometry": [
+        [
+          10.2,
+          1.1
+        ],
+        [
+          11.9,
+          1.1
+        ],
+        [
+          11.9,
+          2.0
+        ],
+        [
+          10.2,
+          2.0
+        ],
+        [
+          10.2,
+          1.1
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-3",
+        "type": "island",
+        "material": "stone"
+      }
+    },
+    {
+      "id": "furn-6",
+      "name": "Kitchen Counter",
+      "geometry": [
+        [
+          10.3,
+          0.0
+        ],
+        [
+          12.8,
+          0.0
+        ],
+        [
+          12.8,
+          0.6
+        ],
+        [
+          10.3,
+          0.6
+        ],
+        [
+          10.3,
+          0.0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-3",
+        "type": "counter",
+        "material": "ceramic"
+      }
+    },
+    {
+      "id": "furn-7",
+      "name": "Kitchen Sink",
+      "geometry": [
+        [
+          9.7,
+          0.0
+        ],
+        [
+          10.3,
+          0.0
+        ],
+        [
+          10.3,
+          0.6
+        ],
+        [
+          9.7,
+          0.6
+        ],
+        [
+          9.7,
+          0.0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-3",
+        "type": "sink",
+        "material": "metal"
+      }
+    },
+    {
+      "id": "furn-8",
+      "name": "Refrigerator",
+      "geometry": [
+        [
+          12.3,
+          4.2
+        ],
+        [
+          13.0,
+          4.2
+        ],
+        [
+          13.0,
+          4.9
+        ],
+        [
+          12.3,
+          4.9
+        ],
+        [
+          12.3,
+          4.2
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-3",
+        "type": "fridge",
+        "material": "metal"
+      }
+    },
+    {
+      "id": "furn-9",
+      "name": "Pantry Shelving",
+      "geometry": [
+        [
+          15.4,
+          0.3
+        ],
+        [
+          15.9,
+          0.3
+        ],
+        [
+          15.9,
+          2.2
+        ],
+        [
+          15.4,
+          2.2
+        ],
+        [
+          15.4,
+          0.3
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-4",
+        "type": "bookshelf",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-10",
+      "name": "Powder Toilet",
+      "geometry": [
+        [
+          13.2,
+          3.0
+        ],
+        [
+          13.6,
+          3.0
+        ],
+        [
+          13.6,
+          3.65
+        ],
+        [
+          13.2,
+          3.65
+        ],
+        [
+          13.2,
+          3.0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-5",
+        "type": "toilet",
+        "material": "ceramic"
+      }
+    },
+    {
+      "id": "furn-11",
+      "name": "Powder Vanity",
+      "geometry": [
+        [
+          15.4,
+          2.7
+        ],
+        [
+          16.0,
+          2.7
+        ],
+        [
+          16.0,
+          3.5
+        ],
+        [
+          15.4,
+          3.5
+        ],
+        [
+          15.4,
+          2.7
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-5",
+        "type": "vanity",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-12",
+      "name": "Master Bed",
+      "geometry": [
+        [
+          0.6,
+          9.0
+        ],
+        [
+          2.4,
+          9.0
+        ],
+        [
+          2.4,
+          11.0
+        ],
+        [
+          0.6,
+          11.0
+        ],
+        [
+          0.6,
+          9.0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-7",
+        "type": "bed",
+        "material": "fabric"
+      }
+    },
+    {
+      "id": "furn-13",
+      "name": "Master Nightstand L",
+      "geometry": [
+        [
+          0.15,
+          10.55
+        ],
+        [
+          0.6,
+          10.55
+        ],
+        [
+          0.6,
+          10.95
+        ],
+        [
+          0.15,
+          10.95
+        ],
+        [
+          0.15,
+          10.55
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-7",
+        "type": "nightstand",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-14",
+      "name": "Master Nightstand R",
+      "geometry": [
+        [
+          2.4,
+          10.55
+        ],
+        [
+          2.85,
+          10.55
+        ],
+        [
+          2.85,
+          10.95
+        ],
+        [
+          2.4,
+          10.95
+        ],
+        [
+          2.4,
+          10.55
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-7",
+        "type": "nightstand",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-15",
+      "name": "Master Wardrobe",
+      "geometry": [
+        [
+          4.4,
+          6.3
+        ],
+        [
+          5.0,
+          6.3
+        ],
+        [
+          5.0,
+          8.7
+        ],
+        [
+          4.4,
+          8.7
+        ],
+        [
+          4.4,
+          6.3
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-7",
+        "type": "dresser",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-16",
+      "name": "Ensuite Toilet",
+      "geometry": [
+        [
+          5.2,
+          8.2
+        ],
+        [
+          5.6,
+          8.2
+        ],
+        [
+          5.6,
+          8.85
+        ],
+        [
+          5.2,
+          8.85
+        ],
+        [
+          5.2,
+          8.2
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-8",
+        "type": "toilet",
+        "material": "ceramic"
+      }
+    },
+    {
+      "id": "furn-17",
+      "name": "Ensuite Vanity",
+      "geometry": [
+        [
+          6.3,
+          8.2
+        ],
+        [
+          6.9,
+          8.2
+        ],
+        [
+          6.9,
+          9.0
+        ],
+        [
+          6.3,
+          9.0
+        ],
+        [
+          6.3,
+          8.2
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-8",
+        "type": "vanity",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-18",
+      "name": "Ensuite Shower",
+      "geometry": [
+        [
+          5.2,
+          9.95
+        ],
+        [
+          6.1,
+          9.95
+        ],
+        [
+          6.1,
+          10.85
+        ],
+        [
+          5.2,
+          10.85
+        ],
+        [
+          5.2,
+          9.95
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-8",
+        "type": "shower",
+        "material": "ceramic"
+      }
+    },
+    {
+      "id": "furn-19",
+      "name": "Study Desk",
+      "geometry": [
+        [
+          5.3,
+          7.4
+        ],
+        [
+          6.5,
+          7.4
+        ],
+        [
+          6.5,
+          8.0
+        ],
+        [
+          5.3,
+          8.0
+        ],
+        [
+          5.3,
+          7.4
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-9",
+        "type": "desk",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-20",
+      "name": "Study Bookshelf",
+      "geometry": [
+        [
+          5.0,
+          6.1
+        ],
+        [
+          5.3,
+          6.1
+        ],
+        [
+          5.3,
+          7.0
+        ],
+        [
+          5.0,
+          7.0
+        ],
+        [
+          5.0,
+          6.1
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-9",
+        "type": "bookshelf",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-21",
+      "name": "Bedroom 2 Bed",
+      "geometry": [
+        [
+          7.4,
+          9.0
+        ],
+        [
+          8.9,
+          9.0
+        ],
+        [
+          8.9,
+          11.0
+        ],
+        [
+          7.4,
+          11.0
+        ],
+        [
+          7.4,
+          9.0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-10",
+        "type": "bed",
+        "material": "fabric"
+      }
+    },
+    {
+      "id": "furn-22",
+      "name": "Bedroom 2 Nightstand",
+      "geometry": [
+        [
+          8.9,
+          10.55
+        ],
+        [
+          9.35,
+          10.55
+        ],
+        [
+          9.35,
+          10.95
+        ],
+        [
+          8.9,
+          10.95
+        ],
+        [
+          8.9,
+          10.55
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-10",
+        "type": "nightstand",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-23",
+      "name": "Bedroom 2 Desk",
+      "geometry": [
+        [
+          9.6,
+          6.0
+        ],
+        [
+          10.8,
+          6.0
+        ],
+        [
+          10.8,
+          6.6
+        ],
+        [
+          9.6,
+          6.6
+        ],
+        [
+          9.6,
+          6.0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-10",
+        "type": "desk",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-24",
+      "name": "Bedroom 2 Wardrobe",
+      "geometry": [
+        [
+          7.0,
+          6.3
+        ],
+        [
+          7.6,
+          6.3
+        ],
+        [
+          7.6,
+          8.1
+        ],
+        [
+          7.0,
+          8.1
+        ],
+        [
+          7.0,
+          6.3
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-10",
+        "type": "dresser",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-25",
+      "name": "Family Bath Toilet",
+      "geometry": [
+        [
+          11.1,
+          6.2
+        ],
+        [
+          11.5,
+          6.2
+        ],
+        [
+          11.5,
+          6.85
+        ],
+        [
+          11.1,
+          6.85
+        ],
+        [
+          11.1,
+          6.2
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-11",
+        "type": "toilet",
+        "material": "ceramic"
+      }
+    },
+    {
+      "id": "furn-26",
+      "name": "Family Bath Vanity",
+      "geometry": [
+        [
+          12.4,
+          6.2
+        ],
+        [
+          13.0,
+          6.2
+        ],
+        [
+          13.0,
+          6.8
+        ],
+        [
+          12.4,
+          6.8
+        ],
+        [
+          12.4,
+          6.2
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-11",
+        "type": "vanity",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-27",
+      "name": "Family Bath Shower",
+      "geometry": [
+        [
+          11.1,
+          7.4
+        ],
+        [
+          12.0,
+          7.4
+        ],
+        [
+          12.0,
+          8.3
+        ],
+        [
+          11.1,
+          8.3
+        ],
+        [
+          11.1,
+          7.4
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-11",
+        "type": "shower",
+        "material": "ceramic"
+      }
+    },
+    {
+      "id": "furn-28",
+      "name": "Linen Shelving",
+      "geometry": [
+        [
+          12.5,
+          8.8
+        ],
+        [
+          12.9,
+          8.8
+        ],
+        [
+          12.9,
+          10.7
+        ],
+        [
+          12.5,
+          10.7
+        ],
+        [
+          12.5,
+          8.8
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-12",
+        "type": "bookshelf",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-29",
+      "name": "Bedroom 3 Bed",
+      "geometry": [
+        [
+          13.6,
+          9.0
+        ],
+        [
+          15.1,
+          9.0
+        ],
+        [
+          15.1,
+          11.0
+        ],
+        [
+          13.6,
+          11.0
+        ],
+        [
+          13.6,
+          9.0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-13",
+        "type": "bed",
+        "material": "fabric"
+      }
+    },
+    {
+      "id": "furn-30",
+      "name": "Bedroom 3 Nightstand",
+      "geometry": [
+        [
+          15.1,
+          10.55
+        ],
+        [
+          15.55,
+          10.55
+        ],
+        [
+          15.55,
+          10.95
+        ],
+        [
+          15.1,
+          10.95
+        ],
+        [
+          15.1,
+          10.55
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-13",
+        "type": "nightstand",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-31",
+      "name": "Bedroom 3 Wardrobe",
+      "geometry": [
+        [
+          13.0,
+          6.4
+        ],
+        [
+          13.6,
+          6.4
+        ],
+        [
+          13.6,
+          8.4
+        ],
+        [
+          13.0,
+          8.4
+        ],
+        [
+          13.0,
+          6.4
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-13",
+        "type": "dresser",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-32",
+      "name": "Bedroom 3 Desk",
+      "geometry": [
+        [
+          14.95,
+          6.0
+        ],
+        [
+          15.95,
+          6.0
+        ],
+        [
+          15.95,
+          6.6
+        ],
+        [
+          14.95,
+          6.6
+        ],
+        [
+          14.95,
+          6.0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-13",
+        "type": "desk",
+        "material": "wood"
+      }
+    }
   ],
   "structure": [
-    { "id": "wall-1", "name": "Living/Dining Partition", "geometry": [[6,0],[6,5]],   "attributes": { "material": "plaster" } },
-    { "id": "wall-2", "name": "Dining/Kitchen Partition","geometry": [[9.5,0],[9.5,5]],"attributes": { "material": "plaster" } },
-    { "id": "wall-3", "name": "Service Partition",       "geometry": [[13,0],[13,5]], "attributes": { "material": "plaster" } },
-    { "id": "wall-4", "name": "Hallway South Wall",      "geometry": [[0,5],[16,5]],  "attributes": { "material": "plaster" } },
-    { "id": "wall-5", "name": "Hallway North Wall",      "geometry": [[0,6],[16,6]],  "attributes": { "material": "plaster" } },
-    { "id": "wall-6", "name": "North Wing Spine",        "geometry": [[7,6],[7,11]],  "attributes": { "material": "plaster" } }
+    {
+      "id": "wall-1",
+      "name": "Living/Dining Partition",
+      "geometry": [
+        [
+          6,
+          0
+        ],
+        [
+          6,
+          5
+        ]
+      ],
+      "attributes": {
+        "material": "plaster"
+      }
+    },
+    {
+      "id": "wall-2",
+      "name": "Dining/Kitchen Partition",
+      "geometry": [
+        [
+          9.5,
+          0
+        ],
+        [
+          9.5,
+          5
+        ]
+      ],
+      "attributes": {
+        "material": "plaster"
+      }
+    },
+    {
+      "id": "wall-3",
+      "name": "Service Partition",
+      "geometry": [
+        [
+          13,
+          0
+        ],
+        [
+          13,
+          5
+        ]
+      ],
+      "attributes": {
+        "material": "plaster"
+      }
+    },
+    {
+      "id": "wall-4",
+      "name": "Hallway South Wall",
+      "geometry": [
+        [
+          0,
+          5
+        ],
+        [
+          16,
+          5
+        ]
+      ],
+      "attributes": {
+        "material": "plaster"
+      }
+    },
+    {
+      "id": "wall-5",
+      "name": "Hallway North Wall",
+      "geometry": [
+        [
+          0,
+          6
+        ],
+        [
+          16,
+          6
+        ]
+      ],
+      "attributes": {
+        "material": "plaster"
+      }
+    },
+    {
+      "id": "wall-6",
+      "name": "North Wing Spine",
+      "geometry": [
+        [
+          7,
+          6
+        ],
+        [
+          7,
+          11
+        ]
+      ],
+      "attributes": {
+        "material": "plaster"
+      }
+    }
   ],
   "mep": [
-    { "id": "mep-1", "name": "Kitchen Exhaust", "geometry": [[12.5,0],[13,0]], "attributes": { "system": "ventilation" } },
-    { "id": "mep-2", "name": "Bath Fan",        "geometry": [[12.6,8],[13,8]], "attributes": { "system": "ventilation" } }
+    {
+      "id": "mep-1",
+      "name": "Kitchen Exhaust",
+      "geometry": [
+        [
+          12.5,
+          0
+        ],
+        [
+          13,
+          0
+        ]
+      ],
+      "attributes": {
+        "system": "ventilation"
+      }
+    },
+    {
+      "id": "mep-2",
+      "name": "Bath Fan",
+      "geometry": [
+        [
+          12.6,
+          8
+        ],
+        [
+          13,
+          8
+        ]
+      ],
+      "attributes": {
+        "system": "ventilation"
+      }
+    }
   ]
 }

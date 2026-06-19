@@ -26,3 +26,49 @@ a-to-z deck assembles from these.
   Streaming, cancellation (a Stop button), and graceful error handling were added with
   **zero change to the API contract** — the non-streaming endpoint still returns the
   exact same payload, so nothing downstream regressed.
+
+## Session 2 — The example plans now read like an architect drew them
+
+- **The demo layouts were quietly broken — as drawings.** The four built-in examples
+  passed our existing topology check (rooms tile the plan, areas match, doors on shared
+  walls) yet were full of the things a human reviewer catches in a second: beds parked
+  0.2–0.5 m in front of bedroom doors, a door boxed in by a sofa on one side and a bed
+  on the other with no clear swing, a wardrobe sitting flush over a bedroom window, a
+  planter halving a 1 m hallway. We wrote a deterministic geometry checker
+  (`check_layout_geometry.py`) that enumerates these — furniture overlaps, pieces
+  through walls, blocked door swings, sub-standard door/circulation clearances, blocked
+  windows — and it found **41 defects across the four layouts**. We then corrected the
+  source files to **zero**, the minimal move each time (slide a bed to the far wall,
+  shift a door along its wall, trim an oversized island).
+
+- **Fixing them at the source raises the credibility of everything downstream.** Every
+  render, every "the spatial score here is low" claim, every generated room image is
+  read against the plan it sits on — a plan with a bed jammed through a doorway makes the
+  whole analysis look careless. The fixes are also provably **score-neutral**: comfort
+  scoring is attribute-driven (area, orientation, glazing, materials, adjacency, plant
+  *count*) and never reads furniture geometry, so moving furniture changed **nothing** in
+  the numbers (we diffed before/after — 201/202/203 identical; only 204's Hallway shifted,
+  the one intended change from removing the corridor-blocking plant). So we improved the
+  drawings the demo shows without disturbing the conflicts the demo is built to surface.
+
+- **The checker is reusable infrastructure, not a one-off.** It's pure-stdlib and gates
+  to a non-zero exit, so it can run in CI / pre-commit and catch a malformed plan — or a
+  bad agent edit — before it ever reaches a user. Architectural soundness becomes a
+  testable property of the layout data, not something we eyeball.
+
+- **Then: valid wasn't the same as believable.** Clearing the collisions left plans that
+  *passed* but still looked auto-generated — 3 m-wide "beds", 1.5 m-deep sofas, empty
+  bathrooms, a desk parked 0.5 m off a bed. We taught the checker a second layer —
+  realistic furniture *scale* (a footprint range per type), *required fixtures* (a
+  bathroom must have a toilet + sink/vanity), *dead-space gaps* (too tight to use, too
+  wide to be a pair), and *bed access* — which flagged **47 more issues**, then re-authored
+  every layout's furniture: right-sized each piece, furnished all seven bathrooms
+  (toilet/vanity/shower), added nightstands and kitchen sinks/fridges, and pushed the
+  stray living-room plant into a corner. Now the plans read like an architect drew them.
+
+- **Realism without breaking the demo.** We kept room attributes, adjacencies and plant
+  counts fixed, so the comfort scores barely moved — the deltas are small tactile shifts
+  in newly-furnished rooms (ceramic fixtures down, wood shelving up), overall scores ≤0.01,
+  and the demo's headline thermal/acoustic/olfactory conflicts are untouched (every delta
+  reported). The rules are now packaged as a reusable `floor-plan-review` skill so the next
+  layout — generated or hand-drawn — gets the same scrutiny automatically.
