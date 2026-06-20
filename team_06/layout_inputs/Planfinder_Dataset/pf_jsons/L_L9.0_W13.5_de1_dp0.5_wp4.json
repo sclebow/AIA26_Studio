@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L9.0_W13.5_de1_dp0.5_wp4",
+  "layoutId": "Layout-292",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L9.0_W13.5_de1_dp0.5_wp4",
+    "name": "3-bed apartment",
     "geometry": [
       [
         9.0,
@@ -59,7 +59,7 @@
     ],
     "attributes": {
       "area": 121.5,
-      "description": "3 bedrooms, 2 bathrooms, 1 living room, 2 extra rooms."
+      "description": "3 Bed, 2 Bath, 1 Living, 1 Storage, 1 Circulation"
     }
   },
   "outline": [
@@ -116,10 +116,44 @@
       4.437
     ]
   ],
+  "door_point": [
+    9.0,
+    8.308
+  ],
+  "door_points": [
+    [
+      6.3,
+      5.098
+    ],
+    [
+      6.31,
+      5.518
+    ],
+    [
+      7.0,
+      7.552
+    ],
+    [
+      6.6,
+      10.385
+    ],
+    [
+      5.0,
+      7.836
+    ],
+    [
+      5.0,
+      5.098
+    ],
+    [
+      5.7,
+      9.818
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           9.0,
@@ -144,7 +178,7 @@
       ],
       "attributes": {
         "area": 3.3129,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
@@ -299,7 +333,7 @@
     },
     {
       "id": "room-7",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           5.0,
@@ -332,7 +366,7 @@
       ],
       "attributes": {
         "area": 13.1135,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {

@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L4.5_W16.5_de1_dp0.4_wp0",
+  "layoutId": "Layout-068",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L4.5_W16.5_de1_dp0.4_wp0",
+    "name": "Studio apartment",
     "geometry": [
       [
         3.135,
@@ -43,7 +43,7 @@
     ],
     "attributes": {
       "area": 66.15,
-      "description": "2 bathrooms, 1 living room, 1 extra room."
+      "description": "1 WC, 1 Bath, 1 Living, 1 Circulation"
     }
   },
   "outline": [
@@ -84,10 +84,24 @@
       15.75
     ]
   ],
+  "door_point": [
+    3.87,
+    15.75
+  ],
+  "door_points": [
+    [
+      3.135,
+      15.015
+    ],
+    [
+      3.135,
+      13.125
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Bath",
+      "name": "WC",
       "geometry": [
         [
           2.085,
@@ -112,7 +126,7 @@
       ],
       "attributes": {
         "area": 1.764,
-        "program": "bath"
+        "program": "wc"
       }
     },
     {
@@ -155,7 +169,7 @@
     },
     {
       "id": "room-3",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           4.5,
@@ -180,7 +194,7 @@
       ],
       "attributes": {
         "area": 4.7297,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {
@@ -274,8 +288,8 @@
       "name": "Front Door Axis",
       "geometry": [
         [
-          4.5,
-          0.0
+          0.3,
+          15.75
         ],
         [
           4.5,
@@ -284,7 +298,7 @@
       ],
       "attributes": {
         "type": "circulation",
-        "length": 15.75
+        "length": 4.2
       }
     }
   ],

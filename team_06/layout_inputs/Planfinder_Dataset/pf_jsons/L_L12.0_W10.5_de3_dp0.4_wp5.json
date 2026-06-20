@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L12.0_W10.5_de3_dp0.4_wp5",
+  "layoutId": "Layout-450",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L12.0_W10.5_de3_dp0.4_wp5",
+    "name": "2-bed apartment",
     "geometry": [
       [
         0.0,
@@ -59,7 +59,7 @@
     ],
     "attributes": {
       "area": 111.4119,
-      "description": "2 bedrooms, 2 bathrooms, 1 living room, 2 extra rooms."
+      "description": "2 Bed, 2 Bath, 1 Living, 1 Storage, 1 Circulation"
     }
   },
   "outline": [
@@ -116,6 +116,32 @@
       7.34
     ]
   ],
+  "door_point": [
+    0.0,
+    4.791
+  ],
+  "door_points": [
+    [
+      1.587,
+      5.607
+    ],
+    [
+      4.264,
+      3.976
+    ],
+    [
+      6.942,
+      2.549
+    ],
+    [
+      3.174,
+      5.607
+    ],
+    [
+      7.537,
+      3.976
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
@@ -149,7 +175,7 @@
     },
     {
       "id": "room-2",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           4.86,
@@ -174,7 +200,7 @@
       ],
       "attributes": {
         "area": 4.7354,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
@@ -277,7 +303,7 @@
     },
     {
       "id": "room-6",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           3.769,
@@ -302,7 +328,7 @@
       ],
       "attributes": {
         "area": 6.1472,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {
@@ -374,22 +400,6 @@
       "name": "Door 3",
       "geometry": [
         [
-          3.834,
-          3.966
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-2",
-          "room-6"
-        ]
-      }
-    },
-    {
-      "id": "door-4",
-      "name": "Door 4",
-      "geometry": [
-        [
           6.942,
           2.549
         ]
@@ -402,8 +412,8 @@
       }
     },
     {
-      "id": "door-5",
-      "name": "Door 5",
+      "id": "door-4",
+      "name": "Door 4",
       "geometry": [
         [
           3.174,
@@ -418,8 +428,8 @@
       }
     },
     {
-      "id": "door-6",
-      "name": "Door 6",
+      "id": "door-5",
+      "name": "Door 5",
       "geometry": [
         [
           7.537,

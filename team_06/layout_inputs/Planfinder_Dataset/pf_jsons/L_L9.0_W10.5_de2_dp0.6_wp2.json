@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L9.0_W10.5_de2_dp0.6_wp2",
+  "layoutId": "Layout-278",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L9.0_W10.5_de2_dp0.6_wp2",
+    "name": "2-bed apartment",
     "geometry": [
       [
         9.0,
@@ -51,7 +51,7 @@
     ],
     "attributes": {
       "area": 94.4999,
-      "description": "2 bedrooms, 2 bathrooms, 1 living room, 2 extra rooms."
+      "description": "2 Bed, 2 Bath, 1 Living, 1 Storage, 1 Circulation"
     }
   },
   "outline": [
@@ -100,10 +100,48 @@
       2.794
     ]
   ],
+  "door_point": [
+    9.0,
+    6.647
+  ],
+  "door_points": [
+    [
+      7.564,
+      4.239
+    ],
+    [
+      4.883,
+      6.069
+    ],
+    [
+      6.319,
+      8.862
+    ],
+    [
+      6.329,
+      8.233
+    ],
+    [
+      4.309,
+      6.647
+    ],
+    [
+      4.319,
+      6.217
+    ],
+    [
+      6.319,
+      7.803
+    ],
+    [
+      6.319,
+      3.372
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           9.0,
@@ -128,7 +166,7 @@
       ],
       "attributes": {
         "area": 2.905,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
@@ -231,7 +269,7 @@
     },
     {
       "id": "room-5",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           9.0,
@@ -280,7 +318,7 @@
       ],
       "attributes": {
         "area": 14.1372,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {
@@ -353,22 +391,6 @@
     }
   ],
   "doors": [
-    {
-      "id": "door-1",
-      "name": "Door 1",
-      "geometry": [
-        [
-          7.564,
-          4.239
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-1",
-          "room-5"
-        ]
-      }
-    },
     {
       "id": "door-2",
       "name": "Door 2",
@@ -508,8 +530,8 @@
       "name": "Front Door Axis",
       "geometry": [
         [
-          0.0,
-          10.5
+          9.0,
+          0.0
         ],
         [
           9.0,
@@ -518,7 +540,7 @@
       ],
       "attributes": {
         "type": "circulation",
-        "length": 9.0
+        "length": 10.5
       }
     }
   ],

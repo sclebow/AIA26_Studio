@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L4.5_W12.0_de0_dp0.8_wp1",
+  "layoutId": "Layout-037",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L4.5_W12.0_de0_dp0.8_wp1",
+    "name": "Studio apartment",
     "geometry": [
       [
         0.0,
@@ -43,7 +43,7 @@
     ],
     "attributes": {
       "area": 54.0,
-      "description": "1 bathroom, 1 living room, 2 extra rooms."
+      "description": "1 Bath, 1 Living, 1 Storage, 1 Circulation"
     }
   },
   "outline": [
@@ -84,10 +84,28 @@
       2.136
     ]
   ],
+  "door_point": [
+    4.5,
+    0.712
+  ],
+  "door_points": [
+    [
+      2.298,
+      1.525
+    ],
+    [
+      2.298,
+      3.966
+    ],
+    [
+      2.777,
+      4.983
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           0.0,
@@ -112,7 +130,7 @@
       ],
       "attributes": {
         "area": 4.9085,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
@@ -147,7 +165,7 @@
     },
     {
       "id": "room-3",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           2.298,
@@ -172,7 +190,7 @@
       ],
       "attributes": {
         "area": 10.9726,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {
@@ -215,22 +233,6 @@
     }
   ],
   "doors": [
-    {
-      "id": "door-1",
-      "name": "Door 1",
-      "geometry": [
-        [
-          2.298,
-          1.525
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-1",
-          "room-3"
-        ]
-      }
-    },
     {
       "id": "door-2",
       "name": "Door 2",
@@ -290,17 +292,17 @@
       "name": "Front Door Axis",
       "geometry": [
         [
-          0.0,
+          4.5,
           0.0
         ],
         [
           4.5,
-          0.0
+          12.0
         ]
       ],
       "attributes": {
         "type": "circulation",
-        "length": 4.5
+        "length": 12.0
       }
     }
   ],

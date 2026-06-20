@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L12.0_W13.5_de2_dp0.2_wp3",
+  "layoutId": "Layout-453",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L12.0_W13.5_de2_dp0.2_wp3",
+    "name": "3-bed apartment",
     "geometry": [
       [
         1.92,
@@ -67,7 +67,7 @@
     ],
     "attributes": {
       "area": 136.8492,
-      "description": "3 bedrooms, 2 bathrooms, 1 living room, 2 extra rooms."
+      "description": "3 Bed, 2 Bath, 1 Living, 1 Storage, 1 Circulation"
     }
   },
   "outline": [
@@ -132,10 +132,44 @@
       9.489
     ]
   ],
+  "door_point": [
+    0.975,
+    8.217
+  ],
+  "door_points": [
+    [
+      3.285,
+      8.022
+    ],
+    [
+      1.815,
+      6.652
+    ],
+    [
+      4.965,
+      10.957
+    ],
+    [
+      6.33,
+      8.022
+    ],
+    [
+      6.33,
+      5.283
+    ],
+    [
+      5.595,
+      9.489
+    ],
+    [
+      4.965,
+      4.598
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           1.92,
@@ -160,7 +194,7 @@
       ],
       "attributes": {
         "area": 4.467,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
@@ -255,7 +289,7 @@
     },
     {
       "id": "room-5",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           4.965,
@@ -304,7 +338,7 @@
       ],
       "attributes": {
         "area": 16.0651,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {
@@ -407,22 +441,6 @@
     }
   ],
   "doors": [
-    {
-      "id": "door-1",
-      "name": "Door 1",
-      "geometry": [
-        [
-          3.285,
-          8.022
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-1",
-          "room-5"
-        ]
-      }
-    },
     {
       "id": "door-2",
       "name": "Door 2",
@@ -600,17 +618,17 @@
       "name": "Front Door Axis",
       "geometry": [
         [
-          1.92,
-          13.5
+          0.24,
+          8.217
         ],
         [
-          12.0,
-          13.5
+          1.92,
+          8.217
         ]
       ],
       "attributes": {
         "type": "circulation",
-        "length": 10.08
+        "length": 1.68
       }
     }
   ],

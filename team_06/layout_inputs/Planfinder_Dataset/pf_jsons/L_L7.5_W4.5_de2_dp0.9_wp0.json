@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L7.5_W4.5_de2_dp0.9_wp0",
+  "layoutId": "Layout-155",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L7.5_W4.5_de2_dp0.9_wp0",
+    "name": "Studio apartment",
     "geometry": [
       [
         7.5,
@@ -35,7 +35,7 @@
     ],
     "attributes": {
       "area": 33.75,
-      "description": "1 bathroom, 1 living room."
+      "description": "1 Bath, 1 Living"
     }
   },
   "outline": [
@@ -66,6 +66,16 @@
     [
       7.5,
       2.455
+    ]
+  ],
+  "door_point": [
+    1.339,
+    4.5
+  ],
+  "door_points": [
+    [
+      4.554,
+      3.886
     ]
   ],
   "rooms": [

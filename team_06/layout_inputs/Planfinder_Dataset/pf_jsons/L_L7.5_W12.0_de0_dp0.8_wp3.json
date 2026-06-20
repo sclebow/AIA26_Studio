@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L7.5_W12.0_de0_dp0.8_wp3",
+  "layoutId": "Layout-187",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L7.5_W12.0_de0_dp0.8_wp3",
+    "name": "2-bed apartment",
     "geometry": [
       [
         1.204,
@@ -55,7 +55,7 @@
     ],
     "attributes": {
       "area": 90.0,
-      "description": "2 bedrooms, 2 bathrooms, 1 living room, 2 extra rooms."
+      "description": "2 Bed, 1 WC, 1 Bath, 1 Living, 1 Storage, 1 Circulation"
     }
   },
   "outline": [
@@ -108,10 +108,40 @@
       0.0
     ]
   ],
+  "door_point": [
+    3.426,
+    0.0
+  ],
+  "door_points": [
+    [
+      2.315,
+      1.1
+    ],
+    [
+      2.315,
+      5.0
+    ],
+    [
+      2.315,
+      2.5
+    ],
+    [
+      4.074,
+      0.8
+    ],
+    [
+      3.519,
+      3.8
+    ],
+    [
+      2.963,
+      6.3
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Bath",
+      "name": "WC",
       "geometry": [
         [
           2.315,
@@ -136,12 +166,12 @@
       ],
       "attributes": {
         "area": 1.9998,
-        "program": "bath"
+        "program": "wc"
       }
     },
     {
       "id": "room-2",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           0.0,
@@ -166,7 +196,7 @@
       ],
       "attributes": {
         "area": 6.2505,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
@@ -239,7 +269,7 @@
     },
     {
       "id": "room-5",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           4.074,
@@ -272,7 +302,7 @@
       ],
       "attributes": {
         "area": 9.3057,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {

@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L9.0_W4.5_de0_dp0.7_wp0",
+  "layoutId": "Layout-242",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L9.0_W4.5_de0_dp0.7_wp0",
+    "name": "Studio apartment",
     "geometry": [
       [
         0.0,
@@ -43,7 +43,7 @@
     ],
     "attributes": {
       "area": 40.5,
-      "description": "1 bathroom, 1 living room, 2 extra rooms."
+      "description": "1 Bath, 1 Living, 1 Storage, 1 Circulation"
     }
   },
   "outline": [
@@ -84,10 +84,24 @@
       1.89
     ]
   ],
+  "door_point": [
+    1.8,
+    0.0
+  ],
+  "door_points": [
+    [
+      1.0,
+      0.63
+    ],
+    [
+      1.7,
+      1.89
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           1.0,
@@ -112,7 +126,7 @@
       ],
       "attributes": {
         "area": 1.89,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
@@ -147,7 +161,7 @@
     },
     {
       "id": "room-3",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           2.3,
@@ -172,7 +186,7 @@
       ],
       "attributes": {
         "area": 2.457,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {

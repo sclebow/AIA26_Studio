@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L7.5_W13.5_de1_dp0.8_wp4",
+  "layoutId": "Layout-202",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L7.5_W13.5_de1_dp0.8_wp4",
+    "name": "3-bed apartment",
     "geometry": [
       [
         5.625,
@@ -63,7 +63,7 @@
     ],
     "attributes": {
       "area": 101.2501,
-      "description": "3 bedrooms, 2 bathrooms, 1 living room, 3 extra rooms."
+      "description": "3 Bed, 1 WC, 1 Bath, 1 Living, 1 Storage, 2 Circulation"
     }
   },
   "outline": [
@@ -124,10 +124,44 @@
       13.5
     ]
   ],
+  "door_point": [
+    7.5,
+    10.658
+  ],
+  "door_points": [
+    [
+      5.0,
+      11.673
+    ],
+    [
+      6.771,
+      11.673
+    ],
+    [
+      5.094,
+      4.554
+    ],
+    [
+      5.094,
+      5.404
+    ],
+    [
+      4.375,
+      10.962
+    ],
+    [
+      3.125,
+      4.263
+    ],
+    [
+      4.375,
+      3.654
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           4.375,
@@ -152,12 +186,12 @@
       ],
       "attributes": {
         "area": 2.2838,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
       "id": "room-2",
-      "name": "Bath",
+      "name": "WC",
       "geometry": [
         [
           5.625,
@@ -182,7 +216,7 @@
       ],
       "attributes": {
         "area": 3.4256,
-        "program": "bath"
+        "program": "wc"
       }
     },
     {
@@ -307,7 +341,7 @@
     },
     {
       "id": "room-7",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           3.125,
@@ -332,12 +366,12 @@
       ],
       "attributes": {
         "area": 2.4104,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {
       "id": "room-8",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           7.5,
@@ -362,7 +396,7 @@
       ],
       "attributes": {
         "area": 5.3938,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {

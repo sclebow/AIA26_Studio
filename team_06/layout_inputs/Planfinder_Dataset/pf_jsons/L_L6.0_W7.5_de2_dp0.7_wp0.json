@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L6.0_W7.5_de2_dp0.7_wp0",
+  "layoutId": "Layout-090",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L6.0_W7.5_de2_dp0.7_wp0",
+    "name": "1-bed apartment",
     "geometry": [
       [
         3.5,
@@ -43,7 +43,7 @@
     ],
     "attributes": {
       "area": 45.0,
-      "description": "1 bedroom, 1 bathroom, 1 living room, 1 extra room."
+      "description": "1 Bed, 1 Bath, 1 Living, 1 Circulation"
     }
   },
   "outline": [
@@ -84,10 +84,28 @@
       7.5
     ]
   ],
+  "door_point": [
+    2.417,
+    7.5
+  ],
+  "door_points": [
+    [
+      1.917,
+      5.7
+    ],
+    [
+      2.417,
+      3.8
+    ],
+    [
+      3.0,
+      5.1
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           3.5,
@@ -120,7 +138,7 @@
       ],
       "attributes": {
         "area": 4.9071,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {

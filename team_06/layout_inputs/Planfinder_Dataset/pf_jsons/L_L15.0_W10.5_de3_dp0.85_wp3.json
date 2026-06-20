@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L15.0_W10.5_de3_dp0.85_wp3",
+  "layoutId": "Layout-612",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L15.0_W10.5_de3_dp0.85_wp3",
+    "name": "3-bed apartment",
     "geometry": [
       [
         7.867,
@@ -63,7 +63,7 @@
     ],
     "attributes": {
       "area": 140.7476,
-      "description": "3 bedrooms, 2 bathrooms, 1 living room, 3 extra rooms."
+      "description": "3 Bed, 2 Bath, 1 Living, 1 Storage, 2 Circulation"
     }
   },
   "outline": [
@@ -124,10 +124,44 @@
       10.5
     ]
   ],
+  "door_point": [
+    8.601,
+    10.5
+  ],
+  "door_points": [
+    [
+      7.867,
+      9.807
+    ],
+    [
+      7.867,
+      8.024
+    ],
+    [
+      7.867,
+      4.458
+    ],
+    [
+      5.664,
+      5.151
+    ],
+    [
+      6.399,
+      3.863
+    ],
+    [
+      10.175,
+      7.726
+    ],
+    [
+      3.671,
+      4.458
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           7.867,
@@ -152,7 +186,7 @@
       ],
       "attributes": {
         "area": 3.1067,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
@@ -187,7 +221,7 @@
     },
     {
       "id": "room-3",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           7.867,
@@ -212,7 +246,7 @@
       ],
       "attributes": {
         "area": 5.4044,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {
@@ -345,7 +379,7 @@
     },
     {
       "id": "room-8",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           7.867,
@@ -370,7 +404,7 @@
       ],
       "attributes": {
         "area": 9.3728,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {
@@ -405,22 +439,6 @@
     }
   ],
   "doors": [
-    {
-      "id": "door-1",
-      "name": "Door 1",
-      "geometry": [
-        [
-          7.867,
-          9.807
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-1",
-          "room-8"
-        ]
-      }
-    },
     {
       "id": "door-2",
       "name": "Door 2",
@@ -562,17 +580,17 @@
       "name": "Front Door Axis",
       "geometry": [
         [
-          0.0,
-          0.0
+          5.455,
+          10.5
         ],
         [
-          0.0,
-          7.429
+          15.0,
+          10.5
         ]
       ],
       "attributes": {
         "type": "circulation",
-        "length": 7.429
+        "length": 9.545
       }
     }
   ],

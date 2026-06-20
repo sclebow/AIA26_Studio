@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L4.5_W10.5_de0_dp0.5_wp5",
+  "layoutId": "Layout-027",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L4.5_W10.5_de0_dp0.5_wp5",
+    "name": "1-bed apartment",
     "geometry": [
       [
         0.0,
@@ -43,7 +43,7 @@
     ],
     "attributes": {
       "area": 46.305,
-      "description": "1 bedroom, 1 bathroom, 1 living room, 1 extra room."
+      "description": "1 Bed, 1 Bath, 1 Living, 1 Circulation"
     }
   },
   "outline": [
@@ -82,6 +82,24 @@
     [
       0.0,
       6.218
+    ]
+  ],
+  "door_point": [
+    4.41,
+    4.485
+  ],
+  "door_points": [
+    [
+      2.73,
+      4.383
+    ],
+    [
+      3.465,
+      3.874
+    ],
+    [
+      2.72,
+      3.963
     ]
   ],
   "rooms": [
@@ -147,7 +165,7 @@
     },
     {
       "id": "room-3",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           4.41,
@@ -172,7 +190,7 @@
       ],
       "attributes": {
         "area": 4.9661,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {
@@ -308,17 +326,17 @@
       "name": "Front Door Axis",
       "geometry": [
         [
-          0.0,
+          4.41,
           0.0
         ],
         [
           4.41,
-          0.0
+          10.5
         ]
       ],
       "attributes": {
         "type": "circulation",
-        "length": 4.41
+        "length": 10.5
       }
     }
   ],

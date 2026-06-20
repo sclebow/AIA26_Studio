@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L18.0_W7.5_de3_dp0.2_wp5",
+  "layoutId": "Layout-744",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L18.0_W7.5_de3_dp0.2_wp5",
+    "name": "2-bed apartment",
     "geometry": [
       [
         6.09,
@@ -55,7 +55,7 @@
     ],
     "attributes": {
       "area": 133.0876,
-      "description": "2 bedrooms, 2 bathrooms, 1 living room, 3 extra rooms."
+      "description": "2 Bed, 1 WC, 1 Bath, 1 Living, 2 Storage, 1 Circulation"
     }
   },
   "outline": [
@@ -108,10 +108,44 @@
       0.0
     ]
   ],
+  "door_point": [
+    0.0,
+    1.781
+  ],
+  "door_points": [
+    [
+      3.045,
+      2.344
+    ],
+    [
+      7.455,
+      2.344
+    ],
+    [
+      11.025,
+      1.219
+    ],
+    [
+      4.725,
+      2.344
+    ],
+    [
+      5.985,
+      3.75
+    ],
+    [
+      1.47,
+      3.75
+    ],
+    [
+      8.295,
+      3.0
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Bath",
+      "name": "WC",
       "geometry": [
         [
           3.78,
@@ -136,12 +170,12 @@
       ],
       "attributes": {
         "area": 1.8421,
-        "program": "bath"
+        "program": "wc"
       }
     },
     {
       "id": "room-2",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           8.505,
@@ -166,12 +200,12 @@
       ],
       "attributes": {
         "area": 5.6608,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
       "id": "room-3",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           11.025,
@@ -196,7 +230,7 @@
       ],
       "attributes": {
         "area": 5.9069,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
@@ -269,7 +303,7 @@
     },
     {
       "id": "room-6",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           1.995,
@@ -302,7 +336,7 @@
       ],
       "attributes": {
         "area": 16.3391,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {

@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L10.5_W4.5_de2_dp0.4_wp0",
+  "layoutId": "Layout-324",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L10.5_W4.5_de2_dp0.4_wp0",
+    "name": "1-bed apartment",
     "geometry": [
       [
         5.46,
@@ -47,7 +47,7 @@
     ],
     "attributes": {
       "area": 46.7776,
-      "description": "1 bedroom, 1 bathroom, 1 living room, 2 extra rooms."
+      "description": "1 Bed, 1 Bath, 1 Living, 1 Storage, 1 Circulation"
     }
   },
   "outline": [
@@ -92,10 +92,32 @@
       4.5
     ]
   ],
+  "door_point": [
+    6.195,
+    4.5
+  ],
+  "door_points": [
+    [
+      4.935,
+      3.651
+    ],
+    [
+      4.515,
+      3.661
+    ],
+    [
+      6.195,
+      2.547
+    ],
+    [
+      7.14,
+      3.311
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           3.57,
@@ -120,7 +142,7 @@
       ],
       "attributes": {
         "area": 1.6046,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
@@ -185,7 +207,7 @@
     },
     {
       "id": "room-4",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           5.46,
@@ -218,7 +240,7 @@
       ],
       "attributes": {
         "area": 3.9766,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {

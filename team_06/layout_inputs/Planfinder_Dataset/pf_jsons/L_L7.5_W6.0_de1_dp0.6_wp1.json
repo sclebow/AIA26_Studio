@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L7.5_W6.0_de1_dp0.6_wp1",
+  "layoutId": "Layout-163",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L7.5_W6.0_de1_dp0.6_wp1",
+    "name": "1-bed apartment",
     "geometry": [
       [
         0.0,
@@ -39,7 +39,7 @@
     ],
     "attributes": {
       "area": 45.0,
-      "description": "1 bedroom, 1 bathroom, 1 living room."
+      "description": "1 Bed, 1 Bath, 1 Living"
     }
   },
   "outline": [
@@ -74,6 +74,20 @@
     [
       0.0,
       2.123
+    ]
+  ],
+  "door_point": [
+    7.5,
+    0.738
+  ],
+  "door_points": [
+    [
+      2.885,
+      0.646
+    ],
+    [
+      2.885,
+      5.354
     ]
   ],
   "rooms": [

@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L10.5_W12.0_de1_dp0.7_wp4",
+  "layoutId": "Layout-352",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L10.5_W12.0_de1_dp0.7_wp4",
+    "name": "2-bed apartment",
     "geometry": [
       [
         10.5,
@@ -55,7 +55,7 @@
     ],
     "attributes": {
       "area": 123.48,
-      "description": "2 bedrooms, 2 bathrooms, 1 living room, 3 extra rooms."
+      "description": "2 Bed, 1 WC, 1 Bath, 1 Living, 2 Storage, 1 Circulation"
     }
   },
   "outline": [
@@ -108,10 +108,48 @@
       6.59
     ]
   ],
+  "door_point": [
+    10.5,
+    8.262
+  ],
+  "door_points": [
+    [
+      7.56,
+      9.049
+    ],
+    [
+      7.35,
+      7.574
+    ],
+    [
+      8.925,
+      7.574
+    ],
+    [
+      6.615,
+      5.902
+    ],
+    [
+      8.82,
+      9.049
+    ],
+    [
+      5.46,
+      7.574
+    ],
+    [
+      6.195,
+      9.049
+    ],
+    [
+      6.09,
+      5.311
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Bath",
+      "name": "WC",
       "geometry": [
         [
           6.615,
@@ -136,12 +174,12 @@
       ],
       "attributes": {
         "area": 1.6531,
-        "program": "bath"
+        "program": "wc"
       }
     },
     {
       "id": "room-2",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           8.295,
@@ -166,7 +204,7 @@
       ],
       "attributes": {
         "area": 2.1697,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
@@ -201,7 +239,7 @@
     },
     {
       "id": "room-4",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           7.035,
@@ -234,12 +272,12 @@
       ],
       "attributes": {
         "area": 9.7086,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
       "id": "room-5",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           5.46,
@@ -272,7 +310,7 @@
       ],
       "attributes": {
         "area": 10.0478,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {

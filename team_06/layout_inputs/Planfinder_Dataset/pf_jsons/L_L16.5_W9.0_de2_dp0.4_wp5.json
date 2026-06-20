@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L16.5_W9.0_de2_dp0.4_wp5",
+  "layoutId": "Layout-677",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L16.5_W9.0_de2_dp0.4_wp5",
+    "name": "3-bed apartment",
     "geometry": [
       [
         8.415,
@@ -55,7 +55,7 @@
     ],
     "attributes": {
       "area": 113.9355,
-      "description": "3 bedrooms, 2 bathrooms, 1 living room, 3 extra rooms."
+      "description": "3 Bed, 1 WC, 1 Bath, 1 Living, 2 Storage, 1 Circulation"
     }
   },
   "outline": [
@@ -108,10 +108,64 @@
       0.0
     ]
   ],
+  "door_point": [
+    9.99,
+    9.0
+  ],
+  "door_points": [
+    [
+      10.63,
+      6.409
+    ],
+    [
+      10.63,
+      7.059
+    ],
+    [
+      10.62,
+      6.729
+    ],
+    [
+      9.36,
+      4.206
+    ],
+    [
+      11.145,
+      7.654
+    ],
+    [
+      11.565,
+      8.495
+    ],
+    [
+      10.62,
+      4.626
+    ],
+    [
+      9.99,
+      3.196
+    ],
+    [
+      12.09,
+      3.701
+    ],
+    [
+      12.62,
+      3.331
+    ],
+    [
+      11.565,
+      3.196
+    ],
+    [
+      9.36,
+      5.72
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Bath",
+      "name": "WC",
       "geometry": [
         [
           9.36,
@@ -136,12 +190,12 @@
       ],
       "attributes": {
         "area": 1.1123,
-        "program": "bath"
+        "program": "wc"
       }
     },
     {
       "id": "room-2",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           10.62,
@@ -174,12 +228,12 @@
       ],
       "attributes": {
         "area": 1.5366,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
       "id": "room-3",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           12.09,
@@ -204,7 +258,7 @@
       ],
       "attributes": {
         "area": 3.0899,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
@@ -239,7 +293,7 @@
     },
     {
       "id": "room-5",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           10.62,
@@ -280,7 +334,7 @@
       ],
       "attributes": {
         "area": 10.0697,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {

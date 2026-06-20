@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L6.0_W7.5_de3_dp0.2_wp2",
+  "layoutId": "Layout-092",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L6.0_W7.5_de3_dp0.2_wp2",
+    "name": "1-bed apartment",
     "geometry": [
       [
         0.0,
@@ -43,7 +43,7 @@
     ],
     "attributes": {
       "area": 44.9999,
-      "description": "1 bedroom, 1 bathroom, 1 living room, 2 extra rooms."
+      "description": "1 Bed, 1 Bath, 1 Living, 1 Storage, 1 Circulation"
     }
   },
   "outline": [
@@ -84,10 +84,32 @@
       3.469
     ]
   ],
+  "door_point": [
+    0.636,
+    0.0
+  ],
+  "door_points": [
+    [
+      3.091,
+      1.781
+    ],
+    [
+      2.0,
+      2.906
+    ],
+    [
+      2.545,
+      3.469
+    ],
+    [
+      3.091,
+      3.0
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           3.091,
@@ -112,7 +134,7 @@
       ],
       "attributes": {
         "area": 0.9202,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
@@ -147,7 +169,7 @@
     },
     {
       "id": "room-3",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           3.909,
@@ -188,7 +210,7 @@
       ],
       "attributes": {
         "area": 7.2198,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {
@@ -261,22 +283,6 @@
     }
   ],
   "doors": [
-    {
-      "id": "door-1",
-      "name": "Door 1",
-      "geometry": [
-        [
-          3.091,
-          1.781
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-1",
-          "room-3"
-        ]
-      }
-    },
     {
       "id": "door-2",
       "name": "Door 2",
@@ -356,13 +362,13 @@
           0.0
         ],
         [
-          0.0,
-          7.5
+          6.0,
+          0.0
         ]
       ],
       "attributes": {
         "type": "circulation",
-        "length": 7.5
+        "length": 6.0
       }
     }
   ],

@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L16.5_W10.5_de2_dp0.85_wp5",
+  "layoutId": "Layout-691",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L16.5_W10.5_de2_dp0.85_wp5",
+    "name": "3-bed apartment",
     "geometry": [
       [
         7.875,
@@ -63,7 +63,7 @@
     ],
     "attributes": {
       "area": 128.9925,
-      "description": "3 bedrooms, 2 bathrooms, 1 living room, 2 extra rooms."
+      "description": "3 Bed, 1 WC, 1 Bath, 1 Living, 1 Storage, 1 Circulation"
     }
   },
   "outline": [
@@ -124,10 +124,64 @@
       10.5
     ]
   ],
+  "door_point": [
+    6.09,
+    10.5
+  ],
+  "door_points": [
+    [
+      7.35,
+      10.073
+    ],
+    [
+      7.56,
+      8.793
+    ],
+    [
+      5.04,
+      9.561
+    ],
+    [
+      8.715,
+      9.305
+    ],
+    [
+      8.705,
+      8.875
+    ],
+    [
+      5.04,
+      8.366
+    ],
+    [
+      4.51,
+      7.996
+    ],
+    [
+      5.05,
+      8.796
+    ],
+    [
+      5.04,
+      7.341
+    ],
+    [
+      6.93,
+      7.341
+    ],
+    [
+      7.46,
+      7.711
+    ],
+    [
+      5.775,
+      5.122
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Bath",
+      "name": "WC",
       "geometry": [
         [
           8.715,
@@ -152,12 +206,12 @@
       ],
       "attributes": {
         "area": 1.6761,
-        "program": "bath"
+        "program": "wc"
       }
     },
     {
       "id": "room-2",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           3.57,
@@ -182,7 +236,7 @@
       ],
       "attributes": {
         "area": 2.3843,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
@@ -255,7 +309,7 @@
     },
     {
       "id": "room-5",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           5.04,
@@ -304,7 +358,7 @@
       ],
       "attributes": {
         "area": 12.7631,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {

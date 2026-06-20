@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L7.5_W6.0_de0_dp0.3_wp2",
+  "layoutId": "Layout-157",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L7.5_W6.0_de0_dp0.3_wp2",
+    "name": "1-bed apartment",
     "geometry": [
       [
         4.031,
@@ -43,7 +43,7 @@
     ],
     "attributes": {
       "area": 44.9999,
-      "description": "1 bedroom, 1 bathroom, 1 living room, 2 extra rooms."
+      "description": "1 Bed, 1 Bath, 1 Living, 1 Storage, 1 Circulation"
     }
   },
   "outline": [
@@ -84,10 +84,32 @@
       0.0
     ]
   ],
+  "door_point": [
+    7.5,
+    0.636
+  ],
+  "door_points": [
+    [
+      5.719,
+      3.091
+    ],
+    [
+      4.594,
+      2.0
+    ],
+    [
+      4.031,
+      2.545
+    ],
+    [
+      4.5,
+      3.091
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           5.156,
@@ -112,7 +134,7 @@
       ],
       "attributes": {
         "area": 0.9202,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
@@ -147,7 +169,7 @@
     },
     {
       "id": "room-3",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           6.281,
@@ -188,7 +210,7 @@
       ],
       "attributes": {
         "area": 7.2198,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {
@@ -261,22 +283,6 @@
     }
   ],
   "doors": [
-    {
-      "id": "door-1",
-      "name": "Door 1",
-      "geometry": [
-        [
-          5.719,
-          3.091
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-1",
-          "room-3"
-        ]
-      }
-    },
     {
       "id": "door-2",
       "name": "Door 2",
@@ -352,17 +358,17 @@
       "name": "Front Door Axis",
       "geometry": [
         [
-          0.0,
+          7.5,
           0.0
         ],
         [
           7.5,
-          0.0
+          6.0
         ]
       ],
       "attributes": {
         "type": "circulation",
-        "length": 7.5
+        "length": 6.0
       }
     }
   ],

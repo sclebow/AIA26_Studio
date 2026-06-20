@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L10.5_W15.0_de2_dp0.9_wp3",
+  "layoutId": "Layout-374",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L10.5_W15.0_de2_dp0.9_wp3",
+    "name": "2-bed apartment",
     "geometry": [
       [
         0.42,
@@ -63,7 +63,7 @@
     ],
     "attributes": {
       "area": 139.7649,
-      "description": "2 bedrooms, 2 bathrooms, 1 living room, 2 extra rooms."
+      "description": "2 Bed, 1 WC, 1 Bath, 1 Living, 1 Storage, 1 Circulation"
     }
   },
   "outline": [
@@ -124,10 +124,52 @@
       12.685
     ]
   ],
+  "door_point": [
+    0.42,
+    13.704
+  ],
+  "door_points": [
+    [
+      1.05,
+      12.13
+    ],
+    [
+      2.625,
+      8.611
+    ],
+    [
+      4.305,
+      9.815
+    ],
+    [
+      4.095,
+      12.13
+    ],
+    [
+      5.565,
+      10.463
+    ],
+    [
+      5.555,
+      11.154
+    ],
+    [
+      5.565,
+      11.574
+    ],
+    [
+      5.555,
+      12.004
+    ],
+    [
+      1.89,
+      7.5
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Bath",
+      "name": "WC",
       "geometry": [
         [
           3.675,
@@ -152,12 +194,12 @@
       ],
       "attributes": {
         "area": 1.847,
-        "program": "bath"
+        "program": "wc"
       }
     },
     {
       "id": "room-2",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           5.565,
@@ -182,7 +224,7 @@
       ],
       "attributes": {
         "area": 4.3753,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
@@ -277,7 +319,7 @@
     },
     {
       "id": "room-6",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           2.625,
@@ -342,7 +384,7 @@
       ],
       "attributes": {
         "area": 23.2275,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {
@@ -397,22 +439,6 @@
       "attributes": {
         "connectsRooms": [
           "room-1",
-          "room-6"
-        ]
-      }
-    },
-    {
-      "id": "door-3",
-      "name": "Door 3",
-      "geometry": [
-        [
-          4.305,
-          9.815
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-2",
           "room-6"
         ]
       }
@@ -595,16 +621,16 @@
       "geometry": [
         [
           0.42,
-          15.0
+          0.0
         ],
         [
-          10.5,
+          0.42,
           15.0
         ]
       ],
       "attributes": {
         "type": "circulation",
-        "length": 10.08
+        "length": 15.0
       }
     }
   ],

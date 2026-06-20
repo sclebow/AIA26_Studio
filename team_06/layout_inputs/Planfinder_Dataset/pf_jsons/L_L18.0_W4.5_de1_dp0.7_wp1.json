@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L18.0_W4.5_de1_dp0.7_wp1",
+  "layoutId": "Layout-725",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L18.0_W4.5_de1_dp0.7_wp1",
+    "name": "2-bed apartment",
     "geometry": [
       [
         15.48,
@@ -51,7 +51,7 @@
     ],
     "attributes": {
       "area": 75.1464,
-      "description": "2 bedrooms, 1 bathroom, 1 living room, 2 extra rooms."
+      "description": "2 Bed, 1 Bath, 1 Living, 1 Storage, 1 Circulation"
     }
   },
   "outline": [
@@ -98,6 +98,32 @@
     [
       15.48,
       5.04
+    ]
+  ],
+  "door_point": [
+    10.65,
+    0.0
+  ],
+  "door_points": [
+    [
+      14.85,
+      1.12
+    ],
+    [
+      13.065,
+      1.12
+    ],
+    [
+      15.48,
+      0.56
+    ],
+    [
+      9.6,
+      1.12
+    ],
+    [
+      7.5,
+      0.56
     ]
   ],
   "rooms": [
@@ -163,7 +189,7 @@
     },
     {
       "id": "room-3",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           15.48,
@@ -188,12 +214,12 @@
       ],
       "attributes": {
         "area": 8.9376,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {
       "id": "room-4",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           15.48,
@@ -218,7 +244,7 @@
       ],
       "attributes": {
         "area": 12.7008,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
@@ -316,22 +342,6 @@
       }
     },
     {
-      "id": "door-3",
-      "name": "Door 3",
-      "geometry": [
-        [
-          15.48,
-          0.56
-        ]
-      ],
-      "attributes": {
-        "connectsRooms": [
-          "room-3",
-          "room-4"
-        ]
-      }
-    },
-    {
       "id": "door-4",
       "name": "Door 4",
       "geometry": [
@@ -390,17 +400,17 @@
       "name": "Front Door Axis",
       "geometry": [
         [
-          18.0,
+          3.09,
           0.0
         ],
         [
           18.0,
-          5.04
+          0.0
         ]
       ],
       "attributes": {
         "type": "circulation",
-        "length": 5.04
+        "length": 14.91
       }
     }
   ],

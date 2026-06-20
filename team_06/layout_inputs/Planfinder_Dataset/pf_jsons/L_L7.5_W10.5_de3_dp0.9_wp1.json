@@ -1,8 +1,8 @@
 {
-  "layoutId": "L_L7.5_W10.5_de3_dp0.9_wp1",
+  "layoutId": "Layout-182",
   "apartment": {
-    "id": "apartment-1",
-    "name": "Apartment",
+    "id": "L_L7.5_W10.5_de3_dp0.9_wp1",
+    "name": "2-bed apartment",
     "geometry": [
       [
         0.0,
@@ -59,7 +59,7 @@
     ],
     "attributes": {
       "area": 78.75,
-      "description": "2 bedrooms, 2 bathrooms, 1 living room, 3 extra rooms."
+      "description": "2 Bed, 1 WC, 1 Bath, 1 Living, 1 Storage, 2 Circulation"
     }
   },
   "outline": [
@@ -116,10 +116,48 @@
       6.968
     ]
   ],
+  "door_point": [
+    0.0,
+    0.668
+  ],
+  "door_points": [
+    [
+      2.338,
+      6.395
+    ],
+    [
+      2.338,
+      5.155
+    ],
+    [
+      2.348,
+      5.585
+    ],
+    [
+      2.922,
+      4.391
+    ],
+    [
+      2.338,
+      7.541
+    ],
+    [
+      2.922,
+      8.114
+    ],
+    [
+      3.604,
+      5.536
+    ],
+    [
+      2.338,
+      0.764
+    ]
+  ],
   "rooms": [
     {
       "id": "room-1",
-      "name": "Bath",
+      "name": "WC",
       "geometry": [
         [
           0.0,
@@ -144,12 +182,12 @@
       ],
       "attributes": {
         "area": 2.9015,
-        "program": "bath"
+        "program": "wc"
       }
     },
     {
       "id": "room-2",
-      "name": "Extra",
+      "name": "Storage",
       "geometry": [
         [
           0.0,
@@ -174,12 +212,12 @@
       ],
       "attributes": {
         "area": 3.1236,
-        "program": "extra"
+        "program": "storage"
       }
     },
     {
       "id": "room-3",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           2.338,
@@ -204,12 +242,12 @@
       ],
       "attributes": {
         "area": 4.6877,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {
       "id": "room-4",
-      "name": "Extra",
+      "name": "Circulation",
       "geometry": [
         [
           3.604,
@@ -234,7 +272,7 @@
       ],
       "attributes": {
         "area": 4.7133,
-        "program": "extra"
+        "program": "circulation"
       }
     },
     {
