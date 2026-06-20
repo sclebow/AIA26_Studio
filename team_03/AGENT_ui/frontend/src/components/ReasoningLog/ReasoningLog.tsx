@@ -1,5 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useTheme } from '../common/ThemeToggle';
+import type { Message } from '../ChatPanel/MessageBubble';
 
 export interface LogEntry {
   id: string;
@@ -15,6 +16,8 @@ export interface ReasoningLogProps {
   visible: boolean;
   onToggle: () => void;
   isRunning?: boolean;
+  /** Chat conversation (user prompts + agent replies) for the "Copy chat" button. */
+  messages?: Message[];
 }
 
 const NODE_LABELS: Record<string, string> = {
@@ -37,10 +40,98 @@ function formatTime(ts: number): string {
   return d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-const ReasoningLog: React.FC<ReasoningLogProps> = ({ entries, visible, onToggle, isRunning = false }) => {
+// Full timestamp with milliseconds for the detailed (copyable) log.
+function formatTimeDetailed(ts: number): string {
+  const d = new Date(ts);
+  const pad = (n: number, w = 2) => String(n).padStart(w, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
+}
+
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+/**
+ * Build the FULL detailed log as plain text — not the abridged version rendered
+ * in the panel. Includes ms-precision timestamps, the raw node name, the complete
+ * (untruncated) message, and the entry's `data` payload (which the UI never shows).
+ */
+function buildDetailedLog(entries: LogEntry[]): string {
+  const header =
+    `=== Agent Log — ${entries.length} event(s) — exported ${new Date().toISOString()} ===`;
+  const lines = entries.map(e => {
+    const node = e.node ? ` [${e.node}]` : '';
+    let line = `[${formatTimeDetailed(e.timestamp)}] ${e.type.toUpperCase()}${node} ${e.message}`.trimEnd();
+    // Append the raw data payload unless it's a string already shown verbatim in
+    // the message (avoids duplicating short setup strings).
+    if (e.data !== undefined && e.data !== null && e.data !== '') {
+      const isStr = typeof e.data === 'string';
+      if (!(isStr && e.message.includes(e.data as string))) {
+        const dataStr = isStr ? (e.data as string) : safeStringify(e.data);
+        line += '\n' + dataStr.split('\n').map(l => '    ' + l).join('\n');
+      }
+    }
+    return line;
+  });
+  return [header, '', ...lines].join('\n');
+}
+
+/**
+ * Build the chat conversation as plain text — every user prompt and agent reply
+ * in order, with ms timestamps and any tool calls attached to a message.
+ */
+function buildChatTranscript(messages: Message[]): string {
+  const header =
+    `=== Chat — ${messages.length} message(s) — exported ${new Date().toISOString()} ===`;
+  const blocks = messages.map(m => {
+    const who = m.role === 'user' ? 'User' : 'Agent';
+    let block = `[${formatTimeDetailed(m.timestamp)}] ${who}:\n${m.content}`;
+    if (m.toolCalls && m.toolCalls.length > 0) {
+      block += `\n  tool calls: ${safeStringify(m.toolCalls)}`;
+    }
+    return block;
+  });
+  return [header, '', ...blocks].join('\n\n');
+}
+
+const ReasoningLog: React.FC<ReasoningLogProps> = ({ entries, visible, onToggle, isRunning = false, messages = [] }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const [copiedKind, setCopiedKind] = useState<'log' | 'chat' | null>(null);
+
+  const copyText = useCallback(async (text: string, kind: 'log' | 'chat') => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Fallback for non-secure contexts where the Clipboard API is unavailable.
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch { /* ignore */ }
+      document.body.removeChild(ta);
+    }
+    setCopiedKind(kind);
+    setTimeout(() => setCopiedKind(c => (c === kind ? null : c)), 1500);
+  }, []);
+
+  const handleCopyLog = useCallback(() => {
+    if (entries.length === 0) return;
+    copyText(buildDetailedLog(entries), 'log');
+  }, [entries, copyText]);
+
+  const handleCopyChat = useCallback(() => {
+    if (messages.length === 0) return;
+    copyText(buildChatTranscript(messages), 'chat');
+  }, [messages, copyText]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -132,23 +223,63 @@ const ReasoningLog: React.FC<ReasoningLogProps> = ({ entries, visible, onToggle,
             {entries.length} events
           </span>
         </div>
-        <button
-          onClick={onToggle}
-          style={{
-            background: 'none',
-            border: `1px solid ${border}`,
-            borderRadius: 6,
-            color: isDark ? '#6b7b8d' : '#6a7a8a',
-            cursor: 'pointer',
-            padding: '3px 8px',
-            fontSize: 10,
-            fontFamily: '"SF Mono", "Fira Code", monospace',
-            transition: 'color 0.2s',
-          }}
-          title={visible ? 'Collapse log' : 'Expand log'}
-        >
-          {visible ? 'HIDE' : 'SHOW'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            onClick={handleCopyLog}
+            disabled={entries.length === 0}
+            style={{
+              background: 'none',
+              border: `1px solid ${border}`,
+              borderRadius: 6,
+              color: copiedKind === 'log' ? '#34D399' : (entries.length === 0 ? muted : (isDark ? '#6b7b8d' : '#6a7a8a')),
+              cursor: entries.length === 0 ? 'default' : 'pointer',
+              padding: '3px 8px',
+              fontSize: 10,
+              fontFamily: '"SF Mono", "Fira Code", monospace',
+              transition: 'color 0.2s',
+              opacity: entries.length === 0 ? 0.5 : 1,
+            }}
+            title="Copy the full detailed pipeline log to the clipboard"
+          >
+            {copiedKind === 'log' ? 'COPIED' : 'COPY LOG'}
+          </button>
+          <button
+            onClick={handleCopyChat}
+            disabled={messages.length === 0}
+            style={{
+              background: 'none',
+              border: `1px solid ${border}`,
+              borderRadius: 6,
+              color: copiedKind === 'chat' ? '#34D399' : (messages.length === 0 ? muted : (isDark ? '#6b7b8d' : '#6a7a8a')),
+              cursor: messages.length === 0 ? 'default' : 'pointer',
+              padding: '3px 8px',
+              fontSize: 10,
+              fontFamily: '"SF Mono", "Fira Code", monospace',
+              transition: 'color 0.2s',
+              opacity: messages.length === 0 ? 0.5 : 1,
+            }}
+            title="Copy the chat conversation (prompts + agent replies) to the clipboard"
+          >
+            {copiedKind === 'chat' ? 'COPIED' : 'COPY CHAT'}
+          </button>
+          <button
+            onClick={onToggle}
+            style={{
+              background: 'none',
+              border: `1px solid ${border}`,
+              borderRadius: 6,
+              color: isDark ? '#6b7b8d' : '#6a7a8a',
+              cursor: 'pointer',
+              padding: '3px 8px',
+              fontSize: 10,
+              fontFamily: '"SF Mono", "Fira Code", monospace',
+              transition: 'color 0.2s',
+            }}
+            title={visible ? 'Collapse log' : 'Expand log'}
+          >
+            {visible ? 'HIDE' : 'SHOW'}
+          </button>
+        </div>
       </div>
 
       {/* Log entries */}

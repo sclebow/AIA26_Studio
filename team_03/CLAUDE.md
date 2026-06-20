@@ -393,24 +393,65 @@ assistant". (Pure Python — works even when Swiftlet/Rhino is down.)
 | Variable | Description | Default |
 |---------|-------------|---------|
 | `LLM_PROVIDER` | `openai`, `anthropic`, `local`, `google`, `cloudflare` | required |
-| `ANTHROPIC_MODEL` | Model id when provider is `anthropic` | `claude-haiku-4-5` |
-| `OPENAI_MODEL` / `GOOGLE_MODEL` / `CF_MODEL` | Model id for the matching provider | per provider |
+| `GOOGLE_API_KEY` | API key when provider is `google` | required if google |
+| `GOOGLE_MODEL` | Model id when provider is `google` | `gemini-2.5-flash` |
+| `ANTHROPIC_API_KEY` | Anthropic key — always required for AGENT_ui auxiliary features | required |
+| `ANTHROPIC_MODEL` | Model id for AGENT_ui auxiliary features (pure_chat, spatial_assistant) | `claude-haiku-4-5` |
+| `OPENAI_MODEL` / `CF_MODEL` | Model id for the matching provider | per provider |
 | `LOCAL_LLM_ENDPOINT` | e.g. `http://localhost:1234/v1/` | required if local |
 | `REQUEST_TIMEOUT_SECONDS` | HTTP timeout for MCP + LLM | `120` |
 | `MAX_ITERATIONS` | Max tool call cycles | `100` |
 | `DEBUG_GRAPH` | Print graph debug info | `false` |
 | `LAYOUT_FILE` | Layout name (env alt to `--layout`) | — |
 
-**Cost policy — prefer the cheapest model (Haiku):** the model is read from `.env`
-(`ANTHROPIC_MODEL`, etc.); there is no hardcoded default in `_runtime/config.py`.
-The agent is standardized on **`claude-haiku-4-5`** (Haiku 4.5 — the cheapest
-Anthropic model). The terminal (`main.py`) follows `.env`. The **AGENT_ui backend no
-longer hard-forces Haiku** (changed in the 2026-06-07 UI_fix commit): `build_context`
-uses `get_active_model() or settings.llm_model`, so it follows `.env` unless the UI
-switches the active model at runtime via a `model_switch` WebSocket message
-(`haiku` → `claude-haiku-4-5-20251001`, `sonnet` → `claude-sonnet-4-6`). **Sonnet is
-therefore selectable from the UI** — mind the cost. Keep `ANTHROPIC_MODEL =
-"claude-haiku-4-5"` in `.env` as the default for both the terminal and the web agent.
+**Provider architecture — hybrid Google + Anthropic (current setup):**
+
+The pipeline runs in **hybrid mode**: the LangGraph agent uses Google Gemini as its
+main LLM, while three AGENT_ui auxiliary features remain on Anthropic.
+
+| Feature | Provider | Key used | Model |
+|---------|----------|----------|-------|
+| LangGraph agent pipeline (reason, profile, space_type, populate) | **Google** | `GOOGLE_API_KEY` | `GOOGLE_MODEL` |
+| AGENT_ui pure_chat (direct chatbot) | **Anthropic** | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL` |
+| AGENT_ui spatial_assistant (observer / visibility / path) | **Anthropic** | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL` |
+| AGENT_ui layout_generator (AI layout generation) | **Anthropic** | `ANTHROPIC_API_KEY` | `claude-sonnet-4-6` (or `LAYOUT_GEN_MODEL`) |
+
+**Google Gemini specifics (`_runtime/llm.py`):** Gemini is routed through its
+OpenAI-compatibility endpoint (`generativelanguage.googleapis.com/v1beta/openai`) via
+`langchain_openai.ChatOpenAI`. Four Gemini-specific adjustments are applied (added
+2026-06-19 to fix a bug where multi-object move/place requests silently did nothing):
+- `max_tokens=8192` — a generous output budget. Gemini 2.5 enables "thinking" by
+  default and those tokens count against `max_tokens` via the OpenAI-compat layer; with
+  a small budget the decision JSON gets truncated mid-output (invalid JSON → tool calls
+  silently dropped → placements vanish while the agent appears to "talk about" them).
+- `reasoning_effort="low"` — caps Gemini's "thinking" so most of the budget goes to the
+  actual decision JSON, not hidden reasoning. (Passed as an explicit `ChatOpenAI` param,
+  not via `model_kwargs`, to avoid a LangChain warning. NOTE: `extra_body` with a
+  `google.thinking_config` block is **rejected** by this endpoint — 400 "Unknown name
+  google"; `reasoning_effort` is the correct knob.)
+- **JSON mode** — `get_llm_response_format` returns `{"response_format": {"type":
+  "json_object"}}` for `google` (NOT the strict `json_schema`, which Gemini's OpenAI-compat
+  layer only partially honours). This forces syntactically valid JSON and stops the model
+  rambling / dumping coordinates into prose. The SYSTEM_PROMPT already describes the
+  decision shape; `_normalize_llm_decision` validates it.
+- **Truncation detection** — `call_llm` checks `response_metadata.finish_reason`. On
+  `"length"` it logs loudly and raises (so `reason.py`'s retry loop runs) instead of the
+  old silent fallback in `_parse_llm_json` that treated a truncated reply as a plain
+  conversational "final" with no tool calls.
+
+For multi-step placement where Flash still misclassifies (e.g. picks the wrong object,
+or chooses `action:query` for a move), the next lever is `GOOGLE_MODEL=gemini-2.5-pro`.
+
+**UI model switcher:** the WebSocket `model_switch` message (`haiku` / `sonnet`) only
+applies when `LLM_PROVIDER=anthropic`. For all other providers (`google`, `openai`,
+etc.) `build_context` always uses the provider's model from `.env` and ignores any
+runtime switch, preventing a `claude-...` model id from being sent to the Google
+endpoint.
+
+**Auxiliary config helper:** `pipeline_bridge.anthropic_aux_config()` returns the
+Anthropic key + model for the three auxiliary features, reading `ANTHROPIC_API_KEY` /
+`ANTHROPIC_MODEL` directly from the repo-root `.env` regardless of `LLM_PROVIDER`.
+This means both keys must always be present in `.env` when running the AGENT_ui.
 
 **Important:** Grasshopper tool calls can take >2 minutes. Set `REQUEST_TIMEOUT_SECONDS=300` or higher.
 

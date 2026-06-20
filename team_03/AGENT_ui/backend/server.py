@@ -98,10 +98,10 @@ async def _handle_spatial(content: str, websocket: WebSocket) -> None:
         })
         return
 
-    from _runtime.config import load_settings
-    from pipeline_bridge import get_active_model
-    settings = load_settings()
-    model = get_active_model() or settings.llm_model
+    # The spatial assistant uses the Anthropic SDK directly, so it always runs on
+    # Anthropic (its own key/model) even when the main pipeline is on Google.
+    from pipeline_bridge import anthropic_aux_config
+    aux_key, aux_model = anthropic_aux_config()
 
     async def emit(msg: dict) -> None:
         await manager.send_personal(websocket, msg)
@@ -109,7 +109,7 @@ async def _handle_spatial(content: str, websocket: WebSocket) -> None:
     try:
         answer = await spatial_assistant.handle(
             content, list(_spatial_history), layout, session.get_observer(),
-            emit, session.set_observer, settings.api_key, model,
+            emit, session.set_observer, aux_key, aux_model,
         )
     except Exception as exc:
         answer = f"Spatial analysis error: {exc}"
@@ -317,13 +317,13 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     continue
                 try:
                     import anthropic
-                    from _runtime.config import load_settings
-                    from pipeline_bridge import get_active_model
+                    from pipeline_bridge import anthropic_aux_config
 
-                    settings = load_settings()
-                    model = get_active_model() or settings.llm_model
+                    # Direct Anthropic chatbot — always runs on Anthropic's own
+                    # key/model, independent of the main pipeline's provider.
+                    aux_key, model = anthropic_aux_config()
 
-                    client = anthropic.AsyncAnthropic(api_key=settings.api_key)
+                    client = anthropic.AsyncAnthropic(api_key=aux_key)
 
                     # Build messages: history + new user message
                     messages = [

@@ -271,8 +271,11 @@ the browser". No demo/stub anymore.
   down Swiftlet/Rhino fails fast with a clear chat error instead of hanging.
 
 **LLM model — runtime switch (Haiku/Sonnet):** the hard Haiku-force was removed.
-`build_context` now uses `get_active_model() or settings.llm_model` — i.e. it follows
-`.env` (`ANTHROPIC_MODEL`) unless the UI has switched the active model. A `model_switch`
+`build_context` applies `get_active_model()` **only when `LLM_PROVIDER=anthropic`**;
+under Google/OpenAI it always uses the provider's `.env` model (so a Haiku/Sonnet switch
+never sends a `claude-...` id to the Gemini endpoint — see `team_03/CLAUDE.md` →
+Configuration → "UI model switcher"). When provider is `anthropic` it follows `.env`
+(`ANTHROPIC_MODEL`) unless the UI has switched the active model. A `model_switch`
 WebSocket message calls `pipeline_bridge.set_active_model(key)` where `key` is `haiku`
 (`claude-haiku-4-5-20251001`) or `sonnet` (`claude-sonnet-4-6`); the choice is process-global
 runtime state (`_active_model`) shared by both the pipeline and `pure_chat`. **Cost note:**
@@ -280,7 +283,27 @@ Sonnet is now selectable from the UI — it is no longer impossible to run a pri
 See `team_03/CLAUDE.md` → Configuration.
 
 **Run the dev backend as a single process** (`python -m uvicorn server:app
---port 3000`); uvicorn `--reload` can leave stale workers serving old code.
+--port 3000`); uvicorn `--reload` can leave stale workers serving old code. Note its
+`--reload` watcher only watches `AGENT_ui/backend/` — edits to `team_03/python/`
+(e.g. `_runtime/llm.py`) need a manual backend restart to load.
+
+## Agent Log panel (`components/ReasoningLog/ReasoningLog.tsx`)
+
+The floating **Agent Log** panel renders `agentState.logEntries` (pipeline
+`node_start`/`node_complete`/`tool_call`/`reasoning`/`info` events). The on-screen
+message is abridged (data truncated to ~120 chars, reasoning to ~150). Two header
+buttons export the **full** content to the clipboard:
+
+- **COPY LOG** — `buildDetailedLog(entries)`: every event with ms-precision timestamp,
+  raw node name, the complete untruncated message, **and the entry's `data` payload**
+  (pretty-printed JSON), which the panel itself never displays.
+- **COPY CHAT** — `buildChatTranscript(messages)`: the conversation (user prompts +
+  agent replies) in order, with timestamps and any `toolCalls` attached to a message.
+  `messages` is passed in from `App.tsx` (`agentState.messages`).
+
+Both use `navigator.clipboard.writeText` with a hidden-`textarea` + `execCommand`
+fallback for non-secure contexts, and flash **COPIED** for 1.5s. Each is disabled when
+its source is empty. All logic is self-contained in `ReasoningLog.tsx`.
 
 ## AI Layout Generator (UI)
 

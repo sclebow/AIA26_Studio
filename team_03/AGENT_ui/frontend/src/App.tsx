@@ -878,6 +878,7 @@ export default function App() {
           visible={true}
           onToggle={() => setLogOpen(v => !v)}
           isRunning={agentState.isAgentRunning}
+          messages={agentState.messages}
         />
       </FloatingPanel>
     </div>

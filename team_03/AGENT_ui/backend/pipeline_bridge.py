@@ -63,6 +63,30 @@ def get_active_model() -> Optional[str]:
     return _active_model
 
 
+def anthropic_aux_config() -> tuple[str, str]:
+    """Key + model for AGENT_ui helper features (pure_chat, spatial_assistant) that
+    always run on Anthropic, regardless of LLM_PROVIDER.
+
+    In hybrid setups the main pipeline may run on Google/OpenAI (settings.api_key /
+    settings.llm_model are then the Google key/model), but these helper features are
+    wired to the Anthropic SDK. So they read ANTHROPIC_API_KEY / ANTHROPIC_MODEL
+    straight from the repo-root .env and honor a UI model_switch (haiku/sonnet).
+    """
+    import os
+    from dotenv import load_dotenv
+
+    # team_03/AGENT_ui/backend → repo root is _team_dir().parent (AIA26_Studio/).
+    load_dotenv(dotenv_path=_team_dir().parent / ".env", override=False)
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if not key:
+        raise RuntimeError(
+            "ANTHROPIC_API_KEY is not set in .env — the chat / spatial assistant "
+            "features run on Anthropic even when the main agent uses Google."
+        )
+    model = get_active_model() or os.environ.get("ANTHROPIC_MODEL") or "claude-haiku-4-5"
+    return key, model
+
+
 # ---------------------------------------------------------------------------
 # Pinned version — when the user selects a revision in the Version History panel,
 # the chat must run on THAT layout, not the base. build_context normally always
@@ -216,9 +240,15 @@ def build_context(layout_name: str, progress: Optional[Callable[[str], None]] = 
     tools = mcp_client.list_tools()
     _say(f"MCP connected — {len(tools)} tool(s) available.")
 
-    # Runtime model — can be switched via WebSocket model_switch message.
-    # Falls back to .env ANTHROPIC_MODEL if no override has been set.
-    model = get_active_model() or settings.llm_model
+    # Runtime model — the WebSocket model_switch only knows Anthropic models
+    # (haiku/sonnet), so it must NOT override the model when the active provider is
+    # Google/OpenAI/etc. In those cases always use the provider's model from .env
+    # (e.g. GOOGLE_MODEL); otherwise a model_switch would feed a "claude-..." id to
+    # the Gemini endpoint and fail.
+    if settings.llm_provider == "anthropic":
+        model = get_active_model() or settings.llm_model
+    else:
+        model = settings.llm_model
     _say(f"Initializing LLM ({model})…")
     llm = create_chat_llm(
         api_key=settings.api_key,

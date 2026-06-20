@@ -32,6 +32,30 @@ def create_chat_llm(
             "_timeout": timeout_seconds,
         }
 
+    # Google Gemini — via its OpenAI-compatibility endpoint (langchain_openai).
+    # Gemini 2.5 enables "thinking" by default; those tokens count against max_tokens
+    # via the OpenAI-compat layer, so a small budget gets the decision JSON truncated
+    # mid-output (invalid JSON → tool calls silently dropped → placements vanish).
+    # Mitigations: (a) a generous 8192 output budget, (b) cap thinking via extra_body
+    # so most of the budget goes to the actual decision, and (c) json_object mode
+    # (get_llm_response_format) forcing syntactically valid JSON.
+    if provider == "google":
+        from langchain_openai import ChatOpenAI
+        # Cap Gemini "thinking" so it does not consume the whole output budget.
+        # Gemini's OpenAI-compat layer maps reasoning_effort (low/medium/high) to a
+        # thinking budget; "low" keeps useful reasoning while leaving most of the
+        # 8192-token budget for the decision JSON.
+        return ChatOpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            model=llm_model,
+            timeout=timeout_seconds,
+            temperature=0,
+            max_tokens=8192,
+            reasoning_effort="low",
+            model_kwargs=model_kwargs or {},
+        )
+
     # All other providers — use LangChain OpenAI-compatible wrapper
     from langchain_openai import ChatOpenAI
     return ChatOpenAI(
@@ -120,12 +144,19 @@ def get_llm_response_format(tools: list[dict[str, Any]]) -> dict[str, Any]:
     """
     Returns model_kwargs for structured output.
     For Anthropic — returns empty dict (handled via prompt, not response_format).
+    For Google — returns basic JSON mode (json_object). Gemini's OpenAI-compat layer
+    mishandles strict json_schema, but json_object reliably forces syntactically valid
+    JSON (no prose, no decision lost to rambling/truncation). The SYSTEM_PROMPT already
+    describes the decision shape and _normalize_llm_decision validates it.
     For local/OpenAI — returns JSON schema response format.
     """
     provider = os.environ.get("LLM_PROVIDER", "local").strip().lower()
 
     if provider == "anthropic":
         return {}
+
+    if provider == "google":
+        return {"response_format": {"type": "json_object"}}
 
     schema = deepcopy(LLM_DECISION_SCHEMA)
     tool_names = [str(tool.get("name")) for tool in tools if tool.get("name")]
@@ -395,6 +426,19 @@ def call_llm(
     content = result.content
     if not isinstance(content, str):
         raise RuntimeError("LLM response content must be a string")
+
+    # Detect a response truncated by the output token cap (finish_reason="length").
+    # With JSON output this leaves invalid/partial JSON that _parse_llm_json would
+    # SILENTLY treat as a plain conversational "final" — dropping every tool call so
+    # placements/moves vanish while the agent appears to "talk about" doing them.
+    # Surface it loudly and raise so the caller's retry loop runs instead of masking it.
+    meta = getattr(result, "response_metadata", None) or {}
+    finish_reason = str(meta.get("finish_reason") or "") if isinstance(meta, dict) else ""
+    if finish_reason == "length":
+        print(f"\n[llm] ⚠ Response truncated (finish_reason=length, {len(content)} chars) — "
+              f"the decision JSON is incomplete; tool calls would be lost. "
+              f"Increase max_tokens or split the request.")
+        raise RuntimeError("LLM response was truncated (finish_reason=length) — incomplete JSON")
 
     try:
         parsed = _parse_llm_json(content)
