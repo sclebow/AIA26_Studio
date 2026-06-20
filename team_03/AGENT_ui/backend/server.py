@@ -291,14 +291,17 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
             elif msg_type == "provider_switch":
                 # Switch the active PIPELINE provider + model (anthropic/google).
-                # Applies to the next chat session (build_context). Auxiliary features
-                # (pure_chat, spatial_assistant) always stay on Anthropic. If the chosen
-                # provider's API key is missing, the active provider is left unchanged
-                # and an error ack tells the user which key to add and where.
+                # If a pipeline run is currently active, abort it so the next
+                # chat_message always starts build_context fresh with the new provider.
+                # Auxiliary features (pure_chat, spatial_assistant) stay on Anthropic.
+                # If the chosen provider's API key is missing, the active provider is
+                # left unchanged and an error ack tells the user which key to add.
                 from pipeline_bridge import set_pipeline_llm
                 provider = str(data.get("provider", "anthropic"))
                 model_key = data.get("model")
                 model_key = str(model_key) if model_key is not None else None
+                # Abort any active run so it does not continue with the old LLM.
+                agent_runner.abort_session(websocket)
                 try:
                     active_provider, full_model = set_pipeline_llm(provider, model_key)
                     await manager.send_personal(websocket, {
