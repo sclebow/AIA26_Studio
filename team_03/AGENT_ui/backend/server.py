@@ -289,24 +289,43 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     "isovist": iso,
                 })
 
-            elif msg_type == "model_switch":
-                # Switch the active Anthropic model (haiku / sonnet).
-                # Only applies when LLM_PROVIDER=anthropic.
-                from pipeline_bridge import set_active_model
-                key = str(data.get("model", "haiku"))
+            elif msg_type == "provider_switch":
+                # Switch the active PIPELINE provider + model (anthropic/google).
+                # Applies to the next chat session (build_context). Auxiliary features
+                # (pure_chat, spatial_assistant) always stay on Anthropic. If the chosen
+                # provider's API key is missing, the active provider is left unchanged
+                # and an error ack tells the user which key to add and where.
+                from pipeline_bridge import set_pipeline_llm
+                provider = str(data.get("provider", "anthropic"))
+                model_key = data.get("model")
+                model_key = str(model_key) if model_key is not None else None
                 try:
-                    full_model = set_active_model(key)
+                    active_provider, full_model = set_pipeline_llm(provider, model_key)
                     await manager.send_personal(websocket, {
-                        "type": "model_switch_ack",
-                        "model": key,
+                        "type": "provider_switch_ack",
+                        "provider": active_provider,
+                        "model": model_key,
                         "full_model": full_model,
                         "status": "ok",
                     })
                 except ValueError as exc:
+                    # _required_env raises "Missing or empty required environment variable: GOOGLE_API_KEY"
+                    detail = str(exc)
+                    missing_key = None
+                    if "required environment variable:" in detail:
+                        missing_key = detail.split(":", 1)[1].strip()
+                    from pipeline_bridge import _team_dir
+                    env_path = str(_team_dir().parent / ".env")
                     await manager.send_personal(websocket, {
-                        "type": "model_switch_ack",
+                        "type": "provider_switch_ack",
+                        "provider": provider,
                         "status": "error",
-                        "detail": str(exc),
+                        "missingKey": missing_key,
+                        "envPath": env_path,
+                        "detail": (
+                            f"Cannot switch to {provider}: {detail}. "
+                            f"Add {missing_key or 'the API key'} to {env_path} and restart the backend."
+                        ),
                     })
 
             elif msg_type == "pure_chat":

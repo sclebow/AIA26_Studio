@@ -442,16 +442,41 @@ OpenAI-compatibility endpoint (`generativelanguage.googleapis.com/v1beta/openai`
 For multi-step placement where Flash still misclassifies (e.g. picks the wrong object,
 or chooses `action:query` for a move), the next lever is `GOOGLE_MODEL=gemini-2.5-pro`.
 
-**UI model switcher:** the WebSocket `model_switch` message (`haiku` / `sonnet`) only
-applies when `LLM_PROVIDER=anthropic`. For all other providers (`google`, `openai`,
-etc.) `build_context` always uses the provider's model from `.env` and ignores any
-runtime switch, preventing a `claude-...` model id from being sent to the Google
-endpoint.
+**UI provider + model switcher (pipeline only):** the AGENT_ui chat panel exposes a
+**Provider** toggle (`Anthropic` | `Google`) and a dependent **Model** picker
+(haiku/sonnet for Anthropic; flash/pro for Google). A `provider_switch` WebSocket
+message calls `pipeline_bridge.set_pipeline_llm(provider, model_key)`, which validates
+the provider's API key and sets the process-global `_pipeline_provider` /
+`_pipeline_model` (`PIPELINE_MODELS` maps the UI model keys to full ids). `build_context`
+then resolves that provider's own key/base_url/model (`resolve_provider_credentials` in
+`_runtime/config.py`) and passes `provider=` explicitly to `create_chat_llm` /
+`get_llm_response_format`. The switch **controls only the LangGraph pipeline** and applies
+to the **next** chat session. `GET /api/llm-config` reports the active provider/model,
+selectable models, and which providers have credentials so the UI starts in sync.
+
+**Cerebro vs manos (what the toggle does and does NOT do):** the provider toggle only
+changes *which LLM generates the decision* (`reason.py` → `_runtime/llm.py` `call_llm`).
+It does **not** change the machinery that writes the JSON or moves the geometry — *that*
+is always the same pipeline: `place_objects` (MCP) → `nodes/add_objects.py` →
+`workspace/session_active.json` (via `_runtime/session.py`) → on approval,
+`nodes/output.py` → `output/<layout>_*.json`. The provider only affects the
+**quality/reliability** of the moves (a better model decides better; a truncated/invalid
+JSON loses its `tool_calls` so nothing moves — see "Google Gemini specifics"), never the
+mechanism.
+
+**Credentials & graceful degradation:** both API keys are optional **except** the one for
+the active `LLM_PROVIDER` — the app boots on the `.env` provider. If the *other* provider's
+key is missing, toggling to it fails with a clear notice (`provider_switch_ack
+status:"error"`, `missingKey`, `envPath`) telling the user to add
+`GOOGLE_API_KEY` / `ANTHROPIC_API_KEY` to the repo-root `.env` and restart the backend; the
+pipeline keeps running on the provider that already worked. So a user with only the
+Anthropic key runs fine on Anthropic and simply can't switch to Google until they add it.
 
 **Auxiliary config helper:** `pipeline_bridge.anthropic_aux_config()` returns the
 Anthropic key + model for the three auxiliary features, reading `ANTHROPIC_API_KEY` /
-`ANTHROPIC_MODEL` directly from the repo-root `.env` regardless of `LLM_PROVIDER`.
-This means both keys must always be present in `.env` when running the AGENT_ui.
+`ANTHROPIC_MODEL` directly from the repo-root `.env` regardless of `LLM_PROVIDER` and of the
+pipeline toggle. The auxiliary features therefore **always** run on Anthropic; only its key
+must be present in `.env` to use chat / spatial assistant / layout generator.
 
 **Important:** Grasshopper tool calls can take >2 minutes. Set `REQUEST_TIMEOUT_SECONDS=300` or higher.
 

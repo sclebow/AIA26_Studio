@@ -30,6 +30,42 @@ def set_session(session: SessionManager) -> None:
 
 
 # ---------------------------------------------------------------------------
+# LLM config (pipeline provider toggle)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api/llm-config")
+async def get_llm_config():
+    """Active pipeline provider/model + selectable models + which providers have
+    credentials, so the UI can render the provider toggle synced to the real .env
+    and dim a provider whose API key is missing.
+    """
+    import os
+
+    from _runtime.config import load_settings, _repo_root
+    from pipeline_bridge import (
+        PIPELINE_MODELS,
+        get_pipeline_provider,
+        get_pipeline_model,
+    )
+
+    settings = load_settings()  # also (re)loads .env into os.environ
+    provider = get_pipeline_provider() or settings.llm_provider
+    model = get_pipeline_model() or settings.llm_model
+
+    return {
+        "provider": provider,
+        "model": model,
+        "available": PIPELINE_MODELS,
+        "credentials": {
+            "anthropic": bool(os.environ.get("ANTHROPIC_API_KEY")),
+            "google": bool(os.environ.get("GOOGLE_API_KEY")),
+        },
+        "envPath": str(_repo_root() / ".env"),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Layouts
 # ---------------------------------------------------------------------------
 

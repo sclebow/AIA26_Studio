@@ -16,7 +16,7 @@ AGENT_ui/
 │   ├── websocket_manager.py    WebSocket ConnectionManager
 │   ├── session_manager.py      In-memory session state
 │   ├── agent_runner.py         Real LangGraph runner (threaded app.astream_events + input() bridge)
-│   ├── pipeline_bridge.py      build_context (Haiku-forced), StdoutTee, CheckpointParser, MCP probe
+│   ├── pipeline_bridge.py      build_context (provider+model toggle), StdoutTee, CheckpointParser, MCP probe
 │   ├── layout_loader.py        Loads layout JSONs from team_03/layout/
 │   ├── adapters/
 │   │   ├── graph_adapter.py    Wraps spatial_graph.py from team_03/python/
@@ -133,7 +133,7 @@ Then open http://localhost:5173
 **Client → Server** (message types):
 - `chat_message`: `{ type: "chat_message", content: "..." }`
 - `selection_sync`: `{ type: "selection_sync", selectedId: "...", timestamp: ... }`
-- `model_switch`: `{ type: "model_switch", model: "haiku" | "sonnet" }` — switch the active Anthropic model at runtime (see "LLM model" below).
+- `provider_switch`: `{ type: "provider_switch", provider: "anthropic" | "google", model: "<key>" }` — switch the **pipeline** provider + model at runtime (`model` is a key from `PIPELINE_MODELS`: haiku/sonnet for Anthropic, flash/pro for Google). Applies to the next chat session. See "LLM model" below.
 - `pure_chat`: `{ type: "pure_chat", content: "...", history: [{role, content}, ...] }` — pure chatbot: a direct Anthropic call, **no pipeline / no LangGraph**.
 
 **Server → Client** (message types, from MessageType enum):
@@ -142,10 +142,16 @@ Then open http://localhost:5173
 - `agent_event`: Pipeline node started/completed
 - `state_update`: Session state changed (layout, graph, scores)
 - `selection_sync`: Selection broadcast to all clients
-- `model_switch_ack`: `{ model, full_model, status }` — confirms (or errors on) a `model_switch`.
+- `provider_switch_ack`: on success `{ provider, model, full_model, status: "ok" }`; on a missing API key `{ provider, status: "error", missingKey, envPath, detail }` (the active provider is left unchanged so the pipeline keeps working).
 - `pure_chat_response`: `{ content, model }` — reply to a `pure_chat` message.
 
 See `backend/websocket_manager.py` for ConnectionManager.
+
+**GET `/api/llm-config`** (REST, not WS): returns the active pipeline `{ provider, model }`,
+the selectable `available` models (`PIPELINE_MODELS`), which providers have credentials
+(`credentials: { anthropic, google }`), and the repo-root `.env` path (`envPath`). The chat
+panel calls it on mount to render the provider toggle synced to the real `.env` and to dim a
+provider whose key is missing.
 
 ### API Endpoints
 
@@ -270,17 +276,29 @@ the browser". No demo/stub anymore.
 - `build_context` does a fast TCP `_probe_mcp` and emits setup progress, so a
   down Swiftlet/Rhino fails fast with a clear chat error instead of hanging.
 
-**LLM model — runtime switch (Haiku/Sonnet):** the hard Haiku-force was removed.
-`build_context` applies `get_active_model()` **only when `LLM_PROVIDER=anthropic`**;
-under Google/OpenAI it always uses the provider's `.env` model (so a Haiku/Sonnet switch
-never sends a `claude-...` id to the Gemini endpoint — see `team_03/CLAUDE.md` →
-Configuration → "UI model switcher"). When provider is `anthropic` it follows `.env`
-(`ANTHROPIC_MODEL`) unless the UI has switched the active model. A `model_switch`
-WebSocket message calls `pipeline_bridge.set_active_model(key)` where `key` is `haiku`
-(`claude-haiku-4-5-20251001`) or `sonnet` (`claude-sonnet-4-6`); the choice is process-global
-runtime state (`_active_model`) shared by both the pipeline and `pure_chat`. **Cost note:**
-Sonnet is now selectable from the UI — it is no longer impossible to run a pricier Claude.
-See `team_03/CLAUDE.md` → Configuration.
+**LLM provider + model — runtime switch (pipeline only):** the chat panel has a two-row
+selector — **Provider** (`Anthropic` | `Google`) and **Model** (haiku/sonnet or flash/pro,
+depending on the provider). It controls **only the LangGraph pipeline**; the Anthropic
+auxiliary features (`pure_chat`, `spatial_assistant`, `layout_generator`) are unaffected.
+
+- A `provider_switch` WebSocket message calls `pipeline_bridge.set_pipeline_llm(provider,
+  model_key)`, which validates the provider's API key (via `resolve_provider_credentials`)
+  before mutating the process-global `_pipeline_provider` / `_pipeline_model`. On a missing key
+  it raises and the server replies `provider_switch_ack status:"error"` with `missingKey` +
+  `envPath` — the active provider stays as-is, so the pipeline keeps working.
+- `build_context` reads `get_pipeline_provider() or settings.llm_provider`; when the active
+  provider differs from the `.env` one it resolves that provider's own key/base_url/model via
+  `resolve_provider_credentials`, and passes `provider=` explicitly to `create_chat_llm` /
+  `get_llm_response_format` so the right model id and JSON format are used (no `claude-...`
+  sent to the Gemini endpoint).
+- The switch applies to the **next chat session** (`build_context` runs at `start_session`),
+  not the run in progress.
+- **Cerebro vs manos:** the toggle only changes *which LLM generates the decision* — it does
+  **not** touch the JSON-writing / geometry-moving machinery (`place_objects` MCP →
+  `add_objects.py` → `workspace/session_active.json` → `output.py`), which is identical for
+  both providers. See `team_03/CLAUDE.md` → Configuration.
+
+**Cost note:** Sonnet (and Gemini Pro) are selectable from the UI — mind the cost.
 
 **Run the dev backend as a single process** (`python -m uvicorn server:app
 --port 3000`); uvicorn `--reload` can leave stale workers serving old code. Note its

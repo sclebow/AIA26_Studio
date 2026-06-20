@@ -75,7 +75,37 @@ const StopIcon = () => (
 );
 
 type ChatMode = 'agent' | 'chat';
-type ModelKey = 'haiku' | 'sonnet';
+type ProviderKey = 'anthropic' | 'google';
+
+interface ModelOption { key: string; label: string; hint: string; }
+
+// Selectable pipeline models per provider. Mirrors PIPELINE_MODELS in
+// backend/pipeline_bridge.py — keys must match what the backend expects.
+const PROVIDER_MODELS: Record<ProviderKey, ModelOption[]> = {
+  anthropic: [
+    { key: 'haiku', label: 'Haiku', hint: 'Faster · cheaper' },
+    { key: 'sonnet', label: 'Sonnet', hint: 'Smarter · slower' },
+  ],
+  google: [
+    { key: 'flash', label: 'Flash', hint: 'Faster · cheaper' },
+    { key: 'pro', label: 'Pro', hint: 'Smarter · slower' },
+  ],
+};
+
+const PROVIDER_LABEL: Record<ProviderKey, string> = { anthropic: 'Anthropic', google: 'Google' };
+const PROVIDER_ENV_KEY: Record<ProviderKey, string> = {
+  anthropic: 'ANTHROPIC_API_KEY',
+  google: 'GOOGLE_API_KEY',
+};
+
+/** Map a full model id (e.g. 'gemini-2.5-flash') to the UI model key for a provider. */
+function modelKeyFromId(provider: ProviderKey, modelId?: string): string {
+  const opts = PROVIDER_MODELS[provider];
+  if (!modelId) return opts[0].key;
+  const id = modelId.toLowerCase();
+  const hit = opts.find(o => o.key === id || id.includes(o.key));
+  return hit ? hit.key : opts[0].key;
+}
 
 interface PureChatMessage {
   id: string;
@@ -91,13 +121,32 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const isDark = theme === 'dark';
   const [inputValue, setInputValue] = useState('');
   const [chatMode, setChatMode] = useState<ChatMode>('agent');
-  const [modelKey, setModelKey] = useState<ModelKey>('haiku');
+  const [provider, setProvider] = useState<ProviderKey>('anthropic');
+  const [modelKey, setModelKey] = useState<string>('haiku');
+  const [credentials, setCredentials] = useState<Record<string, boolean>>({ anthropic: true, google: true });
+  const [envPath, setEnvPath] = useState<string>('');
+  const [switchNotice, setSwitchNotice] = useState<string | null>(null);
   const [pureChatMessages, setPureChatMessages] = useState<PureChatMessage[]>([]);
   const [pureLoading, setPureLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Subscribe to WebSocket messages for pure_chat_response + model_switch_ack
+  // Load the active pipeline provider/model + which providers have credentials,
+  // so the toggle starts in sync with the real .env.
+  useEffect(() => {
+    fetch('/api/llm-config')
+      .then(r => r.json())
+      .then((cfg) => {
+        const p: ProviderKey = cfg.provider === 'google' ? 'google' : 'anthropic';
+        setProvider(p);
+        setModelKey(modelKeyFromId(p, cfg.model));
+        if (cfg.credentials) setCredentials(cfg.credentials);
+        if (cfg.envPath) setEnvPath(cfg.envPath);
+      })
+      .catch(() => { /* keep defaults if the endpoint is unavailable */ });
+  }, []);
+
+  // Subscribe to WebSocket messages for pure_chat_response + provider_switch_ack
   useEffect(() => {
     return ws.subscribe((msg: any) => {
       if (!msg) return;
@@ -109,8 +158,27 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           content: msg.content,
         }]);
       }
-      if (msg.type === 'model_switch_ack' && msg.status === 'ok') {
-        setModelKey(msg.model as ModelKey);
+      if (msg.type === 'provider_switch_ack') {
+        if (msg.status === 'ok') {
+          setProvider(msg.provider as ProviderKey);
+          if (msg.model) setModelKey(msg.model);
+          setSwitchNotice(null);
+        } else {
+          // Missing key (or other failure): mark it unavailable, tell the user what to
+          // add and where, and revert the optimistic flip to the authoritative active
+          // provider reported by /api/llm-config.
+          if (msg.provider) setCredentials(prev => ({ ...prev, [msg.provider]: false }));
+          if (msg.envPath) setEnvPath(msg.envPath);
+          setSwitchNotice(msg.detail || `Cannot switch to ${msg.provider}.`);
+          fetch('/api/llm-config')
+            .then(r => r.json())
+            .then((cfg) => {
+              const p: ProviderKey = cfg.provider === 'google' ? 'google' : 'anthropic';
+              setProvider(p);
+              setModelKey(modelKeyFromId(p, cfg.model));
+            })
+            .catch(() => { /* leave optimistic state if config is unavailable */ });
+        }
       }
     });
   }, []);
@@ -119,10 +187,29 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, pureChatMessages, isAgentRunning, pureLoading]);
 
-  const handleModelSwitch = useCallback((key: ModelKey) => {
-    setModelKey(key);
-    ws.send({ type: 'model_switch', model: key });
-  }, [ws]);
+  const handleProviderSwitch = useCallback((p: ProviderKey) => {
+    if (p === provider) return;
+    // If we already know the key is missing, show the notice immediately instead of
+    // a round-trip — but still leave the active provider as-is.
+    if (credentials[p] === false) {
+      setSwitchNotice(
+        `Missing ${PROVIDER_ENV_KEY[p]}. Add it to ${envPath || 'the repo .env'} and restart the backend.`,
+      );
+      return;
+    }
+    // Optimistic: flip the UI immediately so the toggle feels responsive; the
+    // provider_switch_ack confirms (status:ok) or reverts (status:error).
+    setSwitchNotice(null);
+    setProvider(p);
+    setModelKey(PROVIDER_MODELS[p][0].key);
+    ws.send({ type: 'provider_switch', provider: p, model: PROVIDER_MODELS[p][0].key });
+  }, [provider, credentials, envPath, ws]);
+
+  const handleModelSwitch = useCallback((key: string) => {
+    setSwitchNotice(null);
+    setModelKey(key); // optimistic
+    ws.send({ type: 'provider_switch', provider, model: key });
+  }, [provider, ws]);
 
   const handleModeSwitch = useCallback((mode: ChatMode) => {
     setChatMode(mode);
@@ -316,24 +403,56 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             {/* Model toggle + input area */}
             <div style={{ borderTop: `1px solid ${colors.border}`, flexShrink: 0 }}>
 
-              {/* Model toggle strip */}
+              {/* Provider toggle strip (pipeline only) */}
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '6px 16px 0',
               }}>
-                <span style={{ fontSize: 9, color: colors.muted, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: colors.font }}>
+                <span style={{ width: 52, fontSize: 9, color: colors.muted, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: colors.font }}>
+                  Provider
+                </span>
+                {(Object.keys(PROVIDER_MODELS) as ProviderKey[]).map(p => {
+                  const hasKey = credentials[p] !== false;
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => handleProviderSwitch(p)}
+                      title={hasKey ? `Run the agent pipeline on ${PROVIDER_LABEL[p]}` : `${PROVIDER_ENV_KEY[p]} missing in .env`}
+                      style={{ ...modelPill(provider === p), opacity: hasKey ? 1 : 0.4 }}
+                    >
+                      {PROVIDER_LABEL[p]}{hasKey ? '' : ' ·needs key'}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Model toggle strip (models of the active provider) */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '4px 16px 0',
+              }}>
+                <span style={{ width: 52, fontSize: 9, color: colors.muted, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: colors.font }}>
                   Model
                 </span>
-                <button onClick={() => handleModelSwitch('haiku')} style={modelPill(modelKey === 'haiku')}>
-                  Haiku
-                </button>
-                <button onClick={() => handleModelSwitch('sonnet')} style={modelPill(modelKey === 'sonnet')}>
-                  Sonnet
-                </button>
+                {PROVIDER_MODELS[provider].map(opt => (
+                  <button key={opt.key} onClick={() => handleModelSwitch(opt.key)} style={modelPill(modelKey === opt.key)}>
+                    {opt.label}
+                  </button>
+                ))}
                 <span style={{ marginLeft: 'auto', fontSize: 9, color: colors.muted, opacity: 0.5, fontFamily: colors.font }}>
-                  {modelKey === 'sonnet' ? 'Smarter · slower' : 'Faster · cheaper'}
+                  {PROVIDER_MODELS[provider].find(o => o.key === modelKey)?.hint ?? ''}
                 </span>
               </div>
+
+              {/* Switch notice (e.g. missing API key) */}
+              {switchNotice && (
+                <div style={{
+                  padding: '4px 16px 0', fontSize: 9, lineHeight: 1.4,
+                  color: colors.warning, fontFamily: colors.font,
+                }}>
+                  {switchNotice}
+                </div>
+              )}
 
               {/* Input row */}
               <div style={{ padding: '8px 16px 12px', display: 'flex', gap: 10, alignItems: 'flex-end' }}>

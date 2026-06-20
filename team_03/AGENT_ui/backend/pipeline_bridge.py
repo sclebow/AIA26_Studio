@@ -29,48 +29,76 @@ from typing import Any, Callable, Optional
 # Pipeline imports (team_03/python is on sys.path via server.py)
 from _runtime.config import load_settings
 from _runtime.mcp_client import McpClient
+from _runtime.config import resolve_provider_credentials
 from _runtime.llm import create_chat_llm, get_llm_response_format
 from _runtime.session import create_session, save_session
 from _runtime.bootstrap import Context
 
 
 # ---------------------------------------------------------------------------
-# Runtime model state — switched via WebSocket model_switch message
+# Runtime pipeline LLM state — provider + model switched from the UI via the
+# WebSocket `provider_switch` message. This controls ONLY the LangGraph pipeline;
+# the Anthropic auxiliary features (pure_chat, spatial_assistant, layout_generator)
+# have their own config (anthropic_aux_config) and are unaffected by the toggle.
 # ---------------------------------------------------------------------------
 
-ANTHROPIC_MODELS = {
-    "haiku": "claude-haiku-4-5-20251001",
-    "sonnet": "claude-sonnet-4-6",
+# Model keys the UI can pick, per provider → full model id used by the pipeline.
+PIPELINE_MODELS: dict[str, dict[str, str]] = {
+    "anthropic": {"haiku": "claude-haiku-4-5-20251001", "sonnet": "claude-sonnet-4-6"},
+    "google": {"flash": "gemini-2.5-flash", "pro": "gemini-2.5-pro"},
 }
 
-_active_model: Optional[str] = None  # None = use .env default
+_pipeline_provider: Optional[str] = None  # None = use .env LLM_PROVIDER
+_pipeline_model: Optional[str] = None     # None = provider's .env default model
 
 
-def set_active_model(model_key: str) -> str:
-    """Set the active Anthropic model. model_key is 'haiku' or 'sonnet'.
-    Returns the full model string that was set."""
-    global _active_model
-    full = ANTHROPIC_MODELS.get(model_key.lower())
-    if not full:
-        raise ValueError(f"Unknown model key '{model_key}'. Use 'haiku' or 'sonnet'.")
-    _active_model = full
-    print(f"[model] Active model switched → {full}")
-    return full
+def set_pipeline_llm(provider: str, model_key: Optional[str]) -> tuple[str, str]:
+    """Set the active pipeline provider + model. `provider` is 'anthropic'/'google';
+    `model_key` is a key within PIPELINE_MODELS[provider] (e.g. 'sonnet'/'flash') or
+    None to use that provider's first/default model.
+
+    Validates that the provider's API key exists (via resolve_provider_credentials),
+    raising ValueError naming the missing var if not — so the caller can tell the user
+    to add it. Only mutates state once validation passes. Returns (provider, full_model).
+    """
+    global _pipeline_provider, _pipeline_model
+    provider = provider.strip().lower()
+    models = PIPELINE_MODELS.get(provider)
+    if not models:
+        raise ValueError(f"Unsupported pipeline provider '{provider}'. Use 'anthropic' or 'google'.")
+
+    if model_key and model_key.lower() in models:
+        full = models[model_key.lower()]
+    else:
+        full = next(iter(models.values()))  # provider default
+
+    # Fail (without mutating state) if the provider's credentials are missing.
+    resolve_provider_credentials(provider)
+
+    _pipeline_provider = provider
+    _pipeline_model = full
+    print(f"[pipeline] LLM switched -> {provider} / {full}")
+    return provider, full
 
 
-def get_active_model() -> Optional[str]:
-    """Return the currently active model string, or None to use .env default."""
-    return _active_model
+def get_pipeline_provider() -> Optional[str]:
+    """Active pipeline provider override, or None to use the .env LLM_PROVIDER."""
+    return _pipeline_provider
+
+
+def get_pipeline_model() -> Optional[str]:
+    """Active pipeline model override, or None to use the provider's .env default."""
+    return _pipeline_model
 
 
 def anthropic_aux_config() -> tuple[str, str]:
     """Key + model for AGENT_ui helper features (pure_chat, spatial_assistant) that
-    always run on Anthropic, regardless of LLM_PROVIDER.
+    always run on Anthropic, regardless of LLM_PROVIDER and of the pipeline toggle.
 
     In hybrid setups the main pipeline may run on Google/OpenAI (settings.api_key /
     settings.llm_model are then the Google key/model), but these helper features are
     wired to the Anthropic SDK. So they read ANTHROPIC_API_KEY / ANTHROPIC_MODEL
-    straight from the repo-root .env and honor a UI model_switch (haiku/sonnet).
+    straight from the repo-root .env, independent of the pipeline provider toggle.
     """
     import os
     from dotenv import load_dotenv
@@ -83,7 +111,7 @@ def anthropic_aux_config() -> tuple[str, str]:
             "ANTHROPIC_API_KEY is not set in .env — the chat / spatial assistant "
             "features run on Anthropic even when the main agent uses Google."
         )
-    model = get_active_model() or os.environ.get("ANTHROPIC_MODEL") or "claude-haiku-4-5"
+    model = os.environ.get("ANTHROPIC_MODEL") or "claude-haiku-4-5"
     return key, model
 
 
@@ -240,22 +268,24 @@ def build_context(layout_name: str, progress: Optional[Callable[[str], None]] = 
     tools = mcp_client.list_tools()
     _say(f"MCP connected — {len(tools)} tool(s) available.")
 
-    # Runtime model — the WebSocket model_switch only knows Anthropic models
-    # (haiku/sonnet), so it must NOT override the model when the active provider is
-    # Google/OpenAI/etc. In those cases always use the provider's model from .env
-    # (e.g. GOOGLE_MODEL); otherwise a model_switch would feed a "claude-..." id to
-    # the Gemini endpoint and fail.
-    if settings.llm_provider == "anthropic":
-        model = get_active_model() or settings.llm_model
+    # Runtime provider + model — the UI provider toggle (provider_switch) sets
+    # _pipeline_provider/_pipeline_model. When the active provider differs from the
+    # .env one, resolve that provider's own key/base_url/default model. The model id
+    # always matches the active provider (no "claude-..." sent to the Gemini endpoint).
+    active_provider = get_pipeline_provider() or settings.llm_provider
+    if active_provider == settings.llm_provider:
+        api_key, base_url, default_model = settings.api_key, settings.base_url, settings.llm_model
     else:
-        model = settings.llm_model
-    _say(f"Initializing LLM ({model})…")
+        api_key, base_url, default_model = resolve_provider_credentials(active_provider)
+    model = get_pipeline_model() or default_model
+    _say(f"Initializing LLM ({active_provider} / {model})…")
     llm = create_chat_llm(
-        api_key=settings.api_key,
-        base_url=settings.base_url,
+        api_key=api_key,
+        base_url=base_url,
         llm_model=model,
         timeout_seconds=settings.request_timeout_seconds,
-        model_kwargs=get_llm_response_format(tools),
+        model_kwargs=get_llm_response_format(tools, provider=active_provider),
+        provider=active_provider,
     )
     _say("LLM ready — starting the agent…")
 

@@ -17,8 +17,12 @@ def create_chat_llm(
     llm_model: str,
     timeout_seconds: float,
     model_kwargs: dict[str, Any] | None = None,
+    provider: str | None = None,
 ) -> Any:
-    provider = os.environ.get("LLM_PROVIDER", "local").strip().lower()
+    # `provider` lets a caller (AGENT_ui provider toggle) pick the provider explicitly
+    # instead of the process-global LLM_PROVIDER. The terminal (main.py / bootstrap.py)
+    # passes nothing and keeps reading the env, so behaviour there is unchanged.
+    provider = (provider or os.environ.get("LLM_PROVIDER", "local")).strip().lower()
 
     # Anthropic — use SDK directly, not LangChain
     # Returns a plain dict instead of a ChatOpenAI instance.
@@ -140,7 +144,7 @@ def _build_arguments_schema(tools: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def get_llm_response_format(tools: list[dict[str, Any]]) -> dict[str, Any]:
+def get_llm_response_format(tools: list[dict[str, Any]], provider: str | None = None) -> dict[str, Any]:
     """
     Returns model_kwargs for structured output.
     For Anthropic — returns empty dict (handled via prompt, not response_format).
@@ -149,8 +153,11 @@ def get_llm_response_format(tools: list[dict[str, Any]]) -> dict[str, Any]:
     JSON (no prose, no decision lost to rambling/truncation). The SYSTEM_PROMPT already
     describes the decision shape and _normalize_llm_decision validates it.
     For local/OpenAI — returns JSON schema response format.
+
+    `provider` lets the caller force the provider (AGENT_ui toggle); defaults to the
+    process-global LLM_PROVIDER so the terminal path is unchanged.
     """
-    provider = os.environ.get("LLM_PROVIDER", "local").strip().lower()
+    provider = (provider or os.environ.get("LLM_PROVIDER", "local")).strip().lower()
 
     if provider == "anthropic":
         return {}
