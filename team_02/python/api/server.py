@@ -114,6 +114,18 @@ def _read_persona() -> Optional[dict]:
     return None
 
 
+def _write_persona(persona: dict) -> None:
+    """Persist the persona to the same file _read_persona loads. Best-effort: used to
+    stamp late-arriving fields (e.g. the moodboard) onto an already-compiled persona so
+    they survive a restart / returning-user reload."""
+    try:
+        _PERSONA_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _PERSONA_PATH.write_text(
+            json.dumps(persona, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Request models
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -448,10 +460,22 @@ def inspire_moodboard(req: MoodboardReq) -> dict:
     slot["session"] = new_session
     persona = contracts.patch_persona(new_session)
 
+    # Give the curated board an afterlife. Stamp it onto the persona (session + on-disk)
+    # so the Report can replay the aesthetic signature even after a server restart or for
+    # a returning user — not just within this live session.
+    board = all_picks[:6]
+    if board:
+        prof = new_session.get("persona_profile")
+        if isinstance(prof, dict):
+            prof["moodboard_urls"] = board
+            _write_persona(prof)
+        if isinstance(persona, dict):
+            persona["moodboard_urls"] = board
+
     return {
         "session_id":     sid,
         "persona":        persona,
-        "moodboard_urls": all_picks[:6],
+        "moodboard_urls": board,
         "message":        message,
     }
 
@@ -690,6 +714,11 @@ def report(req: ReportReq) -> dict:
         "layout_id": sess.get("layout_id", ""),
         "rooms": out_rooms,
         "featured": featured,
+        # The curated aesthetic signature from onboarding's inspire phase — replayed in
+        # the Report so the aesthetic the user chose comes back in the output. Sourced
+        # from the live session, with the persona.json copy as a returning-user fallback.
+        "moodboard_urls": (sess.get("inspire_moodboard_urls")
+                           or persona.get("moodboard_urls") or [])[:6],
         # True when the working draft has edits not yet in this (committed) report.
         "has_uncommitted": checkpoints.has_uncommitted(sess),
     }

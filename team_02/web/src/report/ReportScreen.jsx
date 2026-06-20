@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as api from "../api/client.js";
 import ReportHeader from "./ReportHeader.jsx";
+import ReportPersonaHeader from "./ReportPersonaHeader.jsx";
 import DwellingStory from "./DwellingStory.jsx";
 import RoomReportCard from "./RoomReportCard.jsx";
 import { exportReportPng } from "./exportReportPng.js";
@@ -52,6 +53,7 @@ export default function ReportScreen({ turn, persona, layoutId, onBack }) {
 
   const rooms = report.data?.rooms || [];
   const featured = new Set(report.data?.featured || []);
+  const moodboardUrls = report.data?.moodboard_urls || [];
 
   const onExportPng = async () => {
     if (!contentRef.current) return;
@@ -59,7 +61,7 @@ export default function ReportScreen({ turn, persona, layoutId, onBack }) {
     try { await exportReportPng(contentRef.current, `sensi-report-${layoutId || "layout"}.png`); }
     finally { setPngBusy(false); }
   };
-  const onExportJson = () => exportBundle({ turn, rooms, layoutId });
+  const onExportJson = () => exportBundle({ turn, rooms, layoutId, persona, moodboardUrls });
 
   return (
     <div className="report-screen">
@@ -70,6 +72,7 @@ export default function ReportScreen({ turn, persona, layoutId, onBack }) {
           {report.error && <div className="report-empty">{report.error}</div>}
           {report.data && (
             <>
+              <ReportPersonaHeader persona={persona} moodboardUrls={moodboardUrls} />
               <DwellingStory turn={turn} />
               <div className="report-rooms">
                 {rooms.map((room) => (

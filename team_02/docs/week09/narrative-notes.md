@@ -208,3 +208,35 @@ a-to-z deck assembles from these.
   and every answer. A quiet *redo onboarding* sits beside it. We deliberately said **no** to a
   slider/field editor: hand-dragging the weights would undercut the honest-math story we just
   shipped — you refine by telling your companion what changed, not by operating a control panel.
+
+## Session 7 — The loop closes: the aesthetic you curated comes back
+
+- **The moodboard finally has an afterlife.** Onboarding asks for real work — three rounds of
+  picking images until a curated aesthetic signature emerges — and then, until now, that board
+  *died at the front door*: it was stored in the session but never carried into Shape or the
+  Report, so the output never answered the input. We traced the drop
+  ([flow-audit.md §6](flow-audit.md)) and gave the curated board a home in the Report: a new
+  **"the aesthetic you curated"** band replays the user's own six picks at the top of the
+  deliverable. No new image-gen, no re-curation — the same data, surfaced where it pays off.
+  Proved live end-to-end (a fresh "Maya" run, warm-minimalist board): the six images reappear in
+  the Report, load cleanly, and survive both exports. Why it matters: the Report now visibly
+  closes the circle — *this is the aesthetic you chose, and here is the dwelling read against it.*
+
+- **The Report now opens by saying who it's for.** It used to be rooms-first — a stack of scores
+  with no frame. We added a slim **persona header** ("shaped for **Maya** · client · lives with a
+  partner · leads with thermal, olfactory, tactile"), built from the same shared `PersonaCard`
+  vocabulary as the reveal and the layout drawer, so the persona reads as **one companion across
+  all three acts** instead of a gate left behind at onboarding. It's a recap, deliberately *not*
+  the full data-dump — meaning first, the math stays back in the profile. The header + board ride
+  inside the export node, so the PNG and JSON artifacts now carry the persona and the aesthetic,
+  not just the rooms.
+
+- **The 10–30s render wait now reads as "working," not "broken."** A room's image is generated on
+  demand (~10–30s); the old affordance was a static shimmer with a fixed "~20–40s" caption that
+  read like a stall. We made it a **progressive reveal**: the scores and the prompt are already on
+  screen, and the image cell cycles a quiet, poetic status over the shimmer ("composing the
+  light…", "settling the quiet…", "letting the room breathe…") before the render fades in. Pure
+  client-side, honours `prefers-reduced-motion`. The data path is deliberately minimal — the
+  Report sources the board from the live session with a `persona.json` fallback, and a one-line
+  **durability stamp** writes the board onto the persona on disk so it survives a restart or a
+  returning user (verified: a fresh onboarding now leaves `moodboard_urls` in `persona.json`).

@@ -825,7 +825,7 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
 
 /* ── MOODBOARD STRIP ── */
 .moodboard-strip { display:flex; width:100%; margin-top:14px; }
-.moodboard-strip img { flex:1; height:58px; object-fit:cover; border-radius:var(--r-sm); opacity:.70; }
+.moodboard-strip img { flex:1; min-width:0; height:58px; object-fit:cover; border-radius:var(--r-sm); opacity:.70; }
 .moodboard-strip img:not(:last-child) { margin-right: 5px; }
 
 /* ── FILE UPLOAD AREA ── */
@@ -922,6 +922,31 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
 .gap-item-note  { font-family:var(--font-sans); font-weight: 300; font-size: 11px; line-height: 1.6; color: rgba(var(--fg-rgb), .55); }
 
 .aesthetic-note { font-family:var(--font-sans); font-weight: 300; font-size: 11px; line-height: 1.65; color: rgba(var(--fg-rgb), .38); margin-top: 8px; font-style: italic; }
+
+/* ── Report persona header — the opening frame: who this dwelling is for + the aesthetic
+   they curated. Slim, glowing, no boxed callout — a preamble above the dwelling story. */
+.rp-header { position: relative; padding: 4px 2px 22px; margin-bottom: 22px;
+  border-bottom: 1px solid rgba(var(--fg-rgb), .07); }
+.rp-header::before { content: ''; position: absolute; top: -10px; left: -8%; width: 60%; height: 120px;
+  background: radial-gradient(60% 80% at 20% 30%, rgba(var(--fg-rgb), .05), transparent 70%);
+  pointer-events: none; }
+.rp-eyebrow { font-family: var(--font-mono); font-size: 10px; letter-spacing: .30em; text-transform: uppercase;
+  color: rgba(var(--fg-rgb), .28); }
+.rp-frame { font-family: var(--font-sans); font-weight: 200; font-size: 26px; line-height: 1.2;
+  color: rgba(var(--fg-rgb), .60); margin: 8px 0 0; }
+.rp-frame .rp-name { font-weight: 300; color: rgba(var(--fg-rgb), .92); }
+.rp-role { font-family: var(--font-mono); font-size: 11px; letter-spacing: .20em; text-transform: uppercase;
+  color: rgba(var(--fg-rgb), .30); margin-top: 7px; }
+
+.rp-leads { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 16px; }
+.rp-leads-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  color: rgba(var(--fg-rgb), .30); margin-right: 2px; }
+.rp-lead-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid;
+  border-radius: var(--r-pill); font-family: var(--font-mono); font-size: 11px; letter-spacing: .10em;
+  text-transform: uppercase; background: rgba(var(--fg-rgb), .02); cursor: default; }
+.rp-lead-icon { font-size: 12px; line-height: 1; }
+
+.rp-aesthetic { margin-top: 22px; }
 
 .formula-toggle { font-family: var(--font-mono); font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: rgba(var(--fg-rgb), 0.40); cursor: pointer; margin-top: 22px; margin-bottom: 4px; transition: color .2s; }
 .formula-toggle:hover { color: rgba(var(--fg-rgb), .50); }
@@ -2213,6 +2238,17 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
   background: linear-gradient(100deg, rgba(var(--fg-rgb),0.04) 30%, rgba(var(--fg-rgb),0.12) 50%, rgba(var(--fg-rgb),0.04) 70%);
   background-size: 200% 100%; animation: rr-shimmer 1.4s ease-in-out infinite; }
 @keyframes rr-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* progressive reveal: the wait reads as "working" (each phrase fades in), the render
+   fades up when it lands. */
+.rr-render-note--cycle { animation: rr-note-fade 2.6s ease-in-out; }
+.rr-render-eta { color: rgba(var(--fg-rgb), 0.32); margin-left: 4px; }
+@keyframes rr-note-fade { 0% { opacity: 0; } 12% { opacity: .85; } 88% { opacity: .85; } 100% { opacity: .35; } }
+.rr-render-img--in { animation: rr-img-in .65s ease-out; }
+@keyframes rr-img-in { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .rr-render-note--cycle, .rr-render-img--in { animation: none; }
+}
 
 .rr-notes { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 10px;
   border-top: 1px solid rgba(var(--fg-rgb), var(--o-faint)); margin-top: 2px; padding-top: 12px; }

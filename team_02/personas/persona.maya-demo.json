@@ -1,0 +1,53 @@
+{
+  "name": "Maya",
+  "role": "client",
+  "description": "Maya is a client in her 30s-40s, living with a partner, who prioritizes natural light, warmth, and a calm, natural environment for comfort and recharging.",
+  "age_group": "adult",
+  "household_type": "dual",
+  "household_members": [
+    "a partner"
+  ],
+  "sensory_priorities": [
+    "thermal",
+    "olfactory",
+    "tactile",
+    "visual",
+    "acoustic",
+    "spatial"
+  ],
+  "sensory_sensitivities": [
+    "thermal",
+    "olfactory",
+    "tactile"
+  ],
+  "comfort_weights": {
+    "thermal": 0.9,
+    "visual": 0.9,
+    "acoustic": 0.8,
+    "spatial": 0.8,
+    "olfactory": 0.9,
+    "tactile": 0.9
+  },
+  "aesthetic_preferences": "A calm, intimate sanctuary with soft, diffused natural daylight, a warm honeyed palette, rich honey-toned wood, matte earthy clay walls, linen and wool textiles, and large leafy plants, evoking a peaceful forest cabin, free from harshness or artificiality.",
+  "lifestyle": "Mainly uses home as a calm, private sanctuary for recharging after demanding days.",
+  "key_requirements": [
+    "Natural light",
+    "feeling of warmth",
+    "never cold or sterile"
+  ],
+  "personality": -1.0,
+  "notes": "",
+  "preference_vs_baseline": {
+    "visual": "User's visual comfort weight is significantly higher than the baseline, emphasizing natural light and avoiding sterile environments.",
+    "olfactory": "User's olfactory comfort weight is significantly higher than the baseline, indicating a strong sensitivity to smells and preference for specific natural scents.",
+    "tactile": "User's tactile comfort weight is significantly higher than the baseline, highlighting a strong sensitivity to textures and preference for soft, natural materials."
+  },
+  "moodboard_urls": [
+    "https://images.unsplash.com/photo-1696814543693-31fcf942ccb7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w5NTY3ODB8MHwxfHNlYXJjaHwxfHxjb3p5JTIwd29vZCUyMGludGVyaW9yJTIwZmlyZXBsYWNlfGVufDB8MHx8fDE3ODE5NDc1MjB8MA&ixlib=rb-4.1.0&q=80&w=400",
+    "https://images.unsplash.com/photo-1552290403-015b13a5221c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w5NTY3ODB8MHwxfHNlYXJjaHwxfHxzb2Z0JTIwZGlmZnVzZWQlMjBsaWdodCUyMGludGVyaW9yfGVufDB8MHx8fDE3ODE5NDc1MjB8MA&ixlib=rb-4.1.0&q=80&w=400",
+    "https://images.unsplash.com/photo-1617326021886-53d6be1d7154?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w5NTY3ODB8MHwxfHNlYXJjaHwxfHxxdWlldCUyMGxpbmVuJTIwd29vbCUyMGludGVyaW9yfGVufDB8MHx8fDE3ODE5NDc1MjF8MA&ixlib=rb-4.1.0&q=80&w=400",
+    "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w5NTY3ODB8MHwxfHNlYXJjaHwxfHxvcGVuJTIwYWlyeSUyMG5hdHVyYWwlMjBpbnRlcmlvcnxlbnwwfDB8fHwxNzgxOTQ3NTIyfDA&ixlib=rb-4.1.0&q=80&w=400",
+    "https://images.unsplash.com/photo-1571977796766-578d484a6c25?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w5NTY3ODB8MHwxfHNlYXJjaHwxfHxncmVlbiUyMHBsYW50cyUyMHdvb2QlMjBpbnRlcmlvcnxlbnwwfDB8fHwxNzgxOTQ3NTIzfDA&ixlib=rb-4.1.0&q=80&w=400",
+    "https://images.unsplash.com/photo-1579761804843-f997ade7fa35?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w5NTY3ODB8MHwxfHNlYXJjaHwyfHxjb3p5JTIwd29vZCUyMGludGVyaW9yJTIwZmlyZXBsYWNlfGVufDB8MHx8fDE3ODE5NDc1ODh8MA&ixlib=rb-4.1.0&q=80&w=400"
+  ]
+}
