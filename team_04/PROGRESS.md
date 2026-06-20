@@ -1,5 +1,93 @@
 # Team 04 Progress
 
+## 2026-06-19 Phase 2b — Urban Context Analysis
+
+Extends Phase 2 with real-world urban intelligence: the agent now understands **what kind of urban site it sits on** — a crossroads corner, a T-junction terminal, a triangular corner, a linear frontage, etc. — and generates **architectural design responses** tailored to each condition. Data can come from a live OpenStreetMap fetch (Overpass API) or from offline-safe synthetic fallbacks; the same analysis pipeline works for both.
+
+### Completed
+
+- [x] `agent/tools/osm_context.py` — OSM fetcher + offline-safe synthetic library:
+  - `OSM_HIGHWAY_MAP` — maps OSM highway tags to `("main"|"secondary"|"path", width_m)`.
+  - `fetch_urban_site(lat, lon, radius_m, timeout)` — `POST https://overpass-api.de/api/interpreter`; converts lat/lon to local metres, detects intersections from OSM node degree, returns roads + intersections in the canonical schema.
+  - `fetch_or_fallback(…, fallback_index)` — wraps fetch with graceful fallback to `SYNTHETIC_SITES[fallback_index]` on any network failure; emits `UserWarning`.
+  - `SYNTHETIC_SITES` — three offline-safe sites with correctly-spaced roads (back roads >22 m away so only street-facing sides get tagged): (0) crossroads corner, (1) T-junction terminal, (2) triangular corner.
+  - `INTERESTING_SITES` — eight famous presets (Eixample Barcelona, Le Marais Paris, Flatiron New York, Bloomsbury London, Jordaan Amsterdam, Beyoglu Istanbul, Melbourne CBD, Shinjuku Tokyo).
+
+- [x] `agent/tools/urban_analysis.py` — LLM-free urban classification and design response:
+  - `detect_intersections_from_roads(roads, snap_dist_m)` — pairwise Shapely intersection + endpoint snap; **arm counting** (pass-through = 2 arms, terminus = 1) gives correct degree so T-junctions don't collapse to "bends".
+  - `find_frontages(site_model, roads_result)` — reads Phase 2 `updated_sides`; `visibility_score` = hierarchy rank 40% + road width 30% + projected frontage 30%.
+  - `classify_site_type(frontages, near_ix, site_model)` — 9-way: `corner`, `crossroads_corner`, `t_junction_terminal`, `y_junction`, `triangular_corner` (<45° between frontage sides), `linear`, `back_parcel`, `cul_de_sac`, `complex`.
+  - `analyze_corner_conditions` — visibility score + `is_gateway` flag (main road involved) per shared corner.
+  - `analyze_access` — vehicle / pedestrian / service access points per frontage.
+  - `generate_urban_response` — 9 architectural response templates per site type.
+  - `full_urban_analysis(site_model, roads, intersections)` — master function; reads `site_model["roads"]` (Phase 2), detects or uses provided intersections, classifies, runs all sub-analyses.
+
+- [x] `backend/routers/tools.py` — registered `urban_analysis`, `detect_intersections`, `fetch_urban_site`, `fetch_or_fallback`.
+
+- [x] Frontend lockstep (all under `team_04/frontend/`, 0 TypeScript errors):
+  - `api/types.ts` — `IntersectionInfo`, `FrontageInfo`, `CornerCondition`, `AccessPoint`, `AccessRecommendation`, `UrbanResponse`, `UrbanAnalysisResult`, `InterestingSite`.
+  - `api/client.ts` — `Team04Api.urbanAnalysis()` and `fetchUrbanSite()`.
+  - `site/UrbanAnalysisOverlay.tsx` — SVG overlay: road centrelines (offset, coloured by hierarchy), site sides heatmapped by visibility (yellow→teal), intersection markers (✕/T/Y/✦), corner dots (size ∝ visibility; red border = gateway), access symbols (▶/♟/⚙), urban response badge, legend.
+  - `frontend/index.ts` barrel updated.
+
+### Validation
+
+- [x] `benchmarking/test_urban_analysis.py` — **49/49 deterministic tests** pass (8 classes: intersection detection, frontage, site type, corner conditions, access, urban response, full analysis e2e, synthetic site schema).
+- [x] Synthetic sites produce correct distinct classifications: `crossroads_corner` / `t_junction_terminal` / `triangular_corner`.
+- [x] Notebook `test_notebooks/test_urban_context_P2b.ipynb` executes 7 sections clean: road network, frontage heatmap, intersections + corners, access, urban response panels, geometric detection, summary table. OSM fetch attempted for Barcelona; falls back to synthetic when offline.
+- [x] `npm run typecheck` (strict) → **0 errors** with the new urban analysis types.
+
+### Active MVP Status
+
+- [x] The agent classifies a site's urban condition from real-world (OSM) or synthetic road data.
+- [x] Each classification drives a distinct architectural design response (massing, entry, facade, corner treatment).
+- [x] Frontend overlay renders all urban analysis layers in SVG.
+- [ ] `full_urban_analysis` is not yet auto-invoked from `read_site` — it is a direct-tool call today.
+- [ ] Overpass API has rate limits; a tile-cache layer (Phase 8) will make repeated fetches free.
+
+## 2026-06-18 Phase 2 — Transportation / Road Context
+
+Implements Phase 2 of `BACKEND_PLAN.md`: the agent now knows its surroundings. Road objects (`{type:"road", centerline, width_m, hierarchy, name}`) supplied via `site_objects` are analysed by a new deterministic tool and used to (a) identify the **main road** (highest hierarchy → widest → most frontage), (b) **tag each site side** with its adjacent road, and (c) **derive `edge_road_widths`** so road-adjacent edges get a proportionally larger setback. Phase 3's `derive_site_grid` now automatically aligns to the main-road side when one is present, falling back to the longest-side default when no roads are provided. No road data → an explicit `ambiguity="no_road_data"` record is stored so the brief system can surface the gap rather than inventing a road. All under `team_04/`, conflict-free with `main`.
+
+### Completed
+
+- [x] `agent/tools/road_context.py` — pure, LLM-free road analysis:
+  - `validate_road(road)` — normalises a raw road dict (unknown hierarchy → `"secondary"`, bad width → `DEFAULT_ROAD_WIDTH_M`; raises on missing centreline).
+  - `analyze_roads(site_model, roads)` — for each road: nearest site side by **Shapely distance + projected-frontage tie-break** (so a parallel road wins over one that merely ends near a corner), `distance_m`, `frontage_m` (overlap projected onto the side direction). Sorts by `(hierarchy_rank, width_m, frontage_m)` → main road. Builds `edge_road_widths` for every side with an adjacent road within `ADJACENCY_MARGIN_M`. Returns `updated_sides` (site sides with `adjacent_road` filled) and `ambiguity="no_road_data"` when no valid roads are found.
+  - Constants centralised: `HIERARCHY_RANK`, `DEFAULT_ROAD_WIDTH_M`, `ADJACENCY_MARGIN_M`.
+- [x] `agent/tools/site_model.py` updated — `build_site_model` now:
+  - Extracts `site_objects` of `type == "road"` from `layout_payload`.
+  - Calls `analyze_roads` and stores the result in `model["roads"]` (was `None` placeholder).
+  - Propagates `updated_sides` back to `model["sides"]` so every side has its `adjacent_road` tag.
+  - Merges road-derived `edge_road_widths` with explicit payload overrides before calling `setback_summary`, so road-adjacent sides automatically get road-proportional setbacks.
+- [x] `agent/tools/site_grid.py` updated — `derive_site_grid` now:
+  - Priority: explicit `alignment_side` > `site_model["roads"]["main_road_side_index"]` (Phase 2) > longest-side fallback.
+  - No change when no roads are present — longest-side fallback still operates.
+- [x] `backend/routers/tools.py` — registered `road_context` (`analyze_roads`) and `validate_road` in the tool registry so the frontend can call `POST /tools/road_context` directly without a chat turn.
+- [x] Frontend lockstep:
+  - `frontend/api/types.ts` — `RoadData`, `RoadAnalysis`, `RoadContextResult` types (mirror `road_context.py`).
+  - `frontend/api/client.ts` — `Team04Api.roadContext(siteModel, roads)` typed wrapper.
+  - `frontend/site/RoadOverlay.tsx` — SVG overlay: road centrelines coloured by hierarchy (main=red, secondary=orange, path=teal), width buffers as semi-transparent strips, site sides painted by adjacent road colour, main-road side bold, ambiguity warning.
+  - `frontend/decision-graph/CONTRACT.md` §9 — road overlay payload contract.
+  - `frontend/index.ts` barrel — `RoadOverlay`, `RoadData`, `RoadAnalysis`, `RoadContextResult` exported.
+
+### Validation
+
+- [x] `benchmarking/test_road_context.py` — 34 deterministic tests (no LLM/MCP): road validation, main-road selection (hierarchy > width > frontage), nearest-side identification for all four cardinal sides, side tagging (main side tagged / unrelated sides null), `edge_road_widths` derivation, road-derived setback is larger than default, ambiguity path (None / empty list / all invalid roads), grid alignment to main-road side, explicit `alignment_side` overrides main road, longest-side fallback without roads, `build_site_model` integration (site_objects flow through, main_road_side_index present, non-road objects ignored, complex splayed site). All 34 pass.
+- [x] Updated `benchmarking/test_design_brief.py` — `SiteModelTests.test_builds_sides_corners_and_setbacks` updated to reflect that `model["roads"]` is now the `analyze_roads` result dict (with `ambiguity="no_road_data"`) rather than `None`. Total suite: **128 tests pass** (`test_road_context` + `test_site_grid` + `test_sun_analysis` + `test_design_brief`).
+- [x] Notebook `test_notebooks/test_road_context.ipynb` smoke-runs clean: site + 3 roads → main-road identification, side tagging per edge, buildable-zone comparison (road setbacks vs uniform 5 m), grid alignment to main-road side vs longest-side fallback, ambiguity path demo, and a summary table. All 6 sections verified.
+- [x] `npm run typecheck` (frontend, strict) → **0 errors** with `RoadOverlay` + `RoadData`/`RoadAnalysis`/`RoadContextResult` types and the `roadContext` client method.
+- [x] `py_compile` clean on `road_context.py`, `site_model.py`, `site_grid.py`, `backend/routers/tools.py`. `git status` shows only `team_04/` paths.
+
+### Active MVP Status
+
+- [x] The agent recognises the largest road near the site, tags each site side, and uses that to orient the placement grid and derive realistic setbacks.
+- [x] When no road data is provided, an explicit ambiguity is recorded — the agent will surface the gap rather than inventing a road.
+- [x] Phase 3 grid alignment now uses the main-road side as the default (Phase 2 ↔ Phase 3 coupling is live).
+- [x] Frontend overlay (`RoadOverlay`) and API contract (§9) are in lockstep with the backend.
+- [ ] `read_site` does not yet auto-populate `site_model["roads"]` from a live Grasshopper context reader — that is Phase 8 (agent integration); today roads flow in via `site_objects` in the layout payload.
+- [ ] The main-road side does not yet drive Phase 4 (parking near-road allocation) or Phase 5 (public entry on the main-road side) — those phases consume `site_model["roads"]` when they land.
+
 ## 2026-06-17 Shape library — fixed the Y and X footprints
 
 User: the Y and X building shapes were malformed (the agent struggled to find a side to align), and supplied reference letter shapes. Rebuilt **only** Y and X in `agent/tools/building_shape_graph.py`.

@@ -14,6 +14,8 @@ import type {
   ClarificationRequest,
   ExplorerTree,
   PlacementOption,
+  RoadContextResult,
+  RoadData,
   SelectResponse,
   SessionCreate,
   SessionInfo,
@@ -22,6 +24,7 @@ import type {
   SunExposureResult,
   SunVector,
   ToolCallResponse,
+  UrbanAnalysisResult,
   ViewAnalysisResult,
   WorstSunSide,
 } from './types';
@@ -139,6 +142,57 @@ export class Team04Api {
   /** Rank grid-node × aligned-orientation placements (use-driven objective mix). */
   alignedPlacement(args: Record<string, unknown>): Promise<ToolCallResponse<AlignedPlacementResult>> {
     return this.callTool('aligned_placement', args);
+  }
+
+  // --- Road context (Phase 2) --------------------------------------------
+  /**
+   * Analyse road objects against the site — identifies the main road, tags
+   * site sides with their adjacent road, and derives edge_road_widths for the
+   * setback tool.  Pass site_objects roads as `roads`.
+   */
+  roadContext(
+    siteModel: Record<string, unknown>,
+    roads: RoadData[],
+  ): Promise<ToolCallResponse<RoadContextResult>> {
+    return this.callTool('road_context', { site_model: siteModel, roads });
+  }
+
+  // --- Urban analysis (Phase 2b) -----------------------------------------
+  /**
+   * Full urban analysis: intersection classification, corner conditions,
+   * access recommendations, and architectural response.
+   * Pass intersections from an OSM fetch or leave empty for geometric detection.
+   */
+  urbanAnalysis(
+    siteModel: Record<string, unknown>,
+    roads: RoadData[] = [],
+    intersections: Array<{ point: number[]; degree: number; type: string }> = [],
+  ): Promise<ToolCallResponse<UrbanAnalysisResult>> {
+    return this.callTool('urban_analysis', {
+      site_model: siteModel,
+      roads,
+      intersections: intersections.length ? intersections : undefined,
+    });
+  }
+
+  /**
+   * Fetch the road network around a lat/lon from OpenStreetMap (Overpass API).
+   * Returns roads + intersections ready for urbanAnalysis().
+   */
+  fetchUrbanSite(
+    lat: number,
+    lon: number,
+    radiusM = 200,
+  ): Promise<ToolCallResponse<{
+    source: 'osm';
+    lat: number; lon: number; radius_m: number;
+    site_boundary: number[][];
+    roads: RoadData[];
+    intersections: Array<{ point: number[]; degree: number; type: string }>;
+    road_count: number;
+    intersection_count: number;
+  }>> {
+    return this.callTool('fetch_urban_site', { lat, lon, radius_m: radiusM });
   }
 }
 

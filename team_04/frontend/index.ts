@@ -39,6 +39,8 @@ export { isBriefPayload } from './decision-graph';
 export { SiteCanvas } from './site/SiteCanvas';
 export { SunOverlay } from './site/SunOverlay';
 export { GridOverlay } from './site/GridOverlay';
+export { RoadOverlay } from './site/RoadOverlay';
+export { UrbanAnalysisOverlay } from './site/UrbanAnalysisOverlay';
 export {
   computeBBox,
   makeProjector,
@@ -80,6 +82,17 @@ export type {
   SiteGrid,
   AlignedOption,
   AlignedPlacementResult,
+  RoadData,
+  RoadAnalysis,
+  RoadContextResult,
+  IntersectionInfo,
+  FrontageInfo,
+  CornerCondition,
+  AccessPoint,
+  AccessRecommendation,
+  UrbanResponse,
+  UrbanAnalysisResult,
+  InterestingSite,
   Point,
   Polygon,
 } from './api/types';

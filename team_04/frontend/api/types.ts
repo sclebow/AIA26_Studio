@@ -219,6 +219,144 @@ export interface AlignedPlacementResult {
   reason?: string;
 }
 
+// --- Road context (Phase 2) ----------------------------------------------
+// Mirror agent/tools/road_context.py. Returned via POST /tools/road_context.
+
+/** A validated road object (one entry in the site_objects list). */
+export interface RoadData {
+  type: 'road';
+  centerline: number[][];         // [[x, y], ...]
+  width_m: number;
+  hierarchy: 'main' | 'secondary' | 'path';
+  name?: string | null;
+}
+
+/** Per-road analysis result (from analyze_roads). */
+export interface RoadAnalysis extends RoadData {
+  nearest_side_index: number | null;
+  distance_m: number;             // distance from centreline to nearest site side
+  frontage_m: number;             // projected overlap with the nearest site side
+}
+
+/** Result of analyze_roads (POST /tools/road_context). */
+export interface RoadContextResult {
+  available: boolean;
+  roads: RoadAnalysis[];
+  main_road: RoadAnalysis | null;       // highest hierarchy → widest → most frontage
+  main_road_side_index: number | null;  // site side the main road fronts
+  edge_road_widths: Record<number, number>;  // {side_index: width_m} for setbacks
+  updated_sides: Array<{                // site sides with adjacent_road filled in
+    edge_index: number;
+    label: string;
+    adjacent_road: {
+      name?: string | null;
+      hierarchy: 'main' | 'secondary' | 'path';
+      width_m: number;
+      distance_m: number;
+      frontage_m: number;
+    } | null;
+    [key: string]: unknown;
+  }>;
+  ambiguity: 'no_road_data' | 'no_valid_roads' | 'no_site_boundary' | null;
+  ambiguity_message: string | null;
+}
+
+// --- Urban analysis (Phase 2b) -------------------------------------------
+// Mirror agent/tools/urban_analysis.py + osm_context.py.
+// POST /tools/urban_analysis → UrbanAnalysisResult
+
+/** One intersection detected near (or on) the site. */
+export interface IntersectionInfo {
+  point: [number, number];
+  type: 'crossroads' | 't_junction' | 'y_junction' | 'bend' | 'complex_junction' | 'dead_end';
+  degree: number;
+  distance_to_site_m: number;
+}
+
+/** One site side that adjoins a road — the site's "face" to the city. */
+export interface FrontageInfo {
+  side_index: number;
+  road_name: string | null;
+  road_hierarchy: 'main' | 'secondary' | 'path';
+  road_width_m: number;
+  frontage_length_m: number;
+  distance_m: number;
+  frontage_m: number;
+  visibility_score: number;   // 0..1, higher = more publicly visible
+  recommended_access: 'pedestrian' | 'primary_vehicle' | 'secondary_vehicle' | 'service';
+}
+
+/** One site corner at the junction of two frontage sides. */
+export interface CornerCondition {
+  corner_index: number;
+  point: [number, number];
+  sides: [number, number];
+  road_hierarchies: [string, string];
+  visibility_score: number;
+  is_gateway: boolean;          // true when a main road is involved
+  recommended_treatment: string;
+}
+
+/** Recommended access point on one site side. */
+export interface AccessPoint {
+  point: number[];
+  side_index: number;
+  road: string | null;
+  hierarchy: string;
+  road_width_m: number;
+  notes: string;
+}
+
+/** Vehicle / pedestrian / service access split. */
+export interface AccessRecommendation {
+  vehicle: AccessPoint[];
+  pedestrian: AccessPoint[];
+  service: AccessPoint[];
+  vehicle_count: number;
+  pedestrian_count: number;
+  service_count: number;
+}
+
+/** Architectural response keyed to the site type. */
+export interface UrbanResponse {
+  site_type: string;
+  site_type_label: string;
+  building_response: string;
+  massing_strategy: string;
+  entry_strategy: string;
+  facade_strategy: string;
+  corner_treatment: string | null;
+  priority_frontage_side: number | null;
+  secondary_frontage_side: number | null;
+  gateway_corners: CornerCondition[];
+  nearby_junction_type: string | null;
+}
+
+/** Full result of POST /tools/urban_analysis. */
+export interface UrbanAnalysisResult {
+  available: boolean;
+  source: 'osm' | 'synthetic' | 'none' | string;
+  site_type: string;
+  frontage_count: number;
+  frontages: FrontageInfo[];
+  nearby_intersections: IntersectionInfo[];
+  corner_conditions: CornerCondition[];
+  access: AccessRecommendation;
+  urban_response: UrbanResponse;
+  ambiguity: string | null;
+  ambiguity_message: string | null;
+}
+
+/** Interesting OSM site preset (from INTERESTING_SITES). */
+export interface InterestingSite {
+  name: string;
+  lat: number;
+  lon: number;
+  radius_m: number;
+  site_type_hint: string;
+  description: string;
+}
+
 // --- Direct tool invocation ----------------------------------------------
 
 export interface ToolCallResponse<R = unknown> {

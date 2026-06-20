@@ -86,7 +86,13 @@ def derive_site_grid(
     n = len(coords)
 
     # Choose the reference side.
-    side_idx = alignment_side if alignment_side is not None else _longest_side_index(coords)
+    # Priority: explicit alignment_side > main-road side (Phase 2) > longest side.
+    if alignment_side is not None:
+        side_idx = alignment_side
+    else:
+        roads = site_model.get("roads") or {}
+        main_road_side = roads.get("main_road_side_index")
+        side_idx = main_road_side if main_road_side is not None else _longest_side_index(coords)
     side_idx %= n
     a = coords[side_idx]
     b = coords[(side_idx + 1) % n]

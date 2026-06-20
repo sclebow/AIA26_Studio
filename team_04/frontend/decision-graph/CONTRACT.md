@@ -179,9 +179,11 @@ POST /sessions/{id}/decisions/{node_id}/select   { "reason": "..." }
 2. Frontend: add `<Type>Node.tsx`, register it in `nodeTypes.ts`, extend `types.ts`.
 3. Same commit: tick the phase row in `PROGRESS.md` and update `ARCHITECTURE.md`.
 
-Phase status: **`brief` shipped (Phase 0); sun overlay shipped (Phase 1, see §7).**
-`intent/action/branch/select/state` predate Phase 0. Future overlays (roads, grid, parking,
-circulation — Phases 2-5) attach to the **site/explorer** or **/tools** payloads, not the
+Phase status: **`brief` shipped (Phase 0); sun overlay shipped (Phase 1, see §7);
+grid overlay shipped (Phase 3, see §8); road overlay shipped (Phase 2, see §9);
+urban analysis overlay shipped (Phase 2b, see §10).**
+`intent/action/branch/select/state` predate Phase 0. Future overlays (parking,
+circulation — Phases 4-5) attach to the **site/explorer** or **/tools** payloads, not the
 decision graph, and get their own §7 sub-section.
 
 ---
@@ -289,3 +291,161 @@ rest by `min_separation`.
 exposure with the worst side flagged `☀`, and the focused building's facade test points coloured
 yellow (shaded) → red (hit). The same `sun_weight` (from the Phase 0 brief) that the UI shows is
 what the optimizer uses for the `sun_avoidance` objective — the LLM only sets the weight.
+
+---
+
+## 9. Road context overlay — Phase 2 (BACKEND_PLAN §2)
+
+Road context attaches to the **direct-tool** endpoints, like sun and grid. Backend source is
+`agent/tools/road_context.py`; TS types in `../api/types.ts`; `site/RoadOverlay.tsx` renders it;
+`Team04Api.roadContext(siteModel, roads)` wraps the call.  Road data flows in through
+`site_objects` entries of `type: "road"` in the session payload; `build_site_model` runs
+`analyze_roads` automatically and stores the result in `site_model["roads"]`.
+
+```
+POST /tools/road_context   { site_model: SiteModel, roads: RoadData[] }
+→ RoadContextResult = {
+    available: boolean,
+    roads: RoadAnalysis[],             // per-road: nearest_side_index, distance_m, frontage_m
+    main_road: RoadAnalysis | null,    // highest hierarchy → widest → most frontage
+    main_road_side_index: number | null,
+    edge_road_widths: { [side: number]: number },  // → setback tool
+    updated_sides: Array<{ ..., adjacent_road: {...} | null }>,
+    ambiguity: "no_road_data" | "no_valid_roads" | "no_site_boundary" | null,
+    ambiguity_message: string | null
+  }
+
+RoadData = {
+  type: "road",
+  centerline: number[][],   // [[x, y], ...]
+  width_m: number,
+  hierarchy: "main" | "secondary" | "path",
+  name?: string
+}
+```
+
+`RoadOverlay` draws:
+- each road centreline coloured by hierarchy (main=red `#E63946`, secondary=orange `#F4A261`, path=teal `#2A9D8F`),
+- road width as a semi-transparent buffer strip,
+- each site side painted in its adjacent road's colour (grey when none),
+- the main-road side highlighted with a bold stroke.
+- an ambiguity warning when no road data was provided.
+
+**Phase 2 ↔ Phase 3 coupling:** the main-road side from `RoadContextResult.main_road_side_index`
+is fed directly into `derive_site_grid` as the default `alignment_side` — so the grid aligns to
+the real street, not just the longest side.  The frontend can show both overlays simultaneously
+(`RoadOverlay` + `GridOverlay`) to demonstrate this coupling visually.
+
+**Ambiguity path:** when no road objects are provided (or all fail validation), `available=false`
+and `ambiguity="no_road_data"` is returned.  `RoadOverlay` renders a warning; the brief system
+records the ambiguity so the user can be asked to provide road context.
+
+---
+
+## 10. Urban analysis overlay — Phase 2b (BACKEND_PLAN §2b)
+
+Urban analysis attaches to the **direct-tool** endpoints and extends the road overlay with urban
+classification, corner conditions, access recommendations, and an architectural design response.
+Backend source is `agent/tools/urban_analysis.py` + `agent/tools/osm_context.py`; TS types in
+`../api/types.ts`; `site/UrbanAnalysisOverlay.tsx` renders it; `Team04Api.urbanAnalysis()` and
+`fetchUrbanSite()` wrap the calls.  Requires `site_model["roads"]` to be set (Phase 2 must have run
+first, or `build_urban_site` must pipe through `analyze_roads`).
+
+```
+POST /tools/fetch_urban_site   { lat: number, lon: number, radius_m?: number }
+→ {
+    source: "osm",
+    lat, lon, radius_m,
+    site_boundary: number[][],
+    roads: RoadData[],
+    intersections: IntersectionInfo[],
+    road_count: number,
+    intersection_count: number
+  }
+
+POST /tools/urban_analysis   { site_model: SiteModel,
+                               roads?: RoadData[],
+                               intersections?: IntersectionInfo[] }
+→ UrbanAnalysisResult = {
+    available: boolean,
+    site_type: SiteTypeString,           // e.g. "crossroads_corner"
+    site_type_label: string,             // human-readable
+    frontage_count: number,
+    frontages: FrontageInfo[],           // one per frontage side
+    nearby_intersections: IntersectionInfo[],
+    corner_conditions: CornerCondition[],
+    access: AccessRecommendation,
+    urban_response: UrbanResponse | null,
+    ambiguity_message: string | null
+  }
+```
+
+**Key types:**
+
+```ts
+IntersectionInfo = {
+  point: number[],       // [x, y]
+  degree: number,        // arm count (pass-through = 2, terminus = 1)
+  type: "crossroads" | "t_junction" | "y_junction" | "complex_junction" | "dead_end" | "bend",
+  distance_to_site_m?: number
+}
+
+FrontageInfo = {
+  side_index: number,
+  road_name: string | null,
+  road_hierarchy: "main" | "secondary" | "path",
+  road_width_m: number,
+  frontage_m: number,          // projected overlap with the site side
+  visibility_score: number,    // 0..1 (hierarchy 40% + width 30% + frontage 30%)
+  recommended_access: "pedestrian" | "primary_vehicle" | "secondary_vehicle" | "service"
+}
+
+CornerCondition = {
+  corner_index: number,
+  point: number[],             // [x, y] world coords
+  side_indices: number[],      // two frontage sides sharing this corner
+  visibility_score: number,    // mean of the two frontage scores
+  is_gateway: boolean,         // true when any adjacent road is "main" hierarchy
+  recommended_treatment: string
+}
+
+AccessRecommendation = {
+  vehicle:    AccessPoint[],
+  pedestrian: AccessPoint[],
+  service:    AccessPoint[]
+}
+
+AccessPoint = { point: number[], notes: string }
+
+UrbanResponse = {
+  site_type: string,
+  site_type_label: string,
+  building_response: string,
+  massing_strategy: string,
+  entry_strategy: string,
+  facade_strategy: string,
+  corner_treatment: string | null,   // only when ≥1 corner condition exists
+  gateway_corners: string | null
+}
+```
+
+`UrbanAnalysisOverlay` draws:
+- Road centrelines offset outward (coloured by hierarchy: main=red, secondary=orange, path=teal) with width buffers.
+- Site sides heatmapped from yellow (low visibility) to teal (high visibility) by `visibility_score`; stroke weight ∝ score.
+- Intersection markers coloured by type: ✕ crossroads (dark red), T t-junction, Y y-junction, ✦ complex.
+- Corner condition dots: radius proportional to `visibility_score`; red border when `is_gateway`.
+- Access point symbols: ▶ vehicle, ♟ pedestrian, ⚙ service.
+- Urban response badge (bottom-left): site type label + first 60 chars of `building_response` + frontage/junction count.
+- Legend (top-right): hierarchy colours, intersection markers, access symbols.
+- Ambiguity warning (bottom) when `available=false`.
+
+**Phase 2b ↔ Phase 2 dependency:** `full_urban_analysis` reads `site_model["roads"]` (the Phase 2
+`roads_result` dict). If the roads key is absent or `available=false`, the function returns
+`available=false` and skips classification. Always run Phase 2 (`roadContext` or `build_site_model`)
+before calling `urbanAnalysis`.
+
+**OSM / offline fallback:** `fetchUrbanSite` may fail in offline or rate-limited environments.
+Use `fetch_or_fallback` (tool name `fetch_urban_fallback`) with a `fallback_index` (0=crossroads
+corner, 1=T-junction terminal, 2=triangular corner) to ensure the pipeline always gets road data.
+
+Phase status: **§10 urban analysis overlay shipped (Phase 2b).**

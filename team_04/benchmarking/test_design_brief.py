@@ -217,8 +217,13 @@ class SiteModelTests(unittest.TestCase):
         self.assertEqual(len(model["corners"]), 4)
         self.assertIsNotNone(model["setbacks"])
         self.assertAlmostEqual(model["setbacks"]["site_area_sqm"], 10000.0, places=1)
-        # Phase placeholders present for later phases.
-        self.assertIsNone(model["roads"])
+        # Phase 2 landed: model["roads"] is an analyze_roads result dict now.
+        # When no roads are supplied it records the ambiguity instead of None.
+        self.assertIsNotNone(model["roads"])
+        self.assertFalse(model["roads"].get("available"))
+        self.assertEqual(model["roads"].get("ambiguity"), "no_road_data")
+        # Remaining phase placeholders still None (Phases 3 grid and 1 sun filled
+        # directly by their respective tools, not by build_site_model).
         self.assertIsNone(model["grid"])
         self.assertIsNone(model["sun"])
         # Each side has an explicit slot for a future road tag.

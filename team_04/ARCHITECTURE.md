@@ -2,13 +2,13 @@
 
 ## Planned Evolution (2026-06-12)
 
-`BACKEND_PLAN.md` defines the phased roadmap from the current view-only placement agent to a site-intelligent backend. **Phase 0 (reasoning core), Phase 1 (sun analysis fitness), and Phase 3 (site grid & side alignment) are implemented** — see the 2026-06-15 and 2026-06-17 entries in `PROGRESS.md`. (Phase 3 landed before Phase 2/roads using the documented longest-side fallback; the main-road side feeds it later.) The architectural commitments it introduces:
+`BACKEND_PLAN.md` defines the phased roadmap from the current view-only placement agent to a site-intelligent backend. **Phase 0 (reasoning core), Phase 1 (sun analysis fitness), Phase 2 (road context), Phase 2b (urban context), and Phase 3 (site grid & side alignment) are implemented** — see the 2026-06-15, 2026-06-17, 2026-06-18, and 2026-06-19 entries in `PROGRESS.md`. The architectural commitments they introduce:
 
 - **Typed `DesignBrief`**: a one-shot LLM extraction node at graph start converts the user prompt into a typed brief (building count, shapes, areas, storeys, courtyard intent, parking, objective weights, explicit ambiguities). Downstream nodes read the brief, never re-parse the prompt; regex intent helpers in `decision_engine.py` become test-only fallbacks.
 - **Canonical `SiteModel`**: `read_site` builds one structured site object (boundary graph, per-side metadata, roads, placement grid, sun context, setbacks/buildable zone) that all tools consume — one source of truth instead of raw coordinate lists.
 - **Prompt diet**: supervisor prompt shrinks to role + active step + brief + catalog slice; every enforceable rule moves into deterministic planner guards or the argument-repair layer.
 - **Fitness assembly**: a deterministic `build_objectives(brief, site_model)` selects active NSGA-II objectives (view, sun, courtyard quality) and hard constraints (site fit, setbacks, separation, fire access, parking feasibility); grid/side alignment restricts the sampling space. The LLM sets weights only, via the brief.
-- **New tool families** under `agent/tools/`: `sun_analysis`, `road_context`, `site_grid`, `parking`, `circulation`, `courtyard`, plus per-wing heights in the wing graph and `view_3d`.
+- **New tool families** under `agent/tools/`: `sun_analysis` (Phase 1), `road_context` (Phase 2), `site_grid` (Phase 3), `parking` (Phase 4), `circulation` (Phase 5), `courtyard` (Phase 6), plus per-wing heights in the wing graph and `view_3d`.
 - **Frontend in lockstep (revised 2026-06-16)**: the original "frontend last (Phase 9)" rule is superseded — every backend phase that changes a UI-visible contract (a decision-graph node, a site/explorer overlay, an SSE event) ships its frontend counterpart in the **same commit**, under `team_04/frontend/`. Deeper FastAPI contract work (full site-model payload, analysis overlays, per-wing hierarchy) still lands as its phase does. Phase 0's counterpart is the `frontend/decision-graph/` module (`BriefNode` + payload contract).
 
 Each phase lands with a visualization notebook in `test_notebooks/`, deterministic regressions in `benchmarking/`, and same-commit updates to this file and `PROGRESS.md`.
@@ -48,9 +48,10 @@ team_04/
 │   ├── state.py
 │   ├── tool_catalog.py
 │   └── tools/
-│       ├── site_model.py   # Phase 0: canonical SiteModel
+│       ├── site_model.py   # Phase 0: canonical SiteModel (Phase 2 update: auto-runs road_context)
 │       ├── sun_analysis.py # Phase 1: worst-sun vectors, 2D + 3D facade exposure, worst side, 3D viz
-│       ├── site_grid.py    # Phase 3: grid from a chosen side, aligned orientations, obtuse corners
+│       ├── road_context.py # Phase 2: analyze_roads, main-road id, side tagging, edge_road_widths
+│       ├── site_grid.py    # Phase 3: grid from a chosen side (Phase 2: main-road side as default)
 │       └── view_optimizer.py # NSGA-II + objective registry (view, attractor, sun, alignment, frontage) + aligned placement
 ├── backend/                # FastAPI app + decision graph + routers
 │   ├── app.py
@@ -151,11 +152,53 @@ The optimizer gains a `sun_avoidance` objective in `view_optimizer.OBJECTIVE_REG
 
 The lockstep frontend counterpart is `frontend/site/SunOverlay.tsx` (sun arrow + facade-exposure points + worst-side highlight), fed by the direct-tool endpoints `POST /tools/{sun_vectors,sun_exposure,worst_sun_side}` (see `frontend/decision-graph/CONTRACT.md` §7).
 
+## Road and Transportation Context (Phase 2)
+
+`agent/tools/road_context.py` gives the agent situational awareness: it knows which side of the site faces the street and how big that street is. Road objects (`{type:"road", centerline, width_m, hierarchy:"main"|"secondary"|"path", name?}`) are supplied via `site_objects` in the layout payload and analysed once when `build_site_model` runs:
+
+- `validate_road(road)` normalises and validates a single road dict (unknown hierarchy → `"secondary"`, bad width → `DEFAULT_ROAD_WIDTH_M`, raises on missing centreline).
+- `analyze_roads(site_model, roads)` — for each road computes: nearest site side (Shapely distance + **projected-frontage tie-break** so a parallel road wins over one that merely ends near a corner), `distance_m`, and `frontage_m` (projected overlap with the side in the side's own direction). Roads are ranked by `(hierarchy_rank, width_m, frontage_m)` — the **main road** (highest priority) drives placement. Returns:
+  - `main_road` + `main_road_side_index` — the single most important road and the site side it fronts.
+  - `edge_road_widths` `{side_index: width_m}` — consumed by `site_setback.compute_buildable_zone` so the road-adjacent side's setback is `max(min_setback, width × road_setback_ratio)` instead of the generic default.
+  - `updated_sides` — a copy of `site_model["sides"]` with each side's `adjacent_road` slot filled (or `null` when no road is close enough).
+  - `ambiguity="no_road_data"` when no roads are provided — the agent records the gap instead of inventing a road.
+
+`build_site_model` (Phase 0 tool, updated Phase 2) now:
+1. Extracts `site_objects` of `type == "road"` from `layout_payload`.
+2. Calls `analyze_roads` and stores the result in `model["roads"]`.
+3. Propagates `updated_sides` back to `model["sides"]`.
+4. Merges road-derived `edge_road_widths` with explicit payload overrides before calling `setback_summary`.
+
+`derive_site_grid` (Phase 3 tool, updated Phase 2) now uses **`main_road_side_index`** as the default `alignment_side` when a road is present, so the placement grid is automatically parallel to the real street. Priority: explicit `alignment_side` > main-road side > longest-side fallback.
+
+The lockstep frontend counterpart is `frontend/site/RoadOverlay.tsx` (road centrelines coloured by hierarchy, width buffers, site sides painted by adjacent road colour, main-road side bold), fed by `POST /tools/road_context` (see `frontend/decision-graph/CONTRACT.md` §9). `Team04Api.roadContext(siteModel, roads)` wraps the call; types are `RoadData`, `RoadAnalysis`, `RoadContextResult` in `api/types.ts`.
+
+## Urban Context Analysis (Phase 2b)
+
+`agent/tools/urban_analysis.py` and `agent/tools/osm_context.py` give the agent a full understanding of the **urban condition** of its site — not just which roads are adjacent (Phase 2) but what kind of corner, junction, or frontage situation it is in and what architectural response that demands.
+
+**OSM data layer** (`osm_context.py`):
+- `fetch_urban_site(lat, lon, radius_m)` — queries the Overpass API for the road network in a bounding box, converts lat/lon to local metres, and infers intersections from OSM node degree (a node shared by ≥3 ways = junction). Returns roads + intersections in the canonical Phase 2 schema.
+- `fetch_or_fallback(…, fallback_index)` — wraps the fetch with graceful degradation to one of three `SYNTHETIC_SITES` on any network failure. The same `build_urban_site` pipeline runs on either path, so offline notebooks and live data are handled identically.
+- `SYNTHETIC_SITES` — three offline-safe presets with back roads placed beyond the 20 m adjacency margin so only the street-facing sides get tagged: (0) crossroads corner, (1) T-junction terminal, (2) triangular corner.
+- `INTERESTING_SITES` — eight famous real-world presets (Eixample Barcelona, Le Marais Paris, Flatiron New York, Bloomsbury London, Jordaan Amsterdam, Beyoglu Istanbul, Melbourne CBD, Shinjuku Tokyo).
+
+**Classification layer** (`urban_analysis.py`):
+- `detect_intersections_from_roads(roads, snap_dist_m)` — pairwise Shapely line intersection + endpoint snap; **arm counting** (pass-through = 2 arms, terminus = 1) gives the correct junction degree so a T-junction is degree 3, not 2.
+- `find_frontages(site_model, roads_result)` — reads Phase 2 `updated_sides`; `visibility_score` ∈ [0,1] (hierarchy rank 40% + road width 30% + projected frontage 30%).
+- `classify_site_type(frontages, near_ix, site_model)` — 9-way: `corner`, `crossroads_corner`, `t_junction_terminal`, `y_junction`, `triangular_corner` (inter-frontage angle < 45°), `linear`, `back_parcel`, `cul_de_sac`, `complex`.
+- `analyze_corner_conditions` — visibility score + `is_gateway` flag (True when a `"main"` road is involved) per shared corner.
+- `analyze_access` — vehicle / pedestrian / service access point at each frontage midpoint with `notes`.
+- `generate_urban_response(site_type, …)` — 9 architectural response templates per site type: `building_response`, `entry_strategy`, `facade_strategy`, `corner_treatment`, `gateway_corners`.
+- `full_urban_analysis(site_model, roads, intersections)` — master function; reads `site_model["roads"]` (Phase 2), detects or uses provided intersections, classifies, runs all sub-analyses.
+
+The lockstep frontend counterpart is `frontend/site/UrbanAnalysisOverlay.tsx` (road centrelines offset outward by hierarchy, site sides heatmapped yellow→teal by visibility score, intersection markers ✕/T/Y/✦ coloured by type, corner condition dots sized by visibility with red border for gateway, access symbols ▶/♟/⚙, urban response badge, legend), fed by `POST /tools/urban_analysis` (see `frontend/decision-graph/CONTRACT.md` §10). `Team04Api.urbanAnalysis()` and `fetchUrbanSite()` wrap the calls; interfaces are in `api/types.ts`.
+
 ## Site Grid & Side Alignment (Phase 3)
 
 `agent/tools/site_grid.py` makes placement read as *intentional* instead of random. Real buildings sit on a site grid, parallel to a preferred boundary — so the agent no longer rotates footprints freely inside the plot:
 
-- `derive_site_grid(site_model, spacing, alignment_side=None)` builds a grid from a **chosen side** (default: the longest side — the documented fallback until Phase 2's main-road side feeds it), with two orthonormal axes, lattice seed nodes clipped to the buildable zone, and grid lines for drawing. It works on arbitrary non-orthogonal polygons.
+- `derive_site_grid(site_model, spacing, alignment_side=None)` builds a grid from a **chosen side** (priority: explicit `alignment_side` > main-road side from `site_model["roads"]` (Phase 2) > longest-side fallback), with two orthonormal axes, lattice seed nodes clipped to the buildable zone, and grid lines for drawing. It works on arbitrary non-orthogonal polygons.
 - `aligned_orientations(grid)` is the discrete {parallel, perpendicular} set — the only orientations a building may take. `alignment_score`/`snap_to_grid`/`align_building_to_grid` support scoring and placement.
 - `corner_interior_angle`/`corner_wing_rotation` let a winged footprint (an L) follow a splayed corner: the free wing rotates to the *adjacent* side, so the arms spread to the corner's interior angle (obtuse on a non-orthogonal site) rather than a rigid 90°. This reuses the existing `parametric_shape` `end_rot` lever.
 - `derive_adaptive_site_grid(site_model, spacing|divisions, alignment_side=None)` is the **warped** generalisation: a single rigid angle cannot stay parallel to every edge of a splayed plot, so this fits a **transfinite (Coons) patch** to the site's four principal edge-chains (the sharpest four corners frame the quad; extra vertices fall inside the chains, where the taper lives). Grid lines bend to follow the boundary and the **local axis angle varies across the field** (`angle_range_deg` reports the swing; ≈ 0 on a rectangle, where it degenerates to the uniform grid). `local_grid_orientation(grid, point)` returns the per-node local direction and `align_building_to_local_grid` drops a *rigid* footprint oriented to it (optionally + a `corner_wing_rotation` bend).

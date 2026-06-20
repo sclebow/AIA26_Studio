@@ -18,6 +18,11 @@ Supported tools exposed here (add more as needed):
   site_grid            — derive_site_grid (grid aligned to a chosen side)
   aligned_placement    — optimize_aligned_placement (grid-node × aligned orient.)
   place_buildings_aligned — multi-building greedy aligned placement
+  road_context         — analyze_roads (Phase 2: nearest side, main road, frontage)
+  validate_road        — validate_road (normalise a single road dict)
+  urban_analysis       — full_urban_analysis (Phase 2b: intersections, corner conditions, urban response)
+  fetch_urban_site     — fetch_urban_site (OSM road network fetch via Overpass API)
+  detect_intersections — detect_intersections_from_roads (geometry-based junction detection)
 """
 from __future__ import annotations
 
@@ -103,6 +108,30 @@ def _lazy_registry() -> dict[str, Any]:
         _REGISTRY["site_grid"] = derive_site_grid
         _REGISTRY["aligned_placement"] = optimize_aligned_placement
         _REGISTRY["place_buildings_aligned"] = place_buildings_aligned
+    except Exception:
+        pass
+
+    try:
+        from agent.tools.road_context import analyze_roads, validate_road
+        _REGISTRY["road_context"] = analyze_roads
+        _REGISTRY["validate_road"] = validate_road
+    except Exception:
+        pass
+
+    try:
+        from agent.tools.urban_analysis import (
+            full_urban_analysis,
+            detect_intersections_from_roads,
+        )
+        _REGISTRY["urban_analysis"] = full_urban_analysis
+        _REGISTRY["detect_intersections"] = detect_intersections_from_roads
+    except Exception:
+        pass
+
+    try:
+        from agent.tools.osm_context import fetch_urban_site, fetch_or_fallback
+        _REGISTRY["fetch_urban_site"] = fetch_urban_site
+        _REGISTRY["fetch_or_fallback"] = fetch_or_fallback
     except Exception:
         pass
 

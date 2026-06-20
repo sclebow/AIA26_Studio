@@ -5,7 +5,7 @@
   "target_building_count": 2,
   "placed_building_count": 1,
   "placed_building_geometry_ids": [
-    "generate_building_boundary_1486ed9f1700"
+    "generate_building_boundary_1d6aa0d54e2c"
   ],
   "site_object_names": [
     "Main Street",
@@ -23,14 +23,14 @@
         "footprint_area_sqm": null,
         "storeys": null,
         "use": "residential",
-        "intent_text": "Place near Main Street; keep graph readable for later edits."
+        "intent_text": "First building near Main Street; keep layout readable for later edits."
       },
       {
         "shape_preference": "auto",
         "footprint_area_sqm": null,
         "storeys": null,
         "use": "residential",
-        "intent_text": "Second building after the first; maintain open site access; consider East Service Street or Central Alignment Guide."
+        "intent_text": "Second building placed after the first; preserve site access and consider East Service Street or Central Alignment Guide if helpful."
       }
     ],
     "courtyard_requested": false,
@@ -39,31 +39,33 @@
     "requested_rotation_deg": null,
     "view_weight": 0.5,
     "sun_weight": 0.5,
-    "alignment_weight": 0.8,
+    "alignment_weight": 0.5,
     "ambiguities": [
-      "Exact footprint area, number of storeys, and building use are not specified.",
-      "Definition of 'after the first one' in site plan order is ambiguous (direction, offset, or alignment).",
-      "No explicit site boundary, access points, or driveway configuration provided.",
-      "No preferred orientation or rotation constraints beyond alignment cues."
+      "No explicit footprint size, footprint shape, or number of storeys provided.",
+      "Exact site orientation and which edges correspond to Main Street and East Service Street are not defined.",
+      "What does 'after the first one' mean in terms of layout direction or axis?",
+      "What does 'keeping site access clear' imply for driveways, service entries, or internal circulation?",
+      "What is the 'Central Alignment Guide' referenced\u2014no definition in the request.",
+      "No constraints on setbacks, lot coverage, or zoning are specified."
     ],
     "source": "llm"
   },
   "site_model_available": true,
   "tool_sequence": [
-    "analyze_site_boundary",
-    "legal_constraints_reader",
     "site_boundary_reader",
+    "legal_constraints_reader",
+    "analyze_site_boundary",
     "context_reader",
     "generate_building_boundary",
     "requested_position_checker",
     "setback_checker",
-    "adjacency_access_checker",
     "area_requirement_checker",
-    "site_fit_checker",
     "tree_constraint_checker",
+    "site_fit_checker",
+    "adjacency_access_checker",
+    "spatial_intention_evaluator",
     "shape_integrity_evaluator",
     "performance_evaluator",
-    "spatial_intention_evaluator",
     "direction_to_site_centroid",
     "modify_building_boundary",
     "direction_to_site_centroid",
@@ -113,15 +115,15 @@
     "remaining_buildable_positions"
   ],
   "decision_trace": [
-    "Design brief (llm): 2 building(s), shapes=['auto', 'auto'], courtyard=False, parking=False. Ambiguities: 4.",
+    "Design brief (llm): 2 building(s), shapes=['auto', 'auto'], courtyard=False, parking=False. Ambiguities: 6.",
     "Planner updated the task sequence: Initial planning required.",
     "Supervisor decision: read_site | Load site boundary, context, and legal constraints.",
-    "Tool analyze_site_boundary executed.",
-    "Tool legal_constraints_reader executed.",
     "Tool site_boundary_reader executed.",
+    "Tool legal_constraints_reader executed.",
+    "Tool analyze_site_boundary executed.",
     "Tool context_reader executed.",
     "Planner updated the task sequence: read_site step finished.",
-    "Supervisor decision: generate_shape | Generate the first building footprint biased toward Main Street with readable geometry, within the site boundary and 5 m setback; orient and place using available alignment guides to keep future edits straightforward and allow a second building after the first.",
+    "Supervisor decision: generate_shape | Select a near Main Street footprint with a simple readable form, centered roughly at (24,20) within the site boundary to support later edits and potential second-building placement.",
     "Tool generate_building_boundary executed.",
     "Planner updated the task sequence: Generated a new geometry candidate.",
     "Supervisor decision: check_requested_position | Check whether the user's requested position works for building 1. Intent: Primary building close to Main Street with a clear wing graph.",
@@ -129,15 +131,15 @@
     "Planner updated the task sequence: Requested-position analysis completed.",
     "Supervisor decision: check_constraints | Validate the current geometry for building 1 against all constraints. Intent: Primary building close to Main Street with a clear wing graph.",
     "Tool setback_checker executed.",
-    "Tool adjacency_access_checker executed.",
     "Tool area_requirement_checker executed.",
-    "Tool site_fit_checker executed.",
     "Tool tree_constraint_checker executed.",
+    "Tool site_fit_checker executed.",
+    "Tool adjacency_access_checker executed.",
     "Planner updated the task sequence: Constraint results changed the remaining execution plan.",
     "Supervisor decision: evaluate | Evaluate building 1 for design quality and performance. Intent: Primary building close to Main Street with a clear wing graph.",
+    "Tool spatial_intention_evaluator executed.",
     "Tool shape_integrity_evaluator executed.",
     "Tool performance_evaluator executed.",
-    "Tool spatial_intention_evaluator executed.",
     "Planner updated the task sequence: Evaluation completed; final reporting can now be planned.",
     "Supervisor decision: place_building | Place building 1 into Rhino/Grasshopper. Intent: Primary building close to Main Street with a clear wing graph.",
     "Tool direction_to_site_centroid executed for placement iteration 1.",
