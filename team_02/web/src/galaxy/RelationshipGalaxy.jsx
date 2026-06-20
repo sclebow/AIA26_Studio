@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import ForceGraph3D from "3d-force-graph";
 import SpriteText from "three-spritetext";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
@@ -7,10 +8,13 @@ import {
   Mesh, SphereGeometry, OctahedronGeometry, MeshBasicMaterial, AdditiveBlending,
 } from "three";
 import { SENSES } from "../lib/constants.js";
-import { buildRelationshipGraph, buildContext, GALAXY_LEGEND, LENSES, DEFAULT_LENSES } from "../lib/relationshipGraph.js";
+import { buildRelationshipGraph, buildContext, GALAXY_LEGEND, GALAXY_GUIDE, LENSES, DEFAULT_LENSES } from "../lib/relationshipGraph.js";
 import { childrenOf } from "../lib/galaxyChildren.js";
 import { rippleSequence, worstSense } from "../lib/rippleSim.js";
 import { clusterForce, SENSE_ANCHORS, recomputeCentroids, bundleControlPoints } from "./galaxyForces.js";
+import GalaxyNarrator from "./GalaxyNarrator.jsx";
+
+const GUIDE_SEEN_KEY = "sensi.galaxy.guide.seen";   // first-run: tour auto-plays once
 
 // The Relationship Galaxy — six sense-communities; links are delicate CURVED FIBERS
 // bundled toward the community waist (DTI look), dashed where the basis is physics.
@@ -59,12 +63,18 @@ export default function RelationshipGalaxy({ turn, persona, onClose }) {
   const lensesRef = useRef(null);
   const conceptRef = useRef(false);
   const prevLensesRef = useRef(null);
+  const spotlightRef = useRef(false);   // true while a TOUR spotlight owns focusRef (vs a ripple)
+  const tourStepRef = useRef(-1);
   const [lenses, setLenses] = useState(() => new Set(DEFAULT_LENSES));
   const [playing, setPlaying] = useState(false);
   const [concept, setConcept] = useState(false);
-  const [legendOpen, setLegendOpen] = useState(true);
+  const [legendOpen, setLegendOpen] = useState(false);
+  const [guideOn, setGuideOn] = useState(true);     // the Narrator band (educational layer)
+  const [tourStep, setTourStep] = useState(-1);     // -1 = not in the first-look tour
+  const [readout, setReadout] = useState(null);     // live plain-language hover/lens readout
   lensesRef.current = lenses;
   conceptRef.current = concept;
+  tourStepRef.current = tourStep;
 
   const paintLink = (l) => {
     const lines = l.__lines;
@@ -84,6 +94,21 @@ export default function RelationshipGalaxy({ turn, persona, onClose }) {
   // re-set nodeColor with a FRESH function each time so 3d-force-graph actually
   // recomputes node tints (re-setting the same reference is a no-op).
   const refreshHighlight = () => { const G = graphRef.current; if (!G) return; G.nodeColor((n) => nodeColorFn(n)); G.graphData().links.forEach(paintLink); };
+
+  // Tour spotlight — REUSE the ripple focus-fade to light one element type and dim
+  // the rest. `focus`: "all" clears, "sense"/"room"/"lever" lights those nodes,
+  // "fiber" lights every thread. No new rendering path.
+  const applySpotlight = (focus) => {
+    const G = graphRef.current; if (!G) return;
+    const f = focusRef.current;
+    f.nodes = new Set(); f.links = new Set();
+    if (!focus || focus === "all") { f.active = false; spotlightRef.current = false; refreshHighlight(); return; }
+    const { nodes, links } = G.graphData();
+    if (focus === "fiber") links.forEach((l) => f.links.add(l));
+    else nodes.forEach((n) => { if (n.kind === focus) f.nodes.add(n); });
+    f.active = true; spotlightRef.current = true;
+    refreshHighlight();
+  };
 
   // ── ripple pulses travelling the fibers ──
   const tickRipple = () => {
@@ -247,6 +272,7 @@ export default function RelationshipGalaxy({ turn, persona, onClose }) {
           G.graphData().links.forEach((l) => { if (l.source === node || l.target === node) { hl.links.add(l); hl.nodes.add(l.source); hl.nodes.add(l.target); } });
         }
         el.style.cursor = node ? "pointer" : "";
+        setReadout(node ? GALAXY_GUIDE.readNode(node) : null);   // narrator: plain-language readout
         refreshHighlight();
         if (hoverIvRef.current) { clearInterval(hoverIvRef.current); hoverIvRef.current = 0; }
         if (node && hl.links.size) {
@@ -254,9 +280,13 @@ export default function RelationshipGalaxy({ turn, persona, onClose }) {
           flow(); hoverIvRef.current = setInterval(flow, 650);
         }
       })
+      .onLinkHover((link) => {                                    // narrator: a fiber, read in plain words
+        if (link) setReadout(GALAXY_GUIDE.readLink(link));
+        else if (!hlRef.current.nodes.size) setReadout(null);    // keep a node readout if one is hovered
+      })
       .onNodeClick((node) => {
         if (node.kind === "sense") {                           // a sense → ripple + fade everything else
-          if (lensesRef.current?.has("ripple")) fireRipple(node.id, true);
+          if (tourStepRef.current < 0 && lensesRef.current?.has("ripple")) fireRipple(node.id, true);   // don't let a ripple fight the tour spotlight
           if (G.zoomToFit) G.zoomToFit(1200, 70);
           return;
         }
@@ -341,6 +371,30 @@ export default function RelationshipGalaxy({ turn, persona, onClose }) {
     return () => { clearTimeout(start); clearInterval(iv); };
   }, [playing]);
 
+  // first open of the galaxy → auto-play the orientation tour once (remembered)
+  useEffect(() => {
+    let seen = true;
+    try { seen = !!localStorage.getItem(GUIDE_SEEN_KEY); localStorage.setItem(GUIDE_SEEN_KEY, "1"); } catch { seen = false; }
+    if (!seen) setTourStep(0);
+  }, []);
+
+  // drive the spotlight from the active tour beat (and recenter as the tour opens)
+  useEffect(() => {
+    if (tourStep < 0) { if (spotlightRef.current) applySpotlight("all"); return; }   // only clear a tour-owned spotlight, never a ripple's
+    const beat = GALAXY_GUIDE.tour[tourStep];
+    if (tourStep === 0 && graphRef.current?.zoomToFit) graphRef.current.zoomToFit(900, 80);
+    applySpotlight(beat?.focus);
+  }, [tourStep]);
+
+  const TOUR_TOTAL = GALAXY_GUIDE.tour.length;
+  const nextBeat = () => setTourStep((s) => (s >= TOUR_TOTAL - 1 ? -1 : s + 1));
+  const backBeat = () => setTourStep((s) => Math.max(0, s - 1));
+  const endTour = () => setTourStep(-1);
+  const replayTour = () => { setGuideOn(true); setReadout(null); setTourStep(0); };
+  const hideGuide = () => { setGuideOn(false); setTourStep(-1); setReadout(null); };
+  const lensReadout = (k) => () => setReadout(GALAXY_GUIDE.control(k));
+  const clearReadout = () => setReadout(null);
+
   const toggleLens = (k) => setLenses((prev) => { const next = new Set(prev); next.has(k) ? next.delete(k) : next.add(k); return next; });
   const recenter = () => { const G = graphRef.current; if (G && G.zoomToFit) G.zoomToFit(800, 60); };
 
@@ -352,12 +406,16 @@ export default function RelationshipGalaxy({ turn, persona, onClose }) {
         <span className="galaxy-title">relationship galaxy</span>
         <div className="galaxy-levels">
           {LENSES.map((L) => (
-            <button key={L.key} className={"galaxy-lv" + (lenses.has(L.key) ? " on" : "")} title={L.desc} onClick={() => toggleLens(L.key)}>{L.label}</button>
+            <button key={L.key} className={"galaxy-lv" + (lenses.has(L.key) ? " on" : "")} title={L.desc}
+              onMouseEnter={lensReadout(L.key)} onMouseLeave={clearReadout} onClick={() => toggleLens(L.key)}>{L.label}</button>
           ))}
           <button className={"galaxy-lv galaxy-play" + (playing ? " on" : "")} disabled={!lenses.has("ripple")}
-            title={lenses.has("ripple") ? "" : "turn on the ripple lens first"} onClick={() => setPlaying((p) => !p)}>{playing ? "⏸ ripple" : "▶ ripple"}</button>
+            title={lenses.has("ripple") ? "" : "turn on the ripple lens first"}
+            onMouseEnter={lensReadout("play")} onMouseLeave={clearReadout} onClick={() => setPlaying((p) => !p)}>{playing ? "⏸ ripple" : "▶ ripple"}</button>
         </div>
-        <button className={"galaxy-lv" + (concept ? " on" : "")} title="fiber view — bundles only, nodes dissolved" onClick={() => setConcept((c) => !c)}>fiber</button>
+        <button className={"galaxy-lv" + (concept ? " on" : "")} title="fiber view — bundles only, nodes dissolved"
+          onMouseEnter={lensReadout("fiber")} onMouseLeave={clearReadout} onClick={() => setConcept((c) => !c)}>fiber</button>
+        <button className={"galaxy-lv" + (guideOn && tourStep >= 0 ? " on" : "")} title="what am I looking at? — replay the guide" onClick={replayTour}>?</button>
         <button className="galaxy-lv" title="recenter" onClick={recenter}>⤢</button>
         <button className="galaxy-close" onClick={onClose}>×</button>
       </div>
@@ -377,6 +435,21 @@ export default function RelationshipGalaxy({ turn, persona, onClose }) {
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {guideOn && (
+          <GalaxyNarrator
+            key="galaxy-guide"
+            tour={tourStep >= 0 ? { index: tourStep, total: TOUR_TOTAL, beat: GALAXY_GUIDE.tour[tourStep] } : null}
+            readout={readout}
+            idle={GALAXY_GUIDE.idle}
+            onNext={nextBeat}
+            onBack={backBeat}
+            onSkip={endTour}
+            onHide={hideGuide}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

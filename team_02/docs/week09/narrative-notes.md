@@ -271,3 +271,37 @@ a-to-z deck assembles from these.
   acoustic strand steps up at the acoustics commit and a green ＋ arc braids it to tactile; hover any
   step for exact per-sense scores with ↑/↓. (We explored a vertical git-graph braid and dockable
   left/right panels first — a good detour — before landing on the bolder horizontal weave.)
+
+## Session 9 — The galaxy goes from beautiful to readable
+
+- **"What am I even looking at?" now answers itself in seconds.** The relationship galaxy was the
+  most admired thing we'd built and the least understood — a cold viewer saw glowing labels, grey
+  blobs and decorative threads with no idea that they meant *the six senses, your rooms, and how
+  comfort travels between them.* The legend (collapsed, jargon-keyed) didn't help. We added **The
+  Narrator**: a single ambient plain-language band that, on first open, runs a five-beat
+  orientation — *your home as comfort → the six senses → your rooms → the threads → now it's
+  yours* — and **spotlights each part as it names it** by dimming everything else. Crucially that
+  spotlight is **not a new feature**: it reuses the galaxy's existing ripple focus-fade, so the
+  teaching layer added *zero* new rendering and stays perfectly on-brand (subtle, glowing, no boxed
+  chrome). Verified live across all five beats: senses glow while rooms fade, then rooms glow while
+  senses fade, then the threads light alone.
+
+- **The same band turns hovering into reading.** After (or instead of) the tour, the band becomes a
+  live translator: hover a sense and it says *"Light — struggling in 3 rooms right now"*, a room
+  *"Bedroom — its weakest sense is sound (acoustic), connected by 1 door"*, a thread *"Kitchen's
+  smell drifts into Bathroom — they share a door"*; point at a lens and it explains what that lens
+  draws. One surface carries the first-look tour, the per-element readout, and the per-lens
+  explainer — three teaching jobs, one quiet piece of chrome. A **"?"** pill replays the guide and
+  **"dismiss guide ×"** hides it entirely, so power users get the clean instrument back (verified:
+  the galaxy returns to its original look, "?" brings the guide back). The legend now starts
+  collapsed because the Narrator does the cold-open teaching the legend used to fail at.
+
+- **Additive by construction — the instrument underneath is untouched.** No change to the 3D scene,
+  the forces, the fibers, the ripple, expand-in-place, or the fiber/concept view — all verified
+  still working after the change (ripple animates, fibers dissolve into the tractography view, lenses
+  toggle). The new copy lives beside the legend/lens definitions as a `GALAXY_GUIDE` of pure strings
+  + two read helpers; the band is one small component reusing the app's tokens and motion. An
+  independent code-review caught the one real risk — the tour spotlight and a ripple both borrow the
+  same focus state — which we fixed by marking tour-owned focus so neither can clobber the other. The
+  arc of the session: the most on-brand way to explain a beautiful visualization was **not** to
+  redraw it, but to add a warm voice that points and names — and that can be switched off.

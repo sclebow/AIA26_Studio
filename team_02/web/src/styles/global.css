@@ -247,6 +247,39 @@ body {
 .gx-tip { color: rgba(var(--fg-rgb), 0.7); line-height: 1.5; }
 .gx-tip b { color: rgba(var(--fg-rgb), 0.95); }
 
+/* ── The Narrator — educational / exploration band (bottom-centre) ─────────── */
+/* additive teaching layer: orientation tour + live plain-language readout.
+   The wrapper ignores pointer events so the 3D scene stays draggable. */
+.galaxy-guide { position: absolute; left: 0; right: 0; bottom: var(--space-5); z-index: 3;
+  display: flex; justify-content: center; padding: 0 var(--space-4); pointer-events: none; }
+.galaxy-guide-card { pointer-events: auto; max-width: 540px; text-align: center;
+  padding: 12px 18px 13px; border-radius: var(--r-lg);
+  background: rgba(13, 13, 13, 0.62); border: 1px solid rgba(var(--fg-rgb), var(--o-hairline));
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.galaxy-guide-card.is-idle { background: rgba(13, 13, 13, 0.32); border-color: transparent; backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+.galaxy-guide-tag { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase;
+  color: rgba(var(--fg-rgb), 0.4); margin-bottom: 5px; }
+.galaxy-guide-title { font-family: var(--font-sans); font-size: 14px; font-weight: 500; letter-spacing: .01em;
+  color: rgba(var(--fg-rgb), 0.96); margin-bottom: 3px; }
+.galaxy-guide-body { font-family: var(--font-sans); font-size: 12.5px; line-height: 1.55; color: rgba(var(--fg-rgb), 0.7); }
+.galaxy-guide-card.is-idle .galaxy-guide-body { font-size: 11px; color: rgba(var(--fg-rgb), 0.45); }
+.galaxy-guide-controls { display: flex; align-items: center; justify-content: center; gap: var(--space-3); margin-top: 10px; }
+.galaxy-guide-btn { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+  background: none; border: none; padding: 4px 9px; cursor: pointer; color: rgba(var(--fg-rgb), 0.5); transition: color var(--dur-fast) var(--ease-out); }
+.galaxy-guide-btn:hover { color: rgba(var(--fg-rgb), 1); }
+.galaxy-guide-btn:disabled { opacity: 0.25; cursor: default; }
+.galaxy-guide-btn.is-primary { color: rgba(var(--fg-rgb), 0.92); }
+.galaxy-guide-dots { display: flex; gap: 6px; }
+.galaxy-guide-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(var(--fg-rgb), 0.18); transition: background var(--dur-base) var(--ease-out); }
+.galaxy-guide-dot.on { background: rgba(var(--fg-rgb), 0.85); }
+.galaxy-guide-hide { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase;
+  background: none; border: none; cursor: pointer; color: rgba(var(--fg-rgb), 0.32); margin-top: 9px; padding: 0; transition: color var(--dur-fast) var(--ease-out); }
+.galaxy-guide-hide:hover { color: rgba(var(--fg-rgb), 0.75); }
+@media (max-width: 720px) {
+  .galaxy-guide { bottom: calc(var(--space-4) + 60px); }
+  .galaxy-guide-card { max-width: none; }
+}
+
 /* lever-bridge "fix it" chips in the focus card */
 .fc-fix { font-family: var(--font-mono); font-size: 11px; letter-spacing: .04em;
   padding: 3px 9px; border: 1px solid; border-radius: var(--r-pill);
