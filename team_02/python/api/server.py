@@ -40,9 +40,10 @@ import hashlib
 
 from _runtime.bootstrap import bootstrap
 from graph import run_agent, run_agent_stream
-from inspire import run_inspire_round, profile_chat_reply
+from inspire import run_inspire_round
 from imaging import generate_image, build_room_prompt, build_change_clause, active_provider
 from nodes._shared.utils import unwrap_mcp_result, persona_display_label, layout_digits
+from nodes.onboarding.persona_compiler import refine_persona
 from api import contracts
 from api import checkpoints
 
@@ -139,7 +140,7 @@ class PicksReq(SessionReq):
 class MoodboardReq(SessionReq):
     sense_counts: dict[str, int] = {}
 
-class ProfileChatReq(SessionReq):
+class RefinePersonaReq(SessionReq):
     text: str
 
 class LayoutSelectReq(BaseModel):
@@ -906,13 +907,17 @@ def compare_initial(req: RenderRoomReq) -> dict:
     return {"session_id": sid, "ok": True, "cached": False, **out}
 
 
-@app.post("/api/profile-chat")
-def profile_chat(req: ProfileChatReq) -> dict:
-    """Profile-review chat (direct LLM, no graph). Mirrors SensiBridge.profileChat."""
+@app.post("/api/refine-persona")
+def refine_persona_endpoint(req: RefinePersonaReq) -> dict:
+    """Refine the saved persona from a free-text statement ("I got a dog, and noise
+    bothers me more"). Patches the persona, persists it to disk, and updates the
+    session — so the change flows into scoring and every response via the persona
+    context. Returns the updated persona + a short confirmation."""
     sid, slot = _slot(req.session_id)
-    profile = slot["session"].get("persona_profile") or {}
-    result = profile_chat_reply(_CTX.llm_simple, profile, req.text)
-    return {"session_id": sid, **result}
+    current = slot["session"].get("persona_profile") or _read_persona() or {}
+    updated, message = refine_persona(_CTX.llm_smart, current, req.text, str(_PERSONA_PATH))
+    slot["session"]["persona_profile"] = updated
+    return {"session_id": sid, "ok": True, "persona": updated, "message": message}
 
 
 # ── SPA static file mount — MUST come after all @app.post / @app.get routes ──

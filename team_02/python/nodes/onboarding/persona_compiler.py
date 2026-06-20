@@ -49,6 +49,10 @@ OUTPUT — return ONLY this JSON schema, no explanation, no markdown fences:
   "description": "<one sentence: who they are and their comfort situation>",
   "age_group": "child" | "young_adult" | "adult" | "elderly" | null,
   "household_type": "single" | "dual" | "family" | null,
+  "household_members": [
+    "<each concrete co-occupant the user names, PEOPLE and PETS alike — e.g.
+     'grandmother', 'two kids', 'a partner', 'a cat'. Short phrases, verbatim. [] if none.>"
+  ],
   "sensory_priorities": [
     "<ranked list — most important first — from: thermal, visual, acoustic, spatial, olfactory, tactile>"
   ],
@@ -71,6 +75,14 @@ OUTPUT — return ONLY this JSON schema, no explanation, no markdown fences:
                   (recharges around people, prefers high stimulation). Derive from q6.>,
   "notes": "<anything else relevant that does not fit above>"
 }
+
+household_members rules:
+  - Record EVERY concrete co-occupant the user mentions, PEOPLE and PETS alike
+    (a grandmother, children, a partner, a dog, two cats...), as short phrases.
+  - These shape comfort in real ways — elderly residents raise the stakes on
+    thermal/acoustic/visual; children and shared homes raise acoustic/spatial;
+    pets raise air-quality (olfactory) and durable-surface (tactile) needs — so
+    never drop them.
 
 comfort_weights rules:
   - Derive from sensory priorities and explicit sensitivities.
@@ -120,6 +132,7 @@ _MINIMAL_PROFILE: dict = {
     "description": "User with unspecified comfort preferences",
     "age_group": None,
     "household_type": None,
+    "household_members": [],
     "sensory_priorities": _ALL_SENSES[:],
     "sensory_sensitivities": [],
     "comfort_weights": {s: 0.5 for s in _ALL_SENSES},
@@ -304,6 +317,79 @@ _HOUSEHOLD_KEYWORDS: dict[str, list[str]] = {
                "son", "daughter"],
 }
 
+# Concrete co-occupant extraction for `household_members`. Pets used to be lost
+# entirely (no keyword anywhere), so a stated "a cat" never reached layout mode.
+# Each entry maps a canonical member/pet label → the surface words that imply it.
+# Order matters: the canonical label is what we record, deduped.
+_MEMBER_KEYWORDS: dict[str, list[str]] = {
+    "grandparent": ["grandma", "grandpa", "grandmother", "grandfather", "granny",
+                    "grandparent", "grandparents"],
+    "child":       ["kids", "kid", "children", "child", "son", "daughter", "baby",
+                    "toddler", "infant", "newborn"],
+    "partner":     ["partner", "spouse", "husband", "wife", "girlfriend", "boyfriend"],
+    "parent":      ["my parents", "my mother", "my father", "my mum", "my mom", "my dad"],
+    "sibling":     ["sibling", "siblings", "brother", "sister"],
+    "roommate":    ["roommate", "flatmate", "housemate", "room-mate", "flat-mate"],
+}
+_PET_KEYWORDS: dict[str, list[str]] = {
+    "dog":    ["dog", "dogs", "puppy", "puppies"],
+    "cat":    ["cat", "cats", "kitten", "kittens"],
+    "bird":   ["bird", "birds", "parrot", "budgie", "canary"],
+    "rabbit": ["rabbit", "rabbits", "bunny"],
+    "fish":   ["fish", "aquarium"],
+    "pet":    ["pet", "pets"],   # generic fallback when no specific animal is named
+}
+
+
+def _extract_household_members(*texts: str) -> list[str]:
+    """Deterministically pull concrete co-occupants (people AND pets) from free text.
+
+    Returns canonical labels (e.g. ['grandparent', 'cat']) in a stable order,
+    deduped. A specific animal ('cat') suppresses the generic 'pet' so we don't
+    record both. This is the safety net behind the LLM's `household_members` —
+    pets in particular were captured nowhere before.
+    """
+    blob = " ".join(t for t in texts if t).lower()
+    if not blob:
+        return []
+    found: list[str] = []
+    for label, kws in _MEMBER_KEYWORDS.items():
+        if any(kw in blob for kw in kws):
+            found.append(label)
+    pets: list[str] = []
+    for label, kws in _PET_KEYWORDS.items():
+        if label == "pet":
+            continue
+        if any(kw in blob for kw in kws):
+            pets.append(label)
+    if not pets and any(kw in blob for kw in _PET_KEYWORDS["pet"]):
+        pets.append("pet")   # generic only when no specific animal matched
+    return found + pets
+
+
+# canonical label → every surface word that implies it, so the merge can tell that
+# the LLM's "grandma" already covers the extractor's canonical "grandparent".
+_MEMBER_SYNONYMS: dict[str, list[str]] = {
+    **_MEMBER_KEYWORDS,
+    **{label: words for label, words in _PET_KEYWORDS.items()},
+}
+
+
+def _merge_household_members(existing: list, extracted: list[str]) -> list[str]:
+    """Union the LLM's household_members with the deterministic extraction, without
+    clobbering richer phrasing or duplicating a synonym. A deterministic label is
+    skipped when an existing entry already implies it — by the label itself ('two cats'
+    covers 'cat') OR by any of its surface synonyms ('grandma' covers 'grandparent')."""
+    out = [str(m).strip() for m in (existing or []) if str(m).strip()]
+    low = " | ".join(out).lower()
+    for label in extracted:
+        synonyms = [label] + _MEMBER_SYNONYMS.get(label, [])
+        if any(s in low for s in synonyms):
+            continue
+        out.append(label)
+        low = " | ".join(out).lower()
+    return out
+
 
 def _apply_quiz_fallback_patch(persona_profile: dict, quiz_answers: dict,
                                inspire_summary: str) -> dict:
@@ -318,6 +404,8 @@ def _apply_quiz_fallback_patch(persona_profile: dict, quiz_answers: dict,
       lifestyle        — from q2 (space story gives a strong lifestyle hint)
       age_group        — keyword-matched from q4
       household_type   — keyword-matched from q4
+      household_members— concrete people + pets from q4 (and q2/q5), unioned with
+                         the LLM's list so pets/relatives are never dropped
       key_requirements — q5 non-negotiable, up to 3 items
     """
     q2 = quiz_answers.get("q2", "")
@@ -361,6 +449,16 @@ def _apply_quiz_fallback_patch(persona_profile: dict, quiz_answers: dict,
             if any(kw in t for kw in keywords):
                 persona_profile["household_type"] = htype
                 break
+
+    # ── household_members (people + pets) ─────────────────────────────────────
+    # Always union the deterministic extraction with whatever the LLM produced,
+    # so a stated grandmother or cat survives even if the model missed it.
+    extracted_members = _extract_household_members(q4, q2, q5)
+    merged_members = _merge_household_members(
+        persona_profile.get("household_members"), extracted_members)
+    persona_profile["household_members"] = merged_members
+    if merged_members:
+        print(f"[persona_compiler] household_members: {merged_members}")
 
     # ── key_requirements ─────────────────────────────────────────────────────
     if not persona_profile.get("key_requirements") and q5:
@@ -543,6 +641,31 @@ def _apply_holistic_weight_patch(
 
 
 # ---------------------------------------------------------------------------
+# Preference vs. research baseline (shared by the compiler and refine)
+# ---------------------------------------------------------------------------
+
+def _compute_pvb(weights: dict) -> dict:
+    """preference_vs_baseline notes for senses whose weight deviates >0.25 from the
+    research baseline. Pure; used by both the compiler and refine_persona()."""
+    pvb: dict = {}
+    for sense, baseline in _COMFORT_BASELINES.items():
+        user_w = (weights or {}).get(sense, 0.5)
+        delta = user_w - baseline
+        if abs(delta) > 0.25:
+            direction = "above" if delta > 0 else "below"
+            note = (
+                "User rates this highly -- aligns well with research."
+                if delta > 0 else
+                "User rates this low -- research flags it as a consistent comfort risk."
+            )
+            pvb[sense] = (
+                f"Stated weight {user_w:.2f} is {direction} research "
+                f"baseline {baseline:.2f} (delta {delta:+.2f}). {note}"
+            )
+    return pvb
+
+
+# ---------------------------------------------------------------------------
 # Node factory
 # ---------------------------------------------------------------------------
 
@@ -675,21 +798,7 @@ def build_persona_compiler_node(llm, persona_output_path: str):
         # ── Recompute preference_vs_baseline ─────────────────────────────
         pvb = persona_profile.get("preference_vs_baseline") or {}
         if not pvb:
-            weights = persona_profile.get("comfort_weights", {})
-            for sense, baseline in _COMFORT_BASELINES.items():
-                user_w = weights.get(sense, 0.5)
-                delta  = user_w - baseline
-                if abs(delta) > 0.25:
-                    direction = "above" if delta > 0 else "below"
-                    note = (
-                        "User rates this highly -- aligns well with research."
-                        if delta > 0 else
-                        "User rates this low -- research flags it as a consistent comfort risk."
-                    )
-                    pvb[sense] = (
-                        f"Stated weight {user_w:.2f} is {direction} research "
-                        f"baseline {baseline:.2f} (delta {delta:+.2f}). {note}"
-                    )
+            pvb = _compute_pvb(persona_profile.get("comfort_weights", {}))
         persona_profile["preference_vs_baseline"] = pvb
         if pvb:
             print(f"[persona_compiler] Preference vs baseline deviations: {list(pvb.keys())}")
@@ -734,3 +843,116 @@ def build_persona_compiler_node(llm, persona_output_path: str):
         }
 
     return persona_compiler_node
+
+
+# ---------------------------------------------------------------------------
+# Post-onboarding refinement — "tell Sensi what changed"
+# ---------------------------------------------------------------------------
+
+_REFINE_SYSTEM_PROMPT = """\
+You refine an EXISTING comfort persona from a short statement about what changed.
+
+You receive the CURRENT PERSONA as JSON and the user's statement. Return ONLY a JSON
+object with the keys you want to CHANGE — omit everything that stays the same:
+
+{
+  "comfort_weights": { "<sense>": <0.0-1.0>, ... },   // only the senses that change
+  "sensory_priorities": ["<full reordered list>"],     // only if the order changes
+  "sensory_sensitivities": ["<full new list>"],        // only if it changes
+  "key_requirements": ["<full new list>"],             // only if it changes
+  "description": "<one sentence>",                      // only if it should change
+  "message": "<one short, warm sentence confirming what you changed>"
+}
+
+Senses are: thermal, visual, acoustic, spatial, olfactory, tactile.
+Rules:
+  - Change ONLY what the user's statement implies. If a sense should matter MORE, raise
+    its weight; if LESS, lower it. Keep adjustments proportionate (about 0.10-0.20).
+  - Weights stay between 0.0 and 1.0. Do NOT restate unchanged fields.
+  - Always include "message". No markdown, no prose outside the JSON.
+"""
+
+
+def refine_persona(llm, current_persona: dict, refinement_text: str,
+                   persona_output_path: str | None = None) -> tuple[dict, str]:
+    """Apply a free-text refinement to an existing persona and persist it.
+
+    Deterministic household capture (people + pets) always runs, so a stated dog or
+    grandparent is never lost; an LLM produces a MINIMAL patch for the fields the
+    statement implies. Everything else is kept, weights are clamped, the
+    preference_vs_baseline notes are recomputed, and the result is saved to disk.
+    Returns (updated_persona, confirmation_message).
+    """
+    persona = dict(current_persona or {})
+    for key, default in _MINIMAL_PROFILE.items():
+        if key not in persona:
+            persona[key] = (list(default) if isinstance(default, list)
+                            else dict(default) if isinstance(default, dict) else default)
+
+    text = (refinement_text or "").strip()
+    if not text:
+        return persona, "Tell me what changed and I'll update your profile."
+
+    # 1) Deterministic household members (pets/relatives never lost).
+    extracted = _extract_household_members(text)
+    persona["household_members"] = _merge_household_members(
+        persona.get("household_members"), extracted)
+
+    # 2) LLM patch — only the fields the statement implies.
+    message = ""
+    try:
+        user_message = (
+            "CURRENT PERSONA (JSON):\n"
+            + json.dumps(persona, ensure_ascii=False)
+            + f'\n\nUSER SAYS: "{text}"'
+        )
+        raw = call_llm_simple(llm, _REFINE_SYSTEM_PROMPT, user_message)
+        clean = _strip_think_tags(raw.strip())
+        if clean.startswith("```"):
+            clean = "\n".join(clean.splitlines()[1:-1]).strip()
+        try:
+            patch = json.loads(clean)
+        except json.JSONDecodeError:
+            extracted_json = _extract_json_object(clean)
+            patch = json.loads(extracted_json) if extracted_json else {}
+
+        if isinstance(patch.get("comfort_weights"), dict):
+            weights = dict(persona.get("comfort_weights", {}))
+            for sense, val in patch["comfort_weights"].items():
+                if sense in _ALL_SENSES:
+                    try:
+                        weights[sense] = max(0.0, min(1.0, float(val)))
+                    except (TypeError, ValueError):
+                        pass
+            persona["comfort_weights"] = weights
+        for key in ("sensory_priorities", "sensory_sensitivities", "key_requirements", "description"):
+            if patch.get(key):
+                persona[key] = patch[key]
+        message = str(patch.get("message", "") or "").strip()
+        print(f"[persona_refine] patched keys: {[k for k in patch if k != 'message']}")
+    except Exception as exc:
+        print(f"[persona_refine] LLM patch failed ({exc}) — household-only update")
+
+    # 3) Safety: all six weights present + clamped, then re-derive baselines.
+    weights = persona.get("comfort_weights", {})
+    persona["comfort_weights"] = {
+        s: max(0.0, min(1.0, float(weights.get(s, 0.5) or 0.5))) for s in _ALL_SENSES
+    }
+    persona["preference_vs_baseline"] = _compute_pvb(persona["comfort_weights"])
+
+    # 4) Confirmation fallback.
+    if not message:
+        message = ("Updated your profile — noted " + ", ".join(extracted) + "."
+                   if extracted else "Updated your comfort profile.")
+
+    # 5) Persist so it survives the next visit and reaches scoring + every response.
+    if persona_output_path:
+        try:
+            os.makedirs(os.path.dirname(persona_output_path), exist_ok=True)
+            with open(persona_output_path, "w", encoding="utf-8") as f:
+                json.dump(persona, f, indent=2, ensure_ascii=False)
+            print(f"[persona_refine] refined persona saved -> {persona_output_path}")
+        except Exception as exc:
+            print(f"[persona_refine] WARNING: could not save persona: {exc}")
+
+    return persona, message

@@ -879,10 +879,24 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
 }
 
 /* ── persona profile sections ── */
+/* The shared persona surface (reveal + drawer). The reveal rises gently in so the
+   compiled persona feels earned, not dumped; the drawer variant doesn't re-animate. */
+.persona-card { animation: persona-rise .55s var(--ease-out, cubic-bezier(.22,.61,.36,1)) both; }
+.persona-card-compact { animation: none; }
+@keyframes persona-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
 .persona-identity { padding-bottom: 4px; }
 .persona-name { font-family: var(--font-sans); font-size: 20px; font-weight: 300; color: rgba(var(--fg-rgb), .90); }
 .persona-role { font-family: var(--font-mono); font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: rgba(var(--fg-rgb), .30); margin-top: 5px; }
+/* Captured household (people + pets) — shown so the user sees Sensi registered it. */
+.persona-household { font-family: var(--font-mono); font-size: 11px; letter-spacing: .04em; color: rgba(139,184,138,.72); margin-top: 7px; }
 .persona-desc { font-family: var(--font-sans); font-weight: 300; font-size: 12px; line-height: 1.65; color: rgba(var(--fg-rgb), .45); margin-top: 10px; }
+
+/* Drawer variant: tighten for the 320px slide-in panel. */
+.persona-card-compact .persona-name { font-size: 17px; }
+.persona-card-compact .formula-eq-row { flex-direction: column; }
+.persona-card-compact .formula-eq-lhs { width: auto; }
+.persona-card-compact .formula-eq-note { margin-left: 0; margin-top: 2px; }
 
 .persona-section-label {
   font-family: var(--font-mono); font-size: 11px; letter-spacing: .24em; text-transform: uppercase;
@@ -936,9 +950,17 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
 .panel-header > *:not(.panel-close) { margin-right: 8px; }
 .panel-close { background: transparent; border: none; color: rgba(var(--fg-rgb), .30); font-size: 18px; cursor: pointer; padding: 0 4px; line-height: 1; margin-left: auto; transition: color .2s; }
 .panel-close:hover { color: var(--fg); }
-.btn-panel-full { background: transparent; border: 1px solid rgba(var(--fg-rgb),.10); color: rgba(var(--fg-rgb), .30); font-family: var(--font-mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; padding: 5px 10px; cursor: pointer; border-radius: var(--r-pill); transition: all .2s; }
-.btn-panel-full:hover { border-color: rgba(var(--fg-rgb), .35); color: var(--fg); }
 .panel-scroll { flex: 1; overflow-y: auto; padding: 16px 20px 32px; }
+
+/* ── refine the persona by talking to Sensi ── */
+.panel-refine { margin-top: 26px; padding-top: 20px; border-top: 1px solid rgba(var(--fg-rgb),.07); }
+.panel-refine-hint { font-family: var(--font-sans); font-weight: 300; font-size: 11px; line-height: 1.5; color: rgba(var(--fg-rgb), .40); margin: 0 0 10px; }
+.panel-refine .sensi-input { min-height: 52px; }
+.panel-refine-msg { font-family: var(--font-sans); font-weight: 300; font-size: 11px; line-height: 1.55; color: rgba(139,184,138,.82); margin: 10px 2px 0; }
+.panel-redo { display: block; width: 100%; margin-top: 18px; background: transparent; border: none; cursor: pointer;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+  color: rgba(var(--fg-rgb), .32); transition: color .2s; text-align: center; padding: 6px; }
+.panel-redo:hover { color: rgba(var(--fg-rgb), .60); }
 
 .btn-profile { background: transparent; border: none; color: rgba(var(--fg-rgb), 0.40); cursor: pointer; padding: 4px; display: flex; align-items: center; transition: color .2s; }
 .btn-profile:hover { color: rgba(var(--fg-rgb), .65); }
@@ -978,6 +1000,13 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
   flex-shrink: 0;
 }
 .top-bar-user-avatar:hover { background: rgba(155,143,212,.20); border-color: rgba(155,143,212,.50); }
+
+/* Labeled profile recall — the avatar carries a "profile" label so the persona is a
+   discoverable companion in layout mode, not a mystery initial. */
+.top-bar-profile-btn { display: flex; align-items: center; gap: 8px; background: transparent; border: none; padding: 0 0 0 4px; cursor: pointer; }
+.top-bar-profile-btn:hover .top-bar-user-avatar { background: rgba(155,143,212,.20); border-color: rgba(155,143,212,.50); }
+.top-bar-profile-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: rgba(155,143,212,.62); transition: color .2s; }
+.top-bar-profile-btn:hover .top-bar-profile-label { color: rgba(155,143,212,.92); }
 
 .top-bar-status-group {
   display: none;

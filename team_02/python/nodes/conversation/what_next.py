@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 from _runtime.llm import call_llm_simple
 from nodes._shared.register import register_tone
+from nodes._shared.persona_context import format_persona_for_prompt
 
 
 def _extract_worst_finding(scores_json: str) -> str:
@@ -26,15 +27,6 @@ def _extract_worst_finding(scores_json: str) -> str:
         return worst_desc
     except Exception:
         return "none"
-
-
-def _format_persona(persona_profile: dict) -> str:
-    if not persona_profile:
-        return "no specific persona"
-    desc = persona_profile.get("description", "")
-    name = persona_profile.get("name", "")
-    role = persona_profile.get("role", "")
-    return desc or (f"{name}, {role}" if name else role or "no profile")
 
 
 _SYSTEM_PROMPT = """\
@@ -106,7 +98,7 @@ def build_what_next_node(llm):
         else:
             last_path = action or "unknown"
 
-        persona_summary = _format_persona(persona_profile)
+        persona_summary = format_persona_for_prompt(persona_profile, level="line")
         worst_finding   = _extract_worst_finding(state.get("last_scores_json", ""))
 
         print(f"[what_next] action={action} → last_path='{last_path}' | Generating next step offer...")

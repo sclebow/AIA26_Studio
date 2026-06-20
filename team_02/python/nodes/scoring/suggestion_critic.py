@@ -8,6 +8,7 @@ Writes suggestion_critique to state.
 from __future__ import annotations
 import json
 from _runtime.llm import call_llm_simple
+from nodes._shared.persona_context import format_persona_for_prompt
 
 
 _SYSTEM_PROMPT = """\
@@ -66,24 +67,17 @@ def _format_suggestions(suggestions_json: str) -> str:
 
 
 def _format_persona_priorities(persona_profile: dict) -> str:
-    """Build a priorities string from the flat v4 schema (persona_compiler v2)."""
+    """Full persona context (one source of truth) plus the top-weighted senses the
+    critic ranks suggestions against — so feasibility also weighs household facts
+    (e.g. an elderly resident or pets), not just the sense list."""
     if not persona_profile:
         return "no specific priorities"
-
-    parts = []
-
-    # Flat persona_compiler v2 schema.
-    priorities    = persona_profile.get("sensory_priorities", [])
-    sensitivities = persona_profile.get("sensory_sensitivities", [])
-    if priorities:
-        parts.append(f"Top senses: {', '.join(priorities)}")
-    if sensitivities:
-        parts.append(f"Sensitivities: {', '.join(sensitivities)}")
+    summary = format_persona_for_prompt(persona_profile)
     weights = persona_profile.get("comfort_weights", {})
     if weights:
         top_w = sorted(weights, key=weights.get, reverse=True)[:3]
-        parts.append(f"Highest weighted: {', '.join(top_w)}")
-    return "; ".join(parts) if parts else "no specific priorities"
+        summary += f"; highest weighted: {', '.join(top_w)}"
+    return summary
 
 
 def build_suggestion_critic_node(llm):

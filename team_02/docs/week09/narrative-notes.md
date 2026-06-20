@@ -164,3 +164,47 @@ a-to-z deck assembles from these.
   question-only turn left the plan bright. The whole arc — marker → orb → focus of light — is
   the session's story: the most on-brand answer was to add *no new shape at all*, only to move
   the light.
+
+## Session 6 — The persona finally travels (and the math stops lying)
+
+- **What you tell Sensi now reaches the room.** We audited the whole front door
+  ([flow-audit.md](flow-audit.md)) and found the persona was a gate, not a companion: a
+  stated *grandmother* barely reached layout mode and a *pet* was lost entirely (no keyword
+  anywhere), while every layout node hand-rolled its own partial persona summary — household,
+  age, non-negotiables and notes silently dropped on the way to the work. We added structured
+  `household_members` capture (people **and** pets), one single-source persona formatter wired
+  into every responder, and a labelled `apply_context` layer in the comfort engine so an elderly
+  resident, children or a pet make a sensory *deficit* weigh a little heavier — visible and
+  capped, never silent. Proved live end-to-end: onboarding "I live with my grandma and a cat" →
+  the compiled description reads *"living with her grandmother and a cat"*, the Kitchen's acoustic
+  is driven down, and when asked *"given who I live with, what should I prioritise?"* Sensi replies
+  *"for your grandmother, consistent gentle warmth is key — she feels the cold more easily."* The
+  4 demo layouts are byte-for-byte unchanged (a neutral persona triggers no context), so fidelity
+  arrived without disturbing the demo.
+
+- **The persona reveal stopped lying about its own math.** The reveal taught users a formula —
+  `score = w × raw`, `C = Σ score`, `flag = |w−baseline| > 0.25` — that the engine has *never*
+  computed. The real model (`sense_model.py`) keeps per-sense scores objective and blends a
+  weighted mean **50/50 with your single worst sense** (a one-vote veto), with cross-modal,
+  personality and now household layers on top. We rewrote "how Sensi scores your comfort" to the
+  true model, sourced from the engine's own constants so the reveal can't drift again — the one
+  place we teach the model now teaches the *real* one.
+
+- **The persona became a companion, not a gate.** We pulled the reveal into a shared `PersonaCard`
+  used both at the earned reveal (a single "this is me — start shaping" CTA; the redundant,
+  read-only "tweak it" detour deleted) and inside an enriched, discoverable *profile* drawer you
+  can reopen any time while shaping — the old drawer was a stub behind a mystery initial with a
+  dead "full view" button. And we fixed a quietly-broken feature in passing: persona comparison
+  keyed off a dead field and scored both sides identically (every room tied) — it now contrasts
+  the user's real persona against a representative archetype.
+
+- **And the persona is now a living thing you can refine by talking.** The reveal used to be a
+  one-way snapshot — if it got something wrong, or life changed, you were stuck. The profile
+  drawer now has a *refine* line: *"I just got a dog, and noise bothers me more"* → Sensi patches
+  the relevant fields and leaves the rest alone (deterministic household/pet capture + a minimal
+  LLM field-patch, weights clamped, baselines recomputed, persisted). Proved live: that exact
+  sentence added a *dog* to the household and lifted acoustic 0.80 → 0.95 (now the top priority),
+  and — because it rides the same fidelity plumbing — the change immediately flows into scoring
+  and every answer. A quiet *redo onboarding* sits beside it. We deliberately said **no** to a
+  slider/field editor: hand-dragging the weights would undercut the honest-math story we just
+  shipped — you refine by telling your companion what changed, not by operating a control panel.

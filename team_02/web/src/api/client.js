@@ -35,9 +35,9 @@ async function post(path, body = {}) {
 export const init             = ()             => post("/api/init");
 export const sendMessage      = (text)         => post("/api/message", { text });
 export const resetPersona     = ()             => post("/api/reset-persona");
+export const refinePersona    = (text)         => post("/api/refine-persona", { text });
 export const saveInspirePicks = (round, urls)  => post("/api/inspire/picks", { round, urls });
 export const buildMoodboard   = (senseCounts)  => post("/api/inspire/moodboard", { sense_counts: senseCounts });
-export const profileChat      = (text)         => post("/api/profile-chat", { text });
 export const getLayout        = ()             => post("/api/layout");
 export const renderRoom       = (roomName, force = false) => post("/api/render-room", { room_name: roomName, force });
 export const getReport        = ()             => post("/api/report");

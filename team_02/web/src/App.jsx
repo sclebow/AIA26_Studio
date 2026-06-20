@@ -5,7 +5,6 @@ import QuizScreen from "./screens/QuizScreen.jsx";
 import LayoutModeScreen from "./screens/LayoutModeScreen.jsx";
 import InspireScreen from "./screens/InspireScreen.jsx";
 import PersonaScreen from "./screens/PersonaScreen.jsx";
-import ProfileChatScreen from "./screens/ProfileChatScreen.jsx";
 import ReportScreen from "./report/ReportScreen.jsx";
 import { SelectionProvider } from "./lib/selection.jsx";
 import { layoutScore } from "./lib/turn.js";
@@ -270,6 +269,29 @@ export default function App() {
   const confirmPersona = useCallback(() => setScreen("chat"), []);
   const goReport = useCallback(() => setScreen("report"), []);
 
+  // Refine the persona from a free-text statement ("I got a dog, noise bothers me more").
+  // The backend patches + persists it; we update local state so the drawer card and all
+  // subsequent scoring/answers use the new persona. Returns the confirmation line.
+  const refinePersona = useCallback(async (text) => {
+    const data = await api.refinePersona(text);
+    if (data.persona) setPersona(data.persona);
+    return data.message || "Updated your comfort profile.";
+  }, []);
+
+  // Start onboarding over: clear the persona + working state and return to the quiz.
+  const redoOnboarding = useCallback(async () => {
+    const data = await api.resetPersona();
+    setPersona(null);
+    setChatMessages([]);
+    setTurns([]);
+    setCheckpoints([]);
+    setHasUncommitted(false);
+    setUncommittedDelta({});
+    setQuizMessages([{ id: nextId(), role: "s", text: data.message }]);
+    setQuizStep(data.quiz_step || 0);
+    setScreen("quiz");
+  }, []);
+
   return (
     <>
       <Overlay message={overlay} />
@@ -292,11 +314,8 @@ export default function App() {
       {screen === "persona" && (
         <PersonaScreen
           persona={persona} message={personaMessage} moodboardUrls={moodboardUrls}
-          onConfirm={confirmPersona} onTweak={() => setScreen("profile-chat")}
+          onConfirm={confirmPersona}
         />
-      )}
-      {screen === "profile-chat" && (
-        <ProfileChatScreen persona={persona} onConfirm={confirmPersona} />
       )}
       {screen === "chat" && (
         <SelectionProvider>
@@ -305,6 +324,9 @@ export default function App() {
             turns={turns}
             thinking={thinking}
             persona={persona}
+            moodboardUrls={moodboardUrls}
+            onRefinePersona={refinePersona}
+            onRedoOnboarding={redoOnboarding}
             layoutId={layoutId}
             layoutVersion={layoutVersion}
             onSend={sendChat}

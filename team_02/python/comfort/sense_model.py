@@ -187,6 +187,68 @@ def apply_personality(scores: dict, personality: float = 0.0):
     return eff, adj
 
 
+# ── Household-context layer (who actually lives here) ────────────────────────
+# Structured occupancy facts captured at onboarding — an elderly resident, children,
+# pets — change how much a sensory DEFICIT matters. Vulnerable occupants have less
+# tolerance for a poor sense, so a low score should weigh a little heavier for them.
+# Like apply_personality, this adjusts only the EFFECTIVE (felt) score, never the
+# objective base; it is small, capped, and emits a LABELLED adjustment per nudge so the
+# UI/reveal can show exactly why. It ONLY ever lowers (vulnerability = less tolerance),
+# never inflates — consistent with the model's negativity bias, and a no-op when the
+# household has none of these facts (so a neutral persona is unchanged).
+CONTEXT_K = 0.16    # max cumulative downward nudge at a fully-failing sense; tunable
+CONTEXT_REF = 0.60  # senses at/above this are "fine"; only deficits below it are amplified
+# flag → [(sense, strength 0..1, mechanism)]
+CONTEXT_SENSE = {
+    "elderly":  [("thermal",  1.00, "older adults regulate temperature less well"),
+                 ("acoustic", 0.85, "age-related hearing makes noise harder to tolerate"),
+                 ("visual",   0.70, "older eyes need more, steadier light")],
+    "children": [("acoustic", 0.85, "children and shared homes are noise-sensitive"),
+                 ("olfactory", 0.70, "developing lungs need cleaner air"),
+                 ("spatial",  0.55, "active children need room to move")],
+    "pets":     [("olfactory", 0.90, "pets add odour load — ventilation matters more"),
+                 ("tactile",  0.70, "pet homes need durable, cleanable surfaces")],
+}
+
+
+def apply_context(scores: dict, context: dict | None):
+    """Amplify sensory DEFICITS for vulnerable occupants. Returns (effective, adjustments).
+
+    context flags: {"elderly": bool, "children": bool, "pets": bool} (any subset).
+    For each active flag, the senses it cares about get a small downward nudge that
+    grows as the sense falls below CONTEXT_REF and vanishes once the sense is fine —
+    so a well-scoring room is untouched and a poor one is felt harder by this household.
+    Cumulative per sense is capped at CONTEXT_K. Empty/absent context → no change.
+    """
+    eff = dict(scores)
+    adj = []
+    if not context:
+        return eff, adj
+    applied = {}  # cumulative downward magnitude already spent per target sense (cap)
+    for flag, rules in CONTEXT_SENSE.items():
+        if not context.get(flag):
+            continue
+        for sense, strength, mech in rules:
+            v = eff.get(sense)
+            if v is None:
+                continue
+            deficit = CONTEXT_REF - v
+            if deficit <= 0:
+                continue
+            raw = CONTEXT_K * strength * (deficit / CONTEXT_REF)
+            room = CONTEXT_K - applied.get(sense, 0.0)
+            if room <= 0:
+                continue
+            delta = -round(min(raw, room), 2)
+            if delta == 0:
+                continue
+            eff[sense] = round(max(0.0, eff[sense] + delta), 2)
+            applied[sense] = applied.get(sense, 0.0) + (-delta)
+            adj.append({"sense": sense, "delta": delta, "from": flag,
+                        "mechanism": mech, "tier": "inferred", "basis": "context"})
+    return eff, adj
+
+
 def threshold_from_weight(w, base: float = 0.35, span: float = 0.40,
                           lo: float = 0.35, hi: float = 0.75) -> float:
     """Conflict threshold for a sense, from the user's PERSONAL comfort weight (0..1).

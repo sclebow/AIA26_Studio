@@ -24,6 +24,8 @@ _TOOL_DEFS: list[dict[str, Any]] = [
                 "persona":          {"type": "string"},
                 "room_ids":         {"type": "string"},
                 "weights_override": {"type": "string", "description": "JSON dict of {sense: multiplier} from onboarding."},
+                "personality":      {"type": "number", "description": "Arousal axis -1 (introvert) .. +1 (extrovert)."},
+                "context":          {"type": "string", "description": "JSON dict of household-context flags, e.g. {\"elderly\": true, \"pets\": true}."},
             },
             "required": ["layout_json"],
         },

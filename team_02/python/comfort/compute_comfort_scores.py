@@ -7,17 +7,28 @@ import json
 
 # Canonical coupling model is the single source of truth for aggregation + couplings.
 try:
-    from comfort.sense_model import aggregate_comfort, apply_cross_modal, apply_personality
+    from comfort.sense_model import aggregate_comfort, apply_cross_modal, apply_personality, apply_context
 except ImportError:  # when loaded as a same-dir module rather than the comfort package
-    from sense_model import aggregate_comfort, apply_cross_modal, apply_personality
+    from sense_model import aggregate_comfort, apply_cross_modal, apply_personality, apply_context
 
 
-def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_override=None, personality=0.0):
+def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_override=None,
+                           personality=0.0, context=None):
     layout = None
     try:
         layout = json.loads(layout_json)
     except Exception:
         return json.dumps({"error": "Invalid layout_json"})
+
+    # Household-context flags (elderly / children / pets) — who actually lives here.
+    # Parsed once; apply_context() is a no-op when empty, so a neutral persona is
+    # scored exactly as before.
+    ctx = {}
+    if context:
+        try:
+            ctx = json.loads(context) if isinstance(context, str) else dict(context)
+        except Exception:
+            ctx = {}
 
     rooms = layout.get("rooms", [])
     persona_str   = str(persona).strip() if persona else "Neutral"
@@ -235,7 +246,10 @@ def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_ove
         # baseScores keep the design-only values; adjustments explain every delta.
         eff, cm_adj = apply_cross_modal(base)
         eff, p_adj  = apply_personality(eff, personality)
-        adjustments = cm_adj + p_adj
+        # Household-context sensitivity (elderly / children / pets) — amplifies deficits
+        # for vulnerable occupants. No-op when ctx is empty. Labelled like the others.
+        eff, ctx_adj = apply_context(eff, ctx)
+        adjustments = cm_adj + p_adj + ctx_adj
         overall = aggregate_comfort(eff, weights)
         low     = [s for s, v in eff.items() if v < 0.5]
         narrative = (

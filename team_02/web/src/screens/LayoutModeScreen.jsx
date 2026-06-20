@@ -52,7 +52,8 @@ const LAYER_REQUIRES = { plan: null, comfort: "scores", graph: "topology" };
 // If a lens isn't available yet, clicking it asks Sensi to run the analysis.
 const LAYER_RUN_MSG = { comfort: "analyse the layout", graph: "map the topology of the layout" };
 
-export default function LayoutModeScreen({ messages, turns, thinking, persona, layoutId, layoutVersion = 0, onSend, onReport,
+export default function LayoutModeScreen({ messages, turns, thinking, persona, moodboardUrls = [],
+  onRefinePersona, onRedoOnboarding, layoutId, layoutVersion = 0, onSend, onReport,
   streaming = false, onStop,
   checkpoints = [], hasUncommitted = false, uncommittedDelta = {}, onCommit, onRestore,
   viewedTurn = null, onViewCheckpoint, onClearView }) {
@@ -200,7 +201,11 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
           {conflicts > 0 && <span className="top-bar-conflict-badge">{conflicts} {conflicts === 1 ? "conflict" : "conflicts"}</span>}
           {avg != null && <span className={"top-bar-score-ring " + ringClass}>{avg.toFixed(2)}</span>}
           {persona && initial && (
-            <button className="top-bar-user-avatar" onClick={() => setProfileOpen(true)} title="your comfort profile">{initial}</button>
+            <button className="top-bar-profile-btn" onClick={() => setProfileOpen(true)}
+              aria-label="open your comfort profile" title="your comfort profile — recall it anytime">
+              <span className="top-bar-user-avatar">{initial}</span>
+              <span className="top-bar-profile-label">profile</span>
+            </button>
           )}
         </div>
       </TopBar>
@@ -311,7 +316,8 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
       </div>
 
       {spaceInput && <SpaceInput pos={spaceInput} onSend={send} onClose={() => setSpaceInput(null)} />}
-      <ProfilePanel persona={persona} open={profileOpen} onClose={() => setProfileOpen(false)} onFullView={() => setProfileOpen(false)} />
+      <ProfilePanel persona={persona} moodboardUrls={moodboardUrls} open={profileOpen}
+        onClose={() => setProfileOpen(false)} onRefine={onRefinePersona} onRedo={onRedoOnboarding} />
 
       {galaxyOpen && (
         <ErrorBoundary fallback={(err) => (
