@@ -105,7 +105,8 @@ const useSpecificationBlock = computed(() => {
       <div v-else-if="specificationText" class="spec-block-list">
         <div class="spec-block">{{ specificationText }}</div>
       </div>
-      <ul v-else class= "sidebar-empty-text">No specifications yet
+      <ul v-else class="sidebar-list">
+        <li class="sidebar-empty-text">No specifications yet</li>
       </ul>
   </section>
 </template>
@@ -119,9 +120,13 @@ const useSpecificationBlock = computed(() => {
   align-items: center;
   font-size: var(--font-size-bold);
   font-weight: 600;
-  margin-bottom: 20px;
+  margin-top: 20px;
+  margin-bottom: 10px;
   color: var(--color-text-secondary);
   gap: 8px;
+}
+.sidebar-section:first-child .sidebar-section-title {
+  margin-top: 0;
 }
 .sidebar-title-add {
   background: none;
@@ -159,6 +164,7 @@ const useSpecificationBlock = computed(() => {
   padding: 6px 10px;
   border-radius: 999px;
   background: var(--color-light-blue);
+  border: 1px solid rgba(0, 103, 181, 0.3);
   color: var(--color-text-primary);
   font-size: var(--font-size-small);
   font-weight: 500;

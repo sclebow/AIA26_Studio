@@ -44,13 +44,15 @@ def bootstrap() -> Context:
     except Exception:
         pass
 
-    # Build the LLM with a structured-output schema tailored to the available tools
+    # Build the LLM. Anthropic doesn't support OpenAI-style json_schema response_format,
+    # so we skip model_kwargs for that provider — Claude follows JSON schemas from prompts.
+    model_kwargs = {} if settings.llm_provider == "anthropic" else get_llm_response_format(tools)
     llm = create_chat_llm(
         api_key=settings.api_key,
         base_url=settings.base_url,
         llm_model=settings.llm_model,
         timeout_seconds=settings.request_timeout_seconds,
-        model_kwargs=get_llm_response_format(tools),
+        model_kwargs=model_kwargs,
     )
 
     return Context(

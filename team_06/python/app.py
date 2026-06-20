@@ -650,6 +650,14 @@ def select_layout(body: LayoutSelectRequest) -> dict[str, Any]:
     return _build_chat_payload(sid, response, updated_session)
 
 
+@app.get("/layout/{layout_id}")
+def get_layout_by_id(layout_id: str) -> dict[str, Any]:
+    layout = _load_layout_by_id(layout_id)
+    if not layout:
+        raise HTTPException(status_code=404, detail=f"Layout {layout_id} not found")
+    return {"layoutId": layout_id, "layout": layout}
+
+
 @app.delete("/session")
 def clear_session(body: SessionRequest) -> dict[str, bool]:
     _session_store().pop(body.session_id, None)

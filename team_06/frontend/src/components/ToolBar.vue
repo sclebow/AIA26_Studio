@@ -21,6 +21,9 @@
       <button class="layout-input-btn view-btn" :class="{ active: hasRoutine && viewMode === 'routine' }" :disabled="!hasRoutine" @click="hasRoutine && emit('viewChange', 'routine')" :title="hasRoutine ? 'Routine visualization' : 'Routine visualization coming later'">
         <img :src="hasRoutine && viewMode === 'routine' ? clockBlueIcon : clockIcon" alt="Routine" width="22" height="22" />
       </button>
+      <button class="layout-input-btn view-btn" :class="{ active: hasEmbeddingMap && viewMode === 'explore' }" :disabled="!hasEmbeddingMap" @click="hasEmbeddingMap && emit('viewChange', 'explore')" title="Explore layouts">
+        <img :src="hasEmbeddingMap && viewMode === 'explore' ? exploreBlueIcon : exploreIcon" alt="Explore" width="22" height="22" />
+      </button>
     </div>
   </div>
 </template>
@@ -35,12 +38,15 @@ import sunIcon from '../assets/icons/sun.svg'
 import sunBlueIcon from '../assets/icons/sun-blue.svg'
 import clockIcon from '../assets/icons/clock.svg'
 import clockBlueIcon from '../assets/icons/clock-blue.svg'
+import exploreIcon from '../assets/icons/explore.svg'
+import exploreBlueIcon from '../assets/icons/explore-blue.svg'
 
 defineProps({
   viewMode: { type: String, default: null },
   hasLayout: { type: Boolean, default: false },
   hasDaylight: { type: Boolean, default: false },
-  hasRoutine: { type: Boolean, default: false }
+  hasRoutine: { type: Boolean, default: false },
+  hasEmbeddingMap: { type: Boolean, default: false },
 })
 const emit = defineEmits(['viewChange', 'layoutLoaded'])
 

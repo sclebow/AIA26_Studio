@@ -10,10 +10,7 @@ const emit = defineEmits(['restore'])
 
 <template>
   <section class="sidebar-section">
-    <div class="sidebar-section-title">
-      <img :src="clockIcon" alt="Iterations" width="20" height="20" style="opacity:0.6;" />
-      Iterations
-    </div>
+    
     <template v-if="props.history && props.history.length">
       <ul class="history-list">
         <li
@@ -71,13 +68,15 @@ const emit = defineEmits(['restore'])
 }
 .history-item-id {
   font-size: var(--font-size-bold);
-  font-weight: 600;
-  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
 }
 .history-item-desc {
-  font-size: var(--font-size-standard);
-  color: var(--color-text-secondary);
-  margin-top: 2px;
+  font-size: var(--font-size-small);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  line-height: 1.4;
 }
 .sidebar-empty {
   margin: 0 0 0 28px;

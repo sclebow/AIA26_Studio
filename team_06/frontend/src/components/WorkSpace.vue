@@ -5,6 +5,7 @@ import chevronIcon from '../assets/icons/chevron.svg'
 import ToolBar from './ToolBar.vue'
 import LayoutCanvas from './LayoutCanvas.vue'
 import LayoutCard from './LayoutCard.vue'
+import EmbeddingMap from './EmbeddingMap.vue'
 
 import { watch, ref, computed } from 'vue'
 const props = defineProps({
@@ -17,13 +18,17 @@ const props = defineProps({
     default: null
   }
 })
-const emit = defineEmits(['layoutLoaded'])
+const emit = defineEmits(['layoutLoaded', 'selectLayout', 'previewLayout'])
 const viewMode = ref('layout')
 const activeRooms = ref({})
 const activeStep = ref(0)
 
 const hasDaylight = computed(() =>
   (props.agentState?.rooms ?? []).some(r => r.attributes?.daylight != null)
+)
+
+const hasEmbeddingMap = computed(() =>
+  !!(props.agentState?.embedding_map?.all_coords)
 )
 
 const hasRoutine = computed(() => {
@@ -55,14 +60,35 @@ function exportLayout() {
       <button class="default-btn export-btn" :disabled="!props.agentState" @click="exportLayout">Export</button>
     </header>
       <div class="toolbar-card toolbar-inline">
-        <ToolBar :viewMode="viewMode" :hasLayout="!!props.agentState" :hasDaylight="hasDaylight" :hasRoutine="hasRoutine" @viewChange="onViewChange" @layoutLoaded="emit('layoutLoaded', $event)" />
+        <ToolBar :viewMode="viewMode" :hasLayout="!!props.agentState" :hasDaylight="hasDaylight" :hasRoutine="hasRoutine" :hasEmbeddingMap="hasEmbeddingMap" @viewChange="onViewChange" @layoutLoaded="emit('layoutLoaded', $event)" />
       </div>
       <template v-if="props.agentState">
         <div class="canvas-area">
-          <div class="canvas-container">
-            <LayoutCanvas :layout="props.agentState" :viewMode="viewMode" :activeRooms="activeRooms" :activeStep="activeStep" />
+          <div class="canvas-container" :class="{ 'canvas-explore': viewMode === 'explore' }">
+            <EmbeddingMap
+              v-if="viewMode === 'explore' && hasEmbeddingMap"
+              :embeddingMap="props.agentState.embedding_map"
+              :searchResults="props.agentState.searchResults ?? []"
+
+              @selectLayout="emit('selectLayout', $event)"
+              @previewLayout="emit('previewLayout', $event)"
+            />
+            <LayoutCanvas
+              v-else
+              :layout="props.agentState"
+              :viewMode="viewMode"
+              :activeRooms="activeRooms"
+              :activeStep="activeStep"
+            />
           </div>
-          <LayoutCard :layout="props.agentState" :viewMode="viewMode" :routine="props.agentState?.routine?.personas ?? props.agentState?.routine ?? null" @activeRoomsChange="activeRooms = $event" @timeStepChange="activeStep = $event" />
+          <LayoutCard
+            v-if="viewMode !== 'explore'"
+            :layout="props.agentState"
+            :viewMode="viewMode"
+            :routine="props.agentState?.routine?.personas ?? props.agentState?.routine ?? null"
+            @activeRoomsChange="activeRooms = $event"
+            @timeStepChange="activeStep = $event"
+          />
         </div>
       </template>
       <div v-else class="welcome-screen">
@@ -119,6 +145,10 @@ function exportLayout() {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+.canvas-container.canvas-explore {
+  border: none;
+  background: var(--color-grey-bg);
 }
 
 .toolbar-card {

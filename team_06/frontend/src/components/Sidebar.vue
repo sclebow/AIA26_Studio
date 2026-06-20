@@ -1,27 +1,36 @@
-
 <script setup>
+import { ref } from 'vue'
 import SidebarHeader from './SidebarHeader.vue'
 import SidebarBrief from './SidebarBrief.vue'
 import SidebarHistory from './SidebarHistory.vue'
-import SidebarExplore from './SidebarExplore.vue'
+import chevronIcon from '../assets/icons/chevron.svg'
 
 const props = defineProps({
-  tab: String,
   parsedInput: { type: Object, default: null },
-  history: { type: Array, default: () => [] },
-  exploreResults: { type: Array, default: () => [] },
-  agentState: { type: Object, default: null }
+  history:     { type: Array,  default: () => [] },
+  agentState:  { type: Object, default: null },
 })
-const emit = defineEmits(['change', 'restore', 'selectCandidate'])
+const emit = defineEmits(['restore'])
+
+const historyOpen = ref(false)
 </script>
 
 <template>
   <aside class="sidebar">
-    <SidebarHeader :tab="props.tab" @change="emit('change', $event)" />
+    <SidebarHeader />
     <div class="sidebar-content">
-      <SidebarBrief v-if="props.tab === 'brief'" :parsedInput="props.parsedInput" />
-      <SidebarExplore v-else-if="props.tab === 'explore'" :results="props.exploreResults" :agentState="props.agentState" @selectCandidate="emit('selectCandidate', $event)" />
-      <SidebarHistory v-else :history="props.history" :agentState="props.agentState" @restore="emit('restore', $event)" />
+      <span class="section-title">Brief</span>
+      <SidebarBrief :parsedInput="props.parsedInput" />
+
+      <div class="history-section">
+        <button class="history-toggle" @click="historyOpen = !historyOpen">
+          <span>History</span>
+          <img :src="chevronIcon" alt="" width="16" height="16" :class="{ rotated: historyOpen }" />
+        </button>
+        <div v-if="historyOpen" class="history-body">
+          <SidebarHistory :history="props.history" :agentState="props.agentState" @restore="emit('restore', $event)" />
+        </div>
+      </div>
     </div>
   </aside>
 </template>
@@ -39,10 +48,44 @@ const emit = defineEmits(['change', 'restore', 'selectCandidate'])
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  padding: 38px 28px 0px 28px;
+  padding: 28px 28px 0 28px;
   overflow-y: auto;
+  gap: 0;
+}
+.section-title {
+  font-size: var(--font-size-subtitle);
+  color: var(--color-blue);
+  margin-bottom: 14px;
+  flex-shrink: 0;
+}
+.history-section {
+  margin-top: 28px;
+  border-top: 1px solid var(--color-border);
+}
+.history-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: none;
+  border: none;
+  padding: 14px 0;
+  cursor: pointer;
+  font-size: var(--font-size-subtitle);
+  color: var(--color-blue);
+  transition: opacity 0.15s;
+}
+.history-toggle:hover {
+  opacity: 0.75;
+}
+.history-toggle img {
+  opacity: 0.5;
+  transition: transform 0.2s;
+}
+.history-toggle img.rotated {
+  transform: rotate(180deg);
+}
+.history-body {
+  padding-bottom: 24px;
 }
 </style>
-
-

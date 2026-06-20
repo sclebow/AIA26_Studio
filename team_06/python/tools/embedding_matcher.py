@@ -183,6 +183,7 @@ class DescriptionIndex:
             lid: {"x": float(x), "y": float(y)}
             for lid, (x, y) in zip(ids, coords_2d)
         }
+        self._descriptions: dict[str, str] = dict(zip(ids, texts))
         logger.info("[DescriptionIndex] Ready.")
 
     # ------------------------------------------------------------------
@@ -190,6 +191,11 @@ class DescriptionIndex:
     def coords(self) -> dict[str, dict[str, float]]:
         """2D PCA coordinates for every layout in the index."""
         return self._coords
+
+    @property
+    def descriptions(self) -> dict[str, str]:
+        """Description text for every layout in the index."""
+        return self._descriptions
 
     # ------------------------------------------------------------------
     def search(

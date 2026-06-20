@@ -1,8 +1,8 @@
 <template>
   <div id="app">
     <div class="app-layout">
-      <Sidebar :tab="tab" @change="handleTabChange" :parsedInput="parsedInput" :history="layoutHistory" :exploreResults="exploreResults" :agentState="agentState" @restore="handleRestore" @selectCandidate="handleSelectCandidate" />
-      <WorkSpace :agentState="agentState" :parsedInput="parsedInput" @layoutLoaded="handleLayoutLoaded" />
+      <Sidebar :parsedInput="parsedInput" :history="layoutHistory" :agentState="agentState" @restore="handleRestore" />
+      <WorkSpace :agentState="agentState" :parsedInput="parsedInput" @layoutLoaded="handleLayoutLoaded" @selectLayout="handleSelectLayout" @previewLayout="handlePreviewLayout" />
       <ChatPanel :chat="chatHistory" :isBusy="isSending" @send="handleUserMessage" @newChat="handleNewChat" />
     </div>
   </div>
@@ -13,7 +13,7 @@ import { onMounted, ref } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import ChatPanel from './components/ChatPanel.vue'
 import WorkSpace from './components/WorkSpace.vue'
-import { clearSession, restoreLayout, sendChatMessage, startFreshSession, uploadBoundaryLayout } from './api/agentClient.js'
+import { clearSession, fetchLayoutById, restoreLayout, sendChatMessage, startFreshSession, uploadBoundaryLayout } from './api/agentClient.js'
 
 const tab = ref('brief')
 const chatHistory = ref([])
@@ -88,9 +88,6 @@ function handleTabChange(nextTab) {
 
 function applySearchResults(searchResults) {
   exploreResults.value = Array.isArray(searchResults) ? searchResults : []
-  if (!hasUserSelectedTab.value && exploreResults.value.length > 0) {
-    tab.value = 'explore'
-  }
 }
 
 onMounted(async () => {
@@ -131,7 +128,7 @@ function applyAgentResponse(response) {
   }
   if (response.layout) {
     const layoutWithEvaluation = attachRoutine(
-      attachExploreResults({ ...response.layout, evaluation: response.evaluation ?? null }),
+      attachExploreResults({ ...response.layout, evaluation: response.evaluation ?? null, embedding_map: response.embedding_map ?? null }),
       response.routine ?? null
     )
     agentState.value = layoutWithEvaluation
@@ -156,7 +153,8 @@ function applyPartialResponse(response) {
       ...response.layout,
       evaluation: suppressAncillaryPartials.value
         ? null
-        : response.evaluation ?? (sameLayout ? agentState.value?.evaluation ?? null : null)
+        : response.evaluation ?? (sameLayout ? agentState.value?.evaluation ?? null : null),
+      embedding_map: response.embedding_map ?? (sameLayout ? agentState.value?.embedding_map ?? null : null),
     }), suppressAncillaryPartials.value ? null : response.routine ?? (sameLayout ? agentState.value?.routine ?? null : null))
   } else if (response.routine && agentState.value && !suppressAncillaryPartials.value) {
     agentState.value = attachRoutine(attachExploreResults(agentState.value), response.routine)
@@ -219,6 +217,21 @@ async function handleRestore(layout) {
   } catch (error) {
     pushChatMessage('agent', `Could not restore layout in backend session: ${error.message}`)
   }
+}
+
+async function handleSelectLayout(layoutId) {
+  const candidate = exploreResults.value.find(r => r.layoutId === layoutId)
+  if (candidate) await handleSelectCandidate(candidate)
+}
+
+async function handlePreviewLayout(layoutId) {
+  if (isSending.value) return
+  try {
+    const data = await fetchLayoutById(layoutId)
+    if (!data?.layout) return
+    const layout = { ...data.layout, layoutId: data.layoutId, evaluation: null }
+    agentState.value = attachRoutine(attachExploreResults(layout), null)
+  } catch { /* silently ignore */ }
 }
 
 async function handleSelectCandidate(candidate) {

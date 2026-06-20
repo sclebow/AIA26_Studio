@@ -230,6 +230,7 @@ def build_search_node() -> Any:
             result_ids = [c["id"] for c in candidates]
             embedding_map = {
                 "all_coords": description_index.coords,
+                "descriptions": description_index.descriptions,
                 "query_coord": query_coord,
                 "result_ids": result_ids,
             }
