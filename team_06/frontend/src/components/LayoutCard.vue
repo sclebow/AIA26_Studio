@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { getDaylightColor, formatDaylight, PROGRAM_COLORS, toNumericValue, getRoomDisplayName } from '../utils/roomAnalysis.js'
 import { ROUTINE_TIMES } from '../mock/agentMock.js'
+import ScoreBar from './ScoreBar.vue'
 
 const props = defineProps({
   layout:      { type: Object, default: null },
@@ -47,48 +48,57 @@ const hasRooms = computed(() =>
 
 const evaluation = computed(() => props.layout?.evaluation ?? null)
 
-const daylightKeywords = ['daylight', 'light', 'window', 'ventilation', 'bright']
 
-function isDaylightPill(text) {
-  const value = String(text ?? '').toLowerCase()
-  return daylightKeywords.some((keyword) => value.includes(keyword))
-}
-
-const evaluationStrengths = computed(() => evaluation.value?.strengths ?? [])
-const evaluationConcerns = computed(() => evaluation.value?.concerns ?? [])
-const layoutStrengths = computed(() => evaluationStrengths.value.filter((item) => !isDaylightPill(item)))
-const layoutConcerns = computed(() => evaluationConcerns.value.filter((item) => !isDaylightPill(item)))
-const daylightStrengths = computed(() => evaluationStrengths.value.filter(isDaylightPill))
-const daylightConcerns = computed(() => evaluationConcerns.value.filter(isDaylightPill))
-
+// Prefer backend-computed daylight score, fall back to frontend calculation
 const daylightScore = computed(() => {
+  const backendScore = evaluation.value?.daylight_score
+  if (typeof backendScore === 'number') return backendScore
+
   const rooms = Array.isArray(props.layout?.rooms) ? props.layout.rooms : []
   const scoredRooms = rooms
     .map((room) => {
       const daylight = toNumericValue(room.attributes?.daylight)
       if (daylight == null) return null
-
       const program = room.attributes?.program
-      const target = {
-        living: 2.0,
-        bed: 1.5,
-        foyer: 1.0,
-        bath: 0.4,
-        extra: 0.8,
-      }[program] ?? 1.0
-
-      const roomScore = Math.max(0, Math.min(1, daylight / target))
-      return roomScore * 100
+      const target = { living: 2.0, bed: 1.5, foyer: 1.0, bath: 0.4, extra: 0.8 }[program] ?? 1.0
+      return Math.max(0, Math.min(1, daylight / target)) * 100
     })
-    .filter((value) => typeof value === 'number')
+    .filter((v) => typeof v === 'number')
+  return scoredRooms.length ? Math.round(scoredRooms.reduce((a, b) => a + b, 0) / scoredRooms.length) : null
+})
 
-  if (!scoredRooms.length) return null
-  return Math.round(scoredRooms.reduce((sum, value) => sum + value, 0) / scoredRooms.length)
+// Per-room daylight bars from backend (preferred) or layout rooms
+const daylightRooms = computed(() => {
+  const backendRooms = evaluation.value?.daylight_rooms
+  if (Array.isArray(backendRooms) && backendRooms.length) return backendRooms
+  return null
 })
 
 const layoutScore = computed(() => {
   const fitScore = evaluation.value?.fit_score
   return typeof fitScore === 'number' ? fitScore : null
+})
+
+// Subscores from backend evaluation
+const subscores = computed(() => evaluation.value?.subscores ?? null)
+
+// Daylight grouped by area type (frontend grouping from per-room backend data)
+const DAYLIGHT_CATEGORIES = [
+  { id: 'day_area',    label: 'Day area',    programs: ['living', 'foyer'] },
+  { id: 'night_area',  label: 'Night area',  programs: ['bed'] },
+  { id: 'extra_rooms', label: 'Extra rooms', programs: ['bath', 'extra'] },
+]
+const daylightCategories = computed(() => {
+  const rooms = daylightRooms.value
+  if (!rooms?.length) return null
+  const result = []
+  for (const cat of DAYLIGHT_CATEGORIES) {
+    const matching = rooms.filter(r => cat.programs.includes(r.program))
+    if (!matching.length) continue
+    const score = Math.round(matching.reduce((s, r) => s + r.score, 0) / matching.length)
+    result.push({ id: cat.id, label: cat.label, score, available: true, passing: matching.every(r => r.meets_minimum) })
+  }
+  return result.length ? result : null
 })
 
 const displayId = computed(() => {
@@ -108,9 +118,6 @@ function scoreRingStyle(score) {
   }
 }
 
-function hasItems(items) {
-  return Array.isArray(items) && items.length > 0
-}
 </script>
 
 <template>
@@ -157,27 +164,22 @@ function hasItems(items) {
             </li>
           </ul>
 
-          <div v-if="evaluation && (daylightScore != null || hasItems(daylightStrengths) || hasItems(daylightConcerns))" class="evaluation-section">
+          <div v-if="daylightScore != null" class="evaluation-section">
             <div class="layout-summary-title evaluation-section-title">Daylight quality</div>
-            <div v-if="daylightScore != null" class="evaluation-score-ring" :style="scoreRingStyle(daylightScore)">
+            <div class="evaluation-score-ring" :style="scoreRingStyle(daylightScore)">
               <div class="evaluation-score-core">
                 <div class="evaluation-score">{{ daylightScore }}</div>
                 <div class="evaluation-percent">%</div>
               </div>
             </div>
-
-            <div v-if="daylightStrengths.length" class="tag-block">
-              <div class="tag-block-title positive">Pros</div>
-              <div class="tag-list">
-                <span v-for="item in daylightStrengths" :key="item" class="eval-tag eval-tag-positive">{{ item }}</span>
-              </div>
-            </div>
-
-            <div v-if="daylightConcerns.length" class="tag-block">
-              <div class="tag-block-title negative">Watchouts</div>
-              <div class="tag-list">
-                <span v-for="item in daylightConcerns" :key="item" class="eval-tag eval-tag-negative">{{ item }}</span>
-              </div>
+            <div v-if="daylightCategories" class="subscore-list">
+              <ScoreBar
+                v-for="cat in daylightCategories"
+                :key="cat.id"
+                :label="cat.label"
+                :score="cat.score"
+                :available="cat.available"
+              />
             </div>
           </div>
         </template>
@@ -192,12 +194,6 @@ function hasItems(items) {
           <div class="layout-summary-area">
             {{ props.layout.rooms.reduce((sum, r) => sum + (r.attributes?.area || 0), 0).toFixed(2) }}<span style="font-size:1.1rem;font-weight:400;"> m²</span>
           </div>
-          <ul class="layout-summary-list">
-            <li v-for="room in props.layout.rooms" :key="room.id" class="layout-summary-room-row">
-              <span class="room-swatch" :style="{ background: PROGRAM_COLORS[room.attributes?.program] ?? '#ddd' }"></span>
-              {{ getRoomDisplayName(room) }} - {{ (room.attributes?.area ?? 0).toFixed(2) }} m²
-            </li>
-          </ul>
         </template>
         <template v-else>
           <div class="layout-summary-area" v-if="props.layout.attributes?.area">
@@ -206,27 +202,29 @@ function hasItems(items) {
           <span class="no-rooms-tag">No rooms yet</span>
         </template>
 
-        <div v-if="evaluation && (layoutScore != null || hasItems(layoutStrengths) || hasItems(layoutConcerns))" class="evaluation-section">
+        <ul class="layout-summary-list">
+          <li v-for="room in props.layout.rooms" :key="room.id" class="layout-summary-room-row">
+            <span class="room-swatch" :style="{ background: PROGRAM_COLORS[room.attributes?.program] ?? '#ddd' }"></span>
+            {{ getRoomDisplayName(room) }} — {{ (room.attributes?.area ?? 0).toFixed(1) }} m²
+          </li>
+        </ul>
+
+        <div v-if="layoutScore != null" class="evaluation-section">
           <div class="layout-summary-title evaluation-section-title">Layout quality</div>
-          <div v-if="layoutScore != null" class="evaluation-score-ring" :style="scoreRingStyle(layoutScore)">
+          <div class="evaluation-score-ring" :style="scoreRingStyle(layoutScore)">
             <div class="evaluation-score-core">
               <div class="evaluation-score">{{ layoutScore }}</div>
               <div class="evaluation-percent">%</div>
             </div>
           </div>
-
-          <div v-if="layoutStrengths.length" class="tag-block">
-            <div class="tag-block-title positive">Pros</div>
-            <div class="tag-list">
-              <span v-for="item in layoutStrengths" :key="item" class="eval-tag eval-tag-positive">{{ item }}</span>
-            </div>
-          </div>
-
-          <div v-if="layoutConcerns.length" class="tag-block">
-            <div class="tag-block-title negative">Watchouts</div>
-            <div class="tag-list">
-              <span v-for="item in layoutConcerns" :key="item" class="eval-tag eval-tag-negative">{{ item }}</span>
-            </div>
+          <div v-if="subscores" class="subscore-list">
+            <ScoreBar
+              v-for="s in subscores"
+              :key="s.id"
+              :label="s.label"
+              :score="s.score"
+              :available="s.available"
+            />
           </div>
         </div>
       </template>
@@ -270,26 +268,6 @@ function hasItems(items) {
   font-size: var(--font-size-title);
   font-weight: var(--font-weight-bold);
   color: var(--color-blue);
-}
-.layout-summary-list {
-  padding: 0;
-  list-style: none;
-  color: var(--color-text-primary);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.layout-summary-room-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.room-swatch {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  flex-shrink: 0;
 }
 .layout-summary-issues {
   margin-top: 10px;
@@ -342,6 +320,28 @@ function hasItems(items) {
   color: var(--color-blue);
   font-weight: 600;
 }
+.layout-summary-list {
+  padding: 0;
+  list-style: none;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.layout-summary-room-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-small);
+  color: var(--color-text);
+}
+.room-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
 .routine-persona-list {
   margin-top: 4px;
 }
@@ -350,14 +350,19 @@ function hasItems(items) {
   color: var(--color-text-secondary);
 }
 .routine-persona-room {
-  color: var(--color-text-primary);
+  color: var(--color-text);
   font-weight: 500;
-  font-size: var(--font-size-standard);
 }
 .evaluation-section {
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--color-border);
+}
+.subscore-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0 4px;
 }
 .evaluation-score-ring {
   width: 96px;
@@ -388,40 +393,5 @@ function hasItems(items) {
   font-size: 0.85rem;
   color: var(--color-blue);
   line-height: 1;
-}
-.tag-block {
-  margin-top: 10px;
-}
-.tag-block-title {
-  margin-bottom: 6px;
-  font-size: var(--font-size-standard);
-  font-weight: 600;
-}
-.tag-block-title.positive {
-  color: #2f9e44;
-}
-.tag-block-title.negative {
-  color: #e03131;
-}
-.tag-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-.eval-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: var(--font-size-small);
-  line-height: 1.2;
-}
-.eval-tag-positive {
-  background: #ebfbee;
-  color: #2b8a3e;
-}
-.eval-tag-negative {
-  background: #fff5f5;
-  color: #c92a2a;
 }
 </style>

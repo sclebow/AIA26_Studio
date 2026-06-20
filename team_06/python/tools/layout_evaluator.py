@@ -94,13 +94,6 @@ def evaluate_layout(layout_data: dict, expected_topology_json: str = None) -> di
                     if ratio > rule['max_ratio']:
                         issues.append(f"Proportion: '{room_name}' ratio is {ratio:.1f}:1 (maximum for {program} is {rule['max_ratio']}:1).")
 
-        # Daylight check
-        if program in DAYLIGHT_REQUIRED:
-            daylight_val = room.get('attributes', {}).get('daylight')
-            min_daylight = DAYLIGHT_REQUIRED[program]
-            if isinstance(daylight_val, (int, float)) and daylight_val < min_daylight:
-                issues.append(f"Daylight: '{room_name}' daylight score {daylight_val:.2f} is below minimum {min_daylight}.")
-
     return {
         "passed": len(issues) == 0,
         "issues": issues
@@ -137,4 +130,99 @@ def summarize_evaluation(layout_data: dict, expected_topology_json: str = None) 
         "area": area,
         "rooms": rooms_summary,
         "daylight_stats": daylight_stats,
+    }
+
+
+def compute_room_fit_score(layout_data: dict, topology_json: str | None) -> dict | None:
+    """Score how many of the requested room programs are present in the layout."""
+    if not topology_json:
+        return None
+    try:
+        brief = json.loads(topology_json)
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+    graph = brief.get("graph", brief)
+    requested_programs = graph.get("programs", [])
+    if not requested_programs:
+        return None
+
+    from collections import Counter
+    requested_counts = Counter(
+        normalize_program(p) for p in requested_programs if isinstance(p, str) and p.strip()
+    )
+    if not requested_counts:
+        return None
+
+    rooms = layout_data.get("rooms", [])
+    actual_counts = Counter(
+        normalize_program(r.get("attributes", {}).get("program", ""))
+        for r in rooms if isinstance(r, dict)
+    )
+
+    details: list[str] = []
+    matched = 0
+    total = 0
+    for program, count in requested_counts.items():
+        actual = actual_counts.get(program, 0)
+        satisfied = min(actual, count)
+        matched += satisfied
+        total += count
+        label = f"{program} × {count}" if count > 1 else program
+        details.append(f"✓ {label}" if actual >= count else f"✗ {label}: {actual}/{count}")
+
+    score = round(matched / total * 100) if total > 0 else 100
+    return {"score": score, "details": details}
+
+
+DAYLIGHT_WEIGHTS = {
+    "living": 1.0,
+    "bed": 0.8,
+    "foyer": 0.3,
+    "bath": 0.2,
+    "extra": 0.1,
+}
+
+
+def compute_daylight_score(layout_data: dict) -> dict | None:
+    """Deterministic daylight score from room daylight attributes.
+
+    Returns None if no daylight data is present in the layout,
+    so callers can tell the difference between 'no data' and 'score 0'.
+    Rooms are weighted by type: living > bedroom > foyer > bathroom > extra.
+    """
+    rooms = layout_data.get("rooms", [])
+    room_scores: list[dict] = []
+
+    for room in rooms:
+        attrs = room.get("attributes", {})
+        daylight_val = attrs.get("daylight")
+        if not isinstance(daylight_val, (int, float)):
+            continue
+        program = normalize_program(attrs.get("program", ""))
+        threshold = DAYLIGHT_REQUIRED.get(program, 0.05)
+        # Normalise: threshold → 50, 2× threshold → 100, 0 → 0
+        room_score = min(100, int(daylight_val / threshold * 50)) if threshold > 0 else 50
+        weight = DAYLIGHT_WEIGHTS.get(program, 0.5)
+        room_scores.append({
+            "name": room.get("name", room.get("id", "?")),
+            "program": program,
+            "value": round(daylight_val, 3),
+            "score": room_score,
+            "threshold": threshold,
+            "meets_minimum": daylight_val >= threshold,
+            "_weight": weight,
+        })
+
+    if not room_scores:
+        return None
+
+    total_weight = sum(r["_weight"] for r in room_scores)
+    overall = round(sum(r["score"] * r["_weight"] for r in room_scores) / total_weight) if total_weight > 0 else 0
+
+    # Remove internal weight field before returning
+    clean_rooms = [{k: v for k, v in r.items() if k != "_weight"} for r in room_scores]
+    return {
+        "score": overall,
+        "rooms": clean_rooms,
     }

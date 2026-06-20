@@ -104,9 +104,10 @@ function exportLayout() {
 }
 .canvas-area {
   flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   justify-content: flex-start;
-  align-items: flex-start;
+  align-items: stretch;
   margin: 28px;
   gap: 18px;
 }
@@ -114,13 +115,10 @@ function exportLayout() {
   background: var(--color-white);
   border-radius: var(--radius-card);
   border: 1px solid var(--color-border);
-  width: 100%;
-  height: 100%;
-  min-height: 0;
+  flex: 1 1 auto;
   min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .toolbar-card {
