@@ -53,6 +53,7 @@ class AgentState(TypedDict, total=False):
     input_layout_json_string: str | None           # NEW - input layout, defining outline, as a JSON string, injected into tool calls 
     topology_graph_json_string: str | None         # Structured search payload extracted by reason
     search_results_json_string: str | None         # Search candidates
+    embedding_map_json_string: str | None          # 2D coords for all layouts + query position
     layout_id: str | None         # Layout ID to be selected
     evaluation_json_string: str | None             # NEW - evaluation results
     routine_json_string: str | None                # Routine visualization payload
@@ -127,6 +128,7 @@ def _session_from_state(state: AgentState) -> dict[str, Any]:
         "input_layout_json_string": state.get("input_layout_json_string"),
         "topology_graph_json_string": state.get("topology_graph_json_string"),
         "search_results_json_string": state.get("search_results_json_string"),
+        "embedding_map_json_string": state.get("embedding_map_json_string"),
         "evaluation_json_string": state.get("evaluation_json_string"),
         "routine_json_string": state.get("routine_json_string"),
         "feedback_history": state.get("feedback_history", []),
@@ -275,6 +277,7 @@ def _build_initial_state(prompt: str, ctx: Any, session: dict | None = None) -> 
         "input_layout_json_string": input_layout_json,
         "topology_graph_json_string": session.get("topology_graph_json_string"),
         "search_results_json_string": session.get("search_results_json_string"),
+        "embedding_map_json_string": session.get("embedding_map_json_string"),
         "layout_id": session.get("layout_id"),
         "evaluation_json_string": session.get("evaluation_json_string"),
         "routine_json_string": session.get("routine_json_string"),

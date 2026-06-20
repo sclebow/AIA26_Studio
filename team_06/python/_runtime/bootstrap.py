@@ -28,7 +28,7 @@ def bootstrap() -> Context:
     # Get paths
     team_dir = Path(__file__).resolve().parents[2]
     team_name = team_dir.name
-    
+
     edited_layout_path = team_dir / f"{team_name}_edited_layout.json"
     reference_layout_path = team_dir / f"{team_name}_reference_layout.json"
     layout_data: dict[str, Any] = {}
@@ -37,8 +37,7 @@ def bootstrap() -> Context:
     # Make this optional - if MCP server is not available, only local tools will work
     mcp_client = McpClient(settings.mcp_endpoint, settings.request_timeout_seconds)
     tools = []
-    mcp_tool_names = []
-    
+
     try:
         mcp_client.initialize()
         tools = mcp_client.list_tools()

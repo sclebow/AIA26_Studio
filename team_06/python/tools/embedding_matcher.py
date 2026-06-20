@@ -16,9 +16,13 @@
 
 from __future__ import annotations
 import json
+from pathlib import Path
 from typing import Any
 from functools import lru_cache
 import logging
+
+import numpy as np
+from sklearn.decomposition import PCA
 
 logger = logging.getLogger(__name__)
 
@@ -128,3 +132,100 @@ def match_layouts(
         "query": query,
         "count": len(results)
     }
+
+
+# ============================================================================
+# DescriptionIndex — pre-encoded description embeddings with 2D PCA projection.
+#
+# Build once at startup, reuse across all queries:
+#   - All layout descriptions encoded to 384-dim vectors (normalised)
+#   - PCA fitted to those vectors, giving a stable 2D coordinate per layout
+#   - search(): cosine similarity against the pre-built matrix (fast)
+#   - project(): map a new query string into the same 2D PCA space
+# ============================================================================
+
+class DescriptionIndex:
+
+    def __init__(self, descriptions_dir: Path):
+        ids: list[str] = []
+        texts: list[str] = []
+
+        for desc_file in sorted(descriptions_dir.glob("*.json")):
+            try:
+                payload = json.loads(desc_file.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            lid = payload.get("layoutId", desc_file.stem)
+            desc = payload.get("description")
+            if lid and desc:
+                ids.append(lid)
+                texts.append(desc)
+
+        if not ids:
+            raise ValueError(f"No descriptions found in {descriptions_dir}")
+
+        logger.info(f"[DescriptionIndex] Encoding {len(ids)} descriptions…")
+        model = get_embedding_model()
+        matrix = model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+
+        # L2-normalise so dot product == cosine similarity
+        norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+        norms[norms == 0] = 1.0
+        matrix = matrix / norms
+
+        pca = PCA(n_components=2)
+        coords_2d = pca.fit_transform(matrix)
+
+        self._ids: list[str] = ids
+        self._matrix: np.ndarray = matrix          # shape (N, 384), normalised
+        self._pca: PCA = pca
+        self._coords: dict[str, dict[str, float]] = {
+            lid: {"x": float(x), "y": float(y)}
+            for lid, (x, y) in zip(ids, coords_2d)
+        }
+        logger.info("[DescriptionIndex] Ready.")
+
+    # ------------------------------------------------------------------
+    @property
+    def coords(self) -> dict[str, dict[str, float]]:
+        """2D PCA coordinates for every layout in the index."""
+        return self._coords
+
+    # ------------------------------------------------------------------
+    def search(
+        self,
+        query: str,
+        top_k: int | None = None,
+        candidate_ids: set[str] | None = None,
+    ) -> list[tuple[str, float]]:
+        """Return (layout_id, cosine_score) pairs, best first.
+
+        candidate_ids: if given, only rank those layouts (room-count pre-filter).
+        """
+        model = get_embedding_model()
+        q_vec = model.encode(query, convert_to_numpy=True, show_progress_bar=False)
+        q_norm = np.linalg.norm(q_vec)
+        if q_norm > 0:
+            q_vec = q_vec / q_norm
+
+        scores = self._matrix @ q_vec  # cosine similarities, shape (N,)
+        results = [
+            (self._ids[i], float(scores[i]))
+            for i in range(len(self._ids))
+            if candidate_ids is None or self._ids[i] in candidate_ids
+        ]
+        results.sort(key=lambda x: x[1], reverse=True)
+        if top_k is not None:
+            results = results[:top_k]
+        return results
+
+    # ------------------------------------------------------------------
+    def project(self, query: str) -> dict[str, float]:
+        """Project a query string into the same 2D PCA space as the index."""
+        model = get_embedding_model()
+        q_vec = model.encode(query, convert_to_numpy=True, show_progress_bar=False)
+        q_norm = np.linalg.norm(q_vec)
+        if q_norm > 0:
+            q_vec = q_vec / q_norm
+        xy = self._pca.transform(q_vec.reshape(1, -1))[0]
+        return {"x": float(xy[0]), "y": float(xy[1])}

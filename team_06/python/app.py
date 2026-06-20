@@ -373,6 +373,16 @@ def _layout_signature(layout: dict[str, Any]) -> str:
     return json.dumps(payload, sort_keys=True)
 
 
+def _parse_embedding_map(raw: str | None) -> dict[str, Any] | None:
+    if not raw:
+        return None
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
 def _parse_search_results(raw_search_results: str | None) -> list[dict[str, Any]]:
     if not raw_search_results:
         return []
@@ -489,6 +499,7 @@ def _build_chat_payload(session_id: str, response: str, updated_session: dict[st
         "evaluation": _parse_evaluation(updated_session.get("evaluation_json_string")),
         "routine": _parse_routine(updated_session.get("routine_json_string")),
         "search_results": _parse_search_results(updated_session.get("search_results_json_string")),
+        "embedding_map": _parse_embedding_map(updated_session.get("embedding_map_json_string")),
         "needs_user_input": updated_session.get("needs_user_input", False),
         "status_messages": updated_session.get("status_messages", []),
     }
@@ -502,6 +513,7 @@ def _build_partial_payload(session_id: str, updated_session: dict[str, Any]) -> 
         "evaluation": _parse_evaluation(updated_session.get("evaluation_json_string")),
         "routine": _parse_routine(updated_session.get("routine_json_string")),
         "search_results": _parse_search_results(updated_session.get("search_results_json_string")),
+        "embedding_map": _parse_embedding_map(updated_session.get("embedding_map_json_string")),
         "needs_user_input": updated_session.get("needs_user_input", False),
         "status_messages": updated_session.get("status_messages", []),
     }

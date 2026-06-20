@@ -435,7 +435,7 @@ class RuleBasedEmbedder:
                     continue
                 prog_idx = PROGRAMS.index(program)
                 total_count = sum(layout_vec[prog_idx * len(SIZES) + s] for s in range(len(SIZES)))
-                if total_count != required_count:
+                if total_count < required_count:
                     return False
 
             # Check size-specific counts within that program
