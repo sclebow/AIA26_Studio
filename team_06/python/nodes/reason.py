@@ -190,60 +190,22 @@ def _apply_dataset_program_rules(user_prompt: str, payload: dict) -> dict:
     }
 
 
-def _extract_household_names(user_prompt: str) -> list[str]:
-    if not isinstance(user_prompt, str) or not user_prompt.strip():
-        return []
-
-    patterns = [
-        r"\bwe are\s+([A-Z][a-z]+(?:\s+(?:and|&)\s+[A-Z][a-z]+)*)",
-        r"\bi am\s+([A-Z][a-z]+)",
-        r"\bthis is\s+([A-Z][a-z]+(?:\s+(?:and|&)\s+[A-Z][a-z]+)*)",
-    ]
-
-    for pattern in patterns:
-        match = re.search(pattern, user_prompt, flags=re.IGNORECASE)
-        if not match:
-            continue
-        raw_names = match.group(1).strip()
-        parts = [part.strip() for part in re.split(r"\s+(?:and|&)\s+", raw_names) if part.strip()]
-        cleaned_names = []
-        for part in parts:
-            words = [word.capitalize() for word in part.split() if word]
-            if words:
-                cleaned_names.append(" ".join(words))
-        if cleaned_names:
-            return cleaned_names
-
-    return []
-
-
-def _personalized_intro(user_prompt: str) -> str:
-    names = _extract_household_names(user_prompt)
+def _greeting(household: list[dict]) -> str:
+    names = [m.get("name", "").strip() for m in household if isinstance(m, dict) and m.get("name", "").strip()]
     if not names:
-        return "Hi, I am here to help you find the right layout. Can you start by describing which rooms you would like in your apartment?"
-
+        return "Hi"
     if len(names) == 1:
-        household = names[0]
-    elif len(names) == 2:
-        household = f"{names[0]} and {names[1]}"
-    else:
-        household = ", ".join(names[:-1]) + f", and {names[-1]}"
-
-    return f"Hi {household}, I am here to help you find the right layout. Can you start by describing which rooms you would like in your apartment?"
+        return f"Hi {names[0]}"
+    return "Hi " + ", ".join(names[:-1]) + f" and {names[-1]}"
 
 
-def _clarification_for_state(graph: dict, description: str, latest_prompt_useful: bool, user_prompt: str) -> str:
-    if not latest_prompt_useful:
-        if not graph.get("programs") and not description.strip():
-            return _personalized_intro(user_prompt)
-        if not graph.get("programs"):
-            return "I did not get any new room requirements. Please tell me which rooms you need."
-        return "I did not get any new layout information. Please add room connections, household details, or furniture preferences."
-
+def _clarification_for_state(graph: dict, description: str, latest_prompt_useful: bool, household: list[dict]) -> str:
+    greeting = _greeting(household)
     if not graph.get("programs") and not description.strip():
-        return _personalized_intro(user_prompt)
-
-    return "Please add a bit more detail about the rooms, household, or furniture preferences you need."
+        return f"{greeting}, I am here to help you find the right layout. Could you describe the apartment you are looking for — rooms, connections, or lifestyle preferences?"
+    if not graph.get("programs"):
+        return "I did not get any room requirements. Could you tell me which rooms you need?"
+    return "I need a bit more detail. Could you add room connections, household info, or other preferences?"
 
 
 def build_reason_node(llm):
@@ -280,7 +242,12 @@ def build_reason_node(llm):
         ]
         try:
             response = llm.invoke(llm_messages)
-            parsed_payload = _normalize_payload(json.loads(response.content.strip()))
+            response_json = json.loads(response.content.strip())
+            # The LLM is constrained by the decision schema and wraps its answer
+            # inside final_response as a string — unwrap it when that happens.
+            if "final_response" in response_json and "latest_prompt_useful" not in response_json:
+                response_json = json.loads(response_json["final_response"])
+            parsed_payload = _normalize_payload(response_json)
             parsed_payload = _apply_dataset_program_rules(user_prompt, parsed_payload)
             latest_prompt_useful = parsed_payload["latest_prompt_useful"]
             updated_search_payload = {
@@ -322,7 +289,7 @@ def build_reason_node(llm):
                     updated_household_payload["graph"],
                     updated_household_payload["description"],
                     latest_prompt_useful,
-                    user_prompt,
+                    parsed_payload["household"],
                 )
 
                 return {
@@ -336,7 +303,7 @@ def build_reason_node(llm):
                 current_search_payload["graph"],
                 current_search_payload["description"],
                 latest_prompt_useful,
-                user_prompt,
+                parsed_payload["household"],
             )
 
             if wants_evaluation and not (_has_search_input(existing_graph, existing_description) or _has_household_input(existing_household)):
