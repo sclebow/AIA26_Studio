@@ -86,6 +86,31 @@ def usage_reset() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Quality-comparison capture (gated on BENCH_QUALITY=1; see bench_quality.py)
+#
+# When enabled, every call_llm_simple() records (node, system, user, output) so the
+# quality harness can replay the *real* prompt each node sent across old/new models.
+# graph.py's per-node wrapper sets CURRENT_NODE; capture can be switched off at runtime
+# (set_quality_capture(False)) so the replay calls themselves are not re-captured.
+# Off by default → zero overhead.
+# ---------------------------------------------------------------------------
+
+_QUALITY_ON: bool = os.environ.get("BENCH_QUALITY") == "1"
+CURRENT_NODE: Optional[str] = None
+QUALITY_CAPTURE: list[dict[str, Any]] = []
+
+
+def set_current_node(name: Optional[str]) -> None:
+    global CURRENT_NODE
+    CURRENT_NODE = name
+
+
+def set_quality_capture(on: bool) -> None:
+    global _QUALITY_ON
+    _QUALITY_ON = on
+
+
+# ---------------------------------------------------------------------------
 # LLM factory
 # ---------------------------------------------------------------------------
 
@@ -437,6 +462,9 @@ def call_llm_simple(
         _record_usage(result)
         content = result.content if isinstance(result.content, str) else ""
         stripped = _strip_think_tags(content)
+    if _QUALITY_ON:
+        QUALITY_CAPTURE.append({"node": CURRENT_NODE, "system": system_prompt,
+                                "user": user_message, "output": stripped})
     return stripped
 
 

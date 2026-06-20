@@ -37,10 +37,10 @@ from _runtime import llm as LLM                    # noqa: E402
 from api import contracts                          # noqa: E402
 import graph as G                                  # noqa: E402
 
-# Approx Google pricing, USD per 1M tokens (June 2026 — update if pricing changes).
+# Google pricing, USD per 1M tokens (ai.google.dev/gemini-api/docs/pricing, checked 2026-06-20).
 PRICE = {
-    "fast":  {"in": 0.10, "out": 0.40},   # gemini-2.5-flash-lite
-    "smart": {"in": 0.30, "out": 2.50},   # gemini-2.5-flash
+    "fast":  {"in": 0.25, "out": 1.50},   # gemini-3.1-flash-lite
+    "smart": {"in": 1.50, "out": 9.00},   # gemini-3.5-flash
 }
 
 # A scripted layout-mode session that lights up the runtime LLM nodes:
@@ -140,7 +140,7 @@ def main() -> None:
         "nodes": rows,
         "raw_timings": G.NODE_TIMINGS,
     }
-    outdir = _TEAM / "docs" / "week08" / "benchmark"
+    outdir = _TEAM / "docs" / "week09" / "benchmark"
     outdir.mkdir(parents=True, exist_ok=True)
     (outdir / "node-bench.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
     print(f"\nSaved {outdir / 'node-bench.json'}")

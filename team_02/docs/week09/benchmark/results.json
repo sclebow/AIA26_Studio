@@ -1,0 +1,39 @@
+{
+  "summary": {
+    "google": {
+      "images": 3,
+      "avg_latency_s": 11.4,
+      "total_cost_usd": 0.201,
+      "cost_per_image_usd": 0.067
+    }
+  },
+  "runs": [
+    {
+      "provider": "google",
+      "case": "living-room-poor",
+      "latency_s": 11.5,
+      "kb": 812,
+      "cost_usd": 0.067,
+      "ok": true,
+      "file": "google_living-room-poor.png"
+    },
+    {
+      "provider": "google",
+      "case": "bedroom-cosy",
+      "latency_s": 10.8,
+      "kb": 804,
+      "cost_usd": 0.067,
+      "ok": true,
+      "file": "google_bedroom-cosy.png"
+    },
+    {
+      "provider": "google",
+      "case": "kitchen-mixed",
+      "latency_s": 11.8,
+      "kb": 772,
+      "cost_usd": 0.067,
+      "ok": true,
+      "file": "google_kitchen-mixed.png"
+    }
+  ]
+}

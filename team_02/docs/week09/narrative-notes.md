@@ -305,3 +305,28 @@ a-to-z deck assembles from these.
   same focus state — which we fixed by marking tour-owned focus so neither can clobber the other. The
   arc of the session: the most on-brand way to explain a beautiful visualization was **not** to
   redraw it, but to add a warm voice that points and names — and that can be switched off.
+
+## Session 10 — The app moves to the current Gemini generation (with receipts)
+
+- **We're now on the *current* Gemini models, and we can prove the IDs are real.** Training knowledge of
+  model names is stale, so instead of guessing we ran a live research pass against Google's official docs
+  with adversarial per-ID verification, then **smoke-called every candidate before trusting it**. The result:
+  the whole lineup had jumped a generation — Gemini **2.0 is retired**, **2.5 is now legacy-stable**, and the
+  current tier is **Gemini 3.x**. We moved each tier to its current-generation, GA equivalent with a one-token
+  `.env` swap and *zero* app-code change: FAST `gemini-2.5-flash-lite → gemini-3.1-flash-lite`, SMART
+  `gemini-2.5-flash → gemini-3.5-flash`, image `gemini-2.5-flash-image → gemini-3.1-flash-image` (Nano Banana
+  2). The app ran green end-to-end on the new IDs — chat, scoring, an edit, and a live room render all verified
+  through the real API.
+
+- **The upgrade buys quality and realism; it costs a little speed and a few cents.** Refreshed benchmarks
+  (new baseline, same scripted session): a full steady-state session now costs **$0.048** (was $0.013) and the
+  reasoning tier averages **11.3 s** (was 8.5 s) — 3.5 Flash *thinks* more, with `score_interpreter` the
+  biggest latency lever at ~24 s. FAST stays **sub-second and near-free**. In absolute terms the whole session
+  is still under a nickel.
+
+- **A blind old-vs-new judging round says the reasoning got better, not worse.** We captured the *real* prompt
+  each SMART node sends, replayed it on old and new, and scored the outputs **blind** on a rubric (the model
+  identity hidden until after judging). New won **7 of 8** comparisons — sharper, more grounded critique (it
+  caught a kitchen rug fire-hazard and a *missed* thermal fix the old model didn't) and decisively more
+  photorealistic room renders — with the one tie being a marginal phrasing call on a two-sentence summary. No
+  regression in the reasoning we actually read.

@@ -77,6 +77,7 @@ from langgraph.graph import END, START, StateGraph
 # the LLM token counter (_runtime/llm) before/after, so we get latency + tokens + the
 # tier each node ran on. No-op (zero overhead) when BENCH_NODES is unset.
 _BENCH = os.environ.get("BENCH_NODES") == "1"
+_QUAL = os.environ.get("BENCH_QUALITY") == "1"   # quality-comparison capture (see bench_quality.py)
 NODE_TIMINGS: list[dict] = []
 _NODE_TIER = {
     "greet": "fast", "quiz": "fast", "action_classifier": "fast", "chitchat": "fast",
@@ -88,11 +89,14 @@ _NODE_TIER = {
 
 
 def _bench_wrap(name: str, fn):
-    if not _BENCH:
+    if not _BENCH and not _QUAL:
         return fn
     from _runtime import llm as _llm
 
     def wrapped(state):
+        _llm.set_current_node(name)            # quality capture attributes prompts to this node
+        if not _BENCH:                         # quality-only run: no timing overhead
+            return fn(state)
         u0 = _llm.usage_snapshot(); t0 = time.perf_counter()
         out = fn(state)
         dt = time.perf_counter() - t0; u1 = _llm.usage_snapshot()
