@@ -330,6 +330,7 @@ def commit_checkpoint(req: CommitReq) -> dict:
         "session_id": sid, "ok": True,
         "checkpoints": checkpoints.summaries(sess),
         "has_uncommitted": checkpoints.has_uncommitted(sess),
+        "live_head": checkpoints.live_head(sess),
         "committed_id": cp["id"],
     }
 
@@ -357,6 +358,7 @@ def restore_checkpoint(req: RestoreReq) -> dict:
         "layout_id": sess.get("layout_id"),
         "checkpoints": checkpoints.summaries(sess),
         "has_uncommitted": checkpoints.has_uncommitted(sess),
+        "live_head": checkpoints.live_head(sess),
         "restored_label": cp["label"],
         "scores_json": sess.get("last_scores_json", ""),
         "conflicts_json": sess.get("last_conflicts_json", ""),

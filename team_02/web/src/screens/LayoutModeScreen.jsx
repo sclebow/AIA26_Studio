@@ -55,7 +55,7 @@ const LAYER_RUN_MSG = { comfort: "analyse the layout", graph: "map the topology 
 export default function LayoutModeScreen({ messages, turns, thinking, persona, moodboardUrls = [],
   onRefinePersona, onRedoOnboarding, layoutId, layoutVersion = 0, onSend, onReport,
   streaming = false, onStop,
-  checkpoints = [], hasUncommitted = false, uncommittedDelta = {}, onCommit, onRestore,
+  checkpoints = [], hasUncommitted = false, uncommittedDelta = {}, liveHead = null, onCommit, onRestore,
   viewedTurn = null, onViewCheckpoint, onClearView }) {
   const [chatOpen,     setChatOpen]     = useState(true);
   const [profileOpen,  setProfileOpen]  = useState(false);
@@ -310,7 +310,9 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, m
             </AnimatePresence>
           </div>
 
-          <CheckpointsStrip checkpoints={checkpoints} onRestore={onRestore}
+          {/* the commit history, horizontal: a slim chip strip + an expandable bold
+              ripple-graph (per-sense lines that weave; coupling arcs = the ripple) */}
+          <CheckpointsStrip checkpoints={checkpoints} liveHead={liveHead} onRestore={onRestore}
             onView={onViewCheckpoint} viewedId={viewedTurn ? viewedTurn.checkpointId : null} />
         </div>
       </div>

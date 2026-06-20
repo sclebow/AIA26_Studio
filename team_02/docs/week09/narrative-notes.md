@@ -240,3 +240,34 @@ a-to-z deck assembles from these.
   Report sources the board from the live session with a `persona.json` fallback, and a one-line
   **durability stamp** writes the board onto the persona on disk so it survives a restart or a
   returning user (verified: a fresh onboarding now leaves `moodboard_urls` in `persona.json`).
+
+## Session 8 — The commit history reborn as a woven ripple of the senses
+
+- **You can finally watch the senses rise, fall, and pull on each other.** The checkpoint strip
+  from Task 3 was loved but flat: each milestone was a chip with one headline number, so the
+  *shape* of the design process — where a decision lifted acoustic, where it cost thermal, and
+  crucially *which senses dragged each other along* — was invisible. We reframed the timeline as a
+  bold horizontal **ripple graph** (an expandable view of the strip): X = your commits in order,
+  each sense a luminous strand on its **own auto-zoomed scale** so a 0.02 move reads as clearly as
+  a 0.2 one, the strands **weaving and crossing**. The history stops being a list of save-points
+  and becomes a *legible narrative*. Why it matters: the design **process** — and the coupling
+  between senses that is Sensi's north star — becomes the artifact, not just the final plan.
+
+- **The ripple is the point, and it's drawn from the real coupling model.** This is the heart:
+  at each commit, where an edit made two **coupled** senses move together, a glowing valence-tinted
+  arc braids them — green ＋ helped, amber ± trade-off, red − harmed — pulled straight from the
+  canonical `SENSE_SENSE` matrix (acoustic↔thermal, thermal↔olfactory, tactile↔acoustic…). It's
+  honest: an arc fires only when both its senses actually co-moved between commits ("potential
+  ripple, grounded in what moved"), since the realized per-room adjustments aren't cheap to
+  reconstruct at commit time. Reading aids are baked in — a one-line "how to read" caption and a
+  sense glyph at each strand's end — so the weave never needs explaining.
+
+- **Tiny backend, big legibility, and it stays navigable.** The data already existed (`_sense_means`
+  per checkpoint); the change was ~12 lines (a `sense_means` field + a `live_head` helper for the
+  dashed "now" node) and one hand-rolled SVG component, **no chart library**, reusing the app's own
+  vocabulary (sense hues `SC/SI`, the `VALENCE` tints, the `.plan-tooltip` read-out). A node is
+  still a commit you can **focus** (non-destructive) and confirm-gated **restore**. Verified live on
+  a real four-commit session (initial → soft acoustics → plants → uncommitted oak floor): the
+  acoustic strand steps up at the acoustics commit and a green ＋ arc braids it to tactile; hover any
+  step for exact per-sense scores with ↑/↓. (We explored a vertical git-graph braid and dockable
+  left/right panels first — a good detour — before landing on the bolder horizontal weave.)

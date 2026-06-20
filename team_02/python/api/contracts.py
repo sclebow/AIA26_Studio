@@ -70,6 +70,7 @@ def agent_response_payload(message: str, sess: dict, final_state: dict | None = 
         "checkpoints":          checkpoints.summaries(sess),
         "has_uncommitted":      checkpoints.has_uncommitted(sess),
         "uncommitted_delta":    checkpoints.uncommitted_delta(sess),
+        "live_head":            checkpoints.live_head(sess),
     }
 
 

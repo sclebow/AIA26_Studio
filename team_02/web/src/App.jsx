@@ -55,6 +55,7 @@ export default function App() {
   const [checkpoints, setCheckpoints]         = useState([]);
   const [hasUncommitted, setHasUncommitted]   = useState(false);
   const [uncommittedDelta, setUncommittedDelta] = useState({});
+  const [liveHead, setLiveHead]               = useState(null); // uncommitted draft as a graph point
   const [viewedTurn, setViewedTurn]           = useState(null); // a checkpoint being reviewed
 
   // Inspire / persona
@@ -102,6 +103,7 @@ export default function App() {
       if (data.checkpoints) setCheckpoints(data.checkpoints);
       setHasUncommitted(!!data.has_uncommitted);
       setUncommittedDelta(data.uncommitted_delta || {});
+      setLiveHead(data.live_head ?? null);
 
       // Normalize edit diffs to an array once, so every downstream consumer can
       // trust turn.layout_diffs is always an array (single-edit → 1-element array).
@@ -226,6 +228,7 @@ export default function App() {
         if (d.checkpoints) setCheckpoints(d.checkpoints);
         setHasUncommitted(!!d.has_uncommitted);
         setUncommittedDelta({});
+        setLiveHead(d.live_head ?? null);
       }
     } catch { /* leave uncommitted state as-is on failure */ }
   }, []);
@@ -250,6 +253,7 @@ export default function App() {
       if (d.checkpoints) setCheckpoints(d.checkpoints);
       setHasUncommitted(!!d.has_uncommitted);
       setUncommittedDelta({});
+      setLiveHead(d.live_head ?? null);
       setViewedTurn(null);
       setLayoutVersion((v) => v + 1); // working draft changed → re-fetch the canvas
       setChatMessages((m) => [...m, { id: nextId(), role: "s",
@@ -287,6 +291,7 @@ export default function App() {
     setCheckpoints([]);
     setHasUncommitted(false);
     setUncommittedDelta({});
+    setLiveHead(null);
     setQuizMessages([{ id: nextId(), role: "s", text: data.message }]);
     setQuizStep(data.quiz_step || 0);
     setScreen("quiz");
@@ -336,6 +341,7 @@ export default function App() {
             checkpoints={checkpoints}
             hasUncommitted={hasUncommitted}
             uncommittedDelta={uncommittedDelta}
+            liveHead={liveHead}
             onCommit={commitCheckpoint}
             onRestore={restoreCheckpoint}
             viewedTurn={viewedTurn}
