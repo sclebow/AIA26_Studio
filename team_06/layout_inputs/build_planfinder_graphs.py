@@ -34,8 +34,8 @@ EXTRA_PROGRAMS = {"extra", "circulation", "storage", "fusebox"}
 
 
 def is_empty_layout(layout: dict) -> bool:
-    """Skip layouts that contain only extra/circulation rooms."""
-    real_programs = {"bed", "bath", "living", "kitchen", "dining", "foyer"}
+    """Skip layouts that contain only circulation/storage/structural rooms."""
+    real_programs = {"bed", "bath", "wc", "living", "kitchen", "dining", "foyer"}
     rooms = layout.get("rooms", [])
     return not any(
         r.get("attributes", {}).get("program", "").lower() in real_programs
@@ -86,8 +86,8 @@ def main():
     errors  = 0
 
     for json_file in json_files:
-        layout_id = json_file.stem
         layout    = json.loads(json_file.read_text(encoding="utf-8"))
+        layout_id = layout.get("layoutId", json_file.stem)
 
         if not layout.get("rooms") or not layout.get("doors"):
             print(f"  skip (no rooms/doors): {layout_id}")
@@ -103,7 +103,8 @@ def main():
             G = create_graph_from_layout(layout)
             G = collapse_through_extra(G)
             graphs[layout_id] = nx.node_link_data(G)
-            print(f"  + {layout_id}  ({G.number_of_nodes()} rooms, {G.number_of_edges()} edges)")
+            apt_name = layout.get("apartment", {}).get("name", "")
+            print(f"  + {layout_id}  {apt_name}  ({G.number_of_nodes()} rooms, {G.number_of_edges()} edges)")
         except Exception as e:
             print(f"  ERR {layout_id}: {e}")
             errors += 1

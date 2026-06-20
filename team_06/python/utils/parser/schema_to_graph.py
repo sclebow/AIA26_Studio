@@ -16,7 +16,10 @@ SIZE_THRESHOLDS = {
         'living':       {'small': 25,  'medium': 45},
         'bed':          {'small': 11,  'medium': 17},
         'bath':         {'small': 4,   'medium': 7},
+        'wc':           {'small': 2,   'medium': 5},
         'extra':        {'small': 4,   'medium': 10},
+        'circulation':  {'small': 5,   'medium': 12},
+        'storage':      {'small': 3,   'medium': 6},
         'walkincloset': {'small': 3,   'medium': 6},
 }
 
