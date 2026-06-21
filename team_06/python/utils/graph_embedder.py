@@ -52,27 +52,38 @@ from typing import Optional
 # ============================================================================
 
 # All program types we care about (determines vector dimensions for room counts)
-PROGRAMS = ["bedroom", "living room", "bathroom", "extra", "walkincloset"]
+PROGRAMS = ["bedroom", "living room", "bathroom", "circulation", "storage", "walkincloset", "wc"]
 
 SIZES = ["small", "medium", "large"]
 
 # All program-pair edges we care about
 PROGRAM_PAIRS = [
-    ("bedroom",     "living room"),
-    ("bedroom",     "bathroom"),
-    ("bedroom",     "extra"),
-    ("bedroom",     "walkincloset"),
-    ("bedroom",     "bedroom"),
-    ("living room", "bathroom"),
-    ("living room", "extra"),
-    ("bathroom",    "extra"),
     ("bathroom",    "bathroom"),
-    ("extra",       "extra"),
+    ("bathroom",    "bedroom"),
+    ("bathroom",    "circulation"),
+    ("bathroom",    "living room"),
+    ("bathroom",    "storage"),
+    ("bathroom",    "walkincloset"),
+    ("bathroom",    "wc"),
+    ("bedroom",     "bedroom"),
+    ("bedroom",     "circulation"),
+    ("bedroom",     "living room"),
+    ("bedroom",     "storage"),
+    ("bedroom",     "walkincloset"),
+    ("bedroom",     "wc"),
+    ("circulation", "circulation"),
+    ("circulation", "living room"),
+    ("circulation", "storage"),
+    ("circulation", "wc"),
+    ("living room", "storage"),
+    ("living room", "wc"),
+    ("storage",     "storage"),
+    ("storage",     "wc"),
 ]
 
 CONNECTIVITY_LEVELS = ['peripheral', 'connected', 'central']
 
-WINDOW_COUNT = [0, 1, 2]
+WINDOW_COUNT = [0, 1, 2, 3, 4]
 
 # Hard filter tolerances for boundary matching
 AREA_TOLERANCE = 20.0
@@ -174,7 +185,7 @@ def extract_features(G: nx.Graph) -> list[float]:
     for node in G.nodes():
         program = normalize_program(G.nodes[node].get("program", ""))
         windows = G.nodes[node].get("windows", 0)
-        windows = min(windows, 2)  # cap at 2
+        windows = min(windows, max(WINDOW_COUNT))
         key = (program, windows)
         program_window_counts[key] = program_window_counts.get(key, 0) + 1
 
@@ -511,7 +522,7 @@ if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).parent.parent))
 
     # Load and build index
-    graphs_path = Path(__file__).parent.parent.parent / "layout_inputs" / "sample_graphs.json"
+    graphs_path = Path(__file__).parent.parent.parent / "layout_inputs" / "planfinder_graphs.json"
     with open(graphs_path) as f:
         layout_graphs = {
             lid: nx.node_link_graph(data)
@@ -519,78 +530,61 @@ if __name__ == "__main__":
         }
 
     embedder = RuleBasedEmbedder(layout_graphs)
+    print(f"Indexed {len(layout_graphs)} layouts\n")
 
     # Example searches
 
-    #Program test
-    print("Search 1:",  #expected: layout-4
-          embedder.search(
-          ["walkincloset"], top_k=3))
-    
-    #Program test
-    print("Search 2:",  #expected: layout-1
-          embedder.search(
-          ["bedroom"], top_k=3))
-    
-    #Size requirements test
-    print("Search 3:", 
-          embedder.search( #expected: layout-2
-          [('bedroom', 'medium'), ('bedroom', 'small')], 
-          top_k=3))
+    # Program test
+    print("Search 1 — 2 bedrooms + 1 bathroom:")
+    print(embedder.search(["bedroom", "bedroom", "bathroom"], top_k=3))
 
-    #Program + size requirements test
-    print("Search 4:", 
-          embedder.search( # 1 large bedroom + 1 bedroom and 2 bathroom expected: layout-3 and 6
-        [('bedroom', 'large'), "bedroom", 'bathroom', 'bathroom'], 
+    # Size-specific test
+    print("\nSearch 2 — 1 large bedroom + 1 medium bedroom:")
+    print(embedder.search([("bedroom", "large"), ("bedroom", "medium")], top_k=3))
+
+    # Shape test
+    print("\nSearch 3 — 2 bedrooms, L-shape:")
+    print(embedder.search(["bedroom", "bedroom"], shape="L-shape", top_k=3))
+
+    # Adjacency test
+    print("\nSearch 4 — bedroom+bathroom adjacent:")
+    print(embedder.search(
+        ["bedroom", "bathroom"],
+        adjacency_pairs=[("bedroom", "bathroom")],
         top_k=3))
 
-    #Shape requirement test
-    print("Search 5:", 
-          embedder.search( #expected: layout-6
-              ["bedroom", "bedroom"], 
-              shape='L-shape',
-              top_k=3))
-    
-    #Adjacency + aspect ratio test
-    print("Search 6:", 
-      embedder.search( # expected: layout-2 and 3
-          ["bedroom", "bedroom", "extra", "extra"], 
-          adjacency_pairs=[("bedroom", "bedroom")],
-          aspect_ratio=1.0,
-          top_k=3))
+    # Not-adjacency test
+    print("\nSearch 5 — 2 bedrooms, NOT adjacent to wc:")
+    print(embedder.search(
+        ["bedroom", "bedroom"],
+        not_adjacency_pairs=[("bedroom", "wc")],
+        top_k=3))
 
-    #Aspect ratio test
-    print("Search 7:", 
-      embedder.search( #expected: layout-1 (layout-4 excluded: has 2 extras, not 1, layout-5 excluded: aspect ratio 3.75 too far from 2.0)
-          ["extra"],
-          aspect_ratio=2.0,
-          top_k=3))
-    
-    #Not adjacency test
-    print("Search 8:", 
-      embedder.search( #expected: layout-2
-          ["bedroom", "bedroom"], 
-          not_adjacency_pairs=[("bedroom", "bathroom")], 
-          top_k=3))
-    
-    #Windows test
-    print("Search 9:",  # expected: layout-1
-          embedder.search(
-          ["bathroom"],
-          windows=[('bathroom', 1)],
-          top_k=3))
-    
-    #Centrality test
-    print("Search 10:",  # expected: layout-4
-          embedder.search(
-          ["living room"],
-          centrality=[('bedroom', 'central')],
-          top_k=3))
-    
-    #Area and aspect ratio test
-    print("Search 11:",  # expected: layout-3
-          embedder.search(
-          ["living room"],
-          total_area=110.0,
-          aspect_ratio=1.0,
-          top_k=3))
+    # Windows test
+    print("\nSearch 6 — bedroom with 2 windows:")
+    print(embedder.search(
+        ["bedroom"],
+        windows=[("bedroom", 2)],
+        top_k=3))
+
+    # Centrality test
+    print("\nSearch 7 — living room with central circulation:")
+    print(embedder.search(
+        ["living room"],
+        centrality=[("circulation", "central")],
+        top_k=3))
+
+    # Area + aspect ratio test
+    print("\nSearch 8 — living room, ~110 sqm, aspect ~1.0:")
+    print(embedder.search(
+        ["living room"],
+        total_area=110.0,
+        aspect_ratio=1.0,
+        top_k=3))
+
+    # Access connectivity test
+    print("\nSearch 9 — bedroom with door to bathroom:")
+    print(embedder.search(
+        ["bedroom", "bathroom"],
+        access_pairs=[("bedroom", "bathroom")],
+        top_k=3))
