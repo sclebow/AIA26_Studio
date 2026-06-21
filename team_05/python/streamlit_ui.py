@@ -209,7 +209,9 @@ for _k, _v in {
     "client_summary": "",
     "client_template": {},
     "client_applied": False,
-    "active_tab": "Floor Plan & Chat",
+    "active_tab": "Architectural Advice",
+    "currency_code": "AED",
+    "currency_factor": 1.0,
 }.items():
     if _k not in st.session_state:
         st.session_state[_k] = _v
@@ -762,7 +764,8 @@ def build_cost_df(layout: dict) -> pd.DataFrame:
     labor_mult = safe_float(st.session_state.get("labor", 1.0))
     inflation = 1 + (safe_float(st.session_state.get("inflation", 0)) / 100)
     tax = safe_float(st.session_state.get("carbon_tax", 0))
-    currency = layout.get("project", {}).get("currency", "USD")
+    cur_code = st.session_state.get("currency_code") or layout.get("project", {}).get("currency", "AED")
+    cur_factor = safe_float(st.session_state.get("currency_factor", 1.0), 1.0)
 
     rooms_list = layout.get("rooms") or layout.get("costs", {}).get("rooms", {}).get("rooms", [])
 
@@ -773,15 +776,15 @@ def build_cost_df(layout: dict) -> pd.DataFrame:
         area = safe_float(r.get("area_m2") or r.get("area"))
         gwp = safe_float(r.get("gwp"))
 
-        adj_rate = base_rate * labor_mult * inflation
-        adj_cost = (base_cost * labor_mult * inflation) + (gwp * tax)
+        adj_rate = base_rate * labor_mult * inflation * cur_factor
+        adj_cost = ((base_cost * labor_mult * inflation) + (gwp * tax)) * cur_factor
 
         rows.append({
             "Room": r.get("name", "Unknown"),
             "Category": r.get("category", "Space").capitalize(),
             "Area (m²)": round(area, 1),
-            f"Rate ({currency}/m²)": int(adj_rate),
-            f"Cost ({currency})": int(adj_cost)
+            f"Rate ({cur_code}/m²)": int(adj_rate),
+            f"Cost ({cur_code})": int(adj_cost)
         })
 
     df = pd.DataFrame(rows)
@@ -929,7 +932,28 @@ with st.sidebar:
         "carbon_tax": st.session_state.carbon_tax
     }
 
-    # 2. File Processing
+    # 2. Currency selector
+    st.divider()
+    st.markdown("### Display Currency")
+    st.caption("All rates are stored in AED. Select a currency to convert displayed costs.")
+    _CURRENCIES = {
+        "AED — Arab Emirates Dirham": ("AED",  1.000),
+        "USD — US Dollar":            ("USD",  0.272),
+        "EUR — Euro":                 ("EUR",  0.251),
+        "GBP — British Pound":        ("GBP",  0.213),
+        "JPY — Japanese Yen":         ("JPY", 40.500),
+    }
+    _cur_sel = st.selectbox(
+        "Display currency",
+        options=list(_CURRENCIES.keys()),
+        key="currency_selector",
+        label_visibility="collapsed",
+    )
+    _disp_code, _disp_factor = _CURRENCIES[_cur_sel]
+    st.session_state.currency_code = _disp_code
+    st.session_state.currency_factor = _disp_factor
+
+    # 3. File Processing
     if uploads:
         uploaded_ids = set(st.session_state._uploaded_ids)
         added_count = 0
@@ -982,18 +1006,19 @@ with st.sidebar:
 
         proj = st.session_state.layout.get("project", {})
         rooms = st.session_state.layout.get("rooms", [])
-        currency = proj.get("currency", "")
         totals = st.session_state.layout.get("totals", {})
         room_total = totals.get("rooms", sum(r.get("total_cost", 0) for r in rooms))
         grand = totals.get("grand", room_total)
+        _sb_code = st.session_state.get("currency_code", "AED")
+        _sb_factor = st.session_state.get("currency_factor", 1.0)
 
         st.markdown(f"**{proj.get('name','')}**")
         c1, c2 = st.columns(2)
         c1.metric("Rooms", len(rooms))
         c2.metric("Footprint", f"{proj.get('footprint_m2', 0):.0f} m²")
-        st.metric("Room construction", f"{room_total:,.0f} {currency}")
+        st.metric("Room construction", f"{room_total * _sb_factor:,.0f} {_sb_code}")
         if grand != room_total:
-            st.metric("Grand total", f"{grand:,.0f} {currency}")
+            st.metric("Grand total", f"{grand * _sb_factor:,.0f} {_sb_code}")
 
         st.divider()
 
@@ -1104,7 +1129,7 @@ st.divider()
 # =============================================================================
 # TWO-COLUMN LAYOUT: Heatmap (left, always visible) | Vertical Tabs (right)
 # =============================================================================
-col_heatmap, col_panel = st.columns([3, 2], gap="large")
+col_heatmap, col_panel = st.columns([5, 2], gap="large")
 
 # ── LEFT: Always-visible heatmap ─────────────────────────────────────────────
 with col_heatmap:
@@ -1125,7 +1150,7 @@ with col_heatmap:
             st.caption("Colors from Grasshopper. Click a room to select it.")
 
             sel_id = (st.session_state.selected_room or {}).get("id")
-            fig    = build_floor_plan(st.session_state.layout, sel_id)
+            fig    = build_floor_plan(st.session_state.layout, sel_id, plot_height=560)
 
             _sel_el = st.session_state.get("selected_element")
             if _sel_el and _sel_el.get("cx") is not None:
@@ -1249,44 +1274,14 @@ with col_heatmap:
                 st.table(df)
             else:
                 st.info("No cost data available in this layout.")
-    else:
-        st.info("Upload a layout in the sidebar to see the heatmap.")
 
-
-# ── RIGHT: Vertical tab navigation ───────────────────────────────────────────
-with col_panel:
-    _NAV_TABS = [
-        "Floor Plan & Chat",
-        "Architectural Advice",
-        "Sustainability Analysis",
-        "Cost Matching",
-        "Client DNA",
-    ]
-    st.markdown(
-        '<p style="font-size:0.68rem;color:#aaaaaa;letter-spacing:0.12em;'
-        'text-transform:uppercase;margin:0 0 0.6rem 0">Navigate</p>',
-        unsafe_allow_html=True,
-    )
-    for _tab_name in _NAV_TABS:
-        _is_active = st.session_state.get("active_tab") == _tab_name
-        if st.button(
-            _tab_name,
-            use_container_width=True,
-            key=f"nav_{_tab_name.replace(' ', '_')}",
-            type="primary" if _is_active else "secondary",
-        ):
-            st.session_state.active_tab = _tab_name
-            st.rerun()
-    active_tab = st.session_state.get("active_tab", "Floor Plan & Chat")
-    st.divider()
-
-    # ── TAB: Floor Plan & Chat ────────────────────────────────────────────────
-    if "Chat" in active_tab:
+        # ── Agent Chat (below heatmap) ────────────────────────────────────────
+        st.divider()
         st.markdown("#### Agent Chat")
         if st.session_state.selected_plan_key:
             st.caption(f"Analyzing: {st.session_state.selected_plan_key}")
 
-        chat_area = st.container(height=400)
+        chat_area = st.container(height=340)
         with chat_area:
             if st.session_state.messages:
                 render_chat()
@@ -1343,12 +1338,41 @@ with col_panel:
                 st.toast("Heatmap & Grasshopper synced", icon="✅")
             st.rerun()
 
-        if st.button("Clear conversation", use_container_width=True):
+        if st.button("Clear conversation", use_container_width=True, key="clear_chat_main"):
             st.session_state.messages = []
             st.rerun()
+    else:
+        st.info("Upload a layout in the sidebar to see the heatmap.")
+
+
+# ── RIGHT: Vertical tab navigation ───────────────────────────────────────────
+with col_panel:
+    _NAV_TABS = [
+        "Architectural Advice",
+        "Sustainability Analysis",
+        "Cost Matching",
+        "Client DNA",
+    ]
+    st.markdown(
+        '<p style="font-size:0.68rem;color:#aaaaaa;letter-spacing:0.12em;'
+        'text-transform:uppercase;margin:0 0 0.6rem 0">Navigate</p>',
+        unsafe_allow_html=True,
+    )
+    for _tab_name in _NAV_TABS:
+        _is_active = st.session_state.get("active_tab") == _tab_name
+        if st.button(
+            _tab_name,
+            use_container_width=True,
+            key=f"nav_{_tab_name.replace(' ', '_')}",
+            type="primary" if _is_active else "secondary",
+        ):
+            st.session_state.active_tab = _tab_name
+            st.rerun()
+    active_tab = st.session_state.get("active_tab", "Architectural Advice")
+    st.divider()
 
     # ── TAB: Architectural Advice ─────────────────────────────────────────────
-    elif "Architectural" in active_tab:
+    if "Architectural" in active_tab:
         from nodes.arch_advice import (
             extract_materials_from_layout as _extract_layout_mats,
             extract_materials_from_messages as _extract_msg_mats,
