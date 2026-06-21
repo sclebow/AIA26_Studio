@@ -13,7 +13,7 @@ SYSTEM_PROMPT = (
     "- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n"
     "- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n"
     "- graph is the strict structured representation of spatial requirements.\n"
-    "- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n"
+    "- graph.programs is a flat list with duplicates when counts matter, for example [\"bed\", \"bed\", \"bath\"].\n"
     "- The available room categories in the dataset are only: living, bed, bath, circulation, storage, walkincloset, and wc.\n"
     "- Translate user wording into those dataset categories before filling graph.programs.\n"
     "- There are no apartments with a separate kitchen room in this dataset. Treat kitchen requests as part of the living area and preserve kitchen intent in description as furniture, open-plan use, or cooking/social preference, not as a separate room program.\n"
