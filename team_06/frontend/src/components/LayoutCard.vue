@@ -60,7 +60,7 @@ const daylightScore = computed(() => {
       const daylight = toNumericValue(room.attributes?.daylight)
       if (daylight == null) return null
       const program = room.attributes?.program
-      const target = { living: 2.0, bed: 1.5, foyer: 1.0, bath: 0.4, extra: 0.8 }[program] ?? 1.0
+      const target = { living: 2.0, bed: 1.5, walkincloset: 1.2, circulation: 1.0, bath: 0.4, wc: 0.3, storage: 0.5 }[program] ?? 1.0
       return Math.max(0, Math.min(1, daylight / target)) * 100
     })
     .filter((v) => typeof v === 'number')
@@ -84,9 +84,9 @@ const subscores = computed(() => evaluation.value?.subscores ?? null)
 
 // Daylight grouped by area type (frontend grouping from per-room backend data)
 const DAYLIGHT_CATEGORIES = [
-  { id: 'day_area',    label: 'Day area',    programs: ['living', 'foyer'] },
-  { id: 'night_area',  label: 'Night area',  programs: ['bed'] },
-  { id: 'extra_rooms', label: 'Extra rooms', programs: ['bath', 'extra'] },
+  { id: 'day_area',   label: 'Day area',   programs: ['living'] },
+  { id: 'night_area', label: 'Night area', programs: ['bed', 'walkincloset'] },
+  { id: 'wet_rooms',  label: 'Wet rooms',  programs: ['bath', 'wc'] },
 ]
 const daylightCategories = computed(() => {
   const rooms = daylightRooms.value

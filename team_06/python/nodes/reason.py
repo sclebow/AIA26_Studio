@@ -5,7 +5,7 @@ import re
 SYSTEM_PROMPT = (
     "You are an architect assistant preparing search input for layout retrieval. "
     "Return one JSON object with exactly this shape: "
-    '{"latest_prompt_useful":true,"graph":{"programs":[],"access_pairs":[],"adjacency_pairs":[],"not_adjacency_pairs":[],"centrality":[],"windows":[],"shape":null,"total_area":null,"aspect_ratio":null,"compactness":null},"household":[],"description":""}. '
+    '{"latest_prompt_useful":true,"graph":{"programs":[],"access_pairs":[],"adjacency_pairs":[],"not_adjacency_pairs":[],"centrality":[],"room_sizes":[],"windows":[],"shape":null,"total_area":null,"aspect_ratio":null,"compactness":null},"household":[],"description":""}. '
     "Use only JSON, with no explanation.\n"
     "Rules:\n"
     "- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n"
@@ -28,7 +28,8 @@ SYSTEM_PROMPT = (
     "- graph.access_pairs contains pairs of program names that should be connected by doors.\n"
     "- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n"
     "- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n"
-    "- graph.centrality is a list of [program, level] pairs indicating how central a room should be. Levels are: peripheral, connected, or central. For example, if the user wants a central living room: [[\"living\", \"central\"]].\n"
+    "- graph.centrality is a list of [program, level] pairs indicating how central or private a room should be. Levels: peripheral, connected, or central. Set this ONLY when the user explicitly states a spatial hierarchy or privacy preference — for example 'private bedroom', 'I want the living to be the heart of the flat', or 'central living space'. Do NOT infer from room type or furnishing descriptions. Example: [[\"living\", \"central\"], [\"bed\", \"peripheral\"]].\n"
+    "- graph.room_sizes is a list of [program, size] pairs indicating the preferred size for a room. Sizes are: small, medium, or large. Set this only when the user explicitly states a size preference for a specific room, for example 'large bedroom', 'small study', or '1 large storage'. Example: [[\"bed\", \"large\"], [\"storage\", \"large\"]].\n"
     "- graph.windows is a list of [program, count] pairs indicating how many facade exposures a room should have. Count is an integer 0-4. For example, if the user wants a bright bedroom: [[\"bed\", 2]].\n"
     "- graph.shape is the preferred apartment shape: \"rectangular\", \"L-shape\", or \"other\". Use null if not specified.\n"
     "- graph.total_area is the preferred total area in square meters as a number. Use null if not specified.\n"
@@ -69,6 +70,7 @@ def _empty_graph() -> dict:
         "adjacency_pairs": [],
         "not_adjacency_pairs": [],
         "centrality": [],
+        "room_sizes": [],
         "windows": [],
         "shape": None,
         "total_area": None,
@@ -126,6 +128,7 @@ def _normalize_graph(value: object) -> dict:
         "adjacency_pairs": _normalize_pair_list(value.get("adjacency_pairs")),
         "not_adjacency_pairs": _normalize_pair_list(value.get("not_adjacency_pairs")),
         "centrality": _normalize_pair_list(value.get("centrality")),
+        "room_sizes": _normalize_pair_list(value.get("room_sizes")),
         "windows": _normalize_str_int_pair_list(value.get("windows")),
         "shape": _normalize_optional_str(value, "shape"),
         "total_area": _normalize_optional_float(value, "total_area"),
