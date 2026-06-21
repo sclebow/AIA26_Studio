@@ -79,6 +79,11 @@ export function rawActivityToProgram(raw) {
 }
 
 // ---------------------------------------------------------------------------
+// Time slots — must stay in sync with DEFAULT_TIME_SLOTS in python/nodes/routine.py
+// ---------------------------------------------------------------------------
+export const ROUTINE_TIMES = ['06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00']
+
+// ---------------------------------------------------------------------------
 // Default schedule — used when backend sends no routine
 // ---------------------------------------------------------------------------
 // Values are canonical activity keys.
