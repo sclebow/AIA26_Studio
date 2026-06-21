@@ -24,7 +24,7 @@ const activeRooms = computed(() => {
   if (props.viewMode !== 'routine' || !props.routine) return {}
   const map = {}
   for (const p of props.routine) {
-    const roomId = p.steps?.[activeStep.value]
+    const roomId = stepRoomId(p.steps?.[activeStep.value])
     if (roomId != null) {
       if (!map[roomId]) map[roomId] = []
       map[roomId].push({ color: p.color, name: p.persona })
@@ -111,6 +111,59 @@ function roomNameForId(id) {
   return r ? (getRoomDisplayName(r) || id) : id
 }
 
+// Steps can be null (away) or {room, label} objects from the backend.
+function stepRoomId(step) {
+  if (!step) return null
+  if (typeof step === 'string') return step           // backward compat
+  return step.room ?? null
+}
+
+function stepActivity(step) {
+  if (!step) return 'away'
+  if (typeof step === 'string') {
+    // backward compat: infer from room program
+    const room = props.layout?.rooms?.find(r => String(r.id) === String(step))
+    const p = room?.attributes?.program
+    return { bed: 'sleeping', bath: 'showering', walkincloset: 'dressing',
+             living: 'at home', wc: 'bathroom' }[p] ?? 'at home'
+  }
+  return step.label || 'at home'
+}
+
+const ACTIVITY_ORDER = ['sleeping', 'napping', 'showering', 'dressing', 'working', 'studying',
+                        'cooking', 'relaxing', 'playing', 'at home', 'bathroom', 'away']
+
+const activityGroups = computed(() => {
+  if (!props.routine) return []
+  const groups = {}
+  for (const p of props.routine) {
+    const step = p.steps?.[activeStep.value]
+    const activity = stepActivity(step)
+    if (!groups[activity]) groups[activity] = { activity, personas: [] }
+    groups[activity].personas.push({ name: p.persona, color: p.color })
+  }
+  const ordered = ACTIVITY_ORDER.filter(a => groups[a]).map(a => groups[a])
+  const rest = Object.values(groups).filter(g => !ACTIVITY_ORDER.includes(g.activity))
+  return [...ordered, ...rest]
+})
+
+const personaSteps = computed(() => {
+  if (!props.routine) return []
+  return props.routine.map(p => {
+    const step = p.steps?.[activeStep.value]
+    const roomId = stepRoomId(step)
+    const activity = stepActivity(step)
+    const room = roomId ? props.layout?.rooms?.find(r => String(r.id) === String(roomId)) : null
+    return {
+      name: p.persona,
+      color: p.color,
+      activity,
+      roomName: room?.name ?? null,
+      away: step == null,
+    }
+  })
+})
+
 function scoreRingStyle(score) {
   const value = Math.max(0, Math.min(100, score ?? 0))
   return {
@@ -138,13 +191,14 @@ function scoreRingStyle(score) {
             step="1"
             v-model.number="activeStep"
           />
-          <ul class="layout-summary-list routine-persona-list">
-            <li v-for="p in routine" :key="p.persona" class="layout-summary-room-row">
-              <span class="room-swatch" :style="{ background: p.color }"></span>
-              <span class="routine-persona-name">{{ p.persona }}</span>
-              <span class="routine-persona-room">{{ roomNameForId(p.steps?.[activeStep]) ?? '–' }}</span>
-            </li>
-          </ul>
+          <div class="persona-step-list">
+            <div v-for="p in personaSteps" :key="p.name" class="persona-step-row">
+              <span class="persona-step-dot" :style="{ background: p.color }"></span>
+              <span class="persona-step-name">{{ p.name }}</span>
+              <span class="persona-step-activity" :class="{ away: p.away }">{{ p.activity }}</span>
+              <span v-if="!p.away && p.roomName" class="persona-step-room">{{ p.roomName }}</span>
+            </div>
+          </div>
         </template>
         <template v-else>
           <span class="no-rooms-tag">No routine yet</span>
@@ -342,16 +396,53 @@ function scoreRingStyle(score) {
   border-radius: 2px;
   flex-shrink: 0;
 }
-.routine-persona-list {
-  margin-top: 4px;
+.persona-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 8px;
 }
-.routine-persona-name {
-  flex: 1;
-  color: var(--color-text-secondary);
+.persona-step-row {
+  display: grid;
+  grid-template-columns: 10px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: var(--color-surface, #fff);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.08);
 }
-.routine-persona-room {
+.persona-step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.persona-step-name {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text);
-  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.persona-step-activity {
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+.persona-step-activity.away {
+  font-style: italic;
+  opacity: 0.6;
+}
+.persona-step-room {
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+  opacity: 0.55;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
 }
 .evaluation-section {
   margin-top: 14px;

@@ -465,12 +465,17 @@ class RuleBasedEmbedder:
             """Return True if layout has any of the excluded adjacencies."""
             if not excluded_pairs:
                 return False
-            
+
             G = self.layout_graphs[layout_id]
             for u, v in G.edges():
                 if 'adjacency' in G[u][v].get('edge_types', []):
                     pu = normalize_program(G.nodes[u].get("program", ""))
                     pv = normalize_program(G.nodes[v].get("program", ""))
+                    if pu == pv:
+                        # Can't distinguish specific instances of the same program —
+                        # skip to avoid eliminating all layouts with multiple rooms
+                        # of the same type (e.g. [bed, bed] in a 3-bedroom layout).
+                        continue
                     pair = tuple(sorted([pu, pv]))
                     if pair in excluded_pairs:
                         return True
