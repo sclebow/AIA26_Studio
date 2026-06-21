@@ -1,0 +1,10 @@
+{
+  "layoutId": "Layout-280",
+  "description": "Compact and efficient. Living bright bedrooms dim. Deep — views through multiple spaces. Short connecting link between entry and living area. Kitchen: L-shaped or U-shaped with extended counter run, no island or peninsula — counter set back from windows, moderate natural light. Cook faces the wall — back to the living and dining area. Two cooks can work simultaneously on separate counter runs. Fully open plan — no wall separates kitchen from dining and living. Living arrangement: living-dominant, kitchen on end wall. Seating: A sofa sits in the lower-right living area facing left toward the TV on the opposite wall; a round dining table with chairs sits in the centre-right of the living zone. Dining table (4 seats). TV on wall opposite wall to entry. Cook can see TV from cooking position. Diners unclear if facing the TV. Entry: direct into living, first thing visible on arrival is living area. No door between entry and living — relevant where local regulations require separation. Double bedroom — accessed via own door off corridor, no walk-in wardrobe. Double bedroom closest to entry — lighter acoustic separation from the arrival zone. Storage: no wardrobe — very limited storage. One bathroom (shower, bathtub, and toilet). Bathroom accessed directly from the living area — no private corridor. Single bathroom — all household members share one shower, sequential morning routine. Suits: singles or couples. Not suitable for: families with children (only one bedroom); people needing significant storage (no wardrobe); remote workers requiring a dedicated desk/office space; anyone wanting bathroom privacy from guests (bath accessed via living).",
+  "not_suitable_for": [
+    "families with children (only one bedroom)",
+    "people needing significant storage (no wardrobe)",
+    "remote workers requiring a dedicated desk/office space",
+    "anyone wanting bathroom privacy from guests (bath accessed via living)"
+  ]
+}

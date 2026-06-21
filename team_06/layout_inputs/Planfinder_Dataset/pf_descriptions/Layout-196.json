@@ -1,0 +1,9 @@
+{
+  "layoutId": "Layout-196",
+  "description": "Narrow and elongated. Living bright bedrooms dim. Deep — views through multiple spaces. Clear functional corridor connecting zones. Kitchen: L-shaped or U-shaped, no island or peninsula — counter set back from windows, moderate natural light. Cook faces the wall — back to the living and dining area. Two cooks can work simultaneously on separate counter runs. Fully open plan — no wall separates kitchen from dining and living. Living arrangement: split seating-kitchen-dining, kitchen on side wall. Seating: Sofa in lower living zone facing into the room with a coffee table; an additional upper seating area near the bedroom side facing inward. Dining table (6 seats). TV on wall unclear. Cook may see TV from cooking position. Diners do not face the TV. Entry: corridor entry, first thing visible on arrival is bedroom doors, L-shaped corridor, medium length. No door between entry and living — relevant where local regulations require separation. Double bedroom — accessed via own door off corridor, walk-in wardrobe (open two facing units). Double bedroom closest to entry — lighter acoustic separation from the arrival zone. Storage: generous wardrobe storage. Sanitary rooms: bathroom (shower, bathtub, and toilet); separate WC. One bathroom plus separate WC — one person can shower while another uses the toilet. Simultaneous showering not possible. Suits: singles or couples. Not suitable for: large families needing multiple bedrooms; households requiring a home office with natural light; wheelchair users navigating the L-shaped corridor and tight room access.",
+  "not_suitable_for": [
+    "large families needing multiple bedrooms",
+    "households requiring a home office with natural light",
+    "wheelchair users navigating the L-shaped corridor and tight room access"
+  ]
+}
