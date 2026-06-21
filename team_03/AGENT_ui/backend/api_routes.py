@@ -49,6 +49,95 @@ async def get_layout(name: str):
     return data
 
 
+@router.get("/api/layouts/{name}/versions", response_model=List[Dict[str, Any]])
+async def get_layout_versions(name: str):
+    """Return the version history for a base layout: the original plus every
+    approved revision saved to team_03/output/, oldest → newest."""
+    return layout_loader.list_versions(name)
+
+
+class VersionSelect(BaseModel):
+    version_id: str          # base name (original) or output file stem (version)
+    file: Optional[str] = None  # output file name for a revision (None = original)
+
+
+@router.post("/api/layouts/{name}/version/select")
+async def select_layout_version(name: str, body: VersionSelect):
+    """Make a specific version of *name* the active working layout.
+
+    Loads the version JSON (the original base layout, or a revision file from
+    team_03/output/), mirrors it into the live workspace session, rebuilds the
+    spatial graph, and PINS it so the next chat run operates on this revision
+    instead of the base file. Returns the layout JSON for the viewport."""
+    if body.file:
+        data = layout_loader.load_version(body.file)
+        is_original = False
+    else:
+        data = layout_loader.load_layout(name)
+        is_original = True
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"Version '{body.version_id}' not found.")
+
+    # Live workspace file (Grasshopper / observer / reload all read this).
+    _write_session_active(data)
+
+    if _session is not None:
+        _session.update_layout(data)
+        try:
+            graph_data = build_graph(data)
+            if "error" not in graph_data:
+                _session.update_graph(graph_data)
+        except Exception:
+            pass
+
+    # Pin so the chat pipeline runs on the chosen revision. Selecting the
+    # original clears the pin (build_context falls back to the base file).
+    try:
+        import pipeline_bridge
+        pipeline_bridge.set_pinned_layout(None if is_original else name, None if is_original else data)
+    except Exception:
+        pass
+
+    # The user switched the working layout under any in-flight chat run — abort
+    # it so the next message rebuilds the pipeline on the selected revision.
+    try:
+        import agent_runner
+        agent_runner.abort_session()
+    except Exception:
+        pass
+
+    return data
+
+
+@router.delete("/api/layouts/{name}/versions/{file_name}")
+async def delete_layout_version(name: str, file_name: str):
+    """Delete a specific revision from team_03/output/.
+
+    Only files whose stem starts with the base layout name are accepted
+    (path-traversal and cross-layout deletes are rejected with 400).
+    The original base layout can never be deleted through this endpoint."""
+    safe = Path(file_name).name          # strip any directory component
+    if not safe.endswith(".json"):
+        safe += ".json"
+    stem = Path(safe).stem
+
+    # Guard: must belong to this base layout and be a timestamped revision.
+    if not stem.startswith(f"{name}_"):
+        raise HTTPException(status_code=400, detail="File does not belong to this layout.")
+
+    out = layout_loader._output_dir()
+    target = out / safe
+    if not target.exists() or not target.is_file():
+        raise HTTPException(status_code=404, detail=f"Version file '{safe}' not found.")
+
+    try:
+        target.unlink()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Could not delete file: {exc}") from exc
+
+    return {"status": "ok", "deleted": safe}
+
+
 @router.post("/api/layouts/upload")
 async def upload_layout(file: UploadFile = File(...)):
     """
@@ -231,6 +320,7 @@ class AnalyzePayload(BaseModel):
     layout: dict
     profile_config: Optional[dict] = None
     space_config: Optional[dict] = None
+    tool: Optional[str] = None  # "collision" | "path" | "visibility" — run only one tool
 
 
 def _scoredata_from_scoring(sr: dict) -> dict:
@@ -263,15 +353,50 @@ def _scoredata_from_scoring(sr: dict) -> dict:
 
 @router.post("/api/analyze")
 async def analyze_layout(body: AnalyzePayload):
-    """Run the 5 analysis tools + scoring on a layout and return Dashboard scores.
-    Deterministic (no LLM, no Rhino/MCP) — drives the Analysis Dashboard directly."""
-    from adapters.analysis_adapter import run_all
+    """Run analysis tools on a layout.
 
+    When `tool` is set, runs ONLY that tool and returns its overlay data.
+    When omitted, runs all 5 tools + scoring (used by the agent pipeline)."""
+    from adapters.analysis_adapter import (
+        run_collision, run_path_analysis, run_visibility, run_all,
+    )
+
+    tool = (body.tool or "").strip().lower()
+
+    # ── Single-tool path (toggled from the Dashboard) ──────────────────────
+    if tool == "collision":
+        result = run_collision(body.layout, profile_config=body.profile_config)
+        response: dict = {}
+        gv = result.get("grid_viz")
+        if gv:
+            response["collision_overlay"] = gv
+        return response
+
+    if tool == "path":
+        result = run_path_analysis(body.layout)
+        return {"path_result": result}
+
+    if tool == "visibility":
+        result = run_visibility(body.layout)
+        return {"visibility_result": result}
+
+    # ── Full analysis (all 5 tools + scoring) ──────────────────────────────
     res = run_all(body.layout, profile_config=body.profile_config, space_config=body.space_config)
     sr = res.get("scoring_results") or {}
     if sr.get("error"):
         raise HTTPException(status_code=500, detail=f"Analysis failed: {sr['error']}")
     scores = _scoredata_from_scoring(sr)
+
+    collision_r = res.get("collision_results") or {}
+    gv = collision_r.get("grid_viz")
+    if gv:
+        scores["collision_overlay"] = gv
+
+    orientation_r = res.get("orientation_results") or {}
+    orient_results = orientation_r.get("results", [])
+    if orient_results:
+        scores["orientation_overlay"] = {"results": orient_results}
+
     if _session is not None:
         try:
             _session.update_scores(scores)
@@ -342,6 +467,14 @@ async def create_session(body: SessionCreate):
 
     # Make the selected layout the live working layout (Grasshopper / observer / reload).
     _write_session_active(data)
+
+    # Picking a base layout in the dropdown resets the version selection to its
+    # "current" state — clear any pinned revision so the chat runs on the base.
+    try:
+        import pipeline_bridge
+        pipeline_bridge.set_pinned_layout(None, None)
+    except Exception:
+        pass
 
     # If the layout actually changed, abort any active chat session so the next
     # message starts fresh on the new layout (build_context re-copies it).

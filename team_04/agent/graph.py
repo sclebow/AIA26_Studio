@@ -88,7 +88,7 @@ def run_agent(
     initial_layout: dict[str, Any] | None = None,
     max_optimization_cycles: int = 4,
     planner: Planner | None = None,
-    recursion_limit: int = 64,
+    recursion_limit: int = 128,
 ) -> AgentState:
     app = build_agent_graph(decision_engine, tool_client, catalog, planner=planner)
     initial_state = build_initial_state(
@@ -192,6 +192,7 @@ def _build_group_executor(
             allowed_names=allowed_names,
             layout_json=state.get("layout_json", "{}"),
             geometry_id=state.get("geometry_id"),
+            site_boundary=_extract_site_boundary(state),
         )
         messages = list(state.get("messages", []))
         messages.extend(record["message"] for record in records)
@@ -260,12 +261,22 @@ def _build_constraint_node(
     def check_constraints(state: AgentState) -> AgentState:
         allowed_names = set(catalog.names_for_action("check_constraints"))
         tool_calls = [{"name": name, "arguments": {}} for name in allowed_names]
+        if not tool_calls:
+            return {
+                "constraint_results": {"_note": "No constraint tools available; no violations assumed."},
+                "checked_geometry_id": state.get("geometry_id"),
+                "violations": [],
+                "replan_required": True,
+                "replan_reason": "No constraint tools available; assuming no violations.",
+                "error": None,
+            }
         records, aggregate, layout_json, geometry_id = _execute_tool_calls(
             tool_client=tool_client,
             tool_calls=tool_calls,
             allowed_names=allowed_names,
             layout_json=state.get("layout_json", "{}"),
             geometry_id=state.get("geometry_id"),
+            site_boundary=_extract_site_boundary(state),
         )
         messages = list(state.get("messages", []))
         messages.extend(record["message"] for record in records)
@@ -301,12 +312,20 @@ def _build_evaluation_node(
     def evaluate(state: AgentState) -> AgentState:
         allowed_names = set(catalog.names_for_action("evaluate"))
         tool_calls = [{"name": name, "arguments": {}} for name in allowed_names]
+        if not tool_calls:
+            return {
+                "evaluation_results": {"_note": "No evaluation tools available; skipping."},
+                "replan_required": True,
+                "replan_reason": "No evaluation tools available; skipping evaluation.",
+                "error": None,
+            }
         records, aggregate, layout_json, geometry_id = _execute_tool_calls(
             tool_client=tool_client,
             tool_calls=tool_calls,
             allowed_names=allowed_names,
             layout_json=state.get("layout_json", "{}"),
             geometry_id=state.get("geometry_id"),
+            site_boundary=_extract_site_boundary(state),
         )
         messages = list(state.get("messages", []))
         messages.extend(record["message"] for record in records)
@@ -446,14 +465,27 @@ def _build_place_building_node(
         )
         parsed_output = _parse_tool_output(raw_output)
         placement_data = parsed_output.get("data", {}) if isinstance(parsed_output, dict) else {}
+        shape_payload = _extract_current_shape_payload(state)
         placed_buildings = list(state.get("placed_buildings", []))
-        placed_buildings.append(
-            {
-                "geometry_id": geometry_id,
-                "boundary": placed_boundary,
-                "placement": placement_data,
-            }
-        )
+        placed_snapshot = {
+            "geometry_id": geometry_id,
+            "boundary": placed_boundary,
+            "placement": placement_data,
+        }
+        if isinstance(shape_payload, dict):
+            for key in (
+                "shape_type",
+                "wings",
+                "building_graph",
+                "parameters",
+                "site_fit_summary",
+                "placement_optimization",
+                "option_catalog",
+                "object_hierarchy",
+            ):
+                if key in shape_payload:
+                    placed_snapshot[key] = shape_payload[key]
+        placed_buildings.append(placed_snapshot)
         messages.append(f"Tool {tool_name} executed.")
         tool_history.append(
             {
@@ -485,6 +517,7 @@ def _build_place_building_node(
                     "violations": [],
                     "evaluation_results": {},
                     "placement_fit_summary": {},
+                    "remaining_positions_analyzed_for_count": None,
                     "requested_position_assessment": {},
                 }
             )
@@ -733,6 +766,7 @@ def _build_remaining_positions_node(
             "messages": messages,
             "tool_history": tool_history,
             "remaining_candidate_positions": result_data.get("candidate_positions", []) if isinstance(result_data, dict) else [],
+            "remaining_positions_analyzed_for_count": len(state.get("placed_buildings", [])),
             "replan_required": True,
             "replan_reason": "Remaining-site analysis completed.",
             "error": None,
@@ -854,6 +888,7 @@ def _execute_tool_calls(
     allowed_names: set[str],
     layout_json: str,
     geometry_id: str | None,
+    site_boundary: list[list[float]] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any], str, str | None]:
     records: list[dict[str, Any]] = []
     aggregate: dict[str, Any] = {}
@@ -869,6 +904,10 @@ def _execute_tool_calls(
         arguments = {key: value for key, value in arguments.items() if value is not None}
         if "layout_json" not in arguments:
             arguments["layout_json"] = current_layout_json
+        if site_boundary and "site_boundary" not in arguments:
+            arguments["site_boundary"] = site_boundary
+        if tool_name == "generate_building_boundary":
+            arguments.setdefault("optimize_placement", True)
         if current_geometry_id and "geometry_id" not in arguments:
             arguments["geometry_id"] = current_geometry_id
 
@@ -918,6 +957,13 @@ def _extract_geometry_id(payload: Any) -> str | None:
 
 
 def _extract_current_boundary(state: AgentState) -> list[list[float]] | None:
+    shape_payload = _extract_current_shape_payload(state)
+    if isinstance(shape_payload, dict) and isinstance(shape_payload.get("boundary"), list):
+        return shape_payload["boundary"]
+    return None
+
+
+def _extract_current_shape_payload(state: AgentState) -> dict[str, Any] | None:
     shape_context = state.get("shape_context", {})
     if not isinstance(shape_context, dict):
         shape_context = {}
@@ -925,7 +971,7 @@ def _extract_current_boundary(state: AgentState) -> list[list[float]] | None:
         if isinstance(payload, dict):
             data = payload.get("data", payload)
             if isinstance(data, dict) and isinstance(data.get("boundary"), list):
-                return data["boundary"]
+                return data
     for record in reversed(state.get("tool_history", [])):
         if not isinstance(record, dict):
             continue
@@ -933,7 +979,7 @@ def _extract_current_boundary(state: AgentState) -> list[list[float]] | None:
         if isinstance(output, dict):
             data = output.get("data", output)
             if isinstance(data, dict) and isinstance(data.get("boundary"), list):
-                return data["boundary"]
+                return data
     return None
 
 
@@ -956,12 +1002,33 @@ def _extract_placed_boundary(state: AgentState) -> list[list[float]] | None:
 def _extract_site_boundary(state: AgentState) -> list[list[float]] | None:
     if isinstance(state.get("site_boundary"), list) and state.get("site_boundary"):
         return state.get("site_boundary")
+    site_context = state.get("site_context", {})
+    found = _find_site_boundary(site_context)
+    if found:
+        return found
     try:
         layout_payload = json.loads(state.get("layout_json", "{}"))
     except json.JSONDecodeError:
         return None
     boundary = layout_payload.get("site_boundary") if isinstance(layout_payload, dict) else None
     return boundary if isinstance(boundary, list) else None
+
+
+def _find_site_boundary(payload: Any) -> list[list[float]] | None:
+    if isinstance(payload, dict):
+        value = payload.get("site_boundary")
+        if isinstance(value, list) and value:
+            return value
+        for item in payload.values():
+            found = _find_site_boundary(item)
+            if found:
+                return found
+    if isinstance(payload, list):
+        for item in payload:
+            found = _find_site_boundary(item)
+            if found:
+                return found
+    return None
 
 
 def _extract_requested_position(state: AgentState) -> list[float] | None:

@@ -1,7 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import GlassPanel from '../common/GlassPanel';
 import { useTheme } from '../common/ThemeToggle';
-import LayoutDropzone from './LayoutDropzone';
 
 export interface LayoutInfo {
   name: string;
@@ -13,7 +11,6 @@ export interface LayoutLoaderProps {
   layouts: LayoutInfo[];
   selectedLayout: string | null;
   onSelect: (name: string) => void;
-  onUpload: (file: File) => void;
 }
 
 const ChevronIcon: React.FC<{ color: string }> = ({ color }) => (
@@ -26,7 +23,6 @@ const LayoutLoader: React.FC<LayoutLoaderProps> = ({
   layouts,
   selectedLayout,
   onSelect,
-  onUpload,
 }) => {
   const { colors, theme } = useTheme();
   const isDark = theme === 'dark';
@@ -186,21 +182,6 @@ const LayoutLoader: React.FC<LayoutLoaderProps> = ({
         </div>
       )}
 
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        margin: '12px 0',
-        fontFamily: colors.font,
-      }}>
-        <div style={{ flex: 1, height: '1px', background: colors.border }} />
-        <span style={{ color: colors.muted, fontSize: '10px', letterSpacing: '0.06em', textTransform: 'uppercase', flexShrink: 0 }}>
-          or upload
-        </span>
-        <div style={{ flex: 1, height: '1px', background: colors.border }} />
-      </div>
-
-      <LayoutDropzone onUpload={onUpload} />
     </div>
   );
 };

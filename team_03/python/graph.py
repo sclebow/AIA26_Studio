@@ -726,7 +726,7 @@ def build_graph(ctx: Any) -> Any:
 
     graph.add_conditional_edges(
         "populate_check", _route_after_populate_check,
-        {"populate_agent": "populate_agent", "memory": "memory"},
+        {"populate_agent": "populate_agent", "memory": "memory", "reason": "reason"},
     )
     # populate_agent fills the object queue from the populate prompt — still a
     # user message, so pass through memory before reason drains the queue.

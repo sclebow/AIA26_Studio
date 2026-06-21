@@ -17,6 +17,7 @@ import builtins
 import contextlib
 import os
 import queue
+import re
 import threading
 from typing import Any, Dict, Optional
 
@@ -42,7 +43,7 @@ _NODE_ALIAS = {
 # exceeds 25 nodes. The graph's own caps (max_iterations, MAX_ADJUSTMENTS) bound
 # legitimate loops well below this, so a higher limit just lets a real run finish.
 # Overridable via the GRAPH_RECURSION_LIMIT env var.
-GRAPH_RECURSION_LIMIT = int(os.environ.get("GRAPH_RECURSION_LIMIT", "100"))
+GRAPH_RECURSION_LIMIT = int(os.environ.get("GRAPH_RECURSION_LIMIT", "300"))
 
 
 # Sentinel pushed into the input queue to abort a blocked checkpoint so the
@@ -176,10 +177,40 @@ async def start_session(
 
         def on_line(line: str) -> None:
             parser.feed(line)
+            # Stream zone planning summary lines to the UI as agent_say events
+            stripped = line.strip()
+            if stripped.startswith("[populate_agent] Phase 1 complete:"):
+                emit({"type": MessageType.agent_say.value,
+                      "content": f"📋 {stripped.replace('[populate_agent] ', '')}"})
+            elif stripped.startswith("  - ") and state.get("current_node") == "populate_agent":
+                emit({"type": MessageType.agent_say.value,
+                      "content": stripped})
+            elif stripped.startswith("[populate_agent] Phase 2:"):
+                emit({"type": MessageType.agent_say.value,
+                      "content": "📐 Calculating coordinates for first zone..."})
+            elif stripped.startswith("[zone] Advancing to:"):
+                emit({"type": MessageType.agent_say.value,
+                      "content": f"➡️ {stripped.replace('[zone] ', '')}"})
+            elif stripped.startswith("[zone] Calculating coordinates for:"):
+                emit({"type": MessageType.agent_say.value,
+                      "content": f"📐 {stripped.replace('[zone] ', '')}"})
+
 
         # Patched input(): the call itself signals "menu printed, awaiting decision".
         def patched_input(prompt_text: str = "") -> str:
             payload = parser.take_checkpoint()
+            # Strip raw JSON bleed from agent message — happens when LLM
+            # outputs markdown+JSON mixed instead of pure JSON
+            agent_msg = payload.get("agentMessage", "") or ""
+            # Remove everything from the first { that looks like a JSON blob
+            clean_msg = re.split(r'\s*\{\"action\"', agent_msg)[0].strip()
+            # Also strip trailing raw JSON object if present
+            clean_msg = re.sub(r'\{[\s\S]*\}[\s\}]*$', '', clean_msg).strip()
+            if clean_msg:
+                payload["agentMessage"] = clean_msg
+            elif not clean_msg and agent_msg:
+                # Entire message was JSON — suppress it
+                payload["agentMessage"] = ""
             emit(payload)
             # Reflect the checkpoint score in the Analysis Dashboard (the scoring
             # node doesn't run on analysis/query paths, so use the parsed breakdown).
@@ -230,6 +261,38 @@ async def start_session(
                         sr = out.get("scoring_results")
                         if isinstance(sr, dict):
                             emit_scores(sr.get("total_score"), sr.get("grade"), sr.get("breakdown") or {})
+
+                        # Collision node → push grid-based heatmap to the 3D viewport.
+                        # The pipeline's collision_results still carry _grid_meta (the
+                        # adapter only moves it to grid_viz for the HTTP path).
+                        if node == "collision":
+                            cr = out.get("collision_results") or {}
+                            gm = cr.get("_grid_meta") or cr.get("grid_viz")
+                            if gm and (gm.get("violation_cells") or gm.get("warning_cells")):
+                                emit({
+                                    "type": MessageType.analysis_overlay.value,
+                                    "kind": "collision",
+                                    "grid_viz": {
+                                        "violation_cells": gm.get("violation_cells", []),
+                                        "warning_cells":   gm.get("warning_cells",   []),
+                                        "ox":   gm.get("ox",   0),
+                                        "oy":   gm.get("oy",   0),
+                                        "cols": gm.get("cols", 0),
+                                        "rows": gm.get("rows", 0),
+                                        "cs":   gm.get("cs",   0.10),
+                                    },
+                                })
+
+                        # Orientation node → push arrow data for each object.
+                        elif node == "orientation":
+                            or_r = out.get("orientation_results") or {}
+                            results = or_r.get("results", [])
+                            if results:
+                                emit({
+                                    "type": MessageType.analysis_overlay.value,
+                                    "kind": "orientation",
+                                    "results": results,
+                                })
                 elif etype == "on_chain_error" and node:
                     emit_event(node, "error", str((ev.get("data") or {}).get("error", "")))
             return final_state
@@ -253,16 +316,64 @@ async def start_session(
                 final_state = agent_loop.run_until_complete(consume(app, initial_state))
 
             final_response = (final_state or {}).get("final_response") or "Session complete."
-            emit({"type": MessageType.agent_response.value, "content": str(final_response)})
 
+            # If the run was approved, the output node saved a timestamped revision
+            # to team_03/output/. Tell the UI so it refreshes the Version History
+            # panel and switches the viewport to the newly-saved version.
+            try:
+                m = re.search(r"saved to\s+(.+\.json)", str(final_response))
+                if m:
+                    from pathlib import Path as _Path
+                    saved = _Path(m.group(1).strip().strip('"').strip("'"))
+                    emit({
+                        "type": MessageType.version_saved.value,
+                        "file": saved.name,
+                        "id": saved.stem,
+                        "name": (ctx.layout_name if ctx else None),
+                    })
+            except Exception:
+                pass
+
+            # Strip the "final_response" prefix if the explain node prepended it
+            clean_response = str(final_response)
+            if clean_response.startswith("final_response"):
+                clean_response = clean_response[len("final_response"):].strip()
+            print(f"[debug] Emitting final response ({len(clean_response)} chars): {clean_response[:200]}")
+
+            async def _delayed_response_emit():
+                await asyncio.sleep(1.5)
+                emit({"type": MessageType.agent_response.value, "content": clean_response})
+            asyncio.run_coroutine_threadsafe(_delayed_response_emit(), loop)
+
+            # Emit final layout — try workspace first, fall back to state
             layout = read_session_layout(ctx.workspace_path)
+            if not layout:
+                try:
+                    layout_str = (final_state or {}).get("layout_json_string")
+                    if layout_str:
+                        import json as _json
+                        layout = _json.loads(layout_str)
+                except Exception:
+                    pass
             if layout:
-                emit({
-                    "type": MessageType.state_update.value,
-                    "field": "layout",
-                    "data": layout,
-                    "proposal": False,
-                })
+                import asyncio as _asyncio
+                async def _delayed_layout_emit():
+                    await _asyncio.sleep(1.0)
+                    emit({
+                        "type": MessageType.state_update.value,
+                        "field": "layout",
+                        "data": layout,
+                        "proposal": False,
+                    })
+                asyncio.run_coroutine_threadsafe(_delayed_layout_emit(), loop)
+                # Also emit scores if available so dashboard stays populated
+                sr = (final_state or {}).get("scoring_results") or {}
+                if sr.get("total_score") is not None:
+                    emit_scores(
+                        sr.get("total_score"),
+                        sr.get("grade"),
+                        sr.get("breakdown") or {},
+                    )
 
             # Backfill: if the turn answered conversationally without running the
             # analysis tools (no score emitted), compute the score deterministically

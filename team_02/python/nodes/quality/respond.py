@@ -1,20 +1,21 @@
 """
 RESPOND node — generates the final user-facing response.
-Format adapts to action (analyze/detect/full/change_material/etc.) and user_type register.
-Incorporates specialist interpretations and any evaluator/fact-checker feedback.
+Format adapts to action (analyze/detect/full/edit/etc.) and user_type register.
+Incorporates specialist interpretations and any evaluator revision feedback.
 """
 
 from __future__ import annotations
 import json as _json
 from _runtime.llm import call_llm_simple
 from nodes._shared.utils import grounded_facts, grounded_extremes
+from nodes._shared.register import register_tone
 
-# Actions that are layout edits (what-ifs), routed to analyze+compare then respond.
-_EDIT_ACTIONS = ("change_material", "modify_glazing", "add_furniture")
+# The unified edit action (one OR MORE edits applied in a single turn).
+_EDIT_ACTIONS = ("edit",)
 
 
 def _format_change(layout_diff):
-    """One readable line describing the edit, from the structured layout_diff."""
+    """One readable line describing a single edit, from the structured layout_diff."""
     if not layout_diff:
         return ""
     room = layout_diff.get("room_name", "the room")
@@ -31,8 +32,17 @@ def _format_change(layout_diff):
     return line
 
 
+def _format_changes(layout_diffs):
+    """One line per edit when several were applied in the same turn."""
+    diffs = [d for d in (layout_diffs or []) if d]
+    if not diffs:
+        return ""
+    return "\n".join(f"- {_format_change(d)}" for d in diffs) if len(diffs) > 1 \
+        else _format_change(diffs[0])
+
+
 def _deterministic_summary(persona_label, layout_id, action, scores_json, conflicts_json,
-                           layout_diff=None, compare_versions=""):
+                           layout_diffs=None, compare_versions=""):
     """A correct, data-grounded summary used when the LLM returns nothing.
 
     The reasoning model (qwen3) occasionally emits only a <think> block, leaving an
@@ -41,20 +51,17 @@ def _deterministic_summary(persona_label, layout_id, action, scores_json, confli
     """
     head = f"For {persona_label}, Layout {layout_id}: "
 
-    # Edit (what-if): lead with the change and its before-to-after delta.
+    # Edit: lead with the change(s) and whether scores moved.
     if action in _EDIT_ACTIONS:
-        change = _format_change(layout_diff) or "an edit was applied to the layout"
-        room = (layout_diff or {}).get("room_name", "")
-        delta = ""
-        for ln in (compare_versions or "").splitlines():
-            s = ln.strip()
-            if room and s.lower().startswith(room.lower() + ":"):
-                delta = s[len(room) + 1:].strip()
-                break
-        if delta and delta.lower() != "no change":
-            return head + f"applied {change}. The {room}'s scores changed: {delta}. See the panel."
-        if delta:
-            return head + f"applied {change}, but it produced no meaningful score change. See the panel."
+        diffs = [d for d in (layout_diffs or []) if d]
+        change = _format_changes(diffs).replace("\n", "; ") or "an edit was applied to the layout"
+        # any meaningful delta line in the comparison (skip the header line)?
+        has_delta = any(
+            ":" in ln and "no change" not in ln.lower()
+            for ln in (compare_versions or "").splitlines()[1:]
+        )
+        if has_delta:
+            return head + f"applied {change}. Scores updated - see the panel for the before-to-after delta."
         return head + f"applied {change}. Scores were updated - see the panel."
 
     e = grounded_extremes(scores_json)
@@ -98,9 +105,12 @@ _SYSTEM_PROMPT = (
     "- No markdown tables. No JSON. No tool names. Plain ASCII only.\n"
     "- Use a hyphen (-) not an em dash. No special characters.\n"
     "- The full data breakdown is shown in the analysis panel. Your job is a SHORT SUMMARY only.\n"
+    "- Name rooms by their EXACT name and senses by their exact word (thermal/visual/acoustic/\n"
+    "  spatial/olfactory/tactile) - the live canvas highlights whatever you name, so don't paraphrase.\n"
     "- If SCORE INTERPRETATION context is provided, use it to enrich your language.\n"
     "- If REVISION INSTRUCTION is provided, apply it exactly before generating.\n"
-    "- If FACT CHECK DISCREPANCY is provided, fix it exactly before generating.\n\n"
+    "- For an edit, WHAT CHANGED may list SEVERAL edits - summarise them together,\n"
+    "  and report the combined before-to-after effect from VERSION COMPARISON.\n\n"
     "STATED PREFERENCES vs COMFORT RESEARCH:\n"
     "The persona carries comfort_weights derived from their stated preferences.\n"
     "When a finding or suggestion contradicts what the user rated as low priority\n"
@@ -144,15 +154,18 @@ _FORMAT_FULL = (
 )
 
 _FORMAT_EDIT = (
-    "FORMAT: 2-3 sentence chat summary for a LAYOUT EDIT (a what-if).\n"
-    "You just applied a change to the layout and re-scored it. Report the change and its effect.\n\n"
+    "FORMAT: 2-3 sentence chat summary for a LAYOUT EDIT.\n"
+    "You just applied ONE OR MORE changes to the layout and re-scored it once.\n"
+    "Report the change(s) and the combined effect.\n\n"
     "Write exactly 2-3 sentences:\n"
-    "  1. State the edit plainly: the room and what changed (see WHAT CHANGED).\n"
-    "  2. The effect: name the sense(s) that moved and give the before-to-after values\n"
-    "     for the edited room, using VERSION COMPARISON (the delta). If nothing changed\n"
-    "     meaningfully, say so honestly - do not invent an improvement.\n"
-    "  3. One short next step (e.g. detect conflicts, or try another what-if).\n\n"
-    "Lead with the change and its impact - do NOT write a generic full-layout analysis.\n"
+    "  1. State the edit(s) plainly: the room(s) and what changed (see WHAT CHANGED).\n"
+    "     If several edits were made, summarise them together in one natural sentence.\n"
+    "  2. The effect: report ONLY the senses listed in VERSION COMPARISON, and copy their\n"
+    "     'before->after' numbers EXACTLY as shown there. Do NOT mention a sense that isn't\n"
+    "     listed, and NEVER invent, round, or alter a number (no values above 1.00). If a\n"
+    "     room shows 'no change', say the change had no meaningful effect - do not invent one.\n"
+    "  3. One short next step (e.g. detect conflicts, or try another change).\n\n"
+    "Lead with the change(s) and their impact - do NOT write a generic full-layout analysis.\n"
     "No score lists. No markdown. Plain sentences only.\n"
 )
 
@@ -233,9 +246,8 @@ def build_respond_node(llm):
     """Return the respond node function, capturing the LLM instance."""
 
     def respond_node(state):
-        # Persona: flat schema (persona_compiler v2) with legacy fallback
+        # Persona: flat schema (persona_compiler v2); plain fallback if absent.
         persona_profile  = state.get("persona_profile") or {}
-        persona_detected = state.get("persona_detected", "")
         user_name_state  = state.get("user_name", "")
 
         if persona_profile:
@@ -258,13 +270,13 @@ def build_respond_node(llm):
                 parts.append(f"comfort weights: {wt_str}")
             persona = "; ".join(parts)
         else:
-            persona  = persona_detected or "Neutral"
+            persona  = "Neutral"
             p_name   = user_name_state or "User"
             p_role   = state.get("user_type", "client")
 
         layout_id   = state.get("layout_id", "?")
         # action is the unified v4 field (replaces dead comfort_depth)
-        depth       = state.get("action", "") or state.get("intent", "analyze")
+        depth       = state.get("action", "") or "analyze"
         scores      = state.get("last_scores_json", "")
         conflicts   = state.get("last_conflicts_json", "")
         suggestions = state.get("last_suggestions_json", "")
@@ -279,13 +291,14 @@ def build_respond_node(llm):
         biophilic_summary       = state.get("biophilic_summary", "")
         persona_comparison      = state.get("persona_comparison_summary", "")
         evaluator_feedback      = state.get("evaluator_feedback", "")
-        fact_check_feedback     = state.get("fact_check_feedback", "")
 
         processed_scores      = _preprocess_scores(scores)
         processed_conflicts   = _preprocess_conflicts(conflicts) if conflicts else "not run"
         processed_suggestions = _preprocess_suggestions(suggestions) if suggestions else "not run"
 
-        layout_diff = state.get("layout_diff") or {}
+        layout_diffs = state.get("layout_diffs") or (
+            [state.get("layout_diff")] if state.get("layout_diff") else []
+        )
         is_edit = depth in _EDIT_ACTIONS
 
         if is_edit:
@@ -297,12 +310,7 @@ def build_respond_node(llm):
         else:
             fmt = _FORMAT_ANALYZE
 
-        register_map = {
-            "architect": "Use professional, concise language. Technical terms are fine.",
-            "client":    "Use warm, plain language. No jargon. Focus on daily life impact.",
-            "learner":   "Use clear, educational language. Briefly explain what each term means.",
-        }
-        register_note = register_map.get(user_type, register_map["client"])
+        register_note = register_tone(user_type)
 
         sections = [
             "User request: " + raw_prompt,
@@ -329,8 +337,8 @@ def build_respond_node(llm):
         # shown directly in the analysis panel — not fed into this prompt.
         # Respond writes a 2-3 sentence summary from the raw MCP data only.
         if is_edit:
-            change_line = _format_change(layout_diff)
-            sections += ["", "--- WHAT CHANGED (lead with this) ---",
+            change_line = _format_changes(layout_diffs)
+            sections += ["", "--- WHAT CHANGED (lead with this; may be several edits) ---",
                          change_line or "(an edit was applied to the layout)"]
         if compare_versions:
             sections += ["", "--- VERSION COMPARISON (use for the before-to-after delta) ---", compare_versions]
@@ -340,8 +348,6 @@ def build_respond_node(llm):
             sections += ["", "--- PERSONA COMPARISON ---", persona_comparison]
         if evaluator_feedback:
             sections += ["", "--- REVISION INSTRUCTION (apply this) ---", evaluator_feedback]
-        if fact_check_feedback:
-            sections += ["", "--- FACT CHECK DISCREPANCY (fix this) ---", fact_check_feedback]
 
         user_message = "\n".join(sections)
 
@@ -365,7 +371,7 @@ def build_respond_node(llm):
                     else pp.get("name") or user_name_state or "you"
                 )
                 response = _deterministic_summary(short_label, layout_id, depth, scores, conflicts,
-                                                   layout_diff=layout_diff, compare_versions=compare_versions)
+                                                   layout_diffs=layout_diffs, compare_versions=compare_versions)
 
         return {**state, "final_response": response}
 

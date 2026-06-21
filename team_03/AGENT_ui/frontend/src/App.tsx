@@ -7,6 +7,7 @@ import ChatPanel from './components/ChatPanel/ChatPanel';
 import Dashboard from './components/Dashboard/Dashboard';
 import ProcessPanel from './components/ProcessPanel/ProcessPanel';
 import LayoutLoader from './components/LayoutLoader/LayoutLoader';
+import VersionHistory from './components/VersionHistory/VersionHistory';
 import AILayoutGenerator from './components/AILayoutGenerator';
 import SelectionPanel from './components/ThreeViewport/SelectionPanel';
 import ReasoningLog from './components/ReasoningLog/ReasoningLog';
@@ -16,9 +17,13 @@ import { useWebSocket } from './hooks/useWebSocket';
 import { useSelectionSync } from './hooks/useSelectionSync';
 import { useLayoutState } from './hooks/useLayoutState';
 import { useAgentState } from './hooks/useAgentState';
+import type { ViewAction } from './hooks/useAgentState';
 import WelcomePage from "./components/WelcomePage";
 import OnboardingPage, { OnboardingData, LAYOUT_STATUS, WORKFLOWS } from "./components/OnboardingPage";
 import type { LayerVisibility, LayerName } from './types';
+import type { GridViz } from './components/ThreeViewport/CollisionOverlay';
+import type { OrientationResult } from './components/ThreeViewport/OrientationOverlay';
+import type { OverlayToggles, OverlayLoadStatus } from './components/Dashboard/Dashboard';
 
 const defaultVisibility: LayerVisibility = {
   outline: true, rooms: true, doors: true, windows: true,
@@ -49,19 +54,35 @@ export default function App() {
 
   // UI state
   const [layerVisibility, setLayerVisibility] = useState<LayerVisibility>(defaultVisibility);
-  const [showLabels, setShowLabels] = useState(true);   // shared: 3D labels + graph labels
+  const [showLabels, setShowLabels] = useState(false);  // shared: 3D labels + graph labels
   const [layoutFitSignal, setLayoutFitSignal] = useState(0);  // bumps only on explicit layout pick → triggers viewport fit-to-screen
   const [isovist, setIsovist] = useState<[number, number][] | null>(null);  // visibility surface from set_observer
+  const [agentObserver, setAgentObserver] = useState<{ mode: 'person' | 'path'; point?: [number, number]; path?: [number, number][] } | null>(null);  // observer placed by the chat agent
   const [analyzing, setAnalyzing] = useState(false);          // Analysis Dashboard "Analyze" button in flight
+  const [dashboardFocus, setDashboardFocus] = useState<string | null>(null); // gauge highlighted by chat view chips
   const [viewMode, setViewMode] = useState<ViewMode>('geometry');
   const [displayMode, setDisplayMode] = useState<ViewMode>('geometry');
   const [animPhase, setAnimPhase] = useState<'idle' | 'out' | 'in'>('idle');
   const [logOpen, setLogOpen] = useState(false);
+  const [collisionOverlay, setCollisionOverlay] = useState<GridViz | null>(null);
+  const [orientationOverlay, setOrientationOverlay] = useState<OrientationResult[] | null>(null);
+  const [overlayLoadStatus, setOverlayLoadStatus] = useState<OverlayLoadStatus>({
+    collision:  { state: 'idle' },
+    visibility: { state: 'idle' },
+    path:       { state: 'idle' },
+  });
   const [generatorMode, setGeneratorMode] = useState(false);   // left panel → AI Layout Generator
   const [memState, setMemState] = useState<'idle' | 'confirm' | 'cleared'>('idle'); // Clear-memory button
+  const [chatPanelHeight, setChatPanelHeight] = useState(260);
+  const [isDraggingChat, setIsDraggingChat] = useState(false);
   const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const memTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasRunningRef = useRef(false);
+  // Holds the ThreeViewport's runAnalysis fn when a person/path observer is set.
+  const runObserverRef = useRef<(() => void) | null>(null);
+  const [observerReady, setObserverReady] = useState(false);
+  const dragStartYRef = useRef<number>(0);
+  const dragStartHRef = useRef<number>(0);
 
   // ── WebSocket dispatcher ──────────────────────────────────────────────────
   // Subscribe to EVERY message (not ws.lastMessage, which coalesces bursts and
@@ -77,7 +98,49 @@ export default function App() {
       case 'agent_checkpoint': agentState.handleAgentCheckpoint(msg); break;
       case 'state_update':     layoutState.updateFromWS(msg);         break;
       case 'selection_sync':   applyRemoteSelection(msg.elementId, msg.source); break;
-      case 'observer_result':  setIsovist(msg.status === 'ok' ? msg.isovist : null); break;
+      case 'observer_result': {
+        const ao = msg.status === 'ok' ? (msg.agentObserver ?? null) : null;
+        setIsovist(msg.status === 'ok' ? msg.isovist : null);
+        setAgentObserver(ao);
+        if (ao && viewMode === 'graph') switchMode('geometry');
+        // Transition visibility loading state → active or error (only once, not on every live drag frame).
+        setOverlayLoadStatus(prev => {
+          if (prev.visibility.state === 'loading') {
+            return {
+              ...prev,
+              visibility: msg.status === 'ok' && msg.isovist
+                ? { state: 'active' }
+                : { state: 'error', message: 'Visibility computation returned no data' },
+            };
+          }
+          return prev; // already active (live drag) — don't overwrite
+        });
+        break;
+      }
+      case 'analysis_overlay': {
+        if (msg.kind === 'collision' && msg.grid_viz) {
+          setCollisionOverlay(msg.grid_viz);
+          if (viewMode !== 'geometry') switchMode('geometry');
+        } else if (msg.kind === 'orientation' && msg.results) {
+          setOrientationOverlay(msg.results);
+          if (viewMode !== 'geometry') switchMode('geometry');
+        }
+        break;
+      }
+      case 'version_saved': {
+        // A revision was saved (e.g. after Approve layout) → refresh the Version
+        // History list and switch the viewport to the newly-saved version.
+        // Use msg.name (from the backend) to avoid stale-closure on fetchVersions.
+        const vName = msg.name ?? layoutState.selectedLayoutName;
+        (async () => {
+          if (vName) await layoutState.fetchVersions(vName);
+          if (msg.id) {
+            await layoutState.selectVersion(msg.id, msg.file);
+            setLayoutFitSignal(n => n + 1);
+          }
+        })();
+        break;
+      }
     }
   };
   useEffect(() => ws.subscribe((msg) => dispatchRef.current(msg)), [ws]);
@@ -86,6 +149,8 @@ export default function App() {
   useEffect(() => {
     (async () => {
       await layoutState.fetchLayouts();
+      // loadLayout now fetches versions internally using the local name variable,
+      // avoiding the stale-selectedLayoutName closure problem.
       if (!layoutState.layout) await layoutState.loadLayout('industrial_005');
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -141,10 +206,56 @@ export default function App() {
   const handleChatReset  = useCallback(() => { agentState.resetChat(); }, [agentState]);
   const handleChatCancel = useCallback(() => { agentState.cancelLast(); }, [agentState]);
 
+  const handleChatDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingChat(true);
+    dragStartYRef.current = e.clientY;
+    dragStartHRef.current = chatPanelHeight;
+
+    const onMove = (ev: MouseEvent) => {
+      const delta = dragStartYRef.current - ev.clientY;
+      const next = Math.min(600, Math.max(180, dragStartHRef.current + delta));
+      setChatPanelHeight(next);
+    };
+
+    const onUp = () => {
+      setIsDraggingChat(false);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [chatPanelHeight]);
+
   const handleLayoutSelect = useCallback(async (name: string) => {
-    setIsovist(null);                 // drop any visibility surface from the previous layout
+    setIsovist(null);
+    setCollisionOverlay(null);
+    setOrientationOverlay(null);
+    setOverlayLoadStatus({ collision: { state: 'idle' }, visibility: { state: 'idle' }, path: { state: 'idle' } });
     await layoutState.loadLayout(name);
-    setLayoutFitSignal(n => n + 1);   // user explicitly picked → fit to screen
+    setLayoutFitSignal(n => n + 1);
+  }, [layoutState]);
+
+  // Version History — travel to a saved revision (or the original).
+  const handleVersionSelect = useCallback(async (versionId: string, file: string | null) => {
+    setIsovist(null);
+    await layoutState.selectVersion(versionId, file);
+    setLayoutFitSignal(n => n + 1);
+  }, [layoutState]);
+
+  // A revision was deleted from disk — refresh the list and, if the deleted
+  // version was the active one, fall back to the most recent remaining version.
+  const handleVersionDeleted = useCallback(async (deletedId: string) => {
+    const name = layoutState.selectedLayoutName;
+    if (!name) return;
+    const fresh = await layoutState.fetchVersions(name);
+    // If we just deleted the currently-viewed version, switch to the last one.
+    if (deletedId === layoutState.selectedVersionId && fresh.length > 0) {
+      const last = fresh[fresh.length - 1];
+      await layoutState.selectVersion(last.id, last.file);
+      setLayoutFitSignal(n => n + 1);
+    }
   }, [layoutState]);
 
   const handleLayoutUpload = useCallback(async (file: File) => {
@@ -198,19 +309,147 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ layout: layoutState.layout }),
       });
-      if (res.ok) layoutState.setScores(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        layoutState.setScores(data);
+        // Render overlays in the 3D viewport if analysis produced grid data.
+        if (data.collision_overlay) setCollisionOverlay(data.collision_overlay);
+        if (data.orientation_overlay?.results?.length) setOrientationOverlay(data.orientation_overlay.results);
+        if (viewMode !== 'geometry' && (data.collision_overlay || data.orientation_overlay)) {
+          switchMode('geometry');
+        }
+      }
     } catch {
       // ignore — leave the dashboard as-is on failure
     } finally {
       setAnalyzing(false);
     }
-  }, [layoutState, analyzing]);
+  }, [layoutState, analyzing, viewMode, switchMode]);
+
+  // ── Overlay toggles (Visibility · Paths · Collision) in the Dashboard ────
+  const overlayToggles: OverlayToggles = {
+    collision:  collisionOverlay !== null,
+    visibility: isovist !== null,
+    path:       dashboardFocus === 'path',
+  };
+
+  const setToolStatus = useCallback((key: keyof OverlayToggles, state: OverlayLoadStatus[keyof OverlayToggles]['state'], message?: string) => {
+    setOverlayLoadStatus(prev => ({ ...prev, [key]: { state, ...(message ? { message } : {}) } }));
+  }, []);
+
+  const handleToggleOverlay = useCallback(async (key: keyof OverlayToggles) => {
+    if (!layoutState.layout) {
+      setToolStatus(key, 'error', 'No layout loaded');
+      return;
+    }
+
+    if (key === 'collision') {
+      if (collisionOverlay) {
+        setCollisionOverlay(null);
+        setToolStatus('collision', 'idle');
+      } else {
+        setToolStatus('collision', 'loading');
+        try {
+          const res = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ layout: layoutState.layout, tool: 'collision' }),
+          });
+          if (!res.ok) throw new Error(`Server error ${res.status}`);
+          const data = await res.json();
+          if (data.collision_overlay) {
+            setCollisionOverlay(data.collision_overlay);
+            setToolStatus('collision', 'active');
+            if (viewMode !== 'geometry') switchMode('geometry');
+          } else {
+            // Analysis ran OK but no violations — not an error
+            setToolStatus('collision', 'idle', 'No clearance violations detected');
+          }
+        } catch (e) {
+          setToolStatus('collision', 'error', e instanceof Error ? e.message : 'Collision analysis failed');
+        }
+      }
+
+    } else if (key === 'visibility') {
+      if (isovist) {
+        setIsovist(null);
+        setToolStatus('visibility', 'idle');
+      } else {
+        if (!runObserverRef.current) {
+          setToolStatus('visibility', 'error', 'Place a person or path in the viewport first');
+          return;
+        }
+        // Status goes loading → active/error when observer_result arrives (async WS)
+        setToolStatus('visibility', 'loading');
+        runObserverRef.current();
+      }
+
+    } else if (key === 'path') {
+      if (dashboardFocus === 'path') {
+        setDashboardFocus(null);
+        setToolStatus('path', 'idle');
+      } else {
+        setToolStatus('path', 'loading');
+        try {
+          const res = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ layout: layoutState.layout, tool: 'path' }),
+          });
+          if (!res.ok) throw new Error(`Server error ${res.status}`);
+          setDashboardFocus('path');
+          setToolStatus('path', 'active');
+        } catch (e) {
+          setDashboardFocus(null);
+          setToolStatus('path', 'error', e instanceof Error ? e.message : 'Path analysis failed');
+        }
+      }
+    }
+  }, [layoutState.layout, collisionOverlay, isovist, dashboardFocus, viewMode, switchMode, setToolStatus]);
+
+  // Chat viewport controls — the UI equivalent of the terminal's checkpoint
+  // toggles (1=BEFORE, 2=AFTER, 3/4/5=collision/visibility/paths, 0=clear).
+  // BEFORE/AFTER swap the 3D viewport's layout; the analysis chips run the
+  // deterministic analysis and highlight the matching Dashboard gauge.
+  const handleView = useCallback(async (action: ViewAction) => {
+    switch (action) {
+      case 'before': {
+        const name = layoutState.selectedLayoutName;
+        if (name) {
+          try {
+            const res = await fetch(`/api/layouts/${encodeURIComponent(name)}`);
+            if (res.ok) layoutState.previewLayout(await res.json());
+          } catch { /* ignore — keep current view */ }
+        }
+        if (viewMode !== 'geometry') switchMode('geometry');
+        break;
+      }
+      case 'after':
+        layoutState.endPreview();
+        if (viewMode !== 'geometry') switchMode('geometry');
+        break;
+      case 'collision':
+      case 'visibility':
+      case 'path':
+        setDashboardFocus(action);
+        await handleAnalyze();
+        break;
+      case 'clear':
+        layoutState.endPreview();
+        setDashboardFocus(null);
+        setIsovist(null);
+        setCollisionOverlay(null);
+        setOrientationOverlay(null);
+        setOverlayLoadStatus({ collision: { state: 'idle' }, visibility: { state: 'idle' }, path: { state: 'idle' } });
+        break;
+    }
+  }, [layoutState, viewMode, switchMode, handleAnalyze]);
 
   const handleViewportSelect = useCallback((id: string | null) => { select(id, 'viewport'); }, [select]);
   const handleGraphSelect    = useCallback((id: string | null) => { select(id, 'graph'); }, [select]);
 
-  const handleObserverPoint = useCallback((x: number, y: number, height: number, pointStr: string) => {
-    ws.send({ type: 'observer_point', x, y, height, point_str: pointStr });
+  const handleObserverPoint = useCallback((x: number, y: number, height: number, pointStr: string, live?: boolean) => {
+    ws.send({ type: 'observer_point', x, y, height, point_str: pointStr, ...(live ? { live: true } : {}) });
   }, [ws]);
 
   const handleObserverPath = useCallback((points: Array<{ x: number; y: number }>) => {
@@ -285,11 +524,19 @@ export default function App() {
     onObserverPoint: handleObserverPoint,
     onObserverPath: handleObserverPath,
     isovist,
-    onObserverChanged: () => setIsovist(null),
+    agentObserver,
+    onObserverChanged: () => { setIsovist(null); setAgentObserver(null); },
     showLabels,
     onToggleLabels: () => setShowLabels(v => !v),
     isAgentRunning: agentState.isAgentRunning,
     fitSignal: layoutFitSignal,
+    collisionOverlay,
+    orientationOverlay,
+    onRegisterRunObserver: (fn: (() => void) | null) => {
+      runObserverRef.current = fn;
+      setObserverReady(fn !== null);
+    },
+    liveVisibility: isovist !== null,
   } : null;
 
   const noLayoutPlaceholder = (
@@ -398,7 +645,7 @@ export default function App() {
         flex: 1, minHeight: 0,
         display: 'grid',
         gridTemplateColumns: '320px 1fr 320px',
-        gridTemplateRows: '1fr 260px',
+        gridTemplateRows: `1fr ${chatPanelHeight}px`,
         overflow: 'hidden',
       }}>
 
@@ -425,7 +672,6 @@ export default function App() {
                 layouts={layoutState.availableLayouts}
                 selectedLayout={layoutState.selectedLayoutName}
                 onSelect={handleLayoutSelect}
-                onUpload={handleLayoutUpload}
               />
               {/* AI Layout Generator launcher — swaps the whole left panel */}
               <button
@@ -450,6 +696,27 @@ export default function App() {
               </button>
             </div>
           </div>
+
+          {/* Version History — overflow:visible so the absolute dropdown escapes
+              the sidebar's overflow:hidden clip. */}
+          {layoutState.layout && (
+            <div style={{ flexShrink: 0, borderTop: panelBorder, overflow: 'visible', position: 'relative' }}>
+              <div style={sectionHeaderStyle}>
+                <span>Version History</span>
+                {layoutState.versions.length > 0 && (
+                  <span style={{ color: colors.accent, fontWeight: 700 }}>{layoutState.versions.length}</span>
+                )}
+              </div>
+              <VersionHistory
+                versions={layoutState.versions}
+                selectedVersionId={layoutState.selectedVersionId}
+                layoutName={layoutState.selectedLayoutName}
+                onSelect={handleVersionSelect}
+                onDeleted={handleVersionDeleted}
+                disabled={agentState.isAgentRunning}
+              />
+            </div>
+          )}
 
           {/* Layers — grows to fill middle space */}
           {layoutState.layout ? (
@@ -532,7 +799,14 @@ export default function App() {
           <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', borderBottom: panelBorder, minHeight: 0 }}>
             <div style={sectionHeaderStyle}><span>Analysis</span></div>
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-              <Dashboard scores={layoutState.scores} onAnalyze={handleAnalyze} analyzing={analyzing} />
+              <Dashboard
+                scores={layoutState.scores}
+                focusMetric={dashboardFocus}
+                overlayToggles={overlayToggles}
+                overlayLoadStatus={overlayLoadStatus}
+                onToggleOverlay={handleToggleOverlay}
+                observerReady={observerReady}
+              />
             </div>
           </div>
 
@@ -545,13 +819,35 @@ export default function App() {
           </div>
         </div>
 
-        {/* ── BOTTOM CHAT STRIP (all cols, row 2) ──────────────────────── */}
-        <div style={{
-          gridColumn: '2', gridRow: '2',
-          borderTop: panelBorder,
-          display: 'flex', flexDirection: 'column', overflow: 'hidden',
-          background: isDark ? 'rgba(11,7,20,0.98)' : 'rgba(250,251,253,0.98)',
-        }}>
+        {/* ── BOTTOM CHAT STRIP (resizable) ───────────────────────────── */}
+        <div
+          style={{
+            gridColumn: '2', gridRow: '2',
+            display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            background: isDark ? 'rgba(20,14,35,0.99)' : 'rgba(238,234,248,0.98)',
+            position: 'relative',
+            height: chatPanelHeight,
+            minHeight: 180,
+            maxHeight: 600,
+            transition: isDraggingChat ? 'none' : 'height 0.15s ease',
+            boxShadow: isDark
+              ? '0 -2px 16px rgba(139,92,246,0.08), inset 0 1px 0 rgba(139,92,246,0.15)'
+              : '0 -2px 20px rgba(139,92,246,0.18), inset 0 1px 0 rgba(139,92,246,0.35)',
+            borderTop: `1px solid ${isDark ? 'rgba(139,92,246,0.2)' : 'rgba(139,92,246,0.4)'}`,
+          }}
+        >
+          {/* Drag handle — hover over top edge to resize */}
+          <div
+            onMouseDown={handleChatDragStart}
+            style={{
+              position: 'absolute', top: 0, left: 0, right: 0,
+              height: 6, cursor: 'ns-resize', zIndex: 10,
+              background: 'transparent',
+              transition: 'background 0.2s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = colors.accent + '33')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          />
           <ChatPanel
             messages={agentState.messages}
             onSend={handleChatSend}
@@ -561,6 +857,7 @@ export default function App() {
             checkpoint={agentState.checkpoint}
             onDecision={handleChatDecision}
             statusText={agentState.currentStatus}
+            ws={ws}
           />
         </div>
       </div>

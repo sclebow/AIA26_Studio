@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from langchain_openai import ChatOpenAI
+try:
+    from langchain_openai import ChatOpenAI
+except ModuleNotFoundError:  # pragma: no cover - exercised when LLM deps are absent in unit tests
+    ChatOpenAI = Any  # type: ignore[misc,assignment]
 
 from .llm import resolve_active_llm
 from .models import PlanStep, RoutingDecision
@@ -117,6 +121,7 @@ class RuleBasedPlanner:
         assessment_geometry_id = requested_position_assessment.get("geometry_id") if isinstance(requested_position_assessment, dict) else None
         requested_position_checked = bool(geometry_id and assessment_geometry_id == geometry_id)
         remaining_positions_ready = bool(state.get("remaining_candidate_positions"))
+        remaining_positions_analyzed = bool(placed_buildings) and state.get("remaining_positions_analyzed_for_count") == len(placed_buildings)
         more_buildings_needed = len(placed_buildings) < target_building_count
         current_geometry_already_placed = any(
             isinstance(item, dict) and item.get("geometry_id") == geometry_id
@@ -270,7 +275,7 @@ class RuleBasedPlanner:
                 goal=f"Analyze the remaining site area after placing {current_building_label}.{intent_suffix}",
                 status=(
                     "completed"
-                    if remaining_positions_ready
+                    if remaining_positions_analyzed
                     else ("pending" if placed_buildings and more_buildings_needed else "skipped")
                 ),
             ),
@@ -435,6 +440,8 @@ def _repair_generate_shape_decision(
     tool_defaults = dict(defaults["tool_argument_defaults"])
     user_prompt = str(state.get("user_prompt", ""))
     site_area_sqm = _extract_site_area_sqm(state)
+    site_boundary = _extract_site_boundary_from_state(state)
+    preferred_location = _select_generation_location_hint(state)
     explicit_building_area_sqm = _extract_explicit_building_area_sqm(user_prompt)
     inferred_building_type = _infer_requested_building_type(user_prompt)
     requested_rotation = _extract_requested_rotation(user_prompt)
@@ -449,7 +456,17 @@ def _repair_generate_shape_decision(
         "max_rotation_angle": tool_defaults["max_rotation_angle"],
         "max_rotation_step": tool_defaults["max_rotation_step"],
         "rotation_step": tool_defaults["rotation_step"],
+        "optimize_placement": tool_defaults["optimize_placement"],
+        "placement_clearance": tool_defaults["placement_clearance"],
+        "population_size": tool_defaults["population_size"],
+        "generation_count": tool_defaults["generation_count"],
+        "random_seed": tool_defaults["random_seed"],
     }
+    if preferred_location is not None:
+        fallback_arguments["location_xy"] = preferred_location
+    if site_boundary:
+        fallback_arguments["site_boundary"] = site_boundary
+        fallback_arguments["optimize_placement"] = True
     if requested_rotation is not None:
         fallback_arguments.update(_rotation_arguments_for_requested_angle(requested_rotation))
 
@@ -467,6 +484,8 @@ def _repair_generate_shape_decision(
             arguments["area"] = fallback_arguments["area"]
         if requested_rotation is not None:
             arguments.update(_rotation_arguments_for_requested_angle(requested_rotation))
+        if preferred_location is not None and _uses_default_location(arguments.get("location_xy")):
+            arguments["location_xy"] = preferred_location
         for key, value in fallback_arguments.items():
             if arguments.get(key) is None:
                 arguments[key] = value
@@ -486,6 +505,81 @@ def _repair_generate_shape_decision(
         tool_calls=(ToolCall(name="generate_building_boundary", arguments=fallback_arguments),),
         user_question=decision.user_question,
     )
+
+
+def _select_generation_location_hint(state: dict[str, Any]) -> list[float] | None:
+    placed_buildings = list(state.get("placed_buildings", []))
+    if not placed_buildings:
+        return None
+
+    current_building_index = len(placed_buildings) + 1
+    requested_positions = list(state.get("requested_positions", []))
+    requested_xy = (
+        _coerce_xy(requested_positions[current_building_index - 1])
+        if 0 <= current_building_index - 1 < len(requested_positions)
+        else None
+    )
+    candidate_positions = [
+        xy
+        for xy in (_coerce_xy(point) for point in state.get("remaining_candidate_positions", []))
+        if xy is not None
+    ]
+    if not candidate_positions:
+        return None
+
+    if requested_xy is not None:
+        best_candidate = min(
+            candidate_positions,
+            key=lambda point: math.dist(point, requested_xy),
+        )
+        return [best_candidate[0], best_candidate[1]]
+
+    occupied_centroids = [
+        centroid
+        for centroid in (_boundary_centroid(item.get("boundary")) for item in placed_buildings if isinstance(item, dict))
+        if centroid is not None
+    ]
+    if not occupied_centroids:
+        first_candidate = candidate_positions[0]
+        return [first_candidate[0], first_candidate[1]]
+
+    best_candidate = max(
+        candidate_positions,
+        key=lambda point: min(math.dist(point, centroid) for centroid in occupied_centroids),
+    )
+    return [best_candidate[0], best_candidate[1]]
+
+
+def _coerce_xy(point: Any) -> tuple[float, float] | None:
+    if not isinstance(point, (list, tuple)) or len(point) < 2:
+        return None
+    if not all(isinstance(value, (int, float)) for value in point[:2]):
+        return None
+    return (float(point[0]), float(point[1]))
+
+
+def _boundary_centroid(boundary: Any) -> tuple[float, float] | None:
+    if not isinstance(boundary, list) or len(boundary) < 3:
+        return None
+    xy_points = [_coerce_xy(point) for point in boundary]
+    xy_points = [point for point in xy_points if point is not None]
+    if len(xy_points) < 3:
+        return None
+    if len(xy_points) > 1 and xy_points[0] == xy_points[-1]:
+        xy_points = xy_points[:-1]
+    if not xy_points:
+        return None
+    return (
+        sum(point[0] for point in xy_points) / len(xy_points),
+        sum(point[1] for point in xy_points) / len(xy_points),
+    )
+
+
+def _uses_default_location(location_xy: Any) -> bool:
+    coerced = _coerce_xy(location_xy)
+    if coerced is None:
+        return True
+    return math.isclose(coerced[0], 0.0, abs_tol=1e-9) and math.isclose(coerced[1], 0.0, abs_tol=1e-9)
 
 
 def _extract_site_area_sqm(state: dict[str, Any]) -> float | None:
@@ -523,12 +617,53 @@ def _default_boundary_area(site_area_sqm: float | None, default_site_coverage_ra
     return round(site_area_sqm * default_site_coverage_ratio, 2)
 
 
+def _extract_site_boundary_from_state(state: dict[str, Any]) -> list[list[float]] | None:
+    site_boundary = state.get("site_boundary")
+    if isinstance(site_boundary, list) and site_boundary:
+        return site_boundary
+
+    site_context = state.get("site_context", {})
+    found = _find_list_value(site_context, "site_boundary")
+    if found:
+        return found
+
+    layout_json = state.get("layout_json")
+    if isinstance(layout_json, str) and layout_json.strip():
+        try:
+            layout_payload = json.loads(layout_json)
+        except json.JSONDecodeError:
+            return None
+        boundary = layout_payload.get("site_boundary") if isinstance(layout_payload, dict) else None
+        if isinstance(boundary, list) and boundary:
+            return boundary
+    return None
+
+
+def _find_list_value(payload: Any, key: str) -> list[list[float]] | None:
+    if isinstance(payload, dict):
+        value = payload.get(key)
+        if isinstance(value, list) and value:
+            return value
+        for item in payload.values():
+            found = _find_list_value(item, key)
+            if found:
+                return found
+    if isinstance(payload, list):
+        for item in payload:
+            found = _find_list_value(item, key)
+            if found:
+                return found
+    return None
+
+
 def _infer_requested_building_type(user_prompt: str) -> str | None:
     prompt_lower = user_prompt.lower()
     if "y-shaped" in prompt_lower or "y shaped" in prompt_lower:
         return "Y"
     if "h-shaped" in prompt_lower or "h shaped" in prompt_lower:
         return "H"
+    if "u-shaped" in prompt_lower or "u shaped" in prompt_lower or "courtyard building" in prompt_lower:
+        return "U"
     if "x-shaped" in prompt_lower or "x shaped" in prompt_lower:
         return "X"
     if "o-shaped" in prompt_lower or "o shaped" in prompt_lower or "ring building" in prompt_lower:

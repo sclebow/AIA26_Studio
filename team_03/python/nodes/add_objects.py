@@ -192,21 +192,50 @@ def build_add_objects_node(mcp_client, workspace_path):
                         x, y = pos[0], pos[1]
                         w, d = size[0], size[1]
 
-                        # Hard overlap check — shift if overlapping existing furniture
-                        for existing in current_layout.get("furniture", []):
-                            eg = existing.get("geometry", [])
-                            if len(eg) < 4:
-                                continue
-                            exs = [p[0] for p in eg]
-                            eys = [p[1] for p in eg]
-                            ex0, ex1 = min(exs), max(exs)
-                            ey0, ey1 = min(eys), max(eys)
-                            overlap_x = x < ex1 + 0.9 and x + w > ex0 - 0.9
-                            overlap_y = y < ey1 + 0.9 and y + d > ey0 - 0.9
-                            if overlap_x and overlap_y:
-                                x = ex1 + 0.9
-                                print(f"[add_objects] Overlap detected with '{existing.get('name')}' — shifted to x={x:.2f}")
-                                break
+                        # Hard overlap check — shift until no overlap with any existing furniture.
+                        # Iterates up to 20 times to resolve cascading overlaps.
+                        # Strategy: try X shift first, then Y shift if X alone doesn't resolve.
+                        _max_shift_attempts = 20
+                        for _shift_attempt in range(_max_shift_attempts):
+                            _overlap_found = False
+                            for existing in current_layout.get("furniture", []):
+                                eg = existing.get("geometry", [])
+                                if len(eg) < 4:
+                                    continue
+                                exs = [p[0] for p in eg]
+                                eys = [p[1] for p in eg]
+                                ex0, ex1 = min(exs), max(exs)
+                                ey0, ey1 = min(eys), max(eys)
+                                # Check true bounding box overlap (no padding — only clear gap needed)
+                                overlap_x = x < ex1 + 0.05 and x + w > ex0 - 0.05
+                                overlap_y = y < ey1 + 0.05 and y + d > ey0 - 0.05
+                                if overlap_x and overlap_y:
+                                    # Compute shift needed in each direction
+                                    shift_x = ex1 - x + 0.9   # shift right to clear
+                                    shift_y = ey1 - y + 0.9   # shift up to clear
+                                    # Pick the smaller shift to minimize displacement
+                                    if shift_x <= shift_y:
+                                        x = ex1 + 0.9
+                                        print(f"[add_objects] Overlap with '{existing.get('name')}' — shifted x to {x:.2f}")
+                                    else:
+                                        y = ey1 + 0.9
+                                        print(f"[add_objects] Overlap with '{existing.get('name')}' — shifted y to {y:.2f}")
+                                    # Clamp to room bounds after shifting
+                                    for room in current_layout.get("rooms", []):
+                                        if room.get("name", "").lower() == room_name.lower():
+                                            geom = room.get("geometry", [])
+                                            if geom:
+                                                rxs = [p[0] for p in geom]
+                                                rys = [p[1] for p in geom]
+                                                rx0, rx1 = min(rxs), max(rxs)
+                                                ry0, ry1 = min(rys), max(rys)
+                                                x = max(rx0 + 0.5, min(x, rx1 - w - 0.5))
+                                                y = max(ry0 + 0.5, min(y, ry1 - d - 0.5))
+                                            break
+                                    _overlap_found = True
+                                    break  # restart the full check with new position
+                            if not _overlap_found:
+                                break  # no overlaps — position is clean
 
                         new_geom = [
                             [x, y], [x + w, y], [x + w, y + d],

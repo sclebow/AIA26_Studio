@@ -42,7 +42,7 @@ def write_benchmark_logs(
     completed_at: datetime,
     final_state: dict[str, Any] | None,
     final_response: str | None,
-    output_layout_path: Path | None,
+    output_result_path: Path | None,
     error_message: str | None = None,
     paths: BenchmarkPaths | None = None,
 ) -> dict[str, Any]:
@@ -62,7 +62,7 @@ def write_benchmark_logs(
         completed_at=completed_at,
         final_state=final_state or {},
         final_response=final_response,
-        output_layout_path=output_layout_path,
+        output_result_path=output_result_path,
         error_message=error_message,
     )
 
@@ -85,15 +85,14 @@ def _build_benchmark_record(
     completed_at: datetime,
     final_state: dict[str, Any],
     final_response: str | None,
-    output_layout_path: Path | None,
+    output_result_path: Path | None,
     error_message: str | None,
 ) -> dict[str, Any]:
     normalized_started_at = _normalize_timestamp(started_at)
     normalized_completed_at = _normalize_timestamp(completed_at)
     tool_history = _normalize_tool_history(final_state.get("tool_history", []))
     tool_names = [record.get("tool", "") for record in tool_history if record.get("tool")]
-    layout_written = bool(output_layout_path and output_layout_path.exists())
-    final_layout = final_state.get("layout_json")
+    result_written = bool(output_result_path and output_result_path.exists())
     run_id = f"{normalized_completed_at.strftime('%Y%m%dT%H%M%S%fZ')}_{uuid4().hex[:8]}"
 
     return {
@@ -118,9 +117,9 @@ def _build_benchmark_record(
         "violations": _ensure_json_safe_list(final_state.get("violations", [])),
         "evaluation_results": _ensure_json_safe_dict(final_state.get("evaluation_results", {})),
         "placement_fit_summary": _ensure_json_safe_dict(final_state.get("placement_fit_summary", {})),
-        "layout_output_path": str(output_layout_path) if output_layout_path else "",
-        "layout_written": layout_written,
-        "layout_json_present": isinstance(final_layout, str) and bool(final_layout.strip()),
+        "result_output_path": str(output_result_path) if output_result_path else "",
+        "result_written": result_written,
+        "result_state_present": bool(final_state),
         "active_step_id": final_state.get("active_step_id"),
         "current_action": final_state.get("current_action"),
         "messages": _ensure_json_safe_list(final_state.get("messages", [])),
@@ -155,8 +154,8 @@ def _build_csv_row(record: dict[str, Any], json_path: Path) -> dict[str, Any]:
         "unique_tool_names": " | ".join(record["unique_tool_names"]),
         "geometry_id": record["geometry_id"] or "",
         "violation_count": len(record["violations"]),
-        "layout_written": record["layout_written"],
-        "layout_json_present": record["layout_json_present"],
+        "result_written": record["result_written"],
+        "result_state_present": record["result_state_present"],
         "active_step_id": record["active_step_id"] or "",
         "current_action": record["current_action"] or "",
         "error_message": record["error_message"],

@@ -22,6 +22,7 @@ export function SelectionProvider({ children }) {
   const [activeSense, setActiveSense] = useState(null);
   const [activeRoom, setActiveRoom] = useState(null);
   const [hoverSense, setHoverSense] = useState(null);
+  const [hoverRoom, setHoverRoom] = useState(null);
 
   const toggleSense = useCallback(
     (s) => setActiveSense((cur) => (cur === s ? null : s)),
@@ -31,6 +32,7 @@ export function SelectionProvider({ children }) {
     setActiveSense(null);
     setActiveRoom(null);
     setHoverSense(null);
+    setHoverRoom(null);
   }, []);
 
   const value = useMemo(
@@ -38,10 +40,13 @@ export function SelectionProvider({ children }) {
       activeSense, setActiveSense, toggleSense,
       activeRoom, setActiveRoom,
       hoverSense, setHoverSense,
+      hoverRoom, setHoverRoom,
+      // hover previews, click pins — same rule for senses and rooms
       focusSense: hoverSense ?? activeSense,
+      focusRoom: hoverRoom ?? activeRoom,
       clear,
     }),
-    [activeSense, activeRoom, hoverSense, toggleSense, clear]
+    [activeSense, activeRoom, hoverSense, hoverRoom, toggleSense, clear]
   );
 
   return (
@@ -57,7 +62,8 @@ const INERT = {
   activeSense: null, setActiveSense: () => {}, toggleSense: () => {},
   activeRoom: null, setActiveRoom: () => {},
   hoverSense: null, setHoverSense: () => {},
-  focusSense: null, clear: () => {},
+  hoverRoom: null, setHoverRoom: () => {},
+  focusSense: null, focusRoom: null, clear: () => {},
 };
 
 export function useSelection() {

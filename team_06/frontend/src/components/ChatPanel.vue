@@ -1,10 +1,10 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue'
-import menuIcon from '../assets/icons/menu.svg'
 import sendIcon from '../assets/icons/send.svg'
 import searchIcon from '../assets/icons/search.svg'
 import userIcon from '../assets/icons/user.svg'
 import chevronIcon from '../assets/icons/chevron.svg'
+import plusIcon from '../assets/icons/plus.svg'
 import ChatBox from './ChatBox.vue'
 const search = ref('')
 
@@ -14,12 +14,16 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
+  isBusy: {
+    type: Boolean,
+    default: false
+  },
   index: {
     type: Number,
     default: 0
   }
 })
-const emit = defineEmits(['send'])
+const emit = defineEmits(['send', 'newChat'])
 
 const chatArea = ref(null)
 
@@ -36,32 +40,22 @@ watch(() => props.chat.length, () => {
   <section class="chat-panel">
     <header class="chat-header">
       <div class="chat-header-avatar">
-        <img :src="userIcon" alt="User" width="32" height="32" style="border-radius:50%;background:#e0e3ea;" />
-        <img :src="chevronIcon" alt="Chevron" width="18" height="18" />
+        <img :src="userIcon" alt="User" width="32" height="32" style="opacity:0.6; border-radius:50%; background:#e0e3ea;" />
+        <img :src="chevronIcon" alt="Chevron" width="18" height="18" style="opacity:0.6;"/>
       </div>
     </header>
-    <div class="chat-title">AI Copilot</div>
-    <section class="chat-history">
-      <div class="chat-history-title">
-        <img :src="menuIcon" alt="Chat History" width="20" height="20" />
-        Chat History
-      </div>
-    </section>
-    <div class="chat-search-bar">
-      <input class="chat-search" type="text" placeholder="Search..." v-model="search" />
-      <img class="chat-search-icon" :src="searchIcon" alt="Search" />
+    <div class="chat-title-row">
+      <div class="chat-title">AI Copilot</div>
+      <button class="chat-history-add" @click="emit('newChat')" title="New chat"><img :src="plusIcon" width="14" height="14" alt="new chat" /></button>
     </div>
-    <ul v-if="search" class="chat-history-list">
-      <li>Apartment for a young couple</li>
-      <li>Daylight analysis</li>
-    </ul>
-    <div class="chat-area" ref="chatArea" style="overflow-y:auto;">
-      <div v-for="msg in chat" :key="msg.id" :class="['chat-msg', msg.role]">
+    
+    <div class="chat-area" ref="chatArea">
+      <div v-for="msg in chat" :key="msg.id" :class="['chat-msg', msg.role, { loading: msg.isLoading, error: msg.tone === 'error' }]">
         <span>{{ msg.text }}</span>
       </div>
     </div>
     <footer class="chat-box-bar">
-      <ChatBox @send="msg => emit('send', msg)" />
+      <ChatBox :disabled="props.isBusy" @send="msg => emit('send', msg)" />
     </footer>
   </section>
 </template>
@@ -71,7 +65,7 @@ watch(() => props.chat.length, () => {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  padding: 28px 32px 0 0;
+  padding: 28px 28px 0 0;
   gap: 0;
   position: relative;
 }
@@ -82,32 +76,37 @@ watch(() => props.chat.length, () => {
   margin-bottom: 8px;
 }
 .chat-panel {
-  width: 400px;
-  min-width: 400px;
+  width: 360px;
+  min-width: 360px;
   background: var(--color-white);
   border-left: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
+  height: 100vh;
   padding: 0;
+}
+.chat-title-row {
+  display: flex;
+  align-items: center;
+  padding: 28px 28px 28px 28px;
 }
 .chat-title {
   font-size: var(--font-size-subtitle);
   color: var(--color-blue);
-  padding: 28px 32px 28px 32px;
+  flex: 1;
 }
-.chat-history {
-  margin-bottom: 12px;
-}
-.chat-history-title {
+
+.chat-history-add {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-left: auto;
   display: flex;
   align-items: center;
-  font-size: var(--font-size-bold);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-  gap: 8px;
-  margin-left: 32px;
-  margin-top: 12px;
+  opacity: 0.5;
 }
+.chat-history-add:hover { opacity: 1; }
 .chat-search {
   display: flex;
   font-size: var(--font-size-standard);
@@ -126,7 +125,7 @@ watch(() => props.chat.length, () => {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 18px 32px 28px 32px;
+  padding: 18px 28px 28px 28px;
 }
 .chat-search {
   width: 100%;
@@ -149,11 +148,27 @@ watch(() => props.chat.length, () => {
   flex: 0 0 auto;
 }
 .chat-area {
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  overflow-y: auto;
   margin: 0 28px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+.chat-area::-webkit-scrollbar {
+  width: 4px;
+}
+.chat-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-area::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+.chat-area::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
 }
 .chat-box-bar {
   display: flex;
@@ -180,6 +195,7 @@ watch(() => props.chat.length, () => {
   font-size: var(--font-size-standard);
   word-break: break-word;
   display: inline-block;
+  white-space: pre-wrap;
 }
 .chat-msg.user {
   align-self: flex-end;
@@ -201,5 +217,42 @@ watch(() => props.chat.length, () => {
   padding: 0;
   font-size: var(--font-size-standard);
   box-shadow: none;
+}
+.chat-msg.status {
+  align-self: flex-start;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: none;
+  margin-right: auto;
+  margin-left: 0;
+  text-align: left;
+  font-size: 0.88rem;
+  padding: 0;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.chat-msg.status.loading::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-blue);
+  opacity: 0.45;
+  animation: statusPulse 1.2s ease-in-out infinite;
+}
+.chat-msg.status.error {
+  color: #a04b4b;
+}
+@keyframes statusPulse {
+  0%, 100% {
+    opacity: 0.25;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
 }
 </style>

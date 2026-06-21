@@ -138,12 +138,33 @@ for _k, _v in {
     "arch_advice_rows": [],
     "_advice_mat_sig": "",
     "agent": LangGraphAgent(),
+    "client_profile": {},
+    "client_summary": "",
+    "client_template": {},
+    "client_applied": False,
 }.items():
     if _k not in st.session_state:
         st.session_state[_k] = _v
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+def is_point_in_polygon(x, y, poly):
+    """Ray casting algorithm to check if point is inside a polygon."""
+    n = len(poly)
+    inside = False
+    p1x, p1y = poly[0]
+    for i in range(n + 1):
+        p2x, p2y = poly[i % n]
+        if y > min(p1y, p2y):
+            if y <= max(p1y, p2y):
+                if x <= max(p1x, p2x):
+                    if p1y != p2y:
+                        xints = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                    if p1x == p2x or x <= xints:
+                        inside = not inside
+        p1x, p1y = p2x, p2y
+    return inside
+
 
 def render_3d_heatmap(layout_data, extrusion_mode="skyline"):
     """
@@ -667,48 +688,44 @@ def build_gh_legend(layout: dict) -> str:
 
 # ── cost table ────────────────────────────────────────────────────────────────
 def build_cost_df(layout: dict) -> pd.DataFrame:
-    # 1. Read sensitivity values from sliders
-    labor_mult = st.session_state.get("labor", 1.0)
-    inflation = 1 + (st.session_state.get("inflation", 0) / 100)
-    tax = st.session_state.get("carbon_tax", 0)
-    
-    currency = layout.get("project", {}).get("currency", "USD")
-    rooms_list = layout.get("rooms", [])
+    # 1. Helper to ensure numbers are always valid (prevents crashes)
+    def safe_float(val, default=0.0):
+        try:
+            return float(val) if val is not None else default
+        except (ValueError, TypeError):
+            return default
 
+    # 2. Read sensitivity values
+    labor_mult = safe_float(st.session_state.get("labor", 1.0))
+    inflation = 1 + (safe_float(st.session_state.get("inflation", 0)) / 100)
+    tax = safe_float(st.session_state.get("carbon_tax", 0))
+    currency = layout.get("project", {}).get("currency", "USD")
+
+    # 3. Search for rooms
+    rooms_list = layout.get("rooms") or layout.get("costs", {}).get("rooms", {}).get("rooms", [])
+    
     rows = []
     for r in rooms_list:
-        # 2. Extract base values
-        base_rate = float(r.get("rate_per_m2", 0))
-        base_cost = float(r.get("total_cost", 0))
+        base_rate = safe_float(r.get("rate_per_m2") or r.get("rate"))
+        base_cost = safe_float(r.get("total_cost") or r.get("cost"))
+        area = safe_float(r.get("area_m2") or r.get("area"))
+        gwp = safe_float(r.get("gwp"))
         
-        # We assume you have a 'gwp' key in your room data. 
-        # If not, it defaults to 0 for the carbon tax calculation.
-        gwp = float(r.get("gwp", 0)) 
-        
-        # 3. Apply Sensitivity Logic
         adj_rate = base_rate * labor_mult * inflation
         adj_cost = (base_cost * labor_mult * inflation) + (gwp * tax)
         
         rows.append({
             "Room": r.get("name", "Unknown"), 
             "Category": r.get("category", "Space").capitalize(),
-            "Area (m²)": round(float(r.get("area_m2", 0)), 1),
+            "Area (m²)": round(area, 1),
             f"Rate ({currency}/m²)": int(adj_rate),
             f"Cost ({currency})": int(adj_cost)
         })
         
     df = pd.DataFrame(rows)
-    
-    # 4. Add Total Row
-    if not df.empty:
-        currency = layout.get("project", {}).get("currency", "")
-        totals = {"Room":"TOTAL","Category":"","Area (m²)":df["Area (m²)"].sum(),
-                  f"Rate ({currency}/m²)":0,
-                  f"Cost ({currency})":df[f"Cost ({currency})"].sum()}
-        df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
     return df
 
-# ── room card ─────────────────────────────────────────────────────────────────
+  # ── room card ─────────────────────────────────────────────────────────────────
 def render_room_card(room: dict, currency: str) -> None:
     def kv(k, v):
         return f'<div class="kv-row"><span class="kv-key">{k}</span><span class="kv-val">{v}</span></div>'
@@ -790,6 +807,7 @@ with st.sidebar:
         key="layout_uploader_main"
     )
 
+    
     # 1. Global Sensitivity Engine (Top-level, stable location)
     st.divider()
     st.markdown("### Global Sensitivity Engine")
@@ -805,20 +823,24 @@ with st.sidebar:
         "carbon_tax": st.session_state.carbon_tax
     }
 
-    # 2. File Processing
+    # 2. File Processing — load each file exactly once per session (name-stable dedup)
     if uploads:
         uploaded_ids = set(st.session_state._uploaded_ids)
         added_count = 0
         failed_names: list[str] = []
         for uploaded in uploads:
-            file_uid = getattr(uploaded, "file_id", uploaded.name)
+            file_uid = uploaded.name  # stable across reruns; file_id changes every rerun
             if file_uid in uploaded_ids:
                 continue
             if len(st.session_state.layouts) >= 5:
                 st.warning("Maximum 5 plans can be saved at once.")
                 break
             try:
+                uploaded.seek(0)
                 loaded_layout = json.load(uploaded)
+                if "rooms" not in loaded_layout:
+                    uploaded_ids.add(file_uid)  # mark seen; skip silently (likely a schema def file)
+                    continue
                 plan_key = _unique_plan_key(st.session_state.layouts, uploaded.name)
                 st.session_state.layouts[plan_key] = loaded_layout
                 uploaded_ids.add(file_uid)
@@ -870,15 +892,7 @@ with st.sidebar:
             st.metric("Grand total", f"{grand:,.0f} {currency}")
 
         st.divider()
-        st.markdown("### Grasshopper")
-        if st.button("Check connection", use_container_width=True):
-            from swiftlet_mcp import check_connection
-            ok, info = check_connection()
-            if ok:
-                st.success(f"Connected — {len(info.split(','))} tools")
-            else:
-                st.error(f"Not reachable: {info[:80]}")
-
+    
         if st.button("Analyze All Saved Plans", use_container_width=True):
             from swiftlet_mcp import push_layout_to_grasshopper
             with st.spinner("Analyzing plans..."):
@@ -902,11 +916,82 @@ with st.sidebar:
     else:
         st.info("Upload JSON files to begin.")
 
+    # ── Client DNA ───────────────────────────────────────────────────────────
+    st.divider()
+    st.markdown("### Client DNA")
+    st.caption("Upload up to 3 past project CSVs to learn this client's spending habits.")
+
+    _dna_uploads = st.file_uploader(
+        "Past project CSVs (max 3)",
+        type=["csv"],
+        accept_multiple_files=True,
+        label_visibility="collapsed",
+        key="dna_uploader",
+    )
+
+    if _dna_uploads:
+        if len(_dna_uploads) > 3:
+            st.warning("Please upload a maximum of 3 CSV files.")
+        else:
+            if st.button("Analyse Client Profile", use_container_width=True):
+                from client_profile import parse_budget_csv, analyze_profiles, generate_summary, propose_template
+                _dna_datasets = []
+                for _f in _dna_uploads:
+                    _rows = parse_budget_csv(_f)
+                    if _rows:
+                        _dna_datasets.append(_rows)
+                if _dna_datasets:
+                    _profile = analyze_profiles(_dna_datasets)
+                    st.session_state.client_profile  = _profile
+                    st.session_state.client_summary  = generate_summary(_profile)
+                    st.session_state.client_applied  = False
+                    if st.session_state.layout:
+                        st.session_state.client_template = propose_template(_profile, st.session_state.layout)
+                    st.success(f"Profile built from {len(_dna_datasets)} project(s). See **Client DNA** tab.")
+                else:
+                    st.error("Could not parse CSVs. Expected columns: room, area, cost (+ optional: category, rate, floor_finish, wall_finish).")
+
+    if st.session_state.get("client_profile"):
+        if st.session_state.layout and st.button(
+            "Apply to Current Project", use_container_width=True, key="apply_dna_sidebar"
+        ):
+            from client_profile import propose_template, apply_template
+            _old_total = sum(r.get("total_cost", 0) for r in st.session_state.layout.get("rooms", []))
+            _tmpl = propose_template(st.session_state.client_profile, st.session_state.layout)
+            st.session_state.client_template = _tmpl
+            _updated = apply_template(_tmpl, st.session_state.layout)
+            _new_total = sum(r.get("total_cost", 0) for r in _updated.get("rooms", []))
+            st.session_state.layout = _updated
+            _active_key = st.session_state.selected_plan_key
+            if _active_key:
+                st.session_state.layouts[_active_key] = _updated
+            st.session_state.client_applied = True
+            st.toast(
+                f"Client DNA applied — total changed from {_old_total:,.0f} to {_new_total:,.0f}",
+                icon="✅",
+            )
+            st.rerun()
+
 # =============================================================================
 # MAIN — floor plan (left) + chat (right)
 # =============================================================================
 st.markdown("## AIA Studio · Cost Advisor · Team 05")
 st.caption("Upload plans in the sidebar · choose an active plan · compare up to 5 plans")
+
+# ── 📖 QUICK START GUIDE ──────────────────────────────────────────────────────
+# This expander stays open automatically when the app first loads, but users can close it.
+with st.expander("📖 Welcome! How to use this interface", expanded=(not st.session_state.layout)):
+    st.markdown("""
+    **Welcome to the Interactive Cost & Carbon Advisor. Here is how to navigate the tools:**
+    
+    * **⬅️ Sidebar | Load Layouts:** Start by uploading one or multiple `layout.json` files. You can manage multiple plans (max 5) and easily switch between them.
+    * **🎛️ Sidebar | Global Sensitivity Engine:** Adjust real-world economic factors like Labor Cost, Material Inflation, and Carbon Tax. Watch the tables and charts update instantly!
+    * **🗺️ Floor Plan & Chat Tab:** Toggle between 2D and 3D heatmaps of your project. Click any room to see its specific metrics. Use the **Agent Chat** on the right to ask the AI questions or assign materials (e.g., *"Set the living room floor finish to hardwood"*).
+    * **🧱 Architectural Advice Tab:** View a smart table of all materials used in your project, complete with fire ratings, carbon footprints, and lower-carbon alternatives. Check the **Carbon Budget Tracker** to see if you meet RIBA 2030 targets.
+    * **🌱 Sustainability Analysis Tab:** Compare Cost vs. Carbon across all your uploaded plans at once to find the most efficient design iteration.
+    * **🎯 Cost Matching Tab:** Over budget? Enter your target cost, and the algorithm will suggest specific material swaps to hit your financial goals.
+    """)
+
 st.divider()
 
 # ── Sustainability Tab Logic ──────────────────────────────────────────────────
@@ -960,11 +1045,16 @@ def render_sustainability_tab():
         else:
             st.caption(f"No finish material data available for {name}.")
 
-tab_floor, tab_advice, tab_sustainability, tab_match = st.tabs([
+
+
+# ---------------------------------------------------------
+
+tab_floor, tab_advice, tab_sustainability, tab_match, tab_dna = st.tabs([
     "Floor Plan & Chat",
     "Architectural Advice",
     "Sustainability Analysis",
     "Cost Matching",
+    "Client DNA",
 ])
 
 with tab_sustainability:
@@ -1110,30 +1200,19 @@ with tab_floor:
             # element info panel — appears below chart when any element is clicked
             _render_element_panel()
 
-            # --- COST TABLE (FIXED FORMATTING) ---
+           # --- COST BREAKDOWN TABLE (CRASH-PROOF) ---
+            if st.session_state.get("client_applied"):
+                st.info("Client DNA template applied. Rates and costs below reflect the client's spending profile.")
             with st.expander("Cost Breakdown Table", expanded=True):
+                # We build the data first
                 df = build_cost_df(st.session_state.layout)
-                
+
                 if not df.empty:
-                    # Dynamically format columns that actually exist to prevent silent crashes
-                    fmt = {}
-                    for col in df.columns:
-                        if "Rate" in col or "Cost" in col:
-                            fmt[col] = "{:,.0f}"
-                        elif "Area" in col:
-                            fmt[col] = "{:.1f}"
-
-                    def _hl(row):
-                        return (["font-weight:bold;background:#f3f4f6;color:#111111"] * len(row)
-                                if row["Room"] == "TOTAL" else [""] * len(row))
-
-                    st.dataframe(df.style.apply(_hl, axis=1).format(fmt),
-                                 use_container_width=True, hide_index=True)
-        else:
-            st.markdown("#### Floor Plan")
-            st.info("Upload a **layout JSON** in the sidebar to see the interactive floor plan.")
-
-    # ────────────────────────────── CHAT ─────────────────────────────────────────
+                    # st.table is static and avoids the 'width' errors completely
+                    st.table(df)
+                else:
+                    st.info("No cost data available in this layout.")
+        # ────────────────────────────── CHAT ─────────────────────────────────────────
     with col_chat:
         st.markdown("#### Agent Chat")
         if st.session_state.selected_plan_key:
@@ -1174,6 +1253,7 @@ with tab_floor:
                     plans=st.session_state.layouts,
                     active_plan_key=st.session_state.selected_plan_key,
                     history=st.session_state.messages[:-1],
+                    client_profile=st.session_state.get("client_profile") or None,
                 )
                 updated = st.session_state.agent.get_updated_layout()
                 if updated is not None and st.session_state.layout is not None:
@@ -1198,8 +1278,7 @@ with tab_floor:
         if st.button("Clear conversation", use_container_width=True):
             st.session_state.messages = []
             st.rerun()
-
-    # ── cost pie charts (inside Floor Plan tab) ───────────────────────────────
+    
     # ── COST BREAKDOWN TREEMAP (FULL WIDTH IN FLOOR PLAN TAB) ─────────────────
     if st.session_state.layout:
         _layout   = st.session_state.layout
@@ -1321,80 +1400,68 @@ with tab_floor:
             else:
                 st.caption("No column data")
 
+       # ── Economic Spatial Distribution (Nested Hierarchy) ─────────────────────────
         st.divider()
         st.markdown("#### Economic Spatial Distribution")
-        st.caption("Hierarchical mapping of project budget across all architectural systems. Click a block to zoom in.")
 
-        # Data arrays for Plotly Treemap
-        ids = ["Total Project", "Rooms", "Doors", "Windows", "Columns"]
-        labels = ["Project Total", "Rooms", "Doors", "Windows", "Columns"]
-        parents = ["", "Total Project", "Total Project", "Total Project", "Total Project"]
-        values = [0, 0, 0, 0, 0]
+        # Initialize lists
+        ids = ["Total Project"]
+        labels = ["Project Total"]
+        parents = [""]
+        values = [0] 
 
-        room_total = sum(r.get("total_cost", 0) for r in _rooms)
-        doors = [o for o in _openings if (o.get("type") or "").lower() == "door"]
-        windows = [o for o in _openings if (o.get("type") or "").lower() == "window"]
-        door_total = sum(d.get("cost", 0) for d in doors)
-        window_total = sum(w.get("cost", 0) for w in windows)
-        col_total = sum(c.get("cost", 0) for c in _cols)
+        if _rooms:
+            # 1. Add Rooms
+            for r in _rooms:
+                room_id = str(r.get("id"))
+                ids.append(room_id)
+                labels.append(r.get("name", "Room"))
+                parents.append("Total Project")
+                values.append(max(float(r.get("total_cost", 0)), 1)) # Force min value of 1
 
-        # Set parent node totals
-        values[0] = room_total + door_total + window_total + col_total
-        values[1] = room_total
-        values[2] = door_total
-        values[3] = window_total
-        values[4] = col_total
+            # 2. Add Elements
+            def add_elements(elements, type_name):
+                for e in elements:
+                    poly = e.get("polygon", [])
+                    if not poly: continue
+                    cx = sum(p[0] for p in poly) / len(poly)
+                    cy = sum(p[1] for p in poly) / len(poly)
+                    
+                    found_parent = "Total Project"
+                    for r in _rooms:
+                        if is_point_in_polygon(cx, cy, r.get("polygon", [])):
+                            found_parent = str(r.get("id"))
+                            break
+                    
+                    ids.append(f"{type_name}_{e.get('id', id(e))}")
+                    labels.append(e.get("subtype", type_name).capitalize())
+                    parents.append(found_parent)
+                    values.append(max(float(e.get("cost", 0)), 1)) # Force min value of 1
 
-        # Populate leaf nodes
-        for r in _rooms:
-            ids.append(f"room_{r.get('id', len(ids))}")
-            labels.append(r.get("name", "Room"))
-            parents.append("Rooms")
-            values.append(r.get("total_cost", 0))
+            add_elements(_doors, "Door")
+            add_elements(_windows, "Window")
+            add_elements(_cols, "Column")
 
-        for i, d in enumerate(doors):
-            ids.append(f"door_{i}")
-            labels.append(d.get("subtype", "Door").capitalize())
-            parents.append("Doors")
-            values.append(d.get("cost", 0))
+            # --- DEBUG: CHECK DATA ---
+            with st.expander("DEBUG: Check Hierarchy Data"):
+                debug_df = pd.DataFrame({"ID": ids, "Parent": parents, "Value": values})
+                st.write(debug_df)
 
-        for i, w in enumerate(windows):
-            ids.append(f"win_{i}")
-            labels.append(w.get("subtype", "Window").capitalize())
-            parents.append("Windows")
-            values.append(w.get("cost", 0))
-
-        for i, c in enumerate(_cols):
-            ids.append(f"col_{i}")
-            labels.append(c.get("subtype", "Column").capitalize())
-            parents.append("Columns")
-            values.append(c.get("cost", 0))
-
-        # Build the Treemap
-        fig_tree = go.Figure(go.Treemap(
-            ids=ids,
-            labels=labels,
-            parents=parents,
-            values=values,
-            branchvalues="total",
-            textinfo="label+percent parent",
-            hovertemplate="<b>%{label}</b><br>Cost: %{value:,.0f} " + _currency + "<br>Share of %{parent}: %{percentParent:.1%}<extra></extra>",
-            marker=dict(
-                colors=values,
-                colorscale="YlOrRd", # Warm heatmap colors to match the 3D model
-                showscale=False
-            ),
-            pathbar=dict(visible=True)
-        ))
-
-        fig_tree.update_layout(
-            margin=dict(t=10, l=10, r=10, b=10),
-            height=450,
-            paper_bgcolor="#ffffff",
-            font=dict(color="#111111")
-        )
-        
-        st.plotly_chart(fig_tree, use_container_width=True)
+            # 3. Build the Treemap
+            fig_tree = go.Figure(go.Treemap(
+                ids=ids,
+                labels=labels,
+                parents=parents,
+                values=values,
+                # Removed branchvalues="total" to prevent invisible rendering
+                textinfo="label+value",
+                marker=dict(colorscale="YlOrRd", showscale=False),
+                pathbar=dict(visible=True)
+            ))
+            fig_tree.update_layout(margin=dict(t=30, l=10, r=10, b=10), height=500)
+            st.plotly_chart(fig_tree, use_container_width=True)
+        else:
+            st.info("No room data found for hierarchy.")
 
 # ────────────────────────────── ARCHITECTURAL ADVICE ─────────────────────────
 with tab_advice:
@@ -1847,6 +1914,157 @@ with tab_match:
 
 
 
+
+# ──────────────────────────── CLIENT DNA ─────────────────────────────────────
+with tab_dna:
+    st.markdown("#### Client DNA — Spending Profile")
+
+    if not st.session_state.get("client_profile"):
+        st.info(
+            "Upload up to 3 past project CSVs in the sidebar and click "
+            "**Analyse Client Profile** to get started.\n\n"
+            "**Expected CSV columns:** `room`, `area`, `cost` — optional: "
+            "`category`, `rate`, `floor_finish`, `wall_finish`, `ceiling`"
+        )
+    else:
+        _dna_profile = st.session_state.client_profile
+        _dna_summary = st.session_state.get("client_summary", "")
+        _dna_cats    = _dna_profile.get("categories", {})
+        _dna_ranked  = _dna_profile.get("ranked_categories", [])
+
+        # ── summary card ──────────────────────────────────────────────────────
+        st.markdown(_dna_summary)
+
+        # ── charts ────────────────────────────────────────────────────────────
+        if _dna_ranked and _dna_cats:
+            st.divider()
+            st.markdown("#### Spending by Category")
+
+            _ch_labels = [c.capitalize() for c in _dna_ranked]
+            _ch_pcts   = [_dna_cats[c]["avg_budget_pct"] for c in _dna_ranked]
+            _ch_rates  = [_dna_cats[c]["avg_rate_per_m2"] for c in _dna_ranked]
+
+            _ch_col1, _ch_col2 = st.columns(2)
+            with _ch_col1:
+                _fig_pct = go.Figure(go.Bar(
+                    x=_ch_labels, y=_ch_pcts,
+                    marker_color="#F06913",
+                    text=[f"{p:.0f}%" for p in _ch_pcts],
+                    textposition="outside",
+                ))
+                _fig_pct.update_layout(
+                    title="Budget allocation (%)",
+                    yaxis_title="% of total budget",
+                    paper_bgcolor="#ffffff", plot_bgcolor="#f7f7f7",
+                    height=300, margin=dict(l=10, r=10, t=40, b=10),
+                    font=dict(color="#111"),
+                )
+                st.plotly_chart(_fig_pct, use_container_width=True)
+
+            with _ch_col2:
+                _fig_rate = go.Figure(go.Bar(
+                    x=_ch_labels, y=_ch_rates,
+                    marker_color="#3b82f6",
+                    text=[f"{r:,.0f}" for r in _ch_rates],
+                    textposition="outside",
+                ))
+                _fig_rate.update_layout(
+                    title="Average rate per m²",
+                    yaxis_title="Rate (currency/m²)",
+                    paper_bgcolor="#ffffff", plot_bgcolor="#f7f7f7",
+                    height=300, margin=dict(l=10, r=10, t=40, b=10),
+                    font=dict(color="#111"),
+                )
+                st.plotly_chart(_fig_rate, use_container_width=True)
+
+        # ── template proposal ─────────────────────────────────────────────────
+        _dna_template = st.session_state.get("client_template", {})
+
+        if not _dna_template and st.session_state.layout:
+            from client_profile import propose_template as _propose_tpl
+            _dna_template = _propose_tpl(_dna_profile, st.session_state.layout)
+            st.session_state.client_template = _dna_template
+
+        if _dna_template and st.session_state.layout:
+            st.divider()
+            st.markdown("#### Proposed Spending Template")
+            st.caption(
+                "Rates and finishes are suggested from this client's past projects. "
+                "▲ = more expensive than current · ▼ = cheaper than current."
+            )
+
+            _currency = st.session_state.layout.get("project", {}).get("currency", "")
+            _tpl_rows = []
+            for _tid, _t in _dna_template.items():
+                _delta = _t["delta_cost"]
+                _sign  = "▲" if _delta > 0 else ("▼" if _delta < 0 else "–")
+                _tpl_rows.append({
+                    "Room":                               _t["room_name"],
+                    "Category":                           _t["category"].capitalize(),
+                    f"Current rate ({_currency}/m²)":    int(_t["current_rate"]),
+                    f"Suggested rate ({_currency}/m²)":  int(_t["suggested_rate"]),
+                    f"Current cost ({_currency})":        int(_t["current_cost"]),
+                    f"Suggested cost ({_currency})":      int(_t["suggested_cost"]),
+                    f"Delta ({_currency})":               f"{_sign} {abs(int(_delta)):,}",
+                    "Preferred floor finish":             _t["preferred_floor"] or "—",
+                    "Preferred wall finish":              _t["preferred_wall"]  or "—",
+                })
+
+            st.table(pd.DataFrame(_tpl_rows))
+
+            _total_cur  = sum(_t["current_cost"]  for _t in _dna_template.values())
+            _total_sugg = sum(_t["suggested_cost"] for _t in _dna_template.values())
+            _total_d    = _total_sugg - _total_cur
+
+            _m1, _m2, _m3 = st.columns(3)
+            _m1.metric("Current room total",  f"{_total_cur:,.0f} {_currency}")
+            _m2.metric("Suggested room total", f"{_total_sugg:,.0f} {_currency}")
+            _m3.metric("Difference", f"{_total_d:+,.0f} {_currency}", delta_color="inverse")
+
+            st.divider()
+            if not st.session_state.get("client_applied"):
+                if st.button(
+                    "Apply Template to Current Project",
+                    use_container_width=True,
+                    key="apply_dna_tab",
+                    type="primary",
+                ):
+                    from client_profile import apply_template as _apply_tpl
+                    _old_total = sum(r.get("total_cost", 0) for r in st.session_state.layout.get("rooms", []))
+                    _updated = _apply_tpl(_dna_template, st.session_state.layout)
+                    _new_total = sum(r.get("total_cost", 0) for r in _updated.get("rooms", []))
+                    st.session_state.layout = _updated
+                    _active_key = st.session_state.selected_plan_key
+                    if _active_key:
+                        st.session_state.layouts[_active_key] = _updated
+                    st.session_state.client_applied = True
+                    st.toast(
+                        f"Client DNA applied — total changed from {_old_total:,.0f} to {_new_total:,.0f}",
+                        icon="✅",
+                    )
+                    st.rerun()
+            else:
+                st.success(
+                    "Template applied to the current project. "
+                    "The floor plan heatmap and cost table reflect the client's spending habits."
+                )
+                if st.button("Re-apply Template", use_container_width=True, key="reapply_dna_tab"):
+                    from client_profile import apply_template as _apply_tpl
+                    _old_total = sum(r.get("total_cost", 0) for r in st.session_state.layout.get("rooms", []))
+                    _updated = _apply_tpl(_dna_template, st.session_state.layout)
+                    _new_total = sum(r.get("total_cost", 0) for r in _updated.get("rooms", []))
+                    st.session_state.layout = _updated
+                    _active_key = st.session_state.selected_plan_key
+                    if _active_key:
+                        st.session_state.layouts[_active_key] = _updated
+                    st.toast(
+                        f"Template re-applied — total changed from {_old_total:,.0f} to {_new_total:,.0f}",
+                        icon="✅",
+                    )
+                    st.rerun()
+
+        elif not st.session_state.layout:
+            st.info("Upload a layout in the sidebar to generate a spending template.")
 
 # ── multi-plan comparison (all saved plans) ─────────────────────────────────
 if len(st.session_state.layouts) >= 2:

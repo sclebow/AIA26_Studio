@@ -30,8 +30,63 @@ from typing import Any, Callable, Optional
 from _runtime.config import load_settings
 from _runtime.mcp_client import McpClient
 from _runtime.llm import create_chat_llm, get_llm_response_format
-from _runtime.session import create_session
+from _runtime.session import create_session, save_session
 from _runtime.bootstrap import Context
+
+
+# ---------------------------------------------------------------------------
+# Runtime model state — switched via WebSocket model_switch message
+# ---------------------------------------------------------------------------
+
+ANTHROPIC_MODELS = {
+    "haiku": "claude-haiku-4-5-20251001",
+    "sonnet": "claude-sonnet-4-6",
+}
+
+_active_model: Optional[str] = None  # None = use .env default
+
+
+def set_active_model(model_key: str) -> str:
+    """Set the active Anthropic model. model_key is 'haiku' or 'sonnet'.
+    Returns the full model string that was set."""
+    global _active_model
+    full = ANTHROPIC_MODELS.get(model_key.lower())
+    if not full:
+        raise ValueError(f"Unknown model key '{model_key}'. Use 'haiku' or 'sonnet'.")
+    _active_model = full
+    print(f"[model] Active model switched → {full}")
+    return full
+
+
+def get_active_model() -> Optional[str]:
+    """Return the currently active model string, or None to use .env default."""
+    return _active_model
+
+
+# ---------------------------------------------------------------------------
+# Pinned version — when the user selects a revision in the Version History panel,
+# the chat must run on THAT layout, not the base. build_context normally always
+# starts a fresh session from the base file; a pin overrides the working layout.
+# ---------------------------------------------------------------------------
+
+_pinned_layout: Optional[dict] = None
+_pinned_for: Optional[str] = None  # base layout name the pin belongs to
+
+
+def set_pinned_layout(layout_name: Optional[str], data: Optional[dict]) -> None:
+    """Pin a specific version as the working layout for `layout_name` (or clear
+    with data=None). The next chat run (build_context) uses it instead of the
+    base file. Selecting a different base layout should clear this."""
+    global _pinned_layout, _pinned_for
+    _pinned_layout = data
+    _pinned_for = layout_name if data is not None else None
+
+
+def get_pinned_layout(layout_name: str) -> Optional[dict]:
+    """Return the pinned version for `layout_name`, or None when no pin applies."""
+    if _pinned_layout is not None and _pinned_for == layout_name:
+        return _pinned_layout
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -139,6 +194,15 @@ def build_context(layout_name: str, progress: Optional[Callable[[str], None]] = 
     layout_data = create_session(resolved_layout, workspace_path)
     _say(f"Loaded layout '{name}'.")
 
+    # If the user picked a revision in the Version History panel, run the chat on
+    # THAT layout instead of the base one (overwrite the live workspace file so
+    # reload / Grasshopper / observer all see the selected version too).
+    pinned = get_pinned_layout(name)
+    if pinned is not None:
+        layout_data = pinned
+        save_session(pinned, workspace_path)
+        _say(f"Using the selected revision of '{name}'.")
+
     # Merge the onboarding profile into this layout's memory BEFORE the MCP probe,
     # so it's recorded even if Rhino/Swiftlet is down.
     _inject_user_profile(team_dir, name)
@@ -152,16 +216,9 @@ def build_context(layout_name: str, progress: Optional[Callable[[str], None]] = 
     tools = mcp_client.list_tools()
     _say(f"MCP connected — {len(tools)} tool(s) available.")
 
-    # Cost control: force the cheapest Anthropic model (Haiku) regardless of what
-    # ANTHROPIC_MODEL is set to in .env, so the UI agent never runs a pricier
-    # Claude (Opus/Sonnet) by accident. Other providers keep their configured
-    # model (their defaults — gpt-5-nano, gemini-flash-lite — are already cheap).
-    HAIKU = "claude-haiku-4-5"
-    model = settings.llm_model
-    if settings.llm_provider == "anthropic" and model != HAIKU:
-        model = HAIKU
-        _say(f"Cost control: overriding Anthropic model → {HAIKU}.")
-
+    # Runtime model — can be switched via WebSocket model_switch message.
+    # Falls back to .env ANTHROPIC_MODEL if no override has been set.
+    model = get_active_model() or settings.llm_model
     _say(f"Initializing LLM ({model})…")
     llm = create_chat_llm(
         api_key=settings.api_key,
@@ -246,24 +303,36 @@ class CheckpointParser:
     prompt appears, take_checkpoint() returns the payload (or None)."""
 
     _SCORE_RE = re.compile(r"LAYOUT SCORE:\s*([\d.]+)\s*/\s*100\s*Grade:\s*(\S+)")
+    _PREV_RE = re.compile(r"Previous:\s*([\d.]+)\s*/\s*100")
     _SUG_RE = re.compile(r"^\s*(s\d)\s*=\s*(.+?)\s*$")
     _RULE_RE = re.compile(r"^\s*\d+\.\s+(.*\S)\s*$")
     _AGENT_SEP_RE = re.compile(r"^[─\-]{10,}$")  # ──── or ----
     # "  collision        85.2/100  (weight 0.40, +34.10) ..."
     _BREAKDOWN_RE = re.compile(r"^\s*([A-Za-z_]+)\s+([\d.]+)\s*/\s*100\s+\(weight\s+([\d.]+)")
+    # "  - BLOCKED: desk overlaps wall" / "  - some free-text violation"
+    _VIOL_RE = re.compile(r"^\s*-\s*(.+\S)\s*$")
+    # "  ADDED  desk   at (1.0, 2.0)  [workshop]" / "  MOVED  rack  (..) -> (..) [..]"
+    _CHANGE_RE = re.compile(r"^\s*(ADDED|MOVED)\s+(.+\S)\s*$")
+    # "  ADDED: door-3" / "  REMOVED: door-1" / "  MODIFIED: door-2"
+    _DOOR_RE = re.compile(r"^\s*(ADDED|REMOVED|MODIFIED):\s*(.+\S)\s*$")
 
     def __init__(self) -> None:
         self.reset()
 
     def reset(self) -> None:
         self._score: Optional[float] = None
+        self._prev_score: Optional[float] = None
         self._grade: Optional[str] = None
         self._suggestions: list[dict] = []
         self._rules: list[str] = []
         self._breakdown: dict[str, dict] = {}   # tool -> {score, weight}
+        self._violations: list[str] = []
+        self._changes: list[dict] = []          # {action: ADDED|MOVED, text}
+        self._door_changes: list[str] = []
         self._actions = {"approve": True, "end": True, "yes": False}
         self._agent_lines: list[str] = []
-        self._mode: Optional[str] = None  # 'suggestions' | 'rules' | 'agent' | 'breakdown'
+        # 'suggestions' | 'rules' | 'agent' | 'breakdown' | 'violations' | 'changes' | 'doors'
+        self._mode: Optional[str] = None
         self._ready = False
 
     def feed(self, line: str) -> None:
@@ -278,9 +347,34 @@ class CheckpointParser:
             self._grade = m.group(2)
             return
 
+        # Previous score (printed right under LAYOUT SCORE when a prior exists),
+        # used by the UI to show the delta. Capture once.
+        if self._prev_score is None:
+            pm = self._PREV_RE.search(line)
+            if pm:
+                try:
+                    self._prev_score = float(pm.group(1))
+                except ValueError:
+                    self._prev_score = None
+                return
+
         # Section headers
         if stripped.startswith("Score breakdown:"):
             self._mode = "breakdown"
+            return
+        if stripped.startswith("Collision violations"):
+            self._mode = "violations"
+            return
+        if stripped.startswith("Furniture changes made"):
+            self._mode = "changes"
+            return
+        if stripped.startswith("Door changes detected"):
+            self._mode = "doors"
+            return
+        # These end any open block but carry no list items we capture.
+        if stripped.startswith("Viewport:") or stripped.startswith("Placed in ") or \
+           stripped.startswith("Structural integrity fixes"):
+            self._mode = None
             return
         if stripped.startswith("Suggestions:"):
             self._mode = "suggestions"
@@ -339,6 +433,33 @@ class CheckpointParser:
             # any other non-blank line ends the breakdown section
             self._mode = None
 
+        if self._mode == "violations":
+            vm = self._VIOL_RE.match(line)
+            if vm:
+                self._violations.append(vm.group(1))
+                return
+            if stripped == "":
+                return
+            self._mode = None  # non-matching, non-blank line ends the block
+
+        if self._mode == "changes":
+            cm = self._CHANGE_RE.match(line)
+            if cm:
+                self._changes.append({"action": cm.group(1), "text": cm.group(2)})
+                return
+            if stripped == "":
+                return
+            self._mode = None
+
+        if self._mode == "doors":
+            dm = self._DOOR_RE.match(line)
+            if dm:
+                self._door_changes.append(f"{dm.group(1)}: {dm.group(2)}")
+                return
+            if stripped == "":
+                return
+            self._mode = None
+
         # Detect 'yes' availability from the actions hints
         if "proceed to next zone" in stripped:
             self._actions["yes"] = True
@@ -354,10 +475,14 @@ class CheckpointParser:
             "type": "agent_checkpoint",
             "agentMessage": agent_msg,
             "score": self._score,
+            "prevScore": self._prev_score,
             "grade": self._grade,
             "suggestions": list(self._suggestions),
             "rules": list(self._rules),
             "breakdown": dict(self._breakdown),
+            "violations": list(self._violations),
+            "changes": list(self._changes),
+            "doorChanges": list(self._door_changes),
             "actions": dict(self._actions),
         }
         self.reset()

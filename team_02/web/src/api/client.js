@@ -39,6 +39,17 @@ export const saveInspirePicks = (round, urls)  => post("/api/inspire/picks", { r
 export const buildMoodboard   = (senseCounts)  => post("/api/inspire/moodboard", { sense_counts: senseCounts });
 export const profileChat      = (text)         => post("/api/profile-chat", { text });
 export const getLayout        = ()             => post("/api/layout");
+export const renderRoom       = (roomName, force = false) => post("/api/render-room", { room_name: roomName, force });
+export const getReport        = ()             => post("/api/report");
+// Before/after is always initial (un-edited, on-disk) → current. There is no
+// "last edit only" compare — that semantic was removed to keep one source of truth.
+export const compareInitial   = (force = false) => post("/api/compare-initial", { force });
+
+// Checkpoints (Task 3): commit the working draft as a milestone; restore rolls back to one.
+export const commit           = (label)        => post("/api/commit", { label });
+export const restore          = (checkpointId) => post("/api/restore", { checkpoint_id: checkpointId });
+// View a checkpoint's scored state for review (non-destructive).
+export const viewCheckpoint   = (checkpointId) => post("/api/checkpoint", { checkpoint_id: checkpointId });
 
 // ── SSE: inspire rounds stream progress, then a final result ──────────────
 // callbacks: { onSession(id), onProgress(msg), onResult(data) }

@@ -55,6 +55,16 @@ function normalizeGraphData(data: Record<string, unknown>): NodeLinkData | null 
   };
 }
 
+/** One entry in a layout's version history (original + approved revisions). */
+export interface VersionInfo {
+  id: string;            // base name (original) or output file stem (revision)
+  label: string;         // "Original" | "2026-06-07 22:41"
+  kind: 'original' | 'version';
+  file: string | null;   // output file name (revisions only)
+  timestamp: number;     // file mtime (epoch seconds)
+  file_size: number;
+}
+
 export interface UseLayoutStateReturn {
   layout: LayoutJSON | null;
   graphData: NodeLinkData | null;
@@ -63,10 +73,14 @@ export interface UseLayoutStateReturn {
   selectedLayoutName: string | null;
   modifiedIds: Set<string>;
   isPending: boolean;
+  versions: VersionInfo[];
+  selectedVersionId: string | null;
   loadLayout: (name: string) => Promise<void>;
   reloadLayout: () => Promise<void>;
   uploadLayout: (file: File) => Promise<void>;
   fetchLayouts: () => Promise<void>;
+  fetchVersions: (name?: string) => Promise<VersionInfo[]>;
+  selectVersion: (versionId: string, file: string | null) => Promise<void>;
   updateFromWS: (message: StateUpdate) => void;
   setScores: (scores: ScoreData) => void;
   acceptPending: () => Promise<void>;
@@ -87,6 +101,8 @@ export function useLayoutState(): UseLayoutStateReturn {
   const [selectedLayoutName, setSelectedLayoutName] = useState<string | null>(null);
   const [modifiedIds, setModifiedIds] = useState<Set<string>>(new Set());
   const [isPending, setIsPending] = useState(false);
+  const [versions, setVersions] = useState<VersionInfo[]>([]);
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const layoutRef = useRef<LayoutJSON | null>(null);
   const preProposalRef = useRef<LayoutJSON | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -119,15 +135,75 @@ export function useLayoutState(): UseLayoutStateReturn {
     }
   }, []);
 
+  /** Fetch the version history (original + revisions) for a base layout. */
+  const fetchVersions = useCallback(async (name?: string): Promise<VersionInfo[]> => {
+    const target = name ?? selectedLayoutName;
+    if (!target) { setVersions([]); return []; }
+    try {
+      const res = await fetch(`${API_BASE}/layouts/${encodeURIComponent(target)}/versions`);
+      if (res.ok) {
+        const data = (await res.json()) as VersionInfo[];
+        setVersions(data);
+        return data;
+      }
+    } catch {
+      // versions endpoint unavailable — leave the list empty
+    }
+    return [];
+  }, [selectedLayoutName]);
+
+  /** Make a specific version (original or a saved revision) the active layout.
+   *  Loads it into the viewport, mirrors it into the working session, and pins
+   *  it server-side so the chat pipeline runs on this revision. */
+  const selectVersion = useCallback(async (versionId: string, file: string | null) => {
+    const base = selectedLayoutName;
+    if (!base) return;
+    setSelectedVersionId(versionId);
+    try {
+      const res = await fetch(`${API_BASE}/layouts/${encodeURIComponent(base)}/version/select`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version_id: versionId, file }),
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as LayoutJSON;
+      setLayoutWithDiff(data);
+      // The backend rebuilt the spatial graph for this revision — pull it.
+      try {
+        const g = await fetch(`${API_BASE}/graph`);
+        if (g.ok) {
+          const gd = await g.json();
+          if (gd) setGraphData(normalizeGraphData(gd));
+        }
+      } catch { /* keep existing graph */ }
+    } catch {
+      // selection failed — viewport keeps the current layout
+    }
+  }, [selectedLayoutName, setLayoutWithDiff]);
+
   const loadLayout = useCallback(async (name: string) => {
     try {
       setSelectedLayoutName(name);
+      // Loading a base layout resets the version selection to its "current"
+      // working state (the original id); the history list is refreshed by App.
+      setSelectedVersionId(name);
 
-      // Fetch layout data
-      const layoutRes = await fetch(`${API_BASE}/layouts/${encodeURIComponent(name)}`);
-      if (layoutRes.ok) {
-        const layoutData = await layoutRes.json();
-        // First load — no diff needed
+      // Try to load active session layout first (post-approval state)
+      // Falls back to base layout if no session exists
+      let layoutData = null;
+      try {
+        const sessionRes = await fetch(`${API_BASE}/layouts/${encodeURIComponent(name)}/reload`, { method: 'POST' });
+        if (sessionRes.ok) {
+          layoutData = await sessionRes.json();
+        }
+      } catch { /* ignore */ }
+
+      if (!layoutData) {
+        const layoutRes = await fetch(`${API_BASE}/layouts/${encodeURIComponent(name)}`);
+        if (layoutRes.ok) layoutData = await layoutRes.json();
+      }
+
+      if (layoutData) {
         layoutRef.current = layoutData;
         setLayout(layoutData);
       }
@@ -163,6 +239,20 @@ export function useLayoutState(): UseLayoutStateReturn {
         }
       } catch {
         // Scores endpoint may not be available
+      }
+
+      // Fetch version history — use `name` directly (avoids stale-closure issues
+      // with selectedLayoutName which hasn't propagated yet at this point).
+      try {
+        const vRes = await fetch(`${API_BASE}/layouts/${encodeURIComponent(name)}/versions`);
+        if (vRes.ok) {
+          const vData = (await vRes.json()) as VersionInfo[];
+          setVersions(vData);
+          // Mark the original (base) as current if no revision is pinned.
+          setSelectedVersionId(name);
+        }
+      } catch {
+        // versions endpoint may not be available
       }
     } catch {
       // Layout fetch failed
@@ -361,10 +451,14 @@ export function useLayoutState(): UseLayoutStateReturn {
     selectedLayoutName,
     modifiedIds,
     isPending,
+    versions,
+    selectedVersionId,
     loadLayout,
     reloadLayout,
     uploadLayout,
     fetchLayouts,
+    fetchVersions,
+    selectVersion,
     updateFromWS,
     setScores,
     acceptPending,

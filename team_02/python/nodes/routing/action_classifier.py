@@ -12,9 +12,8 @@ Actions:
   follow_up       — specific question about existing results (use cache)
   chitchat        — general conversation
   inspire         — atmosphere/image generation
-  change_material — edit a material → re-score → compare
-  modify_glazing  — edit glazing ratio/type → re-score → compare
-  add_furniture   — add furniture/plant → re-score → compare
+  edit            — apply one OR MORE layout edits (material / glazing / furniture)
+                    in a single turn → re-score once → compare
   topologic       — room adjacency graph analysis
   biophilic       — biophilic richness audit
   compare         — compare layout across two personas
@@ -35,12 +34,14 @@ _KEYWORD_MAP = [
     ("preview",          ("what if", "what would happen", "what happens if", "would it help",
                           "simulate", "preview", "what would it", "show me what", "if i changed",
                           "if i added", "if i made", "hypothetical")),
-    ("change_material",  ("change material", "change floor", "change wall", "change ceiling",
+    # All edit kinds (material / glazing / furniture) collapse to one `edit` action;
+    # edit_planner decomposes the prompt into the individual ops downstream.
+    ("edit",             ("change material", "change floor", "change wall", "change ceiling",
                           "wood floor", "wooden floor", "carpet", "concrete floor", "tile floor",
-                          "floor to", "material to", "wall to", "make it wood", "make it fabric")),
-    ("modify_glazing",   ("glazing", "window size", "more light", "bigger window", "skylight",
-                          "triple glazing", "double glazing", "single glazing")),
-    ("add_furniture",    ("add", "plant", "add rug", "add sofa", "add furniture",
+                          "floor to", "material to", "wall to", "make it wood", "make it fabric",
+                          "glazing", "window size", "more light", "bigger window", "skylight",
+                          "triple glazing", "double glazing", "single glazing",
+                          "add", "plant", "add rug", "add sofa", "add furniture",
                           "put a plant", "place a")),
     ("topologic",        ("topolog", "adjacency", "connectivity", "room connection", "flow",
                           "which rooms connect", "room graph")),
@@ -112,14 +113,13 @@ ACTIONS — pick exactly one:
 
   inspire         — user wants images, atmosphere generation, mood visualisation.
 
-  change_material — user explicitly wants to change a material (floor, wall, furniture).
-                    Use for: "change floor to wood", "make the walls concrete", "carpet in bedroom".
-
-  modify_glazing  — user wants to change window size, glazing type, or add light.
-                    Use for: "bigger windows", "triple glazing", "more light in bedroom".
-
-  add_furniture   — user wants to add furniture or plants to a room.
-                    Use for: "add a plant", "put a rug", "add a sofa".
+  edit            — user wants to APPLY one or more changes to the layout: change a material
+                    (floor / wall / furniture), modify glazing (window size / type / more light),
+                    and/or add furniture or plants. A SINGLE message may request SEVERAL edits at
+                    once — they all map to this one action.
+                    Use for: "change floor to wood", "make the walls concrete", "bigger windows",
+                    "triple glazing", "add a plant", "put a rug", and combinations like
+                    "add 2 plants and change the glazing in the bedroom".
 
   preview         — user wants to SIMULATE a change to see its effect WITHOUT applying it.
                     The change is hypothetical — do not commit it.
@@ -136,8 +136,8 @@ ACTIONS — pick exactly one:
                     Use for: "compare personas", "how does this work for elderly", "versus".
 
 Key rules:
-  - If the user says "change [material] [floor/wall/furniture]" → change_material
-  - If the user says "add [plant/rug/sofa]" → add_furniture
+  - Any request to change a material, modify glazing, or add furniture/plants → edit
+    (even if SEVERAL such changes are asked for in one message).
   - follow_up ONLY if has_prior_analysis=true; otherwise → chitchat or analyze
   - When in doubt between analyze/full: if any improvement word ("fix", "improve", "suggest") → full
 
@@ -175,8 +175,7 @@ def build_action_classifier_node(llm):
             candidate = parsed.get("action", "chitchat").lower().strip()
             valid_actions = {
                 "analyze", "detect", "full", "overview", "follow_up", "chitchat",
-                "inspire", "change_material", "modify_glazing", "add_furniture",
-                "preview", "topologic", "biophilic", "compare",
+                "inspire", "edit", "preview", "topologic", "biophilic", "compare",
             }
             if candidate in valid_actions:
                 action = candidate
@@ -234,8 +233,6 @@ def build_action_classifier_node(llm):
             "layout_id": layout_id,
             "target_room_hint": target_room,
             "material_hint": material,
-            # Keep intent for backward compat with what_next
-            "intent": action,
         }
 
     return action_classifier_node

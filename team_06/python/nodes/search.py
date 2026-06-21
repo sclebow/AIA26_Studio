@@ -1,84 +1,313 @@
 import json
-import networkx as nx
 from pathlib import Path
 from typing import Any
-import logging
-from team_06.python.nodes import topology
 from tools.graph_searcher import GraphSearcher
+from tools.embedding_matcher import match_layouts
 
-logger = logging.getLogger(__name__)
+
+def _parse_search_payload(payload_json: str | None) -> dict[str, Any]:
+    if not payload_json:
+        return {}
+
+    try:
+        payload = json.loads(payload_json)
+    except json.JSONDecodeError:
+        return {}
+
+    if not isinstance(payload, dict):
+        return {}
+
+    return payload
+
+
+def _programs_from_search_payload(payload: dict[str, Any]) -> list[str]:
+    graph_payload = payload.get("graph") if isinstance(payload.get("graph"), dict) else payload
+
+    programs = graph_payload.get("programs")
+    if not isinstance(programs, list):
+        return []
+
+    return [program.strip().lower() for program in programs if isinstance(program, str) and program.strip()]
+
+
+def _pair_list_from_search_payload(payload: dict[str, Any], key: str) -> list[tuple[str, str]]:
+    graph_payload = payload.get("graph") if isinstance(payload.get("graph"), dict) else payload
+    pair_list = graph_payload.get(key)
+    if not isinstance(pair_list, list):
+        return []
+
+    pairs: list[tuple[str, str]] = []
+    for item in pair_list:
+        if not isinstance(item, (list, tuple)) or len(item) != 2:
+            continue
+        left, right = item
+        if isinstance(left, str) and left.strip() and isinstance(right, str) and right.strip():
+            pairs.append((left.strip().lower(), right.strip().lower()))
+    return pairs
+
+
+def _float_from_search_payload(payload: dict[str, Any], key: str) -> float | None:
+    graph_payload = payload.get("graph") if isinstance(payload.get("graph"), dict) else payload
+    value = graph_payload.get(key)
+    return float(value) if isinstance(value, (int, float)) else None
+
+
+def _str_from_search_payload(payload: dict[str, Any], key: str) -> str | None:
+    graph_payload = payload.get("graph") if isinstance(payload.get("graph"), dict) else payload
+    value = graph_payload.get(key)
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _centrality_list_from_search_payload(payload: dict[str, Any]) -> list[tuple[str, str]]:
+    graph_payload = payload.get("graph") if isinstance(payload.get("graph"), dict) else payload
+    centrality_list = graph_payload.get("centrality")
+    if not isinstance(centrality_list, list):
+        return []
+    
+    result = []
+    for item in centrality_list:
+        if not isinstance(item, (list, tuple)) or len(item) != 2:
+            continue
+        program, level = item
+        if isinstance(program, str) and program.strip() and isinstance(level, str) and level.strip():
+            result.append((program.strip().lower(), level.strip().lower()))
+    return result
+
+
+def _window_list_from_search_payload(payload: dict[str, Any]) -> list[tuple[str, int]]:
+    graph_payload = payload.get("graph") if isinstance(payload.get("graph"), dict) else payload
+    window_list = graph_payload.get("windows")
+    if not isinstance(window_list, list):
+        return []
+    
+    result = []
+    for item in window_list:
+        if not isinstance(item, (list, tuple)) or len(item) != 2:
+            continue
+        program, count = item
+        if isinstance(program, str) and program.strip() and isinstance(count, int):
+            result.append((program.strip().lower(), count))
+    return result
+
+
+def _description_from_search_payload(payload: dict[str, Any]) -> str:
+    description = payload.get("description")
+    if isinstance(description, str):
+        return description.strip()
+    return ""
+
+
+def _load_layout_descriptions(repo_root: Path) -> dict[str, str]:
+    descriptions: dict[str, str] = {}
+
+    descriptions_dir = repo_root / "layout_inputs" / "Planfinder_Dataset" / "pf_descriptions"
+    if descriptions_dir.exists():
+        for description_file in descriptions_dir.glob("*.json"):
+            try:
+                description_payload = json.loads(description_file.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            layout_id = description_payload.get("layoutId", description_file.stem)
+            description = description_payload.get("description")
+            if layout_id and description:
+                descriptions[layout_id] = description
+
+    return descriptions
+
+
+def _load_layout_by_id(layout_id: str, repo_root: Path) -> dict[str, Any] | None:
+    pf_path = repo_root / "layout_inputs" / "Planfinder_Dataset" / "pf_jsons" / f"{layout_id}.json"
+    if not pf_path.exists():
+        return None
+
+    try:
+        return json.loads(pf_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _run_graph_search(
+    programs: list[str],
+    access_pairs: list[tuple[str, str]],
+    adjacency_pairs: list[tuple[str, str]],
+    not_adjacency_pairs: list[tuple[str, str]],
+    centrality: list[tuple[str, str]],
+    windows: list[tuple[str, int]],
+    shape: str | None,
+    total_area: float | None,
+    aspect_ratio: float | None,
+    compactness: float | None,
+    top_k: int,
+    repo_root: Path,
+) -> list[tuple[str, float]]:
+    # Graph embedding search: embed the requested room programs and retrieve the
+    # closest layout graphs from the Planfinder graph dataset.
+    planfinder_graphs_path = repo_root / "layout_inputs" / "planfinder_graphs.json"
+    searcher = GraphSearcher(str(planfinder_graphs_path))
+    results = searcher.search_by_embedding(
+        programs,
+        access_pairs=access_pairs,
+        adjacency_pairs=adjacency_pairs,
+        not_adjacency_pairs=not_adjacency_pairs,
+        centrality=centrality or None,
+        windows=windows or None,
+        shape=shape,
+        total_area=total_area,
+        aspect_ratio=aspect_ratio,
+        compactness=compactness,
+        top_k=top_k,
+    )
+    return results
+
+
+def _run_description_search(description_query: str, descriptions: dict[str, str], top_k: int) -> list[tuple[str, float]]:
+    # Description embedding search: embed the human-readable query and compare
+    # it against stored layout descriptions using sentence embeddings.
+    if not description_query:
+        return []
+
+    description_items = [
+        {"layoutId": layout_id, "description": description}
+        for layout_id, description in descriptions.items()
+    ]
+    result = match_layouts(description_query, description_items, top_k=top_k, min_score=0.0)
+    matches = result.get("matches", [])
+    return [(match["layoutId"], float(match["score"])) for match in matches if match.get("layoutId")]
+
+
+def _rank_map(results: list[tuple[str, float]]) -> dict[str, int]:
+    return {layout_id: rank for rank, (layout_id, _score) in enumerate(results, start=1)}
+
+
+def _merge_ranked_results(
+    graph_results: list[tuple[str, float]],
+    description_results: list[tuple[str, float]],
+    descriptions: dict[str, str],
+    top_k: int,
+) -> list[dict[str, Any]]:
+    # Merge method: reciprocal rank fusion (RRF). We merge by rank instead of
+    # averaging raw scores because graph and description scores are not on the
+    # same scale.
+    graph_ranks = _rank_map(graph_results)
+    description_ranks = _rank_map(description_results)
+    combined_ids = set(graph_ranks) | set(description_ranks)
+
+    ranked_candidates = []
+    for layout_id in combined_ids:
+        graph_rank = graph_ranks.get(layout_id)
+        description_rank = description_ranks.get(layout_id)
+        graph_score = next((score for candidate_id, score in graph_results if candidate_id == layout_id), None)
+        description_score = next((score for candidate_id, score in description_results if candidate_id == layout_id), None)
+
+        fused_score = 0.0
+        if graph_rank is not None:
+            fused_score += 1.0 / (60 + graph_rank)
+        if description_rank is not None:
+            fused_score += 1.0 / (60 + description_rank)
+
+        ranked_candidates.append(
+            {
+                "id": layout_id,
+                "score": round(fused_score, 6),
+                "graph_score": round(graph_score, 3) if graph_score is not None else None,
+                "description_score": round(description_score, 3) if description_score is not None else None,
+            }
+        )
+
+    ranked_candidates.sort(key=lambda candidate: candidate["score"], reverse=True)
+    return ranked_candidates[:top_k]
+
 
 def build_search_node() -> Any:
-    """Search using topology graph from state."""
+    """Search layouts using the structured search payload from state."""
     def search(state: dict) -> dict:
-        topology_json = state.get("topology_graph_json_string")
         iteration = state.get("iteration", 0)
-        
-        if not topology_json:
-            logger.error("❌ No topology graph provided")
+        top_k = state.get("graph_top_k") or 4
+        search_payload_json = state.get("topology_graph_json_string")
+        search_payload = _parse_search_payload(search_payload_json)
+        programs = _programs_from_search_payload(search_payload)
+        access_pairs = _pair_list_from_search_payload(search_payload, "access_pairs")
+        adjacency_pairs = _pair_list_from_search_payload(search_payload, "adjacency_pairs")
+        not_adjacency_pairs = _pair_list_from_search_payload(search_payload, "not_adjacency_pairs")
+        centrality = _centrality_list_from_search_payload(search_payload)
+        windows = _window_list_from_search_payload(search_payload)
+        shape = _str_from_search_payload(search_payload, "shape")
+        total_area = _float_from_search_payload(search_payload, "total_area")
+        aspect_ratio = _float_from_search_payload(search_payload, "aspect_ratio")
+        compactness = _float_from_search_payload(search_payload, "compactness")
+        description_query = _description_from_search_payload(search_payload)
+
+        if not programs and not description_query:
             return {
+                "search_result": "failed",
                 "search_results_json_string": json.dumps([]),
-                "clarification": "No topology graph provided. Please describe your layout or try again.",
+                "clarification": "No search input found in the structured payload. Please describe the rooms or layout preferences you need and try again.",
                 "iteration": iteration + 1
             }
-        
+
         try:
             repo_root = Path(__file__).resolve().parent.parent.parent
-            graphs_path = repo_root / "layout_inputs" / "sample_graphs.json"
-            
-            topology = nx.node_link_graph(json.loads(topology_json))
-            logger.info(f"📊 Topology graph nodes: {list(topology.nodes(data=True))}")
-            logger.info(f"📊 Topology graph edges: {list(topology.edges())}")
-            
-            # Extract program types from topology
-            programs = [
-                topology.nodes[node].get('program', '')
-                for node in topology.nodes()
-                if topology.nodes[node].get('program', '')
-            ]
-            
-            searcher = GraphSearcher(str(graphs_path))
-            results = searcher.search_by_embedding(programs, access=True, top_k=3)
+            descriptions = _load_layout_descriptions(repo_root)
 
-            # Also search Planfinder graphs if available
-            planfinder_graphs_path = repo_root / "layout_inputs" / "planfinder_graphs.json"
-            if planfinder_graphs_path.exists():
-                pf_searcher = GraphSearcher(str(planfinder_graphs_path))
-                pf_results = pf_searcher.search_by_embedding(programs, access=True, top_k=3)
-                results = sorted(results + pf_results, key=lambda x: x[1], reverse=True)
-                logger.info(f"🔍 Combined search results (sample + planfinder): {results}")
-            else:
-                logger.info(f"🔍 Search results: {results}")
+            # 1) Graph embedding retrieval from structured room programs.
+            graph_results = _run_graph_search(
+                programs,
+                access_pairs,
+                adjacency_pairs,
+                not_adjacency_pairs,
+                centrality,
+                windows,
+                shape,
+                total_area,
+                aspect_ratio,
+                compactness,
+                top_k,
+                repo_root,
+            ) if programs else []
 
-            candidates = [
-                {"id": lid, "score": round(s, 2), "description": f"Layout {lid}"}
-                for lid, s in results[:3]
-            ]
-            logger.info(f"📌 Candidates: {candidates}")
-            
+            # 2) Description embedding retrieval from the human-readable query.
+            description_results = _run_description_search(description_query, descriptions, top_k)
+
+            # 3) Merge both ranked lists with reciprocal rank fusion.
+            candidates = _merge_ranked_results(graph_results, description_results, descriptions, top_k)
+
             if not candidates:
-                logger.warning(f"⚠️  No matching layouts found")
                 return {
                     "search_result": "failed",
                     "search_results_json_string": json.dumps([]),
                     "clarification": "No matching layout found. How would you like to proceed? (Type 'end' to exit or write a new request)",
                     "iteration": iteration + 1,
                 }
-            
-            logger.info(f"✅ Found {len(candidates)} layouts")
-            
-            return {
-                "search_result": "success",
+
+            top_layout_id = candidates[0]["id"]
+            has_input_layout = bool(state.get("input_layout_json_string"))
+            next_result = "adapt" if has_input_layout else "select"
+
+            result_state = {
+                "search_result": next_result,
                 "search_results_json_string": json.dumps(candidates),
+                "layout_id": top_layout_id,
                 "iteration": iteration + 1,
             }
+
+            if has_input_layout:
+                selected_layout = _load_layout_by_id(top_layout_id, repo_root)
+                if not selected_layout:
+                    return {
+                        "search_result": "failed",
+                        "search_results_json_string": json.dumps(candidates),
+                        "clarification": f"Selected layout {top_layout_id} could not be loaded for adaptation.",
+                        "iteration": iteration + 1,
+                    }
+                result_state["layout_json_string"] = json.dumps(selected_layout)
+
+            return result_state
         except Exception as e:
-            logger.error(f"❌ Search failed: {str(e)}", exc_info=True)
             return {
                 "search_result": "failed",
                 "search_results_json_string": json.dumps([]),
                 "clarification": f"Search failed: {str(e)}. How would you like to proceed?",
                 "iteration": iteration + 1,
             }
-        
+
     return search

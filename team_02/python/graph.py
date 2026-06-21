@@ -16,17 +16,18 @@ WHAT CHANGED FROM v3 → v4
   3. PERSONA FIX: analyze/detect/suggest now pass real persona weights from
      onboarding (persona_profile.comfort_weights) to the scoring tools.
 
-  4. TOOL PATHS NOW REACHABLE: change_material, modify_glazing, add_furniture,
-     topologic, biophilic, compare all route correctly via action field.
+  4. TOOL PATHS NOW REACHABLE: edit, topologic, biophilic, compare all route
+     correctly via action field.
 
-  5. NEW STATE FIELDS: action, layout_diff, graph_data, biophilic_data,
-     target_room_hint, material_hint, layout_updated.
+  5. NEW STATE FIELDS: action, edit_ops, layout_diff, layout_diffs, graph_data,
+     biophilic_data, target_room_hint, material_hint, layout_updated.
 
   6. NODE REORGANISATION:
      nodes/routing/   → action_classifier (replaces intent_classifier + route_intent)
      nodes/scoring/   → analyze, score_interpreter, detect, conflict_reasoner,
                          suggest, suggestion_critic
-     nodes/editing/   → change_material, modify_glazing, add_furniture, compare_versions
+     nodes/editing/   → edit_planner, apply_edits (multi-edit; replace the 3 per-type
+                         edit nodes), compare_versions, preview
      nodes/insights/  → topologic_analysis, biophilic_audit, persona_comparison
 
 =============================================================================
@@ -49,24 +50,62 @@ LAYOUT MODE FLOW (v4)
   │  full (cached scores) → [skip analyze] → detect → suggest                 │
   │  → suggest → suggestion_critic → respond → evaluator → what_next          │
   └────────────────────────────────────────────────────────────────────────────┘
-  ┌─ EDIT TOOLS ───────────────────────────────────────────────────────────────┐
-  │  change_material → analyze → compare_versions → score_interpreter         │
-  │  modify_glazing  → analyze → compare_versions → score_interpreter         │
-  │  add_furniture   → analyze → compare_versions → score_interpreter         │
-  │                 → respond → evaluator → what_next                         │
+  ┌─ EDIT TOOLS (multi-edit: N ops in one turn, ONE re-score) ──────────────────┐
+  │  edit → edit_planner [LLM: prompt → ops list]                              │
+  │       → apply_edits  [mutate all ops; accumulate layout_diffs]            │
+  │       → analyze → compare_versions → score_interpreter                    │
+  │       → respond → evaluator → what_next                                   │
+  │  (apply_edits → respond directly when zero resolvable ops — no re-score)   │
   └────────────────────────────────────────────────────────────────────────────┘
   ┌─ INSIGHT TOOLS ────────────────────────────────────────────────────────────┐
   │  topologic  → topologic_analysis → respond → evaluator → what_next        │
-  │  biophilic  → biophilic_audit → [add_furniture if plants_needed]          │
+  │  biophilic  → biophilic_audit → [apply_edits if plants_needed]            │
   │               → analyze → compare_versions → score_interpreter → respond  │
   │  compare    → persona_comparison → score_interpreter → respond            │
   └────────────────────────────────────────────────────────────────────────────┘
 """
 
 from __future__ import annotations
+import os
+import time
 from pathlib import Path
 from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
+
+# ── Per-node benchmarking (gated on BENCH_NODES=1; see bench_nodes.py) ───────────
+# When enabled, every node fn is wrapped with a wall-clock timer that also snapshots
+# the LLM token counter (_runtime/llm) before/after, so we get latency + tokens + the
+# tier each node ran on. No-op (zero overhead) when BENCH_NODES is unset.
+_BENCH = os.environ.get("BENCH_NODES") == "1"
+NODE_TIMINGS: list[dict] = []
+_NODE_TIER = {
+    "greet": "fast", "quiz": "fast", "action_classifier": "fast", "chitchat": "fast",
+    "evaluator": "fast", "what_next": "fast",
+    "inspire": "smart", "persona_compiler": "smart", "detail_respond": "smart",
+    "score_interpreter": "smart", "conflict_reasoner": "smart", "suggestion_critic": "smart",
+    "respond": "smart", "edit_planner": "smart",
+}
+
+
+def _bench_wrap(name: str, fn):
+    if not _BENCH:
+        return fn
+    from _runtime import llm as _llm
+
+    def wrapped(state):
+        u0 = _llm.usage_snapshot(); t0 = time.perf_counter()
+        out = fn(state)
+        dt = time.perf_counter() - t0; u1 = _llm.usage_snapshot()
+        NODE_TIMINGS.append({
+            "node": name, "tier": _NODE_TIER.get(name, "-"),
+            "latency_s": round(dt, 4),
+            "llm_calls": u1["calls"] - u0["calls"],
+            "in_tok": u1["input"] - u0["input"],
+            "out_tok": u1["output"] - u0["output"],
+        })
+        return out
+
+    return wrapped
 
 # ── Onboarding ────────────────────────────────────────────────────────────────
 from nodes.onboarding.greet            import build_greet_node
@@ -97,9 +136,8 @@ from nodes.quality.evaluator import build_evaluator_node
 from nodes.conversation.what_next import build_what_next_node
 
 # ── Edit tools ────────────────────────────────────────────────────────────────
-from nodes.editing.change_material  import build_change_material_node
-from nodes.editing.modify_glazing   import build_modify_glazing_node
-from nodes.editing.add_furniture    import build_add_furniture_node
+from nodes.editing.edit_planner     import build_edit_planner_node
+from nodes.editing.apply_edits      import build_apply_edits_node
 from nodes.editing.compare_versions import build_compare_versions_node
 from nodes.editing.preview          import build_preview_node
 
@@ -143,9 +181,8 @@ class AgentState(TypedDict, total=False):
 
     # ── Routing ──────────────────────────────────────────────────────────────
     action:           str   # unified action: analyze|detect|full|overview|follow_up|
-                            #   chitchat|inspire|change_material|modify_glazing|
-                            #   add_furniture|topologic|biophilic|compare
-    intent:           str   # kept for backward compat with what_next
+                            #   chitchat|inspire|edit|preview|topologic|biophilic|compare
+    edit_ops:         list  # validated ops from edit_planner: [{op, room, ...params}, ...]
     target_room_hint: str   # LLM-extracted room name from prompt
     material_hint:    str   # LLM-extracted material name from prompt
 
@@ -169,11 +206,13 @@ class AgentState(TypedDict, total=False):
 
     # ── Edit / insight results ────────────────────────────────────────────────
     pending_comparison:           bool
-    layout_diff:                  dict   # {room_id, room_name, attribute, old_value, new_value, sense_affected}
+    layout_diff:                  dict   # most-recent single edit (used by /api/report featured room + respond)
+    layout_diffs:                 list   # ALL edits applied this turn (multi-edit) — one dict per change
     layout_updated:               bool   # True when layout JSON was mutated this turn
     # Predictive preview ("what if") — scored on a CLONE, never committed.
     preview_scores_json:          str    # hypothetical scores; NOT the canonical cache
-    preview_diff:                 dict   # the hypothetical edit's diff
+    preview_diff:                 dict   # the hypothetical edit's diff (last, back-compat)
+    preview_diffs:                list   # all hypothetical edits in a multi-op what-if
     preview_summary:              str    # predicted per-sense delta, human-readable
     adjacency_graph:              dict
     graph_data:                   dict   # {nodes, edges, metrics} for Cytoscape/D3
@@ -248,13 +287,9 @@ def _route_after_load_layout(state: AgentState) -> str:
     if action == "preview":
         return "preview"
 
-    # Edit tools
-    if action == "change_material":
-        return "change_material"
-    if action == "modify_glazing":
-        return "modify_glazing"
-    if action == "add_furniture":
-        return "add_furniture"
+    # Edit tools — one path: edit_planner decomposes, apply_edits mutates (multi-edit)
+    if action == "edit":
+        return "edit_planner"
 
     # Insight tools
     if action == "topologic":
@@ -271,6 +306,12 @@ def _route_after_load_layout(state: AgentState) -> str:
         return "detect"
 
     return "analyze"
+
+
+def _route_after_apply_edits(state: AgentState) -> str:
+    # Re-score only when something actually changed; otherwise apply_edits already
+    # wrote a clarifying final_response, so go straight to respond → what_next.
+    return "analyze" if state.get("layout_updated") else "respond"
 
 
 def _route_after_analyze(state: AgentState) -> str:
@@ -294,8 +335,10 @@ def _route_after_conflict_reasoner(state: AgentState) -> str:
 
 
 def _route_after_biophilic_audit(state: AgentState) -> str:
+    # When greenery is missing, biophilic_audit has pre-seeded edit_ops with a single
+    # plant op, so route through the unified edit path (mutate → re-score → compare).
     if state.get("biophilic_plants_needed"):
-        return "add_furniture"
+        return "apply_edits"
     return "score_interpreter"
 
 
@@ -314,37 +357,40 @@ def _route_after_evaluator(state: AgentState) -> str:
 def build_graph(ctx: Any) -> Any:
     persona_path = str(ctx.layout_input_dir.parent / "personas" / "persona.json")
 
+    # Benchmarking tiers (see docs/week08/benchmarking-findings.md):
+    #   ctx.llm_fast  -> routing / classification / short internal text
+    #   ctx.llm_smart -> user-facing prose & nuanced persona reasoning
+
     # Onboarding
-    greet            = build_greet_node(ctx.llm_simple)
-    quiz             = build_quiz_node(ctx.llm_simple)
-    inspire          = build_inspire_node(ctx.llm_simple)
-    persona_compiler = build_persona_compiler_node(ctx.llm_simple, persona_path)
+    greet            = build_greet_node(ctx.llm_fast)
+    quiz             = build_quiz_node(ctx.llm_fast)
+    inspire          = build_inspire_node(ctx.llm_smart)
+    persona_compiler = build_persona_compiler_node(ctx.llm_smart, persona_path)
 
     # Routing
-    action_classifier = build_action_classifier_node(ctx.llm_simple)
-    chitchat          = build_chitchat_node(ctx.llm_simple)
-    detail_respond    = build_detail_respond_node(ctx.llm_simple)
+    action_classifier = build_action_classifier_node(ctx.llm_fast)
+    chitchat          = build_chitchat_node(ctx.llm_fast)
+    detail_respond    = build_detail_respond_node(ctx.llm_smart)
 
     # Layout
     load_layout = build_load_layout_node(ctx.layout_input_dir)
 
     # Scoring chain
     analyze           = build_analyze_node(ctx.mcp_client)
-    score_interpreter = build_score_interpreter_node(ctx.llm_simple)
+    score_interpreter = build_score_interpreter_node(ctx.llm_smart)
     detect            = build_detect_node(ctx.mcp_client)
-    conflict_reasoner = build_conflict_reasoner_node(ctx.llm_simple)
+    conflict_reasoner = build_conflict_reasoner_node(ctx.llm_smart)
     suggest           = build_suggest_node(ctx.mcp_client)
-    suggestion_critic = build_suggestion_critic_node(ctx.llm_simple)
+    suggestion_critic = build_suggestion_critic_node(ctx.llm_smart)
 
     # Quality loop
-    respond   = build_respond_node(ctx.llm_simple)
-    evaluator = build_evaluator_node(ctx.llm_simple)
-    what_next = build_what_next_node(ctx.llm_simple)
+    respond   = build_respond_node(ctx.llm_smart)
+    evaluator = build_evaluator_node(ctx.llm_fast)
+    what_next = build_what_next_node(ctx.llm_fast)
 
-    # Edit tools
-    change_material  = build_change_material_node()
-    modify_glazing   = build_modify_glazing_node()
-    add_furniture    = build_add_furniture_node()
+    # Edit tools — unified path: edit_planner (LLM decompose) → apply_edits (mutate)
+    edit_planner     = build_edit_planner_node(ctx.llm_smart)
+    apply_edits      = build_apply_edits_node()
     compare_versions = build_compare_versions_node()
     preview          = build_preview_node(ctx.mcp_client)
 
@@ -355,33 +401,35 @@ def build_graph(ctx: Any) -> Any:
 
     g = StateGraph(AgentState)
 
-    # Register all nodes
-    g.add_node("greet",             greet)
-    g.add_node("quiz",              quiz)
-    g.add_node("inspire",           inspire)
-    g.add_node("persona_compiler",  persona_compiler)
-    g.add_node("action_classifier", action_classifier)
-    g.add_node("chitchat",          chitchat)
-    g.add_node("detail_respond",    detail_respond)
-    g.add_node("load_layout",       load_layout)
-    g.add_node("overview_respond",  overview_respond_node)
-    g.add_node("analyze",           analyze)
-    g.add_node("score_interpreter", score_interpreter)
-    g.add_node("detect",            detect)
-    g.add_node("conflict_reasoner", conflict_reasoner)
-    g.add_node("suggest",           suggest)
-    g.add_node("suggestion_critic", suggestion_critic)
-    g.add_node("respond",           respond)
-    g.add_node("evaluator",         evaluator)
-    g.add_node("what_next",         what_next)
-    g.add_node("change_material",   change_material)
-    g.add_node("modify_glazing",    modify_glazing)
-    g.add_node("add_furniture",     add_furniture)
-    g.add_node("compare_versions",  compare_versions)
-    g.add_node("preview",           preview)
-    g.add_node("topologic_analysis", topologic_analysis)
-    g.add_node("biophilic_audit",   biophilic_audit)
-    g.add_node("persona_comparison", persona_comparison)
+    # Register all nodes (wrapped with the per-node timer when BENCH_NODES=1)
+    for _name, _fn in (
+        ("greet",             greet),
+        ("quiz",              quiz),
+        ("inspire",           inspire),
+        ("persona_compiler",  persona_compiler),
+        ("action_classifier", action_classifier),
+        ("chitchat",          chitchat),
+        ("detail_respond",    detail_respond),
+        ("load_layout",       load_layout),
+        ("overview_respond",  overview_respond_node),
+        ("analyze",           analyze),
+        ("score_interpreter", score_interpreter),
+        ("detect",            detect),
+        ("conflict_reasoner", conflict_reasoner),
+        ("suggest",           suggest),
+        ("suggestion_critic", suggestion_critic),
+        ("respond",           respond),
+        ("evaluator",         evaluator),
+        ("what_next",         what_next),
+        ("edit_planner",      edit_planner),
+        ("apply_edits",       apply_edits),
+        ("compare_versions",  compare_versions),
+        ("preview",           preview),
+        ("topologic_analysis", topologic_analysis),
+        ("biophilic_audit",   biophilic_audit),
+        ("persona_comparison", persona_comparison),
+    ):
+        g.add_node(_name, _bench_wrap(_name, _fn))
 
     # ── Wire edges ────────────────────────────────────────────────────────────
 
@@ -421,9 +469,7 @@ def build_graph(ctx: Any) -> Any:
         "overview_respond":  "overview_respond",
         "analyze":           "analyze",
         "detect":            "detect",       # cache hit: jump straight to detect
-        "change_material":   "change_material",
-        "modify_glazing":    "modify_glazing",
-        "add_furniture":     "add_furniture",
+        "edit_planner":      "edit_planner",
         "preview":           "preview",
         "topologic_analysis": "topologic_analysis",
         "biophilic_audit":   "biophilic_audit",
@@ -450,10 +496,14 @@ def build_graph(ctx: Any) -> Any:
     g.add_edge("suggest",           "suggestion_critic")
     g.add_edge("suggestion_critic", "respond")
 
-    # Edit tools → analyze (re-score) → compare → score_interpreter → respond
-    g.add_edge("change_material", "analyze")
-    g.add_edge("modify_glazing",  "analyze")
-    g.add_edge("add_furniture",   "analyze")
+    # Edit path: edit_planner (decompose) → apply_edits (mutate N ops) → analyze
+    # (single re-score) → compare → score_interpreter → respond. apply_edits routes
+    # straight to respond when nothing changed (zero resolvable ops).
+    g.add_edge("edit_planner", "apply_edits")
+    g.add_conditional_edges("apply_edits", _route_after_apply_edits, {
+        "analyze": "analyze",
+        "respond": "respond",
+    })
 
     # Preview is terminal: it self-produces its predicted-ripple message (no re-score
     # of the real layout, no commit) and goes straight to the next-step offer.
@@ -462,7 +512,7 @@ def build_graph(ctx: Any) -> Any:
     # Insight tools
     g.add_edge("topologic_analysis", "respond")
     g.add_conditional_edges("biophilic_audit", _route_after_biophilic_audit, {
-        "add_furniture":     "add_furniture",
+        "apply_edits":       "apply_edits",
         "score_interpreter": "score_interpreter",
     })
     g.add_edge("persona_comparison", "score_interpreter")
@@ -524,7 +574,7 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
 
         # Per-turn fields (reset each turn)
         "action":                 "",
-        "intent":                 "",
+        "edit_ops":               [],
         "target_room_hint":       "",
         "material_hint":          "",
         "target_room_id":         None,
@@ -532,9 +582,11 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
         "pending_comparison":     False,
         "original_scores_json":   "",
         "layout_diff":            {},
+        "layout_diffs":           [],
         "layout_updated":         False,
         "preview_scores_json":    "",
         "preview_diff":           {},
+        "preview_diffs":          [],
         "preview_summary":        "",
         "compare_versions_summary": "",
         "biophilic_summary":      "",
@@ -557,7 +609,7 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
     action      = final_state.get("action", "")
     scores_ready = bool(final_state.get("last_scores_json"))
 
-    edit_actions = {"change_material", "modify_glazing", "add_furniture"}
+    edit_actions = {"edit"}
     print(f"[run_agent] action={action} | scores_ready={scores_ready} | layout_updated={final_state.get('layout_updated', False)}")
 
     # Post-graph: write output JSON. Skip when the requested layout wasn't found —
@@ -570,8 +622,11 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
         except Exception as exc:
             print(f"[run_agent] ERROR in output_writer: {exc}")
 
-    # Persist session
+    # Persist session. Start from the incoming session so keys the GRAPH doesn't own
+    # (e.g. the API-layer checkpoint state: checkpoints / committed_* / pending_diffs)
+    # survive the round-trip; the explicit keys below override everything the graph manages.
     updated_session = {
+        **session,
         "greeted":             final_state.get("greeted",             session.get("greeted", False)),
         "quiz_step":           final_state.get("quiz_step",           session.get("quiz_step", 0)),
         "quiz_answers":        final_state.get("quiz_answers",        session.get("quiz_answers", {})),
@@ -599,8 +654,10 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
         # Per-turn fields (cleared next turn — used by server to build response payload)
         "layout_updated":         final_state.get("layout_updated", False),
         "layout_diff":            final_state.get("layout_diff", {}),
+        "layout_diffs":           final_state.get("layout_diffs", []),
         "preview_scores_json":    final_state.get("preview_scores_json", ""),
         "preview_diff":           final_state.get("preview_diff", {}),
+        "preview_diffs":          final_state.get("preview_diffs", []),
         "preview_summary":        final_state.get("preview_summary", ""),
         "graph_data":             final_state.get("graph_data", {}),
         "biophilic_data":         final_state.get("biophilic_data", {}),

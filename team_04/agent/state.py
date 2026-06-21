@@ -22,6 +22,7 @@ class AgentState(TypedDict, total=False):
     checked_geometry_id: str | None
     placed_buildings: list[dict[str, Any]]
     remaining_candidate_positions: list[list[float]]
+    remaining_positions_analyzed_for_count: int | None
     requested_positions: list[list[float]]
     requested_position_assessment: dict[str, Any]
     target_building_count: int
@@ -88,6 +89,7 @@ def build_initial_state(
         "checked_geometry_id": None,
         "placed_buildings": [],
         "remaining_candidate_positions": [],
+        "remaining_positions_analyzed_for_count": None,
         "requested_positions": normalized_requested_positions,
         "requested_position_assessment": {},
         "target_building_count": target_building_count,

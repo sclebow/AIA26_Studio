@@ -17,6 +17,9 @@ class SessionManager:
             "graph": None,
             "scores": None,
             "pending_layout": None,
+            # Last observer placed in the viewport (person or path) + its isovist,
+            # so the chat agent can answer about "the person already placed".
+            "observer": None,
         }
 
     # ------------------------------------------------------------------
@@ -34,6 +37,7 @@ class SessionManager:
             "graph": None,
             "scores": None,
             "pending_layout": None,
+            "observer": None,
         }
         return self.get_session()
 
@@ -54,6 +58,14 @@ class SessionManager:
     def update_scores(self, scores_data: dict) -> None:
         """Store the latest scoring results."""
         self._state["scores"] = scores_data
+
+    def set_observer(self, data: Optional[dict]) -> None:
+        """Store the last observer placed in the viewport (person/path + isovist)."""
+        self._state["observer"] = data
+
+    def get_observer(self) -> Optional[Dict[str, Any]]:
+        """Return the last observer placed, or None if none has been placed."""
+        return self._state.get("observer")
 
     def set_pending_layout(self, data: dict) -> None:
         """Store a proposed layout awaiting user acceptance."""

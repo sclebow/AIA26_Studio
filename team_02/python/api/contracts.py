@@ -6,6 +6,8 @@ Updated: adds layout_diff, graph_data, biophilic_data, layout_updated, action fi
 from __future__ import annotations
 from typing import Any
 
+from api import checkpoints
+
 
 def screen_from_session(sess: dict) -> str:
     if not sess.get("quiz_complete"):
@@ -38,17 +40,24 @@ def agent_response_payload(message: str, sess: dict, final_state: dict | None = 
         "score_interpretation": sess.get("score_interpretation", ""),
         "conflict_reasoning":   sess.get("conflict_reasoning", ""),
         "suggestion_critique":  sess.get("suggestion_critique", ""),
-        # Edit tool feedback
+        # Edit tool feedback. layout_diff (singular) = most-recent edit, kept for the
+        # before/after slider + report; layout_diffs (plural) = ALL edits this turn (multi-edit).
         "layout_updated":       fs.get("layout_updated", False),
         "layout_diff":          fs.get("layout_diff", {}),
+        "layout_diffs":         fs.get("layout_diffs") or ([fs["layout_diff"]] if fs.get("layout_diff") else []),
         # Predictive preview ("what if") — hypothetical, never committed to the canvas
         "preview_scores_json":  fs.get("preview_scores_json", ""),
         "preview_diff":         fs.get("preview_diff", {}),
+        "preview_diffs":        fs.get("preview_diffs") or ([fs["preview_diff"]] if fs.get("preview_diff") else []),
         "preview_summary":      fs.get("preview_summary", ""),
         # Insight tool data for frontend rendering
         "graph_data":           fs.get("graph_data", {}),
         "biophilic_data":       fs.get("biophilic_data", {}),
         "persona_comparison_data": fs.get("persona_comparison_data", {}),
+        # Checkpoints (Task 3): committed milestones + uncommitted-draft status
+        "checkpoints":          checkpoints.summaries(sess),
+        "has_uncommitted":      checkpoints.has_uncommitted(sess),
+        "uncommitted_delta":    checkpoints.uncommitted_delta(sess),
     }
 
 

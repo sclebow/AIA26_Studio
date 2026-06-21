@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -12,7 +13,9 @@ from _runtime.llm import create_chat_llm, get_llm_response_format
 class Context:
     """Everything the agent graph needs to run -- passed from main.py into graph.py."""
     llm: Any          # Structured-output LLM (JSON schema enforced) -- reserved for future tool-calling
-    llm_simple: Any   # Plain LLM (no response_format) -- used by chitchat, respond, route_intent
+    llm_simple: Any   # Plain LLM (no response_format) -- default tier, used as fallback
+    llm_fast: Any     # Benchmarking tier -- small/cheap model for routing/classification/short text
+    llm_smart: Any    # Benchmarking tier -- larger model for user-facing prose & nuanced reasoning
     mcp_client: LocalToolClient   # in-process comfort tools (was McpClient -> Grasshopper)
     tools: list[dict[str, Any]]
     layout_data: dict[str, Any]
@@ -130,11 +133,37 @@ def bootstrap(layout_path: Path | None = None) -> Context:
     )
 
     # Plain LLM -- no response_format, free-form text output.
-    # Used by chitchat, respond, and route_intent nodes via call_llm_simple().
+    # Used as the default/fallback tier via call_llm_simple().
     llm_simple = create_chat_llm(
         api_key=settings.api_key,
         base_url=settings.base_url,
         llm_model=settings.llm_model,
+        timeout_seconds=settings.request_timeout_seconds,
+        model_kwargs=None,
+    )
+
+    # ── Benchmarking tiers ──────────────────────────────────────────────────────
+    # Per-node model selection: a small/cheap model for simple tasks (routing,
+    # classification) and a larger model for user-facing prose and nuanced
+    # reasoning. Model names come from {PROVIDER}_MODEL_FAST / _SMART in .env and
+    # fall back to the base GOOGLE_MODEL when unset, so this stays provider-generic
+    # and is safe even if the tier vars are absent.
+    provider_prefix = settings.llm_provider.upper()
+    fast_model  = os.environ.get(f"{provider_prefix}_MODEL_FAST")  or settings.llm_model
+    smart_model = os.environ.get(f"{provider_prefix}_MODEL_SMART") or settings.llm_model
+    print(f"Benchmarking tiers -> FAST: {fast_model} | SMART: {smart_model}")
+
+    llm_fast = create_chat_llm(
+        api_key=settings.api_key,
+        base_url=settings.base_url,
+        llm_model=fast_model,
+        timeout_seconds=settings.request_timeout_seconds,
+        model_kwargs=None,
+    )
+    llm_smart = create_chat_llm(
+        api_key=settings.api_key,
+        base_url=settings.base_url,
+        llm_model=smart_model,
         timeout_seconds=settings.request_timeout_seconds,
         model_kwargs=None,
     )
@@ -145,6 +174,8 @@ def bootstrap(layout_path: Path | None = None) -> Context:
     return Context(
         llm=llm,
         llm_simple=llm_simple,
+        llm_fast=llm_fast,
+        llm_smart=llm_smart,
         mcp_client=mcp_client,
         tools=tools,
         layout_data=layout_data,

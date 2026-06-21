@@ -6,33 +6,68 @@ import ToolBar from './ToolBar.vue'
 import LayoutCanvas from './LayoutCanvas.vue'
 import LayoutCard from './LayoutCard.vue'
 
-import { watch } from 'vue'
+import { watch, ref, computed } from 'vue'
 const props = defineProps({
   agentState: {
     type: Object,
     default: null
+  },
+  parsedInput: {
+    type: Object,
+    default: null
   }
 })
-watch(() => props.agentState, (val) => {
-  console.log('WorkSpace agentState changed:', val)
+const emit = defineEmits(['layoutLoaded'])
+const viewMode = ref('layout')
+const activeRooms = ref({})
+const activeStep = ref(0)
+
+const hasDaylight = computed(() =>
+  (props.agentState?.rooms ?? []).some(r => r.attributes?.daylight != null)
+)
+
+const hasRoutine = computed(() => {
+  const routine = props.agentState?.routine
+  if (!routine || typeof routine !== 'object') return false
+  const personas = Array.isArray(routine.personas) ? routine.personas : Array.isArray(routine) ? routine : []
+  return personas.length > 0
 })
-console.log('WorkSpace received agentState:', props.agentState);
-console.log('WorkSpace agentState:', props.agentState);
+
+function onViewChange(mode) {
+  viewMode.value = mode
+}
+
+function exportLayout() {
+  if (!props.agentState) return
+  const blob = new Blob([JSON.stringify(props.agentState, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${props.agentState.layoutId || 'layout'}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 </script>
 
 <template>
   <aside class="work-panel">
     <header class="work-header">
-      <button class="layout-btn save-layout-btn ">Save Layout</button>
+      <button class="default-btn export-btn" :disabled="!props.agentState" @click="exportLayout">Export</button>
     </header>
       <div class="toolbar-card toolbar-inline">
-        <ToolBar />
+        <ToolBar :viewMode="viewMode" :hasLayout="!!props.agentState" :hasDaylight="hasDaylight" :hasRoutine="hasRoutine" @viewChange="onViewChange" @layoutLoaded="emit('layoutLoaded', $event)" />
       </div>
-      <div class="canvas-area">
-        <div class="canvas-container">
-          <LayoutCanvas :layout="props.agentState" />
+      <template v-if="props.agentState">
+        <div class="canvas-area">
+          <div class="canvas-container">
+            <LayoutCanvas :layout="props.agentState" :viewMode="viewMode" :activeRooms="activeRooms" :activeStep="activeStep" />
+          </div>
+          <LayoutCard :layout="props.agentState" :viewMode="viewMode" :routine="props.agentState?.routine?.personas ?? props.agentState?.routine ?? null" @activeRoomsChange="activeRooms = $event" @timeStepChange="activeStep = $event" />
         </div>
-        <LayoutCard :layout="props.agentState" />
+      </template>
+      <div v-else class="welcome-screen">
+        <h1 class="welcome-title">Welcome to inHabit</h1>
+        <p class="welcome-subtitle">AI-powered floor plan generation based on your lifestyle</p>
       </div>
   </aside>
 </template>
@@ -62,7 +97,7 @@ console.log('WorkSpace agentState:', props.agentState);
   gap: 10px;
   margin-bottom: 8px;
 }
-.save-layout-btn {
+.export-btn {
   margin-right: 24px;
   margin-top: 28px;
   margin-bottom: 12px;
@@ -89,7 +124,7 @@ console.log('WorkSpace agentState:', props.agentState);
 }
 
 .toolbar-card {
-    margin-left: auto;
+  margin-left: auto;
   margin-right: auto;
   background: var(--color-white);
   border-radius: var(--radius);
@@ -99,6 +134,28 @@ console.log('WorkSpace agentState:', props.agentState);
   align-items: center;
   width: fit-content;
   min-width: 0;
+}
+
+.welcome-screen {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px;
+  text-align: center;
+}
+.welcome-title {
+  font-size: var(--font-size-title);
+  font-weight: 700;
+  color: var(--color-blue);
+  margin: 0;
+}
+.welcome-subtitle {
+  font-size: var(--font-size-subtitle);
+  color: var(--color-text-secondary);
+  margin: 0;
 }
 
 @media (max-width: 1200px) {
