@@ -1,7 +1,7 @@
 # Sensi — Week 9 demo runbook (record the 3 clips + the shot-list)
 
 The deck is **`team_02/docs/week09/deck/index.html`** (reveal.js, self-contained). It carries
-the talk; **three pre-recorded, full-bleed, live-narrated clips** carry the app. This is the
+the talk; **three pre-recorded, full-bleed, narrated clips** (voiceover baked in) carry the app. This is the
 exact record path, the de-risking, the stills to drop in, and how to present/export.
 
 ---
@@ -68,13 +68,16 @@ the generated `shots/report-before.png` / `report-after.png`. Nothing else to dr
 - **Navigate:** arrow keys / space · `f` fullscreen · `o` overview · **`s` opens speaker notes**
   (the full spoken script is embedded per slide — see `presentation-script-week09.md`). On-screen
   nav arrows are intentionally off; drive it from the keyboard or a clicker.
-- **Clips** autoplay (muted, looped) when their file is present; they're full-bleed and show
-  `▶ DEMO` instead of a slide number. Content slides number `1…18`.
+- **Clips** play their voiceover when their file is present (pre-recorded narrated demo, sound on,
+  no loop); the video sits above the standard footer (brand + glyph legend). Every page is
+  numbered in one continuous count `1…21`, and each clip also keeps a `▶ DEMO n / 3` title. Reaching a clip by keypress satisfies the browser's unmuted-autoplay
+  gesture; click the clip to pause / resume. (To make a clip silent, re-add `muted` to its
+  `<video>` tag.)
 - **Static PDF** (handout) is already built at `team_02/docs/week09/Sensi-FinalReview-week09.pdf`
   (21 pages, one per section). To regenerate after edits, run
   `python team_02/docs/week09/deck/make-pdf.py` — it screenshots each slide headlessly (Edge) and
   assembles the PDF with PyMuPDF (reveal's own `?print-pdf` is unreliable headless). Clip pages
-  export as their `▶ DEMO` placeholder, since a PDF can't play video.
+  export as their `▶ DEMO 1 / 3` placeholder, since a PDF can't play video.
 
 *The deck authors its own 3-zone architecture diagram, so no mermaid render is needed. The
 earlier reportlab deck (`build_deck_week09.py` + `Sensi-Presentation-week09.pdf`) has been

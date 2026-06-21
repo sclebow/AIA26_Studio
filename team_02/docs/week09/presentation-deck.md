@@ -1,7 +1,7 @@
 # Sensi / Final review · deck spine (source of truth)
 
-> The whole a-to-z story of Sensi, told once, as the FINAL review. **18 numbered slides
-> (~10-12 min) + 3 full-bleed, un-numbered, live-narrated demo clips (~3:30)**, interleaved
+> The whole a-to-z story of Sensi, told once, as the FINAL review. **18 talk slides
+> (~10-12 min) + 3 pre-recorded, narrated demo clips (video above the standard footer; one continuous page count 1…21, each clip also titled ▶ DEMO n / 3, ~3:30)**, interleaved
 > by act. Hybrid Pecha-Kucha cadence: one idea per slide, rich + varied visuals, calm slides
 > / motion only in the clips. The math and any technical content stay visible on-slide.
 >

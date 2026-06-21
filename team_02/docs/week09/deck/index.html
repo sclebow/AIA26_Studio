@@ -30,10 +30,12 @@ html.reveal-full-page,.reveal-viewport{background:#0D0D0D;}
 .frame{position:absolute;inset:0;padding:62px 76px;display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;}
 .kick{position:absolute;top:50px;left:76px;font:500 15px 'JetBrains Mono',monospace;letter-spacing:.12em;display:flex;align-items:center;gap:11px;z-index:3;}
 .kbar{width:30px;height:5px;border-radius:2px;display:inline-block;}
-.foot{position:absolute;left:76px;right:76px;bottom:46px;font:400 15px 'Inter';color:var(--mut);z-index:3;}
+.foot{position:absolute;left:76px;right:76px;bottom:68px;font:400 15px 'Inter';color:var(--mut);z-index:3;}
 .counter{position:fixed;right:34px;bottom:28px;font:500 15px 'JetBrains Mono',monospace;color:var(--dim);z-index:60;}
 .brandfoot{position:fixed;left:34px;bottom:28px;font:500 13px 'JetBrains Mono',monospace;color:var(--dim);z-index:60;letter-spacing:.04em;}
+.glyphkey{position:fixed;left:0;right:0;bottom:28px;text-align:center;font:500 13px 'JetBrains Mono',monospace;color:var(--mut);z-index:60;letter-spacing:.02em;pointer-events:none;}
 .counter.demo{color:var(--therm);letter-spacing:.14em;}
+.overvid{text-shadow:0 1px 8px rgba(0,0,0,.85);}
 
 .h1{font-size:50px;font-weight:600;}
 .h1.sm{font-size:40px;}
@@ -110,7 +112,7 @@ img.shot{border:1px solid var(--bd);border-radius:12px;object-fit:cover;}
 
 /* clip pages */
 section.clip .frame{padding:0;}
-.clip-stage{position:absolute;inset:0;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.clip-stage{position:absolute;inset:0 0 64px 0;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;}
 .clip-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
 .clip-ph{position:relative;z-index:2;text-align:center;}
 .clip.has-video .clip-ph{display:none;}
@@ -118,6 +120,7 @@ section.clip .frame{padding:0;}
 .clip-ph .ct{font:500 24px 'JetBrains Mono',monospace;color:var(--therm);letter-spacing:.1em;}
 .clip-ph .cs{font:400 15px 'JetBrains Mono',monospace;color:var(--mut);margin-top:11px;}
 .clip-ph .cd{font:400 14px Inter;color:var(--dim);margin-top:20px;max-width:620px;margin-left:auto;margin-right:auto;}
+.demolabel{position:absolute;left:76px;top:54px;z-index:5;font:600 15px 'JetBrains Mono',monospace;color:var(--therm);letter-spacing:.12em;text-shadow:0 1px 10px rgba(0,0,0,.9);}
 </style>
 </head>
 <body>
@@ -163,10 +166,10 @@ section.clip .frame{padding:0;}
     <div style="font-style:italic;color:var(--ac);font-size:18px;margin-top:6px">the whole instrument, end to end</div>
     <div style="font:400 14px 'JetBrains Mono',monospace;color:var(--dim);margin-top:28px">Charles Abi Chahine&nbsp;&nbsp;·&nbsp;&nbsp;Emilie El Chidiac&nbsp;&nbsp;·&nbsp;&nbsp;Lakzhmy Zaro&nbsp;&nbsp;·&nbsp;&nbsp;María Sánchez Domínguez</div>
   </div>
-  <div class="glyphrow" style="position:absolute;left:76px;bottom:48px;z-index:2">
+  <div class="glyphrow" style="position:absolute;left:76px;bottom:70px;z-index:2">
     <span style="color:var(--therm)">△</span><span style="color:var(--vis)">○</span><span style="color:var(--ac)">∿</span><span style="color:var(--sp)">□</span><span style="color:var(--olf)">≈</span><span style="color:var(--tac)">∶</span>
   </div>
-  <aside class="notes">This is Sensi, end to end. It reads an architectural plan and tells you how it will feel, across six senses, for a specific person.</aside>
+  <aside class="notes">[S1 · ~16s] Hi, we're Team 02. This is Sensi. It reads a floor plan and tells you how it will feel, across six senses, for one specific person. Not the average occupant. The actual person who'll live there. Here's the whole instrument, end to end.</aside>
 </section>
 
 <!-- 2 · THE QUESTION -->
@@ -200,7 +203,7 @@ section.clip .frame{padding:0;}
     </div>
   </div>
   <div class="foot"><span class="mono" style="color:var(--sp)">Sensi&nbsp;&nbsp;</span>makes that invisible axis, and its trade-offs, measurable.</div>
-  <aside class="notes">Architecture measures almost everything except how a room will feel. And it never measures the ripple between the senses. Sensi makes that axis, and its trade-offs, measurable.</aside>
+  <aside class="notes">[S1 · ~42s] We start from a gap. In architecture we measure almost everything. Energy, cost, code, structure. The one thing we never measure is how a room will actually feel to be in, for the person who lives there.<br><br>And there's a second blind spot. The senses aren't independent. Add a big window, and yes, the daylight improves. But the same window makes the room louder, and colder in winter. You fixed one sense and quietly hurt two others. Every design move has a hidden second cost. We call it the ripple, and right now nobody sees it until the building is built and someone's living in it.<br><br>Sensi makes that invisible axis, and its trade-offs, visible at the plan stage.</aside>
 </section>
 
 <!-- 3 · THE THESIS -->
@@ -215,7 +218,7 @@ section.clip .frame{padding:0;}
       <div class="card"><div class="ct" style="color:var(--ac)"><i class="ti ti-wave-sine"></i> COUPLED</div><div class="cb">senses pull on each other. That pull is the ripple. <span class="mut">[ proved at Shape ]</span></div></div>
     </div>
   </div>
-  <aside class="notes">The line the whole project comes back to: the number isn't the lesson, the edges are. Three ideas carry it, personal, honest, coupled, proved where each shows.</aside>
+  <aside class="notes">[S1 · ~30s] This is the line the whole project comes back to. The number isn't the lesson. The edges are. A space is a conversation between your senses, and the single overall score is the least interesting part of it.<br><br>Three ideas carry the work, and we prove each one where it shows up. Personal: your senses, your weights, not an average body. Honest: no averaging, the worst sense gets a veto. And coupled: the senses pull on each other. That pull is the ripple. The rest of the talk is us earning those three words.</aside>
 </section>
 
 <!-- 4 · HOW IT'S BUILT (diagram B) -->
@@ -266,7 +269,7 @@ section.clip .frame{padding:0;}
     </div>
   </div>
   <div class="foot" style="color:var(--olf)">FastAPI / LangGraph / React &nbsp;·&nbsp; in-process comfort engine, no Rhino &nbsp;·&nbsp; streams its thinking, ~3s to first feedback</div>
-  <aside class="notes">One classifier routes each turn into the right chain: analysis, the edit ripple, or an insight branch, always ending respond → evaluate. The report reads cached scores. It streams its thinking and runs in a browser.</aside>
+  <aside class="notes">[S1 · ~34s] One quick look under the hood, then we show it.<br><br>Everything you type is one turn. A small, fast model reads that turn and routes it, in a single call, to the right kind of work. There are three: understanding a plan, editing a plan, which is where the agent and the ripple live, and seeing a plan a new way. Whatever the path, it always ends the same way, the system answers, then grades its own answer once.<br><br>It all runs in your browser, the comfort engine in-process, no Rhino, no plugin, and it streams its thinking as it goes. About three seconds to first feedback.</aside>
 </section>
 
 <!-- 4b · THE MODELS (the engine) -->
@@ -288,7 +291,7 @@ section.clip .frame{padding:0;}
       <div class="col" style="flex:0 0 360px"><div class="tag">WHY TWO TIERS</div><p class="note" style="margin-top:6px;font-size:14px">small models route the turn; the reasoning tier runs <span style="color:var(--olf)">only where quality compounds.</span></p></div>
     </div>
   </div>
-  <aside class="notes">Two reasoning tiers: FAST for routing, SMART for the reasoning you read, plus a native image model. Current Gemini 3.x, verified live before trust.</aside>
+  <aside class="notes">[S1 · ~26s] What powers it is three Gemini models, and the whole choice was cost against reasoning. A cheap, fast model does the routing, the quick decisions. A smarter, pricier model does the reasoning you actually read, where quality is worth paying for. And a native image model paints the rooms at the end. These are current Gemini 3.x, and because model names go stale fast, we verified every one live against Google's docs before trusting it. Small models route, the expensive tier only runs where it earns its cost.</aside>
 </section>
 
 <!-- 5 · ACT 1 FRAME -->
@@ -304,16 +307,17 @@ section.clip .frame{padding:0;}
       <div class="col" style="flex:1"><div class="diagA-slot" data-lit="onboard"></div></div>
     </div>
   </div>
-  <aside class="notes">Act one: you tell Sensi who you are.</aside>
+  <aside class="notes">[S1 · ~15s · cue "watch" -> CLIP 1 -> hand to Speaker 2] Act one. Onboarding. This is where you tell Sensi who you are, and it builds a sensory persona from your answers. Rather than describe it, let's watch.</aside>
 </section>
 
 <!-- CLIP 1 -->
 <section class="clip" data-clip="Onboard">
+  <div class="demolabel">▶ DEMO 1 / 3 · ONBOARD</div>
   <div class="frame"><div class="clip-stage">
-    <video class="clip-vid" muted loop playsinline preload="metadata" data-autoplay><source src="assets/clips/onboard.mp4" type="video/mp4"></video>
-    <div class="clip-ph"><div class="play"></div><div class="ct">CLIP 1 / ONBOARD</div><div class="cs">~50s · live-narrated</div><div class="cd">quiz → moodboard → the earned persona reveal &nbsp;·&nbsp; drop <span class="mono">assets/clips/onboard.mp4</span></div></div>
+    <video class="clip-vid" playsinline preload="auto" data-autoplay><source src="assets/clips/onboard.mp4" type="video/mp4"></video>
+    <div class="clip-ph"><div class="play"></div><div class="ct">CLIP 1 / ONBOARD</div><div class="cs">~50s · pre-recorded narrated demo</div><div class="cd">quiz → moodboard → the earned persona reveal &nbsp;·&nbsp; drop <span class="mono">assets/clips/onboard.mp4</span></div></div>
   </div></div>
-  <aside class="notes">A quiz, a few rounds of picking images until an aesthetic emerges, and Sensi compiles a sensory persona.</aside>
+  <aside class="notes">[DEMO VO · Speaker 4 · ~50s] Sensi starts by getting to know you. A few quick questions, your name, your role, the story of the space you're shaping. You toggle the senses that matter most to you. You say who lives here, and the one thing you won't compromise on. Then it learns your eye. You type an aesthetic in your own words, and Sensi gives you rounds of images, you keep what feels right and skip what doesn't. Three passes, and a moodboard takes shape. And here's the point of all of it. Sensi compiles your answers and your choices into a single sensory persona. Your weights, your priorities, in its words. That persona becomes the lens for everything that follows.</aside>
 </section>
 
 <!-- 6 · IT'S PERSONAL (MATH 1: weights + threshold) -->
@@ -349,7 +353,7 @@ section.clip .frame{padding:0;}
     </div>
   </div>
   <div class="foot">care more about a sense → Sensi flags it sooner. The reveal teaches the model the engine <i>actually</i> computes, from its own constants.</div>
-  <aside class="notes">Your answers become weights, which set each sense's personal alert threshold. A high weight means a strict threshold, flagged sooner. And it travels: a grandmother or a cat shifts the scores too.</aside>
+  <aside class="notes">[S2 · ~40s · opens after Clip 1] What you just watched, the quiz and the moodboard, all of it becomes numbers. Here's how, in plain terms.<br><br>Every answer nudges a weight, one per sense, and weights only ever go up. Say plants are non-negotiable, your smell weight climbs. Say noise really gets to you, acoustic jumps. Each weight then sets that sense's alert threshold, the bar where Sensi flags a problem. The rule is intuitive: the more you care about a sense, the higher its bar, so Sensi flags it sooner for you than for someone who doesn't care.<br><br>And we deliberately tune to one person, not a household average, because comfort isn't an average. It's whoever suffers most. Add a grandmother or a cat, and the scores shift again.</aside>
 </section>
 
 <!-- 7 · ACT 2 FRAME -->
@@ -365,16 +369,17 @@ section.clip .frame{padding:0;}
       <div class="col" style="flex:1"><div class="diagA-slot" data-lit="shape"></div></div>
     </div>
   </div>
-  <aside class="notes">Act two, the heart. Read the plan, and see the conflicts you can't.</aside>
+  <aside class="notes">[S2 · ~15s -> CLIP 2] Act two is the heart of the tool. Shape. We read a real CAD plan, score all six senses on it, and surface the conflicts you'd never catch by eye. Then we edit, and watch it ripple. To the plan.</aside>
 </section>
 
 <!-- CLIP 2 -->
 <section class="clip" data-clip="Shape">
+  <div class="demolabel">▶ DEMO 2 / 3 · SHAPE</div>
   <div class="frame"><div class="clip-stage">
-    <video class="clip-vid" muted loop playsinline preload="metadata" data-autoplay><source src="assets/clips/shape.mp4" type="video/mp4"></video>
-    <div class="clip-ph"><div class="play"></div><div class="ct">CLIP 2 / SHAPE</div><div class="cs">~90s · live-narrated</div><div class="cd">CAD plan → scores → conflict → edit → Focus Pull → re-score → ripple graph → galaxy &nbsp;·&nbsp; drop <span class="mono">assets/clips/shape.mp4</span></div></div>
+    <video class="clip-vid" playsinline preload="auto" data-autoplay><source src="assets/clips/shape.mp4" type="video/mp4"></video>
+    <div class="clip-ph"><div class="play"></div><div class="ct">CLIP 2 / SHAPE</div><div class="cs">~90s · pre-recorded narrated demo</div><div class="cd">CAD plan → scores → conflict → edit → Focus Pull → re-score → ripple graph → galaxy &nbsp;·&nbsp; drop <span class="mono">assets/clips/shape.mp4</span></div></div>
   </div></div>
-  <aside class="notes">CAD linework, six-sense scores, a conflict, an edit, Focus Pull lighting only what changed, the re-score, the ripple graph, a glance at the galaxy.</aside>
+  <aside class="notes">[DEMO VO · Speaker 4 · ~90s] Now the real work. We load an actual floor plan, layout 201, and Sensi draws it as clean CAD linework, walls, doors, windows, furniture. We hit analyze. In a few seconds every room is scored across all six senses, shown as a six-petal rose, the bigger the petal, the better that sense. And right away a conflict surfaces, a sense Sensi has flagged below your personal bar. Before we fix it, look at what the agent can actually do. This menu is its full vocabulary, organized by sense. Nine real edit tools, add a window, change a wall, hang curtains, add ventilation, swap a material, and more, plus four ways to see the plan differently. So we just tell it, in plain language, change the kitchen walls to cork. It plans the edit, applies it, and then Focus Pull takes over. The whole plan dims, and only what changed lights up, right where it is. Hover, and you see the before, the after, and exactly which scores moved. The room re-scores, and the suggestion that flagged it crosses itself off. Open the checkpoint graph, and every sense is a strand you can watch weave as you edit. And the galaxy gives you the whole project as one living map, hover any thread, and the Narrator explains it in plain words.</aside>
 </section>
 
 <!-- 8 · SCORE A ROOM (MATH 2: baseline → levers) -->
@@ -396,7 +401,7 @@ section.clip .frame{padding:0;}
     </table>
   </div>
   <div class="foot">every lever is research-grounded physics: orientation, glazing ratio, Sabine reverberation, ventilation, material absorption. <span style="color:var(--ac)">next: the senses pull on each other →</span></div>
-  <aside class="notes">Each sense starts at a room-type baseline, then real geometry moves it: orientation, glazing, reverberation, ventilation, materials. The kitchen's acoustic and olfactory fall hardest.</aside>
+  <aside class="notes">[S2 · ~40s · after Clip 2] You just watched it score a kitchen. Let me open up one of those scores, because it isn't a black box.<br><br>Every sense runs zero to one, where one is ideal comfort. Each starts at a baseline for the room type, a kitchen starts middling on sound, low on smell, that's just what kitchens are. Then the real geometry moves each number. Which way the room faces, how much glass, how sound bounces off hard tile, whether there's ventilation, what the surfaces are.<br><br>In this kitchen, two senses fall hard. Sound drops, it's a hard, boxy room. And smell drops further, weak ventilation, and it sits right next to a wet zone. Every one of those moves is grounded physics, not a vibe. Now watch what happens when the senses start talking to each other.</aside>
 </section>
 
 <!-- 9 · THE RIPPLE + THE VETO (MATH 2 climax) -->
@@ -434,7 +439,7 @@ section.clip .frame{padding:0;}
     </div>
   </div>
   <div class="foot"><span class="hand" style="font-size:24px">a great room with one unbearable sense is still unbearable</span></div>
-  <aside class="notes">The ripple: a failing sense drags its coupled partners, every nudge labelled with why. Then the veto: half the weighted mean, half the single worst sense. The kitchen lands at 0.34, floored by olfactory.</aside>
+  <aside class="notes">[S2 · ~52s · HERO] This is the core of the whole project, so let me slow down.<br><br>First, the ripple. A failing sense doesn't stay in its lane. That weak sound score reaches over and drags down its neighbors, a little off thermal, a little off visual, because a loud room genuinely feels worse in other ways too. And every one of those nudges is labelled with its reason, building science or physics. Nothing moves in secret.<br><br>Then the honest part. To combine six senses into one number, we do not average them. Averaging is a lie, it lets a great kitchen hide one unbearable problem behind five good scores. Instead the worst sense gets a veto. The overall is half the weighted average, and half the single worst sense.<br><br>So this kitchen, where most senses are actually fine, lands at 0.34 out of one. Floored by smell. [beat] A great room with one unbearable sense is still an unbearable room. That's the number finally telling the truth.</aside>
 </section>
 
 <!-- 9b · THE REASONING, MEASURED (Shape) -->
@@ -464,7 +469,7 @@ section.clip .frame{padding:0;}
       <div class="col" style="flex:1"><p class="note" style="font-size:15px">vs the old 2.5 tier: SMART +33% slower, session +3.8× costlier (3.5 Flash's thinking budget). FAST stays near-free. <span style="color:var(--ac)">we pay latency + cents for capability.</span> Judged blind, the new reasoning still won 4 of 5 nodes: no regression.</p></div>
     </div>
   </div>
-  <aside class="notes">Thirteen LLM nodes on two tiers. FAST averages sub-second and near-free; SMART is where time and cost live, score_interpreter the biggest lever at 24 seconds. The whole session is under a nickel. And judged blind, the new reasoning still won four of five nodes: no regression.</aside>
+  <aside class="notes">[S2 · ~30s · trim-first if long] A quick word on whether this is actually practical, because reasoning models can be slow and pricey. We measured every node in one full session. The fast routing models stay under a second and basically free. All the time and cost live in the smart tier, the reasoning you read. The whole session, start to finish, costs under a nickel. And when we moved up a model generation, we checked we hadn't gotten worse, judged blind, the new reasoning won four of five nodes. We pay a little latency and a few cents, and the reasoning gets better. That's the trade we'll take.</aside>
 </section>
 
 <!-- 10 · ACT 3 FRAME -->
@@ -480,16 +485,17 @@ section.clip .frame{padding:0;}
       <div class="col" style="flex:1"><div class="diagA-slot" data-lit="report"></div></div>
     </div>
   </div>
-  <aside class="notes">Act three, the payoff. How will each room actually feel?</aside>
+  <aside class="notes">[S2 · ~17s · cue "look" -> CLIP 3 -> hand to Speaker 3] Act three. The Report. This is where the loop closes, where the output finally answers the input you gave at the very start. Your persona comes back, the look you curated comes back, and every room becomes an image of how it feels. Take a look.</aside>
 </section>
 
 <!-- CLIP 3 -->
 <section class="clip" data-clip="Report">
+  <div class="demolabel">▶ DEMO 3 / 3 · REPORT</div>
   <div class="frame"><div class="clip-stage">
-    <video class="clip-vid" muted loop playsinline preload="metadata" data-autoplay><source src="assets/clips/report.mp4" type="video/mp4"></video>
-    <div class="clip-ph"><div class="play"></div><div class="ct">CLIP 3 / REPORT</div><div class="cs">~70s · live-narrated</div><div class="cd">persona + moodboard return → per-room renders → before/after &nbsp;·&nbsp; drop <span class="mono">assets/clips/report.mp4</span></div></div>
+    <video class="clip-vid" playsinline preload="auto" data-autoplay><source src="assets/clips/report.mp4" type="video/mp4"></video>
+    <div class="clip-ph"><div class="play"></div><div class="ct">CLIP 3 / REPORT</div><div class="cs">~70s · pre-recorded narrated demo</div><div class="cd">persona + moodboard return → per-room renders → before/after &nbsp;·&nbsp; drop <span class="mono">assets/clips/report.mp4</span></div></div>
   </div></div>
-  <aside class="notes">Your persona and the moodboard you curated come back; every room becomes a first-person image, with a before and after.</aside>
+  <aside class="notes">[DEMO VO · Speaker 4 · ~70s] This is the Report, and notice what greets you first. Your persona, right at the top, and the moodboard you built at the very start. The output opens by remembering your input. We expand a room. It reveals in stages, the scores, then the reasoning, and then the room itself, rendered. A first-person image of how that space actually feels to be in. Not a generic 3D model, this room, with its real comfort scores turned into light, material, and air. And for a room we edited, we can wipe between before and after. Same room, same angle, only the change moves, so you can see the improvement, not just read it. That's the whole loop, closed. You told Sensi who you are. It read your plan, scored how it feels, and showed you the trade-offs. And every room you walk through in this report, you've already shaped, without lifting a pencil.</aside>
 </section>
 
 <!-- 11 · MADE REAL (MATH 3: scores → prompt → render) -->
@@ -534,7 +540,7 @@ section.clip .frame{padding:0;}
       </div>
     </div>
   </div>
-  <aside class="notes">Each room's scores assemble deterministically into a prompt: only the extreme senses speak, below 0.45 or above 0.70. The prompt becomes a photo. The aesthetic you curated at the start comes back here.</aside>
+  <aside class="notes">[S3 · ~38s · opens after Clip 3] What you just saw is generated, not stock photos, and the way we generate it is built to stay honest.<br><br>A room's six scores become a text prompt by a fixed rule, no model improvising. And the rule is: only the extreme senses get to speak. Clearly bad, below 0.45, or clearly good, above 0.70, writes a phrase. Everything in the comfortable middle stays silent, so the picture only shows what's genuinely notable. This kitchen's prompt says stuffy, closed air, hard reflective surfaces, a cool bluish light, and a generous open volume. Those are its real scores, in words.<br><br>And the before-and-after is the same trick in reverse. The after is the room's true render. The before is that exact image, edited by one short what-changed clause, so the scene holds still and only the change moves. The aesthetic you picked at minute one, it comes back here. The circle closes.</aside>
 </section>
 
 <!-- 11b · THE RENDERS, JUDGED (Report) -->
@@ -544,12 +550,12 @@ section.clip .frame{padding:0;}
     <h1 class="h1 sm">Are the renders trustworthy? Two engines, one prompt.</h1>
     <div class="row" style="margin-top:20px;align-items:flex-start;gap:46px">
       <div class="col" style="flex:1">
-        <div class="tag" style="margin-bottom:10px">GOOGLE (NANO BANANA 2)  vs  OPENAI (gpt-image-1)</div>
+        <div class="tag" style="margin-bottom:10px">GOOGLE  vs  OPENAI (gpt-image-1)</div>
         <div style="display:flex;gap:14px">
-          <div><img class="shot" src="assets/bench-google-living.png" style="width:250px;height:165px" alt="google render"><div class="tag" style="margin-top:6px;color:var(--pass)">Google · 6.8s · $0.039</div></div>
-          <div><img class="shot" src="assets/bench-openai-living.png" style="width:250px;height:165px" alt="openai render"><div class="tag" style="margin-top:6px;color:var(--mut)">OpenAI · 18.7s · $0.042</div></div>
+          <div><img class="shot" src="assets/bench-google-living.png" style="width:250px;height:165px" alt="google render"><div class="tag" style="margin-top:6px;color:var(--pass)">Google · 6.7s · $0.039</div></div>
+          <div><img class="shot" src="assets/bench-openai-living.png" style="width:250px;height:165px" alt="openai render"><div class="tag" style="margin-top:6px;color:var(--mut)">OpenAI · 20.5s · $0.042</div></div>
         </div>
-        <p class="note" style="margin-top:14px;font-size:16px">Google: clean architectural daylight. OpenAI: darker, cinematic. <span style="color:var(--pass)">→ we stay on Google: 2.75× faster, a touch cheaper, steadier across edits.</span></p>
+        <p class="note" style="margin-top:14px;font-size:16px">Google: clean architectural daylight. OpenAI: darker, cinematic. <span style="color:var(--pass)">→ we stay on Google: ≈3× faster, a touch cheaper, steadier across edits.</span></p>
       </div>
       <div class="col" style="flex:0 0 360px">
         <div class="tag" style="margin-bottom:10px">NEW IMAGE MODEL vs OLD, judged blind</div>
@@ -560,7 +566,7 @@ section.clip .frame{padding:0;}
       </div>
     </div>
   </div>
-  <aside class="notes">Are the renders trustworthy? Two image engines on one prompt: Google is faster and cleaner than OpenAI, so we stay on Google. And the new image model beats the old one three of three, judged blind, sharper and more photorealistic.</aside>
+  <aside class="notes">[S3 · ~24s] Fair question: can you trust an AI render? So we tested it instead of asserting it. First, the engine. Same prompts, Google against OpenAI, head to head. Google came back about three times faster, a touch cheaper, and cleaner, more like real architectural daylight, so that's the engine we ship. Then the generation. The new Google model against the old one, judged blind, the new won all three rooms, sharper and more photoreal. The renders aren't decoration. They're the scores, made believable.</aside>
 </section>
 
 <!-- 12 · GROUNDED (coupling matrix) -->
@@ -590,7 +596,7 @@ section.clip .frame{padding:0;}
             <rect x="112" y="140" width="36" height="36" rx="4" fill="#E0524A" opacity=".5"/><text x="130" y="163" fill="#0D0D0D">−</text>
             <rect x="232" y="60" width="36" height="36" rx="4" fill="#3FB97A" opacity=".5"/><text x="250" y="83" fill="#0D0D0D">+</text>
             <rect x="72" y="220" width="36" height="36" rx="4" fill="#3FB97A" opacity=".5"/><text x="90" y="243" fill="#0D0D0D">+</text>
-            <text x="170" y="124" fill="#6f6f6f">·</text>
+            <rect x="152" y="100" width="36" height="36" rx="4" fill="none" stroke="#4a4a4a" stroke-width="1.2"/><text x="170" y="124" fill="#9a978f">·</text>
             <rect x="152" y="180" width="36" height="36" rx="4" fill="none" stroke="#E0524A" stroke-width="1.4" stroke-dasharray="3 2"/><text x="170" y="203" fill="#E0524A">−</text>
             <rect x="192" y="140" width="36" height="36" rx="4" fill="none" stroke="#E0524A" stroke-width="1.4" stroke-dasharray="3 2"/><text x="210" y="163" fill="#E0524A">−</text>
             <rect x="152" y="260" width="36" height="36" rx="4" fill="none" stroke="#3FB97A" stroke-width="1.4" stroke-dasharray="3 2"/><text x="170" y="283" fill="#3FB97A">+</text>
@@ -599,12 +605,12 @@ section.clip .frame{padding:0;}
             <rect x="272" y="60" width="36" height="36" rx="4" fill="none" stroke="#E0A92E" stroke-width="1.4" stroke-dasharray="3 2"/><text x="290" y="83" fill="#E0A92E">±</text>
           </g>
         </svg>
-        <div class="note" style="font-size:12px;margin-top:4px;line-height:1.5"><span style="color:var(--pass)">+ helps</span> · <span style="color:var(--fail)">− harms</span> · <span style="color:var(--warn)">± trade-off</span><br><span class="mono">solid = research-verified · dashed = standard physics</span></div>
+        <div class="note" style="font-size:12px;margin-top:4px;line-height:1.6"><span style="color:var(--pass)">+ helps</span> &nbsp; <span style="color:var(--fail)">− harms</span> &nbsp; <span style="color:var(--warn)">± trade-off</span> &nbsp; <span style="color:var(--mut)">· one-way (no reverse effect)</span><br><span class="mono">solid = research-verified &nbsp; dashed = standard physics</span></div>
       </div>
     </div>
   </div>
-  <div class="foot"><span class="mono" style="color:var(--pass)">18 / 25</span> couplings confirmed by a 3-vote adversarial test. direction over false precision.</div>
-  <aside class="notes">The couplings come from peer-reviewed building science, run through an adversarial fact-check, eighteen of twenty-five kept. Where evidence is thin we encode direction, not false precision.</aside>
+  <div class="foot"><span class="mono" style="color:var(--pass)">18 / 25</span> couplings kept by a 3-vote adversarial test &nbsp;·&nbsp; direction over false precision.</div>
+  <aside class="notes">[S3 · ~52s] This is the slide I most want to defend, because the obvious challenge is: did you just invent these couplings? No.<br><br>Every coupling comes from peer-reviewed building science or standard room physics. The research-based ones went through an adversarial fact-check, three independent votes each. Twenty-five claims went in, eighteen survived, the other seven we cut. Where the evidence is real but thin, we encode only the direction, a plus or a minus, never a fake-precise number.<br><br>Now the matrix, because it rewards reading. Each row is a sense. Read across the row and you see what that sense does to the others. Plus helps a neighbor, minus harms one, plus-or-minus means it depends. Solid cells are research-verified, dashed cells are standard physics.<br><br>And here's the detail I love. Acoustic and visual. Noise harms visual focus, that's a minus. But the mirror cell is just a dot, empty, because light does nothing to how loud a room feels. That coupling runs one way only, and the model says so instead of pretending the world is symmetric.<br><br>One honest limit: we ground these rules in research, we haven't validated them against a comfort dataset, because one doesn't really exist. Which is exactly why we built a tool that makes comfort legible, not one that claims to be right.</aside>
 </section>
 
 
@@ -640,7 +646,7 @@ section.clip .frame{padding:0;}
     </div>
   </div>
   <div style="position:absolute;left:76px;right:76px;bottom:46px;font:400 15px 'JetBrains Mono',monospace;color:var(--mut);z-index:3">we measure everything except how it feels&nbsp;&nbsp;<span style="color:var(--fg)">→ now we can argue about it.</span></div>
-  <aside class="notes">The score was never the point. The ripple was. Sensi makes the coupling between senses designable at the plan stage: a feedback loop before the building exists. [beat of silence] Now, the questions it raises.</aside>
+  <aside class="notes">[S3 · ~24s · slow, hold the beats] [beat] The score was never the point. The ripple was. What we're claiming is small, but we think it's real. Sensi makes the coupling between the senses something you can design with, at the plan stage, before a single wall goes up. A feedback loop for how a building will feel, before the building exists. [beat] We measure everything except how it feels. Now we can argue about it.</aside>
 </section>
 
 <!-- 17 · WHAT THIS RAISES -->
@@ -655,7 +661,7 @@ section.clip .frame{padding:0;}
     </div>
     <p class="lead" style="margin-top:34px;font-size:21px">And the honest one: <span style="color:var(--ac)">is a felt-experience score accountable, or just persuasive?</span></p>
   </div>
-  <aside class="notes">Rather than a roadmap, the questions the project raises: legible versus optimal, whose comfort when a household disagrees, how far the agent should go, and whether a felt-experience score is accountable or just persuasive.</aside>
+  <aside class="notes">[S3 · ~28s] And we'd rather end on the arguments than a victory lap. Two we keep circling. When a household disagrees, whose senses win, and who gets to set the weights? And how far should the agent go, surface the trade-off, or make the call for you? There are two more on the slide. But the one underneath all of them is this: a felt-experience score, is it actually accountable, or is it just persuasive? We don't think that's settled. We think it's the interesting part.</aside>
 </section>
 
 <!-- 18 · THANKS -->
@@ -669,12 +675,13 @@ section.clip .frame{padding:0;}
     <div class="glyphrow" style="margin-top:30px;justify-content:center"><span style="color:var(--therm)">△</span><span style="color:var(--vis)">○</span><span style="color:var(--ac)">∿</span><span style="color:var(--sp)">□</span><span style="color:var(--olf)">≈</span><span style="color:var(--tac)">∶</span></div>
     <div style="font:400 14px 'JetBrains Mono',monospace;color:var(--dim);margin-top:40px;line-height:1.7">Charles Abi Chahine&nbsp;&nbsp;·&nbsp;&nbsp;Emilie El Chidiac&nbsp;&nbsp;·&nbsp;&nbsp;Lakzhmy Zaro&nbsp;&nbsp;·&nbsp;&nbsp;María Sánchez Domínguez</div>
   </div>
-  <aside class="notes">Thank you. Now let the senses talk.</aside>
+  <aside class="notes">[S3 · ~11s] That's Sensi. Thank you. Now, let the senses talk. We'd love your questions.</aside>
 </section>
 
 </div></div>
 <div class="counter" id="counter"></div>
 <div class="brandfoot" id="brandfoot">AIA Studio &middot; Team 02 &middot; Sensi</div>
+<div class="glyphkey" id="glyphkey"><span style="color:var(--therm)">△</span> thermal &nbsp;&nbsp; <span style="color:var(--vis)">○</span> visual &nbsp;&nbsp; <span style="color:var(--ac)">∿</span> acoustic &nbsp;&nbsp; <span style="color:var(--sp)">□</span> spatial &nbsp;&nbsp; <span style="color:var(--olf)">≈</span> olfactory &nbsp;&nbsp; <span style="color:var(--tac)">∶</span> tactile</div>
 
 <!-- diagram A template (richer 3-zone, cloned + lit per act) -->
 <template id="diagA">
@@ -728,15 +735,18 @@ section.clip .frame{padding:0;}
     var secs = Array.prototype.slice.call(document.querySelectorAll('.reveal .slides>section'));
     var cur = Reveal.getCurrentSlide(); if(!cur) return;
     var bf = document.getElementById('brandfoot');
+    var gk = document.getElementById('glyphkey');
     var isClip = cur.classList.contains('clip');
-    if (bf) bf.style.display = isClip ? 'none' : 'block';
-    if (isClip){ counter.textContent='▶ DEMO'; counter.classList.add('demo'); return; }
+    var idx = secs.indexOf(cur);
+    if (bf) bf.style.display='block';
+    if (gk) gk.style.display = (idx===0 || idx===secs.length-1) ? 'none' : 'block';
     counter.classList.remove('demo');
-    var n=0; for (var i=0;i<secs.length;i++){ if(!secs[i].classList.contains('clip')) n++; if(secs[i]===cur) break; }
-    counter.textContent = n + ' / 18';
+    counter.textContent = (idx+1) + ' / ' + secs.length;
   }
   document.querySelectorAll('.clip video').forEach(function(v){
     v.addEventListener('loadeddata', function(){ v.closest('.clip').classList.add('has-video'); });
+    v.style.cursor='pointer';
+    v.addEventListener('click', function(){ if(v.paused){ try{v.play();}catch(_){} } else { v.pause(); } });
   });
   Reveal.on('ready', updateCounter);
   Reveal.on('slidechanged', function(e){
