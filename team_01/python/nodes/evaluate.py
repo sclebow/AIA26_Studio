@@ -760,9 +760,11 @@ def simulate_what_if_removal(
                             _tr = _check_beam_with_point_load(
                                 _b1, _L_merged, _a, _P_total, _wtot, _wll, _A, _E, _I, _Wy, _mat, _sl, _tw
                             )
-                            _tr["original_span_m"]  = round(_L1, 3)
-                            _tr["effective_span_m"] = round(_L_merged, 3)
-                            _tr["merged_with"]       = _b2["id"]
+                            _tr["original_span_m"]        = round(_L1, 3)
+                            _tr["effective_span_m"]       = round(_L_merged, 3)
+                            _tr["merged_with"]             = _b2["id"]
+                            _tr["transfer_upper_col_kN"]  = round(P_kN, 2)
+                            _tr["transfer_perp_kN"]       = round(_P_perp, 2)
                             _perp_note = f" + {_P_perp:.1f}kN from framing beams" if _P_perp > 0 else ""
                             _tr["note"] = (
                                 f"transfer beam (merged {_b1['id']}+{_b2['id']}): "
@@ -1696,9 +1698,16 @@ def build_evaluate_node(llm):
                         flag += f"  DEFL_TL FAIL {r.get('delta_total_mm','?')}>{r.get('limit_TL_mm','?')}mm"
                     if r.get("is_transfer_beam"):
                         span_info = f"{r['original_span_m']}m+{round(r['effective_span_m']-r['original_span_m'],2)}m={r['effective_span_m']}m"
+                        _P_total = r.get('transfer_point_load_kN', '?')
+                        _P_col   = r.get('transfer_upper_col_kN')
+                        _P_perp  = r.get('transfer_perp_kN')
+                        if _P_col is not None and _P_perp is not None and _P_perp > 0:
+                            _p_str = f"P={_P_total}kN ({_P_col} col + {_P_perp} framing)@{r.get('transfer_load_pos_m','?')}m"
+                        else:
+                            _p_str = f"P={_P_total}kN@{r.get('transfer_load_pos_m','?')}m"
                         lines.append(
                             f"  {r['id']:8s} [TRANSFER] {span_info}"
-                            f"  P={r.get('transfer_point_load_kN','?')}kN@{r.get('transfer_load_pos_m','?')}m"
+                            f"  {_p_str}"
                             f"  M={r.get('M_max_kNm','?')}kNm"
                             f"  S={r.get('sigma_bend_MPa','?')}MPa"
                             + (flag if flag else "  ok")

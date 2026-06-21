@@ -69,7 +69,10 @@ Simulates removing a column and re-evaluates the structural impact before commit
 - Reactions at both ends (UDL + point load)
 - Maximum bending moment (at point load position and zero-shear locations)
 - Deflection by superposition (UDL + point load contributions)
-- Display shows `[TRANSFER]  P=XkN@Ym` with pass/fail
+- Display shows `[TRANSFER]` with the point load broken into its two components:
+  - Load from the upper-floor column (`col`)
+  - Reactions from perpendicular beams framing into the removed column position (`framing`)
+  - Format: `P=21.2kN (12.6 col + 8.6 framing)@1.3m` — or plain `P=X.XkN@Y.Ym` when no perpendicular framing exists
 
 The upper-floor column is not removed — it remains supported by the transfer beam.
 

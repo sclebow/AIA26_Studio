@@ -1,6 +1,6 @@
 # Permanence_OS — Internal Agent Summary
 
-**Branch:** `team_01` | **Last updated:** 2026-06-21 (session 3)
+**Branch:** `team_01` | **Last updated:** 2026-06-21 (session 4)
 
 ---
 
@@ -30,19 +30,25 @@ The `_runtime/config.py` scaffold accepts an `anthropic` option, but this uses t
 
 All Python was written from scratch — first push had only Grasshopper `.gh` files.
 
-| File | Lines (current) | Changes this session |
+| File | Lines (current) | Notable changes |
 |---|---|---|
-| `nodes/evaluate.py` | ~1,917 | `_INTERPRET_SYSTEM` expanded (design intent, tradeoffs, level-by-level framing); `transfer_beams` added to summary dict and format table |
-| `nodes/cost_flexibility.py` | ~1,349 | `total_build_cost_eur` added to each `cost_history` entry; multilevel element extraction fixed in `_detect_changes` and `cost_flexibility_node` |
-| `nodes/tag_and_audit.py` | ~881 | Upper-level outline derivation from room geometry |
-| `app.py` | ~1,586 | Streamlit UI standalone prototype (unchanged) |
-| `graph.py` | ~677 | Headless/multilevel routing |
-| `nodes/modify.py` | ~700 | Perimeter beam lock (single-level + multilevel); defensive removal verification; `→`→`->` encoding fix |
-| `nodes/comparison.py` | ~234 | SYSTEM_PROMPT tradeoff framing; cost delta (previous→current total) added to LLM context |
-| `nodes/reason.py` | ~152 | `→`→`->` encoding fix |
-| `nodes/_layout.py` | ~138 | Multilevel utility module |
-| `main.py` | ~44 | CLI entry |
-| **Python source total** | **~7,668** | (excluding example layouts, app.py) |
+| `nodes/evaluate.py` | 2,022 | Transfer beam P breakdown display (session 4); `_INTERPRET_SYSTEM` design intent + tradeoffs (session 2–3); multilevel transfer/cascade checks (session 3) |
+| `nodes/cost_flexibility.py` | 1,350 | Multilevel element extraction fix (session 3); `total_build_cost_eur` in cost_history (session 2) |
+| `nodes/tag_and_audit.py` | 881 | Upper-level outline derivation from room geometry (session 3) |
+| `app.py` | 1,586 | Streamlit UI standalone prototype (session 1) |
+| `graph.py` | 690 | Headless/multilevel routing (session 2–3) |
+| `nodes/modify.py` | 702 | Multilevel column removal + transfer beam merge (session 3); perimeter beam lock (session 2–3); `→`→`->` encoding fix (session 2) |
+| `nodes/comparison.py` | 234 | SYSTEM_PROMPT tradeoff framing; cost delta (session 2) |
+| `nodes/reason.py` | ~152 | `→`→`->` encoding fix (session 2) |
+| `nodes/_layout.py` | 138 | Multilevel utility module — new in session 3 |
+| `main.py` | 44 | CLI entry (session 1) |
+| **Python source total** | **6,061** | (core pipeline; app.py adds ~1,586 more) |
+
+**Total code across all commits (team_01 only):**
+- PR #67 (first push, June 8 2026): 3,405 insertions across 16 files — CLI, cost model, evaluate, graph, comparison, agent.md, CLI_summary.md, INTERNAL_AGENT_SUMMARY.md, app.py
+- Commit "multi level" (June 21 2026): 26,936 insertions including example layout JSONs + notebook; ~1,376 Python lines net across evaluate.py, modify.py, _layout.py, comparison.py, tag_and_audit.py, graph.py, cost_flexibility.py
+- Commit "points loads from above and beams framing to that point" (June 21 2026): ~205 Python lines — evaluate.py +186, cost_flexibility.py +19
+- Session 4 (today, uncommitted): evaluate.py +13 lines — transfer beam P breakdown in [TRANSFER] display
 
 ---
 
@@ -121,7 +127,16 @@ M_max = max(M at x=a, M at zero-shear locations)
 Deflection by superposition: d_udl + d_point_load
 ```
 
-The what-if display marks these as `[TRANSFER]` with `P=XkN@Ym`.
+The what-if display marks these as `[TRANSFER]`. The point load `P` includes **two components**:
+- `P_col` — total axial load from the upper-level column at that position
+- `P_perp` — sum of reactions from perpendicular beams framing into the removed column position: `(SDL+LL) × trib_width × half_span` per beam
+
+When `P_perp > 0`, the terminal line shows the split inline:
+```
+  D4-E4    [TRANSFER] 1.3m+2.6m=3.9m  P=21.2kN (12.6 col + 8.6 framing)@1.3m  M=...kNm  S=...MPa
+```
+When no perpendicular framing contributions exist, it falls back to `P=X.XkN@Y.Ym`.
+Both components are stored in the result dict as `transfer_upper_col_kN` and `transfer_perp_kN`.
 
 ## Cascade Load Logic
 
@@ -376,3 +391,4 @@ Headless defaults (activated when `sys.stdin.isatty()` is False):
 14. Transfer beams are surfaced by name in the advisor with the upper-column load they carry
 15. Cost delta (previous total → current total build cost) shown in comparison when ≥2 cycles have run
 16. Cost node handles multilevel by flattening elements from all levels — never uses top-level `.get("structure", [])` which returns `[]` on multilevel layouts
+17. Transfer beam `[TRANSFER]` display shows point load breakdown inline: `P=total (col + framing)@pos` so the architect can see both the upper-column contribution and the perpendicular framing contribution separately
