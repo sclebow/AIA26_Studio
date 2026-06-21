@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 import json
 import math
 import re
@@ -58,8 +58,8 @@ DEFL_LIMIT_TL  = 250   # L/250  total load
 BUCKLING_SF    = 3.0   # minimum Euler buckling safety factor
 
 # ── Utilisation thresholds for advisor feedback ────────────────────────────────
-UTIL_OVERENGINEERED = 0.50  # below this → layout change possible (remove / relocate)
-UTIL_APPROACHING    = 0.75  # above this → approaching limit, flag to architect
+UTIL_OVERENGINEERED = 0.50  # below this -> layout change possible (remove / relocate)
+UTIL_APPROACHING    = 0.75  # above this -> approaching limit, flag to architect
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -73,7 +73,7 @@ def _material(name: str) -> dict:
 
 
 def _parse_dim_mm(s: str) -> tuple[float, float]:
-    """'300x600' → (0.300, 0.600) metres."""
+    """'300x600' -> (0.300, 0.600) metres."""
     parts = str(s).lower().split("x")
     if len(parts) == 2:
         return float(parts[0]) / 1000.0, float(parts[1]) / 1000.0
@@ -145,12 +145,137 @@ def _column_trib_areas(columns: list[dict]) -> dict[str, float]:
 
 # ── Beam checks ───────────────────────────────────────────────────────────────
 
-def _check_beams(beams: list[dict], trib: dict[str, float], ll_kNm2: float = LL_KNM2, sdl_kNm2: float = SDL_KNM2) -> list[dict]:
+def _check_beam_with_point_load(
+    bm: dict, L: float, a: float, P_kN: float,
+    w_udl: float, w_ll_udl: float,
+    A: float, E: float, I: float, Wy_mm3: float,
+    mat: dict, sec_label: str, tw: float,
+) -> dict:
+    """
+    Transfer beam check: simply supported span L, UDL w_udl kN/m,
+    plus concentrated point load P_kN at distance a from the left end.
+    """
+    R_A = w_udl * L / 2.0 + P_kN * (L - a) / L
+    R_B = w_udl * L / 2.0 + P_kN * a / L
+
+    def _M(x: float) -> float:
+        return R_A * x - w_udl * x ** 2 / 2.0 - (P_kN * (x - a) if x > a else 0.0)
+
+    x_cands = [a]
+    if w_udl > 1e-9:
+        for xc in [R_A / w_udl, (R_A - P_kN) / w_udl]:
+            if 1e-6 < xc < L - 1e-6:
+                x_cands.append(xc)
+    M_max   = max(_M(x) for x in x_cands)
+    V_max   = max(abs(R_A), abs(R_B))
+    sigma_b = M_max * 1e6 / Wy_mm3
+    tau     = V_max * 1e3 / A / 1e6
+
+    # Deflection by superposition (SS beam: UDL midspan + point load at a)
+    def _d_udl(w: float) -> float:
+        return 5.0 * (w * 1e3) * L ** 4 / (384.0 * E * I) * 1e3  # mm
+
+    def _d_pt(P: float) -> float:
+        return P * 1e3 * a ** 2 * (L - a) ** 2 / (3.0 * E * I * L) * 1e3  # mm
+
+    w_frac_ll = w_ll_udl / max(w_udl, 1e-9)
+    d_tot = _d_udl(w_udl)    + _d_pt(P_kN)
+    d_ll  = _d_udl(w_ll_udl) + _d_pt(P_kN * w_frac_ll)
+    lim_tl = L * 1e3 / DEFL_LIMIT_TL
+    lim_ll = L * 1e3 / DEFL_LIMIT_LL
+
+    return {
+        "id":                     bm["id"],
+        "span_m":                 round(L, 3),
+        "section_mm":             sec_label,
+        "material":               mat.get("name", ""),
+        "trib_width_m":           round(tw, 2),
+        "is_transfer_beam":       True,
+        "transfer_point_load_kN": round(P_kN, 2),
+        "transfer_load_pos_m":    round(a, 3),
+        "R_left_kN":              round(R_A, 2),
+        "R_right_kN":             round(R_B, 2),
+        "M_max_kNm":              round(M_max, 3),
+        "sigma_bend_MPa":         round(sigma_b, 3),
+        "allow_bend_MPa":         mat["allow_bend_MPa"],
+        "bend_PASS":              sigma_b <= mat["allow_bend_MPa"],
+        "tau_MPa":                round(tau, 4),
+        "allow_shear_MPa":        mat["allow_shear_MPa"],
+        "shear_PASS":             tau <= mat["allow_shear_MPa"],
+        "delta_total_mm":         round(d_tot, 3),
+        "delta_LL_mm":            round(d_ll, 3),
+        "limit_TL_mm":            round(lim_tl, 3),
+        "limit_LL_mm":            round(lim_ll, 3),
+        "defl_TL_PASS":           d_tot <= lim_tl,
+        "defl_LL_PASS":           d_ll  <= lim_ll,
+        "note": f"transfer beam: upper col P={P_kN:.1f}kN at {a:.2f}m from left",
+    }
+
+
+def _find_upper_col_point_loads(
+    layout: dict, level_key: str, ll_kNm2: float, sdl_kNm2: float,
+) -> dict[str, tuple]:
+    """
+    Return {beam_id: (a_m, P_kN)} for beams at level_key that have an upper-level
+    column's XY position lying on their span (i.e. the beam is a transfer beam).
+    a_m = distance from beam start point to the column position.
+    """
+    from nodes._layout import get_level_keys, get_structure as _gs, load_multiplier_for_level
+    TOL = 0.02
+    keys = get_level_keys(layout)
+    if level_key not in keys:
+        return {}
+    idx        = keys.index(level_key)
+    upper_keys = keys[idx + 1:]
+    if not upper_keys:
+        return {}
+
+    beams = [el for el in _gs(layout, level_key) if len(el.get("geometry", [])) == 2]
+
+    # Collect all upper-level column positions with their computed load
+    upper_col_data: list[tuple] = []  # (x, y, P_kN)
+    for uk in upper_keys:
+        uk_struct = _gs(layout, uk)
+        uk_cols   = [el for el in uk_struct if len(el.get("geometry", [])) == 1]
+        if not uk_cols:
+            continue
+        c_trib = _column_trib_areas(uk_cols)
+        mult   = load_multiplier_for_level(layout, uk)
+        for r in _check_columns(uk_cols, c_trib, ll_kNm2, sdl_kNm2, load_multiplier=mult):
+            col_el = next((e for e in uk_struct if e["id"] == r["id"]), None)
+            if col_el:
+                cx, cy = col_el["geometry"][0]
+                upper_col_data.append((cx, cy, r["P_total_kN"]))
+
+    if not upper_col_data:
+        return {}
+
+    result: dict[str, tuple] = {}
+    for bm in beams:
+        p1, p2 = bm["geometry"][0], bm["geometry"][1]
+        dx, dy = p2[0] - p1[0], p2[1] - p1[1]
+        L = math.hypot(dx, dy)
+        if L < 0.05:
+            continue
+        for cx, cy, P_kN in upper_col_data:
+            t = ((cx - p1[0]) * dx + (cy - p1[1]) * dy) / (L * L)
+            if t <= TOL or t >= 1.0 - TOL:
+                continue  # endpoint positions are normal column connections, not transfer scenarios
+            proj_x = p1[0] + t * dx
+            proj_y = p1[1] + t * dy
+            if math.hypot(cx - proj_x, cy - proj_y) < TOL:
+                a = max(0.0, min(L, t * L))
+                result[bm["id"]] = (round(a, 3), round(P_kN, 2))
+                break
+    return result
+
+
+def _check_beams(beams: list[dict], trib: dict[str, float], ll_kNm2: float = LL_KNM2, sdl_kNm2: float = SDL_KNM2, point_loads: dict | None = None) -> list[dict]:
     results = []
     for bm in beams:
         g = bm["geometry"]
         attrs = bm.get("attributes", {})
-        mat_name = attrs.get("material", "RCC")
+        mat_name = attrs.get("material") or "RCC"
         mat = _material(mat_name)
 
         L = math.dist(g[0], g[1])
@@ -172,24 +297,27 @@ def _check_beams(beams: list[dict], trib: dict[str, float], ll_kNm2: float = LL_
             sec_label = attrs.get("section", f"{int(b*1000)}x{int(d*1000)}")
         else:
             A, I, _ = _rect_props(b, d)
-            Wy_mm3 = I / (d / 2) * 1e9          # m³ → mm³
+            Wy_mm3 = I / (d / 2) * 1e9          # m³ -> mm³
             sec_label = f"{int(b*1000)}x{int(d*1000)}"
 
         E  = mat["E_MPa"] * 1e6
         tw = trib.get(bm["id"], 2.5)
 
-        # Loads (kN/m)
         w_sw  = mat["density_kNm3"] * A
         w_dl  = sdl_kNm2 * tw
         w_ll  = ll_kNm2  * tw
         w_tot = w_sw + w_dl + w_ll
 
+        # Transfer beam: point load from an upper-level column sitting on this beam
+        if point_loads and bm["id"] in point_loads:
+            a_m, P_kN = point_loads[bm["id"]]
+            results.append(_check_beam_with_point_load(
+                bm, L, a_m, P_kN, w_tot, w_ll, A, E, I, Wy_mm3, mat, sec_label, tw
+            ))
+            continue
+
         M = w_tot * L ** 2 / 8.0
-
-        # Bending: σ = M / Wy  (M in kN·m, Wy in mm³ → MPa)
         sigma_b = M * 1e6 / Wy_mm3
-
-        # Shear: average τ = V / A  (MPa)
         V   = w_tot * L / 2.0
         tau = V * 1e3 / A / 1e6
 
@@ -227,11 +355,11 @@ def _check_beams(beams: list[dict], trib: dict[str, float], ll_kNm2: float = LL_
 
 # ── Column checks ─────────────────────────────────────────────────────────────
 
-def _check_columns(columns: list[dict], trib: dict[str, float], ll_kNm2: float = LL_KNM2, sdl_kNm2: float = SDL_KNM2) -> list[dict]:
+def _check_columns(columns: list[dict], trib: dict[str, float], ll_kNm2: float = LL_KNM2, sdl_kNm2: float = SDL_KNM2, load_multiplier: int = 1) -> list[dict]:
     results = []
     for col in columns:
         attrs = col.get("attributes", {})
-        mat_name = attrs.get("material", "RCC")
+        mat_name = attrs.get("material") or "RCC"
         mat = _material(mat_name)
 
         H    = float(attrs.get("height", 3.5))
@@ -257,8 +385,8 @@ def _check_columns(columns: list[dict], trib: dict[str, float], ll_kNm2: float =
         E  = mat["E_MPa"] * 1e6
         ta = trib.get(col["id"], 9.0)
 
-        P_floor = (sdl_kNm2 + ll_kNm2) * ta
-        P_self  = mat["density_kNm3"] * A * H
+        P_floor = (sdl_kNm2 + ll_kNm2) * ta * load_multiplier
+        P_self  = mat["density_kNm3"] * A * H * load_multiplier
         P_total = P_floor + P_self
 
         sigma_c = P_total * 1e3 / A / 1e6
@@ -303,8 +431,11 @@ def _extract_removal_ids(messages: list[dict]) -> list[str]:
         text = content
     if not any(kw in text.lower() for kw in ("remov", "delet", "what if", "without")):
         return []
+    # Match: beam IDs like A3-A5, underscore IDs like Col_D1, grid IDs like C2 / D3
     return list(dict.fromkeys(
-        m.upper() for m in re.findall(r'\b([A-Za-z]\w*_\d+)\b', text)
+        m.upper() for m in re.findall(
+            r'(?<!\w)([A-Za-z]\d+(?:-[A-Za-z]\d+)+|[A-Za-z]\w*_\d+|[A-Za-z]\d+)(?!\w)', text
+        )
     ))
 
 
@@ -345,6 +476,112 @@ def _trace_span(
     return total
 
 
+def _cascade_to_lower_level(
+    layout: dict,
+    remove_level_key: str,
+    removed_positions: set,
+    level_beams: list,
+    base_trib: dict,
+    ll_kNm2: float,
+    sdl_kNm2: float,
+) -> dict | None:
+    """
+    After removing columns at remove_level_key, check the level below.
+    Each beam that lost one support transfers its old half-span reaction as an
+    extra point load to the surviving endpoint column, which cascades to the
+    level_01 column at the same XY.
+    Returns None when remove_level_key is the bottom level.
+    """
+    from nodes._layout import get_level_keys, get_structure as _gs, load_multiplier_for_level
+
+    keys = get_level_keys(layout)
+    if remove_level_key not in keys:
+        return None
+    idx = keys.index(remove_level_key)
+    if idx == 0:
+        return None
+
+    lower_key    = keys[idx - 1]
+    lower_struct = _gs(layout, lower_key)
+
+    lower_col_by_pos: dict[tuple, dict] = {}
+    for el in lower_struct:
+        if len(el.get("geometry", [])) == 1:
+            x, y = el["geometry"][0]
+            lower_col_by_pos[(round(x, 3), round(y, 3))] = el
+
+    extra_load_map: dict[str, float] = {}
+
+    for bm in level_beams:
+        p1, p2 = tuple(bm["geometry"][0]), tuple(bm["geometry"][1])
+        p1_rem = p1 in removed_positions
+        p2_rem = p2 in removed_positions
+        if not p1_rem and not p2_rem:
+            continue
+        if p1_rem and p2_rem:
+            continue  # both ends gone — already a beam failure, not a point-load cascade
+
+        tw    = base_trib.get(bm["id"], 2.5)
+        orig  = math.dist(p1, p2)
+        w     = (sdl_kNm2 + ll_kNm2) * tw   # kN/m
+        extra = w * orig / 2.0               # half-span reaction previously carried by removed col
+
+        surviving = p2 if p1_rem else p1
+        sk = (round(surviving[0], 3), round(surviving[1], 3))
+        lc = lower_col_by_pos.get(sk)
+        if lc:
+            extra_load_map[lc["id"]] = extra_load_map.get(lc["id"], 0.0) + extra
+
+    if not extra_load_map:
+        return None
+
+    lower_cols = [el for el in lower_struct if len(el.get("geometry", [])) == 1]
+    c_trib     = _column_trib_areas(lower_cols)
+    mult       = load_multiplier_for_level(layout, lower_key)
+
+    results: list[dict] = []
+    for col in lower_cols:
+        extra = extra_load_map.get(col["id"], 0.0)
+        if extra == 0.0:
+            continue
+
+        base_res = _check_columns([col], c_trib, ll_kNm2, sdl_kNm2, load_multiplier=mult)
+        if not base_res:
+            continue
+        r = dict(base_res[0])
+
+        attrs  = col.get("attributes", {})
+        mat    = _material(attrs.get("material") or "RCC")
+        b_mm, d_mm = _parse_dim_mm(attrs.get("dimensions", "300x300"))
+        steel_sec  = None
+        if "STEEL" in (attrs.get("material", "") or "").upper():
+            steel_sec = STEEL_COL_PROPS.get(attrs.get("section", ""))
+        A = steel_sec["A_mm2"] / 1e6 if steel_sec else _rect_props(b_mm, d_mm)[0]
+
+        new_P   = r["P_total_kN"] + extra
+        sigma_c = new_P * 1e3 / A / 1e6
+        r["P_total_kN"]               = round(new_P, 2)
+        r["extra_load_kN_from_above"] = round(extra, 2)
+        r["sigma_comp_MPa"]           = round(sigma_c, 4)
+        r["stress_PASS"]              = sigma_c <= mat["allow_comp_MPa"]
+        r["level"]                    = lower_key
+        results.append(r)
+
+    failures = [r for r in results if not (r["stress_PASS"] and r["buckling_PASS"])]
+    return {
+        "simulation":       "cascade_check",
+        "source_level":     remove_level_key,
+        "target_level":     lower_key,
+        "affected_columns": results,
+        "summary": {
+            "affected":     len(results),
+            "failures":     len(failures),
+            "failed_ids":   [r["id"] for r in failures],
+            "overall_PASS": not failures,
+        },
+    }
+
+
 def simulate_what_if_removal(
     layout_json_string: str,
     remove_ids: list[str],
@@ -352,9 +589,22 @@ def simulate_what_if_removal(
     ll_kNm2: float = LL_KNM2,
     sdl_kNm2: float = SDL_KNM2,
 ) -> dict:
-    """Re-evaluate beams whose endpoint columns are removed, extending their spans."""
-    layout    = json.loads(layout_json_string)
-    structure = layout.get("structure", [])
+    """Re-evaluate beams whose endpoint columns are removed, extending their spans.
+    For multilevel layouts also checks if the load cascades to the level below."""
+    from nodes._layout import get_structure as _gs, is_multilevel, find_element_in_layout
+    layout = json.loads(layout_json_string)
+
+    # For multilevel: restrict simulation to the level where the column lives
+    remove_level_key = None
+    if is_multilevel(layout):
+        lk, _el = find_element_in_layout(layout, remove_ids[0])
+        if lk:
+            remove_level_key = lk
+            structure = _gs(layout, lk)
+        else:
+            structure = _gs(layout)
+    else:
+        structure = layout.get("structure", [])
 
     # Filter to IDs that are actual columns in this layout
     valid_cols = {el["id"] for el in structure if len(el.get("geometry", [])) == 1}
@@ -384,6 +634,92 @@ def simulate_what_if_removal(
     results: list[dict] = []
     visited: set[str] = set()
 
+    # ── Transfer beam pre-pass (multilevel only) ─────────────────────────────
+    # When removing a column at a lower level that has a column directly above it,
+    # the two beams flanking the removed column merge into a transfer beam carrying
+    # the upper column as a point load.  Check these before the span-extension loop.
+    transfer_ids: set[str] = set()
+    if remove_level_key and is_multilevel(layout):
+        from nodes._layout import get_level_keys, get_structure as _gs_tr, load_multiplier_for_level as _lmfl
+        _keys = get_level_keys(layout)
+        _idx  = _keys.index(remove_level_key)
+        for _uk in _keys[_idx + 1:]:
+            _uk_struct = _gs_tr(layout, _uk)
+            _uk_cols   = [el for el in _uk_struct if len(el.get("geometry", [])) == 1]
+            if not _uk_cols:
+                continue
+            _uk_trib = _column_trib_areas(_uk_cols)
+            _uk_mult = _lmfl(layout, _uk)
+            _uk_res  = {r["id"]: r["P_total_kN"]
+                        for r in _check_columns(_uk_cols, _uk_trib, ll_kNm2, sdl_kNm2, load_multiplier=_uk_mult)}
+            for _uc in _uk_cols:
+                _cx, _cy = _uc["geometry"][0]
+                _ck = (round(_cx, 3), round(_cy, 3))
+                # Is this upper-col position one of the removed positions?
+                _match = next((p for p in removed_positions
+                               if abs(p[0]-_cx) < 0.02 and abs(p[1]-_cy) < 0.02), None)
+                if _match is None:
+                    continue
+                P_kN = _uk_res.get(_uc["id"], 0.0)
+                if P_kN == 0.0:
+                    continue
+                # Find the two collinear beams that meet at _match
+                _touching = [b for b in all_beams
+                             if tuple(b["geometry"][0]) == _match or tuple(b["geometry"][1]) == _match]
+                for _b1 in _touching:
+                    _far1 = tuple(_b1["geometry"][1]) if tuple(_b1["geometry"][0]) == _match else tuple(_b1["geometry"][0])
+                    for _b2 in _touching:
+                        if _b2["id"] == _b1["id"] or _b2["id"] in transfer_ids:
+                            continue
+                        _far2 = tuple(_b2["geometry"][1]) if tuple(_b2["geometry"][0]) == _match else tuple(_b2["geometry"][0])
+                        if _far1 == _far2:
+                            continue
+                        _dx1 = _far1[0]-_match[0]; _dy1 = _far1[1]-_match[1]
+                        _dx2 = _far2[0]-_match[0]; _dy2 = _far2[1]-_match[1]
+                        _L1  = math.hypot(_dx1, _dy1); _L2 = math.hypot(_dx2, _dy2)
+                        if _L1 < 1e-6 or _L2 < 1e-6:
+                            continue
+                        _cross = abs(_dx1*_dy2 - _dy1*_dx2) / (_L1*_L2)
+                        _dot   = (_dx1*_dx2 + _dy1*_dy2) / (_L1*_L2)
+                        if _cross < 0.15 and _dot < 0:
+                            # Collinear pair — build transfer beam check
+                            _L_merged = _L1 + _L2
+                            _a        = _L1  # point load at distance _L1 from _far1
+                            # Use the shallower beam's section (weaker capacity = conservative check)
+                            _d1 = float((_b1.get("attributes") or {}).get("depth") or 600)
+                            _d2 = float((_b2.get("attributes") or {}).get("depth") or 600)
+                            _attrs    = (_b1 if _d1 <= _d2 else _b2).get("attributes", {})
+                            _mn       = _attrs.get("material") or "RCC"
+                            _mat      = _material(_mn)
+                            _d  = float(_attrs.get("depth") or 600) / 1000.0
+                            _bw = float(_attrs.get("width") or BEAM_WIDTH_MM) / 1000.0
+                            _ss = STEEL_BEAM_PROPS.get(_attrs.get("section") or "") if "STEEL" in _mn.upper() else None
+                            if _ss:
+                                _A = _ss["A_mm2"]/1e6; _I = _ss["I_mm4"]/1e12; _Wy = _ss["Wy_mm3"]
+                                _sl = _attrs.get("section") or f"{int(_bw*1000)}x{int(_d*1000)}"
+                            else:
+                                _A, _I, _ = _rect_props(_bw, _d); _Wy = _I/(_d/2)*1e9
+                                _sl = f"{int(_bw*1000)}x{int(_d*1000)}"
+                            _E   = _mat["E_MPa"]*1e6
+                            _tw  = base_trib.get(_b1["id"], 2.5)
+                            _wsw = _mat["density_kNm3"]*_A
+                            _wdl = sdl_kNm2*_tw; _wll = ll_kNm2*_tw; _wtot = _wsw+_wdl+_wll
+                            _tr = _check_beam_with_point_load(
+                                _b1, _L_merged, _a, P_kN, _wtot, _wll, _A, _E, _I, _Wy, _mat, _sl, _tw
+                            )
+                            _tr["original_span_m"]  = round(_L1, 3)
+                            _tr["effective_span_m"] = round(_L_merged, 3)
+                            _tr["merged_with"]       = _b2["id"]
+                            _tr["note"] = (
+                                f"transfer beam (merged {_b1['id']}+{_b2['id']}): "
+                                f"P={P_kN:.1f}kN from upper col at {_a:.2f}m from left  "
+                                f"[span {_L1:.1f}+{_L2:.1f}={_L_merged:.1f}m]"
+                            )
+                            results.append(_tr)
+                            transfer_ids.update([_b1["id"], _b2["id"]])
+                            visited.update([_b1["id"], _b2["id"]])
+                            break
+
     for bm in all_beams:
         p1, p2 = tuple(bm["geometry"][0]), tuple(bm["geometry"][1])
         p1_removed = p1 in removed_positions
@@ -395,15 +731,15 @@ def simulate_what_if_removal(
         visited.add(bm["id"])
 
         attrs    = bm.get("attributes", {})
-        mat_name = attrs.get("material", "RCC")
+        mat_name = attrs.get("material") or "RCC"
         mat      = _material(mat_name)
-        d        = float(attrs.get("depth", 600)) / 1000.0
+        d        = float(attrs.get("depth") or 600) / 1000.0
         b        = BEAM_WIDTH_MM / 1000.0
 
         # Real IPE properties for steel; solid rect for RCC / Timber
         steel_sec = None
         if "STEEL" in mat_name.upper():
-            steel_sec = STEEL_BEAM_PROPS.get(attrs.get("section", ""))
+            steel_sec = STEEL_BEAM_PROPS.get(attrs.get("section") or "")
 
         if steel_sec:
             A      = steel_sec["A_mm2"] / 1e6
@@ -464,13 +800,13 @@ def simulate_what_if_removal(
             "limit_LL_mm":      round(lim_ll, 3),
             "defl_TL_PASS":     d_tot <= lim_tl,
             "defl_LL_PASS":     d_ll  <= lim_ll,
-            "note": f"span {orig_span:.1f}m → {eff_span:.1f}m after removing {', '.join(remove_ids)}",
+            "note": f"span {orig_span:.1f}m -> {eff_span:.1f}m after removing {', '.join(remove_ids)}",
         })
 
     failures = [r for r in results if not all(
         r.get(k, False) for k in ("bend_PASS", "shear_PASS", "defl_TL_PASS", "defl_LL_PASS")
     )]
-    return {
+    sim_result = {
         "simulation":    "what_if_removal",
         "removed_ids":   remove_ids,
         "affected_beams": results,
@@ -482,13 +818,58 @@ def simulate_what_if_removal(
         },
     }
 
+    # Cascade load to the level below (multilevel only)
+    if remove_level_key and is_multilevel(layout):
+        cascade = _cascade_to_lower_level(
+            layout, remove_level_key, removed_positions,
+            all_beams, base_trib, ll_kNm2, sdl_kNm2,
+        )
+        if cascade:
+            sim_result["cascade"] = cascade
+            if not cascade["summary"]["overall_PASS"]:
+                sim_result["summary"]["overall_PASS"] = False
+
+    return sim_result
+
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def evaluate_structure(layout_json_string: str, ll_kNm2: float = LL_KNM2, sdl_kNm2: float = SDL_KNM2) -> dict:
-    layout    = json.loads(layout_json_string)
-    structure = layout.get("structure", [])
+    from nodes._layout import is_multilevel, get_level_keys, get_structure as _gs, load_multiplier_for_level
+    layout = json.loads(layout_json_string)
 
+    if is_multilevel(layout):
+        all_beam_results: list = []
+        all_col_results:  list = []
+        for lk in get_level_keys(layout):
+            structure = _gs(layout, lk)
+            beams   = [s for s in structure if len(s.get("geometry", [])) == 2]
+            columns = [s for s in structure if len(s.get("geometry", [])) == 1]
+            b_trib  = _beam_trib_widths(beams)
+            c_trib  = _column_trib_areas(columns)
+            mult    = load_multiplier_for_level(layout, lk)
+            pt_loads = _find_upper_col_point_loads(layout, lk, ll_kNm2, sdl_kNm2)
+            if pt_loads:
+                print(f"  [{lk}] {len(pt_loads)} transfer beam(s) carrying upper-level column load")
+            all_beam_results.extend(_check_beams(beams, b_trib, ll_kNm2, sdl_kNm2, point_loads=pt_loads))
+            all_col_results.extend(_check_columns(columns, c_trib, ll_kNm2, sdl_kNm2, load_multiplier=mult))
+        b_fail = [r for r in all_beam_results if not (r["bend_PASS"] and r["shear_PASS"] and r["defl_TL_PASS"] and r["defl_LL_PASS"])]
+        c_fail = [r for r in all_col_results  if not (r["stress_PASS"] and r["buckling_PASS"])]
+        return {
+            "beams":   all_beam_results,
+            "columns": all_col_results,
+            "summary": {
+                "total_beams":       len(all_beam_results),
+                "beam_failures":     len(b_fail),
+                "failed_beam_ids":   [r["id"] for r in b_fail],
+                "total_columns":     len(all_col_results),
+                "column_failures":   len(c_fail),
+                "failed_column_ids": [r["id"] for r in c_fail],
+                "overall_PASS":      not b_fail and not c_fail,
+            },
+        }
+
+    structure = layout.get("structure", [])
     beams   = [s for s in structure if len(s.get("geometry", [])) == 2]
     columns = [s for s in structure if len(s.get("geometry", [])) == 1]
 
@@ -542,7 +923,7 @@ def _build_failure_alternatives(
                 mid = round(eff / 2, 2)
                 alts.append(
                     f"Add intermediate column at midpoint of {bid} "
-                    f"(span {orig}m → {mid}m each side)"
+                    f"(span {orig}m -> {mid}m each side)"
                 )
                 alts.append(
                     f"Replace {bid} with a deeper section to carry {eff}m span "
@@ -601,7 +982,7 @@ def _build_failure_alternatives(
         mid = round(r["span_m"] / 2, 2)
         alts.append(
             f"Add midspan column under beam {r['id']} "
-            f"(span {r['span_m']}m → {mid}m each side)"
+            f"(span {r['span_m']}m -> {mid}m each side)"
         )
         if len(alts) >= 3:
             break
@@ -692,25 +1073,35 @@ def _ask_sdl_ll(state: dict) -> None:
         _ll_default = ""   # keep current
 
     cur_sdl = state.get("sdl_kNm2") or SDL_KNM2
-    print(f"\nWhat kind of floor build-up are you designing? [current: {cur_sdl} kN/m²]")
-    print("  1. Light timber floor — 1.5 kN/m²  (wood framing, light finishes)")
-    print("  2. Light concrete     — 2.5 kN/m²  (thin slab, minimal finishes)")
-    print("  3. Standard           — 3.5 kN/m²  (125mm slab + finishes + partitions)")
-    print("  4. Heavy              — 5.0 kN/m²  (thick slab, heavy finishes, raised floor)")
-    print("  [Enter] — keep current")
-    raw_sdl = _safe_input("Your choice [1-4 or Enter]: ", _sdl_default).strip()
-    state["sdl_kNm2"] = {"1": 1.5, "2": 2.5, "3": 3.5, "4": 5.0}.get(raw_sdl, cur_sdl)
-    print(f"  Floor load: {state['sdl_kNm2']} kN/m²")
+    _sdl_map = {"1": 1.5, "2": 2.5, "3": 3.5, "4": 5.0}
+    if _sdl_default:
+        state["sdl_kNm2"] = _sdl_map[_sdl_default]
+        print(f"\n  Floor load: {state['sdl_kNm2']} kN/m²  [from prompt]")
+    else:
+        print(f"\nWhat kind of floor build-up are you designing? [current: {cur_sdl} kN/m²]")
+        print("  1. Light timber floor — 1.5 kN/m²  (wood framing, light finishes)")
+        print("  2. Light concrete     — 2.5 kN/m²  (thin slab, minimal finishes)")
+        print("  3. Standard           — 3.5 kN/m²  (125mm slab + finishes + partitions)")
+        print("  4. Heavy              — 5.0 kN/m²  (thick slab, heavy finishes, raised floor)")
+        print("  [Enter] — keep current")
+        raw_sdl = _safe_input("Your choice [1-4 or Enter]: ", "").strip()
+        state["sdl_kNm2"] = _sdl_map.get(raw_sdl, cur_sdl)
+        print(f"  Floor load: {state['sdl_kNm2']} kN/m²")
 
     cur_ll = state.get("live_load_kNm2") or LL_KNM2
-    print(f"\nHow will this space be used? [current: {cur_ll} kN/m²]")
-    print("  1. Homes / apartments  — 2.0 kN/m²")
-    print("  2. Offices             — 3.0 kN/m²")
-    print("  3. Retail / public     — 5.0 kN/m²")
-    print("  [Enter] — keep current")
-    raw_ll = _safe_input("Your choice [1-3 or Enter]: ", _ll_default).strip()
-    state["live_load_kNm2"] = {"1": 2.0, "2": 3.0, "3": 5.0}.get(raw_ll, cur_ll)
-    print(f"  Live load: {state['live_load_kNm2']} kN/m²")
+    _ll_map = {"1": 2.0, "2": 3.0, "3": 5.0}
+    if _ll_default:
+        state["live_load_kNm2"] = _ll_map[_ll_default]
+        print(f"  Live load: {state['live_load_kNm2']} kN/m²  [from prompt]")
+    else:
+        print(f"\nHow will this space be used? [current: {cur_ll} kN/m²]")
+        print("  1. Homes / apartments  — 2.0 kN/m²")
+        print("  2. Offices             — 3.0 kN/m²")
+        print("  3. Retail / public     — 5.0 kN/m²")
+        print("  [Enter] — keep current")
+        raw_ll = _safe_input("Your choice [1-3 or Enter]: ", "").strip()
+        state["live_load_kNm2"] = _ll_map.get(raw_ll, cur_ll)
+        print(f"  Live load: {state['live_load_kNm2']} kN/m²")
 
     try:
         SETTINGS_PATH.write_text(
@@ -721,7 +1112,7 @@ def _ask_sdl_ll(state: dict) -> None:
         pass
 
 
-_INTERPRET_SYSTEM = """You are a structural advisor helping an architect during early design. You are given structural evaluation results: each element with its ID, type (beam or column), section, and utilisation % (100% = at the structural limit), plus a "May be removable" list. Write a concise advisory note.
+_INTERPRET_SYSTEM = """You are a structural advisor helping an architect during early design. You are given structural evaluation results: each element with its ID, type (beam or column), section, and utilisation % (100% = at the structural limit), a "May be removable" list, and — when present — a "Transfer beams" section. Write a concise advisory note.
 
 CRITICAL: If overall_PASS is false, your FIRST sentence MUST identify the structure as failing and name the specific failing element IDs from the data. Do not discuss optimisation or underutilised elements until all failures are addressed.
 
@@ -731,19 +1122,36 @@ USE ONLY THE DATA YOU ARE GIVEN:
 - Quote utilisation figures and spans exactly as given. Never invent a number.
 - Do NOT name rooms or locations ("living room", "kitchen", "staircase", "corridor") — the geometry does not tell you the room. Describe position only by what the data supports: element IDs, spans, and which elements are adjacent or clustered by their coordinates.
 
+DESIGN INTENT — what to preserve vs reconsider:
+- Elements above 75% utilisation are LOAD-PATH CRITICAL. Do not suggest removing or downsizing them; tell the architect these define the load path and must be preserved or upsized if the design changes.
+- TRANSFER BEAMS (listed in the "Transfer beams" section) carry an upper-floor column as a point load. They are structurally defining regardless of utilisation — any layout change that removes or shortens them shifts load paths significantly. Always flag transfer beams by name, explain what upper-column load they carry, and call them "structurally defining."
+- Elements below 50% are over-engineered. If on the "May be removable" list, removing them frees the plan; if not, the architect could reconsider the span arrangement.
+- Elements 50–75%: working range — note them positively as well-calibrated for the current layout.
+- NEVER suggest removing an element that is a transfer beam, load-path critical, or not on the "May be removable" list.
+
 UTILISATION THRESHOLDS — use consistently:
-- Below 50%: over-engineered. Suggest a specific LAYOUT change — remove the element (only if it is on the "May be removable" list) or open up the span. (Over-engineered means LOW utilisation only — never call a failing or near-limit element over-engineered.)
+- Below 50%: over-engineered. Suggest a specific LAYOUT change — remove the element (only if it is on the "May be removable" list) or open up the span.
 - 50–75%: working range — note it positively.
 - Above 75%: approaching limit — flag it clearly.
 - Failures (100%+): must fix. Give 2 concrete options using exact element IDs.
+
+LEVEL-BY-LEVEL framing (use only when the data has transfer beams or the evaluation covers multiple floor levels):
+- Address each level in sequence: ground-level load paths first, then upper-level elements.
+- For each transfer beam, state explicitly which upper column it carries and what happens to that column's load if the beam is modified.
+- Distinguish "safe to remove" (low util, no transfers, on removable list) from "load-path critical" (transfer beam, high util, or KEEP).
 
 For UNDERUTILISED columns (<70%): use the "May be removable" list to say what happens if removed, e.g. "Column <ID> is at <N>% — removing it keeps the connected beams within limits" or, if it needs an upgrade, "removing <ID> extends beam <ID> to <span> — a larger section would be needed." The "May be removable" list is exhaustive — only name columns that appear on it; never suggest removing any element not on that list, and never suggest removing a perimeter column. Columns marked KEEP must never be suggested for removal, even at low utilisation.
 
 For UNDERUTILISED beams (<70%): ask whether that span is actually needed.
 
+TRADEOFFS — always name the relevant tradeoff explicitly:
+- Structural safety vs adaptability: elements near their limit (>75%) leave no headroom for future layout changes. The architect should know this upfront.
+- Adaptability vs cost: removing an over-engineered element saves material cost but permanently removes a future structural option. Name both sides when suggesting removal.
+- Safety vs cost: upsizing a section improves safety margins but increases material and modification cost. Say so when recommending upgrades.
+
 Structure as a conversation, not a report:
 - Line 1: one-sentence overall verdict in plain language.
-- 2-3 bullets: the most important observations, each tied to a real element ID and its number.
+- 2-3 bullets: the most important observations, each tied to a real element ID and its number. Include tradeoff language where it applies.
 - 1 closing question: ONE specific question that moves the design forward, referencing real element IDs and their utilisation or proximity from the data — never a generic question, never a named room. (Format example only, do not reuse the IDs: "Columns <ID> and <ID> are both under 25% and sit close together — do you need both?")
 
 If everything passes and some elements are over-engineered: end with "Type 'right-size sections' or pick option 1 in the menu to find the minimum that still works." then still ask the question.
@@ -782,9 +1190,10 @@ def _precompute_removal_hints(
     _perimeter_ids: set[str] = set()
     if layout_str:
         try:
+            from nodes._layout import get_structure as _gs_hint
             _layout_tmp = json.loads(layout_str)
             _all_cols = [
-                el for el in _layout_tmp.get("structure", [])
+                el for el in _gs_hint(_layout_tmp)
                 if len(el.get("geometry", [])) == 1
             ]
             if _all_cols:
@@ -814,8 +1223,9 @@ def _precompute_removal_hints(
     col_hints = []
     if col_candidates and layout_str:
         try:
+            from nodes._layout import get_structure as _gs_hint2
             layout    = json.loads(layout_str)
-            structure = layout.get("structure", [])
+            structure = _gs_hint2(layout)
             beams     = [el for el in structure if len(el.get("geometry", [])) == 2]
             b_trib    = _beam_trib_widths(beams)
         except Exception:
@@ -841,9 +1251,9 @@ def _precompute_removal_hints(
             if worst and worst.get("effective_span_m"):
                 orig, eff = worst.get("original_span_m", "?"), worst.get("effective_span_m", "?")
                 hint["note"] = (
-                    f"safe — beam {worst['id']} extends {orig}m→{eff}m and stays within limits"
+                    f"safe — beam {worst['id']} extends {orig}m->{eff}m and stays within limits"
                     if safe else
-                    f"extends beam {worst['id']} {orig}m→{eff}m — larger section needed"
+                    f"extends beam {worst['id']} {orig}m->{eff}m — larger section needed"
                 )
             else:
                 hint["note"] = "safe to remove" if safe else "removal not recommended"
@@ -894,6 +1304,13 @@ def _format_summary_for_llm(summary: dict) -> str:
         lines.append("May be removable (do not suggest removing any element not on this list):")
         for h in hints:
             lines.append(f"  {h['element_id']} ({h['type']}): {h.get('note', '')}")
+    transfer_beams = summary.get("transfer_beams", [])
+    if transfer_beams:
+        lines.append("")
+        lines.append("Transfer beams (carry upper-floor column loads — structurally defining, do NOT suggest removing):")
+        for tb in transfer_beams:
+            load_str = f"  upper-col load {tb['carries_upper_col_load_kN']}kN" if tb.get("carries_upper_col_load_kN") else ""
+            lines.append(f"  {tb['id']:<10} span {tb['at_span_m']}m{load_str}  util {tb['utilisation_pct']:.1f}%")
     return "\n".join(lines)
 
 
@@ -944,6 +1361,15 @@ def _interpret_evaluation(
             for b in beams_ranked if _beam_utilisation(b) < UTIL_OVERENGINEERED
         ],
         "removal_hints": (removal_hints or {}).get("columns", []) + (removal_hints or {}).get("beams", []),
+        "transfer_beams": [
+            {
+                "id": b["id"],
+                "at_span_m": round(b.get("effective_span_m", b.get("span_m", 0)), 2),
+                "carries_upper_col_load_kN": round(b["transfer_point_load_kN"], 1) if b.get("transfer_point_load_kN") else None,
+                "utilisation_pct": round(_beam_utilisation(b) * 100, 1),
+            }
+            for b in beams if b.get("is_transfer_beam")
+        ],
     }
 
     try:
@@ -976,8 +1402,9 @@ def build_evaluate_node(llm):
 
         # Skip full evaluation when tag_and_audit just generated a fresh grid
         if state.get("came_from") == "tag_and_audit":
+            from nodes._layout import get_structure as _gs_ta
             layout = json.loads(state["layout_json_string"])
-            n = len(layout.get("structure", []))
+            n = len(_gs_ta(layout))
             state["final_response"] = f"Structural grid generated — {n} elements added to edited layout."
             return state
 
@@ -1003,7 +1430,8 @@ def build_evaluate_node(llm):
             tier_note = f" [{tier_label[1:]} tier]" if tier_label else ""
 
             # Read actual section sizes from the live layout (individual upgrades override defaults)
-            _struct_els = json.loads(state["layout_json_string"]).get("structure", [])
+            from nodes._layout import get_structure as _gs_sec
+            _struct_els = _gs_sec(json.loads(state["layout_json_string"]))
             _act_beams  = [e for e in _struct_els if len(e.get("geometry", [])) == 2]
             _act_cols   = [e for e in _struct_els if len(e.get("geometry", [])) == 1]
 
@@ -1045,7 +1473,11 @@ def build_evaluate_node(llm):
             print("  [Enter] — keep current")
             _pt = _get_user_request(state.get("messages", [])).upper()
             _mat_default = next((m for m in BASE_MATERIALS if m in _pt), "")
-            raw = _safe_input("Your choice [1/2/3/4 or RCC/STEEL/TIMBER]: ", _mat_default).strip().upper()
+            if _mat_default:
+                print(f"  Material: {_mat_default}  [from prompt]")
+                raw = _mat_default
+            else:
+                raw = _safe_input("Your choice [1/2/3/4 or RCC/STEEL/TIMBER]: ", "").strip().upper()
             lookup = {"1": "RCC", "2": "STEEL", "3": "TIMBER"}
             if raw == "4":
                 print("\nWhich material should I optimise for?")
@@ -1079,11 +1511,14 @@ def build_evaluate_node(llm):
             # Only reset sections to material defaults when the material is actually changing.
             # If every element already carries the target material, the layout has been saved
             # with individually upgraded sections — preserve them by skipping the override.
+            from nodes._layout import get_structure as _gs_mat
+            # Compare base materials only (strip tier suffix: STEEL_M -> STEEL)
+            _base_override = material_override.upper().split("_")[0]
             _existing_mats = {
-                ((el.get("attributes") or {}).get("material") or "RCC").upper()
-                for el in json.loads(state["layout_json_string"]).get("structure", [])
+                ((el.get("attributes") or {}).get("material") or "RCC").upper().split("_")[0]
+                for el in _gs_mat(json.loads(state["layout_json_string"]))
             }
-            if _existing_mats <= {material_override.upper()}:
+            if _existing_mats <= {_base_override}:
                 layout_str = state["layout_json_string"]
             else:
                 layout_str = apply_material_override(state["layout_json_string"], material_override)
@@ -1114,22 +1549,47 @@ def build_evaluate_node(llm):
                     return state
 
         # Assemble evaluation text
+        _layout_id = json.loads(layout_str).get("layoutId", "unknown")
         lines = [
+            f"Layout : {_layout_id}",
             f"Structural check: {'PASS' if summary['overall_PASS'] else 'FAIL'}",
             f"Beams  : {summary['total_beams']} checked, {summary['beam_failures']} failed",
             f"Columns: {summary['total_columns']} checked, {summary['column_failures']} failed",
         ]
 
         # What-if simulation: detect removal intent in messages
-        remove_ids = _extract_removal_ids(state.get("messages", []))
+        # Skip on re-evaluations triggered by a structural change — the original
+        # prompt still contains the "remove X" text but the intent is already done.
+        remove_ids = [] if came_from == "structural_change" else _extract_removal_ids(state.get("messages", []))
         if remove_ids:
+            from nodes._layout import get_structure as _gs_wi
             layout    = json.loads(layout_str)
-            structure = layout.get("structure", [])
+            structure = _gs_wi(layout)
             col_ids   = {el["id"] for el in structure if len(el.get("geometry", [])) == 1}
             beam_ids  = {el["id"] for el in structure if len(el.get("geometry", [])) == 2}
 
             remove_cols  = [i for i in remove_ids if i in col_ids]
             remove_beams = [i for i in remove_ids if i in beam_ids]
+
+            # ── ID not found — offer internal columns as a menu ──────────────
+            if remove_ids and not remove_cols and not remove_beams:
+                missing = ", ".join(remove_ids)
+                internal_cols = sorted(
+                    el["id"] for el in structure
+                    if len(el.get("geometry", [])) == 1
+                    and (el.get("attributes") or {}).get("type") == "internal"
+                )
+                print(f"\n  '{missing}' not found in this layout.")
+                if internal_cols:
+                    print("  Removable (internal) columns:")
+                    for _i, _cid in enumerate(internal_cols, 1):
+                        print(f"    {_i}. {_cid}")
+                    _pick = _safe_input("  Pick a column to simulate removal [1-N or ID, Enter=skip]: ", "").strip()
+                    if _pick:
+                        if _pick.isdigit() and 1 <= int(_pick) <= len(internal_cols):
+                            remove_cols = [internal_cols[int(_pick) - 1]]
+                        elif _pick.upper() in {c.upper() for c in internal_cols}:
+                            remove_cols = [_pick.upper()]
 
             if remove_cols:
                 # ── Column removal: full span-extension simulation ────────────
@@ -1155,17 +1615,41 @@ def build_evaluate_node(llm):
                         flag += f"  DEFL_LL FAIL {r.get('delta_LL_mm','?')}>{r.get('limit_LL_mm','?')}mm"
                     if not r.get("defl_TL_PASS", True):
                         flag += f"  DEFL_TL FAIL {r.get('delta_total_mm','?')}>{r.get('limit_TL_mm','?')}mm"
-                    span_info = (
-                        f"{r['original_span_m']}m→{r['effective_span_m']}m"
-                        if r.get("effective_span_m") else "unsupported"
-                    )
-                    lines.append(
-                        f"  {r['id']:8s} {span_info:14s}"
-                        f"  M={r.get('M_max_kNm','?')}kNm"
-                        f"  S={r.get('sigma_bend_MPa','?')}MPa"
-                        + (flag if flag else ("  unsupported" if not r.get("effective_span_m") else "  ok"))
-                    )
+                    if r.get("is_transfer_beam"):
+                        span_info = f"{r['original_span_m']}m+{round(r['effective_span_m']-r['original_span_m'],2)}m={r['effective_span_m']}m"
+                        lines.append(
+                            f"  {r['id']:8s} [TRANSFER] {span_info}"
+                            f"  P={r.get('transfer_point_load_kN','?')}kN@{r.get('transfer_load_pos_m','?')}m"
+                            f"  M={r.get('M_max_kNm','?')}kNm"
+                            f"  S={r.get('sigma_bend_MPa','?')}MPa"
+                            + (flag if flag else "  ok")
+                        )
+                    else:
+                        span_info = (
+                            f"{r['original_span_m']}m->{r['effective_span_m']}m"
+                            if r.get("effective_span_m") else "unsupported"
+                        )
+                        lines.append(
+                            f"  {r['id']:8s} {span_info:14s}"
+                            f"  M={r.get('M_max_kNm','?')}kNm"
+                            f"  S={r.get('sigma_bend_MPa','?')}MPa"
+                            + (flag if flag else ("  unsupported" if not r.get("effective_span_m") else "  ok"))
+                        )
                 print("\n".join(lines[lines.index("") + 1:]))
+
+                # Cascade check — lower-level column impacts
+                cascade = whatif.get("cascade")
+                if cascade:
+                    cs = cascade["summary"]
+                    clevel = cascade.get("target_level", "level below")
+                    print(f"\n  CASCADE to {clevel}: {cs['affected']} column(s) carry extra load")
+                    for cr in cascade.get("affected_columns", []):
+                        flag = "FAIL" if not (cr.get("stress_PASS") and cr.get("buckling_PASS")) else "ok"
+                        print(
+                            f"    {cr['id']:8s}  extra +{cr.get('extra_load_kN_from_above','?')}kN"
+                            f"  P_total={cr.get('P_total_kN','?')}kN"
+                            f"  S={cr.get('sigma_comp_MPa','?')}MPa  [{flag}]"
+                        )
 
                 status = "PASS" if ws.get("overall_PASS", True) else "FAIL"
                 print(f"\nWhat-if result: {status}. Apply removal of {', '.join(remove_cols)} permanently?")
@@ -1182,21 +1666,36 @@ def build_evaluate_node(llm):
                 if not ws.get("overall_PASS") and ws.get("failed_ids"):
                     fail_lines = []
                     for r in whatif.get("affected_beams", []):
+                        is_tr = r.get("is_transfer_beam", False)
+                        span_desc = (
+                            f"transfer beam {r.get('original_span_m','?')}m+partner={r.get('effective_span_m','?')}m, "
+                            f"point load P={r.get('transfer_point_load_kN','?')}kN at {r.get('transfer_load_pos_m','?')}m"
+                        ) if is_tr else (
+                            f"span {r.get('original_span_m','?')}m->{r.get('effective_span_m','?')}m"
+                        )
                         if not r.get("bend_PASS", True):
                             fail_lines.append(
                                 f"{r['id']}: bending S={r.get('sigma_bend_MPa','?')} > "
-                                f"{r.get('allow_bend_MPa','?')} MPa "
-                                f"(span {r.get('original_span_m','?')}m→{r.get('effective_span_m','?')}m)"
+                                f"{r.get('allow_bend_MPa','?')} MPa ({span_desc})"
                             )
                         if not r.get("defl_LL_PASS", True):
                             fail_lines.append(
                                 f"{r['id']}: LL deflection {r.get('delta_LL_mm','?')} > "
-                                f"{r.get('limit_LL_mm','?')} mm"
+                                f"{r.get('limit_LL_mm','?')} mm ({span_desc})"
                             )
                         if not r.get("defl_TL_PASS", True):
                             fail_lines.append(
                                 f"{r['id']}: TL deflection {r.get('delta_total_mm','?')} > "
-                                f"{r.get('limit_TL_mm','?')} mm"
+                                f"{r.get('limit_TL_mm','?')} mm ({span_desc})"
+                            )
+                    cascade = whatif.get("cascade", {})
+                    for cr in cascade.get("affected_columns", []):
+                        if not (cr.get("stress_PASS") and cr.get("buckling_PASS")):
+                            fail_lines.append(
+                                f"{cr['id']} ({cr.get('level','lower level')}): "
+                                f"cascaded load +{cr.get('extra_load_kN_from_above','?')}kN "
+                                f"-> P={cr.get('P_total_kN','?')}kN "
+                                f"S={cr.get('sigma_comp_MPa','?')} > {cr.get('allow_comp_MPa','?')} MPa"
                             )
                     state["messages"].append({
                         "role": "user",
@@ -1407,7 +1906,7 @@ def build_evaluate_node(llm):
                         state["layout_before_change"] = layout_str
                         return state
 
-                # Free text → append to messages so reason node can act on it
+                # Free text -> append to messages so reason node can act on it
                 state["messages"].append({
                     "role":    "user",
                     "content": f"User instruction after structural failure: {chosen}",

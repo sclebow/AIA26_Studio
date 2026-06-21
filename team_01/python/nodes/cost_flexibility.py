@@ -1225,6 +1225,19 @@ def build_cost_flexibility_node():
         if ratchet_triggered_now:
             print("  Heritage ratchet: PERMANENT — all future modifications require heritage review.")
 
+        # Accumulate per-cycle cost into history
+        if state.get("cost_history") is None:
+            state["cost_history"] = []
+        state["cost_history"].append({
+            "cycle":               len(state["cost_history"]) + 1,
+            "changes":             change_desc,
+            "label":               fc["financial_cost_label"],
+            "total_build_cost_eur": tbc,
+            "total_mid_eur":       fc["financial_cost_range"]["mid"],
+            "intervention_mid_eur": fc["intervention_mid_eur"],
+            "overhead_mid_eur":    fc["overhead_mid_eur"],
+        })
+
         state["cost_flexibility"] = {
             # Internal — for comparison node ranking; not surfaced in LLM narrative
             "_financial_cost_score":    fc["_financial_cost_score"],

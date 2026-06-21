@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 import json
 from _runtime.llm import write_tool_result
 
@@ -99,12 +99,16 @@ BASE_MATERIALS = ["RCC", "STEEL", "TIMBER"]
 
 def apply_material_override(layout_json_string: str, material: str) -> str:
     """Patch all structure elements with the given material and its default sections."""
+    from nodes._layout import is_multilevel, get_level_keys
     layout = json.loads(layout_json_string)
     sec = DEFAULT_SECTIONS.get(material, DEFAULT_SECTIONS["RCC"])
     is_steel = "STEEL" in material.upper()
-    for el in layout.get("structure", []):
+
+    def _patch(el):
         attrs = el.setdefault("attributes", {})
-        attrs["material"] = material
+        # Write base material only (strip tier suffix: STEEL_M -> STEEL)
+        base_mat = next((m for m in BASE_MATERIALS if material.upper().startswith(m)), material)
+        attrs["material"] = base_mat
         if len(el.get("geometry", [])) == 2:
             attrs["depth"] = str(sec["beam_depth_mm"])
             attrs["width"] = str(sec["beam_width_mm"])
@@ -118,11 +122,20 @@ def apply_material_override(layout_json_string: str, material: str) -> str:
                 attrs["section"] = sec["col_section"]
             else:
                 attrs.pop("section", None)
+
+    if is_multilevel(layout):
+        for lk in get_level_keys(layout):
+            for el in layout["levels"][lk].get("structure", []):
+                _patch(el)
+    else:
+        for el in layout.get("structure", []):
+            _patch(el)
     return json.dumps(layout)
 
 
 def upgrade_element_section(layout_str: str, element_id: str, new_section: str) -> str:
-    """Update a single structural element's section in the layout JSON."""
+    """Update a structural element's section. For multilevel layouts updates ALL levels."""
+    from nodes._layout import is_multilevel, get_level_keys
     _BEAM_DIMS = {
         "IPE120": (120,  64), "IPE160": (160,  82), "IPE200": (200, 100),
         "IPE240": (240, 120), "IPE300": (300, 150), "IPE360": (360, 170),
@@ -132,68 +145,96 @@ def upgrade_element_section(layout_str: str, element_id: str, new_section: str) 
         "HSS150x150x6": "150x150", "HSS180x180x8": "180x180", "HSS200x200x8": "200x200",
     }
     layout = json.loads(layout_str)
-    for el in layout.get("structure", []):
-        if el["id"] == element_id:
-            attrs = el.setdefault("attributes", {})
-            is_beam = len(el.get("geometry", [])) == 2
-            if new_section in _BEAM_DIMS:
-                attrs["section"] = new_section
-                d, w = _BEAM_DIMS[new_section]
-                attrs["depth"] = str(d)
-                attrs["width"] = str(w)
-            elif new_section in _COL_DIMS:
-                attrs["section"] = new_section
-                attrs["dimensions"] = _COL_DIMS[new_section]
-            elif is_beam and "x" in new_section:
-                w_str, d_str = new_section.split("x", 1)
-                attrs["depth"] = d_str
-                attrs["width"] = w_str
-            elif not is_beam and "x" in new_section:
-                attrs["dimensions"] = new_section
-            break
+
+    def _apply(el):
+        attrs = el.setdefault("attributes", {})
+        is_beam = len(el.get("geometry", [])) == 2
+        if new_section in _BEAM_DIMS:
+            attrs["section"] = new_section
+            d, w = _BEAM_DIMS[new_section]
+            attrs["depth"] = str(d)
+            attrs["width"] = str(w)
+        elif new_section in _COL_DIMS:
+            attrs["section"] = new_section
+            attrs["dimensions"] = _COL_DIMS[new_section]
+        elif is_beam and "x" in new_section:
+            w_str, d_str = new_section.split("x", 1)
+            attrs["depth"] = d_str
+            attrs["width"] = w_str
+        elif not is_beam and "x" in new_section:
+            attrs["dimensions"] = new_section
+
+    if is_multilevel(layout):
+        for lk in get_level_keys(layout):
+            for el in layout["levels"][lk].get("structure", []):
+                if el["id"] == element_id:
+                    _apply(el)
+    else:
+        for el in layout.get("structure", []):
+            if el["id"] == element_id:
+                _apply(el)
+                break
     return json.dumps(layout)
 
 
 def add_midspan_column(layout_str: str, beam_id: str, material: str) -> str:
     """Split a beam at its midpoint and insert a new column there."""
+    from nodes._layout import is_multilevel, get_level_keys
     sec = DEFAULT_SECTIONS.get(material, DEFAULT_SECTIONS["RCC"])
     layout = json.loads(layout_str)
-    structure = layout.get("structure", [])
-    beam = next((e for e in structure if e["id"] == beam_id and len(e.get("geometry", [])) == 2), None)
-    if not beam:
+
+    def _build_midspan(structure):
+        beam = next((e for e in structure if e["id"] == beam_id and len(e.get("geometry", [])) == 2), None)
+        if not beam:
+            return None
+        p1, p2 = beam["geometry"]
+        mid = [round((p1[0] + p2[0]) / 2, 3), round((p1[1] + p2[1]) / 2, 3)]
+        bat = beam.get("attributes", {})
+        new_col = {
+            "id": f"{beam_id}_M", "name": f"Column_{beam_id}_M",
+            "geometry": [mid],
+            "attributes": {
+                "type": "internal", "dimensions": sec["col_dims"],
+                "height": bat.get("height", "3.5"), "isWallAligned": "false",
+                "structuralRole": "primary", "material": material, "conflict": "None",
+            },
+        }
+        new_a = {"id": f"{beam_id}a", "name": f"Beam_{beam_id}a", "geometry": [p1, mid], "attributes": dict(bat)}
+        new_b = {"id": f"{beam_id}b", "name": f"Beam_{beam_id}b", "geometry": [mid, p2], "attributes": dict(bat)}
+        new_structure = []
+        for el in structure:
+            if el["id"] == beam_id:
+                new_structure += [new_a, new_b]
+            else:
+                new_structure.append(el)
+        new_structure.append(new_col)
+        return new_structure
+
+    if is_multilevel(layout):
+        for lk in get_level_keys(layout):
+            result = _build_midspan(layout["levels"][lk].get("structure", []))
+            if result is not None:
+                layout["levels"][lk]["structure"] = result
+                print(f"  Added midspan column under {beam_id} at {lk}")
+                return json.dumps(layout)
         return layout_str
-    p1, p2 = beam["geometry"]
-    mid = [round((p1[0] + p2[0]) / 2, 3), round((p1[1] + p2[1]) / 2, 3)]
-    bat = beam.get("attributes", {})
-    new_col = {
-        "id": f"{beam_id}_M", "name": f"Column_{beam_id}_M",
-        "geometry": [mid],
-        "attributes": {
-            "type": "interior", "dimensions": sec["col_dims"],
-            "height": bat.get("height", "3.5"), "isWallAligned": "false",
-            "structuralRole": "primary", "material": material, "conflict": "None",
-        },
-    }
-    new_a = {"id": f"{beam_id}a", "name": f"Beam_{beam_id}a", "geometry": [p1, mid], "attributes": dict(bat)}
-    new_b = {"id": f"{beam_id}b", "name": f"Beam_{beam_id}b", "geometry": [mid, p2], "attributes": dict(bat)}
-    new_structure = []
-    for el in structure:
-        if el["id"] == beam_id:
-            new_structure += [new_a, new_b]
-        else:
-            new_structure.append(el)
-    new_structure.append(new_col)
-    layout["structure"] = new_structure
-    return json.dumps(layout)
+    else:
+        result = _build_midspan(layout.get("structure", []))
+        if result is None:
+            return layout_str
+        layout["structure"] = result
+        return json.dumps(layout)
 
 
 def apply_minimum_sections(layout_str: str, base_material: str) -> str:
     """Apply XS tier sections for base_material to all elements, keeping base material name."""
+    from nodes._layout import is_multilevel, get_level_keys
     xs_key = f"{base_material}_XS"
     sec = DEFAULT_SECTIONS.get(xs_key, DEFAULT_SECTIONS[base_material])
     is_steel = "STEEL" in base_material.upper()
     layout = json.loads(layout_str)
-    for el in layout.get("structure", []):
+
+    def _patch(el):
         attrs = el.setdefault("attributes", {})
         attrs["material"] = base_material
         attrs.pop("section", None)
@@ -206,6 +247,14 @@ def apply_minimum_sections(layout_str: str, base_material: str) -> str:
             attrs["dimensions"] = sec["col_dims"]
             if is_steel and "col_section" in sec:
                 attrs["section"] = sec["col_section"]
+
+    if is_multilevel(layout):
+        for lk in get_level_keys(layout):
+            for el in layout["levels"][lk].get("structure", []):
+                _patch(el)
+    else:
+        for el in layout.get("structure", []):
+            _patch(el)
     return json.dumps(layout)
 
 
@@ -218,11 +267,11 @@ def _upgrade_one_pass(layout_str: str, evaluation_result: dict) -> str:
         if cur in BEAM_SECTION_UPGRADE:
             nxt, _, _ = BEAM_SECTION_UPGRADE[cur]
             layout_str = upgrade_element_section(layout_str, b["id"], nxt)
-            print(f"  Min {b['id']}: {cur} → {nxt}")
+            print(f"  Min {b['id']}: {cur} -> {nxt}")
         elif cur in BEAM_DIM_UPGRADE:
             nxt, _, _ = BEAM_DIM_UPGRADE[cur]
             layout_str = upgrade_element_section(layout_str, b["id"], nxt)
-            print(f"  Min {b['id']}: {cur} → {nxt}")
+            print(f"  Min {b['id']}: {cur} -> {nxt}")
     for c in evaluation_result.get("columns", []):
         if c["stress_PASS"] and c["buckling_PASS"]:
             continue
@@ -230,11 +279,11 @@ def _upgrade_one_pass(layout_str: str, evaluation_result: dict) -> str:
         if cur in COL_SECTION_UPGRADE:
             nxt, _ = COL_SECTION_UPGRADE[cur]
             layout_str = upgrade_element_section(layout_str, c["id"], nxt)
-            print(f"  Min {c['id']}: {cur} → {nxt}")
+            print(f"  Min {c['id']}: {cur} -> {nxt}")
         elif cur in COL_DIM_UPGRADE:
             nxt = COL_DIM_UPGRADE[cur]
             layout_str = upgrade_element_section(layout_str, c["id"], nxt)
-            print(f"  Min {c['id']}: {cur} → {nxt}")
+            print(f"  Min {c['id']}: {cur} -> {nxt}")
     return layout_str
 
 
@@ -323,85 +372,107 @@ def _pt_eq(a: list, b: list, tol: float = 0.05) -> bool:
     return all(abs(float(a[i]) - float(b[i])) < tol for i in range(min(len(a), len(b))))
 
 
-def remove_element(layout_json_string: str, element_id: str) -> str:
-    """Remove a structural element. For columns: merge collinear beams through the removed point."""
+def _remove_element_from_structure(element_id: str, structure: list) -> list:
+    """Core removal logic operating on a flat structure list. Returns the updated list."""
     import math
-    data      = json.loads(layout_json_string)
-    structure = data.get("structure", [])
-
     target = next((e for e in structure if e["id"] == element_id), None)
     if target is None:
-        return layout_json_string
+        return structure
 
     is_column = len(target.get("geometry", [])) == 1
 
-    if is_column:
-        col_pos = target["geometry"][0]
-
-        # All beams that touch this column
-        connected = [
-            e for e in structure
-            if len(e.get("geometry", [])) == 2
-            and (_pt_eq(e["geometry"][0], col_pos) or _pt_eq(e["geometry"][1], col_pos))
-        ]
-
-        used: set = set()
-        merged_beams: list = []
-
-        for b1 in connected:
-            if b1["id"] in used:
-                continue
-            far1 = b1["geometry"][1] if _pt_eq(b1["geometry"][0], col_pos) else b1["geometry"][0]
-
-            # Find a collinear partner: vectors from col to far1 and col to far2 must be anti-parallel
-            partner = None
-            far2_pt = None
-            for b2 in connected:
-                if b2["id"] == b1["id"] or b2["id"] in used:
-                    continue
-                far2 = b2["geometry"][1] if _pt_eq(b2["geometry"][0], col_pos) else b2["geometry"][0]
-                if _pt_eq(far1, far2):
-                    continue
-                dx1 = float(far1[0]) - float(col_pos[0])
-                dy1 = float(far1[1]) - float(col_pos[1])
-                dx2 = float(far2[0]) - float(col_pos[0])
-                dy2 = float(far2[1]) - float(col_pos[1])
-                L1  = math.hypot(dx1, dy1)
-                L2  = math.hypot(dx2, dy2)
-                if L1 < 1e-6 or L2 < 1e-6:
-                    continue
-                cross = abs(dx1 * dy2 - dy1 * dx2) / (L1 * L2)
-                dot   = (dx1 * dx2 + dy1 * dy2) / (L1 * L2)
-                if cross < 0.15 and dot < 0:   # collinear and opposite directions
-                    partner  = b2
-                    far2_pt  = far2
-                    break
-
-            if partner:
-                merged_beams.append({
-                    "id":         b1["id"],
-                    "name":       b1.get("name", b1["id"]),
-                    "geometry":   [far1, far2_pt],
-                    "attributes": dict(b1.get("attributes", {})),
-                })
-                used.add(b1["id"])
-                used.add(partner["id"])
-                print(f"    Merged {b1['id']} + {partner['id']} → {b1['id']} (span {round(math.dist(far1, far2_pt), 2)}m)")
-            else:
-                # Dead-end beam — remove with the column
-                used.add(b1["id"])
-                print(f"    Removed dead-end beam {b1['id']}")
-
-        ids_to_remove = {element_id} | used
-        new_structure  = [e for e in structure if e["id"] not in ids_to_remove]
-        new_structure.extend(merged_beams)
-        data["structure"] = new_structure
-        print(f"  Removed column {element_id} — {len(merged_beams)} beam(s) merged, {len(used)-len(merged_beams)} removed")
-    else:
-        # Just remove a beam
-        data["structure"] = [e for e in structure if e["id"] != element_id]
+    if not is_column:
         print(f"  Removed beam {element_id}")
+        return [e for e in structure if e["id"] != element_id]
 
+    col_pos = target["geometry"][0]
+    connected = [
+        e for e in structure
+        if len(e.get("geometry", [])) == 2
+        and (_pt_eq(e["geometry"][0], col_pos) or _pt_eq(e["geometry"][1], col_pos))
+    ]
+
+    used: set = set()
+    merged_beams: list = []
+
+    for b1 in connected:
+        if b1["id"] in used:
+            continue
+        far1 = b1["geometry"][1] if _pt_eq(b1["geometry"][0], col_pos) else b1["geometry"][0]
+        partner = None
+        far2_pt = None
+        for b2 in connected:
+            if b2["id"] == b1["id"] or b2["id"] in used:
+                continue
+            far2 = b2["geometry"][1] if _pt_eq(b2["geometry"][0], col_pos) else b2["geometry"][0]
+            if _pt_eq(far1, far2):
+                continue
+            dx1 = float(far1[0]) - float(col_pos[0])
+            dy1 = float(far1[1]) - float(col_pos[1])
+            dx2 = float(far2[0]) - float(col_pos[0])
+            dy2 = float(far2[1]) - float(col_pos[1])
+            L1  = math.hypot(dx1, dy1)
+            L2  = math.hypot(dx2, dy2)
+            if L1 < 1e-6 or L2 < 1e-6:
+                continue
+            cross = abs(dx1 * dy2 - dy1 * dx2) / (L1 * L2)
+            dot   = (dx1 * dx2 + dy1 * dy2) / (L1 * L2)
+            if cross < 0.15 and dot < 0:
+                partner  = b2
+                far2_pt  = far2
+                break
+        if partner:
+            merged_attrs = dict(b1.get("attributes", {}))
+            merged_attrs["length"] = round(math.dist(far1, far2_pt), 3)
+            merged_beams.append({
+                "id":         b1["id"],
+                "name":       b1.get("name", b1["id"]),
+                "geometry":   [far1, far2_pt],
+                "attributes": merged_attrs,
+            })
+            used.add(b1["id"])
+            used.add(partner["id"])
+            print(f"    Merged {b1['id']} + {partner['id']} -> {b1['id']} (span {round(math.dist(far1, far2_pt), 2)}m)")
+        else:
+            used.add(b1["id"])
+            print(f"    Removed dead-end beam {b1['id']}")
+
+    ids_to_remove = {element_id} | used
+    new_structure = [e for e in structure if e["id"] not in ids_to_remove]
+    new_structure.extend(merged_beams)
+    print(f"  Removed column {element_id} — {len(merged_beams)} beam(s) merged, {len(used)-len(merged_beams)} removed")
+    return new_structure
+
+
+def remove_element(layout_json_string: str, element_id: str) -> str:
+    """Remove a structural element. For columns: merge collinear beams through the removed point.
+    For multilevel: also blocks removal if a column exists directly above (load path broken)."""
+    from nodes._layout import is_multilevel, find_element_in_layout, has_column_above
+    data = json.loads(layout_json_string)
+
+    if is_multilevel(data):
+        level_key, target = find_element_in_layout(data, element_id)
+        if target is None:
+            return layout_json_string
+        is_column = len(target.get("geometry", [])) == 1
+        el_type = (target.get("attributes") or {}).get("type", "")
+        if el_type == "perimeter":
+            kind = "column" if is_column else "beam"
+            print(f"  Cannot remove {element_id}: perimeter {kind} defines the building envelope — locked.")
+            return layout_json_string
+        if is_column:
+            if has_column_above(data, target["geometry"][0], level_key):
+                print(f"  Note: {element_id} at {level_key} has a column above — the spanning beam will become a transfer beam carrying that upper column as a point load.")
+        structure = data["levels"][level_key].get("structure", [])
+        data["levels"][level_key]["structure"] = _remove_element_from_structure(element_id, structure)
+        return json.dumps(data, indent=2, ensure_ascii=False)
+
+    _sl_target = next((e for e in data.get("structure", []) if e.get("id") == element_id), None)
+    if _sl_target is not None and ((_sl_target.get("attributes") or {}).get("type") == "perimeter"):
+        kind = "column" if len(_sl_target.get("geometry", [])) == 1 else "beam"
+        print(f"  Cannot remove {element_id}: perimeter {kind} defines the building envelope — locked.")
+        return layout_json_string
+    data["structure"] = _remove_element_from_structure(element_id, data.get("structure", []))
     return json.dumps(data, indent=2, ensure_ascii=False)
 
 
@@ -443,7 +514,7 @@ def build_modify_node(mcp_client, allowed_tools, edited_layout_path, evaluate_fn
 
             elif t == "midspan_column":
                 layout_str = add_midspan_column(layout_str, change["beam_id"], change["material"])
-                print(f"  Added midspan column under {change['beam_id']} → {change['beam_id']}a / {change['beam_id']}b")
+                print(f"  Added midspan column under {change['beam_id']} -> {change['beam_id']}a / {change['beam_id']}b")
 
             elif t == "auto_upgrade_beams":
                 ll  = state.get("live_load_kNm2", 2.0)
@@ -464,12 +535,12 @@ def build_modify_node(mcp_client, allowed_tools, edited_layout_path, evaluate_fn
                             if cur in BEAM_SECTION_UPGRADE:
                                 nxt, _, _ = BEAM_SECTION_UPGRADE[cur]
                                 layout_str = upgrade_element_section(layout_str, b["id"], nxt)
-                                print(f"    {b['id']}: {cur} → {nxt}")
+                                print(f"    {b['id']}: {cur} -> {nxt}")
                                 upgraded = True
                             elif cur in BEAM_DIM_UPGRADE:
                                 nxt, _, _ = BEAM_DIM_UPGRADE[cur]
                                 layout_str = upgrade_element_section(layout_str, b["id"], nxt)
-                                print(f"    {b['id']}: {cur} → {nxt}")
+                                print(f"    {b['id']}: {cur} -> {nxt}")
                                 upgraded = True
                         if not upgraded:
                             break
@@ -482,11 +553,11 @@ def build_modify_node(mcp_client, allowed_tools, edited_layout_path, evaluate_fn
                         if cur in BEAM_SECTION_UPGRADE:
                             nxt, _, _ = BEAM_SECTION_UPGRADE[cur]
                             layout_str = upgrade_element_section(layout_str, b["id"], nxt)
-                            print(f"    {b['id']}: {cur} → {nxt}")
+                            print(f"    {b['id']}: {cur} -> {nxt}")
                         elif cur in BEAM_DIM_UPGRADE:
                             nxt, _, _ = BEAM_DIM_UPGRADE[cur]
                             layout_str = upgrade_element_section(layout_str, b["id"], nxt)
-                            print(f"    {b['id']}: {cur} → {nxt}")
+                            print(f"    {b['id']}: {cur} -> {nxt}")
 
             elif t == "auto_upgrade_columns":
                 ll  = state.get("live_load_kNm2", 2.0)
@@ -507,12 +578,12 @@ def build_modify_node(mcp_client, allowed_tools, edited_layout_path, evaluate_fn
                             if cur in COL_SECTION_UPGRADE:
                                 nxt, _ = COL_SECTION_UPGRADE[cur]
                                 layout_str = upgrade_element_section(layout_str, c["id"], nxt)
-                                print(f"    {c['id']}: {cur} → {nxt}")
+                                print(f"    {c['id']}: {cur} -> {nxt}")
                                 upgraded = True
                             elif cur in COL_DIM_UPGRADE:
                                 nxt = COL_DIM_UPGRADE[cur]
                                 layout_str = upgrade_element_section(layout_str, c["id"], nxt)
-                                print(f"    {c['id']}: {cur} → {nxt}")
+                                print(f"    {c['id']}: {cur} -> {nxt}")
                                 upgraded = True
                         if not upgraded:
                             break
@@ -525,11 +596,11 @@ def build_modify_node(mcp_client, allowed_tools, edited_layout_path, evaluate_fn
                         if cur in COL_SECTION_UPGRADE:
                             nxt, _ = COL_SECTION_UPGRADE[cur]
                             layout_str = upgrade_element_section(layout_str, c["id"], nxt)
-                            print(f"    {c['id']}: {cur} → {nxt}")
+                            print(f"    {c['id']}: {cur} -> {nxt}")
                         elif cur in COL_DIM_UPGRADE:
                             nxt = COL_DIM_UPGRADE[cur]
                             layout_str = upgrade_element_section(layout_str, c["id"], nxt)
-                            print(f"    {c['id']}: {cur} → {nxt}")
+                            print(f"    {c['id']}: {cur} -> {nxt}")
 
             elif t == "find_minimum":
                 ll  = state.get("live_load_kNm2", 2.0)
@@ -551,7 +622,14 @@ def build_modify_node(mcp_client, allowed_tools, edited_layout_path, evaluate_fn
                         result = evaluate_fn(layout_str, ll, sdl)
 
             elif t == "remove_element":
-                layout_str = remove_element(layout_str, change["element_id"])
+                eid = change["element_id"]
+                _before_str = layout_str
+                layout_str = remove_element(layout_str, eid)
+                if layout_str != _before_str:
+                    from nodes._layout import find_element_in_layout as _feil
+                    _lk_check, _el_check = _feil(json.loads(layout_str), eid)
+                    if _el_check is not None:
+                        print(f"  WARNING: {eid} still present at {_lk_check} after removal — check remove_element logic")
 
             elif t == "remove_elements":
                 for eid in change.get("element_ids", []):

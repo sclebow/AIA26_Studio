@@ -1,6 +1,6 @@
 # Structural Agent — CLI & Team Handoff Summary
 
-*Team 01 · AIA26 Studio · June 7 2026*
+*Team 01 · AIA26 Studio · June 21 2026*
 
 ## What this is about (in one line)
 
@@ -30,6 +30,7 @@ python main.py --prompt "tag and audit" --layout_json '{ ... }'
 
 - `--prompt` (required) — the instruction.
 - `--layout_json` (optional) — the floor plan as a JSON string.
+- Accepts both **single-level** and **multilevel** layout JSON (see formats below).
 - Bad JSON fails loudly with exit code 1 instead of crashing later.
 - MCP connection close is now guarded — no crash when MCP isn't running.
 - Output is stable and machine-readable:
@@ -52,7 +53,7 @@ Edited Layout JSON:
 
 ### 3. `evaluate.py` — headless-safe prompts with prompt-driven defaults
 
-All 9 `input()` calls replaced with `_safe_input()`. When stdin is not a
+All `input()` calls replaced with `_safe_input()`. When stdin is not a
 terminal (orchestrator mode), defaults are used silently:
 
 | Prompt | Headless default |
@@ -89,6 +90,48 @@ Keywords detected:
 Interactive use is **unchanged** — all prompts appear and wait for keyboard
 input when run from a terminal.
 
+---
+
+## Layout Formats Accepted
+
+### Single-level
+```json
+{
+  "layoutId": "Layout-2BHK-01",
+  "outline": [[0,0], [10,0], ...],
+  "rooms": [...],
+  "structure": [...]
+}
+```
+
+### Multilevel
+```json
+{
+  "layoutId": "Layout-2BHK-01",
+  "levels": {
+    "level_01": {
+      "outline": [...], "rooms": [...], "structure": [...]
+    },
+    "level_02": {
+      "outline": [...], "rooms": [...], "structure": [...]
+    }
+  }
+}
+```
+
+Both formats go through the same pipeline. The agent detects the format
+automatically. All structural operations (evaluate, remove, upgrade, tag and audit)
+work on either format with no change to the prompt.
+
+**Multilevel structural rules the orchestrator should know:**
+- Column loads accumulate downward: ground floor carries load from all floors above
+- Perimeter columns/beams are locked at every level
+- Removing a lower-floor column when an upper-floor column sits above it creates a **transfer beam** (allowed — the what-if simulation handles it)
+- One material applies to all levels (no per-level material selection)
+- The evaluation report header always shows the layout ID
+
+---
+
 ## How we work with the other teams
 
 | Direction | Team | What flows | Where it lives |
@@ -96,15 +139,31 @@ input when run from a terminal.
 | Input | Use / Inhabit | The floor plan (rooms, outline, doors, etc.) | We receive it via `--layout_json` |
 | Output | Everyone | The final floor plan **with our structure added** | The JSON we print back |
 
-**Our minimum requirement on Use/Inhabit:** their floor plan must include
-`outline` (so we can build the grid) and `rooms` (so we can name things).
-We only add/edit the `structure` array — we don't touch rooms or doors.
+**Our minimum requirement on the incoming layout:**
+- `outline` (polygon of the floor footprint) — required for grid generation
+- `rooms` (array of room objects with corners) — required for element naming
+- For multilevel: each level needs its own `outline` and `rooms`
+- We only add/edit the `structure` array — we never touch rooms, doors, or windows
+
+---
 
 ## What's still to do
 
-- [ ] Inject `analysis.structure_cost` into the returned JSON so cost data
-      travels with the layout (currently only in the evaluation report).
 - [ ] Pin versions in `app_requirements.txt` (`langgraph`, `langchain-openai`).
-- [ ] Confirm layout schema with Use/Inhabit team (`outline` + `rooms` required).
+- [ ] Confirm layout schema with Use/Inhabit team (`outline` + `rooms` required at each level for multilevel; outline can now be omitted if rooms are present — derived automatically).
 - [ ] Later: let heritage status and floor level come from the orchestrator
       instead of only our local settings file.
+
+## What's done (resolved limitations)
+
+- [x] `analysis.structure_cost` is now injected into the returned layout JSON — cost data travels with the layout to the orchestrator.
+- [x] Cumulative modification cost tracked across upgrade cycles — evaluation report shows per-cycle breakdown and EUR total when more than one cycle ran.
+- [x] Upper-level outlines derived automatically from room geometry if `outline` key is absent — orchestrator does not need to pre-compute footprints for upper levels.
+- [x] Transfer beam check uses the shallower of the two merging beams — conservative section capacity, not arbitrary first-found.
+- [x] **Perimeter beam lock** — perimeter beams are now locked in the removal path at every level (previously only perimeter columns were blocked).
+- [x] **Advisor design intent** — advisor now says what the architect should preserve or reconsider, not just pass/fail. Elements above 75% are "load-path critical"; transfer beams are called "structurally defining."
+- [x] **Transfer beams surfaced in advisor** — each transfer beam is named with its span, upper-column load (kN), and utilisation. The LLM is instructed never to suggest removing one.
+- [x] **Level-by-level framing** — advisor addresses ground-level load paths first, then upper-level elements, whenever transfer beams or multilevel data are present.
+- [x] **Tradeoff language** — advisor and comparison summary explicitly name the tradeoff created by each design decision (safety vs adaptability, adaptability vs cost, safety vs cost).
+- [x] **Cost delta in comparison** — after ≥2 modify cycles, the comparison summary includes previous total → current total build cost (± EUR). `cost_history` entries now carry `total_build_cost_eur` per cycle.
+- [x] **Windows encoding fix** — `→` characters in print statements caused silent `UnicodeEncodeError` on Windows cp1252 stdout (piped/headless contexts), leaving layout changes uncommitted. All `→` replaced with `->` across modify.py, evaluate.py, and comparison.py.

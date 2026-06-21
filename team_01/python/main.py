@@ -20,7 +20,7 @@ def main():
             sys.exit(1)
 
     ctx = bootstrap()
-    response, edited_layout = run_agent(args.prompt, ctx, layout_data=layout_data)
+    response, edited_layout, app = run_agent(args.prompt, ctx, layout_data=layout_data)
 
     safe_response = response.encode("ascii", errors="replace").decode("ascii")
     print("\nFinal Response:")
@@ -30,6 +30,9 @@ def main():
         print(edited_layout)
     else:
         print("No layout changes")
+
+    print("\nWorkflow graph:")
+    app.get_graph().print_ascii()
 
     try:
         ctx.mcp_client.close()

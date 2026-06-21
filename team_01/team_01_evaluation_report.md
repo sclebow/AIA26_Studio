@@ -1,7 +1,7 @@
 # Structural Evaluation Report
 
-**Date:** 2026-06-07 13:25:51
-**Prompt:** evaluate structure
+**Date:** 2026-06-21 10:38:29
+**Prompt:** what if we remove beam A3-A5
 
 ## Analysis Parameters
 
@@ -28,9 +28,7 @@ BEAMS:
   C7-D7    100x240   L=2.3m  M=3.716kNm  S=3.871MPa  d_LL=0.791mm/6.389mm  ok
   D1-D2    100x240   L=1.5m  M=2.277kNm  S=2.372MPa  d_LL=0.207mm/4.167mm  ok
   D1-E1    100x240   L=3.5m  M=8.606kNm  S=8.964MPa  d_LL=4.24mm/9.722mm  ok
-  D2-D3    100x240   L=0.25m  M=0.063kNm  S=0.066MPa  d_LL=0.0mm/0.694mm  ok
   D2-E2    100x240   L=3.5m  M=8.606kNm  S=8.964MPa  d_LL=4.24mm/9.722mm  ok
-  D3-D5    120x300   L=3.75m  M=14.335kNm  S=7.964MPa  d_LL=3.457mm/10.417mm  ok
   D5-D6    100x240   L=0.75m  M=0.569kNm  S=0.593MPa  d_LL=0.013mm/2.083mm  ok
   D6-D7    100x240   L=1.05m  M=1.116kNm  S=1.162MPa  d_LL=0.05mm/2.917mm  ok
   D6-E6    100x240   L=3.5m  M=8.606kNm  S=8.964MPa  d_LL=4.24mm/9.722mm  ok
@@ -44,7 +42,7 @@ BEAMS:
   F4-F7    120x300   L=4.1m  M=11.935kNm  S=6.631MPa  d_LL=3.407mm/11.389mm  ok
   F4-G4    100x240   L=0.3m  M=0.063kNm  S=0.066MPa  d_LL=0.0mm/0.833mm  ok
   G2-G4    100x240   L=1.7m  M=2.03kNm  S=2.115MPa  d_LL=0.236mm/4.722mm  ok
-  B3-C3    100x240   L=2.6m  M=4.749kNm  S=4.947MPa  d_LL=1.291mm/7.222mm  ok
+  D2-D3    120x300   L=4.0m  M=16.31kNm  S=9.061MPa  d_LL=4.475mm/11.111mm  ok
 
 COLUMNS:
   A3       100x100   H=3.5m  P=7.66kN  S=0.7655MPa  SF=16.61  ok
@@ -55,7 +53,6 @@ COLUMNS:
   C7       100x100   H=3.5m  P=5.67kN  S=0.5675MPa  SF=22.4  ok
   D1       100x100   H=3.5m  P=12.14kN  S=1.2138MPa  SF=10.47  ok
   D2       100x100   H=3.5m  P=14.13kN  S=1.4131MPa  SF=9.0  ok
-  D3       100x100   H=3.5m  P=13.73kN  S=1.3733MPa  SF=9.26  ok
   D5       100x100   H=3.5m  P=24.5kN  S=2.4499MPa  SF=5.19  ok
   D6       100x100   H=3.5m  P=14.53kN  S=1.453MPa  SF=8.75  ok
   D7       100x100   H=3.5m  P=8.55kN  S=0.8549MPa  SF=14.87  ok
@@ -72,27 +69,15 @@ COLUMNS:
 
 ## Change Summary
 
-The removal of column C3 and the two beams C3‑C5 and C3‑D3 reduces the overall structural load, cutting the total cost from 8,425 EUR to 6,945 EUR while keeping administrative effort low (14 weeks) and giving a high adaptability rating with medium confidence. This change frees up space and simplifies future modifications.
-
-Next step: re‑run the evaluation to confirm the change holds.
+The intervention did not alter the building’s structure; all existing elements remain in place. This means there is no change to safety or adaptability, and the overall cost stays within the moderate range of EUR 8,152 (EUR 5,706–12,228). No further action is required.
 
 ## Cost & Flexibility Analysis
 
 | Metric | Value |
 |--------|-------|
-| **Total Structure Build Cost** | **Moderate (EUR 8,425 / 5,898–12,638)** |
-| ↳ Volume | 2.499 m³ TIMBER |
-| ↳ PEM (works budget) | EUR 6,123 |
-| Design-Phase Saving | EUR 651 (avoided new-build cost of removed elements) |
-| Last Modification Cost | Low (EUR 6,945) |
-| ↳ Intervention | EUR 3,092 (labour, demolition, material) |
-| ↳ Overhead | EUR 3,853 (mobilisation, temp works, fees) |
-| Cost Driver | Component C — Temp Works |
-| Admin Burden | Low |
-| Admin Critical Path | 14 wks (mid) |
-| Dominant Process | P2 — Municipal Building Permit |
-| Adaptability | High (MEDIUM confidence) |
-| Adaptability Constraint | Regulatory Footprint |
-| Decision Signal | low_cost_high_freedom |
+| **Total Structure Build Cost** | **Moderate (EUR 8,152 / 5,706–12,228)** |
+| ↳ Volume | 2.405 m³ TIMBER |
+| ↳ PEM (works budget) | EUR 5,891 |
 
-> Full structure: Moderate (EUR 8,425) | 3 removed | Cost: Low (EUR 6,945 total / 3,092 intervention / 3,853 overhead) | Admin: Low (14 wks mid) | Adaptability: High (MEDIUM confidence) | Signal: low_cost_high_freedom
+
+> Full structure: Moderate (EUR 8,152 / 5,706–12,228)
