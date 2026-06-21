@@ -627,6 +627,110 @@ def _cascade_to_lower_level(
     }
 
 
+def _simulate_beam_removal(
+    layout_json_string: str,
+    beam_id: str,
+    base_trib: dict[str, float],
+    ll_kNm2: float = LL_KNM2,
+    sdl_kNm2: float = SDL_KNM2,
+) -> dict:
+    """Beam removal what-if: find adjacent parallel beams and re-check them
+    with expanded tributary widths after the removed beam's load redistributes."""
+    from nodes._layout import get_structure as _gs, is_multilevel, find_element_in_layout
+
+    layout = json.loads(layout_json_string)
+
+    level_key = None
+    if is_multilevel(layout):
+        level_key, _ = find_element_in_layout(layout, beam_id)
+        structure = _gs(layout, level_key) if level_key else _gs(layout)
+    else:
+        structure = layout.get("structure", [])
+
+    all_beams = [el for el in structure if len(el.get("geometry", [])) == 2]
+    target = next((bm for bm in all_beams if bm["id"] == beam_id), None)
+    if target is None:
+        return {"error": f"Beam {beam_id} not found in structure"}
+
+    g = target["geometry"]
+    g0, g1 = g[0], g[1]
+    is_horiz = abs(g1[0] - g0[0]) >= abs(g1[1] - g0[1])
+
+    # Perpendicular coordinate: y for horizontal beams, x for vertical
+    if is_horiz:
+        pos_fn = lambda bm: (bm["geometry"][0][1] + bm["geometry"][1][1]) / 2.0
+    else:
+        pos_fn = lambda bm: (bm["geometry"][0][0] + bm["geometry"][1][0]) / 2.0
+
+    parallel = [
+        bm for bm in all_beams
+        if (abs(bm["geometry"][1][0] - bm["geometry"][0][0]) >= abs(bm["geometry"][1][1] - bm["geometry"][0][1])) == is_horiz
+    ]
+    sorted_par = sorted(parallel, key=pos_fn)
+    sorted_pos  = [pos_fn(bm) for bm in sorted_par]
+    target_pos  = pos_fn(target)
+    t_idx = min(range(len(sorted_pos)), key=lambda i: abs(sorted_pos[i] - target_pos))
+
+    left_bm  = sorted_par[t_idx - 1] if t_idx > 0 else None
+    right_bm = sorted_par[t_idx + 1] if t_idx < len(sorted_par) - 1 else None
+
+    removed_trib  = base_trib.get(beam_id, 2.5)
+    edge_warnings = []
+    affected      = []
+
+    if left_bm and right_bm:
+        # Left neighbor inherits the right half of the gap to the right neighbor
+        extra_left  = (pos_fn(right_bm) - target_pos) / 2.0
+        # Right neighbor inherits the left half of the gap to the left neighbor
+        extra_right = (target_pos - pos_fn(left_bm)) / 2.0
+        old_l = base_trib.get(left_bm["id"],  2.5)
+        old_r = base_trib.get(right_bm["id"], 2.5)
+        affected.append((left_bm,  round(old_l, 3), round(old_l  + extra_left,  3)))
+        affected.append((right_bm, round(old_r, 3), round(old_r  + extra_right, 3)))
+    elif left_bm:
+        edge_warnings.append("no parallel beam on the right — floor on that side loses structural support")
+        old_l = base_trib.get(left_bm["id"], 2.5)
+        affected.append((left_bm, round(old_l, 3), round(old_l + removed_trib, 3)))
+    elif right_bm:
+        edge_warnings.append("no parallel beam on the left — floor on that side loses structural support")
+        old_r = base_trib.get(right_bm["id"], 2.5)
+        affected.append((right_bm, round(old_r, 3), round(old_r + removed_trib, 3)))
+    else:
+        edge_warnings.append("no parallel beams on either side — removing this beam leaves the floor strip unsupported")
+
+    results = []
+    for bm, old_tw, new_tw in affected:
+        override_trib = dict(base_trib)
+        override_trib[bm["id"]] = new_tw
+        checked = _check_beams([bm], override_trib, ll_kNm2, sdl_kNm2)
+        if checked:
+            r = dict(checked[0])
+            r["trib_width_before_m"] = old_tw
+            r["trib_width_after_m"]  = new_tw
+            results.append(r)
+
+    failures = [
+        r for r in results
+        if not (r.get("bend_PASS", True) and r.get("defl_LL_PASS", True)
+                and r.get("defl_TL_PASS", True) and r.get("shear_PASS", True))
+    ]
+    return {
+        "simulation":     "beam_removal_what_if",
+        "removed_id":     beam_id,
+        "removed_span_m": round(math.dist(g0, g1), 3),
+        "removed_trib_m": round(removed_trib, 3),
+        "level":          level_key,
+        "affected_beams": results,
+        "edge_warnings":  edge_warnings,
+        "summary": {
+            "affected":     len(results),
+            "failures":     len(failures),
+            "failed_ids":   [r["id"] for r in failures],
+            "overall_PASS": not failures and not edge_warnings,
+        },
+    }
+
+
 def simulate_what_if_removal(
     layout_json_string: str,
     remove_ids: list[str],
@@ -1672,10 +1776,11 @@ def build_evaluate_node(llm):
                         elif _pick.upper() in {c.upper() for c in internal_cols}:
                             remove_cols = [_pick.upper()]
 
+            beams  = [s for s in structure if len(s.get("geometry", [])) == 2]
+            b_trib = _beam_trib_widths(beams)
+
             if remove_cols:
                 # ── Column removal: full span-extension simulation ────────────
-                beams  = [s for s in structure if len(s.get("geometry", [])) == 2]
-                b_trib = _beam_trib_widths(beams)
                 whatif = simulate_what_if_removal(layout_str, remove_cols, b_trib, ll_kNm2=ll, sdl_kNm2=sdl)
                 result["what_if"] = whatif
                 ws = whatif.get("summary", {})
@@ -1812,20 +1917,50 @@ def build_evaluate_node(llm):
                     })
 
             elif remove_beams:
-                # ── Beam removal: no span simulation — warn and offer removal ─
-                b_list = ", ".join(remove_beams)
-                print(f"\nWHAT-IF: remove beam(s) {b_list}")
-                print("  Removing a beam eliminates its load path between the two endpoint columns.")
-                print("  Adjacent parallel beams will carry additional tributary load.")
-                print("  Re-evaluation will run automatically after removal.")
-                if _safe_input(f"\nRemove {b_list} permanently? [y/N]: ", "n").strip().lower() == "y":
-                    state["evaluation_result"] = json.dumps(result)
-                    state["pending_structural_change"] = {
-                        "type":       "remove_element",
-                        "element_id": remove_beams[0],
-                    }
-                    state["layout_before_change"] = layout_str
-                    return state
+                # ── Beam removal: tributary-width simulation ──────────────────
+                b_id = remove_beams[0]
+                from nodes._layout import find_element_in_layout as _feil_bw
+                _bw_data = json.loads(layout_str)
+                _lk_bw, _bw_el = _feil_bw(_bw_data, b_id)
+                _bw_locked = _bw_el is not None and (_bw_el.get("attributes") or {}).get("type") == "perimeter"
+                if _bw_locked:
+                    print(f"\nWHAT-IF: {b_id} is a perimeter beam — locked, defines the building envelope. Cannot remove.")
+                else:
+                    bw_sim = _simulate_beam_removal(layout_str, b_id, b_trib, ll_kNm2=ll, sdl_kNm2=sdl)
+                    result["what_if_beam"] = bw_sim
+                    ws_b   = bw_sim.get("summary", {})
+                    status_b = "PASS" if ws_b.get("overall_PASS") else "FAIL"
+
+                    print(f"\nWHAT-IF: remove beam {b_id}  "
+                          f"[span {bw_sim['removed_span_m']}m  trib={bw_sim['removed_trib_m']}m]")
+                    for ew in bw_sim.get("edge_warnings", []):
+                        print(f"  WARNING: {ew}")
+                    if bw_sim.get("affected_beams"):
+                        print("  Adjacent parallel beams re-checked with expanded tributary width:")
+                        for r_b in bw_sim["affected_beams"]:
+                            flag_b = ""
+                            if not r_b.get("bend_PASS", True):
+                                flag_b += f"  BEND FAIL S={r_b.get('sigma_bend_MPa','?')}>{r_b.get('allow_bend_MPa','?')}MPa"
+                            if not r_b.get("defl_LL_PASS", True):
+                                flag_b += f"  DEFL_LL FAIL {r_b.get('delta_LL_mm','?')}>{r_b.get('limit_LL_mm','?')}mm"
+                            if not r_b.get("defl_TL_PASS", True):
+                                flag_b += f"  DEFL_TL FAIL {r_b.get('delta_total_mm','?')}>{r_b.get('limit_TL_mm','?')}mm"
+                            print(
+                                f"  {r_b['id']:8s}  trib {r_b['trib_width_before_m']}m -> {r_b['trib_width_after_m']}m"
+                                f"  M={r_b.get('M_max_kNm','?')}kNm  S={r_b.get('sigma_bend_MPa','?')}MPa"
+                                + (flag_b if flag_b else "  ok")
+                            )
+
+                    print(f"\nWhat-if result: {status_b}. Apply removal of {b_id} permanently?")
+                    print("  Adjacent beams carry the redistributed tributary load after removal.")
+                    if _safe_input("Apply? [y/N]: ", "n").strip().lower() == "y":
+                        state["evaluation_result"] = json.dumps(result)
+                        state["pending_structural_change"] = {
+                            "type":       "remove_element",
+                            "element_id": b_id,
+                        }
+                        state["layout_before_change"] = layout_str
+                        return state
 
         for r in result["beams"]:
             if not r["bend_PASS"]:
