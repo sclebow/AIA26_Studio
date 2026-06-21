@@ -21,8 +21,9 @@ PADDING = 28
 THRESHOLD = 240
 
 script_dir = Path(__file__).resolve().parent
-src_dir = script_dir / "Planfinder_Dataset" / "pf_screenshots"
-dst_dir = script_dir / "Planfinder_Dataset" / "pf_screenshots_cropped"
+dataset_dir = script_dir.parents[2] / "layout_inputs" / "Planfinder_Dataset"
+src_dir = dataset_dir / "pf_screenshots"
+dst_dir = dataset_dir / "pf_screenshots_cropped"
 dst_dir.mkdir(parents=True, exist_ok=True)
 
 files = sorted(f for f in os.listdir(src_dir) if f.endswith(".png"))

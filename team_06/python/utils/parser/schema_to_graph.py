@@ -351,7 +351,7 @@ def generate_graphs_from_directory(layouts_dir: str, output_path: str = None) ->
             skipped += 1
             continue
 
-        layout_id = layout_data.get("apartment", {}).get("id") or layout_file.stem
+        layout_id = layout_data.get("layoutId") or layout_file.stem
 
         try:
             graph = create_graph_from_layout(layout_data)

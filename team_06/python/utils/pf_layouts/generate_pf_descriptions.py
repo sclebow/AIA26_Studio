@@ -65,8 +65,9 @@ def extract_context(layout: dict) -> dict:
     open_plan = "kitchen" not in programs
 
     layout_id = layout.get("layoutId", "")
+    technical_id = layout.get("apartment", {}).get("id", layout_id)
     try:
-        de = int(layout_id.split("_de")[1].split("_")[0])
+        de = int(technical_id.split("_de")[1].split("_")[0])
     except (IndexError, ValueError):
         de = -1
     entry_side = {0: "bottom", 1: "right", 2: "top", 3: "left"}.get(de, "unknown")
