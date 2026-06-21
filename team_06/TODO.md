@@ -7,12 +7,10 @@ decouple history?
 2. Routine: score/frictions, activity tags, colors vs shadows
 3. select 2 layouts and search for "in between"
 5. Surprise me (show the opposite)
-6. improve adapt pipeline - if outline, select all goes to adapt
+6. improve adapt pipeline - if outline, select also goes to adapt
 7. visualise the graph of the layout
-8. make the brief summary editable
-9. allow the user to insert detailed routine 
-10. dalyight visualisation?
-
+? make the brief summary editable
+? dalyight visualisation?
 ? add more voices in brief summary (adjacency, size)
 ? show more miniatures and above the dots
 
@@ -25,7 +23,20 @@ At evaluation time, the user's brief (description_query) is embedded and compare
 
 ===================================================
 Timing:
-should now show rotuine/evalaution for previous layout on the new layout
+should not show rotuine/evalaution for previous layout on the new layout
 
 Scores:
 adjacency should also count far/not adjacent?
+
+===============================================
+
+I want to add a new feature. Which one do yout hting I should do, given than search is main topic:
+- select 2 layouts and search for "in between"
+- Surprise me (show the opposite in serach space)
+- select 2 layouts and compare
+
+=================================================
+
+We are james and Susan, a couple with a baby, Mark, and a 7-years-old daughter, Martha. James works from home, Martha studies in her bedroom during the afternoon. We need 3 bedrooms in total, one for us and Mark, one for James as office, one for Martha. Martha's room should be far from James' office
+
+Both james and Susan work form home, why?? and Martha not at home in the afternoon

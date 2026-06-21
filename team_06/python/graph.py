@@ -196,20 +196,20 @@ def build_graph(ctx: Any, status_callback: Callable[[list[str], dict[str, Any] |
     })
     workflow.add_conditional_edges("select", _route_after_select, {
         "adapt": "adapt",
-        "daylight": "daylight",
-         "feedback": "feedback"
+        "daylight": "routine",
+        "feedback": "feedback"
     })
     workflow.add_conditional_edges("adapt", _route_after_adapt, {
-        "daylight": "daylight",
+        "daylight": "routine",
         "select": "select",
         "feedback": "feedback"
     })
+    workflow.add_edge("routine", "daylight")
     workflow.add_conditional_edges("daylight", _route_after_daylight, {
         "evaluate": "evaluate",
         "feedback": "feedback"
     })
-    workflow.add_edge("evaluate", "routine")
-    workflow.add_edge("routine", "feedback")
+    workflow.add_edge("evaluate", "feedback")
     
     app = workflow.compile()
     app._status_updates = status_updates

@@ -122,6 +122,7 @@ async function handleLayoutLoaded(json) {
 }
 
 function applyAgentResponse(response) {
+  if (!response) return
   if (response.brief !== undefined) parsedInput.value = response.brief
   if (response.search_results !== undefined) {
     applySearchResults(response.search_results)

@@ -261,6 +261,8 @@ def build_search_node() -> Any:
                 "search_results_json_string": json.dumps(candidates),
                 "embedding_map_json_string": json.dumps(embedding_map),
                 "layout_id": top_layout_id,
+                "evaluation_json_string": None,
+                "routine_json_string": None,
                 "iteration": iteration + 1,
             }
 

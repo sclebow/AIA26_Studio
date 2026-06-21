@@ -22,40 +22,37 @@ PERSONA_COLORS = [
 SYSTEM_PROMPT = (
     "You are generating a realistic residential daily routine for visualization. "
     "Return valid JSON with exactly this shape: "
-    '{"time_slots":[],"personas":[{"persona":"","color":"","steps":[]}]}.'
-    "\n\nRules:\n"
-    "- Return only JSON, no explanation.\n"
-    '- steps is a list with one entry per time slot: null when the person is away, '
-    'or an object {"room": "<room_id>", "label": "<activity>"} when they are home. '
-    "room must be a valid room id from the rooms list. "
-    "label is a short human-readable activity: sleeping, showering, working, studying, relaxing, cooking, playing, napping, dressing, etc.\n"
-    "- Only use room ids that appear in the provided rooms list.\n"
-    "- The available room programs are: bed, bath, wc, living, circulation, storage, walkincloset.\n"
-    "- Do not use storage, walkincloset, or circulation as living or working spaces.\n"
-    "- Keep colors as simple hex strings.\n"
-    "\nSleep rules:\n"
-    "- A couple or partners share the LARGEST bedroom (first in bedrooms_by_area).\n"
-    "- A baby or infant always sleeps in the same bedroom as the parent(s) — never alone in a separate room.\n"
-    "- Each child gets their own bedroom if one is available (next in bedrooms_by_area after the couple's). "
-    "If no separate bedroom is available, children share the parents' bedroom.\n"
-    "- Friends, students, or roommates each get their own bedroom.\n"
-    "- Use bedrooms_by_area (largest first) to assign in this order: couple, then children, then solo adults.\n"
-    "\nBathroom rules:\n"
-    "- Every person must appear in a bathroom room (program: bath) for at least one slot between 06:00 and 09:00.\n"
-    "- Never assign two people to the same bathroom at the same time slot.\n"
-    "- Stagger visits across consecutive slots (person A at 07:00, person B at 08:00) "
-    "or place two people in two different bathrooms at the same slot if the layout has two.\n"
-    "\nSchedule — build each person's routine in this order:\n"
-    "1. EXPLICIT CONSTRAINTS FIRST: read the description carefully and extract every time-specific or "
-    "activity-specific detail per person (e.g. 'Susan returns at 14:00', 'James works from home in his studio', "
-    "'Sarah studies in her room after school'). These are hard — apply them exactly.\n"
-    "2. FILL GAPS WITH DEFAULTS: for any slot not covered by an explicit constraint, apply sensible defaults "
-    "based on the person's role:\n"
-    "   - couple/parents at home: sleeping at night, showering in the morning, working from home or away during the day, relaxing in the evening\n"
-    "   - children/teens: sleeping at night, showering in the morning, at school (null) during the day, home in the afternoon\n"
-    "   - babies: sleeping at night and for naps, relaxing at home the rest of the day\n"
-    "   - adults away for work: null during work hours, home in the evening\n"
-    "   - retired/stay-at-home: mostly at home in living areas during the day\n"
+    '{"time_slots":[],"personas":[{"persona":"","color":"","steps":[]}]}. '
+    "Return only JSON, no explanation.\n\n"
+    "Output format:\n"
+    "- steps has one entry per time slot: null when the person is away, "
+    'or {"room": "<room_id>", "label": "<activity>"} when at home. '
+    "Only use room ids from the provided rooms list. "
+    "Labels: sleeping, showering, working, studying, relaxing, cooking, playing, napping, dressing.\n"
+    "- Do not use storage, walkincloset, or circulation as activity spaces.\n"
+    "- Colors are hex strings.\n\n"
+    "Schedule rules — STRICT PRIORITY ORDER:\n"
+    "1. THE BRIEF IS ABSOLUTE. Read every word of the user brief and apply it exactly.\n"
+    "   The defaults below are ONLY for time slots the brief does not mention.\n"
+    "   If the brief says someone works from home, only THAT person gets a workspace during work hours —\n"
+    "   the other adults follow their own stated schedule or the default away schedule.\n"
+    "   Never assume a second person also works from home unless the brief says so.\n"
+    "   - Person with a studio/office room: work in that specific room, slots 09:00–17:00 inclusive.\n"
+    "   - Person described as WFH but no dedicated room: work in living or bedroom, 09:00–17:00 inclusive.\n"
+    "   - 09:00–17:00 inclusive means the 09:00 slot AND the 17:00 slot are both labeled 'working'.\n"
+    "   - Never put two people in the same room at the same time (exception: couple sleeping together).\n"
+    "2. DEFAULTS — only for slots not covered by the brief:\n"
+    "   - Adult going to office: null 08:00–17:00, home from 18:00.\n"
+    "   - Adult working from home (stated in brief): working 09:00–17:00 inclusive.\n"
+    "   - Child/teen: null during school hours, home from 15:00 or as stated.\n"
+    "   - Baby/infant: sleeping and relaxing at home all day.\n"
+    "   - Retired/stay-at-home: relaxing in living areas during the day.\n\n"
+    "Sleep:\n"
+    "- Couple share the largest bedroom. A studio/office bedroom is only used 09:00–17:00 — that person still sleeps in the couple's bedroom.\n"
+    "- Each child gets their own bedroom if available; otherwise shares with another child.\n"
+    "- Baby always sleeps in the parents' bedroom.\n\n"
+    "Bathroom:\n"
+    "- Never put two people in the same bathroom at the same time. Stagger visits.\n"
 )
 
 
@@ -91,8 +88,7 @@ def _parse_household(topology_json: str | None) -> list[dict[str, str]]:
 
 def _parse_description(topology_json: str | None) -> str:
     payload = _safe_json_loads(topology_json)
-    # routine_description is schedule-focused with person names — prefer it for routine generation
-    return _string(payload.get("routine_description")) or _string(payload.get("description"))
+    return _string(payload.get("description"))
 
 
 def _layout_rooms(layout_data: dict[str, Any]) -> list[dict[str, str | None]]:
@@ -150,7 +146,11 @@ def _member_profile(member: dict[str, str]) -> str:
     if _is_baby(member):
         return "baby"
     text = " ".join([_string(member.get("relationship")), _string(member.get("info"))]).lower()
-    if re.search(r"\b(child|kid|toddler|teen|student|school)\b", text):
+    if re.search(r"\b(child|kid|toddler|teen|student|school|daughter|son|girl|boy)\b", text):
+        return "child_school"
+    # age under 18 expressed as "N years old" or "N-year-old"
+    age_match = re.search(r"\b(\d+)\s*[-\s]?years?\s*[-\s]?old\b", text)
+    if age_match and int(age_match.group(1)) < 18:
         return "child_school"
     if re.search(r"\b(retired|elderly|senior|older|mobility)\b", text):
         return "adult_home"
@@ -160,7 +160,9 @@ def _member_profile(member: dict[str, str]) -> str:
 
 
 def _study_implies_home_worker(description: str) -> bool:
-    return bool(re.search(r"\b(study|office|workspace|studio)\b", description.lower()))
+    lower = description.lower()
+    return bool(re.search(r"\b(study|office|workspace|studio)\b", lower)) or \
+           bool(re.search(r"\bwork[s]?\s+from\s+home\b|\bwfh\b|\bremote\s+work\b", lower))
 
 
 def _home_worker_index(household: list[dict[str, str]], description: str) -> int | None:
@@ -369,7 +371,7 @@ def _default_steps(
         return [
             _step(_fallback_room(bed, living),         "sleeping"),  # 06:00
             _step(_fallback_room(bath, living, bed),   "showering"), # 07:00
-            _step(_fallback_room(office, living, bed), "working"),   # 08:00
+            _step(_fallback_room(living, bed),         "relaxing"),  # 08:00 breakfast/getting ready
             _step(_fallback_room(office, living, bed), "working"),   # 09:00
             _step(_fallback_room(office, living, bed), "working"),   # 10:00
             _step(_fallback_room(office, living, bed), "working"),   # 11:00
@@ -377,8 +379,8 @@ def _default_steps(
             _step(_fallback_room(office, living, bed), "working"),   # 13:00
             _step(_fallback_room(office, living, bed), "working"),   # 14:00
             _step(_fallback_room(office, living, bed), "working"),   # 15:00
-            _step(_fallback_room(living, office, bed), "relaxing"),  # 16:00
-            _step(_fallback_room(living, bed),         "relaxing"),  # 17:00
+            _step(_fallback_room(office, living, bed), "working"),   # 16:00
+            _step(_fallback_room(office, living, bed), "working"),   # 17:00
             _step(_fallback_room(living, bed),         "relaxing"),  # 18:00
             _step(_fallback_room(living, bed),         "relaxing"),  # 19:00
             _step(_fallback_room(living, bed),         "relaxing"),  # 20:00
@@ -476,6 +478,60 @@ def _fallback_routine(layout_data: dict[str, Any], topology_json: str | None) ->
     return {"time_slots": list(DEFAULT_TIME_SLOTS), "personas": personas}
 
 
+def _stable_color_personas(
+    personas: list[dict[str, Any]],
+    topology_json: str | None,
+) -> list[dict[str, Any]]:
+    """Reorder personas to match household order and assign colors by household index.
+
+    This keeps colors stable across routine regenerations even when the LLM
+    returns personas in a different order.
+    """
+    household = _parse_household(topology_json)
+    if not household:
+        return [
+            {**p, "color": PERSONA_COLORS[i % len(PERSONA_COLORS)]}
+            for i, p in enumerate(personas)
+        ]
+
+    # Build name→index map from LLM personas (lowercase for fuzzy match)
+    name_to_idx: dict[str, int] = {}
+    for i, p in enumerate(personas):
+        name = (p.get("persona") or "").strip().lower()
+        if name:
+            name_to_idx[name] = i
+
+    used: set[int] = set()
+    ordered: list[dict[str, Any]] = []
+
+    for hi, member in enumerate(household):
+        color = PERSONA_COLORS[hi % len(PERSONA_COLORS)]
+        member_name = _string(member.get("name")).lower()
+        member_rel = _string(member.get("relationship")).lower()
+
+        idx = name_to_idx.get(member_name)
+        if idx is None:
+            idx = name_to_idx.get(member_rel)
+
+        if idx is not None and idx not in used:
+            ordered.append({**personas[idx], "color": color})
+            used.add(idx)
+        else:
+            # fallback: next unused persona in LLM order
+            for j, p in enumerate(personas):
+                if j not in used:
+                    ordered.append({**p, "color": color})
+                    used.add(j)
+                    break
+
+    # append any leftover personas the LLM added beyond household size
+    for j, p in enumerate(personas):
+        if j not in used:
+            ordered.append({**p, "color": PERSONA_COLORS[j % len(PERSONA_COLORS)]})
+
+    return ordered
+
+
 def _normalize_routine(value: Any, layout_data: dict[str, Any], topology_json: str | None) -> dict[str, Any]:
     """Validate the LLM-generated routine: keep LLM decisions, only reject invalid room IDs."""
     rooms = _layout_rooms(layout_data)
@@ -489,13 +545,18 @@ def _normalize_routine(value: Any, layout_data: dict[str, Any], topology_json: s
     if len(normalized_time_slots) != len(DEFAULT_TIME_SLOTS):
         normalized_time_slots = list(DEFAULT_TIME_SLOTS)
 
+    room_program = {r["id"]: r.get("program", "") for r in rooms if isinstance(r.get("id"), str)}
+    _PROGRAM_LABEL = {
+        "bed": "sleeping", "bath": "showering", "walkincloset": "dressing",
+        "living": "relaxing", "wc": "bathroom", "circulation": "at home", "storage": "at home",
+    }
+
     personas_raw = value.get("personas") if isinstance(value.get("personas"), list) else []
     personas = []
     for index, item in enumerate(personas_raw):
         if not isinstance(item, dict):
             continue
         persona = _string(item.get("persona")) or f"Resident {index + 1}"
-        color = _string(item.get("color")) or PERSONA_COLORS[index % len(PERSONA_COLORS)]
         steps_raw = item.get("steps") if isinstance(item.get("steps"), list) else []
         steps: list[Step] = []
         for i in range(len(DEFAULT_TIME_SLOTS)):
@@ -505,17 +566,24 @@ def _normalize_routine(value: Any, layout_data: dict[str, Any], topology_json: s
             elif isinstance(raw, dict):
                 room_id = str(raw.get("room", "")).strip()
                 label   = str(raw.get("label", "")).strip()
+                if not label:
+                    label = _PROGRAM_LABEL.get(room_program.get(room_id, ""), "at home")
                 steps.append({"room": room_id, "label": label} if room_id in valid_room_ids else None)
             elif isinstance(raw, str):
                 room_id = raw.strip()
-                steps.append({"room": room_id, "label": ""} if room_id in valid_room_ids else None)
+                if room_id in valid_room_ids:
+                    label = _PROGRAM_LABEL.get(room_program.get(room_id, ""), "at home")
+                    steps.append({"room": room_id, "label": label})
+                else:
+                    steps.append(None)
             else:
                 steps.append(None)
-        personas.append({"persona": persona, "color": color, "steps": steps})
+        personas.append({"persona": persona, "steps": steps})
 
     if not personas:
         return _fallback_routine(layout_data, topology_json)
 
+    personas = _stable_color_personas(personas, topology_json)
     personas = _enforce_bathroom_spacing(personas, rooms)
     return {"time_slots": normalized_time_slots, "personas": personas}
 
@@ -539,31 +607,6 @@ def _format_household_notes(topology_json: str | None) -> str | None:
         lines.append(f"- {label}: {info}")
     return "\n".join(lines) if lines else None
 
-
-def _llm_payload(layout_data: dict[str, Any], topology_json: str | None) -> dict[str, Any]:
-    payload = _safe_json_loads(topology_json)
-    rooms = _layout_rooms(layout_data)
-    bed_rooms = _sorted_bedrooms(rooms)
-
-    bathrooms = [
-        {"id": r["id"], "name": r["name"]}
-        for r in rooms if r.get("program") == "bath" and isinstance(r.get("id"), str)
-    ]
-
-    return {
-        "layoutId": layout_data.get("layoutId"),
-        "rooms": rooms,
-        "bedrooms_by_area": [
-            {"id": r["id"], "name": r["name"], "area": r["area"]}
-            for r in bed_rooms
-        ],
-        "bathrooms": bathrooms,
-        "brief": {
-            "household": payload.get("household", []),
-            "description": payload.get("description", ""),
-        },
-        "time_slots": list(DEFAULT_TIME_SLOTS),
-    }
 
 
 def _parse_routine_json(content: str) -> dict[str, Any]:
@@ -592,31 +635,33 @@ def build_routine_node(llm: Any) -> Any:
     def routine(state: dict) -> dict:
         layout_json = state.get("layout_json_string")
         topology_json = state.get("topology_graph_json_string")
+        user_prompt = state.get("user_prompt", "")
+        feedback_history = state.get("feedback_history", [])
         iteration = state.get("iteration", 0)
-        household = _parse_household(topology_json)
 
-        if not layout_json or not household:
+        if not layout_json:
             return {"routine_json_string": None, "iteration": iteration + 1}
+
+        # Build the full brief from all conversation turns so nothing is lost.
+        all_turns = [t for t in feedback_history if isinstance(t, str) and t.strip()]
+        if user_prompt.strip() and user_prompt.strip() not in all_turns:
+            all_turns.append(user_prompt.strip())
+        full_brief = "\n\n".join(all_turns) if all_turns else "(none)"
 
         try:
             layout_data = json.loads(layout_json) if isinstance(layout_json, str) else layout_json
             if not isinstance(layout_data, dict):
                 raise ValueError("Routine layout is not valid JSON.")
 
-            household_notes = _format_household_notes(topology_json)
-            description = _parse_description(topology_json)
+            rooms = _layout_rooms(layout_data)
+
             llm_messages = [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": (
-                    "=== PER-PERSON SCHEDULE CONSTRAINTS (hard — apply these exactly) ===\n"
-                    + (household_notes or "(none)")
-                    + "\n\n"
-                    + (f"Additional household context:\n{description}\n\n" if description else "")
-                    + f"Layout context:\n{json.dumps(_llm_payload(layout_data, topology_json))}\n\n"
-                    "Generate a realistic weekday routine for each household member. "
-                    "Every person must have at least one bathroom slot in their morning (between 06:00 and 09:00). "
-                    "Use the bedrooms_by_area list to assign sleep rooms correctly. "
-                    "Return only the required JSON."
+                    f"User brief (full conversation — apply every detail literally):\n{full_brief}\n\n"
+                    f"Available rooms (use only these IDs in steps):\n{json.dumps(rooms, indent=2)}\n\n"
+                    f"Time slots: {', '.join(DEFAULT_TIME_SLOTS)}\n\n"
+                    "Generate the daily routine for every person mentioned in the brief. Return only the required JSON."
                 )},
             ]
             response = llm.invoke(llm_messages)
@@ -630,7 +675,8 @@ def build_routine_node(llm: Any) -> Any:
             parsed = _parse_routine_json(raw if isinstance(raw, str) else json.dumps(raw))
             routine_payload = _normalize_routine(parsed, layout_data, topology_json)
             return {"routine_json_string": json.dumps(routine_payload), "iteration": iteration + 1}
-        except Exception:
+        except Exception as e:
+            print(f"[routine] LLM failed, using fallback: {e}", flush=True)
             fallback = _fallback_routine(
                 json.loads(layout_json) if isinstance(layout_json, str) else layout_json,
                 topology_json,

@@ -279,7 +279,8 @@ def build_evaluate_node(llm: Any) -> Any:
                     except Exception:
                         response_json = {"chat_summary": final_resp} if isinstance(final_resp, str) and final_resp.strip() else {}
                 llm_output = _normalize_llm_output(response_json)
-            except Exception:
+            except Exception as e:
+                print(f"[evaluate] LLM summary failed: {e}", flush=True)
                 llm_output = {"chat_summary": "Layout evaluated."}
 
             evaluation_summary: dict[str, Any] = {
