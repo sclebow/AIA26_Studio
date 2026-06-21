@@ -18,6 +18,7 @@ SYSTEM_PROMPT = (
     "- Translate user wording into those dataset categories before filling graph.programs.\n"
     "- There are no apartments with a separate kitchen room in this dataset. Treat kitchen requests as part of the living area and preserve kitchen intent in description as furniture, open-plan use, or cooking/social preference, not as a separate room program.\n"
     "- If the user asks for entry, entrance hall, hall, hallway, or corridor, translate that to circulation.\n"
+    "- If the user asks for storage, a utility room, or a laundry room, translate that to storage.\n"
     "- If the user asks for a toilet, WC, or half-bath, translate that to wc. Use bath only for a full bathroom with a shower or tub.\n"
     "- If the user asks for a walk-in closet or dressing room, translate that to walkincloset.\n"
     "- If the user asks for a study, office, or workspace, represent it as an additional bed in graph.programs, because the dataset does not have a separate study category.\n"

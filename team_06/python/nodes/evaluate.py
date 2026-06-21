@@ -67,14 +67,14 @@ SYSTEM_PROMPT = (
     "- If daylight scores are provided, include a brief mention of daylight performance in chat_summary. If not provided, do not mention it.\n"
     "- Do not add daylight to strengths or concerns — it is shown separately.\n"
     "- Treat a bathroom and a living space as baseline expected programs even if the user did not explicitly request them. Missing either should usually be a concern.\n"
-    "- The dataset room categories are living, bed, bath, foyer, and extra. Interpret the layout using those categories.\n"
+    "- The dataset room categories are living, bed, bath, wc, circulation, storage, walkincloset. Interpret the layout using those categories.\n"
     "- There are no apartments with a separate kitchen room in this dataset. Interpret kitchen as furnishing or open-plan use within the living area, not as a missing or expected standalone room.\n"
-    "- Treat foyer as satisfying entry, entrance hall, or hall requests.\n"
-    "- Treat extra as able to cover storage or circulation support.\n"
+    "- Treat circulation as satisfying entry, entrance hall, hallway, or corridor requests.\n"
+    "- Treat storage as satisfying storage room or utility requests.\n"
+    "- Treat wc as a toilet room distinct from a full bathroom (bath).\n"
     "- If the brief asked for a study, an additional bedroom may satisfy it approximately when no separate study category exists; mention the approximation when relevant.\n"
     "- If the brief asked for a double bedroom, expect the corresponding bedroom to be relatively generous in size.\n"
     "- If the brief asked for a single bedroom, a medium or small bedroom can still be appropriate.\n"
-    "- Ignore rooms whose program or name is 'extra' unless they create a clear disadvantage such as taking space away from essential rooms.\n"
     "- Comment on missing key programs, room sizes, and room proportions when the layout data suggests problems.\n"
     "- Distinguish between issues that came from candidate selection versus failure to fit the selected layout into the uploaded boundary.\n"
     "- Do not invent rooms or performance data that are not present.\n"
@@ -175,11 +175,10 @@ def _normalize_llm_output(value: object) -> dict[str, Any]:
             (("brief", "fit", "match"), "coherent to brief" if positive else "poor brief fit"),
             (("storage",), "storage"),
             (("circulation",), "circulation"),
-            (("foyer", "entry", "hall"), "entry space"),
+            (("circulation", "entry", "hall", "foyer"), "entry space"),
             (("bathroom", "bath"), "bathroom"),
             (("living",), "living"),
             (("bedroom", "bed"), "bedroom"),
-            (("extra",), "storage" if positive else "extra space"),
             (("ventilation",), "ventilation"),
         ]
 
