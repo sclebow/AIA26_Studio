@@ -13,6 +13,7 @@ import OrientationOverlay, { type OrientationResult } from './OrientationOverlay
 import { useTheme } from '../common/ThemeToggle'
 import { LayoutJSON, LayerVisibility } from '../../types'
 import type { NodeLinkData } from '../GraphPanel/graphDataMapper'
+import { exportLayoutObj } from '../../utils/objExporter'
 
 const EMPTY_SET = new Set<string>()
 const PERSON_HEIGHT = 1.7
@@ -580,6 +581,23 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
   const LIVE_INTERVAL_MS = 60  // ~16 fps for real-time isovist
   const containerRef = useRef<HTMLDivElement>(null)
   const viewCounter = useRef(0)
+  const [exported, setExported] = useState(false)
+  const exportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Export the currently-visible layers as .obj + .mtl (Z-up, metres).
+  const handleExportObj = useCallback(() => {
+    if (!layout) return
+    try {
+      exportLayoutObj(layout, layers)
+      setExported(true)
+      if (exportTimerRef.current) clearTimeout(exportTimerRef.current)
+      exportTimerRef.current = setTimeout(() => setExported(false), 1800)
+    } catch (e) {
+      console.error('[export] OBJ export failed:', e)
+    }
+  }, [layout, layers])
+
+  useEffect(() => () => { if (exportTimerRef.current) clearTimeout(exportTimerRef.current) }, [])
 
   // Geometry centre — same formula as FloorPlanRenderer's centred group.
   const geoCenter = useMemo(() => {
@@ -1095,6 +1113,29 @@ export default function ThreeViewport({ layout, selectedId, onSelect, layers, gr
             <line x1="7" y1="16" x2="15" y2="16" />
           </svg>
           {showLabels ? 'Labels ON' : 'Labels'}
+        </button>
+
+        {/* Export OBJ — downloads visible layers as .obj + .mtl (Z-up, metres) */}
+        <button
+          onClick={handleExportObj}
+          title="Export visible layers as .zip with .obj + .mtl (Z-up, metres, grouped by layer). Each layer is a separate group in the OBJ."
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: colors.panelBg,
+            border: `1px solid ${exported ? colors.accent + '66' : colors.border}`,
+            borderRadius: 8, padding: '5px 10px',
+            color: exported ? colors.accent : colors.muted,
+            fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
+            textTransform: 'uppercase', cursor: 'pointer',
+            fontFamily: colors.font, transition: 'color 0.2s, border-color 0.2s',
+          }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          {exported ? 'Saved' : 'OBJ'}
         </button>
       </div>
 

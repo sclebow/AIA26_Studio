@@ -401,9 +401,75 @@ is down** and answers in real time, drawing the result in the 3D viewport.
 - **Caveat**: the conversational answer uses Anthropic tool-use (like `pure_chat`) → needs
   `LLM_PROVIDER=anthropic` + a valid key. The analysis + viewport drawing need no Rhino.
 
+## Export 3D model (OBJ + MTL)
+
+The 3D viewport has an **OBJ** button (top-right compact controls row, next to
+Center/Labels, `ThreeViewport.tsx` `handleExportObj`) that downloads the **currently
+visible layers** as a 3D model — `<layoutId>_<timestamp>.obj` + a matching `.mtl`.
+
+- **Source of truth:** the OBJ is generated **from the live layout JSON** (`layoutState.layout`
+  — i.e. whatever the agent has placed), not from the Three.js scene, so it's clean and
+  deterministic. The shared geometry rules live in `ThreeViewport/geometry.ts` (extracted from
+  `FloorPlanRenderer.tsx` — constants `WALL_HEIGHT`/`DOOR_HEIGHT`/…, `resolveHeight`,
+  `assignOpenings`, `buildWallPieces`, `wallRectFromLine`), imported by **both** the renderer
+  and the exporter so they can't drift.
+- **Coordinate basis — Z-up, metres, real origin:** OBJ vertex = `(layout.x, layout.y, height)`.
+  The floor plan stays in the XY plane and Z is vertical (the basis the JSON / Rhino / GH were
+  authored in), un-centered — so a re-import lands exactly on the original plan, right way up.
+  (The viewport itself is Y-up + centered; the exporter deliberately does NOT use that.)
+- **Per-layer geometry** (`utils/objExporter.ts` `layoutToObj`): rooms = flat floor faces at
+  Z=0; structure = wall pieces with door/window openings cut out, extruded; doors = boxes Z
+  0→2.2; windows = boxes Z 1.0→2.0; furniture/mep = polygons extruded to `resolveHeight`;
+  outline = a closed polyline (`l`). Concave polygons are triangulated via
+  `THREE.ShapeUtils.triangulateShape`. Each layer is an OBJ group (`g <layer>`) with one object
+  (`o <id>_<name>`) per element; the `.mtl` assigns each layer a color.
+- **WYSIWYG:** only layers toggled on in the viewport are exported. Two files download per click
+  (`.obj` then `.mtl`) — the browser may ask to allow multiple downloads once.
+
+## Benchmark dashboard (model performance + workflow)
+
+A third top-nav view (`3D Viewport` | `Spatial Graph` | **`Benchmark`**, `App.tsx`
+`ViewMode='benchmark'`) that records and compares every pipeline run — built from the
+`ramon_experiments/benchmarking_ramy` prototype, re-themed and made **data-driven**.
+
+**Auto-recording (backend).** Each chat session = one **BenchRun**, captured by
+`backend/benchmark.py` (`BenchRunRecorder`) and hooked into `agent_runner.run()` — it
+reuses the events the runner already streams, so `team_03/python/` (read-only) is untouched:
+- `emit_event(node, started|completed|error)` → per-node timings (Gantt) + API-call
+  categories (`_NODE_CATEGORY`: profile/space/populate/memory/reason/tools/analysis/other) +
+  `reason` turn count. `setup` is skipped (it streams repeated progress lines).
+- `emit_scores(overall, grade, breakdown)` → final scoring (overall + grade + 5 weighted metrics).
+- `patched_input` → checkpoint count; a `recursion`-flagged exception → `recursion_hits`.
+- Provider/model resolved at run start from `pipeline_bridge.get_pipeline_provider/model`
+  (UI toggle) falling back to `.env` → `model_label` (`Gemini Flash`/`Gemini Pro`/`Haiku`/
+  `Sonnet`/…), so runs are attributed to the right model.
+
+Runs persist to `backend/benchmarks/runs.json` (append, capped at 500, survives restarts).
+On finalize the runner emits a `benchmark_update` WS message → the UI re-fetches.
+
+**REST + WS.**
+- `GET /api/benchmarks` → `{ runs (newest-first), aggregate.models (per-model averages), count }`.
+- `DELETE /api/benchmarks` → wipe history.
+- `benchmark_update` (added to `MessageType` + `wsProtocol.ts`) → live refresh signal.
+
+**Frontend.** `hooks/useBenchmarkState.ts` (fetch on mount + on `benchmark_update`, `clear`)
+feeds `components/Benchmark/BenchmarkDashboard.tsx`. Two internal tabs, a model filter, and a
+scope summary KPI row:
+- **Models & Scores** (prototype module 02) — score trend over runs (points colored by model),
+  per-metric model comparison bars, and a per-model leaderboard table. This is where the
+  **Google Gemini Flash/Pro vs Anthropic Haiku/Sonnet** performance comparison lands.
+- **Workflow** (prototype module 03) — turns/zone, API calls, time, recursion KPIs; a Gantt of
+  per-node durations + an API-calls-by-category breakdown for the latest run; an event-log
+  timeline; and a multi-run turns/duration trend.
+
+**Status / next iterations:** module 01 (Placement Quality — req/placed, zone assignment,
+collision-free, wall violations, heatmap) is scaffolded in `benchmark.py`
+(`set_placement_quality`, `run["placement"]`) but not yet wired — planned next, derived from
+`collision_results` + the base→final layout diff.
+
 ---
 
-**Last updated**: 2026-06-07  
+**Last updated**: 2026-06-20  
 **Status**: Chat wired to the real pipeline; live progress + options panel. Default theme
 now **light** (white startup background), favicon + new logo, StrictMode disabled. **Runtime
 model switch** (Haiku/Sonnet via `model_switch` WS) replaces the old Haiku-force; added a

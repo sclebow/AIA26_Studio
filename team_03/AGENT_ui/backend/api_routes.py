@@ -615,6 +615,31 @@ async def commit_layout(name: str, body: LayoutCommit):
     return {"status": "ok", "path": str(saved)}
 
 
+# ---------------------------------------------------------------------------
+# Benchmarks — recorded pipeline runs + per-model aggregates
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api/benchmarks")
+async def get_benchmarks():
+    """All recorded pipeline runs (newest first) + per-model aggregates.
+
+    Each chat session is auto-recorded by `agent_runner` (provider/model, per-node
+    timings, reason turns, API-call breakdown, recursion hits, scoring breakdown).
+    Drives the Benchmark dashboard's workflow + score-trend + model-comparison
+    modules."""
+    import benchmark
+    return benchmark.get_all()
+
+
+@router.delete("/api/benchmarks")
+async def clear_benchmarks():
+    """Delete the entire benchmark history (team_03/AGENT_ui/backend/benchmarks/)."""
+    import benchmark
+    removed = benchmark.clear_all()
+    return {"status": "ok", "removed": removed}
+
+
 @router.get("/api/scores")
 async def get_scores():
     """Return the current scoring results."""

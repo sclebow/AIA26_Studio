@@ -670,3 +670,48 @@ Master schema for floor plans as JSON. 7 layers; all coordinates 2D `[x, y]` in 
 | rooms | room-N | | furniture | furn-N |
 | doors | door-N | | mep | mep-N |
 | windows | window-N | | structure | wall-N |
+
+---
+
+## Recent features (2026-06-20 → 2026-06-21)
+
+### Benchmark dashboard — model performance tracking (AGENT_ui)
+
+A third nav-pill view (`Benchmark`) in the AGENT_ui that auto-records every pipeline run
+and compares model performance across Anthropic (Haiku/Sonnet) and Google Gemini (Flash/Pro).
+
+**Auto-recording:** `AGENT_ui/backend/benchmark.py` (`BenchRunRecorder`) hooks into
+`agent_runner.run()` via existing node events — no changes to `team_03/python/` (read-only).
+Each run captures: provider + model, per-node timings (Gantt), reason turns, API call
+breakdown by category, recursion hits, checkpoints, and the full scoring breakdown (overall +
+grade + 5 weighted metrics). Persisted to `AGENT_ui/backend/benchmarks/runs.json` (append,
+max 500). `GET/DELETE /api/benchmarks` REST endpoints. `benchmark_update` WS message triggers
+live UI refresh after each run.
+
+**Frontend:** `hooks/useBenchmarkState.ts` + `components/Benchmark/BenchmarkDashboard.tsx`.
+Two internal tabs (Models & Scores / Workflow), model filter pills, summary KPI row:
+- **Models & Scores** — score trend over runs (points colored by model), per-metric comparison
+  bars, leaderboard table. The Google Gemini vs Anthropic comparison lands here.
+- **Workflow** — Gantt of node durations, API-calls breakdown by category, event timeline, and
+  a multi-run turns/duration trend chart.
+- **Export PNG** button — captures the current tab as a high-resolution PNG (3× pixel ratio)
+  via `html-to-image`. Full-scroll capture (expands overflow before capture, restores after).
+
+### 3D model export — OBJ + MTL ZIP (AGENT_ui 3D viewport)
+
+**OBJ button** in the 3D viewport controls (top-right row). Downloads `<layoutId>_<date>.zip`
+containing a `.obj` + `.mtl` with the **currently visible layers** as separate groups.
+
+- Source: generated from the **live layout JSON** (not the Three.js scene) so export matches
+  whatever the agent has placed, deterministically.
+- Coordinate basis: **Z-up, metres, real layout origin** — `vertex = (layout.x, layout.y, z)`.
+  Re-imports in Rhino/GH at the exact position and orientation of the original plan.
+- Per-layer structure: each layer (`rooms`, `structure`, `doors`, `windows`, `furniture`, `mep`,
+  `outline`) is a self-contained `g <layer>` block with vertices and faces interleaved within
+  the block (not all verts at the top), so Rhino/Blender split by layer correctly.
+- Walls have door/window openings cut out via `buildWallPieces`. Concave polygons triangulated
+  with `THREE.ShapeUtils.triangulateShape`. MTL colors each layer neutrally.
+- Single ZIP download (`fflate` — already a transitive dep) avoids the browser user-gesture
+  block that prevented the earlier two-file approach.
+- Shared geometry rules live in `ThreeViewport/geometry.ts` (extracted from `FloorPlanRenderer`
+  so viewport and exporter can never drift). `utils/objExporter.ts` contains the exporter.

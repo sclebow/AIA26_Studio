@@ -8,3 +8,6 @@ memory/
 
 # Live session state — ephemeral, overwritten on every run
 workspace/
+
+# Benchmark run history (local, accumulated at runtime by the recorder)
+AGENT_ui/backend/benchmarks/

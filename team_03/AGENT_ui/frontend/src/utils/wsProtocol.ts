@@ -118,6 +118,63 @@ export interface AnalysisOverlay {
   }>;
 }
 
+/** One recorded pipeline run for the Benchmark dashboard. */
+export interface BenchRun {
+  run_id: string;
+  started_at: number;
+  ended_at: number;
+  status: 'ok' | 'error' | 'aborted';
+  provider: string;
+  model: string;
+  model_label: string;
+  layout_name: string;
+  prompt: string;
+  workflow: {
+    duration_s: number;
+    duration_min: number;
+    reason_turns: number;
+    turns_per_zone: number;
+    api_calls: number;
+    tool_calls: number;
+    recursion_hits: number;
+    checkpoints: number;
+    category_calls: Record<string, number>;
+    gantt: Array<{ node: string; start_ms: number; total_ms: number; count: number }>;
+  };
+  scoring: {
+    overall: number;
+    grade: string;
+    metrics: Record<string, number>;
+    weights: Record<string, number>;
+  } | null;
+  placement: Record<string, unknown> | null;
+  timeline: Array<{ t_ms: number; node: string; status: string; detail?: string }>;
+}
+
+/** Per-model aggregate row. */
+export interface BenchModelAgg {
+  label: string;
+  provider: string;
+  runs: number;
+  overall: number | null;
+  metrics: Record<string, number | null>;
+  avg_duration_s: number | null;
+  avg_turns: number | null;
+  avg_api_calls: number | null;
+}
+
+export interface BenchmarkData {
+  runs: BenchRun[];
+  aggregate: { models: BenchModelAgg[]; metrics: string[] };
+  count: number;
+}
+
+/** A pipeline run just finished and was recorded → refresh the dashboard. */
+export interface BenchmarkUpdate {
+  type: 'benchmark_update';
+  run: BenchRun;
+}
+
 /** A new revision was saved to team_03/output/ (e.g. after Approve layout). */
 export interface VersionSaved {
   type: 'version_saved';
@@ -139,4 +196,5 @@ export type WSMessage =
   | ObserverResult
   | AnalysisOverlay
   | VersionSaved
+  | BenchmarkUpdate
   | ChatDecision;
