@@ -1,0 +1,10 @@
+{
+  "layoutId": "Layout-039",
+  "description": "Compact and efficient. Living bright bedrooms dim. Deep — views through multiple spaces. Short connecting link between entry and living area. Kitchen: L-shaped or U-shaped, no island or peninsula — counter set back from windows, moderate natural light. Cook faces the wall — back to the living and dining area. Two cooks can work simultaneously on separate counter runs. Fully open plan — no wall separates kitchen from dining and living. Living arrangement: split seating-kitchen-dining, kitchen on side wall. Seating: Sofa on the right side facing left toward the TV near the upper-right window area; dining table with four chairs in the lower portion of the living zone. Dining table (4 seats). TV on wall right of entry. Cook cannot see TV from cooking position. Diners do not face the TV. Entry: direct into kitchen, first thing visible on arrival is kitchen. No door between entry and living — relevant where local regulations require separation. Double bedroom — accessed via through living, no walk-in wardrobe. Master bedroom is only accessible through the living room — no direct corridor access, least private position. Double bedroom at the rear — maximum distance from entry, best acoustic separation from living activity. Storage: no wardrobe — very limited storage. One bathroom (shower, bathtub, and toilet). Bathroom accessed directly from the living area — no private corridor. Single bathroom — all household members share one shower, sequential morning routine. Suits: singles or couples. Not suitable for: families with children (only one bedroom); people needing a home office (no desk space or dedicated room); those requiring ample storage (no wardrobe, very limited storage); roommates or shared living (single bedroom only).",
+  "not_suitable_for": [
+    "families with children (only one bedroom)",
+    "people needing a home office (no desk space or dedicated room)",
+    "those requiring ample storage (no wardrobe, very limited storage)",
+    "roommates or shared living (single bedroom only)"
+  ]
+}

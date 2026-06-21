@@ -1,0 +1,10 @@
+{
+  "layoutId": "Layout-108",
+  "description": "Narrow and elongated. Living bright bedrooms dim. Deep — views through multiple spaces. Clear functional corridor connecting zones. Kitchen: single-wall, no island or peninsula — counter set back from windows, moderate natural light. Cook faces the wall — back to the living and dining area. One active cook at a time. Fully open plan — no wall separates kitchen from dining and living. Living arrangement: linear kitchen-dining-living, kitchen on side wall. Seating: A sofa at the far end (left) facing the TV on the opposite wall, with an additional armchair beside it. Dining table (6 seats). TV on wall unclear. Cook cannot see TV from cooking position. Diners do not face the TV. Entry: corridor entry, first thing visible on arrival is blank wall, straight corridor, running the full depth of the apartment. No door between entry and living — relevant where local regulations require separation. Double bedroom — accessed via own door off corridor, no walk-in wardrobe. Double bedroom closest to entry — lighter acoustic separation from the arrival zone. Storage: generous wardrobe storage. One bathroom (shower and toilet). Single bathroom — all household members share one shower, sequential morning routine. Suits: singles or couples. Not suitable for: families with children (only one bedroom); households needing a home office or dedicated workspace (no desk or extra room); people requiring a bathtub (only shower present); those who dislike long narrow layouts with a deep corridor.",
+  "not_suitable_for": [
+    "families with children (only one bedroom)",
+    "households needing a home office or dedicated workspace (no desk or extra room)",
+    "people requiring a bathtub (only shower present)",
+    "those who dislike long narrow layouts with a deep corridor"
+  ]
+}

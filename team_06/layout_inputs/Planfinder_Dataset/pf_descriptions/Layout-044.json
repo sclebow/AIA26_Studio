@@ -1,0 +1,10 @@
+{
+  "layoutId": "Layout-044",
+  "description": "Compact and efficient. Living bright bedrooms dim. Deep — views through multiple spaces. Short connecting link between entry and living area. Kitchen: L-shaped or U-shaped, no island or peninsula — counter set back from windows, moderate natural light. Cook faces the wall — back to the living and dining area. Two cooks can work simultaneously on separate counter runs. Fully open plan — no wall separates kitchen from dining and living. Living arrangement: split seating-kitchen-dining, kitchen on side wall. Seating: Sofa along upper area facing into the living space; additional seating near the front window area. TV on wall right of entry. Cook may see TV from cooking position. Diners unclear if facing the TV. Entry: direct into living, first thing visible on arrival is living area. No door between entry and living — relevant where local regulations require separation. Studio apartment. Double bed. Bed partially visible from front door, not visible from kitchen. Partial partition — some visual separation but cooking smells and sounds reach the sleeping area. Dedicated work zone visible in plan. Storage: one wardrobe. One bathroom (shower, bathtub, and toilet). Single bathroom — all household members share one shower, sequential morning routine. Suits: singles or couples comfortable with combined living and sleeping space. Not suitable for: families with children; households needing multiple separate bedrooms; people requiring a dedicated private sleeping room with a door; roommates sharing who need privacy.",
+  "not_suitable_for": [
+    "families with children",
+    "households needing multiple separate bedrooms",
+    "people requiring a dedicated private sleeping room with a door",
+    "roommates sharing who need privacy"
+  ]
+}

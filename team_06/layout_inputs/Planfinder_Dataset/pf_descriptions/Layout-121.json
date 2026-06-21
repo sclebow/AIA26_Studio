@@ -1,0 +1,10 @@
+{
+  "layoutId": "Layout-121",
+  "description": "Narrow and elongated. Living bright bedrooms dim. Deep — views through multiple spaces. Short connecting link between entry and living area. Kitchen: single-wall, no island or peninsula — counter set back from windows, moderate natural light. Cook faces the wall — back to the living and dining area. One active cook at a time. Fully open plan — no wall separates kitchen from dining and living. Living arrangement: linear kitchen-dining-living, kitchen on side wall. Seating: Sofa at lower-left of living area facing the central seating/TV zone toward the right side. Dining table (4 seats). TV on wall opposite wall to entry. Cook cannot see TV from cooking position. Diners do not face the TV. Entry: corridor entry, first thing visible on arrival is blank wall, L-shaped corridor, medium length. No door between entry and living — relevant where local regulations require separation. Double bedroom — accessed via own door off corridor, no walk-in wardrobe. Double bedroom in a central position within the apartment. Storage: generous wardrobe storage. One bathroom (shower and toilet). Single bathroom — all household members share one shower, sequential morning routine. Suits: singles or couples. Not suitable for: wheelchair users navigating the narrow elongated circulation; large families needing multiple bedrooms; those requiring a home office with natural light; people wanting a bathtub.",
+  "not_suitable_for": [
+    "wheelchair users navigating the narrow elongated circulation",
+    "large families needing multiple bedrooms",
+    "those requiring a home office with natural light",
+    "people wanting a bathtub"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "layoutId": "Layout-098",
+  "description": "Narrow and elongated. Living bright bedrooms dim. Deep — views through multiple spaces. No internal corridor — fully open layout. Kitchen: single-wall, no island or peninsula — counter set back from windows, moderate natural light. Cook faces the wall — back to the living and dining area. One active cook at a time. Fully open plan — no wall separates kitchen from dining and living. Living arrangement: linear kitchen-dining-living, kitchen on side wall. Seating: A sofa sits at the lower portion of the plan facing the TV wall; dining seating arranged around a central table with chairs on both long sides.. Dining table (6 seats). TV on wall right of entry. Cook cannot see TV from cooking position. Diners do not face the TV. Entry: dedicated foyer, first thing visible on arrival is kitchen. No door between entry and living — relevant where local regulations require separation. Studio apartment. Double bed. Bed not visible from front door, partially visible from kitchen. Partial partition — some visual separation but cooking smells and sounds reach the sleeping area. Storage: generous wardrobe storage. Sanitary rooms: bathroom (shower and toilet); separate WC. One bathroom plus separate WC — one person can shower while another uses the toilet. Simultaneous showering not possible. Suits: singles or couples comfortable with combined living and sleeping space. Not suitable for: families with children (studio with no separate bedrooms); couples needing private sleeping quarters (open-plan bed area); people requiring a dedicated home office (no desk and open layout); those needing wheelchair-friendly wide circulation (narrow elongated plan).",
+  "not_suitable_for": [
+    "families with children (studio with no separate bedrooms)",
+    "couples needing private sleeping quarters (open-plan bed area)",
+    "people requiring a dedicated home office (no desk and open layout)",
+    "those needing wheelchair-friendly wide circulation (narrow elongated plan)"
+  ]
+}
