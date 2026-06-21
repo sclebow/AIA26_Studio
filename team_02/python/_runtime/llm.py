@@ -1,9 +1,40 @@
 from __future__ import annotations
 from copy import deepcopy
 import json
+import os
 from pathlib import Path
 from typing import Any
 from langchain_openai import ChatOpenAI
+
+
+# ---------------------------------------------------------------------------
+# Token-usage accounting (benchmarking — see bench_nodes.py)
+#
+# Every llm.invoke() result from an OpenAI-compatible endpoint (incl. Google's)
+# carries usage_metadata{input_tokens, output_tokens}. We accumulate it in a
+# module-level counter so the graph's per-node timer (graph.py, gated on
+# BENCH_NODES) can snapshot the delta around each node and attribute tokens/cost.
+# Cheap and always-on; ignored unless someone reads the snapshot.
+# ---------------------------------------------------------------------------
+
+_USAGE = {"calls": 0, "input": 0, "output": 0}
+
+
+def _record_usage(result: Any) -> None:
+    um = getattr(result, "usage_metadata", None)
+    if isinstance(um, dict):
+        _USAGE["calls"] += 1
+        _USAGE["input"] += int(um.get("input_tokens", 0) or 0)
+        _USAGE["output"] += int(um.get("output_tokens", 0) or 0)
+
+
+def usage_snapshot() -> dict:
+    """A copy of the running token counter (calls/input/output)."""
+    return dict(_USAGE)
+
+
+def usage_reset() -> None:
+    _USAGE.update(calls=0, input=0, output=0)
 
 
 # ---------------------------------------------------------------------------
@@ -216,6 +247,7 @@ def call_llm(
     llm_messages = [{"role": "system", "content": formatted_prompt}] + messages
 
     result = llm.invoke(llm_messages)
+    _record_usage(result)
     content = result.content
     if not isinstance(content, str):
         raise RuntimeError("LLM response content must be a string")
@@ -229,8 +261,78 @@ def call_llm(
 
 
 # ---------------------------------------------------------------------------
+# Per-call provider/model override (benchmarking)
+#
+# Mirrors the faculty example (examples/updated_call_llm/llm.py): an optional
+# provider+model override lets a single call hit a different model/provider than
+# the one configured in .env — handy for ad-hoc A/B comparisons. The per-node
+# tiers in bootstrap.py (llm_fast / llm_smart) cover the common case; this is the
+# escape hatch for one-off experiments.
+# ---------------------------------------------------------------------------
+
+def _required_env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise ValueError(f"Missing or empty required environment variable: {name}")
+    return value
+
+
+def _resolve_llm_connection(provider: str, model: str | None) -> tuple[str, str, str]:
+    """Resolve (api_key, base_url, model) for a provider override. Same provider
+    set as _runtime/config.py."""
+    normalized = provider.strip().lower()
+
+    if normalized == "local":
+        return "No API Key Required", _required_env("LOCAL_LLM_ENDPOINT"), (model or "local")
+    if normalized == "cloudflare":
+        account_id = _required_env("CF_ACCOUNT_ID")
+        return (
+            _required_env("CF_API_TOKEN"),
+            f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1",
+            model or _required_env("CF_MODEL"),
+        )
+    if normalized == "openai":
+        return _required_env("OPENAI_API_KEY"), "https://api.openai.com/v1", (model or _required_env("OPENAI_MODEL"))
+    if normalized == "google":
+        return (
+            _required_env("GOOGLE_API_KEY"),
+            "https://generativelanguage.googleapis.com/v1beta/openai",
+            model or _required_env("GOOGLE_MODEL"),
+        )
+    if normalized == "anthropic":
+        return _required_env("ANTHROPIC_API_KEY"), "https://api.anthropic.com/v1/", (model or _required_env("ANTHROPIC_MODEL"))
+
+    raise ValueError(f"Unsupported provider override: {provider}")
+
+
+def _resolve_timeout_seconds(llm: Any) -> float:
+    timeout = getattr(llm, "timeout", None)
+    if isinstance(timeout, (int, float)) and timeout > 0:
+        return float(timeout)
+    return 30.0
+
+
+def _apply_overrides(llm: Any, provider: str | None, model: str | None) -> Any:
+    """Return a one-off LLM honoring provider/model overrides, or the original llm
+    when no override is requested."""
+    if provider is None and model is None:
+        return llm
+    resolved_provider = provider or os.environ.get("LLM_PROVIDER", "")
+    if not resolved_provider:
+        raise RuntimeError("LLM_PROVIDER is required when overriding the model")
+    api_key, base_url, resolved_model = _resolve_llm_connection(resolved_provider, model)
+    return create_chat_llm(
+        api_key=api_key,
+        base_url=base_url,
+        llm_model=resolved_model,
+        timeout_seconds=_resolve_timeout_seconds(llm),
+        model_kwargs=None,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Simple LLM call — no tool catalog, just system + user message → string
-# Used by chitchat, respond, and route_intent nodes.
+# Used by chitchat, respond, and other free-text reasoning nodes.
 # ---------------------------------------------------------------------------
 
 def _strip_think_tags(text: str) -> str:
@@ -246,21 +348,33 @@ def _strip_think_tags(text: str) -> str:
         return text
 
 
-def call_llm_simple(llm: Any, system_prompt: str, user_message: str) -> str:
+def call_llm_simple(
+    llm: Any,
+    system_prompt: str,
+    user_message: str,
+    provider: str | None = None,
+    model: str | None = None,
+) -> str:
     """Invoke the LLM with a plain system + user message and return the response string.
 
     Pass a plain LLM instance (no response_format / JSON schema) so the model
     can respond freely without token budget wasted on JSON wrapper.
     Use ctx.llm_simple, not ctx.llm, when calling this function.
 
+    provider and model are optional per-call overrides (benchmarking). When
+    omitted, the passed-in llm is used as-is — so the per-node tiers wired in
+    bootstrap.py (ctx.llm_fast / ctx.llm_smart) are the normal path.
+
     Think tags (<think>...</think>) produced by reasoning models (Qwen3,
     DeepSeek-R1) are stripped automatically before the string is returned.
     """
+    llm = _apply_overrides(llm, provider, model)
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_message},
     ]
     result = llm.invoke(messages)
+    _record_usage(result)
     content = result.content
     if not isinstance(content, str):
         raise RuntimeError("LLM response content must be a string")
@@ -272,6 +386,7 @@ def call_llm_simple(llm: Any, system_prompt: str, user_message: str) -> str:
     if not stripped.strip():
         print("[llm] Empty answer after think-strip — retrying once.")
         result = llm.invoke(messages)
+        _record_usage(result)
         content = result.content if isinstance(result.content, str) else ""
         stripped = _strip_think_tags(content)
     return stripped

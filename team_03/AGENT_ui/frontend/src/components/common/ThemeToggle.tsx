@@ -10,8 +10,8 @@ interface ThemeContextValue {
 }
 
 export const ThemeContext = createContext<ThemeContextValue>({
-  theme: 'light',
-  colors: lightTheme,
+  theme: 'dark',
+  colors: darkTheme,
   toggleTheme: () => {},
 });
 
@@ -42,8 +42,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     root.style.setProperty('--error', colors.error);
     root.style.setProperty('--success', colors.success);
     root.style.setProperty('--font', colors.font);
+    root.style.setProperty('--font-heading', colors.fontHeading);
     document.body.style.background = colors.bg;
     document.body.style.color = colors.text;
+    document.body.style.fontFamily = colors.font;
   }, [colors]);
 
   return (

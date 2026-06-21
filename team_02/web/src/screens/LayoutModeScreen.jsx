@@ -1,6 +1,7 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import ChatThread from "../ui/ChatThread.jsx";
+import InteractiveMessage from "../ui/InteractiveMessage.jsx";
 import TopBar from "../ui/TopBar.jsx";
 import ErrorBoundary from "../ui/ErrorBoundary.jsx";
 import ProfilePanel from "../components/ProfilePanel.jsx";
@@ -10,9 +11,8 @@ import SenseKey from "../components/SenseKey.jsx";
 import FocusCard from "../components/FocusCard.jsx";
 import LayerToggles from "../components/LayerToggles.jsx";
 import Legend from "../components/Legend.jsx";
-import TimelineStrip from "../components/TimelineStrip.jsx";
+import CheckpointsStrip from "../components/CheckpointsStrip.jsx";
 import LayoutPicker from "../components/LayoutPicker.jsx";
-import SenseMixer from "../components/SenseMixer.jsx";
 import { formatChatMessage } from "../lib/formatMessage.js";
 import { useSelection } from "../lib/selection.jsx";
 import { roomScores, conflictCount, layoutScore } from "../lib/turn.js";
@@ -43,15 +43,19 @@ function SpaceInput({ pos, onSend, onClose }) {
 //   graph   — ONE unified room-relationship graph: nodes (rooms) + structural
 //             adjacency + directional transmissive flow, all together. (Topology +
 //             flow used to be two lenses; they are the same graph, now merged.)
-const DEFAULT_LAYERS = { plan: true, comfort: true, graph: false };
+const DEFAULT_LAYERS = { plan: true, comfort: true, graph: false, material: false };
 
 // What each lens needs computed before it can show anything real. The graph needs
-// the TOPOLOGY node to have run (its NetworkX metrics drive the whole view).
-const LAYER_REQUIRES = { plan: null, comfort: "scores", graph: "topology" };
+// the TOPOLOGY node to have run (its NetworkX metrics drive the whole view). The
+// material lens is deterministic (reads floorMaterial straight off the layout), so
+// it needs nothing pre-computed.
+const LAYER_REQUIRES = { plan: null, comfort: "scores", graph: "topology", material: null };
 // If a lens isn't available yet, clicking it asks Sensi to run the analysis.
 const LAYER_RUN_MSG = { comfort: "analyse the layout", graph: "map the topology of the layout" };
 
-export default function LayoutModeScreen({ messages, turns, thinking, persona, layoutId, layoutVersion = 0, onSend }) {
+export default function LayoutModeScreen({ messages, turns, thinking, persona, layoutId, layoutVersion = 0, onSend, onReport,
+  checkpoints = [], hasUncommitted = false, uncommittedDelta = {}, onCommit, onRestore,
+  viewedTurn = null, onViewCheckpoint, onClearView }) {
   const [chatOpen,     setChatOpen]     = useState(true);
   const [profileOpen,  setProfileOpen]  = useState(false);
   const [capOpen,      setCapOpen]      = useState(false);
@@ -61,6 +65,7 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
   const [draft,        setDraft]        = useState("");
   const [layers,       setLayers]       = useState(DEFAULT_LAYERS);
   const taRef = useRef(null);
+  const planRef = useRef(null);
 
   const { focusSense, toggleSense, activeRoom, setActiveRoom } = useSelection();
 
@@ -69,10 +74,17 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
 
   useEffect(() => { if (latestTurn?.scores_json) setActiveTurnId(null); }, [latestTurn?.id]); // eslint-disable-line
 
-  // auto-focus the worst room when a fresh analysis lands
+  // After an analysis, auto-focus the worst room; after an EDIT, focus the room you
+  // just changed so its new scores are in front of you (not a jump to the worst room).
   useEffect(() => {
     const rs = roomScores(activeTurn);
-    if (rs.length) setActiveRoom(rs.reduce((a, b) => ((a.overallScore || 1) <= (b.overallScore || 1) ? a : b)).roomName);
+    if (!rs.length) return;
+    const edited = (activeTurn?.layout_diffs || []).find((d) => d?.room_name)?.room_name;
+    if (activeTurn?.action === "edit" && edited && rs.some((r) => r.roomName === edited)) {
+      setActiveRoom(edited);
+    } else {
+      setActiveRoom(rs.reduce((a, b) => ((a.overallScore || 1) <= (b.overallScore || 1) ? a : b)).roomName);
+    }
   }, [activeTurn?.id]); // eslint-disable-line
 
   // auto-reveal the topology graph when a topology turn lands (its data is fresh,
@@ -81,12 +93,31 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
     if (activeTurn?.action === "topologic") setLayers((l) => ({ ...l, graph: true }));
   }, [activeTurn?.id]); // eslint-disable-line
 
-  const rooms         = roomScores(activeTurn);
+  // panelTurn drives the score panel/canvas: a clicked checkpoint (read-only review)
+  // overrides the live turn so the rings + FocusCard show that milestone's scores.
+  const panelTurn     = viewedTurn || activeTurn;
+  const rooms         = roomScores(panelTurn);
+  // closed vocabulary for the chat linkifier — the current layout's room names.
+  const roomNames     = rooms.map((r) => r.roomName).filter(Boolean);
   const avg           = layoutScore(rooms);
-  const conflicts     = conflictCount(activeTurn);
+  const conflicts     = conflictCount(panelTurn);
+
+  // Rooms whose overall score moved on the latest EDIT turn — pulsed on the canvas so
+  // the change is felt. Suppressed while reviewing a checkpoint.
+  const prevTurn      = turns.length > 1 ? turns[turns.length - 2] : null;
+  const changedRooms  = useMemo(() => {
+    if (viewedTurn || activeTurn?.action !== "edit") return new Set();
+    const prevMap = {};
+    roomScores(prevTurn).forEach((r) => { prevMap[r.roomName] = r.overallScore; });
+    const s = new Set();
+    roomScores(activeTurn).forEach((r) => {
+      const p = prevMap[r.roomName];
+      if (p == null || Math.abs((r.overallScore || 0) - (p || 0)) > 0.005) s.add(r.roomName);
+    });
+    return s;
+  }, [activeTurn?.id, viewedTurn]); // eslint-disable-line
   const ringClass     = avg == null ? "" : avg >= 0.65 ? "score-pass" : avg >= 0.45 ? "score-warn" : "score-fail";
   const initial       = persona?.name?.charAt(0).toUpperCase() || "";
-  const metrics       = layers.graph ? activeTurn?.graph_data?.metrics : null;
 
   const cursorPos = useRef({ x: 200, y: 200 });
   useEffect(() => {
@@ -134,6 +165,8 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
 
       <TopBar wide>
         <span className="top-bar-sep">|</span>
+        <span className="top-bar-act" title="you are shaping & exploring the layout">shape</span>
+        <span className="top-bar-sep">|</span>
         <LayoutPicker layoutId={layoutId} onSelect={(id) => onSend(`load layout ${id}`)} onUpload={(id) => onSend(`analyse layout ${id}`)} />
         <div className="top-bar-status-group">
           {conflicts > 0 && <span className="top-bar-conflict-badge">{conflicts} {conflicts === 1 ? "conflict" : "conflicts"}</span>}
@@ -153,7 +186,9 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
             <motion.div className="lm-chat-sidebar"
               initial={{ x: -40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -40, opacity: 0 }}
               transition={{ duration: 0.2, ease: EASE.out }}>
-              <ChatThread messages={messages} thinking={thinking} format={formatChatMessage} />
+              <ChatThread messages={messages} thinking={thinking}
+                renderMessage={(text) => <InteractiveMessage text={text} rooms={roomNames} />}
+                hasUncommitted={hasUncommitted} uncommittedDelta={uncommittedDelta} onCommit={onCommit} />
               <div className="lm-input-area">
                 <button className={"cap-btn" + (capOpen ? " on" : "")} onClick={() => setCapOpen(o => !o)} title="capabilities">⊞</button>
                 <div className="send-row" style={{ flex: 1 }}>
@@ -173,41 +208,57 @@ export default function LayoutModeScreen({ messages, turns, thinking, persona, l
             <button className="lm-chat-toggle" onClick={() => setChatOpen(o => !o)} title={chatOpen ? "hide chat" : "show chat (Space to talk)"}>
               {chatOpen ? "‹ chat" : "chat ›"}
             </button>
-            <SenseMixer />
             <LayerToggles layers={layers} onToggle={onLayer} available={layerAvailable} />
+            <span className="lm-controls-sep" aria-hidden="true" />
             <button className="layer-pill" title="3D relationship galaxy"
               onClick={() => rooms.length ? setGalaxyOpen(true) : onSend("analyse the layout")}>galaxy ↗</button>
+            <button className="layer-pill lm-report-cta" title={hasUncommitted
+                ? "open The Vision — shows your last committed checkpoint (commit to include new edits)"
+                : "open The Vision — renders, prompts & scores per room"}
+              onClick={() => rooms.length ? onReport?.() : onSend("analyse the layout")}>the vision →</button>
+            {hasUncommitted && (
+              <span className="lm-uncommitted-hint" title="The Vision renders committed checkpoints; commit your edits to include them"
+                style={{ fontSize: 11, color: "rgba(var(--fg-rgb),0.55)", fontFamily: "var(--font-mono)" }}>
+                · uncommitted edits not in The Vision yet
+              </span>
+            )}
           </div>
 
-          <div className="lm-viewer">
-            <SensePlan rooms={rooms} layoutId={layoutId} layoutVersion={layoutVersion} layers={layers} graphData={activeTurn?.graph_data} />
+          {viewedTurn && (
+            <div className="lm-viewing-banner" style={{
+              position: "absolute", top: 44, left: "50%", transform: "translateX(-50%)", zIndex: 6,
+              fontFamily: "var(--font-mono)", fontSize: 12, padding: "4px 10px", borderRadius: 8,
+              background: "rgba(10,10,10,.85)", border: "1px solid rgba(var(--fg-rgb),.15)", color: "rgba(var(--fg-rgb),.8)",
+            }}>
+              viewing checkpoint · {viewedTurn.label}
+              <button className="layer-pill" style={{ marginLeft: 8 }} onClick={() => onClearView?.()}>back to current ✕</button>
+            </div>
+          )}
 
-            {/* topology metric pills */}
-            {metrics && (
-              <div className="metric-pills">
-                {metrics.most_connected && metrics.most_connected !== "none" && <span className="metric-pill">hub · {metrics.most_connected}</span>}
-                {metrics.bridge_rooms?.length > 0 && <span className="metric-pill">bridges · {metrics.bridge_rooms.join(", ")}</span>}
-                {metrics.isolated_rooms?.length > 0 && <span className="metric-pill warn">isolated · {metrics.isolated_rooms.join(", ")}</span>}
-                {metrics.num_components > 1 && <span className="metric-pill warn">detached · {metrics.num_components} zones</span>}
-              </div>
-            )}
+          <div className={"lm-viewer" + (activeRoom && rooms.length > 0 ? " has-focus" : "")}>
+            <SensePlan ref={planRef} rooms={rooms} layoutId={layoutId} layoutVersion={layoutVersion} layers={layers}
+              graphData={panelTurn?.graph_data} diffs={viewedTurn ? [] : (activeTurn?.layout_diffs || [])}
+              changedRooms={changedRooms} pulseKey={activeTurn?.id} />
 
-            {/* legend (corner) */}
-            <div className="legend-corner"><Legend layers={layers} /></div>
+            {/* reading-aids legend — a horizontal strip in the top canvas band,
+                sharing the row with Expand All (card-less) */}
+            <Legend layers={layers} />
 
-            {/* docked sense-coupling key (universal model reference) */}
-            <div className="sense-key-corner"><SenseKey rooms={rooms} /></div>
+            {/* sense-coupling key plan + filter, bottom-left (card-less) */}
+            <div className="lm-corner-left">
+              <SenseKey rooms={rooms} />
+            </div>
 
-            {/* focus card (right overlay, on room select) */}
+            {/* focus card (right overlay, on room select — the plan reflows left for it) */}
             <AnimatePresence>
               {activeRoom && rooms.length > 0 && (
-                <FocusCard key="focus-card" turn={activeTurn} persona={persona} onClose={() => setActiveRoom(null)} onFix={send} />
+                <FocusCard key="focus-card" turn={panelTurn} persona={persona} onClose={() => setActiveRoom(null)} onFix={send} />
               )}
             </AnimatePresence>
           </div>
 
-          <TimelineStrip turns={turns} activeTurnId={activeTurnId}
-            onSelect={(id) => setActiveTurnId(id === activeTurnId ? null : id)} />
+          <CheckpointsStrip checkpoints={checkpoints} onRestore={onRestore}
+            onView={onViewCheckpoint} viewedId={viewedTurn ? viewedTurn.checkpointId : null} />
         </div>
       </div>
 

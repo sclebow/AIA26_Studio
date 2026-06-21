@@ -44,6 +44,24 @@ def build_tool_node(mcp_client, allowed_tools, workspace_path):
                 new_messages.append({"role": "user", "content": f"Tool '{tool_name}' is not available. Available tools: {', '.join(sorted(allowed_names))}"})
                 continue
 
+            # Block analysis tools during adjustment — they run automatically
+            # after every placement/move via the graph pipeline. The LLM calling
+            # them manually wastes turns and delays the workflow.
+            _AUTO_ANALYSIS_TOOLS = {
+                "collision-detector-grid",
+                "visualize_visibility",
+                "visualize_paths",
+                "visualize_reachability",
+                "visualize_orientation",
+            }
+            if tool_name in _AUTO_ANALYSIS_TOOLS and state.get("last_placement_result") is not None:
+                print(f"[tools] Blocked manual call to '{tool_name}' — runs automatically after placement")
+                new_messages.append({
+                    "role": "user",
+                    "content": f"'{tool_name}' runs automatically — no need to call it. Focus on move_object calls only."
+                })
+                continue
+
             print(f"Calling tool: {tool_name} with arguments: {call['arguments']}")
 
             # Strip null/empty values and fields that are injected automatically.

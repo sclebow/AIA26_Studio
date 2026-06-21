@@ -54,7 +54,7 @@ const Histogram: React.FC<HistogramProps> = ({ data, label, color }) => {
     border: `1px solid ${colors.border}`,
     borderRadius: '6px',
     padding: '6px 10px',
-    fontSize: '11px',
+    fontSize: '12px',
     fontFamily: colors.font,
     color: colors.text,
   };
@@ -62,7 +62,7 @@ const Histogram: React.FC<HistogramProps> = ({ data, label, color }) => {
   if (!data || data.length === 0) {
     return (
       <div style={{ fontFamily: colors.font }}>
-        <div style={{ color: colors.muted, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>{label}</div>
+        <div style={{ color: colors.muted, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>{label}</div>
         <div style={{ color: colors.muted, fontSize: 12, textAlign: 'center', padding: 20 }}>No data available</div>
       </div>
     );
@@ -70,19 +70,19 @@ const Histogram: React.FC<HistogramProps> = ({ data, label, color }) => {
 
   return (
     <div style={{ fontFamily: colors.font }}>
-      <div style={{ color: colors.muted, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>{label}</div>
+      <div style={{ color: colors.muted, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>{label}</div>
       <ResponsiveContainer width="100%" height={130}>
         <BarChart data={bins} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
           <XAxis
             dataKey="range"
-            tick={{ fill: colors.muted, fontSize: 9 }}
+            tick={{ fill: colors.muted, fontSize: 10 }}
             tickLine={false}
             axisLine={{ stroke: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}
             interval="preserveStartEnd"
           />
           <YAxis
             allowDecimals={false}
-            tick={{ fill: colors.muted, fontSize: 9 }}
+            tick={{ fill: colors.muted, fontSize: 10 }}
             tickLine={false}
             axisLine={false}
             width={30}

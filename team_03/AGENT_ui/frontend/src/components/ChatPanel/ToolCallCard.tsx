@@ -47,7 +47,7 @@ const ToolCallCard: React.FC<ToolCallCardProps> = ({ name, status, args, result 
     background: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.05)',
     borderRadius: '6px',
     padding: '8px',
-    fontSize: '11px',
+    fontSize: '12px',
     color: isDark ? '#b0bec5' : '#4a5a6a',
     fontFamily: '"SF Mono", "Fira Code", monospace',
     whiteSpace: 'pre-wrap',
@@ -78,7 +78,7 @@ const ToolCallCard: React.FC<ToolCallCardProps> = ({ name, status, args, result 
             animation: status === 'running' ? 'toolcardPulse 1.2s ease-in-out infinite' : 'none',
           }} />
           <span style={nameStyle}>{name}</span>
-          <span style={{ color: dotColor, fontSize: '11px', textTransform: 'capitalize' }}>{status}</span>
+          <span style={{ color: dotColor, fontSize: '12px', textTransform: 'capitalize' }}>{status}</span>
           <span style={{ color: colors.muted, fontSize: 10, transition: 'transform 0.2s', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>&#9660;</span>
         </div>
 

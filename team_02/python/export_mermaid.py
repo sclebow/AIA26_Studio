@@ -31,6 +31,8 @@ from typing import Any
 class _MockContext:
     llm_simple:       Any  = None
     llm:              Any  = None
+    llm_fast:         Any  = None   # routing / classification / short text tier
+    llm_smart:        Any  = None   # user-facing prose & nuanced reasoning tier
     mcp_client:       Any  = None   # name kept for parity; real ctx holds a LocalToolClient
     layout_input_dir: Path = field(default_factory=lambda: Path(".") / "randomized_layouts")
     layout_output_dir: Path = field(default_factory=lambda: Path(".") / "resulting_layout")
@@ -61,10 +63,9 @@ _NODE_MAP = {
     "RESPOND":           "respond",
     "EVALUATOR":         "evaluator",
     "WHAT_NEXT":         "what_next",
-    # Edit tools
-    "CHANGE_MATERIAL":   "change_material",
-    "MODIFY_GLAZING":    "modify_glazing",
-    "ADD_FURNITURE":     "add_furniture",
+    # Edit tools (unified multi-edit path)
+    "EDIT_PLANNER":      "edit_planner",
+    "APPLY_EDITS":       "apply_edits",
     "COMPARE_VERSIONS":  "compare_versions",
     "PREVIEW":           "preview",
     # Insight tools
@@ -109,6 +110,11 @@ flowchart TB
     classDef onboard  fill:#EAD5F5,stroke:#9B59B6,stroke-width:2.5px,color:#1a1a1a
     classDef terminal fill:#2C3E50,stroke:#2C3E50,color:#fff
     classDef gate     fill:#F8F9FA,stroke:#6C757D,stroke-width:1.5px,stroke-dasharray:3 2,color:#555
+    %% Act 3 (The Vision) — its own lively palette so the output reads as a destination
+    classDef report   fill:#CDE7F2,stroke:#3F93B5,stroke-width:2px,color:#1a1a1a
+    classDef vision   fill:#F6CFE9,stroke:#C2479A,stroke-width:3px,color:#1a1a1a
+    classDef output   fill:#F7E6BE,stroke:#D9A441,stroke-width:2px,color:#1a1a1a
+    classDef state    fill:#E8E4F3,stroke:#7E6BB0,stroke-width:2px,color:#1a1a1a
 
     START([START]):::terminal
     END_F([END]):::terminal
@@ -136,7 +142,7 @@ flowchart TB
 
     %% ── ② ROUTING (layout mode) — one LLM call per turn ──────────────────────
     subgraph ROUTING["② ROUTING — layout mode"]
-        ACTION_CLASSIFIER["ACTION_CLASSIFIER<br/>ONE call → one of 13 actions:<br/>analyze · detect · full · overview · follow_up<br/>chitchat · inspire · change_material · modify_glazing<br/>add_furniture · topologic · biophilic · compare"]:::llm
+        ACTION_CLASSIFIER["ACTION_CLASSIFIER<br/>ONE call → one of 12 actions:<br/>analyze · detect · full · overview · follow_up<br/>chitchat · inspire · edit · preview<br/>topologic · biophilic · compare"]:::llm
     end
 
     CHITCHAT["CHITCHAT<br/>off-topic; detects shift to analysis"]:::llm
@@ -156,11 +162,10 @@ flowchart TB
         SUGGEST_CRIT["SUGGESTION_CRITIC<br/>feasible? ranked? cross-sense cost?"]:::llm
     end
 
-    %% ── ⑤ EDIT TOOLS — mutate the layout, then re-score ──────────────────────
-    subgraph EDITS["⑤ EDIT TOOLS — mutate → re-score → compare"]
-        CHANGE_MATERIAL["CHANGE_MATERIAL"]:::py
-        MODIFY_GLAZING["MODIFY_GLAZING"]:::py
-        ADD_FURNITURE["ADD_FURNITURE"]:::py
+    %% ── ⑤ EDIT TOOLS — multi-edit: N ops in one turn, ONE re-score ───────────
+    subgraph EDITS["⑤ EDIT TOOLS — decompose → mutate all → re-score → compare"]
+        EDIT_PLANNER["EDIT_PLANNER<br/>prompt → ops list<br/>'add 2 plants and change glazing' → 2 ops"]:::llm
+        APPLY_EDITS["APPLY_EDITS<br/>mutate every op · accumulate layout_diffs"]:::py
         COMPARE_VERSIONS["COMPARE_VERSIONS<br/>before/after delta per sense"]:::py
         PREVIEW["PREVIEW — 'what if'<br/>score a CLONE · predicted ripple · NOT committed"]:::tool
     end
@@ -180,6 +185,24 @@ flowchart TB
 
     WHAT_NEXT["WHAT_NEXT<br/>names worst finding · suggests next action"]:::llm
     OUTPUT_WRITER[("OUTPUT_WRITER (post-graph)<br/>writes resulting_layout/")]:::gate
+
+    %% Shared memory the analysis leaves behind — the bridge to Act 3.
+    SESSION[("session memory<br/>scores · current layout · persona")]:::state
+
+    %% ── ⑧ ACT 3 — THE VISION (the output: each room's scores become an image) ────
+    %% A separate screen with its own REST endpoints, opened after the analysis. It
+    %% reads the cached scores from the session and turns each room into a render.
+    subgraph REPORT["⑧ ACT 3 — THE VISION · the output"]
+        direction TB
+        REPORT_API["/api/report<br/>scores → a prompt per room"]:::report
+        RENDER["/api/render-room<br/>prompt + scores → rendered room"]:::report
+        COMPARE["before / after · initial → now<br/>/api/compare-initial"]:::report
+        IMG_MODEL{{"image generation<br/>Google Nano Banana · OpenAI gpt-image-1"}}:::vision
+        EXPORTS[("download<br/>PNG · JSON: edited layout + scores + prompts")]:::output
+        REPORT_API --> RENDER --> IMG_MODEL
+        COMPARE --> IMG_MODEL
+        RENDER --> EXPORTS
+    end
 
     %% ── EDGES ─────────────────────────────────────────────────────────────────
 
@@ -207,9 +230,7 @@ flowchart TB
     LOAD_LAYOUT -->|"overview"| OVERVIEW_RESPOND --> WHAT_NEXT
     LOAD_LAYOUT -->|"analyze · (detect/full, no cache)"| ANALYZE
     LOAD_LAYOUT -->|"detect/full · CACHE HIT (skip analyze)"| DETECT
-    LOAD_LAYOUT -->|"change_material"| CHANGE_MATERIAL
-    LOAD_LAYOUT -->|"modify_glazing"| MODIFY_GLAZING
-    LOAD_LAYOUT -->|"add_furniture"| ADD_FURNITURE
+    LOAD_LAYOUT -->|"edit (one or more changes)"| EDIT_PLANNER
     LOAD_LAYOUT -->|"preview / what-if"| PREVIEW
     LOAD_LAYOUT -->|"topologic"| TOPOLOGIC
     LOAD_LAYOUT -->|"biophilic"| BIOPHILIC_AUDIT
@@ -226,15 +247,15 @@ flowchart TB
     CONFLICT_R -->|"full"| SUGGEST --> SUGGEST_CRIT --> RESPOND
     CONFLICT_R -->|"detect"| RESPOND
 
-    %% Edit tools → re-score
-    CHANGE_MATERIAL --> ANALYZE
-    MODIFY_GLAZING --> ANALYZE
-    ADD_FURNITURE --> ANALYZE
+    %% Edit path → single re-score (or straight to respond when nothing resolved)
+    EDIT_PLANNER --> APPLY_EDITS
+    APPLY_EDITS -->|"changed"| ANALYZE
+    APPLY_EDITS -->|"zero ops"| RESPOND
     PREVIEW --> WHAT_NEXT
 
     %% Insight tools
     TOPOLOGIC --> RESPOND
-    BIOPHILIC_AUDIT -->|"needs plants"| ADD_FURNITURE
+    BIOPHILIC_AUDIT -->|"needs plants (pre-seeds edit_ops)"| APPLY_EDITS
     BIOPHILIC_AUDIT -->|"direct"| SCORE_INTERP
     PERSONA_COMPARISON --> SCORE_INTERP
 
@@ -244,6 +265,13 @@ flowchart TB
     EVALUATOR -->|"APPROVED"| WHAT_NEXT
     WHAT_NEXT -.->|"post-graph"| OUTPUT_WRITER
     WHAT_NEXT -->|"done"| END_F
+
+    %% Where Act 3 gets its data: the analysis turn caches the scores and the current
+    %% (edited) layout on the session; The Vision reads them — it never re-runs the graph.
+    ANALYZE -.->|"caches scores"| SESSION
+    SESSION -.->|"later · user opens The Vision · reads scores"| REPORT_API
+    SESSION -.->|"scores + room attributes"| RENDER
+    SESSION -.->|"current layout (vs the initial on-disk)"| COMPARE
 """
 
 

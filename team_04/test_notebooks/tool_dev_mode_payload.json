@@ -1,0 +1,1801 @@
+{
+  "success": true,
+  "data": {
+    "geometry_id": "generate_building_boundary_9f83f14bc41b",
+    "shape_type": "U",
+    "boundary": [
+      [
+        77.983841,
+        20.208096,
+        0.0
+      ],
+      [
+        60.023587,
+        19.012578,
+        0.0
+      ],
+      [
+        54.715334,
+        18.659236,
+        0.0
+      ],
+      [
+        36.75508,
+        17.463717,
+        0.0
+      ],
+      [
+        35.559561,
+        35.423972,
+        0.0
+      ],
+      [
+        35.271309,
+        39.754389,
+        0.0
+      ],
+      [
+        53.231563,
+        40.949907,
+        0.0
+      ],
+      [
+        53.519816,
+        36.61949,
+        0.0
+      ],
+      [
+        58.828069,
+        36.972832,
+        0.0
+      ],
+      [
+        58.539816,
+        41.303249,
+        0.0
+      ],
+      [
+        76.50007,
+        42.498767,
+        0.0
+      ],
+      [
+        76.788323,
+        38.16835,
+        0.0
+      ],
+      [
+        77.983841,
+        20.208096,
+        0.0
+      ]
+    ],
+    "boundary_area_sqm": 900.0,
+    "perimeter_m": 136.0,
+    "centroid": [
+      56.64291,
+      29.750864,
+      0.0
+    ],
+    "bounding_box": {
+      "min": [
+        35.271309,
+        17.463717,
+        0.0
+      ],
+      "max": [
+        77.983841,
+        42.498767,
+        0.0
+      ]
+    },
+    "wings": [
+      {
+        "wing_index": 0,
+        "role": "base",
+        "area_sqm": 743.76,
+        "centroid": [
+          56.771701,
+          27.816034,
+          0.0
+        ],
+        "boundary": [
+          [
+            77.983841,
+            20.208096,
+            0.0
+          ],
+          [
+            76.788323,
+            38.16835,
+            0.0
+          ],
+          [
+            35.559561,
+            35.423972,
+            0.0
+          ],
+          [
+            36.75508,
+            17.463717,
+            0.0
+          ],
+          [
+            77.983841,
+            20.208096,
+            0.0
+          ]
+        ],
+        "nominal_width_m": 18.0,
+        "nominal_length_m": 41.32,
+        "editable_parameters": [
+          "width",
+          "length",
+          "edge_rotation",
+          "extension"
+        ]
+      },
+      {
+        "wing_index": 1,
+        "role": "left_wing",
+        "area_sqm": 402.12,
+        "centroid": [
+          44.993321,
+          29.206812,
+          0.0
+        ],
+        "boundary": [
+          [
+            54.715334,
+            18.659236,
+            0.0
+          ],
+          [
+            53.231563,
+            40.949907,
+            0.0
+          ],
+          [
+            35.271309,
+            39.754389,
+            0.0
+          ],
+          [
+            36.75508,
+            17.463717,
+            0.0
+          ],
+          [
+            54.715334,
+            18.659236,
+            0.0
+          ]
+        ],
+        "nominal_width_m": 18.0,
+        "nominal_length_m": 22.34,
+        "editable_parameters": [
+          "width",
+          "length",
+          "edge_rotation",
+          "extension"
+        ]
+      },
+      {
+        "wing_index": 2,
+        "role": "right_wing",
+        "area_sqm": 402.12,
+        "centroid": [
+          68.261829,
+          30.755672,
+          0.0
+        ],
+        "boundary": [
+          [
+            77.983841,
+            20.208096,
+            0.0
+          ],
+          [
+            76.50007,
+            42.498767,
+            0.0
+          ],
+          [
+            58.539816,
+            41.303249,
+            0.0
+          ],
+          [
+            60.023587,
+            19.012578,
+            0.0
+          ],
+          [
+            77.983841,
+            20.208096,
+            0.0
+          ]
+        ],
+        "nominal_width_m": 18.0,
+        "nominal_length_m": 22.34,
+        "editable_parameters": [
+          "width",
+          "length",
+          "edge_rotation",
+          "extension"
+        ]
+      }
+    ],
+    "building_graph": {
+      "backend": "topologicpy",
+      "node_count": 3,
+      "edge_count": 2,
+      "edges": [
+        {
+          "from_wing_index": 0,
+          "to_wing_index": 1,
+          "relationship": "connected"
+        },
+        {
+          "from_wing_index": 0,
+          "to_wing_index": 2,
+          "relationship": "connected"
+        }
+      ],
+      "adjacency_list": [
+        [
+          1,
+          2
+        ],
+        [
+          0
+        ],
+        [
+          0
+        ]
+      ],
+      "centerline_graph": {
+        "node_count": 4,
+        "edge_count": 3,
+        "nodes": [
+          {
+            "node_index": 0,
+            "kind": "joint",
+            "point": [
+              45.137448,
+              27.041604,
+              0.0
+            ],
+            "connected_wings": [
+              0,
+              1
+            ]
+          },
+          {
+            "node_index": 1,
+            "kind": "joint",
+            "point": [
+              68.405955,
+              28.590464,
+              0.0
+            ],
+            "connected_wings": [
+              0,
+              2
+            ]
+          },
+          {
+            "node_index": 2,
+            "kind": "endpoint",
+            "point": [
+              44.251436,
+              40.352148,
+              0.0
+            ],
+            "connected_wings": [
+              1
+            ]
+          },
+          {
+            "node_index": 3,
+            "kind": "endpoint",
+            "point": [
+              67.519943,
+              41.901008,
+              0.0
+            ],
+            "connected_wings": [
+              2
+            ]
+          }
+        ],
+        "edges": [
+          {
+            "edge_index": 0,
+            "wing_index": 0,
+            "role": "base",
+            "from_node_index": 0,
+            "to_node_index": 1,
+            "centerline": [
+              [
+                45.137448,
+                27.041604,
+                0.0
+              ],
+              [
+                68.405955,
+                28.590464,
+                0.0
+              ]
+            ],
+            "length_m": 23.32,
+            "nominal_width_m": 18.0,
+            "estimated_area_sqm": 743.76
+          },
+          {
+            "edge_index": 1,
+            "wing_index": 1,
+            "role": "left_wing",
+            "from_node_index": 2,
+            "to_node_index": 0,
+            "centerline": [
+              [
+                44.251436,
+                40.352148,
+                0.0
+              ],
+              [
+                45.137448,
+                27.041604,
+                0.0
+              ]
+            ],
+            "length_m": 13.34,
+            "nominal_width_m": 18.0,
+            "estimated_area_sqm": 402.12
+          },
+          {
+            "edge_index": 2,
+            "wing_index": 2,
+            "role": "right_wing",
+            "from_node_index": 3,
+            "to_node_index": 1,
+            "centerline": [
+              [
+                67.519943,
+                41.901008,
+                0.0
+              ],
+              [
+                68.405955,
+                28.590464,
+                0.0
+              ]
+            ],
+            "length_m": 13.34,
+            "nominal_width_m": 18.0,
+            "estimated_area_sqm": 402.12
+          }
+        ],
+        "adjacency_list": [
+          [
+            1,
+            2
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0
+          ],
+          [
+            1
+          ]
+        ]
+      }
+    },
+    "topologic_shape": {
+      "backend": "topologicpy",
+      "face_geometry": {
+        "vertices": [
+          [
+            77.983841,
+            20.208096,
+            0.0
+          ],
+          [
+            60.023587,
+            19.012578,
+            0.0
+          ],
+          [
+            54.715334,
+            18.659236,
+            0.0
+          ],
+          [
+            36.75508,
+            17.463717,
+            0.0
+          ],
+          [
+            35.559561,
+            35.423972,
+            0.0
+          ],
+          [
+            35.271309,
+            39.754389,
+            0.0
+          ],
+          [
+            53.231563,
+            40.949907,
+            0.0
+          ],
+          [
+            53.519816,
+            36.61949,
+            0.0
+          ],
+          [
+            58.828069,
+            36.972832,
+            0.0
+          ],
+          [
+            58.539816,
+            41.303249,
+            0.0
+          ],
+          [
+            76.50007,
+            42.498767,
+            0.0
+          ],
+          [
+            76.788323,
+            38.16835,
+            0.0
+          ]
+        ],
+        "edges": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            7,
+            8
+          ],
+          [
+            8,
+            9
+          ],
+          [
+            9,
+            10
+          ],
+          [
+            10,
+            11
+          ],
+          [
+            11,
+            0
+          ]
+        ],
+        "faces": [
+          [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        ],
+        "vertex_dicts": [
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {}
+        ],
+        "edge_dicts": [],
+        "face_dicts": []
+      },
+      "wing_face_geometries": [
+        {
+          "vertices": [
+            [
+              77.983841,
+              20.208096,
+              0.0
+            ],
+            [
+              76.788323,
+              38.16835,
+              0.0
+            ],
+            [
+              35.559561,
+              35.423972,
+              0.0
+            ],
+            [
+              36.75508,
+              17.463717,
+              0.0
+            ]
+          ],
+          "edges": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              0
+            ]
+          ],
+          "faces": [
+            [
+              0,
+              1,
+              2,
+              3
+            ]
+          ],
+          "vertex_dicts": [
+            {},
+            {},
+            {},
+            {}
+          ],
+          "edge_dicts": [],
+          "face_dicts": []
+        },
+        {
+          "vertices": [
+            [
+              54.715334,
+              18.659236,
+              0.0
+            ],
+            [
+              53.231563,
+              40.949907,
+              0.0
+            ],
+            [
+              35.271309,
+              39.754389,
+              0.0
+            ],
+            [
+              36.75508,
+              17.463717,
+              0.0
+            ]
+          ],
+          "edges": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              0
+            ]
+          ],
+          "faces": [
+            [
+              0,
+              1,
+              2,
+              3
+            ]
+          ],
+          "vertex_dicts": [
+            {},
+            {},
+            {},
+            {}
+          ],
+          "edge_dicts": [],
+          "face_dicts": []
+        },
+        {
+          "vertices": [
+            [
+              77.983841,
+              20.208096,
+              0.0
+            ],
+            [
+              76.50007,
+              42.498767,
+              0.0
+            ],
+            [
+              58.539816,
+              41.303249,
+              0.0
+            ],
+            [
+              60.023587,
+              19.012578,
+              0.0
+            ]
+          ],
+          "edges": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              0
+            ]
+          ],
+          "faces": [
+            [
+              0,
+              1,
+              2,
+              3
+            ]
+          ],
+          "vertex_dicts": [
+            {},
+            {},
+            {},
+            {}
+          ],
+          "edge_dicts": [],
+          "face_dicts": []
+        }
+      ]
+    },
+    "site_fit_summary": {
+      "outside_area_sqm": 0.0,
+      "clearance_m": 17.463717,
+      "fits_within_site_boundary": true,
+      "clearance_target_m": 2.0
+    },
+    "placement_optimization": {
+      "optimized": true,
+      "centroid_xy": [
+        56.64291,
+        29.750864
+      ],
+      "rotation_degrees": 3.808256,
+      "objective": -17.463717,
+      "outside_area_sqm": 0.0,
+      "clearance_m": 17.463717,
+      "fits_within_site_boundary": true,
+      "population_size": 40,
+      "generation_count": 40,
+      "random_seed": 11,
+      "target_location_xy": [],
+      "selected_option_id": "placement_option_01",
+      "saved_option_count": 5,
+      "saved_options": [
+        {
+          "option_id": "placement_option_01",
+          "label": "Placement option 1",
+          "status": "selected",
+          "centroid_xy": [
+            56.64291,
+            29.750864
+          ],
+          "rotation_degrees": 3.808256,
+          "objective": -17.463717,
+          "outside_area_sqm": 0.0,
+          "clearance_m": 17.463717,
+          "fits_within_site_boundary": true,
+          "boundary": [
+            [
+              77.983841,
+              20.208096,
+              0.0
+            ],
+            [
+              60.023586,
+              19.012577,
+              0.0
+            ],
+            [
+              54.715333,
+              18.659235,
+              0.0
+            ],
+            [
+              36.755079,
+              17.463717,
+              0.0
+            ],
+            [
+              35.559561,
+              35.423972,
+              0.0
+            ],
+            [
+              35.271308,
+              39.754389,
+              0.0
+            ],
+            [
+              53.231563,
+              40.949907,
+              0.0
+            ],
+            [
+              53.519815,
+              36.61949,
+              0.0
+            ],
+            [
+              58.828068,
+              36.972832,
+              0.0
+            ],
+            [
+              58.539816,
+              41.303249,
+              0.0
+            ],
+            [
+              76.50007,
+              42.498767,
+              0.0
+            ],
+            [
+              76.788323,
+              38.16835,
+              0.0
+            ],
+            [
+              77.983841,
+              20.208096,
+              0.0
+            ]
+          ],
+          "is_selected": true
+        },
+        {
+          "option_id": "placement_option_02",
+          "label": "Placement option 2",
+          "status": "candidate",
+          "centroid_xy": [
+            55.967626,
+            29.742665
+          ],
+          "rotation_degrees": 3.808256,
+          "objective": -17.455518,
+          "outside_area_sqm": 0.0,
+          "clearance_m": 17.455519,
+          "fits_within_site_boundary": true,
+          "boundary": [
+            [
+              77.308557,
+              20.199897,
+              0.0
+            ],
+            [
+              59.348303,
+              19.004379,
+              0.0
+            ],
+            [
+              54.04005,
+              18.651037,
+              0.0
+            ],
+            [
+              36.079796,
+              17.455519,
+              0.0
+            ],
+            [
+              34.884278,
+              35.415773,
+              0.0
+            ],
+            [
+              34.596025,
+              39.74619,
+              0.0
+            ],
+            [
+              52.556279,
+              40.941708,
+              0.0
+            ],
+            [
+              52.844532,
+              36.611291,
+              0.0
+            ],
+            [
+              58.152785,
+              36.964633,
+              0.0
+            ],
+            [
+              57.864532,
+              41.29505,
+              0.0
+            ],
+            [
+              75.824787,
+              42.490568,
+              0.0
+            ],
+            [
+              76.113039,
+              38.160151,
+              0.0
+            ],
+            [
+              77.308557,
+              20.199897,
+              0.0
+            ]
+          ],
+          "is_selected": false
+        },
+        {
+          "option_id": "placement_option_03",
+          "label": "Placement option 3",
+          "status": "candidate",
+          "centroid_xy": [
+            56.367324,
+            29.741418
+          ],
+          "rotation_degrees": 3.808256,
+          "objective": -17.454271,
+          "outside_area_sqm": 0.0,
+          "clearance_m": 17.454271,
+          "fits_within_site_boundary": true,
+          "boundary": [
+            [
+              77.708255,
+              20.19865,
+              0.0
+            ],
+            [
+              59.748001,
+              19.003132,
+              0.0
+            ],
+            [
+              54.439748,
+              18.64979,
+              0.0
+            ],
+            [
+              36.479493,
+              17.454271,
+              0.0
+            ],
+            [
+              35.283975,
+              35.414526,
+              0.0
+            ],
+            [
+              34.995723,
+              39.744943,
+              0.0
+            ],
+            [
+              52.955977,
+              40.940461,
+              0.0
+            ],
+            [
+              53.24423,
+              36.610044,
+              0.0
+            ],
+            [
+              58.552483,
+              36.963386,
+              0.0
+            ],
+            [
+              58.26423,
+              41.293803,
+              0.0
+            ],
+            [
+              76.224484,
+              42.489321,
+              0.0
+            ],
+            [
+              76.512737,
+              38.158904,
+              0.0
+            ],
+            [
+              77.708255,
+              20.19865,
+              0.0
+            ]
+          ],
+          "is_selected": false
+        },
+        {
+          "option_id": "placement_option_04",
+          "label": "Placement option 4",
+          "status": "candidate",
+          "centroid_xy": [
+            55.831234,
+            29.741259
+          ],
+          "rotation_degrees": 3.808256,
+          "objective": -17.454112,
+          "outside_area_sqm": 0.0,
+          "clearance_m": 17.454112,
+          "fits_within_site_boundary": true,
+          "boundary": [
+            [
+              77.172165,
+              20.198491,
+              0.0
+            ],
+            [
+              59.21191,
+              19.002973,
+              0.0
+            ],
+            [
+              53.903657,
+              18.649631,
+              0.0
+            ],
+            [
+              35.943403,
+              17.454112,
+              0.0
+            ],
+            [
+              34.747885,
+              35.414367,
+              0.0
+            ],
+            [
+              34.459632,
+              39.744784,
+              0.0
+            ],
+            [
+              52.419887,
+              40.940302,
+              0.0
+            ],
+            [
+              52.708139,
+              36.609885,
+              0.0
+            ],
+            [
+              58.016392,
+              36.963227,
+              0.0
+            ],
+            [
+              57.72814,
+              41.293644,
+              0.0
+            ],
+            [
+              75.688394,
+              42.489162,
+              0.0
+            ],
+            [
+              75.976647,
+              38.158745,
+              0.0
+            ],
+            [
+              77.172165,
+              20.198491,
+              0.0
+            ]
+          ],
+          "is_selected": false
+        },
+        {
+          "option_id": "placement_option_05",
+          "label": "Placement option 5",
+          "status": "candidate",
+          "centroid_xy": [
+            56.346432,
+            29.740235
+          ],
+          "rotation_degrees": 3.808256,
+          "objective": -17.453088,
+          "outside_area_sqm": 0.0,
+          "clearance_m": 17.453088,
+          "fits_within_site_boundary": true,
+          "boundary": [
+            [
+              77.687364,
+              20.197467,
+              0.0
+            ],
+            [
+              59.727109,
+              19.001948,
+              0.0
+            ],
+            [
+              54.418856,
+              18.648606,
+              0.0
+            ],
+            [
+              36.458602,
+              17.453088,
+              0.0
+            ],
+            [
+              35.263084,
+              35.413343,
+              0.0
+            ],
+            [
+              34.974831,
+              39.74376,
+              0.0
+            ],
+            [
+              52.935085,
+              40.939278,
+              0.0
+            ],
+            [
+              53.223338,
+              36.608861,
+              0.0
+            ],
+            [
+              58.531591,
+              36.962203,
+              0.0
+            ],
+            [
+              58.243338,
+              41.29262,
+              0.0
+            ],
+            [
+              76.203593,
+              42.488138,
+              0.0
+            ],
+            [
+              76.491845,
+              38.157721,
+              0.0
+            ],
+            [
+              77.687364,
+              20.197467,
+              0.0
+            ]
+          ],
+          "is_selected": false
+        }
+      ]
+    },
+    "option_catalog": {
+      "geometry_id": "generate_building_boundary_9f83f14bc41b",
+      "shape_type": "U",
+      "selected_option_id": "placement_option_01",
+      "options": [
+        {
+          "option_id": "placement_option_01",
+          "label": "Placement option 1",
+          "status": "selected",
+          "centroid_xy": [
+            56.64291,
+            29.750864
+          ],
+          "rotation_degrees": 3.808256,
+          "objective": -17.463717,
+          "outside_area_sqm": 0.0,
+          "clearance_m": 17.463717,
+          "fits_within_site_boundary": true,
+          "boundary": [
+            [
+              77.983841,
+              20.208096,
+              0.0
+            ],
+            [
+              60.023586,
+              19.012577,
+              0.0
+            ],
+            [
+              54.715333,
+              18.659235,
+              0.0
+            ],
+            [
+              36.755079,
+              17.463717,
+              0.0
+            ],
+            [
+              35.559561,
+              35.423972,
+              0.0
+            ],
+            [
+              35.271308,
+              39.754389,
+              0.0
+            ],
+            [
+              53.231563,
+              40.949907,
+              0.0
+            ],
+            [
+              53.519815,
+              36.61949,
+              0.0
+            ],
+            [
+              58.828068,
+              36.972832,
+              0.0
+            ],
+            [
+              58.539816,
+              41.303249,
+              0.0
+            ],
+            [
+              76.50007,
+              42.498767,
+              0.0
+            ],
+            [
+              76.788323,
+              38.16835,
+              0.0
+            ],
+            [
+              77.983841,
+              20.208096,
+              0.0
+            ]
+          ],
+          "is_selected": true
+        },
+        {
+          "option_id": "placement_option_02",
+          "label": "Placement option 2",
+          "status": "candidate",
+          "centroid_xy": [
+            55.967626,
+            29.742665
+          ],
+          "rotation_degrees": 3.808256,
+          "objective": -17.455518,
+          "outside_area_sqm": 0.0,
+          "clearance_m": 17.455519,
+          "fits_within_site_boundary": true,
+          "boundary": [
+            [
+              77.308557,
+              20.199897,
+              0.0
+            ],
+            [
+              59.348303,
+              19.004379,
+              0.0
+            ],
+            [
+              54.04005,
+              18.651037,
+              0.0
+            ],
+            [
+              36.079796,
+              17.455519,
+              0.0
+            ],
+            [
+              34.884278,
+              35.415773,
+              0.0
+            ],
+            [
+              34.596025,
+              39.74619,
+              0.0
+            ],
+            [
+              52.556279,
+              40.941708,
+              0.0
+            ],
+            [
+              52.844532,
+              36.611291,
+              0.0
+            ],
+            [
+              58.152785,
+              36.964633,
+              0.0
+            ],
+            [
+              57.864532,
+              41.29505,
+              0.0
+            ],
+            [
+              75.824787,
+              42.490568,
+              0.0
+            ],
+            [
+              76.113039,
+              38.160151,
+              0.0
+            ],
+            [
+              77.308557,
+              20.199897,
+              0.0
+            ]
+          ],
+          "is_selected": false
+        },
+        {
+          "option_id": "placement_option_03",
+          "label": "Placement option 3",
+          "status": "candidate",
+          "centroid_xy": [
+            56.367324,
+            29.741418
+          ],
+          "rotation_degrees": 3.808256,
+          "objective": -17.454271,
+          "outside_area_sqm": 0.0,
+          "clearance_m": 17.454271,
+          "fits_within_site_boundary": true,
+          "boundary": [
+            [
+              77.708255,
+              20.19865,
+              0.0
+            ],
+            [
+              59.748001,
+              19.003132,
+              0.0
+            ],
+            [
+              54.439748,
+              18.64979,
+              0.0
+            ],
+            [
+              36.479493,
+              17.454271,
+              0.0
+            ],
+            [
+              35.283975,
+              35.414526,
+              0.0
+            ],
+            [
+              34.995723,
+              39.744943,
+              0.0
+            ],
+            [
+              52.955977,
+              40.940461,
+              0.0
+            ],
+            [
+              53.24423,
+              36.610044,
+              0.0
+            ],
+            [
+              58.552483,
+              36.963386,
+              0.0
+            ],
+            [
+              58.26423,
+              41.293803,
+              0.0
+            ],
+            [
+              76.224484,
+              42.489321,
+              0.0
+            ],
+            [
+              76.512737,
+              38.158904,
+              0.0
+            ],
+            [
+              77.708255,
+              20.19865,
+              0.0
+            ]
+          ],
+          "is_selected": false
+        },
+        {
+          "option_id": "placement_option_04",
+          "label": "Placement option 4",
+          "status": "candidate",
+          "centroid_xy": [
+            55.831234,
+            29.741259
+          ],
+          "rotation_degrees": 3.808256,
+          "objective": -17.454112,
+          "outside_area_sqm": 0.0,
+          "clearance_m": 17.454112,
+          "fits_within_site_boundary": true,
+          "boundary": [
+            [
+              77.172165,
+              20.198491,
+              0.0
+            ],
+            [
+              59.21191,
+              19.002973,
+              0.0
+            ],
+            [
+              53.903657,
+              18.649631,
+              0.0
+            ],
+            [
+              35.943403,
+              17.454112,
+              0.0
+            ],
+            [
+              34.747885,
+              35.414367,
+              0.0
+            ],
+            [
+              34.459632,
+              39.744784,
+              0.0
+            ],
+            [
+              52.419887,
+              40.940302,
+              0.0
+            ],
+            [
+              52.708139,
+              36.609885,
+              0.0
+            ],
+            [
+              58.016392,
+              36.963227,
+              0.0
+            ],
+            [
+              57.72814,
+              41.293644,
+              0.0
+            ],
+            [
+              75.688394,
+              42.489162,
+              0.0
+            ],
+            [
+              75.976647,
+              38.158745,
+              0.0
+            ],
+            [
+              77.172165,
+              20.198491,
+              0.0
+            ]
+          ],
+          "is_selected": false
+        },
+        {
+          "option_id": "placement_option_05",
+          "label": "Placement option 5",
+          "status": "candidate",
+          "centroid_xy": [
+            56.346432,
+            29.740235
+          ],
+          "rotation_degrees": 3.808256,
+          "objective": -17.453088,
+          "outside_area_sqm": 0.0,
+          "clearance_m": 17.453088,
+          "fits_within_site_boundary": true,
+          "boundary": [
+            [
+              77.687364,
+              20.197467,
+              0.0
+            ],
+            [
+              59.727109,
+              19.001948,
+              0.0
+            ],
+            [
+              54.418856,
+              18.648606,
+              0.0
+            ],
+            [
+              36.458602,
+              17.453088,
+              0.0
+            ],
+            [
+              35.263084,
+              35.413343,
+              0.0
+            ],
+            [
+              34.974831,
+              39.74376,
+              0.0
+            ],
+            [
+              52.935085,
+              40.939278,
+              0.0
+            ],
+            [
+              53.223338,
+              36.608861,
+              0.0
+            ],
+            [
+              58.531591,
+              36.962203,
+              0.0
+            ],
+            [
+              58.243338,
+              41.29262,
+              0.0
+            ],
+            [
+              76.203593,
+              42.488138,
+              0.0
+            ],
+            [
+              76.491845,
+              38.157721,
+              0.0
+            ],
+            [
+              77.687364,
+              20.197467,
+              0.0
+            ]
+          ],
+          "is_selected": false
+        }
+      ]
+    },
+    "object_hierarchy": {
+      "node_id": "generate_building_boundary_9f83f14bc41b",
+      "node_type": "building",
+      "label": "U building",
+      "children": [
+        {
+          "node_id": "generate_building_boundary_9f83f14bc41b:options",
+          "node_type": "option_collection",
+          "label": "Saved options",
+          "children": [
+            {
+              "node_id": "generate_building_boundary_9f83f14bc41b:option:placement_option_01",
+              "node_type": "placement_option",
+              "label": "Placement option 1",
+              "status": "selected",
+              "ref": {
+                "kind": "placement_option",
+                "option_id": "placement_option_01"
+              }
+            },
+            {
+              "node_id": "generate_building_boundary_9f83f14bc41b:option:placement_option_02",
+              "node_type": "placement_option",
+              "label": "Placement option 2",
+              "status": "candidate",
+              "ref": {
+                "kind": "placement_option",
+                "option_id": "placement_option_02"
+              }
+            },
+            {
+              "node_id": "generate_building_boundary_9f83f14bc41b:option:placement_option_03",
+              "node_type": "placement_option",
+              "label": "Placement option 3",
+              "status": "candidate",
+              "ref": {
+                "kind": "placement_option",
+                "option_id": "placement_option_03"
+              }
+            },
+            {
+              "node_id": "generate_building_boundary_9f83f14bc41b:option:placement_option_04",
+              "node_type": "placement_option",
+              "label": "Placement option 4",
+              "status": "candidate",
+              "ref": {
+                "kind": "placement_option",
+                "option_id": "placement_option_04"
+              }
+            },
+            {
+              "node_id": "generate_building_boundary_9f83f14bc41b:option:placement_option_05",
+              "node_type": "placement_option",
+              "label": "Placement option 5",
+              "status": "candidate",
+              "ref": {
+                "kind": "placement_option",
+                "option_id": "placement_option_05"
+              }
+            }
+          ]
+        },
+        {
+          "node_id": "generate_building_boundary_9f83f14bc41b:wings",
+          "node_type": "wing_collection",
+          "label": "Wings",
+          "children": [
+            {
+              "node_id": "generate_building_boundary_9f83f14bc41b:wing:0",
+              "node_type": "wing",
+              "label": "Wing 0",
+              "role": "base",
+              "ref": {
+                "kind": "wing",
+                "wing_index": 0
+              }
+            },
+            {
+              "node_id": "generate_building_boundary_9f83f14bc41b:wing:1",
+              "node_type": "wing",
+              "label": "Wing 1",
+              "role": "left_wing",
+              "ref": {
+                "kind": "wing",
+                "wing_index": 1
+              }
+            },
+            {
+              "node_id": "generate_building_boundary_9f83f14bc41b:wing:2",
+              "node_type": "wing",
+              "label": "Wing 2",
+              "role": "right_wing",
+              "ref": {
+                "kind": "wing",
+                "wing_index": 2
+              }
+            }
+          ]
+        },
+        {
+          "node_id": "generate_building_boundary_9f83f14bc41b:centerline_graph",
+          "node_type": "graph",
+          "label": "Centerline graph",
+          "children": [
+            {
+              "node_id": "generate_building_boundary_9f83f14bc41b:graph:nodes",
+              "node_type": "graph_node_collection",
+              "label": "Nodes",
+              "children": [
+                {
+                  "node_id": "generate_building_boundary_9f83f14bc41b:graph:node:0",
+                  "node_type": "graph_node",
+                  "label": "Node 0",
+                  "degree": 2,
+                  "ref": {
+                    "kind": "graph_node",
+                    "node_index": 0
+                  }
+                },
+                {
+                  "node_id": "generate_building_boundary_9f83f14bc41b:graph:node:1",
+                  "node_type": "graph_node",
+                  "label": "Node 1",
+                  "degree": 2,
+                  "ref": {
+                    "kind": "graph_node",
+                    "node_index": 1
+                  }
+                },
+                {
+                  "node_id": "generate_building_boundary_9f83f14bc41b:graph:node:2",
+                  "node_type": "graph_node",
+                  "label": "Node 2",
+                  "degree": 1,
+                  "ref": {
+                    "kind": "graph_node",
+                    "node_index": 2
+                  }
+                },
+                {
+                  "node_id": "generate_building_boundary_9f83f14bc41b:graph:node:3",
+                  "node_type": "graph_node",
+                  "label": "Node 3",
+                  "degree": 1,
+                  "ref": {
+                    "kind": "graph_node",
+                    "node_index": 3
+                  }
+                }
+              ]
+            },
+            {
+              "node_id": "generate_building_boundary_9f83f14bc41b:graph:edges",
+              "node_type": "graph_edge_collection",
+              "label": "Edges",
+              "children": [
+                {
+                  "node_id": "generate_building_boundary_9f83f14bc41b:graph:edge:0",
+                  "node_type": "graph_edge",
+                  "label": "Edge 0",
+                  "wing_index": 0,
+                  "ref": {
+                    "kind": "graph_edge",
+                    "edge_index": 0,
+                    "wing_index": 0
+                  }
+                },
+                {
+                  "node_id": "generate_building_boundary_9f83f14bc41b:graph:edge:1",
+                  "node_type": "graph_edge",
+                  "label": "Edge 1",
+                  "wing_index": 1,
+                  "ref": {
+                    "kind": "graph_edge",
+                    "edge_index": 1,
+                    "wing_index": 1
+                  }
+                },
+                {
+                  "node_id": "generate_building_boundary_9f83f14bc41b:graph:edge:2",
+                  "node_type": "graph_edge",
+                  "label": "Edge 2",
+                  "wing_index": 2,
+                  "ref": {
+                    "kind": "graph_edge",
+                    "edge_index": 2,
+                    "wing_index": 2
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "parameters": {
+      "area": 900.0,
+      "building_type": "U",
+      "building_depth": 18.0,
+      "shape_ratio": 0.62,
+      "location_xy": [
+        0.0,
+        0.0
+      ],
+      "site_boundary_supplied": true,
+      "optimize_placement": true,
+      "placement_clearance": 2.0,
+      "population_size": 40,
+      "generation_count": 40,
+      "random_seed": 11,
+      "saved_option_count": 5,
+      "is_mirrored": false,
+      "mirror_axis": "y",
+      "rotation_degrees": 0.0,
+      "orientation_degrees": 0.0,
+      "max_rotation_angle": 180.0,
+      "max_rotation_step": 4,
+      "rotation_step": 0,
+      "applied_rotation_angle": 3.808256
+    }
+  },
+  "metadata": {
+    "tool_name": "generate_building_boundary",
+    "source": "python"
+  }
+}

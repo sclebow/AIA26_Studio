@@ -280,7 +280,7 @@ const ToolStatusCard: React.FC<ToolStatusCardProps> = ({ name, status, duration 
         {duration !== undefined && status === 'completed' && (
           <span style={{
             color: colors.muted,
-            fontSize: '9px',
+            fontSize: '10px',
             letterSpacing: '0.02em',
             flexShrink: 0,
           }}>

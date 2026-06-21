@@ -37,10 +37,10 @@ def build_compare_versions_node():
                 for sense in ["thermal", "visual", "acoustic", "spatial", "olfactory", "tactile"]:
                     orig_val = orig_sc.get(sense, 0.0)
                     new_val = new_sc.get(sense, 0.0)
-                    diff = new_val - orig_val
-                    if abs(diff) > 0.01:  # only show meaningful changes
-                        sign = "+" if diff > 0 else ""
-                        deltas.append(f"{sense}: {sign}{diff:.2f}")
+                    if abs(new_val - orig_val) > 0.01:  # only show meaningful changes
+                        # ABSOLUTE before -> after (not just the delta) so respond copies
+                        # exact numbers and never invents a baseline or an impossible value.
+                        deltas.append(f"{sense} {orig_val:.2f}->{new_val:.2f}")
                 if deltas:
                     lines.append(f"  {room_name}: {', '.join(deltas)}")
                 else:

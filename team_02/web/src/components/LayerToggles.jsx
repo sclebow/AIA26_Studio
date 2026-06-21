@@ -7,9 +7,10 @@
  * run the analysis (click-to-run) instead of toggling an empty layer.
  */
 const LAYERS = [
-  ["plan",    "plan"],
-  ["comfort", "comfort"],
-  ["graph",   "graph"],
+  ["plan",     "plan"],
+  ["comfort",  "comfort"],
+  ["material", "material"],
+  ["graph",    "graph"],
 ];
 
 export default function LayerToggles({ layers, onToggle, available = () => true }) {

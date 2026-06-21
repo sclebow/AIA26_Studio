@@ -1,7 +1,6 @@
 from __future__ import annotations
-import logging
 import json
-from typing import Any, TypedDict
+from typing import Any, Callable, TypedDict
 from langgraph.graph import END, START, StateGraph
 from nodes.preprocess import build_preprocess_node
 from nodes.reason import build_reason_node
@@ -10,8 +9,8 @@ from nodes.select import build_select_node
 from nodes.adapt import build_adapt_node
 from nodes.evaluate import build_evaluate_node
 from nodes.feedback import build_feedback_node
-from nodes.modify import build_modify_node
-from nodes.topology import build_topology_node
+from nodes.daylight import build_daylight_node
+from nodes.routine import build_routine_node
 
 
 # =============================================================================
@@ -23,8 +22,17 @@ from nodes.topology import build_topology_node
 # - run_agent   : called from main.py; builds and runs the graph once
 # =============================================================================
 
-logging.basicConfig(level=logging.INFO, format='%(message)s')
-logger = logging.getLogger(__name__)
+STATUS_MESSAGES = {
+    "preprocess": "Reviewing request.",
+    "reason": "Interpreting layout requirements.",
+    "search": "Searching candidate layouts.",
+    "select": "Loading the selected layout.",
+    "adapt": "Adapting the layout to the provided boundary.",
+    "daylight": "Running daylight analysis.",
+    "evaluate": "Evaluating layout fit.",
+    "routine": "Generating daily routine.",
+    "feedback": "Preparing the response.",
+}
 
 # ---------------------------------------------------------------------------
 # State — the data that every node can read and write.
@@ -32,26 +40,32 @@ logger = logging.getLogger(__name__)
 
 class AgentState(TypedDict, total=False):
     user_prompt: str                               # NEW - the raw use message prompt
-    parsed_prompt: str                             # NEW - the parsed message prompt
+    forced_layout_id: str | None                   # Optional direct select request from the UI
     iteration: int                                 # current tool-call count
-    max_iterations: int                            # safety cap to stop the process (set from .env)
     final_response: str | None                     # set when the agent is done
     clarification: str | None                      # question for user clarification (set by all nodes except preprocess)
+    needs_user_input: bool                         # explicit signal that the caller should collect another user turn
+    status_messages: list[str]                     # progress updates for CLI/UI consumers
     feedback_history: list[str]                    # NEW - keep track of feedback given by the user
+    graph_top_k: int                               # Candidate budget for graph search
     #-----------jsons for tools-----------
     layout_json_string: str                        # current layout as a JSON string, injected into tool calls 
     input_layout_json_string: str | None           # NEW - input layout, defining outline, as a JSON string, injected into tool calls 
-    topology_graph_json_string: str | None         # NEW - topology graph for search, as a JSON string
-    search_results_json_string: str | None         # NEW - {id, score, description} only
-    tried_layout_ids: list[str]                    # NEW - keep track of which layout IDs we've tried adapting
+    topology_graph_json_string: str | None         # Structured search payload extracted by reason
+    search_results_json_string: str | None         # Search candidates
+    layout_id: str | None         # Layout ID to be selected
     evaluation_json_string: str | None             # NEW - evaluation results
+    routine_json_string: str | None                # Routine visualization payload
+    adaptation_issues: list[str] | None           # Validation or tool issues collected during adaptation
+    adaptation_failed: bool | None                # Whether adaptation failed and the graph fell back to the selected layout
     #-----------results from nodes (for routing)-----------
-    preprocess_result: str                         # NEW - which node to go to after preprocess: "search" | "select" | "modify" | "evaluate" | "reason" | "end"
-    reason_result: str                             # NEW - which node to go to after reason: "complete" | "uncomplete"
-    topology_result: str                           # NEW - which node to go to after topology: "success" | "failed"
-    search_result: str                             # NEW - which node to go to after search: "success" | "failed"
+    preprocess_result: str                         # Which node to go to after preprocess
+    reason_result: str                             # Optional reason outcome label
+    search_result: str                             # Result from search node: "adapt" | "select" | "failed"
     select_result: str                             # NEW - which node to go to after select: "success" | "failed"
     adapt_result: str | None                       # NEW - result from adapt node: "success" | "failed"
+    daylight_result: str | None                    # Result from daylight node
+    daylight_issues: list[str] | None             # Daylight problems preserved for evaluation if analysis cannot run
     
     # REMOVED: messages, pending_tool_calls, tool_catalog
         
@@ -61,103 +75,104 @@ class AgentState(TypedDict, total=False):
 def _route_after_preprocessing(state: AgentState) -> str:
     result = state.get("preprocess_result")
     return {
-        "topology": "topology",
-        "select": "select",
-        "modify": "modify",
-        "evaluate": "evaluate",
         "reason": "reason",
+        "select": "select",
         "end": "end",
     }.get(result, "end")
         
 def _route_after_reason(state: AgentState) -> str:
     result = state.get("reason_result")
-    clarification = state.get("clarification")
-    question_index = state.get("question_index", 0)
-    # If clarification is set, go to feedback to ask the next question
-    if clarification:
-        return "feedback"
-    # If all questions are answered, only proceed to preprocess if user says 'done', else keep parsing
-    if question_index >= 4:
-        user_prompt = state.get("user_prompt", "").strip().lower()
-        if user_prompt in ("done", "end", "finish", "that's all", "no more", "quit"):
-            return "preprocess"
-        else:
-            return "reason"
-    # Otherwise, stay in reason (should not happen in normal flow)
     return {
-        "parsed": "preprocess",
-        "uncomplete": "feedback"
-    }.get(result, "reason")
-
-def _route_after_topology(state: AgentState) -> str:
-    result = state.get("topology_result")
-    return {
-        "success": "search",     # Topology successfully built, go to search
-        "failed": "feedback"     # Topology failed, ask the user
+        "search": "search",
+        "evaluate": "evaluate",
+        "feedback": "feedback",
     }.get(result, "feedback")
 
 def _route_after_search(state: AgentState) -> str:
     result = state.get("search_result")
     return {
-        "success": "select",     # Found a candidate, go to select
-        "failed": "feedback"     # No candidates found, ask the user
+        "adapt": "adapt",
+        "select": "select",
     }.get(result, "feedback")
     
 def _route_after_select(state: AgentState) -> str:
     result = state.get("select_result")
     return {
-        "success": "adapt",      # Candidate selected, go to adapt
-        "failed": "feedback"     # Id does not exist / No more candidates, ask the user
+        "adapt": "adapt",      
+        "daylight": "daylight"    
     }.get(result, "feedback")
     
 def _route_after_adapt(state: AgentState) -> str:
     result = state.get("adapt_result")
     return {
-        "success": "evaluate",
-        "failed": "select",      # Adapt failed, try next candidate
-    }.get(result, "select")
+        "daylight": "daylight",
+        "fallback_selected": "daylight",
+    }.get(result, "feedback")
+
+def _route_after_daylight(state: AgentState) -> str:
+    result = state.get("daylight_result")
+    return {
+        "evaluate": "evaluate",
+        "failed": "evaluate",
+    }.get(result, "evaluate")
 
 # ---------------------------------------------------------------------------
 # Graph wiring — add nodes and edges here.
 # ---------------------------------------------------------------------------
 
-def build_graph(ctx: Any) -> Any:
+def _session_from_state(state: AgentState) -> dict[str, Any]:
+    return {
+        "layout_json_string": state.get("layout_json_string"),
+        "layout_id": state.get("layout_id"),
+        "input_layout_json_string": state.get("input_layout_json_string"),
+        "topology_graph_json_string": state.get("topology_graph_json_string"),
+        "search_results_json_string": state.get("search_results_json_string"),
+        "evaluation_json_string": state.get("evaluation_json_string"),
+        "routine_json_string": state.get("routine_json_string"),
+        "feedback_history": state.get("feedback_history", []),
+        "needs_user_input": state.get("needs_user_input", False),
+        "forced_layout_id": state.get("forced_layout_id"),
+    }
+
+
+def build_graph(ctx: Any, status_callback: Callable[[list[str], dict[str, Any] | None], None] | None = None) -> Any:
     """Build the layout agent graph."""
+    status_updates: list[str] = []
     reason = build_reason_node(ctx.llm)
     preprocess = build_preprocess_node()
-    topology = build_topology_node(ctx.llm)
     search = build_search_node()
     select = build_select_node()
     adapt = build_adapt_node(ctx.mcp_client)
-    evaluate = build_evaluate_node(ctx.mcp_client)
+    daylight = build_daylight_node(ctx.mcp_client)
+    evaluate = build_evaluate_node(ctx.llm)
     feedback = build_feedback_node()
-    modify = build_modify_node(ctx.mcp_client)
+    routine = build_routine_node(ctx.llm)
     
-    # Wrap nodes to log entry/exit
-    def make_logged_node(node_fn, node_name):
-        def logged_wrapper(state):
-            logger.info(f"▶️  Entering node: {node_name}")
-            try:
-                result = node_fn(state)
-                logger.info(f"✅ {node_name} completed")
-                return result
-            except Exception as e:
-                logger.error(f"❌ {node_name} failed: {str(e)}", exc_info=True)
-                raise
-        return logged_wrapper
+    def make_instrumented_node(node_fn, node_name):
+        def instrumented_wrapper(state):
+            status_message = STATUS_MESSAGES.get(node_name, f"Running {node_name}.")
+            status_updates.append(status_message)
+            print(f"Status: {status_message}", flush=True)
+            result = node_fn(state)
+            result["status_messages"] = list(status_updates)
+            if status_callback is not None:
+                merged_state = {**state, **result}
+                status_callback(list(status_updates), _session_from_state(merged_state))
+            return result
+        return instrumented_wrapper
     
     workflow = StateGraph(AgentState)
     
     # Add nodes
-    workflow.add_node("reason", make_logged_node(reason, "reason"))
-    workflow.add_node("preprocess", make_logged_node(preprocess, "preprocess"))
-    workflow.add_node("topology", make_logged_node(topology, "topology"))
-    workflow.add_node("search", make_logged_node(search, "search"))
-    workflow.add_node("select", make_logged_node(select, "select"))
-    workflow.add_node("adapt", make_logged_node(adapt, "adapt"))
-    workflow.add_node("evaluate", make_logged_node(evaluate, "evaluate"))
-    workflow.add_node("feedback", make_logged_node(feedback, "feedback"))
-    workflow.add_node("modify", make_logged_node(modify, "modify"))
+    workflow.add_node("reason", make_instrumented_node(reason, "reason"))
+    workflow.add_node("preprocess", make_instrumented_node(preprocess, "preprocess"))
+    workflow.add_node("search", make_instrumented_node(search, "search"))
+    workflow.add_node("select", make_instrumented_node(select, "select"))
+    workflow.add_node("adapt", make_instrumented_node(adapt, "adapt"))
+    workflow.add_node("daylight", make_instrumented_node(daylight, "daylight"))
+    workflow.add_node("evaluate", make_instrumented_node(evaluate, "evaluate"))
+    workflow.add_node("routine", make_instrumented_node(routine, "routine"))
+    workflow.add_node("feedback", make_instrumented_node(feedback, "feedback"))
     
     workflow.add_edge(START, "preprocess")
     
@@ -165,70 +180,66 @@ def build_graph(ctx: Any) -> Any:
     workflow.add_conditional_edges("preprocess", _route_after_preprocessing, {
         "reason": "reason",
         "select": "select",
-        "evaluate": "evaluate",
-        "topology": "topology",
-        "modify": "modify",
         "end": END
     })
     workflow.add_conditional_edges("reason", _route_after_reason, {
-        "preprocess": "preprocess",
-        "feedback": "feedback"
-    })
-    workflow.add_conditional_edges("topology", _route_after_topology, {
         "search": "search",
+        "evaluate": "evaluate",
         "feedback": "feedback"
     })
     workflow.add_conditional_edges("search", _route_after_search, {
+        "adapt": "adapt",
         "select": "select",
         "feedback": "feedback"
     })
     workflow.add_conditional_edges("select", _route_after_select, {
         "adapt": "adapt",
+        "daylight": "daylight",
          "feedback": "feedback"
     })
     workflow.add_conditional_edges("adapt", _route_after_adapt, {
-        "evaluate": "evaluate",
-         "feedback": "feedback"
+        "daylight": "daylight",
+        "select": "select",
+        "feedback": "feedback"
     })
-    workflow.add_edge("evaluate", "feedback")
-    workflow.add_edge("modify", "adapt")
+    workflow.add_conditional_edges("daylight", _route_after_daylight, {
+        "evaluate": "evaluate",
+        "feedback": "feedback"
+    })
+    workflow.add_edge("evaluate", "routine")
+    workflow.add_edge("routine", "feedback")
     
-    return workflow.compile()
+    app = workflow.compile()
+    app._status_updates = status_updates
+    return app
 
 
 # ---------------------------------------------------------------------------
 # Entry point — called from main.py.
 # ---------------------------------------------------------------------------
 
-def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, dict]:
+def run_agent(
+    prompt: str,
+    ctx: Any,
+    session: dict | None = None,
+    status_callback: Callable[[list[str], dict[str, Any] | None], None] | None = None,
+) -> tuple[str, dict]:
     if session is None:
         session = {}
+
+    print("Status: Analyzing your request.", flush=True)
     
-    logger.info(f"🚀 Analyzing your prompt...")
-    
-    app = build_graph(ctx)
+    app = build_graph(ctx, status_callback=status_callback)
     initial_state = _build_initial_state(prompt, ctx, session)
     final_state = app.invoke(initial_state)
-    
-    # Optional: log the entire graph at the end for debugging
-    #logger.info("\nWorkflow graph (Mermaid):")
-    #logger.info(app.get_graph().draw_mermaid())
 
     final_response = final_state.get("final_response")
     if final_response is None:
-        logger.error(f"❌ Agent finished without final_response!")
         raise RuntimeError("Agent finished without setting final_response")
     
-    logger.info(f"✅ Done")
-    
     # Return response + updated session for next turn
-    updated_session = {
-    "layout_json_string": final_state.get("layout_json_string"),
-    "topology_graph_json_string": final_state.get("topology_graph_json_string"),
-    "search_results_json_string": final_state.get("search_results_json_string"),
-    "parsed_prompt": final_state.get("parsed_prompt"),
-    "feedback_history": final_state.get("feedback_history", []),
-}
+    updated_session = _session_from_state(final_state)
+    updated_session["status_messages"] = list(getattr(app, "_status_updates", []))
     
     return final_response, updated_session
 
@@ -245,34 +256,32 @@ def _build_initial_state(prompt: str, ctx: Any, session: dict | None = None) -> 
         session["feedback_history"] = []
 
     layout_json = session.get("layout_json_string")
-    if not layout_json:
-        layout_json = json.dumps(getattr(ctx, "layout_data", {}), indent=2)
+    if layout_json is None and getattr(ctx, "layout_data", None):
+        layout_json = json.dumps(ctx.layout_data)
 
-    input_layout_json = None
-    if hasattr(ctx, 'input_layout_path') and ctx.input_layout_path:
-        try:
-            with open(ctx.input_layout_path, 'r') as f:
-                input_layout_json = json.dumps(json.load(f))
-        except:
-            pass
+    input_layout_json = session.get("input_layout_json_string")
 
     return {
         "user_prompt": prompt,
-        "parsed_prompt": session.get("parsed_prompt"),
+        "forced_layout_id": session.get("forced_layout_id"),
         "feedback_history": session.get("feedback_history", []),
         "clarification": session.get("clarification"),
+        "needs_user_input": False,
+        "status_messages": [],
         "iteration": 0,
-        "max_iterations": ctx.max_iterations,
         "final_response": None,
+        "graph_top_k": 4,
         "layout_json_string": layout_json,
         "input_layout_json_string": input_layout_json,
         "topology_graph_json_string": session.get("topology_graph_json_string"),
         "search_results_json_string": session.get("search_results_json_string"),
-        "tried_layout_ids": session.get("tried_layout_ids", []),
+        "layout_id": session.get("layout_id"),
         "evaluation_json_string": session.get("evaluation_json_string"),
+        "routine_json_string": session.get("routine_json_string"),
         "preprocess_result": None,
-        "topology_result": None,
+        "reason_result": None,
         "search_result": None,
         "select_result": None,
         "adapt_result": None,
+        "daylight_result": None,
     }

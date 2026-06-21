@@ -1,12 +1,12 @@
 import { motion } from "framer-motion";
-import { SC, SI, SENSES, scoreColor, scoreOpacity } from "../lib/constants.js";
-import { STATUS } from "../lib/senses.js";
+import { SC, SI, SENSES, scoreColor } from "../lib/constants.js";
 import { useSelection } from "../lib/selection.jsx";
-import { thresholdFromWeight, BASIS_ICON, basisBorder, LEVER_SENSE } from "../lib/senseModel.js";
+import { thresholdFromWeight, LEVER_SENSE } from "../lib/senseModel.js";
 import { roomByName, suggestionsFor, narrativeBullets } from "../lib/turn.js";
 import { DUR, EASE } from "../lib/motion.js";
 import Collapsible from "../ui/Collapsible.jsx";
 import SenseSignature from "./SenseSignature.jsx";
+import SenseRows from "./SenseRows.jsx";
 
 /*
  * FocusCard — the per-room detail, replacing the generic bars/radar panel.
@@ -14,22 +14,24 @@ import SenseSignature from "./SenseSignature.jsx";
  * ghost), per-sense rows (effective bar · personalized threshold · base→effective
  * with provenance), conflicts, suggestions, and a collapsible narrative.
  * "Why" lives here as readable HTML — never in-SVG text.
+ *
+ * Pure analysis: image generation (the old "render this space" + before/after
+ * slider) now lives in the Report (Act 3), not in explore.
  */
 // Levers a user can actually act on, mapped to a natural-language what-if the
-// agent can route to a REAL edit tool (modify_glazing / change_material /
-// add_furniture). The "lever bridge": a failing sense → its positive levers →
-// one click to a real edit.
+// agent routes to the unified `edit` action (edit_planner → apply_edits). The
+// "lever bridge": a failing sense → its positive levers → one click to a real edit.
 //
 // IMPORTANT: the phrasing must route to an edit, NOT a full analysis. Words like
 // "improve"/"fix"/"enhance" are full-analysis triggers in the action classifier,
 // so we phrase each as a concrete edit instruction. "ventilation" is intentionally
-// omitted — there is no ventilation edit tool in the backend, so it can't be a
+// omitted — there is no ventilation edit in the backend, so it can't be a
 // one-click fix (olfactory is still addressable via the "plants" lever).
 const EDITABLE_LEVERS = {
-  "glazing ratio":    (r) => `increase the window size in the ${r}`,   // → modify_glazing
-  "glazing type":     (r) => `upgrade to triple glazing in the ${r}`,  // → modify_glazing
-  "surface material": (r) => `change the floor to a soft material in the ${r}`, // → change_material
-  "plants":           (r) => `add a plant to the ${r}`,                // → add_furniture
+  "glazing ratio":    (r) => `increase the window size in the ${r}`,   // → edit (glazing)
+  "glazing type":     (r) => `upgrade to triple glazing in the ${r}`,  // → edit (glazing)
+  "surface material": (r) => `change the floor to a soft material in the ${r}`, // → edit (material)
+  "plants":           (r) => `add a plant to the ${r}`,                // → edit (furniture)
 };
 
 export default function FocusCard({ turn, persona, onClose, onFix }) {
@@ -49,7 +51,6 @@ export default function FocusCard({ turn, persona, onClose, onFix }) {
 
   const thr = (s) => thresholdFromWeight(weights[s] ?? 0.5);
   const failing = SENSES.filter((s) => (eff[s] ?? 1) < thr(s));
-  const adjBySense = (s) => adjustments.filter((a) => a.sense === s);
 
   // lever bridge: positive, editable levers that fix the failing senses (deduped)
   const fixes = (() => {
@@ -85,35 +86,7 @@ export default function FocusCard({ turn, persona, onClose, onFix }) {
 
       {/* per-sense rows */}
       <div className="fc-section-label">senses</div>
-      <div className="flex flex-col gap-1.5">
-        {SENSES.map((s) => {
-          const v = eff[s] ?? 0;
-          const b = base[s];
-          const moved = typeof b === "number" && Math.abs(b - v) >= 0.01;
-          const t = thr(s);
-          const adj = adjBySense(s);
-          return (
-            <div key={s} className="fc-row">
-              <span className="fc-glyph" style={{ color: SC[s] }}>{SI[s]}</span>
-              <span className="fc-sense">{s}</span>
-              <div className="fc-track">
-                <div className="fc-fill" style={{ width: `${v * 100}%`, background: SC[s], opacity: scoreOpacity(v) }} />
-                <div className="fc-thresh" style={{ left: `${t * 100}%` }} title={`your threshold ${t.toFixed(2)}`} />
-              </div>
-              <span className="fc-val" style={{ color: v < t ? SC[s] : "rgba(var(--fg-rgb),0.5)" }}>{v.toFixed(2)}</span>
-              {moved && (
-                <span className="fc-delta" style={{ color: v > b ? STATUS.pass : STATUS.fail }}
-                  title={adj.map((a) => `${a.mechanism} (${a.delta > 0 ? "+" : ""}${a.delta})`).join(" · ")}>
-                  {b.toFixed(2)}→{v.toFixed(2)}
-                  {adj.map((a, i) => (
-                    <span key={i} className="fc-basis" style={{ borderBottomStyle: basisBorder(a.basis) }}>{BASIS_ICON[a.basis] || ""}</span>
-                  ))}
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <SenseRows eff={eff} base={base} weights={weights} adjustments={adjustments} />
 
       {/* conflicts */}
       {failing.length > 0 && (

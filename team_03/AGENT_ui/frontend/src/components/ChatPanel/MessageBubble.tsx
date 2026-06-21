@@ -85,7 +85,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 
   const contentStyle: React.CSSProperties = {
     color: colors.text,
-    fontSize: '13.5px',
+    fontSize: '12px',
     lineHeight: '1.55',
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',

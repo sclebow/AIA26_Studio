@@ -9,3 +9,9 @@ sentence-transformers
 torch
 networkx
 shapely
+matplotlib
+seaborn
+numpy
+fastapi
+uvicorn
+python-multipart

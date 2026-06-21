@@ -25,6 +25,7 @@ def build_feedback_node() -> Any:
             "final_response": feedback_message,
             "iteration": iteration + 1,
             "feedback_history": feedback_history,
+            "needs_user_input": True,
             "clarification": None
         }
 

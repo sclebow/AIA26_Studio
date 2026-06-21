@@ -55,6 +55,16 @@ function normalizeGraphData(data: Record<string, unknown>): NodeLinkData | null 
   };
 }
 
+/** One entry in a layout's version history (original + approved revisions). */
+export interface VersionInfo {
+  id: string;            // base name (original) or output file stem (revision)
+  label: string;         // "Original" | "2026-06-07 22:41"
+  kind: 'original' | 'version';
+  file: string | null;   // output file name (revisions only)
+  timestamp: number;     // file mtime (epoch seconds)
+  file_size: number;
+}
+
 export interface UseLayoutStateReturn {
   layout: LayoutJSON | null;
   graphData: NodeLinkData | null;
@@ -63,14 +73,24 @@ export interface UseLayoutStateReturn {
   selectedLayoutName: string | null;
   modifiedIds: Set<string>;
   isPending: boolean;
+  versions: VersionInfo[];
+  selectedVersionId: string | null;
   loadLayout: (name: string) => Promise<void>;
   reloadLayout: () => Promise<void>;
   uploadLayout: (file: File) => Promise<void>;
   fetchLayouts: () => Promise<void>;
+  fetchVersions: (name?: string) => Promise<VersionInfo[]>;
+  selectVersion: (versionId: string, file: string | null) => Promise<void>;
   updateFromWS: (message: StateUpdate) => void;
   setScores: (scores: ScoreData) => void;
   acceptPending: () => Promise<void>;
   rejectPending: () => void;
+  /** Show a layout object in the viewport without committing it (AI generator preview). */
+  previewLayout: (data: LayoutJSON) => void;
+  /** Restore the committed layout after previewing (cancel a preview). */
+  endPreview: () => void;
+  /** Persist a generated layout to AI_GENERATED, refresh the list, and load it as active. */
+  saveAndLoadGenerated: (name: string, data: LayoutJSON) => Promise<string | null>;
 }
 
 export function useLayoutState(): UseLayoutStateReturn {
@@ -81,6 +101,8 @@ export function useLayoutState(): UseLayoutStateReturn {
   const [selectedLayoutName, setSelectedLayoutName] = useState<string | null>(null);
   const [modifiedIds, setModifiedIds] = useState<Set<string>>(new Set());
   const [isPending, setIsPending] = useState(false);
+  const [versions, setVersions] = useState<VersionInfo[]>([]);
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const layoutRef = useRef<LayoutJSON | null>(null);
   const preProposalRef = useRef<LayoutJSON | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -113,15 +135,75 @@ export function useLayoutState(): UseLayoutStateReturn {
     }
   }, []);
 
+  /** Fetch the version history (original + revisions) for a base layout. */
+  const fetchVersions = useCallback(async (name?: string): Promise<VersionInfo[]> => {
+    const target = name ?? selectedLayoutName;
+    if (!target) { setVersions([]); return []; }
+    try {
+      const res = await fetch(`${API_BASE}/layouts/${encodeURIComponent(target)}/versions`);
+      if (res.ok) {
+        const data = (await res.json()) as VersionInfo[];
+        setVersions(data);
+        return data;
+      }
+    } catch {
+      // versions endpoint unavailable — leave the list empty
+    }
+    return [];
+  }, [selectedLayoutName]);
+
+  /** Make a specific version (original or a saved revision) the active layout.
+   *  Loads it into the viewport, mirrors it into the working session, and pins
+   *  it server-side so the chat pipeline runs on this revision. */
+  const selectVersion = useCallback(async (versionId: string, file: string | null) => {
+    const base = selectedLayoutName;
+    if (!base) return;
+    setSelectedVersionId(versionId);
+    try {
+      const res = await fetch(`${API_BASE}/layouts/${encodeURIComponent(base)}/version/select`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version_id: versionId, file }),
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as LayoutJSON;
+      setLayoutWithDiff(data);
+      // The backend rebuilt the spatial graph for this revision — pull it.
+      try {
+        const g = await fetch(`${API_BASE}/graph`);
+        if (g.ok) {
+          const gd = await g.json();
+          if (gd) setGraphData(normalizeGraphData(gd));
+        }
+      } catch { /* keep existing graph */ }
+    } catch {
+      // selection failed — viewport keeps the current layout
+    }
+  }, [selectedLayoutName, setLayoutWithDiff]);
+
   const loadLayout = useCallback(async (name: string) => {
     try {
       setSelectedLayoutName(name);
+      // Loading a base layout resets the version selection to its "current"
+      // working state (the original id); the history list is refreshed by App.
+      setSelectedVersionId(name);
 
-      // Fetch layout data
-      const layoutRes = await fetch(`${API_BASE}/layouts/${encodeURIComponent(name)}`);
-      if (layoutRes.ok) {
-        const layoutData = await layoutRes.json();
-        // First load — no diff needed
+      // Try to load active session layout first (post-approval state)
+      // Falls back to base layout if no session exists
+      let layoutData = null;
+      try {
+        const sessionRes = await fetch(`${API_BASE}/layouts/${encodeURIComponent(name)}/reload`, { method: 'POST' });
+        if (sessionRes.ok) {
+          layoutData = await sessionRes.json();
+        }
+      } catch { /* ignore */ }
+
+      if (!layoutData) {
+        const layoutRes = await fetch(`${API_BASE}/layouts/${encodeURIComponent(name)}`);
+        if (layoutRes.ok) layoutData = await layoutRes.json();
+      }
+
+      if (layoutData) {
         layoutRef.current = layoutData;
         setLayout(layoutData);
       }
@@ -158,6 +240,20 @@ export function useLayoutState(): UseLayoutStateReturn {
       } catch {
         // Scores endpoint may not be available
       }
+
+      // Fetch version history — use `name` directly (avoids stale-closure issues
+      // with selectedLayoutName which hasn't propagated yet at this point).
+      try {
+        const vRes = await fetch(`${API_BASE}/layouts/${encodeURIComponent(name)}/versions`);
+        if (vRes.ok) {
+          const vData = (await vRes.json()) as VersionInfo[];
+          setVersions(vData);
+          // Mark the original (base) as current if no revision is pinned.
+          setSelectedVersionId(name);
+        }
+      } catch {
+        // versions endpoint may not be available
+      }
     } catch {
       // Layout fetch failed
     }
@@ -166,22 +262,35 @@ export function useLayoutState(): UseLayoutStateReturn {
   /** Force re-read the current layout from disk (via backend reload endpoint) */
   const reloadLayout = useCallback(async () => {
     if (!selectedLayoutName) return;
-    try {
-      const res = await fetch(`${API_BASE}/layouts/${encodeURIComponent(selectedLayoutName)}/reload`, {
-        method: 'POST',
-      });
-      if (res.ok) {
-        const freshData = await res.json();
-        setLayoutWithDiff(freshData);
+    const enc = encodeURIComponent(selectedLayoutName);
+
+    const applyFresh = async (freshData: LayoutJSON) => {
+      // Did objects get added/moved? Only then refresh the (heavier) graph.
+      const changed = diffLayoutIds(layoutRef.current, freshData).size > 0;
+      setLayoutWithDiff(freshData);
+      if (changed) {
+        // The backend rebuilds the spatial graph on reload — pull it so newly
+        // placed furniture + relations appear in the Spatial Graph panel.
+        try {
+          const g = await fetch(`${API_BASE}/graph`);
+          if (g.ok) {
+            const gd = await g.json();
+            if (gd) setGraphData(normalizeGraphData(gd));
+          }
+        } catch {
+          // Graph endpoint unavailable — keep the existing graph
+        }
       }
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/layouts/${enc}/reload`, { method: 'POST' });
+      if (res.ok) await applyFresh(await res.json());
     } catch {
       // Reload endpoint not available, try GET
       try {
-        const res = await fetch(`${API_BASE}/layouts/${encodeURIComponent(selectedLayoutName)}`);
-        if (res.ok) {
-          const freshData = await res.json();
-          setLayoutWithDiff(freshData);
-        }
+        const res = await fetch(`${API_BASE}/layouts/${enc}`);
+        if (res.ok) await applyFresh(await res.json());
       } catch {
         // Ignore
       }
@@ -265,6 +374,44 @@ export function useLayoutState(): UseLayoutStateReturn {
     if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
   }, []);
 
+  // ── AI Layout Generator ────────────────────────────────────────────────
+  /** Display-only preview of a candidate layout — does NOT touch layoutRef /
+   *  selectedLayoutName / graph, so endPreview() can restore the committed one. */
+  const previewLayout = useCallback((data: LayoutJSON) => {
+    setModifiedIds(new Set());
+    if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+    setLayout(data);
+  }, []);
+
+  /** Restore the last committed layout (cancel a preview / close the generator). */
+  const endPreview = useCallback(() => {
+    setLayout(layoutRef.current);
+  }, []);
+
+  /** Save a generated layout to AI_GENERATED then load it as the active layout
+   *  (loadLayout sets layoutRef + selectedLayoutName + rebuilds session/graph).
+   *  Returns the saved stem name, or null on failure. */
+  const saveAndLoadGenerated = useCallback(
+    async (name: string, data: LayoutJSON): Promise<string | null> => {
+      try {
+        const res = await fetch(`${API_BASE}/layouts/generated/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, layout: data }),
+        });
+        if (!res.ok) return null;
+        const saved = await res.json();
+        const savedName: string = saved.name ?? name;
+        await fetchLayouts();
+        await loadLayout(savedName);
+        return savedName;
+      } catch {
+        return null;
+      }
+    },
+    [fetchLayouts, loadLayout]
+  );
+
   const updateFromWS = useCallback((message: StateUpdate) => {
     switch (message.field) {
       case 'layout':
@@ -304,13 +451,20 @@ export function useLayoutState(): UseLayoutStateReturn {
     selectedLayoutName,
     modifiedIds,
     isPending,
+    versions,
+    selectedVersionId,
     loadLayout,
     reloadLayout,
     uploadLayout,
     fetchLayouts,
+    fetchVersions,
+    selectVersion,
     updateFromWS,
     setScores,
     acceptPending,
     rejectPending,
+    previewLayout,
+    endPreview,
+    saveAndLoadGenerated,
   };
 }

@@ -84,12 +84,23 @@ def build_biophilic_audit_node():
             "rooms_without_plants": [r["name"] for r in rooms_data if not r["has_plants"]],
         }
 
+        # When greenery is missing, pre-seed a single deterministic edit op so the
+        # unified edit path (apply_edits) can add a plant — no raw_prompt parsing.
+        edit_ops = []
+        if biophilic_plants_needed:
+            without = biophilic_data["rooms_without_plants"]
+            target  = without[0] if without else (rooms_data[0]["name"] if rooms_data else None)
+            if target:
+                edit_ops = [{"op": "add_furniture", "room": target,
+                             "furniture_type": "plant", "count": 1, "material": None}]
+
         print(f"[biophilic_audit] {len(rooms_data)} rooms | plants_needed={biophilic_plants_needed}")
         return {
             **state,
             "biophilic_summary":      biophilic_summary,
             "biophilic_plants_needed": biophilic_plants_needed,
             "biophilic_data":         biophilic_data,
+            "edit_ops":               edit_ops,
         }
 
     return biophilic_audit_node

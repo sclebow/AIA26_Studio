@@ -1,0 +1,155 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+import json
+from typing import Any
+
+
+SITE_READ_GROUP = "site_read"
+SHAPE_GROUP = "shape_generation"
+CONSTRAINT_GROUP = "constraint_check"
+MANIPULATION_GROUP = "manipulation"
+EVALUATION_GROUP = "evaluation"
+PLACEMENT_GROUP = "placement"
+POSITION_ANALYSIS_GROUP = "position_analysis"
+
+
+TOOL_GROUPS: dict[str, tuple[str, ...]] = {
+    SITE_READ_GROUP: (
+        "site_boundary_reader",
+        "context_reader",
+        "legal_constraints_reader",
+        "analyze_site_boundary",
+    ),
+    SHAPE_GROUP: (
+        "shape_library_loader",
+        "generate_building_boundary",
+        "parametric_shape_generator",
+    ),
+    CONSTRAINT_GROUP: (
+        "site_fit_checker",
+        "setback_checker",
+        "area_requirement_checker",
+        "adjacency_access_checker",
+        "tree_constraint_checker",
+    ),
+    MANIPULATION_GROUP: (
+        "modify_building_boundary",
+        "modify_building_wings",
+        "scale_shape_tool",
+        "stretch_arm_tool",
+        "width_modifier_tool",
+        "courtyard_modifier_tool",
+        "rotate_mirror_tool",
+        "bend_angle_tool",
+        "terrace_step_tool",
+    ),
+    EVALUATION_GROUP: (
+        "spatial_intention_evaluator",
+        "performance_evaluator",
+        "shape_integrity_evaluator",
+    ),
+    PLACEMENT_GROUP: (
+        "import_building_boundary",
+    ),
+    POSITION_ANALYSIS_GROUP: (
+        "remaining_buildable_positions",
+        "requested_position_checker",
+        "measure_boundary_proximity",
+    ),
+}
+
+
+ACTION_TO_GROUP: dict[str, str] = {
+    "read_site": SITE_READ_GROUP,
+    "generate_shape": SHAPE_GROUP,
+    "check_requested_position": POSITION_ANALYSIS_GROUP,
+    "check_constraints": CONSTRAINT_GROUP,
+    "optimize": MANIPULATION_GROUP,
+    "evaluate": EVALUATION_GROUP,
+    "place_building": PLACEMENT_GROUP,
+    "analyze_remaining_positions": POSITION_ANALYSIS_GROUP,
+}
+
+
+@dataclass(frozen=True)
+class ToolCatalog:
+    tools: tuple[dict[str, Any], ...]
+
+    @classmethod
+    def from_discovered_tools(cls, tools: list[dict[str, Any]]) -> "ToolCatalog":
+        normalized = tuple(tool for tool in tools if isinstance(tool, dict) and tool.get("name"))
+        return cls(tools=normalized)
+
+    def by_name(self) -> dict[str, dict[str, Any]]:
+        return {str(tool["name"]): tool for tool in self.tools}
+
+    def names_for_group(self, group_name: str) -> tuple[str, ...]:
+        return tuple(name for name in TOOL_GROUPS.get(group_name, ()) if name in self.by_name())
+
+    def names_for_action(self, action: str) -> tuple[str, ...]:
+        group_name = ACTION_TO_GROUP.get(action)
+        if group_name is None:
+            return ()
+        return self.names_for_group(group_name)
+
+    def render(self) -> str:
+        return self.render_for_actions(tuple(ACTION_TO_GROUP.keys()))
+
+    def render_for_action(self, action: str) -> str:
+        return self.render_for_actions((action,))
+
+    def render_for_actions(self, actions: tuple[str, ...]) -> str:
+        by_name = self.by_name()
+        lines: list[str] = []
+        allowed_groups = {
+            ACTION_TO_GROUP[action]
+            for action in actions
+            if action in ACTION_TO_GROUP
+        }
+        for group_name, tool_names in TOOL_GROUPS.items():
+            if allowed_groups and group_name not in allowed_groups:
+                continue
+            available_names = [name for name in tool_names if name in by_name]
+            if not available_names:
+                continue
+            lines.append(f"[{group_name}]")
+            for tool_name in available_names:
+                tool_definition = by_name[tool_name]
+                description = str(tool_definition.get("description", "")).strip()
+                if description:
+                    lines.append(f"- {tool_name}: {description}")
+                else:
+                    lines.append(f"- {tool_name}")
+                lines.extend(self._render_input_schema(tool_definition))
+        if not lines:
+            return "No MCP tools discovered."
+        return "\n".join(lines)
+
+    @staticmethod
+    def _render_input_schema(tool_definition: dict[str, Any]) -> list[str]:
+        input_schema = tool_definition.get("inputSchema")
+        if not isinstance(input_schema, dict):
+            return []
+
+        properties = input_schema.get("properties")
+        if not isinstance(properties, dict) or not properties:
+            return []
+
+        required = set(input_schema.get("required", [])) if isinstance(input_schema.get("required"), list) else set()
+        lines = ["  parameters:"]
+        for property_name, property_schema in properties.items():
+            if not isinstance(property_schema, dict):
+                continue
+            description = str(property_schema.get("description", "")).strip()
+            suffix: list[str] = []
+            if property_name in required:
+                suffix.append("required")
+            if "default" in property_schema:
+                suffix.append(f"default={json.dumps(property_schema['default'])}")
+            qualifier = f" ({', '.join(suffix)})" if suffix else ""
+            if description:
+                lines.append(f"  - {property_name}{qualifier}: {description}")
+            else:
+                lines.append(f"  - {property_name}{qualifier}")
+        return lines

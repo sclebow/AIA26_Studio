@@ -55,6 +55,30 @@ CF_MODEL      = "@cf/qwen/qwen3-30b-a3b-fp8"
 > All providers are called through one OpenAI-compatible client, so you only need
 > the keys for the provider you actually select.
 
+### Benchmarking — per-node model tiers (optional)
+
+Nodes can run on different models: a small/cheap model for routing and short text,
+a larger one for user-facing prose and reasoning. Set these alongside your provider
+keys (they fall back to the base model if unset):
+
+```env
+GOOGLE_MODEL_FAST  = "gemini-2.5-flash-lite"   # routing / classification / short text
+GOOGLE_MODEL_SMART = "gemini-2.5-flash"        # user-facing prose & nuanced reasoning
+```
+
+The same pattern works for any provider (`OPENAI_MODEL_FAST`, etc.). Full rationale
+and the node→tier mapping: [docs/week08/benchmarking-findings.md](docs/week08/benchmarking-findings.md).
+
+### Headless CLI (orchestrator subprocess)
+
+Run a single turn non-interactively and get a machine-readable result:
+
+```powershell
+python main.py --prompt "add a window to the south wall of the living room" --layout_json '{ ...layout... }'
+```
+
+No flags → the normal interactive session. Details: [docs/week08/cli-changes.md](docs/week08/cli-changes.md).
+
 ## 2. Install + build — one time (or after pulling new code)
 
 ```powershell
