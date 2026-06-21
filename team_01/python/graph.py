@@ -1,15 +1,27 @@
 from __future__ import annotations
 import json
 import math
+import sys
 from pathlib import Path
 from typing import Any, TypedDict
+
+
+def _safe_input(prompt: str, default: str = "") -> str:
+    """Return `default` silently when stdin is not a terminal (orchestrator / headless mode)."""
+    if not sys.stdin.isatty():
+        print(f"{prompt}{default}  [auto]")
+        return default
+    return input(prompt)
 from langgraph.graph import END, START, StateGraph
 from nodes.reason import build_reason_node
 from nodes.modify import build_modify_node, DEFAULT_SECTIONS, BEAM_SECTION_UPGRADE, COL_SECTION_UPGRADE
 from nodes.evaluate import build_evaluate_node, evaluate_structure, SETTINGS_PATH, _get_user_request
 from nodes.comparison import build_comparison_node
+from nodes.cost_flexibility import build_cost_flexibility_node
+from nodes.tag_and_audit import generate_structure as _generate_structure
 
 EXAMPLE_LAYOUTS_DIR = Path(__file__).parent / "example_layouts"
+OTHER_LAYOUTS_DIR   = Path(__file__).parent.parent / "gh" / "other layouts"
 
 
 def _dist(a: list, b: list) -> float:
@@ -42,6 +54,18 @@ class AgentState(TypedDict):
     live_load_kNm2: float | None
     sdl_kNm2: float | None
     find_minimum_done: bool | None
+    cost_flexibility: dict | None
+    # ### V4 START — context inputs for three-pillar cost/flexibility model
+    # All five keys are loaded from team_01_settings.json at session start.
+    # Absent settings keys fall back to the listed defaults.
+    building_occupancy_class: str | None   # "VACANT"|"LOW"|"HIGH"|"CRITICAL"; default HIGH
+    building_context: str | None           # "NEW"|"EXISTING_KNOWN"|"EXISTING_UNKNOWN"; default EXISTING_KNOWN
+    floor_level: int | None                # positive = above grade, negative = basement; default 1
+    heritage_status: bool                  # pre-existing heritage designation; immutable after init
+    heritage_ratchet: bool                 # persistent building flag; seeded from heritage_status;
+                                           # set True by cost_flexibility node when P4 triggers;
+                                           # never reset to False within a session
+    # ### V4 END
 
 
 _EVAL_KEYWORDS = frozenset({
@@ -51,6 +75,8 @@ _EVAL_KEYWORDS = frozenset({
     "structure hold", "assess struct", "run structural",
     "is this safe", "is it safe", "is the structure",
     "will it hold", "can it support", "safe to",
+    "remove column", "remove beam", "delete column", "delete beam",
+    "what if", "what would happen", "if i remove", "if we remove",
 })
 
 
@@ -62,65 +88,139 @@ def _looks_like_eval(state: AgentState) -> bool:
 
 def _route_from_reason(state: AgentState) -> str:
     if state.get("pending_tool_calls") and state.get("cycle", 0) < 2:
+        calls = [tc.get("name") for tc in (state.get("pending_tool_calls") or [])]
+        if "tag_and_audit" in calls:
+            return "generate_grid"
+        if _looks_like_eval(state):
+            state["pending_tool_calls"] = None
+            return "evaluate"
         return "modify"
     if state.get("cycle", 0) >= 2:
         return END
     if state.get("evaluation_result") is not None:
-        return END  # evaluate already ran — done
+        return END
     if state.get("final_response"):
-        # If the user asked for evaluation/computation, force it even if LLM answered directly
         if _looks_like_eval(state):
             return "evaluate"
-        return END  # genuine Q&A — use LLM's direct answer
+        return END
     return "evaluate"
 
 
 def _route_from_evaluate(state: AgentState) -> str:
-    if state.get("came_from") == "tag_and_audit":
-        return END
     if state.get("pending_structural_change"):
         return "modify"
-    if state.get("came_from") in ("modify", "structural_change"):
-        return "comparison"
     if state.get("evaluation_result") is not None:
-        return END  # plain evaluation done — skip the redundant reason call
+        return "cost_flexibility"
     return "reason"
 
 
+def _route_from_cost_flexibility(state: AgentState) -> str:
+    if state.get("came_from") in ("modify", "structural_change", "generate_grid"):
+        return "comparison"
+    return END
+
+
+def build_generate_grid_node(edited_layout_path):
+    from _runtime.llm import write_tool_result
+
+    def generate_grid_node(state: dict) -> dict:
+        print(f"\n{'='*50}")
+        print(f"  NODE: GENERATE GRID")
+        print(f"{'='*50}")
+
+        if not state.get("original_layout_json_string"):
+            state["original_layout_json_string"] = state["layout_json_string"]
+
+        # Save original snapshot (layout without structure) — never overwritten by modify
+        original_path = edited_layout_path.with_stem(edited_layout_path.stem + "_original")
+        original_path.write_text(state["layout_json_string"], encoding="utf-8")
+        # Also initialise before to the same state so first comparison has a valid baseline
+        before_path = edited_layout_path.with_stem(edited_layout_path.stem + "_before")
+        before_path.write_text(state["layout_json_string"], encoding="utf-8")
+
+        layout_data = json.loads(state["layout_json_string"])
+        options = _generate_structure(layout_data)
+
+        if not options:
+            print("[generate_grid] No options returned — layout unchanged.")
+            state["came_from"] = "generate_grid"
+            state["pending_tool_calls"] = None
+            return state
+
+        if len(options) == 1:
+            chosen = options[0]
+        else:
+            print(f"\n{len(options)} layout options generated:")
+            for i, opt in enumerate(options):
+                struct  = opt.get("structure", [])
+                n_cols  = sum(1 for s in struct if len(s["geometry"]) == 1)
+                n_beams = sum(1 for s in struct if len(s["geometry"]) == 2)
+                max_span = max(
+                    (s["attributes"]["length"] for s in struct
+                     if len(s["geometry"]) == 2 and s["attributes"].get("length")),
+                    default=0,
+                )
+                print(f"  {i+1}. {n_cols} columns · {n_beams} beams · max span {round(max_span, 2)}m")
+            while True:
+                raw = _safe_input(f"Choose option [1-{len(options)}, Enter=1]: ", "").strip()
+                if not raw:
+                    chosen = options[0]
+                    print("[generate_grid] Using option 1")
+                    break
+                if raw.isdigit() and 1 <= int(raw) <= len(options):
+                    chosen = options[int(raw) - 1]
+                    print(f"[generate_grid] Using option {raw}")
+                    break
+
+        n = len(chosen.get("structure", []))
+        print(f"Structural grid ready — {n} elements placed.")
+
+        state["layout_json_string"] = json.dumps(chosen)
+        state["came_from"] = "generate_grid"
+        state["pending_tool_calls"] = None
+        write_tool_result(json.dumps(chosen), edited_layout_path)
+        return state
+
+    return generate_grid_node
+
+
 def build_graph(ctx: Any) -> Any:
-    reason = build_reason_node(ctx.llm)
-    modify = build_modify_node(ctx.mcp_client, ctx.tools, ctx.edited_layout_path, evaluate_fn=evaluate_structure)
-    evaluate = build_evaluate_node(ctx.llm)
-    comparison = build_comparison_node(ctx.llm)
+    reason       = build_reason_node(ctx.llm)
+    generate_grid = build_generate_grid_node(ctx.edited_layout_path)
+    modify       = build_modify_node(ctx.mcp_client, ctx.tools, ctx.edited_layout_path, evaluate_fn=evaluate_structure)
+    evaluate     = build_evaluate_node(ctx.llm)
+    cost_flex    = build_cost_flexibility_node()
+    comparison   = build_comparison_node(ctx.llm)
 
     graph = StateGraph(AgentState)
-    graph.add_node("reason", reason)
-    graph.add_node("modify", modify)
-    graph.add_node("evaluate", evaluate)
-    graph.add_node("comparison", comparison)
+    graph.add_node("reason",        reason)
+    graph.add_node("generate_grid", generate_grid)
+    graph.add_node("modify",        modify)
+    graph.add_node("evaluate",      evaluate)
+    graph.add_node("cost_flexibility", cost_flex)
+    graph.add_node("comparison",    comparison)
 
     graph.add_edge(START, "reason")
-    graph.add_conditional_edges("reason", _route_from_reason, {"modify": "modify", "evaluate": "evaluate", END: END})
-    graph.add_edge("modify", "evaluate")
-    graph.add_conditional_edges("evaluate", _route_from_evaluate, {"reason": "reason", "comparison": "comparison", "modify": "modify", END: END})
-    graph.add_edge("comparison", "reason")
+    graph.add_conditional_edges("reason", _route_from_reason,
+        {"generate_grid": "generate_grid", "modify": "modify", "evaluate": "evaluate", END: END})
+    graph.add_edge("generate_grid", "evaluate")
+    graph.add_edge("modify",        "evaluate")
+    graph.add_conditional_edges("evaluate", _route_from_evaluate,
+        {"modify": "modify", "cost_flexibility": "cost_flexibility", "reason": "reason"})
+    graph.add_conditional_edges("cost_flexibility", _route_from_cost_flexibility,
+        {"comparison": "comparison", END: END})
+    graph.add_edge("comparison", END)
 
     return graph.compile()
 
 
-def run_agent(prompt: str, ctx: Any) -> str:
+def run_agent(prompt: str, ctx: Any, layout_data: dict | None = None) -> tuple[str, str | None]:
     app = build_graph(ctx)
-    # Snapshot the layout before this run so before/after comparison is always available
-    if ctx.edited_layout_path.exists():
-        before_path = ctx.edited_layout_path.with_stem(ctx.edited_layout_path.stem + "_before")
-        before_path.write_text(ctx.edited_layout_path.read_text(encoding="utf-8"), encoding="utf-8")
-        print(f"[snapshot] saved {before_path.name}")
-    initial_state = _build_initial_state(prompt, ctx)
+    initial_state = _build_initial_state(prompt, ctx, layout_data=layout_data)
     final_state = app.invoke(initial_state)
 
     # Persist material override to JSON after graph completes (survives multiple modify cycles)
     material = final_state.get("material_override")
-    print(f"[material] final material_override = {material!r}")
     if material:
         from nodes.modify import DEFAULT_SECTIONS, BEAM_SECTION_UPGRADE, COL_SECTION_UPGRADE
         sec = DEFAULT_SECTIONS.get(material)
@@ -143,13 +243,31 @@ def run_agent(prompt: str, ctx: Any) -> str:
                     attrs["material"] = material
                     is_beam = len(el.get("geometry", [])) == 2
                     cur_sec = attrs.get("section", "")
-                    # Preserve individually upgraded sections
-                    if is_beam and global_beam_sec and cur_sec and cur_sec != global_beam_sec:
-                        count += 1
-                        continue
-                    if not is_beam and global_col_sec and cur_sec and cur_sec != global_col_sec:
-                        count += 1
-                        continue
+                    # Preserve individually upgraded sections.
+                    # STEEL: compare section codes (e.g. "IPE300").
+                    # TIMBER/RCC: compare depth×width for beams, dimensions string for columns.
+                    if is_beam:
+                        if is_steel and global_beam_sec and cur_sec and cur_sec != global_beam_sec:
+                            count += 1
+                            continue
+                        elif not is_steel:
+                            cur_d = str(attrs.get("depth", ""))
+                            cur_w = str(attrs.get("width", ""))
+                            if cur_d and cur_w and (
+                                cur_d != str(sec["beam_depth_mm"]) or
+                                cur_w != str(sec["beam_width_mm"])
+                            ):
+                                count += 1
+                                continue
+                    else:
+                        if is_steel and global_col_sec and cur_sec and cur_sec != global_col_sec:
+                            count += 1
+                            continue
+                        elif not is_steel:
+                            cur_dims = attrs.get("dimensions", "")
+                            if cur_dims and cur_dims != sec["col_dims"]:
+                                count += 1
+                                continue
                     if is_beam:
                         attrs["depth"] = str(sec["beam_depth_mm"])
                         attrs["width"] = str(sec["beam_width_mm"])
@@ -167,7 +285,9 @@ def run_agent(prompt: str, ctx: Any) -> str:
                 ctx.edited_layout_path.write_text(
                     json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
                 )
-                print(f"JSON updated: {material} applied to {count} elements → {ctx.edited_layout_path.name}")
+                print(f"Layout saved — {material} applied to {count} elements.")
+
+
 
     print("\nWorkflow graph:")
     app.get_graph().print_ascii()
@@ -195,9 +315,14 @@ def run_agent(prompt: str, ctx: Any) -> str:
         eval_json=final_state.get("evaluation_result"),
         comparison=final_state.get("comparison_result"),
         report_path=ctx.edited_layout_path.parent / "team_01_evaluation_report.md",
+        cost_flexibility=final_state.get("cost_flexibility"),
+        material=final_state.get("material_override"),
+        sdl_kNm2=final_state.get("sdl_kNm2"),
+        live_load_kNm2=final_state.get("live_load_kNm2"),
     )
 
-    return final_response
+    edited_layout_json = final_state.get("layout_json_string") or None
+    return final_response, edited_layout_json
 
 
 def _write_evaluation_report(
@@ -205,6 +330,10 @@ def _write_evaluation_report(
     eval_json: str | None,
     comparison: str | None,
     report_path: Path,
+    cost_flexibility: dict | None = None,
+    material: str | None = None,
+    sdl_kNm2: float | None = None,
+    live_load_kNm2: float | None = None,
 ) -> None:
     import datetime
     lines = [
@@ -214,6 +343,21 @@ def _write_evaluation_report(
         f"**Prompt:** {prompt}",
         f"",
     ]
+    # Analysis parameters summary
+    if material or sdl_kNm2 or live_load_kNm2:
+        lines.append("## Analysis Parameters")
+        lines.append("")
+        lines.append("| Parameter | Value |")
+        lines.append("|-----------|-------|")
+        if material:
+            lines.append(f"| Material | {material} |")
+        if sdl_kNm2 is not None:
+            lines.append(f"| Floor build-up (SDL) | {sdl_kNm2} kN/m² |")
+        if live_load_kNm2 is not None:
+            lines.append(f"| Live load | {live_load_kNm2} kN/m² |")
+        if sdl_kNm2 is not None and live_load_kNm2 is not None:
+            lines.append(f"| Total applied load | {round(sdl_kNm2 + live_load_kNm2, 2)} kN/m² |")
+        lines.append("")
     eval_table = _format_evaluation(eval_json)
     if eval_table:
         lines.append("## Structural Checks")
@@ -227,6 +371,71 @@ def _write_evaluation_report(
         lines.append("")
         lines.append(comparison)
         lines.append("")
+    # ### V4 MODIFIED — dual-path: reads V4 field names when present, falls back to V3 field
+    # names for sessions still running the old cost_flexibility.py. V3 path is removed once
+    # cost_flexibility.py is migrated; also hardened all V3 field accesses to .get() to
+    # prevent KeyError if the dict is partially populated.
+    if cost_flexibility:
+        cf = cost_flexibility
+        lines.append("## Cost & Flexibility Analysis")
+        lines.append("")
+        lines.append("| Metric | Value |")
+        lines.append("|--------|-------|")
+        if cf.get("financial_cost_label") is not None or cf.get("total_build_cost"):
+            # V4 path
+            tbc = cf.get("total_build_cost", {})
+            if tbc and tbc.get("total_build_mid_eur"):
+                vol_str = "  ·  ".join(
+                    f"{v:.3f} m³ {k}" for k, v in tbc.get("total_build_vol_m3", {}).items()
+                )
+                lines.append(
+                    f"| **Total Structure Build Cost** | "
+                    f"**{tbc['total_build_label']} "
+                    f"(EUR {tbc['total_build_mid_eur']:,.0f} / "
+                    f"{tbc['total_build_low_eur']:,.0f}–{tbc['total_build_high_eur']:,.0f})** |"
+                )
+                lines.append(f"| ↳ Volume | {vol_str} |")
+                lines.append(f"| ↳ PEM (works budget) | EUR {tbc['total_build_pem_eur']:,.0f} |")
+            ds = cf.get("design_savings_eur", 0)
+            if ds:
+                lines.append(f"| Design-Phase Saving | EUR {ds:,.0f} (avoided new-build cost of removed elements) |")
+            if cf.get("financial_cost_label") is None:
+                # only total build cost, no modification diff — stop here
+                lines.append("")
+            else:
+                fc_range = cf.get("financial_cost_range", {})
+                curr = fc_range.get("currency", "EUR")
+                mid  = fc_range.get("mid",  0)
+                intervention_eur = cf.get("intervention_mid_eur", 0)
+                overhead_eur     = cf.get("overhead_mid_eur", 0)
+                lines.append(f"| Last Modification Cost | {cf['financial_cost_label']} ({curr} {mid:,.0f}) |")
+                lines.append(f"| ↳ Intervention | {curr} {intervention_eur:,.0f} (labour, demolition, material) |")
+                lines.append(f"| ↳ Overhead | {curr} {overhead_eur:,.0f} (mobilisation, temp works, fees) |")
+                lines.append(f"| Cost Driver | {cf.get('dominant_cost_driver', '—')} |")
+                lines.append(f"| Admin Burden | {cf.get('admin_burden_label', '—')} |")
+                crit = cf.get("admin_critical_path_weeks", {})
+                lines.append(f"| Admin Critical Path | {crit.get('mid', '—')} wks (mid) |")
+                lines.append(f"| Dominant Process | {cf.get('dominant_admin_process', '—')} |")
+                lines.append(f"| Adaptability | {cf.get('adaptability_label', '—')} ({cf.get('adaptability_confidence', '—')} confidence) |")
+                lines.append(f"| Adaptability Constraint | {cf.get('adaptability_constraint', '—')} |")
+                lines.append(f"| Decision Signal | {cf.get('decision_signal', '—')} |")
+                if cf.get("heritage_ratchet_triggered_this_intervention"):
+                    lines.append("| Heritage Ratchet | Triggered this intervention — permanent |")
+        else:
+            # V3 fallback path — active until cost_flexibility.py is updated to V4
+            if cf.get("cost_added_usd") is not None:
+                lines.append(f"| Material added | +${cf['cost_added_usd']:,.0f} |")
+                lines.append(f"| Material saved | -${abs(cf.get('cost_saved_usd', 0)):,.0f} |")
+                lines.append(f"| Net cost change | ${cf.get('net_cost_usd', 0):+,.0f} |")
+            else:
+                lines.append(f"| Net cost change | ${cf.get('material_cost_usd', 0):+,.0f} |")
+            lines.append(f"| Disruption | {cf.get('disruption_label', '—')} ({cf.get('disruption_score', 0)}/10) |")
+            lines.append(f"| Spatial Penalty | {cf.get('spatial_penalty', 0):.2f} |")
+            lines.append(f"| Flexibility | {cf.get('flexibility_score', 0):.1f}/10 — {cf.get('flexibility_label', '—')} |")
+        lines.append("")
+        if cf.get("summary"):
+            lines.append(f"> {cf['summary']}")
+            lines.append("")
     report_path.write_text("\n".join(lines), encoding="utf-8")
     print(f"[report] saved {report_path.name}")
 
@@ -292,24 +501,52 @@ def _format_evaluation(eval_json: str | None) -> str:
 
 
 def _load_all_layouts() -> list[dict[str, Any]]:
-    """Load all layouts from example_layouts folder."""
+    """Load all layouts from example_layouts/ and gh/other layouts/."""
     all_layouts = []
-    for json_file in sorted(EXAMPLE_LAYOUTS_DIR.glob("*.json")):
-        content = json.loads(json_file.read_text(encoding="utf-8"))
-        if isinstance(content, list):
-            all_layouts.extend(content)
-        else:
-            all_layouts.append(content)
+    for layouts_dir in (EXAMPLE_LAYOUTS_DIR, OTHER_LAYOUTS_DIR):
+        if not layouts_dir.exists():
+            continue
+        for json_file in sorted(layouts_dir.glob("*.json")):
+            try:
+                content = json.loads(json_file.read_text(encoding="utf-8"))
+                entries = content if isinstance(content, list) else [content]
+                for entry in entries:
+                    if isinstance(entry, dict) and "rooms" in entry and "outline" in entry:
+                        all_layouts.append(entry)
+            except Exception:
+                pass
     return all_layouts
 
 
-def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
+def _build_initial_state(prompt: str, ctx: Any, layout_data: dict | None = None) -> AgentState:
+    # Orchestrator-provided layout wins over everything — no menu shown
+    if layout_data is not None:
+        layouts = [layout_data]
+        print(f"[layout] Using orchestrator-provided layout: {layout_data.get('layoutId', '?')}")
     # Prefer the edited layout (current working state with structure) if it exists
-    if ctx.edited_layout_path.exists():
+    elif ctx.edited_layout_path.exists():
         edited = json.loads(ctx.edited_layout_path.read_text(encoding="utf-8"))
         layouts = [edited]
     else:
         layouts = _load_all_layouts()
+        if len(layouts) > 1:
+            print(f"\n{len(layouts)} layouts available:")
+            for i, l in enumerate(layouts):
+                lid     = l.get("layoutId", f"layout-{i+1}")
+                n_rooms = len(l.get("rooms", []))
+                has_structure = len(l.get("structure", [])) > 0
+                tag = " [has structure]" if has_structure else ""
+                print(f"  {i+1}. {lid}  ({n_rooms} rooms){tag}")
+            while True:
+                raw = _safe_input(f"Choose layout [1-{len(layouts)}, Enter=1]: ", "").strip()
+                if not raw:
+                    layouts = [layouts[0]]
+                    print(f"[layout] Using {layouts[0].get('layoutId', 'layout-1')}")
+                    break
+                if raw.isdigit() and 1 <= int(raw) <= len(layouts):
+                    layouts = [layouts[int(raw) - 1]]
+                    print(f"[layout] Using {layouts[0].get('layoutId', '?')}")
+                    break
 
     layout_ids = [l.get("layoutId", "?") for l in layouts]
 
@@ -350,7 +587,8 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
         })
 
     user_message = (
-        f"Context: {len(layouts)} layouts loaded from team_01/python/example_layouts/: {layout_ids}.\n"
+        f"Context: {len(layouts)} layouts loaded from team_01/python/example_layouts/ "
+        f"and team_01/gh/other layouts/: {layout_ids}.\n"
         f"Valid room names are rooms[].name.\n\n"
         f"User request:\n{prompt}\n\n"
         f"Layout summaries:\n{json.dumps(slim, indent=2)}"
@@ -380,6 +618,14 @@ def _build_initial_state(prompt: str, ctx: Any) -> AgentState:
         "live_load_kNm2": _settings_load(SETTINGS_PATH, "live_load_kNm2"),
         "sdl_kNm2": _settings_load(SETTINGS_PATH, "sdl_kNm2"),
         "find_minimum_done": False,
+        "cost_flexibility": None,
+        # ### V4 START — initialize context inputs; absent settings keys fall back to defaults
+        "building_occupancy_class": _settings_load(SETTINGS_PATH, "building_occupancy_class") or "HIGH",
+        "building_context":         _settings_load(SETTINGS_PATH, "building_context") or "EXISTING_KNOWN",
+        "floor_level":              int(_settings_load(SETTINGS_PATH, "floor_level") or 1),
+        "heritage_status":          bool(_settings_load(SETTINGS_PATH, "heritage_status") or False),
+        "heritage_ratchet":         bool(_settings_load(SETTINGS_PATH, "heritage_status") or False),
+        # ### V4 END
     }
 
 

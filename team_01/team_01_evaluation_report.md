@@ -1,7 +1,16 @@
 # Structural Evaluation Report
 
-**Date:** 2026-05-24 10:18:01
-**Prompt:** what would happen if I remove column C_2?
+**Date:** 2026-06-07 13:25:51
+**Prompt:** evaluate structure
+
+## Analysis Parameters
+
+| Parameter | Value |
+|-----------|-------|
+| Material | TIMBER |
+| Floor build-up (SDL) | 3.5 kN/m² |
+| Live load | 2.0 kN/m² |
+| Total applied load | 5.5 kN/m² |
 
 ## Structural Checks
 
@@ -9,47 +18,81 @@
 Structural evaluation: PASS
 
 BEAMS:
-  AB_1     IPE240    L=5.0m  M=22.835kNm  S=70.412MPa  d_LL=4.182mm/13.889mm  ok
-  BC_1     IPE240    L=3.0m  M=8.22kNm  S=25.348MPa  d_LL=0.542mm/8.333mm  ok
-  CD_1     IPE240    L=6.0m  M=32.882kNm  S=101.394MPa  d_LL=8.672mm/16.667mm  ok
-  A_12     IPE240    L=4.0m  M=18.114kNm  S=55.856MPa  d_LL=2.141mm/11.111mm  ok
-  A_23     IPE240    L=3.0m  M=10.189kNm  S=31.419MPa  d_LL=0.677mm/8.333mm  ok
-  A_34     IPE240    L=3.0m  M=10.189kNm  S=31.419MPa  d_LL=0.677mm/8.333mm  ok
-  AB_2     IPE240    L=5.0m  M=20.1kNm  S=61.981MPa  d_LL=3.659mm/13.889mm  ok
-  B_12     IPE240    L=4.0m  M=14.614kNm  S=45.064MPa  d_LL=1.713mm/11.111mm  ok
-  B_23     IPE240    L=3.0m  M=8.22kNm  S=25.348MPa  d_LL=0.542mm/8.333mm  ok
-  B_34     IPE240    L=3.0m  M=8.22kNm  S=25.348MPa  d_LL=0.542mm/8.333mm  ok
-  AB_3     IPE240    L=5.0m  M=17.366kNm  S=53.549MPa  d_LL=3.136mm/13.889mm  ok
-  BC_3     IPE240    L=3.0m  M=6.252kNm  S=19.278MPa  d_LL=0.406mm/8.333mm  ok
-  CD_3     IPE240    L=6.0m  M=25.007kNm  S=77.11MPa  d_LL=6.504mm/16.667mm  ok
-  C_34     IPE240    L=3.0m  M=9.205kNm  S=28.384MPa  d_LL=0.61mm/8.333mm  ok
-  AB_4     IPE240    L=5.0m  M=17.366kNm  S=53.549MPa  d_LL=3.136mm/13.889mm  ok
-  BC_4     IPE240    L=3.0m  M=6.252kNm  S=19.278MPa  d_LL=0.406mm/8.333mm  ok
-  CD_4     IPE240    L=6.0m  M=25.007kNm  S=77.11MPa  d_LL=6.504mm/16.667mm  ok
-  D_12     IPE240    L=4.0m  M=21.614kNm  S=66.649MPa  d_LL=2.569mm/11.111mm  ok
-  D_23     IPE240    L=3.0m  M=12.158kNm  S=37.49MPa  d_LL=0.813mm/8.333mm  ok
-  D_34     IPE240    L=3.0m  M=12.158kNm  S=37.49MPa  d_LL=0.813mm/8.333mm  ok
-  BC_2     IPE300    L=9.0m  M=66.293kNm  S=119.017MPa  d_LL=17.892mm/25.0mm  ok
-  C_12     IPE300    L=7.0m  M=50.822kNm  S=91.242MPa  d_LL=8.418mm/19.444mm  ok
+  A3-A5    120x300   L=3.75m  M=15.785kNm  S=8.77MPa  d_LL=3.815mm/10.417mm  ok
+  A3-B3    100x240   L=3.2m  M=7.194kNm  S=7.493MPa  d_LL=2.963mm/8.889mm  ok
+  A5-C5    100x240   L=3.5m  M=8.606kNm  S=8.964MPa  d_LL=4.24mm/9.722mm  ok
+  B1-B3    100x240   L=1.75m  M=2.151kNm  S=2.241MPa  d_LL=0.265mm/4.861mm  ok
+  B1-D1    100x240   L=2.6m  M=4.749kNm  S=4.947MPa  d_LL=1.291mm/7.222mm  ok
+  C5-C7    100x240   L=1.8m  M=2.276kNm  S=2.371MPa  d_LL=0.297mm/5.0mm  ok
+  C5-D5    100x240   L=2.3m  M=3.716kNm  S=3.871MPa  d_LL=0.791mm/6.389mm  ok
+  C7-D7    100x240   L=2.3m  M=3.716kNm  S=3.871MPa  d_LL=0.791mm/6.389mm  ok
+  D1-D2    100x240   L=1.5m  M=2.277kNm  S=2.372MPa  d_LL=0.207mm/4.167mm  ok
+  D1-E1    100x240   L=3.5m  M=8.606kNm  S=8.964MPa  d_LL=4.24mm/9.722mm  ok
+  D2-D3    100x240   L=0.25m  M=0.063kNm  S=0.066MPa  d_LL=0.0mm/0.694mm  ok
+  D2-E2    100x240   L=3.5m  M=8.606kNm  S=8.964MPa  d_LL=4.24mm/9.722mm  ok
+  D3-D5    120x300   L=3.75m  M=14.335kNm  S=7.964MPa  d_LL=3.457mm/10.417mm  ok
+  D5-D6    100x240   L=0.75m  M=0.569kNm  S=0.593MPa  d_LL=0.013mm/2.083mm  ok
+  D6-D7    100x240   L=1.05m  M=1.116kNm  S=1.162MPa  d_LL=0.05mm/2.917mm  ok
+  D6-E6    100x240   L=3.5m  M=8.606kNm  S=8.964MPa  d_LL=4.24mm/9.722mm  ok
+  E1-E2    100x240   L=1.5m  M=2.741kNm  S=2.855MPa  d_LL=0.25mm/4.167mm  ok
+  E2-E4    100x240   L=1.7m  M=3.52kNm  S=3.667MPa  d_LL=0.413mm/4.722mm  ok
+  E2-G2    120x300   L=3.8m  M=10.252kNm  S=5.696MPa  d_LL=2.514mm/10.556mm  ok
+  E4-E6    100x240   L=3.05m  M=11.332kNm  S=11.804MPa  d_LL=4.279mm/8.472mm  ok
+  E4-F4    100x240   L=3.5m  M=8.606kNm  S=8.964MPa  d_LL=4.24mm/9.722mm  ok
+  E6-E7    100x240   L=1.05m  M=1.343kNm  S=1.399MPa  d_LL=0.06mm/2.917mm  ok
+  E7-F7    100x240   L=3.5m  M=8.606kNm  S=8.964MPa  d_LL=4.24mm/9.722mm  ok
+  F4-F7    120x300   L=4.1m  M=11.935kNm  S=6.631MPa  d_LL=3.407mm/11.389mm  ok
+  F4-G4    100x240   L=0.3m  M=0.063kNm  S=0.066MPa  d_LL=0.0mm/0.833mm  ok
+  G2-G4    100x240   L=1.7m  M=2.03kNm  S=2.115MPa  d_LL=0.236mm/4.722mm  ok
+  B3-C3    100x240   L=2.6m  M=4.749kNm  S=4.947MPa  d_LL=1.291mm/7.222mm  ok
 
 COLUMNS:
-  A_1      HSS150x150x6 H=3.5m  P=18.45kN  S=5.3384MPa  SF=262.33  ok
-  A_2      HSS150x150x6 H=3.5m  P=31.57kN  S=9.1362MPa  SF=153.28  ok
-  A_3      HSS150x150x6 H=3.5m  P=27.2kN  S=7.8702MPa  SF=177.94  ok
-  A_4      HSS150x150x6 H=3.5m  P=14.07kN  S=4.0725MPa  SF=343.87  ok
-  B_1      HSS150x150x6 H=3.5m  P=28.95kN  S=8.3766MPa  SF=167.18  ok
-  B_2      HSS150x150x6 H=3.5m  P=49.95kN  S=14.453MPa  SF=96.89  ok
-  B_3      HSS150x150x6 H=3.5m  P=42.95kN  S=12.4275MPa  SF=112.69  ok
-  B_4      HSS150x150x6 H=3.5m  P=21.95kN  S=6.3511MPa  SF=220.5  ok
-  C_1      HSS150x150x6 H=3.5m  P=32.45kN  S=9.3893MPa  SF=149.15  ok
-  C_3      HSS150x150x6 H=3.5m  P=48.2kN  S=13.9466MPa  SF=100.41  ok
-  C_4      HSS150x150x6 H=3.5m  P=24.57kN  S=7.1107MPa  SF=196.94  ok
-  D_1      HSS150x150x6 H=3.5m  P=21.95kN  S=6.3511MPa  SF=220.5  ok
-  D_2      HSS150x150x6 H=3.5m  P=37.7kN  S=10.9084MPa  SF=128.38  ok
-  D_3      HSS150x150x6 H=3.5m  P=32.45kN  S=9.3893MPa  SF=149.15  ok
-  D_4      HSS150x150x6 H=3.5m  P=16.7kN  S=4.832MPa  SF=289.82  ok
+  A3       100x100   H=3.5m  P=7.66kN  S=0.7655MPa  SF=16.61  ok
+  A5       100x100   H=3.5m  P=13.6kN  S=1.3595MPa  SF=9.35  ok
+  B1       100x100   H=3.5m  P=7.39kN  S=0.7394MPa  SF=17.19  ok
+  B3       100x100   H=3.5m  P=8.36kN  S=0.8356MPa  SF=15.21  ok
+  C5       100x100   H=3.5m  P=11.08kN  S=1.1079MPa  SF=11.48  ok
+  C7       100x100   H=3.5m  P=5.67kN  S=0.5675MPa  SF=22.4  ok
+  D1       100x100   H=3.5m  P=12.14kN  S=1.2138MPa  SF=10.47  ok
+  D2       100x100   H=3.5m  P=14.13kN  S=1.4131MPa  SF=9.0  ok
+  D3       100x100   H=3.5m  P=13.73kN  S=1.3733MPa  SF=9.26  ok
+  D5       100x100   H=3.5m  P=24.5kN  S=2.4499MPa  SF=5.19  ok
+  D6       100x100   H=3.5m  P=14.53kN  S=1.453MPa  SF=8.75  ok
+  D7       100x100   H=3.5m  P=8.55kN  S=0.8549MPa  SF=14.87  ok
+  E1       100x100   H=3.5m  P=14.61kN  S=1.4612MPa  SF=8.7  ok
+  E2       100x100   H=3.5m  P=17.02kN  S=1.7019MPa  SF=7.47  ok
+  E4       100x100   H=3.5m  P=36.27kN  S=3.6269MPa  SF=3.51  ok
+  E6       100x100   H=3.5m  P=17.5kN  S=1.75MPa  SF=7.26  ok
+  E7       100x100   H=3.5m  P=10.28kN  S=1.0281MPa  SF=12.37  ok
+  F4       100x100   H=3.5m  P=19.77kN  S=1.9769MPa  SF=6.43  ok
+  F7       100x100   H=3.5m  P=5.67kN  S=0.5675MPa  SF=22.4  ok
+  G2       100x100   H=3.5m  P=5.67kN  S=0.5675MPa  SF=22.4  ok
+  G4       100x100   H=3.5m  P=5.67kN  S=0.5675MPa  SF=22.4  ok
 ```
 
 ## Change Summary
 
-Upgraded two IPE240 beams to IPE300, increasing the structural capacity and achieving its goal of enhancing load-bearing capabilities without compromising stability.
+The removal of column C3 and the two beams C3‑C5 and C3‑D3 reduces the overall structural load, cutting the total cost from 8,425 EUR to 6,945 EUR while keeping administrative effort low (14 weeks) and giving a high adaptability rating with medium confidence. This change frees up space and simplifies future modifications.
+
+Next step: re‑run the evaluation to confirm the change holds.
+
+## Cost & Flexibility Analysis
+
+| Metric | Value |
+|--------|-------|
+| **Total Structure Build Cost** | **Moderate (EUR 8,425 / 5,898–12,638)** |
+| ↳ Volume | 2.499 m³ TIMBER |
+| ↳ PEM (works budget) | EUR 6,123 |
+| Design-Phase Saving | EUR 651 (avoided new-build cost of removed elements) |
+| Last Modification Cost | Low (EUR 6,945) |
+| ↳ Intervention | EUR 3,092 (labour, demolition, material) |
+| ↳ Overhead | EUR 3,853 (mobilisation, temp works, fees) |
+| Cost Driver | Component C — Temp Works |
+| Admin Burden | Low |
+| Admin Critical Path | 14 wks (mid) |
+| Dominant Process | P2 — Municipal Building Permit |
+| Adaptability | High (MEDIUM confidence) |
+| Adaptability Constraint | Regulatory Footprint |
+| Decision Signal | low_cost_high_freedom |
+
+> Full structure: Moderate (EUR 8,425) | 3 removed | Cost: Low (EUR 6,945 total / 3,092 intervention / 3,853 overhead) | Admin: Low (14 wks mid) | Adaptability: High (MEDIUM confidence) | Signal: low_cost_high_freedom

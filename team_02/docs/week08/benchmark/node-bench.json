@@ -1,0 +1,479 @@
+{
+  "generated_at": "2026-06-07T19:01:32+00:00",
+  "layout_id": "201",
+  "prompts": [
+    "Analyze the apartment.",
+    "Run the full analysis \u2014 score every room, detect the sensory conflicts, and give me concrete suggestions to fix them.",
+    "In the kitchen, change the floor to wood and add two potted plants.",
+    "Why is the kitchen's acoustic comfort so low?",
+    "Thanks, this is really helpful!"
+  ],
+  "pricing_usd_per_1m_tokens": {
+    "fast": {
+      "in": 0.1,
+      "out": 0.4
+    },
+    "smart": {
+      "in": 0.3,
+      "out": 2.5
+    }
+  },
+  "fast_model": "gemini-2.5-flash-lite",
+  "smart_model": "gemini-2.5-flash",
+  "session_total_cost_usd": 0.01255,
+  "nodes": [
+    {
+      "node": "suggestion_critic",
+      "tier": "smart",
+      "calls": 1,
+      "llm_calls": 1,
+      "avg_latency_s": 16.1,
+      "median_latency_s": 16.1,
+      "in_tok": 924,
+      "out_tok": 838,
+      "est_cost_usd": 0.00237
+    },
+    {
+      "node": "score_interpreter",
+      "tier": "smart",
+      "calls": 2,
+      "llm_calls": 2,
+      "avg_latency_s": 14.306,
+      "median_latency_s": 14.306,
+      "in_tok": 1696,
+      "out_tok": 1024,
+      "est_cost_usd": 0.00307
+    },
+    {
+      "node": "conflict_reasoner",
+      "tier": "smart",
+      "calls": 1,
+      "llm_calls": 1,
+      "avg_latency_s": 9.333,
+      "median_latency_s": 9.333,
+      "in_tok": 1062,
+      "out_tok": 320,
+      "est_cost_usd": 0.00112
+    },
+    {
+      "node": "respond",
+      "tier": "smart",
+      "calls": 3,
+      "llm_calls": 3,
+      "avg_latency_s": 7.446,
+      "median_latency_s": 4.44,
+      "in_tok": 4820,
+      "out_tok": 243,
+      "est_cost_usd": 0.00205
+    },
+    {
+      "node": "detail_respond",
+      "tier": "smart",
+      "calls": 1,
+      "llm_calls": 1,
+      "avg_latency_s": 2.147,
+      "median_latency_s": 2.147,
+      "in_tok": 8017,
+      "out_tok": 42,
+      "est_cost_usd": 0.00251
+    },
+    {
+      "node": "edit_planner",
+      "tier": "smart",
+      "calls": 1,
+      "llm_calls": 1,
+      "avg_latency_s": 1.515,
+      "median_latency_s": 1.515,
+      "in_tok": 474,
+      "out_tok": 105,
+      "est_cost_usd": 0.0004
+    },
+    {
+      "node": "chitchat",
+      "tier": "fast",
+      "calls": 1,
+      "llm_calls": 1,
+      "avg_latency_s": 0.849,
+      "median_latency_s": 0.849,
+      "in_tok": 469,
+      "out_tok": 63,
+      "est_cost_usd": 7e-05
+    },
+    {
+      "node": "what_next",
+      "tier": "fast",
+      "calls": 5,
+      "llm_calls": 5,
+      "avg_latency_s": 0.791,
+      "median_latency_s": 0.706,
+      "in_tok": 2564,
+      "out_tok": 182,
+      "est_cost_usd": 0.00033
+    },
+    {
+      "node": "action_classifier",
+      "tier": "fast",
+      "calls": 5,
+      "llm_calls": 5,
+      "avg_latency_s": 0.735,
+      "median_latency_s": 0.569,
+      "in_tok": 4105,
+      "out_tok": 175,
+      "est_cost_usd": 0.00048
+    },
+    {
+      "node": "greet",
+      "tier": "fast",
+      "calls": 1,
+      "llm_calls": 1,
+      "avg_latency_s": 0.537,
+      "median_latency_s": 0.537,
+      "in_tok": 124,
+      "out_tok": 12,
+      "est_cost_usd": 2e-05
+    },
+    {
+      "node": "evaluator",
+      "tier": "fast",
+      "calls": 3,
+      "llm_calls": 3,
+      "avg_latency_s": 0.466,
+      "median_latency_s": 0.444,
+      "in_tok": 1272,
+      "out_tok": 3,
+      "est_cost_usd": 0.00013
+    },
+    {
+      "node": "load_layout",
+      "tier": "-",
+      "calls": 3,
+      "llm_calls": 0,
+      "avg_latency_s": 0.0,
+      "median_latency_s": 0.0,
+      "in_tok": 0,
+      "out_tok": 0,
+      "est_cost_usd": 0.0
+    },
+    {
+      "node": "analyze",
+      "tier": "-",
+      "calls": 2,
+      "llm_calls": 0,
+      "avg_latency_s": 0.0,
+      "median_latency_s": 0.0,
+      "in_tok": 0,
+      "out_tok": 0,
+      "est_cost_usd": 0.0
+    },
+    {
+      "node": "detect",
+      "tier": "-",
+      "calls": 1,
+      "llm_calls": 0,
+      "avg_latency_s": 0.0,
+      "median_latency_s": 0.0,
+      "in_tok": 0,
+      "out_tok": 0,
+      "est_cost_usd": 0.0
+    },
+    {
+      "node": "suggest",
+      "tier": "-",
+      "calls": 1,
+      "llm_calls": 0,
+      "avg_latency_s": 0.0,
+      "median_latency_s": 0.0,
+      "in_tok": 0,
+      "out_tok": 0,
+      "est_cost_usd": 0.0
+    },
+    {
+      "node": "apply_edits",
+      "tier": "-",
+      "calls": 1,
+      "llm_calls": 0,
+      "avg_latency_s": 0.0,
+      "median_latency_s": 0.0,
+      "in_tok": 0,
+      "out_tok": 0,
+      "est_cost_usd": 0.0
+    },
+    {
+      "node": "compare_versions",
+      "tier": "-",
+      "calls": 1,
+      "llm_calls": 0,
+      "avg_latency_s": 0.0,
+      "median_latency_s": 0.0,
+      "in_tok": 0,
+      "out_tok": 0,
+      "est_cost_usd": 0.0
+    }
+  ],
+  "raw_timings": [
+    {
+      "node": "action_classifier",
+      "tier": "fast",
+      "latency_s": 1.3794,
+      "llm_calls": 1,
+      "in_tok": 813,
+      "out_tok": 35
+    },
+    {
+      "node": "load_layout",
+      "tier": "-",
+      "latency_s": 0.0007,
+      "llm_calls": 0,
+      "in_tok": 0,
+      "out_tok": 0
+    },
+    {
+      "node": "analyze",
+      "tier": "-",
+      "latency_s": 0.0005,
+      "llm_calls": 0,
+      "in_tok": 0,
+      "out_tok": 0
+    },
+    {
+      "node": "score_interpreter",
+      "tier": "smart",
+      "latency_s": 12.3017,
+      "llm_calls": 1,
+      "in_tok": 848,
+      "out_tok": 557
+    },
+    {
+      "node": "respond",
+      "tier": "smart",
+      "latency_s": 4.4401,
+      "llm_calls": 1,
+      "in_tok": 1413,
+      "out_tok": 64
+    },
+    {
+      "node": "evaluator",
+      "tier": "fast",
+      "latency_s": 0.5489,
+      "llm_calls": 1,
+      "in_tok": 407,
+      "out_tok": 1
+    },
+    {
+      "node": "what_next",
+      "tier": "fast",
+      "latency_s": 0.6764,
+      "llm_calls": 1,
+      "in_tok": 511,
+      "out_tok": 37
+    },
+    {
+      "node": "action_classifier",
+      "tier": "fast",
+      "latency_s": 0.5694,
+      "llm_calls": 1,
+      "in_tok": 832,
+      "out_tok": 37
+    },
+    {
+      "node": "load_layout",
+      "tier": "-",
+      "latency_s": 0.0001,
+      "llm_calls": 0,
+      "in_tok": 0,
+      "out_tok": 0
+    },
+    {
+      "node": "detect",
+      "tier": "-",
+      "latency_s": 0.0001,
+      "llm_calls": 0,
+      "in_tok": 0,
+      "out_tok": 0
+    },
+    {
+      "node": "conflict_reasoner",
+      "tier": "smart",
+      "latency_s": 9.3327,
+      "llm_calls": 1,
+      "in_tok": 1062,
+      "out_tok": 320
+    },
+    {
+      "node": "suggest",
+      "tier": "-",
+      "latency_s": 0.0001,
+      "llm_calls": 0,
+      "in_tok": 0,
+      "out_tok": 0
+    },
+    {
+      "node": "suggestion_critic",
+      "tier": "smart",
+      "latency_s": 16.0999,
+      "llm_calls": 1,
+      "in_tok": 924,
+      "out_tok": 838
+    },
+    {
+      "node": "respond",
+      "tier": "smart",
+      "latency_s": 13.6014,
+      "llm_calls": 1,
+      "in_tok": 1729,
+      "out_tok": 61
+    },
+    {
+      "node": "evaluator",
+      "tier": "fast",
+      "latency_s": 0.4439,
+      "llm_calls": 1,
+      "in_tok": 404,
+      "out_tok": 1
+    },
+    {
+      "node": "what_next",
+      "tier": "fast",
+      "latency_s": 0.7403,
+      "llm_calls": 1,
+      "in_tok": 511,
+      "out_tok": 45
+    },
+    {
+      "node": "action_classifier",
+      "tier": "fast",
+      "latency_s": 0.7033,
+      "llm_calls": 1,
+      "in_tok": 824,
+      "out_tok": 38
+    },
+    {
+      "node": "load_layout",
+      "tier": "-",
+      "latency_s": 0.0001,
+      "llm_calls": 0,
+      "in_tok": 0,
+      "out_tok": 0
+    },
+    {
+      "node": "edit_planner",
+      "tier": "smart",
+      "latency_s": 1.5148,
+      "llm_calls": 1,
+      "in_tok": 474,
+      "out_tok": 105
+    },
+    {
+      "node": "apply_edits",
+      "tier": "-",
+      "latency_s": 0.0002,
+      "llm_calls": 0,
+      "in_tok": 0,
+      "out_tok": 0
+    },
+    {
+      "node": "analyze",
+      "tier": "-",
+      "latency_s": 0.0003,
+      "llm_calls": 0,
+      "in_tok": 0,
+      "out_tok": 0
+    },
+    {
+      "node": "compare_versions",
+      "tier": "-",
+      "latency_s": 0.0001,
+      "llm_calls": 0,
+      "in_tok": 0,
+      "out_tok": 0
+    },
+    {
+      "node": "score_interpreter",
+      "tier": "smart",
+      "latency_s": 16.3096,
+      "llm_calls": 1,
+      "in_tok": 848,
+      "out_tok": 467
+    },
+    {
+      "node": "respond",
+      "tier": "smart",
+      "latency_s": 4.2979,
+      "llm_calls": 1,
+      "in_tok": 1678,
+      "out_tok": 118
+    },
+    {
+      "node": "evaluator",
+      "tier": "fast",
+      "latency_s": 0.4045,
+      "llm_calls": 1,
+      "in_tok": 461,
+      "out_tok": 1
+    },
+    {
+      "node": "what_next",
+      "tier": "fast",
+      "latency_s": 0.6053,
+      "llm_calls": 1,
+      "in_tok": 518,
+      "out_tok": 30
+    },
+    {
+      "node": "action_classifier",
+      "tier": "fast",
+      "latency_s": 0.5429,
+      "llm_calls": 1,
+      "in_tok": 820,
+      "out_tok": 38
+    },
+    {
+      "node": "detail_respond",
+      "tier": "smart",
+      "latency_s": 2.1466,
+      "llm_calls": 1,
+      "in_tok": 8017,
+      "out_tok": 42
+    },
+    {
+      "node": "what_next",
+      "tier": "fast",
+      "latency_s": 1.2262,
+      "llm_calls": 1,
+      "in_tok": 515,
+      "out_tok": 33
+    },
+    {
+      "node": "action_classifier",
+      "tier": "fast",
+      "latency_s": 0.4797,
+      "llm_calls": 1,
+      "in_tok": 816,
+      "out_tok": 27
+    },
+    {
+      "node": "chitchat",
+      "tier": "fast",
+      "latency_s": 0.8489,
+      "llm_calls": 1,
+      "in_tok": 469,
+      "out_tok": 63
+    },
+    {
+      "node": "what_next",
+      "tier": "fast",
+      "latency_s": 0.7064,
+      "llm_calls": 1,
+      "in_tok": 509,
+      "out_tok": 37
+    },
+    {
+      "node": "greet",
+      "tier": "fast",
+      "latency_s": 0.5374,
+      "llm_calls": 1,
+      "in_tok": 124,
+      "out_tok": 12
+    }
+  ]
+}

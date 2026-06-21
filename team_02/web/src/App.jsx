@@ -6,6 +6,7 @@ import LayoutModeScreen from "./screens/LayoutModeScreen.jsx";
 import InspireScreen from "./screens/InspireScreen.jsx";
 import PersonaScreen from "./screens/PersonaScreen.jsx";
 import ProfileChatScreen from "./screens/ProfileChatScreen.jsx";
+import ReportScreen from "./report/ReportScreen.jsx";
 import { SelectionProvider } from "./lib/selection.jsx";
 import { layoutScore } from "./lib/turn.js";
 
@@ -16,9 +17,7 @@ const ACTION_LABELS = {
   analyze:         "comfort scored",
   detect:          "conflicts detected",
   full:            "full analysis",
-  change_material: "material changed",
-  modify_glazing:  "glazing modified",
-  add_furniture:   "furniture added",
+  edit:            "change applied",
   topologic:       "topology mapped",
   biophilic:       "biophilic audit",
   compare:         "personas compared",
@@ -53,6 +52,12 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState([]);
   const [turns, setTurns]               = useState([]);
 
+  // Checkpoints (Task 3): committed milestones + uncommitted working-draft status
+  const [checkpoints, setCheckpoints]         = useState([]);
+  const [hasUncommitted, setHasUncommitted]   = useState(false);
+  const [uncommittedDelta, setUncommittedDelta] = useState({});
+  const [viewedTurn, setViewedTurn]           = useState(null); // a checkpoint being reviewed
+
   // Inspire / persona
   const [inspireMessage, setInspireMessage]   = useState("");
   const [personaMessage, setPersonaMessage]   = useState("");
@@ -84,12 +89,25 @@ export default function App() {
       // Always push to flat chat thread
       setChatMessages((m) => [...m, { id: nextId(), role: "s", text: data.message, data }]);
 
+      // Checkpoint state rides along on every turn
+      if (data.checkpoints) setCheckpoints(data.checkpoints);
+      setHasUncommitted(!!data.has_uncommitted);
+      setUncommittedDelta(data.uncommitted_delta || {});
+
+      // Normalize edit diffs to an array once, so every downstream consumer can
+      // trust turn.layout_diffs is always an array (single-edit → 1-element array).
+      const diffs = data.layout_diffs?.length
+        ? data.layout_diffs
+        : (data.layout_diff && Object.keys(data.layout_diff).length ? [data.layout_diff] : []);
+      const isMultiEdit = data.action === "edit" && diffs.length > 1;
+
       // Push to structured turn history when this turn has analysis data
-      if (data.scores_json || data.graph_data || data.biophilic_data || data.layout_diff || data.preview_scores_json) {
+      if (data.scores_json || data.graph_data || data.biophilic_data || diffs.length || data.preview_scores_json) {
         setTurns((prev) => [...prev, {
           id:             nextId(),
           action:         data.action || "",
-          label:          ACTION_LABELS[data.action] || data.action || "turn",
+          label:          isMultiEdit ? `${diffs.length} changes`
+                            : (ACTION_LABELS[data.action] || data.action || "turn"),
           scores_json:    data.scores_json    || "",
           conflicts_json: data.conflicts_json || "",
           suggestions_json: data.suggestions_json || "",
@@ -97,6 +115,7 @@ export default function App() {
           conflict_reasoning:   data.conflict_reasoning   || "",
           suggestion_critique:  data.suggestion_critique  || "",
           layout_diff:    data.layout_diff    || {},
+          layout_diffs:   diffs,
           preview_scores_json: data.preview_scores_json || "",
           preview_diff:   data.preview_diff   || {},
           preview_summary: data.preview_summary || "",
@@ -148,6 +167,7 @@ export default function App() {
   }, [routeResponse]);
 
   const sendChat = useCallback(async (text) => {
+    setViewedTurn(null); // a new message returns the panel to the live working draft
     setChatMessages((m) => [...m, { id: nextId(), role: "u", text }]);
     setThinking(true);
     try {
@@ -159,7 +179,55 @@ export default function App() {
     }
   }, [routeResponse]);
 
+  const commitCheckpoint = useCallback(async (label) => {
+    try {
+      const d = await api.commit(label);
+      if (d.ok) {
+        if (d.checkpoints) setCheckpoints(d.checkpoints);
+        setHasUncommitted(!!d.has_uncommitted);
+        setUncommittedDelta({});
+      }
+    } catch { /* leave uncommitted state as-is on failure */ }
+  }, []);
+
+  const viewCheckpoint = useCallback(async (id) => {
+    try {
+      const d = await api.viewCheckpoint(id);
+      if (!d.ok) return;
+      setViewedTurn({
+        id: "cp" + d.id, checkpointId: d.id, action: "checkpoint", label: d.label,
+        scores_json: d.scores_json || "", conflicts_json: d.conflicts_json || "",
+        suggestions_json: d.suggestions_json || "",
+      });
+    } catch { /* ignore */ }
+  }, []);
+  const clearViewedCheckpoint = useCallback(() => setViewedTurn(null), []);
+
+  const restoreCheckpoint = useCallback(async (id) => {
+    try {
+      const d = await api.restore(id);
+      if (!d.ok) return;
+      if (d.checkpoints) setCheckpoints(d.checkpoints);
+      setHasUncommitted(!!d.has_uncommitted);
+      setUncommittedDelta({});
+      setViewedTurn(null);
+      setLayoutVersion((v) => v + 1); // working draft changed → re-fetch the canvas
+      setChatMessages((m) => [...m, { id: nextId(), role: "s",
+        text: `Restored to "${d.restored_label}" — the canvas now shows that checkpoint.` }]);
+      if (d.scores_json) {
+        setTurns((prev) => [...prev, {
+          id: nextId(), action: "restore", label: `restored: ${d.restored_label}`,
+          scores_json: d.scores_json || "", conflicts_json: d.conflicts_json || "",
+          suggestions_json: d.suggestions_json || "", layout_diff: {}, layout_diffs: [],
+          avgScore: avgScore(d.scores_json), conflictCount: conflictCount(d.conflicts_json),
+          timestamp: Date.now(),
+        }]);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   const confirmPersona = useCallback(() => setScreen("chat"), []);
+  const goReport = useCallback(() => setScreen("report"), []);
 
   return (
     <>
@@ -199,6 +267,25 @@ export default function App() {
             layoutId={layoutId}
             layoutVersion={layoutVersion}
             onSend={sendChat}
+            onReport={goReport}
+            checkpoints={checkpoints}
+            hasUncommitted={hasUncommitted}
+            uncommittedDelta={uncommittedDelta}
+            onCommit={commitCheckpoint}
+            onRestore={restoreCheckpoint}
+            viewedTurn={viewedTurn}
+            onViewCheckpoint={viewCheckpoint}
+            onClearView={clearViewedCheckpoint}
+          />
+        </SelectionProvider>
+      )}
+      {screen === "report" && (
+        <SelectionProvider>
+          <ReportScreen
+            turn={turns.length ? turns[turns.length - 1] : null}
+            persona={persona}
+            layoutId={layoutId}
+            onBack={() => setScreen("chat")}
           />
         </SelectionProvider>
       )}

@@ -160,12 +160,12 @@ const ReasoningLog: React.FC<ReasoningLogProps> = ({ entries, visible, onToggle,
             overflowY: 'auto',
             padding: '8px 0',
             fontFamily: '"SF Mono", "Fira Code", "Cascadia Code", monospace',
-            fontSize: 11,
+            fontSize: 12,
             lineHeight: 1.6,
           }}
         >
           {entries.length === 0 && (
-            <div style={{ padding: '20px 14px', color: muted, textAlign: 'center', fontSize: 11 }}>
+            <div style={{ padding: '20px 14px', color: muted, textAlign: 'center', fontSize: 12 }}>
               Waiting for agent activity...
             </div>
           )}

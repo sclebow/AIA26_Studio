@@ -58,7 +58,9 @@ def close_session(
         encoding="utf-8",
     )
 
-    active.unlink()
+    # Keep session_active.json intact so the UI viewport continues showing
+    # the approved layout after the session ends. The file is only cleaned
+    # up when a new session starts (create_session overwrites it).
     return str(out_file)
 
 

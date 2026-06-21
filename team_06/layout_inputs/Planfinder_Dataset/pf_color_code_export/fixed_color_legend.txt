@@ -1,0 +1,5 @@
+Bath: #f77189
+Bed: #ae9d31
+Extra: #33b07a
+Living: #38a9c5
+Walkincloset: #cc7af4

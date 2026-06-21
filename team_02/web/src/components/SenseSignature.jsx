@@ -27,6 +27,7 @@ export default function SenseSignature({
   showGlyphs = false,
   activeSense = null,
   onSelectSense = null,
+  onHoverSense = null,
   title,
   x,            // optional: position when nested inside another <svg> (parent units)
   y,
@@ -93,6 +94,8 @@ export default function SenseSignature({
             key={s}
             className={"ss-petal" + (interactive ? " ss-clickable" : "") + (activeSense === s ? " ss-active" : "")}
             onClick={interactive ? (e) => { e.stopPropagation(); onSelectSense(s); } : undefined}
+            onMouseEnter={onHoverSense ? () => onHoverSense(s) : undefined}
+            onMouseLeave={onHoverSense ? () => onHoverSense(null) : undefined}
           >
             {showGhost && (
               <path

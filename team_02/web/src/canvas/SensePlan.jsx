@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import * as api from "../api/client.js";
-import { SI } from "../lib/constants.js";
+import { SC, SI } from "../lib/constants.js";
 import { useSelection } from "../lib/selection.jsx";
 import { centroid, dims } from "../lib/geometry.js";
 import { VALENCE } from "../lib/relationships.js";
+import { MaterialDefs } from "../lib/materials.jsx";
+import { exportSvgToPng } from "../lib/svgToPng.js";
 import WallsLayer from "./WallsLayer.jsx";
 import RoomsLayer from "./RoomsLayer.jsx";
 import OpeningsLayer from "./OpeningsLayer.jsx";
 import FurnitureLayer from "./FurnitureLayer.jsx";
+import MaterialLayer from "./MaterialLayer.jsx";
 import RoomGraph from "./RoomGraph.jsx";
 import GraphEdges from "./GraphEdges.jsx";
 import SenseHub from "./SenseHub.jsx";
@@ -21,7 +24,7 @@ import SenseHub from "./SenseHub.jsx";
  *           per-room sense constellations (SenseHub), click a node to toggle its
  *           constellation, hover to preview.
  */
-const DEFAULT_LAYERS = { plan: true, comfort: true, graph: false };
+const DEFAULT_LAYERS = { plan: true, comfort: true, graph: false, material: false };
 
 function PlanTooltip({ info }) {
   if (!info) return null;
@@ -46,6 +49,19 @@ function PlanTooltip({ info }) {
           <div className="plan-tooltip-row" key={s}><span>{SI[s]} {s}</span><span>{worse.toFixed(2)}</span></div>
         ))}
         <div className="plan-tooltip-why">transmissive bleed — worse room → better</div>
+      </div>
+    );
+  }
+  // a material orb (the room's floor material, + the last edit if it changed this room)
+  if (info.kind === "material") {
+    return (
+      <div className="plan-tooltip" style={{ left: info.x + 14, top: info.y + 14 }}>
+        <div className="plan-tooltip-title">{info.title}</div>
+        <div className="plan-tooltip-row"><span>floor</span><span>{info.material}</span></div>
+        {info.changed && <div className="plan-tooltip-row"><span>changed</span><span>{info.from} → {info.to}</span></div>}
+        {info.changed && info.sense && (
+          <div className="plan-tooltip-row"><span>affects</span><span style={{ color: SC[info.sense] }}>{SI[info.sense]} {info.sense}</span></div>
+        )}
       </div>
     );
   }
@@ -78,14 +94,15 @@ function PlanTooltip({ info }) {
   );
 }
 
-export default function SensePlan({ rooms, layoutId, layoutVersion = 0, layers = DEFAULT_LAYERS, graphData = null }) {
+const SensePlan = forwardRef(function SensePlan({ rooms, layoutId, layoutVersion = 0, layers = DEFAULT_LAYERS, graphData = null, diffs = [], changedRooms = new Set(), pulseKey = 0 }, ref) {
   const [layout, setLayout] = useState(null);
   const [err, setErr] = useState("");
   const [hover, setHover] = useState(null);
   const [hoverEdge, setHoverEdge] = useState(null);
   const [hoverRoom, setHoverRoom] = useState(null);
   const [expandedRooms, setExpandedRooms] = useState(() => new Set());
-  const { focusSense, activeSense, toggleSense, activeRoom, setActiveRoom } = useSelection();
+  const svgRef = useRef(null);
+  const { focusSense, activeSense, toggleSense, activeRoom, setActiveRoom, focusRoom, setHoverRoom: setSelHoverRoom } = useSelection();
 
   useEffect(() => {
     let alive = true;
@@ -120,6 +137,16 @@ export default function SensePlan({ rooms, layoutId, layoutVersion = 0, layers =
     return m;
   }, [layout, scoredByName]);
 
+  useImperativeHandle(ref, () => ({
+    exportPng: () => {
+      const el = svgRef.current;
+      if (!el) return;
+      const bg = getComputedStyle(el.parentElement || el).backgroundColor || "#0d0d0d";
+      const id = layout?.layoutId || layoutId || "sensi";
+      exportSvgToPng(el, { filename: `${id}-plan.png`, background: bg });
+    },
+  }), [layout, layoutId]);
+
   if (err) return <div className="ap-empty">{err}</div>;
   if (!layout || !view) return <div className="ap-empty">loading plan…</div>;
 
@@ -136,14 +163,19 @@ export default function SensePlan({ rooms, layoutId, layoutVersion = 0, layers =
 
   return (
     <>
-      <svg className="sense-plan" viewBox={view.vb} preserveAspectRatio="xMidYMid meet">
+      <svg ref={svgRef} className="sense-plan" viewBox={view.vb} preserveAspectRatio="xMidYMid meet">
+        <MaterialDefs span={span} />
         <g opacity={layers.graph ? 0.4 : 1}>
           {layers.plan && <WallsLayer outline={layout.outline} structure={layout.structure} fy={fy} />}
           <RoomsLayer rooms={layout.rooms} scoredByName={scoredByName} plan={layers.plan} comfort={layers.comfort}
-            activeRoom={activeRoom} setActiveRoom={setActiveRoom} focusSense={focusSense} fy={fy} u={u} onHover={setHover} />
+            activeRoom={activeRoom} setActiveRoom={setActiveRoom} focusRoom={focusRoom} setHoverRoom={setSelHoverRoom}
+            focusSense={focusSense} changedRooms={changedRooms} pulseKey={pulseKey} fy={fy} u={u} onHover={setHover} />
           {layers.plan && <OpeningsLayer doors={layout.doors} windows={layout.windows} fy={fy} />}
           {layers.plan && <FurnitureLayer furniture={layout.furniture} fy={fy} u={u} onHover={setHover} />}
         </g>
+
+        {/* material orbs — float above the base, never dimmed by the graph lens */}
+        {layers.material && <MaterialLayer rooms={layout.rooms} fy={fy} u={u} diffs={diffs} onHover={setHover} />}
 
         {layers.graph && <>
           <GraphEdges roomById={roomById} graphData={graphData} doors={layout.doors} focusSense={focusSense} u={u} fy={fy} onHoverEdge={setHoverEdge} />
@@ -175,4 +207,6 @@ export default function SensePlan({ rooms, layoutId, layoutVersion = 0, layers =
       <PlanTooltip info={hoverEdge || hover} />
     </>
   );
-}
+});
+
+export default SensePlan;

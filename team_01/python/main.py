@@ -1,27 +1,40 @@
 import argparse
+import json
+import sys
 from _runtime.bootstrap import bootstrap
 from graph import run_agent
 
 
 def main():
-
-    # Process the command line arguments (the user instruction)
-    # Receive the argunment with a prompt for the agent, e.g. "delete the kitchen"
-    parser = argparse.ArgumentParser(description="Run the Grasshopper MCP agent.")
-    parser.add_argument("prompt", help="Your instruction for the agent (e.g. 'delete the kitchen')")
+    parser = argparse.ArgumentParser(description="Run the Permanence_OS structural agent.")
+    parser.add_argument("--prompt", required=True, help="Instruction for the agent")
+    parser.add_argument("--layout_json", default=None, help="Floor plan as a JSON string (optional)")
     args = parser.parse_args()
 
-    # Initialize and run the agent
+    layout_data = None
+    if args.layout_json:
+        try:
+            layout_data = json.loads(args.layout_json)
+        except json.JSONDecodeError as e:
+            print(f"Error: --layout_json is not valid JSON: {e}", file=sys.stderr)
+            sys.exit(1)
+
     ctx = bootstrap()
-    response = run_agent(args.prompt, ctx)
+    response, edited_layout = run_agent(args.prompt, ctx, layout_data=layout_data)
 
-    # Print the final response
-    print("\nAgent response:\n")
     safe_response = response.encode("ascii", errors="replace").decode("ascii")
+    print("\nFinal Response:")
     print(safe_response)
+    print("\nEdited Layout JSON:")
+    if edited_layout:
+        print(edited_layout)
+    else:
+        print("No layout changes")
 
-    # Clean up by properly closing the MCP client connection
-    ctx.mcp_client.close()
+    try:
+        ctx.mcp_client.close()
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

@@ -14,8 +14,15 @@ class MessageType(str, Enum):
     chat_message = "chat_message"
     agent_response = "agent_response"
     agent_event = "agent_event"
+    agent_say = "agent_say"
+    agent_checkpoint = "agent_checkpoint"
     state_update = "state_update"
     selection_sync = "selection_sync"
+    observer_point = "observer_point"
+    observer_path = "observer_path"
+    chat_decision = "chat_decision"
+    version_saved = "version_saved"
+    analysis_overlay = "analysis_overlay"
 
 
 class ConnectionManager:

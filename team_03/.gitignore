@@ -1,0 +1,10 @@
+# AGENT_ui frontend build & dependency artifacts
+AGENT_ui/frontend/node_modules/
+AGENT_ui/frontend/dist/
+AGENT_ui/frontend/test-results/
+
+# Per-layout conversational memory (local user data, generated at runtime)
+memory/
+
+# Live session state — ephemeral, overwritten on every run
+workspace/

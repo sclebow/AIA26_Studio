@@ -18,6 +18,9 @@ from __future__ import annotations
 import json
 from typing import Any
 from functools import lru_cache
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     from sentence_transformers import SentenceTransformer, util
@@ -54,7 +57,6 @@ def get_embedding_model():
     Returns:
         SentenceTransformer: Cached model for embedding text
     """
-    print("Loading embedding model (one-time initialization)...")
     return SentenceTransformer("all-MiniLM-L6-v2")
 
 
@@ -81,12 +83,10 @@ def match_layouts(
 ) -> dict[str, Any]:
     
     # Load model and validate input
-    print(f"[embedding_matcher] Loading model...")
     try:
         model = get_embedding_model()
-        print(f"[embedding_matcher] Model loaded successfully")
     except Exception as e:
-        print(f"[embedding_matcher] ERROR loading model: {e}")
+        logger.error(f"[embedding_matcher] Error loading model: {e}")
         raise
     
     # Early return if query is empty
@@ -97,51 +97,31 @@ def match_layouts(
             "count": 0
         }
     
-    print(f"[embedding_matcher] Encoding query: '{query}'")
-    # Convert the query text into a 384-dimensional vector.
-    # This vector captures the semantic meaning of what the user is asking.
-    # convert_to_tensor=True returns a PyTorch tensor (needed for cosine similarity)
-    query_embedding = model.encode(query, convert_to_tensor=True)
-    print(f"[embedding_matcher] Query embedding shape: {query_embedding.shape}")
+    # Convert the query text into a vector and compare it against all
+    # descriptions in one batch to avoid repeated progress logging.
+    query_embedding = model.encode(query, convert_to_tensor=True, show_progress_bar=False)
 
-    # Embed all descriptions and calculate similarities
-    print(f"[embedding_matcher] Processing {len(all_descriptions)} layout descriptions...")
+    descriptions = [item["description"] for item in all_descriptions]
+    description_embeddings = model.encode(descriptions, convert_to_tensor=True, show_progress_bar=False)
+
+    similarities = util.pytorch_cos_sim(query_embedding, description_embeddings)[0]
     results = []
-    
-    for desc_item in all_descriptions:
-        description = desc_item["description"]
-        layoutId = desc_item["layoutId"]
-        
-        # Convert description to embedding vector
-        desc_embedding = model.encode(description, convert_to_tensor=True)
-        
-        # Calculate cosine similarity
-        # util.pytorch_cos_sim returns a tensor; .item() converts to Python float
-        # Range: -1 to 1 (in practice, 0 to 1 for text similarity)
-        similarity = util.pytorch_cos_sim(query_embedding, desc_embedding).item()
-        
-        print(f"[embedding_matcher] {layoutId}: similarity={similarity:.3f}")
-        
-        # Only include results above the minimum threshold
+
+    for desc_item, similarity_tensor in zip(all_descriptions, similarities):
+        similarity = float(similarity_tensor.item())
         if similarity >= min_score:
             results.append({
-                "layoutId": layoutId,
-                "description": description,
+                "layoutId": desc_item["layoutId"],
+                "description": desc_item["description"],
                 "score": round(similarity, 3),
                 "area": desc_item.get("area"),
                 "roomTypes": desc_item.get("roomTypes", [])
             })
-    
-    # Sort descending by score
     results.sort(key=lambda x: x["score"], reverse=True)
-    
-    print(f"[embedding_matcher] Total layouts checked: {len(all_descriptions)}")
-    print(f"[embedding_matcher] Results above min_score ({min_score}): {len(results)}")
     
     # Limit to top_k results
     results = results[:top_k]
-    
-    print(f"[embedding_matcher] Returning top {len(results)} results")
+    logger.info(f"[embedding_matcher] Checked {len(all_descriptions)} descriptions and returned {len(results)} matches")
     
     return {
         "matches": results,

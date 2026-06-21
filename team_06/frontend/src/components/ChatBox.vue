@@ -5,16 +5,12 @@
       type="text"
       v-model="inputMsg"
       @keyup.enter="sendMessage"
+      :disabled="disabled"
       placeholder="What do you want to create next?"
     />
     <div class="chatbox-bottom-row">
-      <div class="chatbox-btns">
-        <button class="chatbox-btn"><img :src="imgIcon" alt="Image" width="20" height="20" /></button>
-        <button class="chatbox-btn"><img :src="codeIcon" alt="Code" width="20" height="20" /></button>
-        <button class="chatbox-btn"><img :src="micIcon" alt="Mic" width="20" height="20" /></button>
-      </div>
-      <button class="chatbox-send-btn" @click="sendMessage" :disabled="!inputMsg.trim()">
-        <img :src="sendWhiteIcon" alt="Send" width="16" height="16" />
+      <button v-if="inputMsg.trim()" class="chatbox-send-btn" :disabled="disabled" @click="sendMessage">
+        <img :src="sendWhiteIcon" alt="Send" width="16" height="16"  />
       </button>
     </div>
   </div>
@@ -22,12 +18,13 @@
 
 <script setup>
 import { ref } from 'vue'
-import imgIcon from '../assets/icons/img.svg'
-import codeIcon from '../assets/icons/code.svg'
-import micIcon from '../assets/icons/mic.svg'
+import plusIcon from '../assets/icons/plus_simple.svg'
 import sendWhiteIcon from '../assets/icons/send-white.svg'
 
 const emit = defineEmits(['send'])
+defineProps({
+  disabled: { type: Boolean, default: false }
+})
 const inputMsg = ref('')
 
 function sendMessage() {
@@ -49,7 +46,7 @@ function sendMessage() {
   padding: 12px 16px 8px 16px;
   width: 100%;
   position: relative;
-  min-height: 120px;
+  min-height: 100px;
   box-sizing: border-box;
 }
 .chatbox-input {
@@ -64,37 +61,10 @@ function sendMessage() {
   min-height: 0;
   box-sizing: border-box;
 }
-.chatbox-bottom-row {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  padding: 8px;
-  width: 100%;
-  margin-bottom: 0;
-}
-.chatbox-btns {
-  display: flex;
-  align-items: flex-end;
-  gap: 32px;
-}
-.chatbox-btn {
-  background: none;
-  border: none;
-  box-shadow: none;
-  margin-bottom: 12px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  color: var(--color-text-secondary);
-  font-size: 1.8rem;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: background 0.15s;
-}
+
 .chatbox-btn:focus {
   outline: none;
 }
-
 .chatbox-send-btn {
   background:var(--color-blue);
   border: 0px;

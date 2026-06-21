@@ -56,6 +56,10 @@ LLM_DECISION_SCHEMA: dict[str, Any] = {
             "type": "string",
             "enum": ["final", "tool"],
         },
+        "message": {
+            "type": "string",
+            "description": "Short, natural, conversational message for the user (1-3 sentences), always in English. Required on every response.",
+        },
         "final_response": {
             "type": "string",
             "description": "Use a non-empty string only when action is 'final'. Use an empty string when action is 'tool'.",
@@ -79,7 +83,7 @@ LLM_DECISION_SCHEMA: dict[str, Any] = {
             },
         },
     },
-    "required": ["action", "final_response", "tool_calls"],
+    "required": ["action", "message", "final_response", "tool_calls"],
     "additionalProperties": False,
 }
 
@@ -211,9 +215,55 @@ def _parse_llm_json(content: str) -> dict[str, Any]:
     except json.JSONDecodeError:
         pass
 
-    raise RuntimeError(
-        "Could not extract JSON from LLM response: {}".format(content_stripped[:200])
-    )
+    # Last resort: the model replied in prose with no usable JSON (common on
+    # chatty/greeting/conflict turns). Rather than crash and burn retries, treat
+    # the whole reply as a conversational final message so the agent still speaks.
+    print("[llm] No JSON found — treating the reply as a conversational final message.")
+    return {
+        "action": "final",
+        "final_response": content_stripped,
+        "message": content_stripped,
+    }
+
+
+def _strip_json_blocks(content: str) -> str:
+    """Remove the decision JSON from a raw LLM response, leaving the prose.
+
+    The LLM often writes a human-readable explanation around the JSON decision
+    block (e.g. "Reasoning: ... {json} ..."). This returns just that prose so the
+    UI can show what the agent "said" even on tool/placement turns where
+    final_response is empty.
+    """
+    text = (content or "").strip()
+    # Fenced ```json {...} ``` blocks
+    text = re.sub(r'```(?:json)?\s*\{.*?\}\s*```', '', text, flags=re.DOTALL)
+    # Claude <function_calls> XML
+    text = re.sub(r'<function_calls>.*?</function_calls>', '', text, flags=re.DOTALL)
+    # A leftover bare decision object, if it still looks like the decision schema
+    m = re.search(r'\{.*\}', text, re.DOTALL)
+    if m:
+        chunk = m.group(0)
+        if any(k in chunk for k in ('"action"', '"tool_calls"', '"final_response"')):
+            text = text[:m.start()] + text[m.end():]
+    # Tidy leftover fences and whitespace
+    text = text.replace("```json", "").replace("```", "").strip()
+    return text
+
+
+def _extract_narrative(content: str, decision: dict[str, Any]) -> str:
+    """Best human-readable message for the UI.
+
+    Prefers the dedicated `message` field (concise, conversational, set on every
+    action), then final_response for a 'final' turn, then the prose around the JSON.
+    """
+    msg = decision.get("message")
+    if isinstance(msg, str) and msg.strip():
+        return msg.strip()
+    if decision.get("action") == "final":
+        fr = (decision.get("final_response") or "").strip()
+        if fr:
+            return fr
+    return _strip_json_blocks(content)
 
 
 def _extract_tool_name(t: dict) -> str:
@@ -311,7 +361,13 @@ def _call_anthropic(
     print("\n[anthropic] Raw response preview:")
     print(content[:400])
 
-    return _normalize_llm_decision(_parse_llm_json(content))
+    parsed = _parse_llm_json(content)
+    decision = _normalize_llm_decision(parsed)
+    _msg = parsed.get("message")
+    if isinstance(_msg, str) and _msg.strip():
+        decision["message"] = _msg.strip()
+    decision["_narrative"] = _extract_narrative(content, decision)
+    return decision
 
 
 # ---------------------------------------------------------------------------
@@ -341,7 +397,13 @@ def call_llm(
         raise RuntimeError("LLM response content must be a string")
 
     try:
-        return _normalize_llm_decision(_parse_llm_json(content))
+        parsed = _parse_llm_json(content)
+        decision = _normalize_llm_decision(parsed)
+        _msg = parsed.get("message")
+        if isinstance(_msg, str) and _msg.strip():
+            decision["message"] = _msg.strip()
+        decision["_narrative"] = _extract_narrative(content, decision)
+        return decision
     except Exception:
         print("\n[llm] Raw LLM response before crash:")
         print(content)

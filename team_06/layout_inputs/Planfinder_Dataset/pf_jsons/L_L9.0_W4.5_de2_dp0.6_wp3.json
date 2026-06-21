@@ -43,7 +43,7 @@
     ],
     "attributes": {
       "area": 39.69,
-      "description": "1 bed., 1 bath., 1 kitchen., 1 living."
+      "description": "1 bedroom, 1 bathroom, 1 living room, 1 extra room."
     }
   },
   "outline": [
@@ -82,24 +82,6 @@
     [
       3.32,
       0.09
-    ]
-  ],
-  "door_point": [
-    3.845,
-    4.5
-  ],
-  "door_points": [
-    [
-      3.757,
-      2.82
-    ],
-    [
-      3.32,
-      3.555
-    ],
-    [
-      3.337,
-      2.81
     ]
   ],
   "rooms": [

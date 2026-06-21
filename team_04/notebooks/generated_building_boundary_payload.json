@@ -1,0 +1,81 @@
+{
+  "geometry_id": "generate_building_boundary_07997771d348",
+  "building_footprint": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        0.0,
+        -10.606602,
+        0.0
+      ],
+      [
+        93.338095,
+        82.731493,
+        0.0
+      ],
+      [
+        82.731493,
+        93.338095,
+        0.0
+      ],
+      [
+        0.0,
+        10.606602,
+        0.0
+      ],
+      [
+        -53.386562,
+        63.993164,
+        0.0
+      ],
+      [
+        -63.993164,
+        53.386562,
+        0.0
+      ],
+      [
+        0.0,
+        -10.606602,
+        0.0
+      ]
+    ]
+  },
+  "metadata": {
+    "shape_type": "L",
+    "boundary_area_sqm": 3112.5,
+    "perimeter_m": 445.0,
+    "centroid": [
+      14.672466,
+      37.956725,
+      0.0
+    ],
+    "bounding_box": {
+      "min": [
+        -63.993164,
+        -10.606602,
+        0.0
+      ],
+      "max": [
+        93.338095,
+        93.338095,
+        0.0
+      ]
+    },
+    "generator_parameters": {
+      "area": 3000,
+      "building_type": "L",
+      "building_depth": 15.0,
+      "shape_ratio": 0.66,
+      "location_xy": [
+        0.0,
+        0.0
+      ],
+      "is_mirrored": false,
+      "max_rotation_angle": 45.0,
+      "max_rotation_step": 1,
+      "rotation_step": 1,
+      "applied_rotation_angle": 45.0
+    },
+    "source_tool": "generate_building_boundary"
+  }
+}

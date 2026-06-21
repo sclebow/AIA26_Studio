@@ -1,24 +1,26 @@
-// ── Apple-minimalist color palette (purple accent) ──────────────────────────
+// ── Welcome-page lavender palette (purple/violet family + teal/rose accents) ─
+// Cohesive with WelcomePage/Onboarding: lavender #a78bfa, purple #8b5cf6,
+// pale #c4b5fd, deep indigo #4c4470. Differentiation by hue + shape + glow.
 
 export const NODE_COLORS = {
-  room: '#3D3270',      // deep indigo
-  door: '#D4976A',      // warm amber
-  wall: '#2A2838',      // dark plum
-  window: '#A78BFA',    // lavender
-  furniture: '#7C6FAA', // muted purple
-  mep: '#5B8A6F',       // sage green
+  room: '#a78bfa',      // lavender (hero)
+  door: '#f0abfc',      // orchid — stands out as connector
+  wall: '#4c4470',      // deep muted indigo — structural, recessive
+  window: '#c4b5fd',    // pale lavender
+  furniture: '#8b5cf6', // vivid purple
+  mep: '#5eead4',       // teal — utility systems, complements purple
 } as const;
 
 export const EDGE_COLORS = {
-  contained_in: '#2A2838',    // structural, muted
-  door_connects: '#D4976A',   // amber (door color)
-  adjacent: '#3D3270',        // room connectivity
-  near: '#7C6FAA',            // proximity (muted purple)
-  near_wall: '#2A2838',       // structural
-  near_window: '#A78BFA',     // lavender
-  sightline: '#5B8A6F',       // sage green for visible
-  blocks: '#F87171',          // soft rose for obstructions
-  path: '#7C6FAA',            // purple for paths
+  contained_in: '#4c4470',    // structural, dim indigo
+  door_connects: '#f0abfc',   // orchid (door color)
+  adjacent: '#a78bfa',        // lavender (room connectivity)
+  near: '#8b5cf6',            // purple (proximity)
+  near_wall: '#4c4470',       // structural indigo
+  near_window: '#c4b5fd',     // pale lavender
+  sightline: '#5eead4',       // teal for visible
+  blocks: '#fb7185',          // rose for obstructions (warning)
+  path: '#818cf8',            // indigo for paths
 } as const;
 
 export const NODE_SHAPES: Record<string, string> = {
@@ -78,7 +80,7 @@ export const EDGE_DESCRIPTIONS: Record<string, string> = {
 
 // ── Vis.js network options ──────────────────────────────────────────────────
 
-const FONT_FACE = '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif';
+const FONT_FACE = '"Share Tech Mono", "SF Mono", "Fira Code", ui-monospace, monospace';
 
 export const NETWORK_OPTIONS = {
   physics: { enabled: false },
@@ -86,7 +88,9 @@ export const NETWORK_OPTIONS = {
     hover: true,
     tooltipDelay: 150,
     dragNodes: false,
-    dragView: true,
+    // Left-drag pan disabled to match the 3D viewport (left = select only);
+    // panning is bound to middle/right mouse buttons in GraphPanel instead.
+    dragView: false,
     zoomView: true,
     multiselect: false,
   },
@@ -101,10 +105,10 @@ export const NETWORK_OPTIONS = {
     borderWidth: 2,
     shadow: {
       enabled: true,
-      size: 10,
+      size: 22,
       x: 0,
       y: 0,
-      color: 'rgba(139, 92, 246, 0.12)',
+      color: 'rgba(139, 92, 246, 0.35)',
     },
   },
   edges: {
@@ -133,16 +137,16 @@ export interface GraphTheme {
 }
 
 const DARK_THEME: GraphTheme = {
-  panelBg: 'rgba(20, 16, 32, 0.72)',
-  panelBorder: 'rgba(255, 255, 255, 0.06)',
-  text: '#F5F5F7',
-  muted: '#86868B',
-  accent: '#8B5CF6',
-  ok: '#34D399',
-  fail: '#F87171',
-  warn: '#FBBF24',
-  canvasBg: '#08080C',
-  nodeFontColor: '#F5F5F7',
+  panelBg: 'rgba(15, 9, 30, 0.92)',
+  panelBorder: 'rgba(139, 92, 246, 0.22)',
+  text: '#f5f3ff',
+  muted: '#9a8cc8',
+  accent: '#a78bfa',
+  ok: '#5eead4',
+  fail: '#fb7185',
+  warn: '#fbbf24',
+  canvasBg: '#15101f',
+  nodeFontColor: '#f5f3ff',
 };
 
 const LIGHT_THEME: GraphTheme = {
