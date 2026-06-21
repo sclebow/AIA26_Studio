@@ -5,7 +5,7 @@ import re
 SYSTEM_PROMPT = (
     "You are an architect assistant preparing search input for layout retrieval. "
     "Return one JSON object with exactly this shape: "
-    '{"latest_prompt_useful":true,"graph":{"programs":[],"access_pairs":[],"adjacency_pairs":[],"not_adjacency_pairs":[]},"household":[],"description":""}. '
+    '{"latest_prompt_useful":true,"graph":{"programs":[],"access_pairs":[],"adjacency_pairs":[],"not_adjacency_pairs":[],"centrality":[],"windows":[],"shape":null,"total_area":null,"aspect_ratio":null,"compactness":null},"household":[],"description":""}. '
     "Use only JSON, with no explanation.\n"
     "Rules:\n"
     "- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n"
@@ -14,11 +14,12 @@ SYSTEM_PROMPT = (
     "- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n"
     "- graph is the strict structured representation of spatial requirements.\n"
     "- graph.programs is a flat list with duplicates when counts matter, for example [\"bedroom\", \"bedroom\", \"kitchen\"].\n"
-    "- The available room categories in the dataset are only: living, bed, bath, foyer, and extra.\n"
+    "- The available room categories in the dataset are only: living, bed, bath, circulation, storage, walkincloset, and wc.\n"
     "- Translate user wording into those dataset categories before filling graph.programs.\n"
     "- There are no apartments with a separate kitchen room in this dataset. Treat kitchen requests as part of the living area and preserve kitchen intent in description as furniture, open-plan use, or cooking/social preference, not as a separate room program.\n"
-    "- If the user asks for entry, entrance hall, or hall, translate that to foyer.\n"
-    "- If the user asks for storage, translate that to extra.\n"
+    "- If the user asks for entry, entrance hall, hall, hallway, or corridor, translate that to circulation.\n"
+    "- If the user asks for a toilet, WC, or half-bath, translate that to wc. Use bath only for a full bathroom with a shower or tub.\n"
+    "- If the user asks for a walk-in closet or dressing room, translate that to walkincloset.\n"
     "- If the user asks for a study, office, or workspace, represent it as an additional bed in graph.programs, because the dataset does not have a separate study category.\n"
     "- If the user asks for a double bedroom, keep the room category as bed and record in description that this bedroom should be large.\n"
     "- If the user asks for a single bedroom, keep the room category as bed and record in description that this bedroom should be medium or small.\n"
@@ -26,13 +27,19 @@ SYSTEM_PROMPT = (
     "- graph.access_pairs contains pairs of program names that should be connected by doors.\n"
     "- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n"
     "- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n"
+    "- graph.centrality is a list of [program, level] pairs indicating how central a room should be. Levels are: peripheral, connected, or central. For example, if the user wants a central living room: [[\"living\", \"central\"]].\n"
+    "- graph.windows is a list of [program, count] pairs indicating how many facade exposures a room should have. Count is an integer 0-4. For example, if the user wants a bright bedroom: [[\"bed\", 2]].\n"
+    "- graph.shape is the preferred apartment shape: \"rectangular\", \"L-shape\", or \"other\". Use null if not specified.\n"
+    "- graph.total_area is the preferred total area in square meters as a number. Use null if not specified.\n"
+    "- graph.aspect_ratio is the preferred aspect ratio of the apartment boundary as a number. A square apartment is 1.0, an elongated one is higher. Use null if not specified.\n"
+    "- graph.compactness is the preferred compactness of the apartment boundary as a number between 0 and 1. A rectangle is 1.0, irregular shapes are lower. Use null if not specified.\n"
     "- household is a flexible structured representation of occupants and person-specific facts.\n"
     "- household is a list of people or household members mentioned by the user. Each item must have exactly this shape: {\"name\":\"\",\"relationship\":\"\",\"info\":\"\"}.\n"
     "- Use household for names and simple person-level information such as age, role, relationship, or profession when the user gives it.\n"
     "- Keep household lightweight. If a field is unknown, return an empty string for that field instead of inventing details.\n"
     "- description is a concise natural-language summary of only the information that is not already represented in graph.\n"
     "- Give particular attention to household context excluding names, routine and daily schedule, space quality or feeling of space, and furniture or furnishing preferences.\n"
-    "- Also include other non-graph facts such as pets, dislikes, work-from-home needs, cooking or social dynamics, and requested room intents that do not map directly to dataset rooms, such as office, study, workspace, or storage.\n"
+    "- Also include other non-graph facts such as pets, dislikes, work-from-home needs, cooking or social dynamics, and requested room intents that do not map directly to dataset rooms, such as office, study, or workspace.\n"
     "- Keep description short and useful for search and later reasoning. Prefer a compact summary over a long explanation.\n"
     "- Do not restate room programs, room counts, adjacencies, access pairs, or separation rules in description when they are already represented in graph.\n"
     "- Do not repeat person names in description when they are already represented in household.\n"
@@ -60,13 +67,18 @@ def _empty_graph() -> dict:
         "access_pairs": [],
         "adjacency_pairs": [],
         "not_adjacency_pairs": [],
+        "centrality": [],
+        "windows": [],
+        "shape": None,
+        "total_area": None,
+        "aspect_ratio": None,
+        "compactness": None,
     }
 
 
 def _normalize_pair_list(value: object) -> list[list[str]]:
     if not isinstance(value, list):
         return []
-
     pairs: list[list[str]] = []
     for item in value:
         if not isinstance(item, (list, tuple)) or len(item) != 2:
@@ -75,6 +87,29 @@ def _normalize_pair_list(value: object) -> list[list[str]]:
         if isinstance(left, str) and left.strip() and isinstance(right, str) and right.strip():
             pairs.append([left.strip().lower(), right.strip().lower()])
     return pairs
+
+
+def _normalize_str_int_pair_list(value: object) -> list[list]:
+    if not isinstance(value, list):
+        return []
+    pairs = []
+    for item in value:
+        if not isinstance(item, (list, tuple)) or len(item) != 2:
+            continue
+        prog, count = item
+        if isinstance(prog, str) and prog.strip() and isinstance(count, (int, float)):
+            pairs.append([prog.strip().lower(), int(count)])
+    return pairs
+
+
+def _normalize_optional_float(value: dict, key: str) -> float | None:
+    raw = value.get(key)
+    return float(raw) if isinstance(raw, (int, float)) else None
+
+
+def _normalize_optional_str(value: dict, key: str) -> str | None:
+    raw = value.get(key)
+    return raw if isinstance(raw, str) and raw.strip() else None
 
 
 def _normalize_graph(value: object) -> dict:
@@ -89,6 +124,12 @@ def _normalize_graph(value: object) -> dict:
         "access_pairs": _normalize_pair_list(value.get("access_pairs")),
         "adjacency_pairs": _normalize_pair_list(value.get("adjacency_pairs")),
         "not_adjacency_pairs": _normalize_pair_list(value.get("not_adjacency_pairs")),
+        "centrality": _normalize_pair_list(value.get("centrality")),
+        "windows": _normalize_str_int_pair_list(value.get("windows")),
+        "shape": _normalize_optional_str(value, "shape"),
+        "total_area": _normalize_optional_float(value, "total_area"),
+        "aspect_ratio": _normalize_optional_float(value, "aspect_ratio"),
+        "compactness": _normalize_optional_float(value, "compactness"),
     }
 
 
