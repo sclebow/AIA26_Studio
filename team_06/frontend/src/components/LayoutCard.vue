@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { getDaylightColor, formatDaylight, PROGRAM_COLORS, toNumericValue, getRoomDisplayName } from '../utils/roomAnalysis.js'
-import { ROUTINE_TIMES } from '../mock/agentMock.js'
+import { ROUTINE_TIMES } from '../utils/routineUtils.js'
 import ScoreBar from './ScoreBar.vue'
 
 const props = defineProps({

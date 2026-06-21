@@ -146,7 +146,11 @@ def match_layouts(
 
 class DescriptionIndex:
 
-    def __init__(self, descriptions_dir: Path):
+    def __init__(
+        self,
+        descriptions_dir: Path,
+        graph_index: dict[str, list[float]] | None = None,
+    ):
         ids: list[str] = []
         texts: list[str] = []
 
@@ -166,25 +170,42 @@ class DescriptionIndex:
 
         logger.info(f"[DescriptionIndex] Encoding {len(ids)} descriptions…")
         model = get_embedding_model()
-        matrix = model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+        raw = model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
 
         # L2-normalise so dot product == cosine similarity
-        norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+        norms = np.linalg.norm(raw, axis=1, keepdims=True)
         norms[norms == 0] = 1.0
-        matrix = matrix / norms
+        desc_norm = raw / norms
+
+        # Build combined matrix for PCA: 0.65 * desc + 0.35 * graph (same fusion weights)
+        if graph_index:
+            graph_dim = len(next(iter(graph_index.values())))
+            graph_vecs = np.array(
+                [graph_index.get(lid, [0.0] * graph_dim) for lid in ids], dtype=float
+            )
+            g_norms = np.linalg.norm(graph_vecs, axis=1, keepdims=True)
+            g_norms[g_norms == 0] = 1.0
+            graph_norm = graph_vecs / g_norms
+            combined = np.hstack([0.65 * desc_norm, 0.35 * graph_norm])
+            self._has_graph = True
+            self._graph_dim = graph_dim
+        else:
+            combined = desc_norm
+            self._has_graph = False
+            self._graph_dim = 0
 
         pca = PCA(n_components=2)
-        coords_2d = pca.fit_transform(matrix)
+        coords_2d = pca.fit_transform(combined)
 
         self._ids: list[str] = ids
-        self._matrix: np.ndarray = matrix          # shape (N, 384), normalised
+        self._matrix: np.ndarray = desc_norm     # shape (N, 384), normalised — for search
         self._pca: PCA = pca
         self._coords: dict[str, dict[str, float]] = {
             lid: {"x": float(x), "y": float(y)}
             for lid, (x, y) in zip(ids, coords_2d)
         }
         self._descriptions: dict[str, str] = dict(zip(ids, texts))
-        logger.info("[DescriptionIndex] Ready.")
+        logger.info(f"[DescriptionIndex] Ready (combined={'yes' if graph_index else 'no'}).")
 
     # ------------------------------------------------------------------
     @property
@@ -226,12 +247,29 @@ class DescriptionIndex:
         return results
 
     # ------------------------------------------------------------------
-    def project(self, query: str) -> dict[str, float]:
-        """Project a query string into the same 2D PCA space as the index."""
+    def project(self, query: str, graph_vec: list[float] | None = None) -> dict[str, float]:
+        """Project a query into the same 2D PCA space as the index.
+
+        graph_vec: optional graph feature vector for the query (required when the
+        index was built with a graph_index to keep the projection consistent).
+        """
         model = get_embedding_model()
         q_vec = model.encode(query, convert_to_numpy=True, show_progress_bar=False)
         q_norm = np.linalg.norm(q_vec)
         if q_norm > 0:
             q_vec = q_vec / q_norm
-        xy = self._pca.transform(q_vec.reshape(1, -1))[0]
+
+        if self._has_graph:
+            if graph_vec is not None:
+                gv = np.array(graph_vec, dtype=float)
+                g_norm = np.linalg.norm(gv)
+                if g_norm > 0:
+                    gv = gv / g_norm
+            else:
+                gv = np.zeros(self._graph_dim)
+            combined = np.concatenate([0.65 * q_vec, 0.35 * gv])
+        else:
+            combined = q_vec
+
+        xy = self._pca.transform(combined.reshape(1, -1))[0]
         return {"x": float(xy[0]), "y": float(xy[1])}

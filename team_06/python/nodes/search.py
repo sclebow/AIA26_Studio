@@ -14,7 +14,11 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 def _get_description_index():
     from tools.embedding_matcher import DescriptionIndex
     descriptions_dir = _REPO_ROOT / "layout_inputs" / "Planfinder_Dataset" / "pf_descriptions"
-    return DescriptionIndex(descriptions_dir)
+    try:
+        graph_index = _get_graph_searcher()._embedder.index
+    except Exception:
+        graph_index = None
+    return DescriptionIndex(descriptions_dir, graph_index=graph_index)
 
 
 @lru_cache(maxsize=1)
@@ -193,7 +197,20 @@ def build_search_node() -> Any:
                     description_query,
                     candidate_ids=valid_ids,
                 )
-                query_coord = description_index.project(description_query)
+                # Build graph query vector so the query projects into the same
+                # combined (desc+graph) space as the layout dots.
+                graph_query_vec: list[float] | None = None
+                if programs:
+                    from utils.graph_embedder import build_query_vector
+                    graph_query_vec = build_query_vector(
+                        programs,
+                        access_pairs=access_pairs or None,
+                        adjacency_pairs=adjacency_pairs or None,
+                        centrality=centrality or None,
+                        windows=windows or None,
+                        shape=shape,
+                    )
+                query_coord = description_index.project(description_query, graph_vec=graph_query_vec)
             elif valid_ids is not None:
                 # No description query — rank valid layouts by graph score only.
                 desc_results = [(lid, 0.0) for lid in valid_ids]

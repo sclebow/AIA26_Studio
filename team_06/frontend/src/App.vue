@@ -13,7 +13,7 @@ import { onMounted, ref } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import ChatPanel from './components/ChatPanel.vue'
 import WorkSpace from './components/WorkSpace.vue'
-import { clearSession, fetchLayoutById, restoreLayout, sendChatMessage, startFreshSession, uploadBoundaryLayout } from './api/agentClient.js'
+import { clearSession, fetchLayoutById, restoreLayout, selectLayout as selectLayoutApi, sendChatMessage, startFreshSession, uploadBoundaryLayout } from './api/agentClient.js'
 
 const tab = ref('brief')
 const chatHistory = ref([])
@@ -213,15 +213,28 @@ async function handleNewChat() {
 async function handleRestore(layout) {
   agentState.value = attachExploreResults(layout)
   try {
-    await restoreLayout(agentState.value)
+    // Strip frontend-only fields before sending to backend so the LLM receives
+    // only the raw layout JSON (rooms, outline, apartment, layoutId).
+    const { embedding_map, searchResults, routine, evaluation, _savedAt, ...cleanLayout } = layout
+    await restoreLayout(cleanLayout)
   } catch (error) {
     pushChatMessage('agent', `Could not restore layout in backend session: ${error.message}`)
   }
 }
 
 async function handleSelectLayout(layoutId) {
-  const candidate = exploreResults.value.find(r => r.layoutId === layoutId)
-  if (candidate) await handleSelectCandidate(candidate)
+  if (isSending.value) return
+  isSending.value = true
+  const statusId = pushChatMessage('status', 'Selecting layout…', { isLoading: true })
+  try {
+    const response = await selectLayoutApi(layoutId)
+    removeChatMessage(statusId)
+    applyAgentResponse(response)
+  } catch (error) {
+    updateChatMessage(statusId, 'Could not select layout', { isLoading: false, tone: 'error' })
+  } finally {
+    isSending.value = false
+  }
 }
 
 async function handlePreviewLayout(layoutId) {
@@ -229,8 +242,16 @@ async function handlePreviewLayout(layoutId) {
   try {
     const data = await fetchLayoutById(layoutId)
     if (!data?.layout) return
-    const layout = { ...data.layout, layoutId: data.layoutId, evaluation: null }
+    const layout = {
+      ...data.layout,
+      layoutId: data.layoutId,
+      evaluation: null,
+      embedding_map: agentState.value?.embedding_map ?? null,
+    }
     agentState.value = attachRoutine(attachExploreResults(layout), null)
+    // Send only the raw layout fields so the backend session holds a clean JSON
+    // that the LLM can process — not the full frontend state with all_coords etc.
+    await restoreLayout({ ...data.layout, layoutId: data.layoutId })
   } catch { /* silently ignore */ }
 }
 

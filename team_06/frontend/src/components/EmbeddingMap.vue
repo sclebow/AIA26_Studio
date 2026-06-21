@@ -12,9 +12,12 @@ const emit = defineEmits(['selectLayout', 'previewLayout'])
 const VW = 800
 const VH = 520
 const PAD = 52
-const MINI_SIZE = 46    // SVG data units for miniature
-const GRID_COLS = 5
-const GRID_ROWS = 4
+const MINI_SIZE = 46
+
+// Zoom thresholds at which each density level of miniatures appears
+const ZOOM_A = 1.5   // sparse  — 3×2 grid  (~6 layouts)
+const ZOOM_B = 2.5   // medium  — 5×3 grid  (~15 layouts)
+const ZOOM_C = 3.5   // dense   — 8×5 grid  (~40 layouts)
 
 const zoom        = ref(1)
 const pan         = ref({ x: 0, y: 0 })
@@ -56,27 +59,12 @@ const allPoints = computed(() => {
   return Object.entries(c).map(([id, { x, y }]) => ({ id, ..._toSvg(x, y, B.value) }))
 })
 
-const resultSet = computed(() => new Set(props.embeddingMap?.result_ids ?? []))
-const rankMap   = computed(() => {
-  const m = {}
-  ;(props.embeddingMap?.result_ids ?? []).forEach((id, i) => { m[id] = i + 1 })
-  return m
-})
+const topResultId = computed(() => props.embeddingMap?.result_ids?.[0] ?? null)
 const queryPoint = computed(() => {
   const qc = props.embeddingMap?.query_coord
   if (!qc || !B.value) return null
   return _toSvg(qc.x, qc.y, B.value)
 })
-
-// ── dot color: teal→blue brand gradient ──────────────────────────────────────
-
-function dotColor(sx, sy) {
-  const t   = Math.max(0, Math.min(1, (sx - PAD) / (VW - 2 * PAD)))
-  const hue = Math.round(175 + t * 35)
-  const sat = Math.round(55  + t * 20)
-  const lgt = Math.round(62  - t * 10)
-  return `hsl(${hue}, ${sat}%, ${lgt}%)`
-}
 
 // ── layout geometry sources ───────────────────────────────────────────────────
 
@@ -87,7 +75,17 @@ function layoutFor(id) {
   return resultLayoutMap.value[id] ?? layoutCache.value[id] ?? null
 }
 
-// ── miniature polygons (Y-down, matching Konva, no flip needed) ───────────────
+// ── dot color ─────────────────────────────────────────────────────────────────
+
+function dotColor(sx) {
+  const t   = Math.max(0, Math.min(1, (sx - PAD) / (VW - 2 * PAD)))
+  const hue = Math.round(175 + t * 35)
+  const sat = Math.round(55  + t * 20)
+  const lgt = Math.round(62  - t * 10)
+  return `hsl(${hue}, ${sat}%, ${lgt}%)`
+}
+
+// ── miniature polygons ────────────────────────────────────────────────────────
 
 function miniPaths(layout) {
   if (!layout?.rooms?.length) return null
@@ -104,7 +102,6 @@ function miniPaths(layout) {
   }))
 }
 
-// Precomputed only for dots that have geometry — always visible, not zoom-gated
 const miniCache = computed(() => {
   const result = {}
   for (const p of allPoints.value) {
@@ -114,13 +111,9 @@ const miniCache = computed(() => {
   return result
 })
 
-// Separate non-result and result points so results render on top
-const bgPoints     = computed(() => allPoints.value.filter(p => !resultSet.value.has(p.id)))
-const resultPoints = computed(() => allPoints.value.filter(p =>  resultSet.value.has(p.id)))
+// ── spatial grid sampling ─────────────────────────────────────────────────────
 
-// ── grid-sampled pre-fetch on mount ──────────────────────────────────────────
-
-function gridSampledIds() {
+function gridSample(cols, rows) {
   const coords = props.embeddingMap?.all_coords
   if (!coords) return []
   const entries = Object.entries(coords)
@@ -130,20 +123,51 @@ function gridSampledIds() {
   const rx = maxX - minX || 1, ry = maxY - minY || 1
   const buckets = {}
   for (const [id, { x, y }] of entries) {
-    const bx = Math.min(GRID_COLS - 1, Math.floor((x - minX) / rx * GRID_COLS))
-    const by = Math.min(GRID_ROWS - 1, Math.floor((y - minY) / ry * GRID_ROWS))
+    const bx = Math.min(cols - 1, Math.floor((x - minX) / rx * cols))
+    const by = Math.min(rows - 1, Math.floor((y - minY) / ry * rows))
     const key = `${bx},${by}`
     if (!buckets[key]) buckets[key] = id
   }
   return Object.values(buckets)
 }
 
+const sampleA = computed(() => new Set(gridSample(3, 2)))
+const sampleB = computed(() => new Set(gridSample(5, 3)))
+const sampleC = computed(() => new Set(gridSample(8, 5)))
+
+// ── viewport culling ──────────────────────────────────────────────────────────
+
+function isInViewport(sx, sy) {
+  const m = MINI_SIZE + 6
+  const screenX = pan.value.x + sx * zoom.value
+  const screenY = pan.value.y + sy * zoom.value
+  return screenX >= -m && screenX <= VW + m && screenY >= -m && screenY <= VH + m
+}
+
+// Show miniature for a dot only at appropriate zoom level and if in viewport
+function showMini(id, sx, sy) {
+  if (!miniCache.value[id]) return false
+  if (id === topResultId.value) return zoom.value >= ZOOM_A
+  if (zoom.value >= ZOOM_C && sampleC.value.has(id)) return isInViewport(sx, sy)
+  if (zoom.value >= ZOOM_B && sampleB.value.has(id)) return isInViewport(sx, sy)
+  if (zoom.value >= ZOOM_A && sampleA.value.has(id)) return isInViewport(sx, sy)
+  return false
+}
+
+// Top result rendered on top layer; everything else is background
+const bgPoints  = computed(() => allPoints.value.filter(p => p.id !== topResultId.value))
+const topResult = computed(() => allPoints.value.find(p => p.id === topResultId.value) ?? null)
+
+// ── pre-fetch all sample levels on mount ──────────────────────────────────────
+
 onMounted(() => {
-  const sampled = gridSampledIds().filter(id =>
-    !resultLayoutMap.value[id] && !layoutCache.value[id]
-  )
-  for (const id of sampled) {
-    if (fetchingIds.has(id)) continue
+  const toFetch = new Set([
+    ...gridSample(3, 2),
+    ...gridSample(5, 3),
+    ...gridSample(8, 5),
+  ])
+  for (const id of toFetch) {
+    if (resultLayoutMap.value[id] || layoutCache.value[id] || fetchingIds.has(id)) continue
     fetchingIds.add(id)
     fetchLayoutById(id)
       .then(data => {
@@ -154,7 +178,7 @@ onMounted(() => {
   }
 })
 
-// hover-triggered fetch for dots not in the pre-sample
+// Fetch geometry when hovering a dot we don't have yet
 watch(() => hovered.value?.id, async (id) => {
   if (!id || resultLayoutMap.value[id] || layoutCache.value[id] || fetchingIds.has(id)) return
   fetchingIds.add(id)
@@ -164,12 +188,11 @@ watch(() => hovered.value?.id, async (id) => {
   } catch { /* silent */ } finally { fetchingIds.delete(id) }
 })
 
-// zoom/pan triggered fetch for newly visible dots
+// At high zoom, fetch whatever is now in viewport
 function fetchVisible() {
-  const x0 = -pan.value.x / zoom.value
-  const y0 = -pan.value.y / zoom.value
-  const x1 = x0 + VW / zoom.value
-  const y1 = y0 + VH / zoom.value
+  if (zoom.value < ZOOM_C) return
+  const x0 = -pan.value.x / zoom.value, y0 = -pan.value.y / zoom.value
+  const x1 = x0 + VW / zoom.value,      y1 = y0 + VH / zoom.value
   const m  = MINI_SIZE
   const toFetch = allPoints.value.filter(p =>
     !resultLayoutMap.value[p.id] &&
@@ -188,7 +211,6 @@ function fetchVisible() {
       .finally(() => fetchingIds.delete(p.id))
   }
 }
-
 watch([zoom, pan], () => {
   clearTimeout(fetchTimer)
   fetchTimer = setTimeout(fetchVisible, 400)
@@ -220,6 +242,8 @@ const popupStyle = computed(() => {
 // ── zoom & pan ────────────────────────────────────────────────────────────────
 
 const DRAG_THRESHOLD = 5
+const MIN_ZOOM = 1.0
+const MAX_ZOOM = 10.0
 
 function svgCursor(e) {
   const r = svgEl.value.getBoundingClientRect()
@@ -227,7 +251,13 @@ function svgCursor(e) {
 }
 function onWheel(e) {
   const f  = e.deltaY < 0 ? 1.18 : 1 / 1.18
-  const nz = Math.min(10, Math.max(0.25, zoom.value * f))
+  const nz = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom.value * f))
+  // Snap to home when fully zoomed out
+  if (nz <= MIN_ZOOM) {
+    zoom.value = MIN_ZOOM
+    pan.value  = { x: 0, y: 0 }
+    return
+  }
   const m  = svgCursor(e)
   pan.value = {
     x: m.x + (pan.value.x - m.x) * nz / zoom.value,
@@ -265,8 +295,7 @@ function isDrag(e) {
 function onDotClick(e, id) {
   e.stopPropagation()
   if (isDrag(e)) return
-  if (resultSet.value.has(id)) emit('selectLayout', id)
-  else emit('previewLayout', id)
+  emit('previewLayout', id)
 }
 
 const transform = computed(() =>
@@ -293,63 +322,61 @@ const transform = computed(() =>
     >
       <g :transform="transform">
 
-        <!-- Background dots (non-results) -->
+        <!-- All dots except top result -->
         <g
           v-for="p in bgPoints"
           :key="p.id"
           :transform="`translate(${p.sx}, ${p.sy})`"
           style="cursor: pointer"
-          @mouseenter="hovered = { id: p.id, rank: null }"
+          @mouseenter="hovered = { id: p.id }"
           @mouseleave="hovered = null"
           @click="onDotClick($event, p.id)"
         >
-          <template v-if="miniCache[p.id]">
+          <template v-if="showMini(p.id, p.sx, p.sy)">
             <rect
               :x="-MINI_SIZE/2 - 2" :y="-MINI_SIZE/2 - 2"
               :width="MINI_SIZE + 4" :height="MINI_SIZE + 4"
-              rx="6" fill="white" stroke="#D9D9D9" stroke-width="1" vector-effect="non-scaling-stroke"
+              rx="3" fill="white" stroke="#d0d5dd" stroke-width="0.8"
+              vector-effect="non-scaling-stroke"
             />
             <polygon
               v-for="(room, i) in miniCache[p.id]"
               :key="i" :points="room.pts" :fill="room.fill"
-              stroke="#333" stroke-width="0.35"
+              stroke="#4a4a4a" stroke-width="0.5"
+              vector-effect="non-scaling-stroke"
             />
           </template>
-          <circle v-else cx="0" cy="0" r="4"
-            :fill="dotColor(p.sx, p.sy)" />
+          <circle v-else cx="0" cy="0" r="4" :fill="dotColor(p.sx)" />
         </g>
 
-        <!-- Result miniatures / dots — rendered on top so they're never hidden -->
+        <!-- Top result — always on top, blue dot or blue-outlined miniature -->
         <g
-          v-for="p in resultPoints"
-          :key="'res-' + p.id"
-          :transform="`translate(${p.sx}, ${p.sy})`"
+          v-if="topResult"
+          :key="'top-' + topResult.id"
+          :transform="`translate(${topResult.sx}, ${topResult.sy})`"
           style="cursor: pointer"
-          @mouseenter="hovered = { id: p.id, rank: rankMap[p.id] ?? null }"
+          @mouseenter="hovered = { id: topResult.id }"
           @mouseleave="hovered = null"
-          @click="onDotClick($event, p.id)"
+          @click="onDotClick($event, topResult.id)"
         >
-          <template v-if="miniCache[p.id]">
+          <template v-if="showMini(topResult.id, topResult.sx, topResult.sy)">
             <rect
               :x="-MINI_SIZE/2 - 2" :y="-MINI_SIZE/2 - 2"
               :width="MINI_SIZE + 4" :height="MINI_SIZE + 4"
-              rx="6" fill="white" stroke="#D9D9D9" stroke-width="1" vector-effect="non-scaling-stroke"
+              rx="3" fill="white" stroke="var(--color-blue)" stroke-width="1.2"
+              vector-effect="non-scaling-stroke"
             />
             <polygon
-              v-for="(room, i) in miniCache[p.id]"
+              v-for="(room, i) in miniCache[topResult.id]"
               :key="i" :points="room.pts" :fill="room.fill"
-              stroke="#333" stroke-width="0.35"
+              stroke="#4a4a4a" stroke-width="0.5"
+              vector-effect="non-scaling-stroke"
             />
           </template>
-          <circle v-else cx="0" cy="0" r="6"
-            fill="var(--color-blue)" stroke="white" stroke-width="1.5" />
-          <!-- Rank badge (result dots only) -->
-          <g class="rank-badge">
-            <circle :cx="-MINI_SIZE/2 + 6" :cy="-MINI_SIZE/2 + 6" r="5" fill="var(--color-blue)"/>
-            <text :x="-MINI_SIZE/2 + 6" :y="-MINI_SIZE/2 + 6" text-anchor="middle" dominant-baseline="central" class="rank-num">
-              {{ rankMap[p.id] }}
-            </text>
-          </g>
+          <circle v-else cx="0" cy="0" r="7"
+            fill="var(--color-blue)" stroke="white" stroke-width="2"
+            vector-effect="non-scaling-stroke"
+          />
         </g>
 
         <!-- Query crosshair -->
@@ -361,15 +388,14 @@ const transform = computed(() =>
       </g>
     </svg>
 
-    <!-- Hover popup: ID + description only -->
+    <!-- Hover popup -->
     <div v-if="hovered" class="mini-popup" :style="popupStyle">
       <div class="popup-header">
-        <span v-if="hovered.rank" class="popup-rank">{{ hovered.rank }}</span>
         <span class="popup-id">{{ hovered.id }}</span>
       </div>
       <p v-if="popupDesc" class="popup-desc">{{ popupDesc }}</p>
       <div v-if="popupDesc" class="popup-hint">
-        {{ hovered.rank ? 'Click to select' : 'Click to preview' }}
+        {{ hovered.id === topResultId ? 'Click to select' : 'Click to preview' }}
       </div>
     </div>
 
@@ -385,7 +411,7 @@ const transform = computed(() =>
         <svg width="10" height="10" viewBox="0 0 10 10">
           <circle cx="5" cy="5" r="5" fill="var(--color-blue)" stroke="white" stroke-width="1.5"/>
         </svg>
-        Search results
+        Best match
       </span>
       <span class="legend-item">
         <svg width="12" height="12" viewBox="0 0 12 12">
@@ -428,13 +454,6 @@ const transform = computed(() =>
   stroke-width: 2.5;
   stroke-linecap: round;
 }
-.rank-badge { pointer-events: none; }
-.rank-num {
-  font-size: 6.5px;
-  font-weight: 700;
-  fill: white;
-}
-
 /* popup */
 .mini-popup {
   position: absolute;

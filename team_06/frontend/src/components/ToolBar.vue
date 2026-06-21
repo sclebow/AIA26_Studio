@@ -1,29 +1,44 @@
 <template>
   <div class="toolbar">
     <div class="toolbar-group">
-      <button class="layout-input-btn" :class="{ active: !!fileName }" @click="fileInput.click()" :title="fileName ? 'Replace boundary JSON' : 'Upload boundary JSON'">
-        <img :src="!!fileName ? uploadBlueIcon : uploadIcon" alt="Upload" width="22" height="22" />
-      </button>
+      <div class="tooltip-wrap">
+        <button class="layout-input-btn" :class="{ active: !!fileName }" @click="fileInput.click()">
+          <img :src="!!fileName ? uploadBlueIcon : uploadIcon" alt="Upload" width="22" height="22" />
+        </button>
+        <span class="tooltip">{{ fileName ? 'Replace boundary' : 'Upload' }}</span>
+      </div>
       <template v-if="fileName">
         <span class="file-name">{{ fileName }}</span>
-        <button class="file-clear" @click.stop="clearFile" title="Remove file">&times;</button>
+        <button class="file-clear" @click.stop="clearFile">&times;</button>
       </template>
       <input ref="fileInput" type="file" accept=".json" style="display:none" @change="onFileChange" />
     </div>
     <div class="toolbar-divider"></div>
     <div class="toolbar-group">
-      <button class="layout-input-btn view-btn" :class="{ active: hasLayout && viewMode === 'layout' }" :disabled="!hasLayout" @click="hasLayout && emit('viewChange', 'layout')">
-        <img :src="hasLayout && viewMode === 'layout' ? layoutBlueIcon : layoutIcon" alt="Layout" width="22" height="22" />
-      </button>
-      <button class="layout-input-btn view-btn" :class="{ active: hasDaylight && viewMode === 'daylight' }" :disabled="!hasDaylight" @click="hasDaylight && emit('viewChange', 'daylight')">
-        <img :src="hasDaylight && viewMode === 'daylight' ? sunBlueIcon : sunIcon" alt="Daylight" width="22" height="22" />
-      </button>
-      <button class="layout-input-btn view-btn" :class="{ active: hasRoutine && viewMode === 'routine' }" :disabled="!hasRoutine" @click="hasRoutine && emit('viewChange', 'routine')" :title="hasRoutine ? 'Routine visualization' : 'Routine visualization coming later'">
-        <img :src="hasRoutine && viewMode === 'routine' ? clockBlueIcon : clockIcon" alt="Routine" width="22" height="22" />
-      </button>
-      <button class="layout-input-btn view-btn" :class="{ active: hasEmbeddingMap && viewMode === 'explore' }" :disabled="!hasEmbeddingMap" @click="hasEmbeddingMap && emit('viewChange', 'explore')" title="Explore layouts">
-        <img :src="hasEmbeddingMap && viewMode === 'explore' ? exploreBlueIcon : exploreIcon" alt="Explore" width="22" height="22" />
-      </button>
+      <div class="tooltip-wrap">
+        <button class="layout-input-btn view-btn" :class="{ active: hasLayout && viewMode === 'layout' }" :disabled="!hasLayout" @click="hasLayout && emit('viewChange', 'layout')">
+          <img :src="hasLayout && viewMode === 'layout' ? layoutBlueIcon : layoutIcon" alt="Layout" width="22" height="22" />
+        </button>
+        <span class="tooltip">Layout</span>
+      </div>
+      <div class="tooltip-wrap">
+        <button class="layout-input-btn view-btn" :class="{ active: hasDaylight && viewMode === 'daylight' }" :disabled="!hasDaylight" @click="hasDaylight && emit('viewChange', 'daylight')">
+          <img :src="hasDaylight && viewMode === 'daylight' ? sunBlueIcon : sunIcon" alt="Daylight" width="22" height="22" />
+        </button>
+        <span class="tooltip">Daylight</span>
+      </div>
+      <div class="tooltip-wrap">
+        <button class="layout-input-btn view-btn" :class="{ active: hasRoutine && viewMode === 'routine' }" :disabled="!hasRoutine" @click="hasRoutine && emit('viewChange', 'routine')">
+          <img :src="hasRoutine && viewMode === 'routine' ? clockBlueIcon : clockIcon" alt="Routine" width="22" height="22" />
+        </button>
+        <span class="tooltip">Routine</span>
+      </div>
+      <div class="tooltip-wrap">
+        <button class="layout-input-btn view-btn" :class="{ active: hasEmbeddingMap && viewMode === 'explore' }" :disabled="!hasEmbeddingMap" @click="hasEmbeddingMap && emit('viewChange', 'explore')">
+          <img :src="hasEmbeddingMap && viewMode === 'explore' ? exploreBlueIcon : exploreIcon" alt="Explore" width="22" height="22" />
+        </button>
+        <span class="tooltip">Explore</span>
+      </div>
     </div>
   </div>
 </template>
@@ -128,4 +143,36 @@ function clearFile() {
   opacity: 0.6;
 }
 .file-clear:hover { opacity: 1; }
+
+.tooltip-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-text, #222);
+  color: #fff;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 100;
+}
+.tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: var(--color-text, #222);
+}
+.tooltip-wrap:hover .tooltip { opacity: 1; }
 </style>
