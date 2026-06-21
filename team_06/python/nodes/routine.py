@@ -43,7 +43,8 @@ SYSTEM_PROMPT = (
     "- If a couple is present, prefer the largest available bedroom for that couple.\n"
     "- If the brief says that one bedroom is used as a study, interpret that as at least one resident working from home during the day when household information does not contradict it.\n"
     "- For work-from-home or study use, prefer a second bedroom when available. Otherwise use the living room, and only then fall back to the main bedroom.\n"
-    "- Do not use extra rooms as offices. Treat extra rooms as storage or circulation support only.\n"
+    "- The dataset room programs are: bed, bath, wc, living, circulation, storage, walkincloset.\n"
+    "- Do not use storage or circulation rooms as offices or living spaces.\n"
     "- Do not use room ids that do not exist.\n"
     "- Keep colors as simple hex strings.\n"
 )
@@ -216,12 +217,11 @@ def _profiles_for_household(household: list[dict[str, str]], description: str) -
 
 
 def _default_steps(profile: str, rooms: list[dict[str, str | None]]) -> list[str | None]:
-    bed = _first_room_id(rooms, "bed")
-    bath = _first_room_id(rooms, "bath")
-    living = _first_room_id(rooms, "living")
-    extra = _first_room_id(rooms, "extra")
-    foyer = _first_room_id(rooms, "foyer")
-    office = _office_room_id(rooms)
+    bed         = _first_room_id(rooms, "bed")
+    bath        = _first_room_id(rooms, "bath")
+    living      = _first_room_id(rooms, "living")
+    circulation = _first_room_id(rooms, "circulation")
+    office      = _office_room_id(rooms)
 
     if profile == "child_school":
         return [
@@ -230,8 +230,8 @@ def _default_steps(profile: str, rooms: list[dict[str, str | None]]) -> list[str
             None,
             None,
             None,
-            _fallback_room(living, extra, bed),
-            _fallback_room(living, bed, extra),
+            _fallback_room(living, bed),
+            _fallback_room(living, bed),
             _fallback_room(living, bed),
             _fallback_room(bed, living),
         ]
@@ -255,21 +255,21 @@ def _default_steps(profile: str, rooms: list[dict[str, str | None]]) -> list[str
         None,
         None,
         None,
-        _fallback_room(foyer, living, extra),
-        _fallback_room(living, extra, bed),
+        _fallback_room(circulation, living),
+        _fallback_room(living, bed),
         _fallback_room(living, bed),
         _fallback_room(bed, living),
     ]
 
 
 def _reassign_from_bathroom(steps: list[str | None], step_index: int, rooms: list[dict[str, str | None]]) -> str | None:
-    bed = _first_room_id(rooms, "bed")
-    living = _first_room_id(rooms, "living")
-    extra = _first_room_id(rooms, "extra")
-    foyer = _first_room_id(rooms, "foyer")
-    current = steps[step_index] if step_index < len(steps) else None
+    bed         = _first_room_id(rooms, "bed")
+    living      = _first_room_id(rooms, "living")
+    circulation = _first_room_id(rooms, "circulation")
+    storage     = _first_room_id(rooms, "storage")
+    current  = steps[step_index] if step_index < len(steps) else None
     previous = steps[step_index - 1] if step_index > 0 else None
-    return _fallback_room(previous, current, bed, living, extra, foyer)
+    return _fallback_room(previous, current, bed, living, circulation, storage)
 
 
 def _enforce_bathroom_spacing(personas: list[dict[str, Any]], rooms: list[dict[str, str | None]]) -> list[dict[str, Any]]:

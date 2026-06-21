@@ -72,13 +72,13 @@ export function formatDaylight(value) {
 }
 
 const PROGRAM_LABELS = {
-  bed: ['bedroom', 'bedrooms'],
-  bath: ['bathroom', 'bathrooms'],
-  living: ['living', 'living'],
-  kitchen: ['kitchen', 'kitchens'],
-  foyer: ['foyer', 'foyers'],
-  extra: ['extra', 'extra'],
-  study: ['study', 'studies'],
+  bed:          ['bedroom',      'bedrooms'],
+  bath:         ['bathroom',     'bathrooms'],
+  wc:           ['WC',           'WCs'],
+  living:       ['living',       'living'],
+  circulation:  ['circulation',  'circulation'],
+  storage:      ['storage',      'storage'],
+  walkincloset: ['walk-in closet', 'walk-in closets'],
 }
 
 export function formatRoomProgram(program, count = null) {
@@ -104,11 +104,13 @@ export function getRoomDisplayName(room) {
 // Keyed by `attributes.program` string.
 
 export const PROGRAM_COLORS = {
-  bed:     '#0082c2ff',
-  bath:    '#C8F4F0',
-  living:  '#00e0cdff',
-  foyer:   '#009fa6ff',
-  extra:   '#00c7d4ff',
+  bed:          '#0082C2',  // blue — primary sleeping space
+  bath:         '#A8DED8',  // soft teal — wet room
+  wc:           '#C8F4F0',  // lighter teal — smaller wet room
+  living:       '#00C8B4',  // bright teal — main living space
+  circulation:  '#009fa6ff',  // cool grey-blue — connector/hallway
+  storage:      '#00c7d4ff',  // warm taupe — utility
+  walkincloset: '#7A8FA3',  // soft mauve — personal/wardrobe
 }
 
 /**

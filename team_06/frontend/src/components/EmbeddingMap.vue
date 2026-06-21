@@ -295,7 +295,7 @@ function isDrag(e) {
 function onDotClick(e, id) {
   e.stopPropagation()
   if (isDrag(e)) return
-  emit('previewLayout', id)
+  emit('selectLayout', id)
 }
 
 const transform = computed(() =>
@@ -394,9 +394,7 @@ const transform = computed(() =>
         <span class="popup-id">{{ hovered.id }}</span>
       </div>
       <p v-if="popupDesc" class="popup-desc">{{ popupDesc }}</p>
-      <div v-if="popupDesc" class="popup-hint">
-        {{ hovered.id === topResultId ? 'Click to select' : 'Click to preview' }}
-      </div>
+      <div v-if="popupDesc" class="popup-hint">Click to select</div>
     </div>
 
     <!-- Legend -->
