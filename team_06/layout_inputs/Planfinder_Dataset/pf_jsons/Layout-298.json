@@ -1,0 +1,30 @@
+{
+  "layoutId": "Layout-298",
+  "apartment": {
+    "id": "L_L7.5_W16.5_de2_dp0.9_wp5",
+    "name": "Studio apartment",
+    "geometry": [],
+    "attributes": {
+      "area": 0,
+      "description": ""
+    }
+  },
+  "outline": [],
+  "door_point": [
+    0.0,
+    0.0
+  ],
+  "door_points": [],
+  "rooms": [],
+  "doors": [],
+  "facades": [],
+  "circulation": [],
+  "windows": [],
+  "furniture": [],
+  "mep": [],
+  "structure": [],
+  "interior_walls": [],
+  "exterior_walls": [],
+  "glass": [],
+  "window_frames": []
+}

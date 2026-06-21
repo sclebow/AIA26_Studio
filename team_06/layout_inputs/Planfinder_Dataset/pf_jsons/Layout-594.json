@@ -1,0 +1,30 @@
+{
+  "layoutId": "Layout-594",
+  "apartment": {
+    "id": "L_L12.0_W15.0_de2_dp0.6_wp1",
+    "name": "Studio apartment",
+    "geometry": [],
+    "attributes": {
+      "area": 0,
+      "description": ""
+    }
+  },
+  "outline": [],
+  "door_point": [
+    0.0,
+    0.0
+  ],
+  "door_points": [],
+  "rooms": [],
+  "doors": [],
+  "facades": [],
+  "circulation": [],
+  "windows": [],
+  "furniture": [],
+  "mep": [],
+  "structure": [],
+  "interior_walls": [],
+  "exterior_walls": [],
+  "glass": [],
+  "window_frames": []
+}

@@ -1,0 +1,30 @@
+{
+  "layoutId": "Layout-976",
+  "apartment": {
+    "id": "L_L18.0_W13.5_de1_dp0.4_wp4",
+    "name": "Studio apartment",
+    "geometry": [],
+    "attributes": {
+      "area": 0,
+      "description": ""
+    }
+  },
+  "outline": [],
+  "door_point": [
+    0.0,
+    0.0
+  ],
+  "door_points": [],
+  "rooms": [],
+  "doors": [],
+  "facades": [],
+  "circulation": [],
+  "windows": [],
+  "furniture": [],
+  "mep": [],
+  "structure": [],
+  "interior_walls": [],
+  "exterior_walls": [],
+  "glass": [],
+  "window_frames": []
+}
