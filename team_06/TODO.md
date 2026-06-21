@@ -1,15 +1,10 @@
-Improve all LLM nodes (routine, evaluate, reason)
+do you think i should show the embedding space already before prompt/sra´´earch just without the query symble?
 
-[PENDING] Calculate scores (similarity) in deterministic way (before evaluate)
-[PENDING] choose model, test different prompts and see where they fail
-[Elena] update system prompt with new room names
-[Elena] improve routine system prompt 
+Which other cool feature could i do related to search?
+- visualise the graph of the layout
+- allow the user to insert detailed routine 
+- make the rbief summary editable
+- select 2 layouts and search for "in between"
+- something else
 
-
-Add more UI/UX features.
-
-[Elena] embedding space visualisation
-[Elena] add subscores
-[Elena] improve routine visualization: add text and frictions
-[PENDING] better layout visualisation: doors, vindows, walls
-[Giovanni/ Marina] add furniture
+thumbnail of commands (icons)

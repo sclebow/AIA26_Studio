@@ -70,8 +70,8 @@ function exportLayout() {
               :embeddingMap="props.agentState.embedding_map"
               :searchResults="props.agentState.searchResults ?? []"
 
-              @selectLayout="emit('selectLayout', $event)"
-              @previewLayout="emit('previewLayout', $event)"
+              @selectLayout="id => { viewMode = 'layout'; emit('selectLayout', id) }"
+              @previewLayout="id => { viewMode = 'layout'; emit('previewLayout', id) }"
             />
             <LayoutCanvas
               v-else
