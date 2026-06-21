@@ -1,0 +1,750 @@
+{
+  "convention": [
+    "Area",
+    "BB_short_dim",
+    "BB_long_dim",
+    "Prop",
+    "Verts",
+    "Geoms",
+    "Exp_edge_count",
+    "Closed_curves"
+  ],
+  "types": [
+    {
+      "cluster": "A13",
+      "track": "A",
+      "anchor": [
+        0.1886,
+        0.352,
+        0.574,
+        1.6307,
+        19.0,
+        2.0,
+        19.0,
+        1.0
+      ],
+      "count": 74,
+      "medoid_id": "p0082",
+      "matched_old_name": "PF_Toilet_2D",
+      "match_distance": 0.0002,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "A13"
+      ],
+      "name": "Toilet",
+      "typology": "toilet"
+    },
+    {
+      "cluster": "A01",
+      "track": "A",
+      "anchor": [
+        3.92,
+        2.0,
+        2.6,
+        1.3,
+        11.0,
+        9.0,
+        23.0,
+        1.0
+      ],
+      "count": 53,
+      "medoid_id": "p0000",
+      "matched_old_name": "PF_Bed_2D",
+      "match_distance": 0.0,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "A01"
+      ],
+      "name": "BedDouble",
+      "typology": "bed"
+    },
+    {
+      "cluster": "A16",
+      "track": "A",
+      "anchor": [
+        1.8,
+        0.9,
+        2.0,
+        2.2222,
+        5.0,
+        5.0,
+        12.0,
+        1.0
+      ],
+      "count": 52,
+      "medoid_id": "p0005",
+      "matched_old_name": "PF_BedSingle_2D",
+      "match_distance": 0.0,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "A16"
+      ],
+      "name": "BedSingle",
+      "typology": "bed"
+    },
+    {
+      "cluster": "A02",
+      "track": "A",
+      "anchor": [
+        0.35,
+        0.25,
+        1.4,
+        5.6,
+        5.0,
+        2.0,
+        8.0,
+        2.0
+      ],
+      "count": 49,
+      "medoid_id": "p0068",
+      "matched_old_name": "PF_TV_2D",
+      "match_distance": 0.0,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "A02"
+      ],
+      "name": "TV",
+      "typology": "tv_unit"
+    },
+    {
+      "cluster": "A11",
+      "track": "A",
+      "anchor": [
+        0.2203,
+        0.507,
+        0.622,
+        1.2268,
+        5.0,
+        2.0,
+        5.0,
+        1.0
+      ],
+      "count": 48,
+      "medoid_id": "p0264",
+      "matched_old_name": "PF_KitchenFridge_2D",
+      "match_distance": 0.0465,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "A11"
+      ],
+      "name": "DeskChair",
+      "typology": "chair"
+    },
+    {
+      "cluster": "A15",
+      "track": "A",
+      "anchor": [
+        0.78,
+        0.6,
+        1.3,
+        2.1667,
+        5.0,
+        3.0,
+        9.0,
+        2.0
+      ],
+      "count": 48,
+      "medoid_id": "p0011",
+      "matched_old_name": "PF_TV_2D",
+      "match_distance": 0.1203,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "A15"
+      ],
+      "name": "DeskLaptop",
+      "typology": "desk"
+    },
+    {
+      "cluster": "A04",
+      "track": "A",
+      "anchor": [
+        0.81,
+        0.9,
+        0.9,
+        1.0,
+        5.0,
+        3.0,
+        13.0,
+        3.0
+      ],
+      "count": 44,
+      "medoid_id": "p0009",
+      "matched_old_name": "PF_Shower_2D",
+      "match_distance": 0.0,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "A04"
+      ],
+      "name": "Shower",
+      "typology": "shower"
+    },
+    {
+      "cluster": "A14",
+      "track": "A",
+      "anchor": [
+        0.24,
+        0.4,
+        0.6,
+        1.5,
+        5.0,
+        3.0,
+        13.0,
+        3.0
+      ],
+      "count": 42,
+      "medoid_id": "p0057",
+      "matched_old_name": "PF_Sink_2D",
+      "match_distance": 0.0,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "A14"
+      ],
+      "name": "Sink",
+      "typology": "sink"
+    },
+    {
+      "cluster": "A03",
+      "track": "A",
+      "anchor": [
+        0.6,
+        0.75,
+        0.8,
+        1.0667,
+        5.0,
+        2.0,
+        7.0,
+        1.0
+      ],
+      "count": 40,
+      "medoid_id": "p0132",
+      "matched_old_name": "PF_Chair_2D",
+      "match_distance": 0.0,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "A03"
+      ],
+      "name": "Armchair",
+      "typology": "chair"
+    },
+    {
+      "cluster": "A17",
+      "track": "A",
+      "anchor": [
+        1.36,
+        0.8,
+        1.7,
+        2.125,
+        5.0,
+        4.0,
+        19.0,
+        3.0
+      ],
+      "count": 29,
+      "medoid_id": "p0361",
+      "matched_old_name": "PF_Bath_2D",
+      "match_distance": 0.0,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "A17"
+      ],
+      "name": "Bathtub",
+      "typology": "bathtub"
+    },
+    {
+      "cluster": "A05",
+      "track": "A",
+      "anchor": [
+        2.2,
+        1.3,
+        2.0,
+        1.5385,
+        29.0,
+        3.0,
+        30.0,
+        1.0
+      ],
+      "count": 28,
+      "medoid_id": "p0153",
+      "matched_old_name": "PF_DiningSix_2D",
+      "match_distance": 0.0,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "A05"
+      ],
+      "name": "DiningTableSix",
+      "typology": "dining_table"
+    },
+    {
+      "cluster": "A06",
+      "track": "A",
+      "anchor": [
+        2.367,
+        0.6,
+        3.945,
+        6.575,
+        5.0,
+        12.0,
+        107.0,
+        10.0
+      ],
+      "count": 28,
+      "medoid_id": "p0342",
+      "matched_old_name": "PF_SeatingM_2D",
+      "match_distance": 1.3725,
+      "match_confident": false,
+      "aliases": [],
+      "members": [
+        "A06"
+      ],
+      "name": "KitchenCounterLinear",
+      "typology": "kitchen"
+    },
+    {
+      "cluster": "B10",
+      "track": "B",
+      "anchor": [
+        0.6276,
+        0.6,
+        1.046,
+        1.7433,
+        5.0,
+        1.0,
+        4.0,
+        1.0
+      ],
+      "count": 26,
+      "medoid_id": "p0103",
+      "matched_old_name": "PF_CoffeeSmall_2D",
+      "match_distance": 0.035,
+      "match_confident": true,
+      "aliases": [
+        "B12",
+        "B11"
+      ],
+      "members": [
+        "B10",
+        "B12",
+        "B11"
+      ],
+      "name": "CoffeeTable",
+      "typology": "coffee_table"
+    },
+    {
+      "cluster": "A12",
+      "track": "A",
+      "anchor": [
+        1.6,
+        0.8,
+        2.0,
+        2.5,
+        5.0,
+        6.0,
+        9.0,
+        1.0
+      ],
+      "count": 23,
+      "medoid_id": "p0141",
+      "matched_old_name": "PF_SofaLarge_2D",
+      "match_distance": 0.0,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "A12"
+      ],
+      "name": "SofaLarge",
+      "typology": "sofa"
+    },
+    {
+      "cluster": "B04",
+      "track": "B",
+      "anchor": [
+        0.5,
+        0.5,
+        1.0,
+        2.0,
+        5.0,
+        1.0,
+        4.0,
+        1.0
+      ],
+      "count": 22,
+      "medoid_id": "p0067",
+      "matched_old_name": "PF_CoffeeSmall_2D",
+      "match_distance": 0.0,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "B04"
+      ],
+      "name": "CoffeeTableSmall",
+      "typology": "coffee_table"
+    },
+    {
+      "cluster": "B08",
+      "track": "B",
+      "anchor": [
+        0.78,
+        0.6,
+        1.3,
+        2.1667,
+        5.0,
+        1.0,
+        4.0,
+        1.0
+      ],
+      "count": 21,
+      "medoid_id": "p0232",
+      "matched_old_name": "PF_CoffeeSmall_2D",
+      "match_distance": 0.1037,
+      "match_confident": true,
+      "aliases": [
+        "B09"
+      ],
+      "members": [
+        "B08",
+        "B09"
+      ],
+      "name": "CoffeeTableLarge",
+      "typology": "coffee_table"
+    },
+    {
+      "cluster": "A00",
+      "track": "A",
+      "anchor": [
+        2.496,
+        1.891,
+        2.869,
+        1.5172,
+        7.0,
+        12.0,
+        109.0,
+        10.0
+      ],
+      "count": 20,
+      "medoid_id": "p0161",
+      "matched_old_name": "PF_SeatingM_2D",
+      "match_distance": 1.2632,
+      "match_confident": false,
+      "aliases": [],
+      "members": [
+        "A00"
+      ],
+      "name": "KitchenCounterUorLshape",
+      "typology": "kitchen"
+    },
+    {
+      "cluster": "A07",
+      "track": "A",
+      "anchor": [
+        1.65,
+        1.3,
+        1.5,
+        1.1538,
+        21.0,
+        3.0,
+        22.0,
+        1.0
+      ],
+      "count": 20,
+      "medoid_id": "p0125",
+      "matched_old_name": "PF_DiningFour_2D",
+      "match_distance": 0.0,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "A07"
+      ],
+      "name": "DiningTableFour",
+      "typology": "dining_table"
+    },
+    {
+      "cluster": "A09",
+      "track": "A",
+      "anchor": [
+        0.7,
+        0.5,
+        1.4,
+        2.8,
+        5.0,
+        5.0,
+        22.0,
+        5.0
+      ],
+      "count": 20,
+      "medoid_id": "p0014",
+      "matched_old_name": "PF_DoubleSink_2D",
+      "match_distance": 0.0,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "A09"
+      ],
+      "name": "DoubleSink",
+      "typology": "sink"
+    },
+    {
+      "cluster": "B00",
+      "track": "B",
+      "anchor": [
+        1.4,
+        1.0,
+        1.4,
+        1.4,
+        5.0,
+        1.0,
+        4.0,
+        1.0
+      ],
+      "count": 20,
+      "medoid_id": "p0191",
+      "matched_old_name": "PF_CoffeeLarge_2D",
+      "match_distance": 0.0,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "B00"
+      ],
+      "name": "TableSmall",
+      "typology": "table"
+    },
+    {
+      "cluster": "B07",
+      "track": "B",
+      "anchor": [
+        0.8946,
+        0.6,
+        1.491,
+        2.485,
+        5.0,
+        1.0,
+        4.0,
+        1.0
+      ],
+      "count": 20,
+      "medoid_id": "p0745",
+      "matched_old_name": "PF_CoffeeLarge_2D",
+      "match_distance": 0.1302,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "B07"
+      ],
+      "name": "Sideboard",
+      "typology": "sideboard"
+    },
+    {
+      "cluster": "A08",
+      "track": "A",
+      "anchor": [
+        2.0302,
+        1.4,
+        2.0,
+        1.4286,
+        7.0,
+        4.0,
+        12.0,
+        1.0
+      ],
+      "count": 19,
+      "medoid_id": "p0657",
+      "matched_old_name": "PF_SofaCorner_2D",
+      "match_distance": 0.0,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "A08"
+      ],
+      "name": "SofaCorner",
+      "typology": "sofa"
+    },
+    {
+      "cluster": "B13",
+      "track": "B",
+      "anchor": [
+        1.1562,
+        0.6,
+        1.927,
+        3.2117,
+        5.0,
+        1.0,
+        4.0,
+        1.0
+      ],
+      "count": 19,
+      "medoid_id": "p0850",
+      "matched_old_name": "PF_SofaSmall_2D",
+      "match_distance": 0.184,
+      "match_confident": true,
+      "aliases": [
+        "B14"
+      ],
+      "members": [
+        "B13",
+        "B14"
+      ],
+      "name": "Wardrobe",
+      "typology": "wardrobe"
+    },
+    {
+      "cluster": "A10",
+      "track": "A",
+      "anchor": [
+        1.28,
+        0.8,
+        1.6,
+        2.0,
+        5.0,
+        5.0,
+        8.0,
+        1.0
+      ],
+      "count": 16,
+      "medoid_id": "p0108",
+      "matched_old_name": "PF_SofaSmall_2D",
+      "match_distance": 0.0,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "A10"
+      ],
+      "name": "SofaSmall",
+      "typology": "sofa"
+    },
+    {
+      "cluster": "B02",
+      "track": "B",
+      "anchor": [
+        2.07,
+        0.6,
+        3.45,
+        5.75,
+        5.0,
+        1.0,
+        4.0,
+        1.0
+      ],
+      "count": 8,
+      "medoid_id": "p0579",
+      "matched_old_name": "PF_SofaLarge_2D",
+      "match_distance": 0.5021,
+      "match_confident": false,
+      "aliases": [],
+      "members": [
+        "B02"
+      ],
+      "name": "CounterLong",
+      "typology": "counter"
+    },
+    {
+      "cluster": "B01",
+      "track": "B",
+      "anchor": [
+        2.6838,
+        0.6,
+        4.473,
+        7.455,
+        5.0,
+        1.0,
+        4.0,
+        1.0
+      ],
+      "count": 7,
+      "medoid_id": "p0540",
+      "matched_old_name": "PF_BedSingle_2D",
+      "match_distance": 0.8195,
+      "match_confident": false,
+      "aliases": [],
+      "members": [
+        "B01"
+      ],
+      "name": "CounterXL",
+      "typology": "counter"
+    },
+    {
+      "cluster": "B03",
+      "track": "B",
+      "anchor": [
+        1.797,
+        0.6,
+        2.995,
+        4.9917,
+        5.0,
+        1.0,
+        4.0,
+        1.0
+      ],
+      "count": 6,
+      "medoid_id": "p0661",
+      "matched_old_name": "PF_SofaLarge_2D",
+      "match_distance": 0.3687,
+      "match_confident": false,
+      "aliases": [],
+      "members": [
+        "B03"
+      ],
+      "name": "WardrobeLarge",
+      "typology": "wardrobe"
+    },
+    {
+      "cluster": "B05",
+      "track": "B",
+      "anchor": [
+        0.49,
+        0.7,
+        0.7,
+        1.0,
+        5.0,
+        1.0,
+        4.0,
+        1.0
+      ],
+      "count": 6,
+      "medoid_id": "p0335",
+      "matched_old_name": "PF_SquareCoffeeTable_2D",
+      "match_distance": 0.0,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "B05"
+      ],
+      "name": "CoffeeTableSquare",
+      "typology": "coffee_table"
+    },
+    {
+      "cluster": "B06",
+      "track": "B",
+      "anchor": [
+        0.3546,
+        0.591,
+        0.6,
+        1.0152,
+        5.0,
+        1.0,
+        4.0,
+        1.0
+      ],
+      "count": 6,
+      "medoid_id": "p0419",
+      "matched_old_name": "PF_Laundry_2D",
+      "match_distance": 0.0027,
+      "match_confident": true,
+      "aliases": [],
+      "members": [
+        "B06"
+      ],
+      "name": "WashingMachine",
+      "typology": "appliance"
+    }
+  ]
+}
