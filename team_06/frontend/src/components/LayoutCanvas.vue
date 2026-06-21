@@ -1,7 +1,10 @@
 <script setup>
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { Stage, Layer, Group, Line, Text } from 'vue-konva'
-import { getRoomColor, getRoomSecondaryLabel, TOD_COLORS, getRoomDisplayName } from '../utils/roomAnalysis.js'
+import { getRoomColor, getRoomSecondaryLabel, TOD_COLORS, getRoomDisplayName, hexToRgba } from '../utils/roomAnalysis.js'
+
+const ROOM_ALPHA = 0.75
+const CIRCLE_ALPHA = 0.88
 
 const wrapperRef = ref(null)
 const hoveredRoom = ref(null)
@@ -117,11 +120,12 @@ const outlinePoints = computed(() => {
 const roomRenderData = computed(() => {
   const rooms = props.layout?.rooms || []
   const vm = props.viewMode
-  const todFill = vm === 'routine' ? TOD_COLORS[props.activeStep] ?? TOD_COLORS[0] : null
+  const todHex = vm === 'routine' ? TOD_COLORS[props.activeStep] ?? TOD_COLORS[0] : null
+  const todFill = todHex ? hexToRgba(todHex, ROOM_ALPHA) : null
   return rooms.map(room => ({
     id: room.id,
     points: flattenAndScale(room.geometry),
-    fill: todFill ?? getRoomColor(room, vm),
+    fill: todFill ?? hexToRgba(getRoomColor(room, vm), ROOM_ALPHA),
     labelX: getLabelX(room.geometry),
     labelY: getLabelY(room.geometry),
     nameText: getRoomDisplayName(room),
@@ -156,7 +160,7 @@ const routineCircleData = computed(() => {
         key: `${room.id}-${i}`,
         x: cx - totalWidth / 2 + i * CIRCLE_SPACING,
         y: cy,
-        color,
+        color: hexToRgba(color, CIRCLE_ALPHA),
         personaName,
         roomName,
       })
