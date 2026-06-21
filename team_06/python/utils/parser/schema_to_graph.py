@@ -322,8 +322,12 @@ def generate_graphs_from_directory(layouts_dir: str, output_path: str = None) ->
     """
     Generate NetworkX graphs from a directory of individual layout JSON files.
 
+    Layout key = apartment.id (the stable L_L... technical ID that matches the
+    filename), so graph keys stay in sync with pf_jsons/ filenames and the
+    description index.  Falls back to the file stem if apartment.id is absent.
+
     Args:
-        layouts_dir: Path to directory containing layout-*.json files
+        layouts_dir: Path to directory containing layout JSON files
         output_path: Path to save graphs JSON (default: graphs.json inside layouts_dir)
     """
     layouts_dir = Path(layouts_dir)
@@ -334,14 +338,29 @@ def generate_graphs_from_directory(layouts_dir: str, output_path: str = None) ->
         return
 
     graphs_data = {}
+    skipped = 0
+    errors = 0
+
     for layout_file in layout_files:
         with open(layout_file, 'r') as f:
             layout_data = json.load(f)
-        if 'rooms' not in layout_data or 'doors' not in layout_data:
+
+        rooms = layout_data.get("rooms", [])
+
+        if not layout_data.get("doors") or not rooms:
+            skipped += 1
             continue
-        layout_id = layout_data.get('layoutId', layout_file.stem)
-        graph = create_graph_from_layout(layout_data)
-        graphs_data[layout_id] = nx.node_link_data(graph)
+
+        layout_id = layout_data.get("apartment", {}).get("id") or layout_file.stem
+
+        try:
+            graph = create_graph_from_layout(layout_data)
+            graphs_data[layout_id] = nx.node_link_data(graph)
+            apt_name = layout_data.get("apartment", {}).get("name", "")
+            print(f"  + {layout_id}  {apt_name}  ({graph.number_of_nodes()} rooms, {graph.number_of_edges()} edges)")
+        except Exception as e:
+            print(f"  ERR {layout_id}: {e}")
+            errors += 1
 
     if output_path is None:
         output_path = str(layouts_dir / "graphs.json")
@@ -349,7 +368,8 @@ def generate_graphs_from_directory(layouts_dir: str, output_path: str = None) ->
     with open(output_path, 'w') as f:
         json.dump(graphs_data, f, indent=2)
 
-    print(f"Generated {len(graphs_data)} graphs -> {output_path}")
+    print(f"\nSaved {len(graphs_data)} graphs -> {output_path}")
+    print(f"Skipped: {skipped}  |  Errors: {errors}")
 
 
 if __name__ == "__main__":
