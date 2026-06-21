@@ -52,20 +52,19 @@ FIXED_CLOSING_SENTENCE = (
 )
  
 SYSTEM_PROMPT = (
-    "You are evaluating how well a residential layout matches a household's needs. "
-    "Numeric scores are already computed and provided to you — your job is to write a short chat summary only. "
+    "You are writing a short qualitative comment for a residential layout recommendation. "
     "Return valid JSON with exactly this shape: "
     '{"chat_summary":""}.'
     "\nRules:\n"
-    "- chat_summary is 2 short sentences for the chat UI.\n"
-    "- Be consistent with the numeric scores — do not contradict them.\n"
-    "- Mention daylight performance briefly if daylight scores are provided; omit if not.\n"
-    "- Comment on missing key programs or size issues when the scores or layout data indicate problems.\n"
-    "- If adaptation failed, note that the review refers to the original selected layout.\n"
-    "- The dataset room categories are: living, bed, bath, wc, circulation, storage, walkincloset.\n"
+    "- chat_summary is 2 short sentences.\n"
+    "- Focus on how well the layout description matches the user's brief — what fits, what is missing or different.\n"
+    "- Do NOT repeat or mention any numeric scores — they are already shown in the UI.\n"
+    "- Do NOT mention daylight unless the user's brief explicitly asks for it in a specific room.\n"
+    "- Do NOT comment on daylight in bathrooms, WCs, or wet rooms — these almost never have windows.\n"
+    "- If adaptation failed, briefly note the comment refers to the closest available layout.\n"
     "- Kitchen is always part of the living area in this dataset — never a separate room.\n"
-    "- Treat circulation as satisfying entry, hallway, or corridor requests.\n"
-    "- Do not invent rooms or data not present in the layout.\n"
+    "- Treat circulation as entry, hallway, or corridor.\n"
+    "- Do not invent features not present in the layout description.\n"
     "- Do not return any extra keys.\n"
 )
 
@@ -241,30 +240,33 @@ def build_evaluate_node(llm: Any) -> Any:
             evaluation_payload = _build_layout_evaluation_payload(layout_data, topology_json)
             evaluation_payload["planfinder_description"] = _load_planfinder_description(evaluation_payload.get("layoutId"))
 
-            score_context = (
-                f"Room fit score: {room_fit['score']}/100, details: {room_fit['details']}\n" if room_fit else ""
-            ) + (
-                f"Lifestyle fit score: {lifestyle_fit['score']}/100\n" if lifestyle_fit else ""
-            ) + (
-                f"Access fit score: {access_fit['score']}/100, details: {access_fit['details']}\n" if access_fit else ""
-            ) + (
-                f"Adjacency fit score: {adjacency_fit['score']}/100, details: {adjacency_fit['details']}\n" if adjacency_fit else ""
-            ) + (
-                f"Size score: {size['score']}/100, details: {size['details']}\n" if size else ""
-            ) + (
-                f"Overall fit score: {fit_score}/100\n"
-            ) + (
-                f"Daylight evaluation: {json.dumps(daylight_evaluation)}\n" if daylight_evaluation else "Daylight data not available.\n"
+            planfinder_description = evaluation_payload.get("planfinder_description") or ""
+            brief_description = ""
+            if topology_json:
+                try:
+                    brief_description = json.loads(topology_json).get("description", "")
+                except Exception:
+                    pass
+
+            # Build a factual room count summary from the actual layout data
+            rooms_raw = layout_data.get("rooms") if isinstance(layout_data.get("rooms"), list) else []
+            from collections import Counter
+            prog_counts = Counter(
+                r.get("attributes", {}).get("program", "unknown")
+                for r in rooms_raw if isinstance(r, dict)
             )
+            room_facts = ", ".join(
+                f"{count}× {prog}" for prog, count in sorted(prog_counts.items())
+            ) or "unknown"
 
             llm_messages = [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": (
-                    f"Parsed brief JSON: {topology_json}\n"
-                    f"Layout evaluation payload: {json.dumps(evaluation_payload)}\n"
-                    f"Adaptation failed completely: {json.dumps(adaptation_failed)}\n"
-                    f"{score_context}"
-                    "Write a short chat summary consistent with the scores above."
+                    f"User brief: {brief_description or topology_json}\n\n"
+                    f"Layout description: {planfinder_description or '(not available)'}\n\n"
+                    f"Actual rooms in this layout: {room_facts}\n\n"
+                    + (f"Note: adaptation to this layout failed — comment refers to the closest available layout.\n\n" if adaptation_failed else "")
+                    + "Write the 2-sentence qualitative comment. Use the actual room facts if the description is inaccurate."
                 )}
             ]
             try:

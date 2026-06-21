@@ -5,7 +5,7 @@ import re
 SYSTEM_PROMPT = (
     "You are an architect assistant preparing search input for layout retrieval. "
     "Return one JSON object with exactly this shape: "
-    '{"latest_prompt_useful":true,"graph":{"programs":[],"access_pairs":[],"adjacency_pairs":[],"not_adjacency_pairs":[],"centrality":[],"room_sizes":[],"windows":[],"shape":null,"total_area":null,"aspect_ratio":null,"compactness":null},"household":[],"description":""}. '
+    '{"latest_prompt_useful":true,"graph":{"programs":[],"access_pairs":[],"adjacency_pairs":[],"not_adjacency_pairs":[],"centrality":[],"room_sizes":[],"windows":[],"shape":null,"total_area":null,"aspect_ratio":null,"compactness":null},"household":[],"description":"","routine_description":""}. '
     "Use only JSON, with no explanation.\n"
     "Rules:\n"
     "- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n"
@@ -27,7 +27,9 @@ SYSTEM_PROMPT = (
     "- Use description to preserve size intent or functional reinterpretation when the dataset category is approximate.\n"
     "- graph.access_pairs contains pairs of program names that should be connected by doors.\n"
     "- graph.adjacency_pairs contains pairs of program names that should be adjacent.\n"
-    "- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent.\n"
+    "- graph.not_adjacency_pairs contains pairs of program names that should not be adjacent. "
+    "Do NOT add a pair where both programs are the same type (e.g. [bed, bed]) — "
+    "the system cannot distinguish between specific instances of the same program, so such a constraint will break the search.\n"
     "- graph.centrality is a list of [program, level] pairs indicating how central or private a room should be. Levels: peripheral, connected, or central. Set this ONLY when the user explicitly states a spatial hierarchy or privacy preference — for example 'private bedroom', 'I want the living to be the heart of the flat', or 'central living space'. Do NOT infer from room type or furnishing descriptions. Example: [[\"living\", \"central\"], [\"bed\", \"peripheral\"]].\n"
     "- graph.room_sizes is a list of [program, size] pairs indicating the preferred size for a room. Sizes are: small, medium, or large. Set this only when the user explicitly states a size preference for a specific room, for example 'large bedroom', 'small study', or '1 large storage'. Example: [[\"bed\", \"large\"], [\"storage\", \"large\"]].\n"
     "- graph.windows is a list of [program, count] pairs indicating how many facade exposures a room should have. Count is an integer 0-4. For example, if the user wants a bright bedroom: [[\"bed\", 2]].\n"
@@ -39,16 +41,17 @@ SYSTEM_PROMPT = (
     "- household is a list of people or household members mentioned by the user. Each item must have exactly this shape: {\"name\":\"\",\"relationship\":\"\",\"info\":\"\"}.\n"
     "- Use household for names and simple person-level information such as age, role, relationship, or profession when the user gives it.\n"
     "- Keep household lightweight. If a field is unknown, return an empty string for that field instead of inventing details.\n"
-    "- description is a concise natural-language summary of only the information that is not already represented in graph.\n"
-    "- Give particular attention to household context excluding names, routine and daily schedule, space quality or feeling of space, and furniture or furnishing preferences.\n"
-    "- Also include other non-graph facts such as pets, dislikes, work-from-home needs, cooking or social dynamics, and requested room intents that do not map directly to dataset rooms, such as office, study, or workspace.\n"
-    "- Keep description short and useful for search and later reasoning. Prefer a compact summary over a long explanation.\n"
+    "- description is a concise natural-language summary for LAYOUT SEARCH — spatial quality, lifestyle feel, aggregate household context.\n"
+    "- description should NOT include person names (they are in household), specific times, or daily schedules.\n"
     "- Do not restate room programs, room counts, adjacencies, access pairs, or separation rules in description when they are already represented in graph.\n"
-    "- Do not repeat person names in description when they are already represented in household.\n"
-    "- It is acceptable for description to summarize household facts in aggregate form, for example 'family of 3 with one child', 'lives alone', or 'one adult works from home'.\n"
-    "- Avoid repeating the same fact in different wording.\n"
-    "- If no summary exists yet, build it from the latest user input.\n"
-    "- Do not invent missing information.\n"
+    "- It is acceptable to summarize household facts in aggregate form: 'family of 3 with one child', 'one adult works from home'.\n"
+    "- Keep description short. Prefer a compact summary over a long explanation. Do not invent missing information.\n"
+    "- routine_description is a separate field for DAILY SCHEDULE context used to generate the household routine.\n"
+    "- routine_description must use person names explicitly and describe each person's schedule, habits, and timing.\n"
+    "- Include specific times when mentioned (e.g. 'Susan is home from 14:00'), activities in rooms (e.g. 'James works from home in his bedroom/studio'), and lifestyle notes (e.g. 'Susan listens to loud music in the afternoon').\n"
+    "- routine_description should be written as natural prose, one sentence per person where possible.\n"
+    "- If no schedule information exists, set routine_description to an empty string.\n"
+    "- Do not invent schedule details not given by the user.\n"
 )
 
 EVALUATE_PATTERNS = [
@@ -184,6 +187,7 @@ def _normalize_payload(value: object) -> dict:
         "graph": _normalize_graph(value.get("graph")),
         "household": household,
         "description": value.get("description", "").strip() if isinstance(value.get("description"), str) else "",
+        "routine_description": value.get("routine_description", "").strip() if isinstance(value.get("routine_description"), str) else "",
     }
 
 
@@ -271,6 +275,7 @@ def build_reason_node(llm):
         existing_graph = _normalize_graph(payload.get("graph"))
         existing_household = payload.get("household") if isinstance(payload.get("household"), list) else []
         existing_description = payload.get("description", "") if isinstance(payload.get("description"), str) else ""
+        existing_routine_description = payload.get("routine_description", "") if isinstance(payload.get("routine_description"), str) else ""
         feedback_history = state.get("feedback_history", [])
 
         llm_messages = [
@@ -279,10 +284,12 @@ def build_reason_node(llm):
                 f"Current graph: {json.dumps(existing_graph)}\n"
                 f"Current household: {json.dumps(existing_household)}\n"
                 f"Current description: {json.dumps(existing_description)}\n"
+                f"Current routine_description: {json.dumps(existing_routine_description)}\n"
                 f"Feedback history: {json.dumps(feedback_history)}\n"
                 f"User input: {user_prompt}\n"
                 "Return the full updated search summary. Keep graph fields only for information that fits the graph structure. "
-                "Keep people in household. Put all remaining non-graph information in description, including aggregate household facts without names. Do not summarize the graph again in prose."
+                "Keep people in household. Put spatial/aggregate facts in description (no names). "
+                "Put named per-person schedule and habit details in routine_description. Do not summarize the graph in prose."
             )}
         ]
         try:
@@ -299,6 +306,7 @@ def build_reason_node(llm):
                 "graph": parsed_payload["graph"],
                 "household": parsed_payload["household"],
                 "description": parsed_payload["description"],
+                "routine_description": parsed_payload["routine_description"],
             }
 
             if latest_prompt_useful:
@@ -313,6 +321,7 @@ def build_reason_node(llm):
                 "graph": existing_graph,
                 "household": existing_household,
                 "description": existing_description,
+                "routine_description": existing_routine_description,
             }
 
             if wants_evaluation and (_has_search_input(existing_graph, existing_description) or _has_household_input(existing_household)):
@@ -328,6 +337,7 @@ def build_reason_node(llm):
                     "graph": existing_graph,
                     "household": parsed_payload["household"],
                     "description": existing_description,
+                    "routine_description": existing_routine_description,
                 }
 
                 clarification = _clarification_for_state(

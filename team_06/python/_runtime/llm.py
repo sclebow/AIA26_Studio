@@ -17,6 +17,7 @@ def create_chat_llm(
     llm_model: str,
     timeout_seconds: float,
     model_kwargs: dict[str, Any] | None = None,
+    max_tokens: int = 4096,
 ) -> ChatOpenAI:
     return ChatOpenAI(
         api_key=api_key,
@@ -24,6 +25,7 @@ def create_chat_llm(
         model=llm_model,
         timeout=timeout_seconds,
         temperature=0,
+        max_tokens=max_tokens,
         model_kwargs=model_kwargs or {},
     )
 

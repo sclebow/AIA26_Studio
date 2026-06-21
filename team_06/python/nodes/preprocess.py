@@ -5,7 +5,7 @@ import re
 # Check user prompt and determine the next action.
 # ---------------------------------------------------------------------------
 
-end_keywords = ["end", "finish", "done"]
+END_PATTERN = re.compile(r"\b(end|finish|done)\b", re.IGNORECASE)
 LAYOUT_ID_PATTERN = re.compile(r"\b(layout-\d+)\b", re.IGNORECASE)
 SELECT_LAYOUT_PATTERN = re.compile(r"\bselect\s+layout\s+([A-Za-z0-9_.-]+)\b", re.IGNORECASE)
 
@@ -19,8 +19,8 @@ def build_preprocess_node() -> Any:
                 "forced_layout_id": None,
             }
 
-        user_prompt = state.get("user_prompt", "").lower()
-        if any(keyword in user_prompt for keyword in end_keywords):
+        user_prompt = state.get("user_prompt", "")
+        if END_PATTERN.search(user_prompt):
             return {
                 "preprocess_result": "end",
                 "final_response": "Layout finalized.",
