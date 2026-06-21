@@ -25,8 +25,9 @@ import numpy as np
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-REPO_ROOT    = Path(__file__).resolve().parents[2]
-DATASET_DIR  = Path(__file__).resolve().parent / "Planfinder_Dataset"
+_SCRIPT_DIR  = Path(__file__).resolve().parent
+REPO_ROOT    = _SCRIPT_DIR.parents[3]
+DATASET_DIR  = _SCRIPT_DIR.parents[2] / "layout_inputs" / "Planfinder_Dataset"
 JSONS_DIR        = DATASET_DIR / "pf_jsons"
 SCREENS_DIR      = DATASET_DIR / "pf_screenshots"
 SCREENS_CROP_DIR = DATASET_DIR / "pf_screenshots_cropped"
@@ -49,6 +50,38 @@ MODEL  = "claude-opus-4-8"
 # ---------------------------------------------------------------------------
 # Step 1 — deterministic extraction from JSON (no LLM, no cost)
 # ---------------------------------------------------------------------------
+def _extract_furniture_facts(furniture: list) -> dict:
+    names = {f.get("name", "") for f in furniture}
+
+    if "KitchenCounterUorLshape" in names:
+        kitchen_counter = "L-shaped or U-shaped"
+    elif "KitchenCounterLinear" in names:
+        kitchen_counter = "single-wall"
+    else:
+        kitchen_counter = "unclear"
+
+    has_dining_six  = "DiningTableSix"  in names
+    has_dining_four = "DiningTableFour" in names
+    has_dining      = has_dining_six or has_dining_four
+    dining_seats    = 6 if has_dining_six else (4 if has_dining_four else 0)
+
+    if "BedDouble" in names:
+        bed_type = "double"
+    elif "BedSingle" in names:
+        bed_type = "single"
+    else:
+        bed_type = "unclear"
+
+    return {
+        "kitchen_counter_type": kitchen_counter,
+        "has_dining_table":     has_dining,
+        "dining_seats":         dining_seats,
+        "has_tv":               "TV" in names,
+        "studio_bed_type":      bed_type,
+        "has_desk":             "DeskLaptop" in names,
+    }
+
+
 def extract_context(layout: dict) -> dict:
     rooms    = layout.get("rooms", [])
     doors    = layout.get("doors", [])
@@ -106,6 +139,8 @@ def extract_context(layout: dict) -> dict:
     n_full_bathroom = sum(1 for b in bath_rooms_info if b["likely_type"] != "wc")
     n_has_bathtub   = sum(1 for b in bath_rooms_info if b["likely_type"] == "shower_bathtub")
 
+    furn = _extract_furniture_facts(layout.get("furniture", []))
+
     return {
         "space_type":              "studio" if n_bed == 0 else f"{n_bed}-bedroom",
         "bedroom_count":           n_bed,
@@ -120,6 +155,13 @@ def extract_context(layout: dict) -> dict:
         "entry_side":              entry_side,
         "ensuite_from_json":       ensuite,
         "corridor_door_to_living": corridor_door_to_living,
+        # Furniture-derived (no LLM needed)
+        "kitchen_counter_type":    furn["kitchen_counter_type"],
+        "has_dining_table":        furn["has_dining_table"],
+        "dining_seats":            furn["dining_seats"],
+        "has_tv":                  furn["has_tv"],
+        "studio_bed_type":         furn["studio_bed_type"],
+        "has_desk":                furn["has_desk"],
     }
 
 # ---------------------------------------------------------------------------
@@ -179,22 +221,13 @@ KITCHEN LIGHT: Look at which wall the kitchen counter runs along. If that wall i
   "visual_depth_from_entry":            "shallow — one room visible / deep — views through multiple spaces",
   "corridor_character":                 "none — fully open / minimal — short link / functional corridor / dominant corridor",
 
-  "kitchen_wall_geometry":              "single-wall (all counters on one wall only) / L-shaped (counters on two perpendicular walls) / U-shaped (counters on three walls) / galley (two parallel counter runs facing each other) / unclear",
-  "kitchen_island":                     "yes / no",
-  "kitchen_peninsula":                  "yes / no",
-  "hob_location":                       "island / peninsula / wall / unclear",
-  "sink_location":                      "island / peninsula / wall / unclear",
   "cook_faces_room":                    "yes / no / partial",
   "kitchen_natural_light":              "yes / partial / no",
 
   "living_zone_shape":                  "rectangular / L-shaped / open corner / irregular",
   "kitchen_position_in_living":         "end wall / side wall / centre island / separate room / na",
   "living_arrangement":                 "linear kitchen-dining-living / split seating-kitchen-dining / L-shaped / kitchen-dominant / living-dominant / other",
-  "dining_table_visible":               "yes / no",
-  "dining_chair_count":                 "<number or unclear>",
-  "dining_table_shape":                 "rectangular / round / square / unclear / na",
   "seating_arrangement":                "<short description of all sofa or seating positions and what each faces>",
-  "tv_visible":                         "yes / no",
   "tv_wall_relative_to_entry":          "same wall as entry / opposite wall to entry / left of entry / right of entry / unclear / na",
   "cook_can_see_tv":                    "yes / no / unclear / na",
   "diners_face_tv":                     "yes / no / unclear / na",
@@ -208,8 +241,6 @@ KITCHEN LIGHT: Look at which wall the kitchen counter runs along. If that wall i
   "sleeping_area_definition":           "none — fully open / partial partition / alcove / dedicated zone with door / na",
   "bed_visible_from_front_door":        "yes / no / partial / na",
   "bed_visible_from_kitchen":           "yes / no / partial / na",
-  "studio_bed_type":                    "single / double / sofa bed / unclear / na",
-  "studio_work_zone_visible":           "yes / no / na",
 
   "master_access_via":                  "own door off corridor / through living / through another bedroom / through kitchen / na",
   "master_desk_visible":                "yes / no / na",
@@ -326,14 +357,8 @@ def assemble(ctx: dict, vis: dict, layout_id: str) -> dict:
         if cc_sentence:
             parts.append(cc_sentence)
 
-    # 2 — Kitchen
-    k_shape   = vis.get("kitchen_wall_geometry", "unclear")
-    # Strip the parenthetical definition hint before using in prose
-    k_shape_clean = k_shape.split("(")[0].strip() if k_shape else "unclear"
-    island    = vis.get("kitchen_island") == "yes"
-    peninsula = vis.get("kitchen_peninsula") == "yes"
-    hob       = vis.get("hob_location", "unclear")
-    sink      = vis.get("sink_location", "unclear")
+    # 2 — Kitchen (counter type from furniture data, light from vision)
+    k_shape_clean = ctx.get("kitchen_counter_type", "unclear")
 
     knl = vis.get("kitchen_natural_light", "unclear")
     knl_note = ""
@@ -344,12 +369,7 @@ def assemble(ctx: dict, vis: dict, layout_id: str) -> dict:
     elif knl == "no":
         knl_note = " — no direct natural light to the counter"
 
-    if island:
-        parts.append(f"Kitchen: {k_shape_clean} with island{knl_note} — hob on {hob}, sink on {sink}.")
-    elif peninsula:
-        parts.append(f"Kitchen: {k_shape_clean} with peninsula{knl_note} — hob on {hob}, sink on {sink}.")
-    else:
-        parts.append(f"Kitchen: {k_shape_clean}, no island or peninsula{knl_note}.")
+    parts.append(f"Kitchen: {k_shape_clean}, no island or peninsula{knl_note}.")
 
     if cook_f == "yes":
         parts.append("Cook faces the dining and living area — suited to cooking while entertaining or supervising children.")
@@ -379,15 +399,11 @@ def assemble(ctx: dict, vis: dict, layout_id: str) -> dict:
     if seating and seating not in ("unclear", "na"):
         parts.append(f"Seating: {seating}.")
 
-    if vis.get("dining_table_visible") == "yes":
-        chairs = vis.get("dining_chair_count", "unclear")
-        shape  = vis.get("dining_table_shape", "unclear")
-        desc   = "Dining table visible"
-        if shape not in ("unclear", "na"):
-            desc += f" ({shape})"
-        parts.append(f"{desc}, approximately {chairs} seats.")
+    if ctx["has_dining_table"]:
+        seats = ctx["dining_seats"]
+        parts.append(f"Dining table (rectangular), approximately {seats} seats.")
 
-    if vis.get("tv_visible") == "yes":
+    if ctx["has_tv"]:
         tv_wall  = vis.get("tv_wall_relative_to_entry", "unclear")
         see_tv   = vis.get("cook_can_see_tv", "unclear")
         face_tv  = vis.get("diners_face_tv", "unclear")
@@ -431,8 +447,7 @@ def assemble(ctx: dict, vis: dict, layout_id: str) -> dict:
         sep  = vis.get("sleeping_area_definition", "unclear")
         bfd  = vis.get("bed_visible_from_front_door", "unclear")
         bfk  = vis.get("bed_visible_from_kitchen", "unclear")
-        btyp = vis.get("studio_bed_type", "unclear")
-        work = vis.get("studio_work_zone_visible", "na")
+        btyp = ctx.get("studio_bed_type", "unclear")   # from furniture
 
         vis_fd = "visible" if bfd == "yes" else ("partially visible" if bfd == "partial" else "not visible")
         vis_k  = "visible" if bfk == "yes" else ("partially visible" if bfk == "partial" else "not visible")
@@ -441,7 +456,7 @@ def assemble(ctx: dict, vis: dict, layout_id: str) -> dict:
             f"Sleeping area separation from living: {sep}. "
             f"Bed {vis_fd} from front door, {vis_k} from kitchen."
         )
-        if work == "yes":
+        if ctx.get("has_desk"):
             parts.append("Dedicated work zone visible in plan.")
 
     else:
@@ -690,12 +705,16 @@ if __name__ == "__main__":
                 errors += 1
         print(f"\nDone: {done} regenerated | {errors} errors")
     elif "--test" in sys.argv:
+        tested = 0
         for jf in sorted(JSONS_DIR.glob("*.json")):
+            if tested >= 3:
+                break
             lid = jf.stem
             png_file = SCREENS_DIR / f"{lid}.png"
             if not (OUTPUT_DIR / f"{lid}.json").exists() and png_file.exists():
                 layout = json.loads(jf.read_text(encoding="utf-8"))
                 if not is_empty_layout(layout) and not is_blank_png(png_file):
+                    print(f"\n{'='*60}")
                     print(f"Testing on: {lid}")
                     ctx    = extract_context(layout)
                     vis    = call_vision_llm(png_file, ctx)
@@ -704,6 +723,7 @@ if __name__ == "__main__":
                     print("\nAssembled description:")
                     result = assemble(ctx, vis, lid)
                     print(json.dumps(result, indent=2))
-                    break
+                    tested += 1
+                    time.sleep(0.3)
     else:
         main()
