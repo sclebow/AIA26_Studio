@@ -346,7 +346,12 @@ def _detect_changes(before_str: str, after_str: str) -> dict[str, Any]:
     """Compare two layout JSON strings and return categorised element lists."""
     def _struct_map(s: str) -> dict[str, dict]:
         try:
-            return {el["id"]: el for el in json.loads(s).get("structure", [])}
+            data = json.loads(s)
+            if "levels" in data:
+                elements = [el for lv in data["levels"].values() for el in lv.get("structure", [])]
+            else:
+                elements = data.get("structure", [])
+            return {el["id"]: el for el in elements}
         except (json.JSONDecodeError, TypeError):
             return {}
 
@@ -1098,9 +1103,15 @@ def build_cost_flexibility_node():
         )
 
         try:
-            layout_data  = json.loads(layout_str)
-            outline      = layout_data.get("outline", [])
-            all_elements = layout_data.get("structure", [])
+            layout_data = json.loads(layout_str)
+            if "levels" in layout_data:
+                levels = layout_data["levels"]
+                first_level = next(iter(sorted(levels.keys())), None)
+                outline = levels[first_level].get("outline", []) if first_level else []
+                all_elements = [el for lv in levels.values() for el in lv.get("structure", [])]
+            else:
+                outline      = layout_data.get("outline", [])
+                all_elements = layout_data.get("structure", [])
         except (json.JSONDecodeError, TypeError):
             outline      = []
             all_elements = []

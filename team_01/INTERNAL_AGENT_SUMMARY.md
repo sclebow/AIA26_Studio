@@ -1,6 +1,6 @@
 # Permanence_OS — Internal Agent Summary
 
-**Branch:** `team_01` | **Last updated:** 2026-06-21 (session 2)
+**Branch:** `team_01` | **Last updated:** 2026-06-21 (session 3)
 
 ---
 
@@ -33,7 +33,7 @@ All Python was written from scratch — first push had only Grasshopper `.gh` fi
 | File | Lines (current) | Changes this session |
 |---|---|---|
 | `nodes/evaluate.py` | ~1,917 | `_INTERPRET_SYSTEM` expanded (design intent, tradeoffs, level-by-level framing); `transfer_beams` added to summary dict and format table |
-| `nodes/cost_flexibility.py` | ~1,339 | `total_build_cost_eur` added to each `cost_history` entry for cost delta tracking |
+| `nodes/cost_flexibility.py` | ~1,349 | `total_build_cost_eur` added to each `cost_history` entry; multilevel element extraction fixed in `_detect_changes` and `cost_flexibility_node` |
 | `nodes/tag_and_audit.py` | ~881 | Upper-level outline derivation from room geometry |
 | `app.py` | ~1,586 | Streamlit UI standalone prototype (unchanged) |
 | `graph.py` | ~677 | Headless/multilevel routing |
@@ -209,6 +209,8 @@ Note: Total Structure Build Cost covers **structural frame only** (beams + colum
 
 **Cost in layout JSON:** The returned layout JSON carries `analysis.structure_cost` with the full cost_flexibility dict from the last cycle — available to the orchestrator without reading the report file.
 
+**Multilevel cost fix (session 3):** `_detect_changes._struct_map` and the `cost_flexibility_node` both previously called `.get("structure", [])` on the top-level layout dict — which returns `[]` for multilevel layouts. This caused total build cost to show EUR 0 and all diffs to appear empty ("No structural changes") on any multilevel layout. Fix: both now check for a `"levels"` key and flatten all `levels.level_XX.structure` lists. The outline is taken from the first (ground) level.
+
 ### evaluate
 Pure calculations, no mutations. Runs:
 - Beam checks: bending, shear, LL deflection (L/360), TL deflection (L/250)
@@ -306,7 +308,7 @@ else:
 | `nodes/evaluate.py` | Structural checks + HitL menus + advisor + transfer/cascade | ~1,920 |
 | `nodes/modify.py` | Section constants + mutations + dispatch + multilevel remove | ~719 |
 | `nodes/comparison.py` | Before/after diff + LLM summary | ~183 |
-| `nodes/cost_flexibility.py` | V4 three-pillar cost model | ~1,800 |
+| `nodes/cost_flexibility.py` | V4 three-pillar cost model | ~1,349 |
 | `nodes/tag_and_audit.py` | Structural grid generator (single + multilevel) | ~869 |
 | `app.py` | Streamlit UI prototype (not wired to graph) | ~1,586 |
 | `_runtime/bootstrap.py` | Startup — MCP optional | ~90 |
@@ -373,3 +375,4 @@ Headless defaults (activated when `sys.stdin.isatty()` is False):
 13. Advisor names design intent (load-path critical, structurally defining) not just pass/fail — and always names the relevant tradeoff
 14. Transfer beams are surfaced by name in the advisor with the upper-column load they carry
 15. Cost delta (previous total → current total build cost) shown in comparison when ≥2 cycles have run
+16. Cost node handles multilevel by flattening elements from all levels — never uses top-level `.get("structure", [])` which returns `[]` on multilevel layouts

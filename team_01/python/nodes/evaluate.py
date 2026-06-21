@@ -454,8 +454,13 @@ def _trace_span(
     remaining_positions: set[tuple],
     visited: set[str],
     initial_dist: float,
+    beam_dir: tuple | None = None,
 ) -> float:
-    """Walk beam chain from floating_pos through removed columns; return total span."""
+    """Walk beam chain from floating_pos through removed columns; return total span.
+    beam_dir: normalised (dx,dy) pointing from the far support toward floating_pos.
+    When given, only beams collinear with that direction are followed — perpendicular
+    framing beams are skipped so they are not misread as span extensions.
+    """
     total = initial_dist
     current = floating_pos
     for _ in range(20):
@@ -465,15 +470,55 @@ def _trace_span(
         for bm in beam_idx.get(current, []):
             if bm["id"] in visited:
                 continue
-            visited.add(bm["id"])
             p1, p2 = tuple(bm["geometry"][0]), tuple(bm["geometry"][1])
-            total += math.dist(p1, p2)
-            current = p2 if p1 == current else p1
+            other = p2 if p1 == current else p1
+            cdx = other[0] - current[0]; cdy = other[1] - current[1]
+            seg_len = math.hypot(cdx, cdy)
+            if seg_len < 1e-6:
+                continue
+            if beam_dir is not None:
+                cross = abs(beam_dir[0]*cdy - beam_dir[1]*cdx) / seg_len
+                dot   = (beam_dir[0]*cdx + beam_dir[1]*cdy) / seg_len
+                if cross > 0.15 or dot <= 0:
+                    continue  # not collinear — perpendicular framing beam, skip
+            visited.add(bm["id"])
+            total += seg_len
+            current = other
             moved = True
             break
         if not moved:
             break
     return total
+
+
+def _collect_perp_reactions_at_pos(
+    pos: tuple,
+    beam_dir: tuple,
+    all_beams: list[dict],
+    base_trib: dict[str, float],
+    sdl_kNm2: float,
+    ll_kNm2: float,
+) -> float:
+    """Sum the reactions delivered to the merged beam by perpendicular framing beams at pos.
+    A beam is perpendicular when its direction from pos is not collinear with beam_dir.
+    Reaction = (SDL+LL) × trib_width × half_span (simply-supported far end + merged beam support).
+    """
+    P_total = 0.0
+    for bm in all_beams:
+        p1, p2 = tuple(bm["geometry"][0]), tuple(bm["geometry"][1])
+        if p1 != pos and p2 != pos:
+            continue
+        other = p2 if p1 == pos else p1
+        cdx = other[0] - pos[0]; cdy = other[1] - pos[1]
+        bm_span = math.hypot(cdx, cdy)
+        if bm_span < 1e-6:
+            continue
+        cross = abs(beam_dir[0]*cdy - beam_dir[1]*cdx) / bm_span
+        if cross < 0.15:
+            continue  # collinear with merged beam — not a framing beam
+        tw = base_trib.get(bm["id"], 2.5)
+        P_total += (sdl_kNm2 + ll_kNm2) * tw * bm_span / 2.0
+    return round(P_total, 2)
 
 
 def _cascade_to_lower_level(
@@ -704,15 +749,24 @@ def simulate_what_if_removal(
                             _tw  = base_trib.get(_b1["id"], 2.5)
                             _wsw = _mat["density_kNm3"]*_A
                             _wdl = sdl_kNm2*_tw; _wll = ll_kNm2*_tw; _wtot = _wsw+_wdl+_wll
+                            # Add reactions from perpendicular framing beams at the removed column
+                            _ddx = _match[0]-_far1[0]; _ddy = _match[1]-_far1[1]
+                            _ddL = math.hypot(_ddx, _ddy)
+                            _mdir = (_ddx/_ddL, _ddy/_ddL) if _ddL > 1e-6 else None
+                            _P_perp = _collect_perp_reactions_at_pos(
+                                _match, _mdir, all_beams, base_trib, sdl_kNm2, ll_kNm2
+                            ) if _mdir else 0.0
+                            _P_total = P_kN + _P_perp
                             _tr = _check_beam_with_point_load(
-                                _b1, _L_merged, _a, P_kN, _wtot, _wll, _A, _E, _I, _Wy, _mat, _sl, _tw
+                                _b1, _L_merged, _a, _P_total, _wtot, _wll, _A, _E, _I, _Wy, _mat, _sl, _tw
                             )
                             _tr["original_span_m"]  = round(_L1, 3)
                             _tr["effective_span_m"] = round(_L_merged, 3)
                             _tr["merged_with"]       = _b2["id"]
+                            _perp_note = f" + {_P_perp:.1f}kN from framing beams" if _P_perp > 0 else ""
                             _tr["note"] = (
                                 f"transfer beam (merged {_b1['id']}+{_b2['id']}): "
-                                f"P={P_kN:.1f}kN from upper col at {_a:.2f}m from left  "
+                                f"P={P_kN:.1f}kN from upper col{_perp_note} at {_a:.2f}m from left  "
                                 f"[span {_L1:.1f}+{_L2:.1f}={_L_merged:.1f}m]"
                             )
                             results.append(_tr)
@@ -763,45 +817,70 @@ def simulate_what_if_removal(
             })
             continue
 
-        floating = p1 if p1_removed else p2
+        floating    = p1 if p1_removed else p2
+        far_end_pos = p2 if p1 == floating else p1
+        _dx_be = floating[0] - far_end_pos[0]; _dy_be = floating[1] - far_end_pos[1]
+        _dL_be = math.hypot(_dx_be, _dy_be)
+        beam_dir = (_dx_be / _dL_be, _dy_be / _dL_be) if _dL_be > 1e-6 else None
+
         eff_span = _trace_span(floating, beam_idx, removed_positions,
-                               remaining_positions, visited, orig_span)
+                               remaining_positions, visited, orig_span, beam_dir)
 
         w_sw  = mat["density_kNm3"] * A
         w_dl  = sdl_kNm2 * tw
         w_ll  = ll_kNm2  * tw
         w_tot = w_sw + w_dl + w_ll
 
-        M       = w_tot * eff_span ** 2 / 8.0
-        sigma_b = M * 1e6 / Wy_mm3
-        tau     = (w_tot * eff_span / 2) * 1e3 / A / 1e6
+        # Reactions from perpendicular beams framing into the removed column position
+        P_perp = _collect_perp_reactions_at_pos(
+            floating, beam_dir, all_beams, base_trib, sdl_kNm2, ll_kNm2
+        ) if beam_dir else 0.0
 
-        def _d(w: float) -> float:
-            return 5 * (w * 1e3) * eff_span ** 4 / (384 * E * I) * 1e3
+        sec_lbl = f"{int(b*1000)}x{int(d*1000)}"
 
-        d_tot = _d(w_tot);  d_ll = _d(w_ll)
-        lim_tl = eff_span * 1e3 / DEFL_LIMIT_TL
-        lim_ll = eff_span * 1e3 / DEFL_LIMIT_LL
+        if P_perp > 0 and eff_span > orig_span:
+            # Point load from framing beams at the removed column position (orig_span from far support)
+            r = _check_beam_with_point_load(
+                bm, eff_span, orig_span, P_perp, w_tot, w_ll, A, E, I, Wy_mm3, mat, sec_lbl, tw
+            )
+            r["original_span_m"]  = round(orig_span, 3)
+            r["effective_span_m"] = round(eff_span, 3)
+            r["note"] = (
+                f"span {orig_span:.1f}m -> {eff_span:.1f}m after removing {', '.join(remove_ids)}; "
+                f"P={P_perp:.1f}kN from framing beams at {orig_span:.2f}m from support"
+            )
+            results.append(r)
+        else:
+            M       = w_tot * eff_span ** 2 / 8.0
+            sigma_b = M * 1e6 / Wy_mm3
+            tau     = (w_tot * eff_span / 2) * 1e3 / A / 1e6
 
-        results.append({
-            "id":               bm["id"],
-            "original_span_m":  round(orig_span, 3),
-            "effective_span_m": round(eff_span, 3),
-            "section_mm":       f"{int(b*1000)}x{int(d*1000)}",
-            "M_max_kNm":        round(M, 3),
-            "sigma_bend_MPa":   round(sigma_b, 3),
-            "allow_bend_MPa":   mat["allow_bend_MPa"],
-            "bend_PASS":        sigma_b <= mat["allow_bend_MPa"],
-            "tau_MPa":          round(tau, 4),
-            "shear_PASS":       tau <= mat["allow_shear_MPa"],
-            "delta_total_mm":   round(d_tot, 3),
-            "delta_LL_mm":      round(d_ll, 3),
-            "limit_TL_mm":      round(lim_tl, 3),
-            "limit_LL_mm":      round(lim_ll, 3),
-            "defl_TL_PASS":     d_tot <= lim_tl,
-            "defl_LL_PASS":     d_ll  <= lim_ll,
-            "note": f"span {orig_span:.1f}m -> {eff_span:.1f}m after removing {', '.join(remove_ids)}",
-        })
+            def _d(w: float) -> float:
+                return 5 * (w * 1e3) * eff_span ** 4 / (384 * E * I) * 1e3
+
+            d_tot = _d(w_tot);  d_ll = _d(w_ll)
+            lim_tl = eff_span * 1e3 / DEFL_LIMIT_TL
+            lim_ll = eff_span * 1e3 / DEFL_LIMIT_LL
+
+            results.append({
+                "id":               bm["id"],
+                "original_span_m":  round(orig_span, 3),
+                "effective_span_m": round(eff_span, 3),
+                "section_mm":       sec_lbl,
+                "M_max_kNm":        round(M, 3),
+                "sigma_bend_MPa":   round(sigma_b, 3),
+                "allow_bend_MPa":   mat["allow_bend_MPa"],
+                "bend_PASS":        sigma_b <= mat["allow_bend_MPa"],
+                "tau_MPa":          round(tau, 4),
+                "shear_PASS":       tau <= mat["allow_shear_MPa"],
+                "delta_total_mm":   round(d_tot, 3),
+                "delta_LL_mm":      round(d_ll, 3),
+                "limit_TL_mm":      round(lim_tl, 3),
+                "limit_LL_mm":      round(lim_ll, 3),
+                "defl_TL_PASS":     d_tot <= lim_tl,
+                "defl_LL_PASS":     d_ll  <= lim_ll,
+                "note": f"span {orig_span:.1f}m -> {eff_span:.1f}m after removing {', '.join(remove_ids)}",
+            })
 
     failures = [r for r in results if not all(
         r.get(k, False) for k in ("bend_PASS", "shear_PASS", "defl_TL_PASS", "defl_LL_PASS")
@@ -1652,16 +1731,33 @@ def build_evaluate_node(llm):
                         )
 
                 status = "PASS" if ws.get("overall_PASS", True) else "FAIL"
-                print(f"\nWhat-if result: {status}. Apply removal of {', '.join(remove_cols)} permanently?")
-                print("  Connected beams will be merged across the removed column.")
-                if _safe_input("Apply? [y/N]: ", "n").strip().lower() == "y":
-                    state["evaluation_result"] = json.dumps(result)
-                    state["pending_structural_change"] = {
-                        "type":       "remove_element",
-                        "element_id": remove_cols[0],
-                    }
-                    state["layout_before_change"] = layout_str
-                    return state
+
+                # Check perimeter lock before offering the apply prompt
+                from nodes._layout import find_element_in_layout as _feil_wi
+                _wi_data = json.loads(layout_str)
+                _locked = [
+                    c for c in remove_cols
+                    if (lambda lk, el: el is not None and (el.get("attributes") or {}).get("type") == "perimeter")(
+                        *_feil_wi(_wi_data, c)
+                    )
+                ]
+                if _locked:
+                    print(
+                        f"\nWhat-if result: {status} (structural only — cannot apply)."
+                        f"\n  {', '.join(_locked)} {'is a' if len(_locked) == 1 else 'are'} "
+                        f"perimeter element{'s' if len(_locked) > 1 else ''} — locked, defines the building envelope."
+                    )
+                else:
+                    print(f"\nWhat-if result: {status}. Apply removal of {', '.join(remove_cols)} permanently?")
+                    print("  Connected beams will be merged across the removed column.")
+                    if _safe_input("Apply? [y/N]: ", "n").strip().lower() == "y":
+                        state["evaluation_result"] = json.dumps(result)
+                        state["pending_structural_change"] = {
+                            "type":       "remove_element",
+                            "element_id": remove_cols[0],
+                        }
+                        state["layout_before_change"] = layout_str
+                        return state
 
                 if not ws.get("overall_PASS") and ws.get("failed_ids"):
                     fail_lines = []

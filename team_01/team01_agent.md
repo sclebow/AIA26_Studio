@@ -93,7 +93,7 @@ After every modification, the agent computes three pillars:
 **Financial Cost** — EUR, CYPE 2024 Barcelona reference rates:
 - RCC: €1,150/m³ (supply + install) | Steel: €15,000/m³ | Timber: €1,500–2,450/m³
 - Includes material, labour, demolition, temporary works, professional fees (12%), municipal permit (€1,200 base)
-- **Total Structure Build Cost** = full frame from scratch (all beams + columns, all levels)
+- **Total Structure Build Cost** = full frame from scratch (all beams + columns, all levels combined — works for both single-level and multilevel layouts)
 - **Last Modification Cost** = cost of the most recent change only
 - **Cumulative Modification Cost** = total cost across all upgrade cycles to reach PASS (shown in report when more than one cycle ran)
 - **Cost Delta** = previous total build cost → current total build cost (shown in comparison after ≥2 cycles)
