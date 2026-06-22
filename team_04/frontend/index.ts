@@ -63,6 +63,7 @@ export type {
   SessionCreate,
   ChatMessage,
   SiteInfo,
+  ParkingZone,
   WingInfo,
   PlacementOption,
   BuildingType,

@@ -38,6 +38,7 @@ class AgentState(TypedDict, total=False):
     clarification_answers: dict[str, Any]
     clarification_resolved: bool
     final_response: str | None
+    parking_zones: list[dict[str, Any]]
     replan_required: bool
     replan_reason: str | None
     optimization_cycles: int
@@ -107,6 +108,7 @@ def build_initial_state(
         "evaluation_results": {},
         "placement_fit_summary": {},
         "tool_history": [],
+        "parking_zones": [],
         "human_request": None,
         "clarification_request": layout_payload.get("clarification_request"),
         "clarification_answers": layout_payload.get("clarification_answers", {}) or {},

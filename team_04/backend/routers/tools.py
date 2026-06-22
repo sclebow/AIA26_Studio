@@ -23,6 +23,10 @@ Supported tools exposed here (add more as needed):
   urban_analysis       — full_urban_analysis (Phase 2b: intersections, corner conditions, urban response)
   fetch_urban_site     — fetch_urban_site (OSM road network fetch via Overpass API)
   detect_intersections — detect_intersections_from_roads (geometry-based junction detection)
+  estimate_apartments  — estimate_apartments (Phase 4: dwelling count from footprint × storeys)
+  parking_demand       — parking_demand (Phase 4: stalls + area from apartment count)
+  building_demand      — compute_building_demand (Phase 4: demand table for a list of buildings)
+  parking_allocation   — allocate_parking_zones (Phase 4: rectangular lots near main road)
 """
 from __future__ import annotations
 
@@ -132,6 +136,20 @@ def _lazy_registry() -> dict[str, Any]:
         from agent.tools.osm_context import fetch_urban_site, fetch_or_fallback
         _REGISTRY["fetch_urban_site"] = fetch_urban_site
         _REGISTRY["fetch_or_fallback"] = fetch_or_fallback
+    except Exception:
+        pass
+
+    try:
+        from agent.tools.parking import (
+            estimate_apartments,
+            parking_demand,
+            compute_building_demand,
+            allocate_parking_zones,
+        )
+        _REGISTRY["estimate_apartments"] = estimate_apartments
+        _REGISTRY["parking_demand"] = parking_demand
+        _REGISTRY["building_demand"] = compute_building_demand
+        _REGISTRY["parking_allocation"] = allocate_parking_zones
     except Exception:
         pass
 

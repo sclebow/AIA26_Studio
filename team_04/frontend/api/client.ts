@@ -30,7 +30,7 @@ import type {
 } from './types';
 
 export class Team04Api {
-  constructor(private readonly baseUrl = '') {}
+  constructor(readonly baseUrl = '') {}
 
   private async get<T>(path: string): Promise<T> {
     const res = await fetch(`${this.baseUrl}${path}`);

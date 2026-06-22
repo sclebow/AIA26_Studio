@@ -38,6 +38,16 @@ export interface ChatMessage {
 
 // --- Explorer tree --------------------------------------------------------
 
+/** One rectangular parking lot allocated on the site (Phase 4). */
+export interface ParkingZone {
+  zone_id: string;
+  boundary: Polygon;
+  stalls_allocated: number;
+  area_sqm: number;
+  side_index: number;
+  is_main_road_side: boolean;
+}
+
 export interface SiteInfo {
   boundary: Polygon;
   area_sqm: number;
@@ -45,6 +55,8 @@ export interface SiteInfo {
   buildable_area_sqm: number | null;
   edge_count: number;
   site_context: Record<string, unknown>;
+  /** Phase 4 — parking zones allocated on the site. */
+  parking_zones: ParkingZone[];
 }
 
 export interface WingInfo {

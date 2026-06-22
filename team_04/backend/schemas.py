@@ -55,6 +55,16 @@ class ChatRequest(BaseModel):
 # Explorer tree
 # ---------------------------------------------------------------------------
 
+class ParkingZone(BaseModel):
+    """One rectangular parking lot placed on the site (Phase 4)."""
+    zone_id: str
+    boundary: list[list[float]]
+    stalls_allocated: int
+    area_sqm: float
+    side_index: int
+    is_main_road_side: bool = False
+
+
 class SiteInfo(BaseModel):
     boundary: list[list[float]]
     area_sqm: float
@@ -62,6 +72,7 @@ class SiteInfo(BaseModel):
     buildable_area_sqm: float | None = None
     edge_count: int
     site_context: dict[str, Any] = Field(default_factory=dict)
+    parking_zones: list[ParkingZone] = Field(default_factory=list)
 
 
 class WingInfo(BaseModel):
