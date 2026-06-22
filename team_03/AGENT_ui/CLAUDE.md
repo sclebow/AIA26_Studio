@@ -469,7 +469,7 @@ collision-free, wall violations, heatmap) is scaffolded in `benchmark.py`
 
 ---
 
-**Last updated**: 2026-06-20  
+**Last updated**: 2026-06-22  
 **Status**: Chat wired to the real pipeline; live progress + options panel. Default theme
 now **light** (white startup background), favicon + new logo, StrictMode disabled. **Runtime
 model switch** (Haiku/Sonnet via `model_switch` WS) replaces the old Haiku-force; added a
@@ -480,3 +480,9 @@ one at a time, library of 4, live preview, saves accepted plans to AI_GENERATED.
 report: delta/violations/changes/door changes). **Spatial assistant** auto-routes
 observer/visibility/path questions to a Rhino-free agent (place a person / start a path /
 "which furniture blocks the view") that draws the isovist live and answers in chat.
+**Spatial graph resilience fix** (2026-06-22): `adapters/graph_adapter.py` now retries the
+`spatial_graph` import dynamically (`_try_reimport`) if it initially failed (e.g. networkx
+installed after server start). `GET /api/graph` builds the graph on-demand if missing from
+the session. **Operational note**: on Windows, multiple Python server processes can silently
+bind to the same port — if the Spatial Graph shows "No graph data loaded" after a restart,
+run `netstat -ano | findstr :3000` and kill any stale `python.exe` workers with old PIDs.

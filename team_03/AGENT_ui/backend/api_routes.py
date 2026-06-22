@@ -539,6 +539,15 @@ async def get_graph():
         raise HTTPException(status_code=404, detail="No active session.")
     graph = state.get("graph")
     if graph is None:
+        # Try to build the graph on-the-fly from the current layout
+        layout = state.get("layout")
+        if layout:
+            graph_data = build_graph(layout)
+            if "error" not in graph_data:
+                _session.update_graph(graph_data)
+                return graph_data
+            # Surface the error so it's visible in the frontend console
+            return JSONResponse(content={"error": graph_data.get("error", "unknown build error")})
         return JSONResponse(content=None)
     return graph
 
