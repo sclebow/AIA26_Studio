@@ -300,6 +300,10 @@ auxiliary features (`pure_chat`, `spatial_assistant`, `layout_generator`) are un
 
 **Cost note:** Sonnet (and Gemini Pro) are selectable from the UI — mind the cost.
 
+**Provider choice guidance:**
+- **Google (Flash / Pro) — recommended for pipeline testing.** Flash is fast and cheap for iteration; Pro offers stronger spatial reasoning for final benchmark runs. Use Flash by default.
+- **Anthropic (Haiku / Sonnet) — auxiliary features only.** Pure chat, spatial assistant, and the AI Layout Generator always use Anthropic regardless of the pipeline toggle. **The Anthropic API is not currently used for the LangGraph pipeline** because the pipeline requires strict JSON-mode responses that Anthropic's API does not return in the expected format — switching the pipeline to Anthropic will likely cause parse errors. Test pipeline runs with Google.
+
 **Run the dev backend as a single process** (`python -m uvicorn server:app
 --port 3000`); uvicorn `--reload` can leave stale workers serving old code. Note its
 `--reload` watcher only watches `AGENT_ui/backend/` — edits to `team_03/python/`
