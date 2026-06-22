@@ -10,12 +10,13 @@ const ROUTINE_TIMES = [
 import ScoreBar from './ScoreBar.vue'
 
 const props = defineProps({
-  layout:      { type: Object, default: null },
-  viewMode:    { type: String, default: 'layout' },
-  routine:     { type: Array,  default: null },   // parsedInput.routine
+  layout:        { type: Object, default: null },
+  viewMode:      { type: String, default: 'layout' },
+  routine:       { type: Array,  default: null },
+  hoveredRoomId: { type: String, default: null },
 })
 
-const emit = defineEmits(['activeRoomsChange', 'timeStepChange'])
+const emit = defineEmits(['activeRoomsChange', 'timeStepChange', 'roomHover', 'roomLeave'])
 
 const issues = []
 
@@ -218,7 +219,11 @@ function scoreRingStyle(score) {
             {{ (props.layout.rooms.reduce((sum, r) => sum + (r.attributes?.daylight ?? 0), 0) / props.layout.rooms.length).toFixed(2) }}<span style="font-size:1.1rem;font-weight:400;"> avg DA</span>
           </div>
           <ul class="layout-summary-list">
-            <li v-for="room in props.layout.rooms" :key="room.id" class="layout-summary-room-row">
+            <li v-for="room in props.layout.rooms" :key="room.id"
+              :class="['layout-summary-room-row', { hovered: room.id === props.hoveredRoomId }]"
+              @mouseenter="emit('roomHover', room.id)"
+              @mouseleave="emit('roomLeave')"
+            >
               <span class="room-swatch" :style="{ background: getDaylightColor(room.attributes?.daylight ?? 0) }"></span>
               {{ getRoomDisplayName(room) }} — {{ formatDaylight(room.attributes?.daylight) }}
             </li>
@@ -263,7 +268,11 @@ function scoreRingStyle(score) {
         </template>
 
         <ul class="layout-summary-list">
-          <li v-for="room in props.layout.rooms" :key="room.id" class="layout-summary-room-row">
+          <li v-for="room in props.layout.rooms" :key="room.id"
+            :class="['layout-summary-room-row', { hovered: room.id === props.hoveredRoomId }]"
+            @mouseenter="emit('roomHover', room.id)"
+            @mouseleave="emit('roomLeave')"
+          >
             <span class="room-swatch" :style="{ background: PROGRAM_COLORS[room.attributes?.program] ?? '#ddd' }"></span>
             {{ getRoomDisplayName(room) }} — {{ (room.attributes?.area ?? 0).toFixed(1) }} m²
           </li>
@@ -394,6 +403,14 @@ function scoreRingStyle(score) {
   gap: 8px;
   font-size: var(--font-size-small);
   color: var(--color-text);
+  padding: 3px 6px;
+  border-radius: 6px;
+  cursor: default;
+  transition: background 0.15s, font-weight 0.1s;
+}
+.layout-summary-room-row.hovered {
+  background: var(--color-light-blue);
+  font-weight: 600;
 }
 .room-swatch {
   display: inline-block;
@@ -401,6 +418,10 @@ function scoreRingStyle(score) {
   height: 10px;
   border-radius: 2px;
   flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.layout-summary-room-row.hovered .room-swatch {
+  transform: scale(1.4);
 }
 .persona-step-list {
   display: flex;

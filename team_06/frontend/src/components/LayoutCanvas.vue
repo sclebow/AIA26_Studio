@@ -3,7 +3,7 @@ import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { Stage, Layer, Group, Line, Text } from 'vue-konva'
 import { getRoomColor, getRoomSecondaryLabel, TOD_COLORS, getRoomDisplayName, hexToRgba } from '../utils/roomAnalysis.js'
 
-const ROOM_ALPHA = 0.75
+const ROOM_ALPHA = 0.35
 const CIRCLE_ALPHA = 0.88
 
 const wrapperRef = ref(null)
@@ -18,18 +18,22 @@ function onRoomHover(konvaEvent, room) {
   hoveredRoom.value = room
   tooltipX.value = clientX - rect.left + 14
   tooltipY.value = clientY - rect.top + 14
+  emit('roomHover', room.id)
 }
 
 function onRoomLeave() {
   hoveredRoom.value = null
+  emit('roomLeave')
 }
 
 const props = defineProps({
-  layout:      { type: Object, default: null },
-  viewMode:    { type: String, default: 'layout' },
-  activeRooms: { type: Object, default: () => ({}) },  // { roomId: [color, ...] }
-  activeStep:  { type: Number, default: 0 }            // 0–8 for time-of-day colour
+  layout:        { type: Object, default: null },
+  viewMode:      { type: String, default: 'layout' },
+  activeRooms:   { type: Object, default: () => ({}) },
+  activeStep:    { type: Number, default: 0 },
+  hoveredRoomId: { type: String, default: null },
 })
+const emit = defineEmits(['roomHover', 'roomLeave'])
 
 const CIRCLE_RADIUS = 14
 const CIRCLE_SPACING = 32  // horizontal gap between circles when multiple personas
@@ -120,18 +124,36 @@ const outlinePoints = computed(() => {
 const roomRenderData = computed(() => {
   const rooms = props.layout?.rooms || []
   const vm = props.viewMode
+  const hovered = props.hoveredRoomId
   const todHex = vm === 'routine' ? TOD_COLORS[props.activeStep] ?? TOD_COLORS[0] : null
-  const todFill = todHex ? hexToRgba(todHex, ROOM_ALPHA) : null
-  return rooms.map(room => ({
-    id: room.id,
-    points: flattenAndScale(room.geometry),
-    fill: todFill ?? hexToRgba(getRoomColor(room, vm), ROOM_ALPHA),
-    labelX: getLabelX(room.geometry),
-    labelY: getLabelY(room.geometry),
-    nameText: getRoomDisplayName(room),
-    nameOffsetX: getTextWidth(getRoomDisplayName(room), 13) / 2,
-    secondaryText: getRoomSecondaryLabel(room, vm),
-  }))
+  const occupiedIds = vm === 'routine'
+    ? new Set(Object.keys(props.activeRooms || {}).filter(id => props.activeRooms[id]?.length > 0))
+    : null
+  return rooms.map(room => {
+    const isHovered = room.id === hovered
+    const isOccupied = occupiedIds?.size > 0 && occupiedIds.has(String(room.id))
+    let alpha
+    if (vm === 'routine' && occupiedIds) {
+      alpha = occupiedIds.size > 0 ? (isOccupied ? 0.9 : 0.15) : ROOM_ALPHA
+    } else if (hovered) {
+      alpha = isHovered ? 0.9 : 0.15
+    } else {
+      alpha = ROOM_ALPHA
+    }
+    const baseColor = todHex ?? getRoomColor(room, vm)
+    return {
+      id: room.id,
+      points: flattenAndScale(room.geometry),
+      fill: hexToRgba(baseColor, alpha),
+      stroke: (isHovered || isOccupied) ? '#222' : '#555',
+      strokeWidth: (isHovered || isOccupied) ? 2.5 : 1.5,
+      labelX: getLabelX(room.geometry),
+      labelY: getLabelY(room.geometry),
+      nameText: getRoomDisplayName(room),
+      nameOffsetX: getTextWidth(getRoomDisplayName(room), 13) / 2,
+      secondaryText: getRoomSecondaryLabel(room, vm),
+    }
+  })
 })
 
 // Routine circles — one circle per persona per occupied room, offset when sharing
@@ -199,6 +221,22 @@ function getLabelY(geometry) {
   const [cx, cy] = getCentroid(geometry);
   return cy * scale.value + offset.value.y;
 }
+const furnitureRenderData = computed(() => {
+  const furniture = props.layout?.furniture || []
+  return furniture.flatMap(item =>
+    (item.all_curves || []).map((curve, i) => {
+      const isClosed = curve.length > 2 &&
+        curve[0][0] === curve[curve.length - 1][0] &&
+        curve[0][1] === curve[curve.length - 1][1]
+      return {
+        key: `${item.id}-${i}`,
+        points: flattenAndScale(isClosed ? curve.slice(0, -1) : curve),
+        closed: isClosed,
+      }
+    })
+  )
+})
+
 function getTextWidth(text, fontSize) {
   if (!text) return 0;
   // Use a canvas context for more accurate measurement
@@ -262,7 +300,7 @@ function getTextWidth(text, fontSize) {
           @mouseleave="onRoomLeave"
         >
           <v-line
-            :config="{ points: room.points, closed: true, fill: room.fill, stroke: '#333', strokeWidth: 2 }"
+            :config="{ points: room.points, closed: true, fill: room.fill, stroke: room.stroke, strokeWidth: room.strokeWidth }"
           />
           <v-text
             :x="room.labelX"
@@ -275,6 +313,20 @@ function getTextWidth(text, fontSize) {
             :offsetY="13 / 2"
           />
         </v-group>
+      </v-layer>
+      <!-- Furniture layer (layout + evaluate modes only) -->
+      <v-layer v-if="furnitureRenderData.length">
+        <v-line
+          v-for="curve in furnitureRenderData"
+          :key="curve.key"
+          :config="{
+            points: curve.points,
+            closed: curve.closed,
+            stroke: '#999',
+            strokeWidth: 0.8,
+            listening: false,
+          }"
+        />
       </v-layer>
       <!-- Routine persona circles only -->
       <v-layer v-if="routineCircleData.length">

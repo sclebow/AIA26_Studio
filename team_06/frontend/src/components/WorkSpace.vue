@@ -17,6 +17,7 @@ const emit = defineEmits(['layoutLoaded', 'selectLayout', 'previewLayout', 'find
 const viewMode = ref('layout')
 const activeRooms = ref({})
 const activeStep = ref(0)
+const hoveredRoomId = ref(null)
 
 const hasDaylight = computed(() =>
   (props.agentState?.rooms ?? []).some(r => r.attributes?.daylight != null)
@@ -83,6 +84,9 @@ function exportLayout() {
               :viewMode="viewMode"
               :activeRooms="activeRooms"
               :activeStep="activeStep"
+              :hoveredRoomId="hoveredRoomId"
+              @roomHover="hoveredRoomId = $event"
+              @roomLeave="hoveredRoomId = null"
             />
           </div>
           <LayoutCard
@@ -90,8 +94,11 @@ function exportLayout() {
             :layout="props.agentState"
             :viewMode="viewMode"
             :routine="props.agentState?.routine?.personas ?? props.agentState?.routine ?? null"
+            :hoveredRoomId="hoveredRoomId"
             @activeRoomsChange="activeRooms = $event"
             @timeStepChange="activeStep = $event"
+            @roomHover="hoveredRoomId = $event"
+            @roomLeave="hoveredRoomId = null"
           />
         </div>
       </template>

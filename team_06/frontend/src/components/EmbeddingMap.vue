@@ -125,6 +125,7 @@ const miniCache = computed(() => {
   return result
 })
 
+
 // ── spatial grid sampling ─────────────────────────────────────────────────────
 
 function gridSample(cols, rows) {
@@ -373,7 +374,7 @@ const transform = computed(() =>
             />
             <polygon
               v-for="(room, i) in miniCache[p.id]"
-              :key="i" :points="room.pts" :fill="room.fill"
+              :key="i" :points="room.pts" :fill="room.fill" fill-opacity="0.7"
               stroke="#4a4a4a" stroke-width="0.5"
               vector-effect="non-scaling-stroke"
             />
@@ -406,7 +407,7 @@ const transform = computed(() =>
             />
             <polygon
               v-for="(room, i) in miniCache[topResult.id]"
-              :key="i" :points="room.pts" :fill="room.fill"
+              :key="i" :points="room.pts" :fill="room.fill" fill-opacity="0.7"
               stroke="#4a4a4a" stroke-width="0.5"
               vector-effect="non-scaling-stroke"
             />

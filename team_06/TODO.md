@@ -6,12 +6,7 @@ Test
 ================================================
 
 Visualisation:
-0. circle of scoring more thin and with gradient
-1. replace orange with another color (marine)
-2. select layout: put a separator message in chat - every message automated generated shall have a different graphics.
-
-1. Furniture
-2. Laoyut Graph
+2. Layout Graph
 3. Routine: avatars, animation?
 4. Embedding space: more miniatures when zooming max (or put a max to zoom)
 
