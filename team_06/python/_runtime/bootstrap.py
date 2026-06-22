@@ -54,6 +54,7 @@ def bootstrap() -> Context:
         timeout_seconds=settings.request_timeout_seconds,
         model_kwargs=model_kwargs,
         max_tokens=8192,
+        provider=settings.llm_provider,
     )
 
     return Context(

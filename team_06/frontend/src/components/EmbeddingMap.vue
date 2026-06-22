@@ -367,7 +367,7 @@ const transform = computed(() =>
               :x="-MINI_SIZE/2 - 2" :y="-MINI_SIZE/2 - 2"
               :width="MINI_SIZE + 4" :height="MINI_SIZE + 4"
               rx="3" fill="white"
-              :stroke="isPinned(p.id) ? '#F5A020' : '#d0d5dd'"
+              :stroke="isPinned(p.id) ? '#00B8A8' : '#d0d5dd'"
               :stroke-width="isPinned(p.id) ? '1.5' : '0.8'"
               vector-effect="non-scaling-stroke"
             />
@@ -380,9 +380,9 @@ const transform = computed(() =>
           </template>
           <template v-else>
             <circle cx="0" cy="0" r="4" :fill="dotColor(p.sx)" />
-            <circle v-if="isPinned(p.id)" cx="0" cy="0" r="8" fill="none" stroke="#F5A020" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+            <circle v-if="isPinned(p.id)" cx="0" cy="0" r="8" fill="none" stroke="#00B8A8" stroke-width="1.5" vector-effect="non-scaling-stroke" />
           </template>
-          <text v-if="isPinned(p.id)" x="0" y="-9" text-anchor="middle" font-size="5" fill="#F5A020" font-weight="bold" vector-effect="non-scaling-stroke">{{ pinIndex(p.id) }}</text>
+          <text v-if="isPinned(p.id)" x="0" y="-9" text-anchor="middle" font-size="5" fill="#00B8A8" font-weight="bold" vector-effect="non-scaling-stroke">{{ pinIndex(p.id) }}</text>
         </g>
 
         <!-- Top result — always on top, blue dot or blue-outlined miniature -->
@@ -400,7 +400,7 @@ const transform = computed(() =>
               :x="-MINI_SIZE/2 - 2" :y="-MINI_SIZE/2 - 2"
               :width="MINI_SIZE + 4" :height="MINI_SIZE + 4"
               rx="3" fill="white"
-              :stroke="isPinned(topResult.id) ? '#F5A020' : 'var(--color-blue)'"
+              :stroke="isPinned(topResult.id) ? '#00B8A8' : 'var(--color-blue)'"
               :stroke-width="isPinned(topResult.id) ? '1.5' : '1.2'"
               vector-effect="non-scaling-stroke"
             />
@@ -413,9 +413,9 @@ const transform = computed(() =>
           </template>
           <template v-else>
             <circle cx="0" cy="0" r="7" fill="var(--color-blue)" stroke="white" stroke-width="2" vector-effect="non-scaling-stroke" />
-            <circle v-if="isPinned(topResult.id)" cx="0" cy="0" r="11" fill="none" stroke="#F5A020" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+            <circle v-if="isPinned(topResult.id)" cx="0" cy="0" r="11" fill="none" stroke="#00B8A8" stroke-width="1.5" vector-effect="non-scaling-stroke" />
           </template>
-          <text v-if="isPinned(topResult.id)" x="0" y="-13" text-anchor="middle" font-size="5" fill="#F5A020" font-weight="bold" vector-effect="non-scaling-stroke">{{ pinIndex(topResult.id) }}</text>
+          <text v-if="isPinned(topResult.id)" x="0" y="-13" text-anchor="middle" font-size="5" fill="#00B8A8" font-weight="bold" vector-effect="non-scaling-stroke">{{ pinIndex(topResult.id) }}</text>
         </g>
 
         <!-- Query crosshair -->
@@ -552,13 +552,13 @@ const transform = computed(() =>
 }
 .popup-select-btn:hover { opacity: 0.85; }
 .popup-pin-btn {
-  background: #fff3e0;
-  color: #e07000;
-  border: 1px solid #F5A020;
+  background: #e6faf9;
+  color: #007a70;
+  border: 1px solid #00B8A8;
 }
-.popup-pin-btn:hover { background: #ffe0b2; }
+.popup-pin-btn:hover { background: #ccf5f2; }
 .popup-pin-btn--active {
-  background: #F5A020;
+  background: #00B8A8;
   color: white;
 }
 .popup-pin-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -566,14 +566,14 @@ const transform = computed(() =>
   position: absolute;
   top: 20px;
   right: 28px;
-  background: #F5A020;
+  background: #00B8A8;
   color: white;
   font-size: var(--font-size-small);
   font-weight: 700;
   padding: 7px 16px;
   border-radius: 999px;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(245,160,32,0.35);
+  box-shadow: 0 2px 8px rgba(0,184,168,0.35);
   z-index: 20;
   user-select: none;
 }

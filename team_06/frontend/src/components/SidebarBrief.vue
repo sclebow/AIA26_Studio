@@ -184,6 +184,8 @@ const useSpecificationBlock = computed(() => {
   display: block;
   width: fit-content;
   max-width: 100%;
+  max-height: 160px;
+  overflow-y: auto;
   padding: 8px 12px;
   border-radius: 16px;
   background: #f5f7fa;

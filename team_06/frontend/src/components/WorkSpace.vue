@@ -172,11 +172,11 @@ function exportLayout() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #fff8ec;
-  border-bottom: 1px solid #F5A020;
+  background: #f0fcfb;
+  border-bottom: 1px solid #00B8A8;
   padding: 8px 24px;
   font-size: var(--font-size-small);
-  color: #a06000;
+  color: #007a70;
   font-weight: 500;
   flex-shrink: 0;
 }
@@ -186,7 +186,7 @@ function exportLayout() {
 }
 .btn-banner-restore {
   padding: 4px 12px;
-  background: #F5A020;
+  background: #00B8A8;
   color: white;
   border: none;
   border-radius: var(--radius);
@@ -198,13 +198,13 @@ function exportLayout() {
 .btn-banner-close {
   padding: 4px 10px;
   background: none;
-  border: 1px solid #F5A020;
+  border: 1px solid #00B8A8;
   border-radius: var(--radius);
   font-size: var(--font-size-small);
-  color: #a06000;
+  color: #007a70;
   cursor: pointer;
 }
-.btn-banner-close:hover { background: #ffecd0; }
+.btn-banner-close:hover { background: #ccf5f2; }
 
 .welcome-screen {
   flex: 1 1 auto;

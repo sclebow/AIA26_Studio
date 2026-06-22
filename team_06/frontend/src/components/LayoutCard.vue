@@ -171,8 +171,9 @@ const personaSteps = computed(() => {
 
 function scoreRingStyle(score) {
   const value = Math.max(0, Math.min(100, score ?? 0))
+  const angle = value * 3.6
   return {
-    background: `conic-gradient(#0067B5 ${value * 3.6}deg, #E9ECEF 0deg)`
+    background: `conic-gradient(from 0deg, #00E0CD 0deg, #0067B5 ${angle}deg, #E9ECEF ${angle}deg)`
   }
 }
 
@@ -461,8 +462,8 @@ function scoreRingStyle(score) {
   margin: 12px 0 4px;
 }
 .evaluation-score-ring {
-  width: 96px;
-  height: 96px;
+  width: 88px;
+  height: 88px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -470,8 +471,8 @@ function scoreRingStyle(score) {
   margin: 0 auto 12px;
 }
 .evaluation-score-core {
-  width: 72px;
-  height: 72px;
+  width: 76px;
+  height: 76px;
   border-radius: 50%;
   background: white;
   display: flex;

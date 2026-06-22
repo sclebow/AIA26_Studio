@@ -1,5 +1,6 @@
 import json
 import re
+from _runtime.llm import get_response_text, parse_llm_json
 
 # Global system prompt for LLM reliability
 SYSTEM_PROMPT = (
@@ -284,7 +285,7 @@ def build_reason_node(llm):
         ]
         try:
             response = llm.invoke(llm_messages)
-            response_json = json.loads(response.content.strip())
+            response_json = parse_llm_json(get_response_text(response))
             # The LLM is constrained by the decision schema and wraps its answer
             # inside final_response as a string — unwrap it when that happens.
             if "final_response" in response_json and "latest_prompt_useful" not in response_json:

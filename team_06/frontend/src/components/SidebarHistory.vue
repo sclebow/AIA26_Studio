@@ -72,8 +72,8 @@ const emit = defineEmits(['preview', 'restore', 'clearPreview'])
   border-width: 1.5px;
 }
 .history-item.previewing {
-  background: #fff8ec;
-  border-color: #F5A020;
+  background: #f0fcfb;
+  border-color: #00B8A8;
   border-width: 1.5px;
 }
 .history-item-actions {

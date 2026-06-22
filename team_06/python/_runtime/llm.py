@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from typing import Any
 from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 
 
 # ---------------------------------------------------------------------------
@@ -18,7 +19,16 @@ def create_chat_llm(
     timeout_seconds: float,
     model_kwargs: dict[str, Any] | None = None,
     max_tokens: int = 4096,
-) -> ChatOpenAI:
+    provider: str | None = None,
+) -> Any:
+    if provider == "anthropic":
+        return ChatAnthropic(
+            anthropic_api_key=api_key,
+            model=llm_model,
+            timeout=timeout_seconds,
+            temperature=0,
+            max_tokens=max_tokens,
+        )
     return ChatOpenAI(
         api_key=api_key,
         base_url=base_url,
@@ -28,6 +38,22 @@ def create_chat_llm(
         max_tokens=max_tokens,
         model_kwargs=model_kwargs or {},
     )
+
+
+def get_response_text(response: Any) -> str:
+    """Extract text content from an LLM response, handling both ChatOpenAI (str) and ChatAnthropic (list) formats."""
+    content = response.content
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text", ""))
+            elif hasattr(block, "type") and getattr(block, "type") == "text":
+                parts.append(getattr(block, "text", ""))
+        return "".join(parts)
+    return ""
 
 
 def _required_env(name: str) -> str:
@@ -152,7 +178,7 @@ def get_llm_response_format(tools: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# LLM response parsing (internal helpers)
+# LLM response parsing
 # ---------------------------------------------------------------------------
 
 def _strip_markdown_code_fence(content: str) -> str:
@@ -167,7 +193,7 @@ def _strip_markdown_code_fence(content: str) -> str:
     return "\n".join(lines[1:-1]).strip()
 
 
-def _parse_llm_json(content: str) -> dict[str, Any]:
+def parse_llm_json(content: str) -> dict[str, Any]:
     content = _strip_markdown_code_fence(content)
     try:
         parsed = json.loads(content)
@@ -260,6 +286,7 @@ def llm_invoke(
             llm_model=resolved_model,
             timeout_seconds=_resolve_timeout_seconds(llm),
             model_kwargs=model_kwargs,
+            provider=resolved_provider,
         )
     return active_llm.invoke(messages)
 
@@ -296,15 +323,16 @@ def call_llm(
             llm_model=resolved_model,
             timeout_seconds=_resolve_timeout_seconds(llm),
             model_kwargs=model_kwargs,
+            provider=resolved_provider,
         )
 
     result = active_llm.invoke(llm_messages)
-    content = result.content
-    if not isinstance(content, str):
-        raise RuntimeError("LLM response content must be a string")
+    content = get_response_text(result)
+    if not content:
+        raise RuntimeError("LLM response content was empty")
 
     try:
-        return _normalize_llm_decision(_parse_llm_json(content))
+        return _normalize_llm_decision(parse_llm_json(content))
     except Exception:
         print("\n[llm] Raw LLM response before crash:")
         print(content)

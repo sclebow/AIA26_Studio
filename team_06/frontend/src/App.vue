@@ -221,6 +221,7 @@ function handleHistoryPreview(layout) {
 async function handleRestore(layout) {
   historyPreview.value = null
   agentState.value = attachExploreResults(layout)
+  pushChatMessage('system', 'Layout restored from history')
   try {
     // Strip frontend-only fields before sending to backend so the LLM receives
     // only the raw layout JSON (rooms, outline, apartment, layoutId).
@@ -234,6 +235,7 @@ async function handleRestore(layout) {
 async function handleSelectLayout(layoutId) {
   if (isSending.value) return
   isSending.value = true
+  pushChatMessage('system', 'Layout selected from map')
   const statusId = pushChatMessage('status', 'Selecting layout…', { isLoading: true })
   try {
     const response = await selectLayoutApi(layoutId)
@@ -247,7 +249,28 @@ async function handleSelectLayout(layoutId) {
 }
 
 async function handleFindInBetween(idA, idB) {
-  await handleUserMessage(`find a layout in between ${idA} and ${idB}`)
+  if (isSending.value) return
+  hasUserSelectedTab.value = false
+  tab.value = 'brief'
+  pushChatMessage('system', 'Finding layout between pinned candidates')
+  const statusMessageId = pushChatMessage('status', 'Thinking', { isLoading: true })
+  isSending.value = true
+  try {
+    const response = await sendChatMessage(`find a layout in between ${idA} and ${idB}`, ({ statusMessages, partialResult }) => {
+      updateChatMessage(statusMessageId, formatStatusMessages(statusMessages), { isLoading: true })
+      applyPartialResponse(partialResult)
+    })
+    removeChatMessage(statusMessageId)
+    suppressAncillaryPartials.value = false
+    applyAgentResponse(response)
+  } catch (error) {
+    suppressAncillaryPartials.value = false
+    updateChatMessage(statusMessageId, 'Request failed', { isLoading: false, tone: 'error' })
+    pushChatMessage('agent', `Backend error: ${error.message}`)
+  } finally {
+    suppressAncillaryPartials.value = false
+    isSending.value = false
+  }
 }
 
 async function handlePreviewLayout(layoutId) {
