@@ -1,0 +1,9 @@
+{
+  "layoutId": "Layout-530",
+  "description": "Narrow and elongated. Living bright bedrooms dim. Deep — views through multiple spaces. Short connecting link between entry and living area. Kitchen: single-wall, no island or peninsula — counter set back from windows, moderate natural light. Cook faces the wall — back to the living and dining area. One active cook at a time. Fully open plan — no wall separates kitchen from dining and living. Living arrangement: split seating-kitchen-dining, kitchen on side wall. Seating: two sofas at far left of living area arranged in an L facing into the room; armchairs near dining table. Dining table (4 seats). Entry: corridor entry, first thing visible on arrival is bedroom doors, L-shaped corridor, short. No door between entry and living — relevant where local regulations require separation. Master suite (en-suite bathroom) — accessed via own door off corridor, no walk-in wardrobe. Master suite (en-suite bathroom) at the rear — maximum distance from entry, best acoustic separation from living activity. Storage: one wardrobe. One bathroom (shower, bathtub, and toilet). Single bathroom — all household members share one shower, sequential morning routine. Suits: singles or couples. Not suitable for: large families needing multiple bedrooms; households requiring a home office or dedicated workspace; people needing abundant storage.",
+  "not_suitable_for": [
+    "large families needing multiple bedrooms",
+    "households requiring a home office or dedicated workspace",
+    "people needing abundant storage"
+  ]
+}
