@@ -17,9 +17,15 @@ from typing import Optional
 
 from shapely.geometry import Polygon, Point, box
 
+# Door clearance + soft-furnishing set kept IN SYNC with the architectural audit, so a
+# placed piece never lands in a doorway approach / swing (the #1 cause of the spurious
+# "would block the door" reverts) and an existing rug/curtain never blocks a new spot.
+from check_layout_geometry import APPROACH_DEPTH as _APPROACH_DEPTH, NON_OBSTACLE_TYPES as _NON_OBSTACLE
+
 TOL = 0.02          # geometric slop (matches check_layout_geometry + walls.js)
 WALL_MARGIN = 0.15  # keep openings clear of wall corners / each other
 WINDOW_LEN = 1.2    # default window opening width (m)
+DOOR_KEEPOUT = _APPROACH_DEPTH + 0.10   # ~0.70m: covers the approach strip + the leaf swing
 
 
 # ── small geometry helpers ────────────────────────────────────────────────────
@@ -259,26 +265,50 @@ def place_rug(layout, room):
     return _box_ring(cx - w / 2.0, cy - h / 2.0, cx + w / 2.0, cy + h / 2.0)
 
 
-def place_furniture(layout, room, w, h, clearance=0.10):
-    """A clear floor spot for a w×h footprint, preferring corners/walls over the centre.
+def _door_keepout_boxes(layout, room):
+    """Forbidden boxes around every door that touches `room`: the door's footprint
+    grown by DOOR_KEEPOUT so a placed piece clears the approach strip + the leaf swing.
+    Approximate (a box, not the exact arc) — the audit/revert loop is the exact gate;
+    this just keeps the candidate spots out of doorways so they pass it."""
+    rid = room.get("id") if room else None
+    out = []
+    for d in layout.get("doors", []) or []:
+        g = d.get("geometry") or []
+        if len(g) < 2:
+            continue
+        conn = d.get("attributes", {}).get("connectsRooms", [])
+        if rid is not None and rid not in conn:
+            continue
+        x0, y0, x1, y1 = _bbox(g)
+        out.append(box(x0 - DOOR_KEEPOUT, y0 - DOOR_KEEPOUT, x1 + DOOR_KEEPOUT, y1 + DOOR_KEEPOUT))
+    return out
 
-    Returns a closed geometry ring. Never fails: if nothing is clear it falls back to a
-    representative interior point (the old centroid behaviour), and the audit/revert loop
-    is the final guard.
-    """
+
+def _room_obstacles(layout, room):
+    """Solid furniture in the room (excludes soft furnishings — rugs/curtains/cushions —
+    which legitimately sit under/over other pieces) plus the door keep-out boxes."""
+    rid = room.get("id") if room else None
+    obs = [box(*_bbox(f["geometry"]))
+           for f in layout.get("furniture", []) or []
+           if f.get("attributes", {}).get("roomId") == rid and f.get("geometry")
+           and (f.get("attributes", {}).get("type", "") or "").lower() not in _NON_OBSTACLE]
+    return obs + _door_keepout_boxes(layout, room)
+
+
+def place_furniture_candidates(layout, room, w, h, clearance=0.10, limit=24):
+    """Ordered list of clear w×h spots (corners → walls → interior grid), each a closed
+    geometry ring, that clear the room walls, existing solid furniture AND the doorways.
+    Empty when nothing fits at this size. The caller picks the first that also passes the
+    full architectural audit (so multiple sizes/spots are tried before rejecting)."""
     poly = room_polygon(room)
     if poly is None:
-        return _box_ring(-w / 2, -h / 2, w / 2, h / 2)
-    rid = room.get("id")
-    obstacles = [box(*_bbox(f["geometry"]))
-                 for f in layout.get("furniture", []) or []
-                 if f.get("attributes", {}).get("roomId") == rid and f.get("geometry")]
+        return []
+    obstacles = _room_obstacles(layout, room)
     minx, miny, maxx, maxy = poly.bounds
     m = 0.05
     hw, hh = w / 2.0, h / 2.0
     if (maxx - minx) <= w + 2 * m or (maxy - miny) <= h + 2 * m:
-        rp = poly.representative_point()
-        return _box_ring(rp.x - hw, rp.y - hh, rp.x + hw, rp.y + hh)
+        return []
 
     xs0, xs1 = minx + m + hw, maxx - m - hw
     ys0, ys1 = miny + m + hh, maxy - m - hh
@@ -292,13 +322,31 @@ def place_furniture(layout, room, w, h, clearance=0.10):
         for j in range(1, n):
             cands.append((xs0 + (xs1 - xs0) * i / n, ys0 + (ys1 - ys0) * j / n))
 
+    out = []
     for cx, cy in cands:
         b = box(cx - hw, cy - hh, cx + hw, cy + hh)
         if not poly.contains(b):
             continue
         if any(b.buffer(clearance).intersects(o) for o in obstacles):
             continue
-        return _box_ring(cx - hw, cy - hh, cx + hw, cy + hh)
+        out.append(_box_ring(cx - hw, cy - hh, cx + hw, cy + hh))
+        if len(out) >= limit:
+            break
+    return out
 
+
+def place_furniture(layout, room, w, h, clearance=0.10):
+    """A clear floor spot for a w×h footprint, preferring corners/walls over the centre
+    and steering clear of doorways. Returns a closed geometry ring. Never fails: if
+    nothing is clear it falls back to a representative interior point (the old centroid
+    behaviour), and the audit/revert loop is the final guard. For sound placement the
+    edit path uses place_furniture_candidates + the audit instead (multi-size, multi-spot)."""
+    poly = room_polygon(room)
+    if poly is None:
+        return _box_ring(-w / 2, -h / 2, w / 2, h / 2)
+    cands = place_furniture_candidates(layout, room, w, h, clearance)
+    if cands:
+        return cands[0]
+    hw, hh = w / 2.0, h / 2.0
     rp = poly.representative_point()
     return _box_ring(rp.x - hw, rp.y - hh, rp.x + hw, rp.y + hh)

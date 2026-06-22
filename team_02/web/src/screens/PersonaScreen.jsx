@@ -22,17 +22,17 @@ export default function PersonaScreen({ persona, message, moodboardUrls, onConfi
         </div>
       </TopBar>
 
-      <div className="thread" style={{ flex: 1 }}>
-        <div className="thread-inner" style={{ paddingTop: 20 }}>
-          <div className="bubble-wrap">
-            <SensiAvatar size={28} />
-            <p className="bubble-s" style={{ marginBottom: 0 }}>
-              {message || `Here's who I'll be designing for, ${name}.`}
-            </p>
-          </div>
-
-          <PersonaCard persona={persona} moodboardUrls={moodboardUrls} />
+      {/* The reveal breaks OUT of the narrow chat reading column into a wide, single-screen
+          stage — the Sensi line sits above, the landscape PersonaCard fills the rest. */}
+      <div className="preveal-stage">
+        <div className="preveal-msg bubble-wrap">
+          <SensiAvatar size={28} />
+          <p className="bubble-s" style={{ marginBottom: 0 }}>
+            {message || `Here's who I'll be designing for, ${name}.`}
+          </p>
         </div>
+
+        <PersonaCard persona={persona} moodboardUrls={moodboardUrls} />
       </div>
 
       <div className="input-area" style={{ maxWidth: 560, margin: "0 auto", width: "100%" }}>

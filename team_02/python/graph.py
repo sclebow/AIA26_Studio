@@ -293,6 +293,11 @@ def _route_after_load_layout(state: AgentState) -> str:
     if state.get("layout_not_found"):
         return END
 
+    # Silent LOAD — just render the plan, never score on load. load_layout wrote a
+    # one-line acknowledgment; end the turn here (no analyze, no room list).
+    if action == "load":
+        return END
+
     if action == "overview":
         return "overview_respond"
 
@@ -726,7 +731,11 @@ def _finalize(final_state: "AgentState", session: dict, ctx: Any) -> tuple[str, 
         # Suggestion lifecycle (PERSISTS across turns): fulfilled suggestions accumulate,
         # and the last non-empty suggestions list is kept sticky so it survives an edit
         # re-score (which clears last_suggestions_json) and can still be crossed off.
-        "applied_suggestions":    final_state.get("applied_suggestions") or session.get("applied_suggestions", []),
+        # Take final_state VERBATIM (it's seeded from the session in _build_initial_state and
+        # carried through every node) so a deliberate reset to [] on a fresh layout load —
+        # load_layout / select / upload / restore — actually sticks instead of being
+        # resurrected by an `or session` fallback.
+        "applied_suggestions":    final_state.get("applied_suggestions", session.get("applied_suggestions", [])),
         "suggestions_sticky":     final_state.get("last_suggestions_json") or session.get("suggestions_sticky", ""),
         "graph_data":             final_state.get("graph_data", {}),
         "biophilic_data":         final_state.get("biophilic_data", {}),

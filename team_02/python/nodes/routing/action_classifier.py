@@ -156,6 +156,18 @@ def build_action_classifier_node(llm):
         has_prior_analysis = bool(state.get("last_scores_json", "").strip())
         layout_id = state.get("layout_id")
 
+        # Deterministic LOAD intent — the layout picker sends "load layout N", and loading
+        # must NOT score (just render the plan and wait). Resolve it here, BEFORE the LLM,
+        # so it can never be misrouted to analyze. Kept literal ("load / open / switch to …
+        # layout") so it can't overlap the edit bucket ("add a plant", "place a …").
+        pl = raw_prompt.strip().lower()
+        if re.match(r"^(load|open|switch\s+to)\b", pl) and "layout" in pl:
+            m = re.search(r"\blayout[-_ ]?(\d+)\b", pl) or re.search(r"\b(\d{3,})\b", pl)
+            load_id = m.group(1) if m else layout_id
+            print(f"[action_classifier] deterministic load intent -> action=load, layout_id={load_id}")
+            return {**state, "action": "load", "layout_id": load_id,
+                    "target_room_hint": None, "material_hint": None}
+
         print(f"[action_classifier] Classifying (has_prior_analysis={has_prior_analysis})...")
 
         action = "chitchat"

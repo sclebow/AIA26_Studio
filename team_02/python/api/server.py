@@ -88,7 +88,22 @@ def _startup() -> None:
 
 def _fresh_inspire() -> dict:
     return {"analysis": "", "text": "", "b64s": [],
-            "r1_picks": [], "r2_picks": [], "final_picks": []}
+            "r1_picks": [], "r2_picks": [], "final_picks": [],
+            "shown_urls": []}   # every URL surfaced this session → next rounds stay unique
+
+
+def _quiz_seed(sess: dict) -> str:
+    """A short seed for the moodboard, distilled from the quiz so round 1 can build a
+    relevant board with no typed description (q2 space story, q3 sensitivities, q5 non-neg)."""
+    qa = sess.get("quiz_answers") or {}
+    parts = []
+    if qa.get("q2"):
+        parts.append(f"a space they described as: {qa['q2']}")
+    if qa.get("q3"):
+        parts.append(f"senses that pull them out of comfort: {qa['q3']}")
+    if qa.get("q5"):
+        parts.append(f"their non-negotiable: {qa['q5']}")
+    return "; ".join(parts)
 
 
 # session_id -> {"session": dict, "inspire": dict}
@@ -353,6 +368,9 @@ def restore_checkpoint(req: RestoreReq) -> dict:
     cp = checkpoints.restore(sess, req.checkpoint_id)
     if cp is None:
         return {"session_id": sid, "ok": False, "error": "Checkpoint not found."}
+    # A rollback resets the editing baseline, so suggestions un-cross — they re-apply
+    # only when a real edit fulfils them again from this restored point onward.
+    sess["applied_suggestions"] = []
     return {
         "session_id": sid, "ok": True,
         "layout_id": sess.get("layout_id"),
@@ -387,6 +405,8 @@ def _inspire_stream(slot: dict, sid: str, *, text: str, b64s: list,
         insp["text"] = text
         insp["b64s"] = b64s
     llm = _CTX.llm_simple
+    exclude_urls = list(insp.get("shown_urls", []))      # unique-per-round
+    seed_context = _quiz_seed(slot["session"])           # quiz-seeded board (no typing needed)
     q: "queue.Queue[tuple[str, Any]]" = queue.Queue()
 
     def worker() -> None:
@@ -398,9 +418,14 @@ def _inspire_stream(slot: dict, sid: str, *, text: str, b64s: list,
             round_num,
             refine_desc=refine_desc,
             progress=lambda m: q.put(("progress", m)),
+            exclude_urls=exclude_urls,
+            seed_context=seed_context,
         )
         if res.get("ok"):
             insp["analysis"] = res.get("analysis", insp["analysis"])
+            # Remember what we surfaced so later rounds never repeat it.
+            insp["shown_urls"] = list(dict.fromkeys(
+                insp.get("shown_urls", []) + (res.get("urls") or [])))
         q.put(("result", res))
 
     threading.Thread(target=worker, daemon=True).start()
@@ -509,6 +534,7 @@ def layout_select(req: LayoutSelectReq) -> dict:
     slot["session"]["last_conflicts_json"] = ""
     slot["session"]["last_suggestions_json"] = ""
     slot["session"]["layout_json_string"] = ""
+    slot["session"]["applied_suggestions"] = []   # fresh layout → suggestions un-crossed
     checkpoints.reset(slot["session"])
     return {"session_id": sid, "ok": True, "layout_id": req.layout_id}
 
@@ -539,6 +565,7 @@ def layout_upload(req: LayoutUploadReq) -> dict:
     slot["session"]["last_conflicts_json"] = ""
     slot["session"]["last_suggestions_json"] = ""
     slot["session"]["layout_json_string"] = ""
+    slot["session"]["applied_suggestions"] = []   # fresh layout → suggestions un-crossed
     checkpoints.reset(slot["session"])
 
     return {"session_id": sid, "ok": True, "layout_id": layout_id, "name": data.get("name", layout_id)}
@@ -773,6 +800,17 @@ def _furniture_counts(layout: dict) -> dict:
     return c
 
 
+def _furniture_sig(layout: dict) -> dict:
+    """Per-room furniture fingerprint — sorted (type:material) tuples — so the report's
+    change detection catches a material/type swap (e.g. sofa → leather), not just a count
+    change. roomId → sorted list of 'type:material'."""
+    sig: dict = {}
+    for f in layout.get("furniture", []):
+        a = f.get("attributes", {}) or {}
+        sig.setdefault(a.get("roomId"), []).append(f"{a.get('type')}:{a.get('material')}")
+    return {rid: sorted(v) for rid, v in sig.items()}
+
+
 def _room_furniture(layout: dict, room: dict) -> list[dict]:
     """The furniture items belonging to one room (by roomId) — for the change clause."""
     rid = room.get("id")
@@ -825,16 +863,28 @@ def _select_compare_room(sess: dict, persona: dict):
 
     orig_rooms = {r.get("name"): r for r in original.get("rooms", [])}
     fc_cur, fc_orig = _furniture_counts(current), _furniture_counts(original)
+    fs_cur, fs_orig = _furniture_sig(current), _furniture_sig(original)
 
     def _changed_keys(rc: dict, ro: dict) -> list[str]:
         ac, ao = rc.get("attributes", {}) or {}, ro.get("attributes", {}) or {}
         ks = [k for k in (set(ac) | set(ao)) if ac.get(k) != ao.get(k)]
-        if fc_cur.get(rc.get("id"), 0) != fc_orig.get(ro.get("id"), 0):
+        # furniture changed if its count OR its type/material fingerprint changed
+        if (fc_cur.get(rc.get("id"), 0) != fc_orig.get(ro.get("id"), 0)
+                or fs_cur.get(rc.get("id"), []) != fs_orig.get(ro.get("id"), [])):
             ks.append("furniture")
         return ks
 
-    glow = None          # (room_after, room_before, changed, delta)
-    most_changed = None  # (room_after, room_before, changed)
+    # Three-tier pick (DECIDED): (1) biggest glow-up — largest POSITIVE overall gain;
+    # (2) else the most-changed room by score — largest |delta|, even a regression, so the
+    # report honestly shows "what your changes did"; (3) else (no scored delta) the most-
+    # edited room by changed-key count. Deterministic name tie-break throughout.
+    glow = None       # (rc, ro, changed, delta) — max positive delta
+    best_abs = None   # (rc, ro, changed, delta) — max |delta|
+    most_changed = None  # (rc, ro, changed) — max changed-key count
+
+    def _name(t):
+        return (t[0].get("name") or "") if t else "￿"
+
     for rc in current.get("rooms", []):
         ro = orig_rooms.get(rc.get("name"))
         if not ro:
@@ -842,20 +892,24 @@ def _select_compare_room(sess: dict, persona: dict):
         changed = _changed_keys(rc, ro)
         if not changed:
             continue
-        if most_changed is None or len(changed) > len(most_changed[2]):
+        if (most_changed is None or len(changed) > len(most_changed[2])
+                or (len(changed) == len(most_changed[2])
+                    and (rc.get("name") or "") < _name(most_changed))):
             most_changed = (rc, ro, changed)
         oa, ob = _room_overall(after_full, rc), _room_overall(before_full, ro)
         if oa is not None and ob is not None:
             delta = oa - ob
-            if delta > 0 and (glow is None or delta > glow[3]):
+            if delta > 0 and (glow is None or delta > glow[3]
+                              or (delta == glow[3] and (rc.get("name") or "") < _name(glow))):
                 glow = (rc, ro, changed, delta)
+            if (best_abs is None or abs(delta) > abs(best_abs[3])
+                    or (abs(delta) == abs(best_abs[3]) and (rc.get("name") or "") < _name(best_abs))):
+                best_abs = (rc, ro, changed, delta)
 
-    if glow is not None:
-        room_after, room_before, changed = glow[0], glow[1], glow[2]
-    elif most_changed is not None:
-        room_after, room_before, changed = most_changed
-    else:
+    pick = glow or best_abs or (most_changed + (None,) if most_changed else None)
+    if pick is None:
         return None
+    room_after, room_before, changed = pick[0], pick[1], pick[2]
 
     return {
         "current": current, "original": original,

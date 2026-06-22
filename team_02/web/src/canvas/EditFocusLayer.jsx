@@ -19,7 +19,10 @@ const CHANNEL = {
   ventilationType: "air", door: "threshold",
 };
 const MATERIAL_ATTRS = new Set(["floorMaterial", "wallMaterial", "furnitureMaterial"]);
-const ROOM_WIDE = new Set(["floorMaterial", "wallMaterial", "ventilationType", "glazingRatio"]);
+// Element-precision is driven purely by whether the backend gave us a changed element's
+// geometry (`el`): furniture adds, windows, doors and element-bearing edits (glazing type
+// on a window, a furniture material change) carry `el` and light exactly that element;
+// genuinely room-wide edits (floor/wall material, ventilation) omit it and wash the room.
 
 // "visual+thermal" → [coreHue, ringHue]; both are real sense keys.
 function senseHues(sense) {
@@ -71,7 +74,7 @@ function EditFocusLayer({ layout, vb, fy, u = 0.1, diffs = [], onHover, onSelect
   let i = 0;
   for (const { room, d, channel } of focuses.values()) {
     const [coreHue, , primary] = senseHues(d.sense_affected);
-    const roomWide = ROOM_WIDE.has(d.attribute) || !d.el;
+    const roomWide = !d.el;   // el present ⟺ light exactly that element; else wash the room
 
     // focus geometry — element-precise when we have it, else the room.
     let cx, cy, R, elScreen = null;
@@ -155,7 +158,7 @@ function EditFocusLayer({ layout, vb, fy, u = 0.1, diffs = [], onHover, onSelect
         <stop offset="100%" stopColor={poolColor} stopOpacity={0} />
       </radialGradient>
     );
-    if (ROOM_WIDE.has(d.attribute) || !d.el) {
+    if (!d.el) {
       const room2 = (d.room_id && byId.get(d.room_id)) || byName.get(d.room_name) || room;
       defs.push(
         <clipPath key={`rc${i}`} id={`efx-room-${i}`}>

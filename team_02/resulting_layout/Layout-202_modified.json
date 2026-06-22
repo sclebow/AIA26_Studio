@@ -60,17 +60,17 @@
         "floorMaterial": "concrete",
         "analysis": {
           "_source": "Sensi",
-          "persona": "Neutral",
-          "depth": "analyze",
-          "timestamp": "2026-06-06T11:58:30",
-          "overallScore": 0.49,
+          "persona": "Emilie (architect)",
+          "depth": "edit",
+          "timestamp": "2026-06-22T10:50:27",
+          "overallScore": 0.5,
           "comfortScores": {
-            "thermal": 0.59,
+            "thermal": 0.61,
             "visual": 0.77,
             "acoustic": 0.39,
             "spatial": 0.83,
-            "olfactory": 0.55,
-            "tactile": 0.47
+            "olfactory": 0.59,
+            "tactile": 0.45
           },
           "conflicts": [],
           "suggestions": []
@@ -109,20 +109,21 @@
         "orientation": "S",
         "glazingRatio": 0.25,
         "ventilationType": "mechanical",
-        "floorMaterial": "fabric",
+        "floorMaterial": "ceramic",
+        "wallMaterial": "wood",
         "analysis": {
           "_source": "Sensi",
-          "persona": "Neutral",
-          "depth": "analyze",
-          "timestamp": "2026-06-06T11:58:30",
-          "overallScore": 0.4,
+          "persona": "Emilie (architect)",
+          "depth": "edit",
+          "timestamp": "2026-06-22T10:50:27",
+          "overallScore": 0.34,
           "comfortScores": {
-            "thermal": 0.49,
-            "visual": 0.73,
-            "acoustic": 0.26,
+            "thermal": 0.42,
+            "visual": 0.69,
+            "acoustic": 0.2,
             "spatial": 0.87,
-            "olfactory": 0.38,
-            "tactile": 0.53
+            "olfactory": 0.23,
+            "tactile": 0.47
           },
           "conflicts": [],
           "suggestions": []
@@ -164,17 +165,17 @@
         "floorMaterial": "concrete",
         "analysis": {
           "_source": "Sensi",
-          "persona": "Neutral",
-          "depth": "analyze",
-          "timestamp": "2026-06-06T11:58:30",
-          "overallScore": 0.46,
+          "persona": "Emilie (architect)",
+          "depth": "edit",
+          "timestamp": "2026-06-22T10:50:27",
+          "overallScore": 0.42,
           "comfortScores": {
-            "thermal": 0.54,
+            "thermal": 0.56,
             "visual": 0.58,
-            "acoustic": 0.35,
+            "acoustic": 0.28,
             "spatial": 0.87,
             "olfactory": 0.65,
-            "tactile": 0.48
+            "tactile": 0.49
           },
           "conflicts": [],
           "suggestions": []
@@ -216,17 +217,17 @@
         "floorMaterial": "concrete",
         "analysis": {
           "_source": "Sensi",
-          "persona": "Neutral",
-          "depth": "analyze",
-          "timestamp": "2026-06-06T11:58:30",
-          "overallScore": 0.44,
+          "persona": "Emilie (architect)",
+          "depth": "edit",
+          "timestamp": "2026-06-22T10:50:27",
+          "overallScore": 0.41,
           "comfortScores": {
-            "thermal": 0.59,
-            "visual": 0.5,
+            "thermal": 0.6,
+            "visual": 0.48,
             "acoustic": 0.67,
             "spatial": 0.58,
-            "olfactory": 0.55,
-            "tactile": 0.35
+            "olfactory": 0.54,
+            "tactile": 0.3
           },
           "conflicts": [],
           "suggestions": []
@@ -268,17 +269,17 @@
         "floorMaterial": "ceramic",
         "analysis": {
           "_source": "Sensi",
-          "persona": "Neutral",
-          "depth": "analyze",
-          "timestamp": "2026-06-06T11:58:30",
-          "overallScore": 0.48,
+          "persona": "Emilie (architect)",
+          "depth": "edit",
+          "timestamp": "2026-06-22T10:50:27",
+          "overallScore": 0.44,
           "comfortScores": {
-            "thermal": 0.62,
-            "visual": 0.41,
+            "thermal": 0.56,
+            "visual": 0.37,
             "acoustic": 0.73,
             "spatial": 0.68,
-            "olfactory": 0.4,
-            "tactile": 0.56
+            "olfactory": 0.35,
+            "tactile": 0.48
           },
           "conflicts": [],
           "suggestions": []
@@ -313,11 +314,11 @@
       "name": "Living to Bedroom",
       "geometry": [
         [
-          2,
+          4.6,
           4
         ],
         [
-          2.9,
+          5.5,
           4
         ]
       ],
@@ -356,11 +357,11 @@
       "geometry": [
         [
           7,
-          5
+          5.05
         ],
         [
           7,
-          5.9
+          5.85
         ]
       ],
       "attributes": {
@@ -376,11 +377,11 @@
       "name": "Study to Bathroom",
       "geometry": [
         [
-          8,
+          8.05,
           6
         ],
         [
-          8.9,
+          8.85,
           6
         ]
       ],
@@ -481,23 +482,23 @@
       "name": "Dining Table",
       "geometry": [
         [
-          0.5,
+          0.6,
           0.5
         ],
         [
-          3.5,
+          2.0,
           0.5
         ],
         [
-          3.5,
-          2
+          2.0,
+          1.3
         ],
         [
-          0.5,
-          2
+          0.6,
+          1.3
         ],
         [
-          0.5,
+          0.6,
           0.5
         ]
       ],
@@ -512,24 +513,24 @@
       "name": "Sofa",
       "geometry": [
         [
-          0.5,
-          2.5
+          0.6,
+          2.4
         ],
         [
-          4.5,
-          2.5
+          2.8,
+          2.4
         ],
         [
-          4.5,
-          3.5
+          2.8,
+          3.3
         ],
         [
-          0.5,
-          3.5
+          0.6,
+          3.3
         ],
         [
-          0.5,
-          2.5
+          0.6,
+          2.4
         ]
       ],
       "attributes": {
@@ -543,24 +544,24 @@
       "name": "Kitchen Counter",
       "geometry": [
         [
-          6,
-          0
+          6.1,
+          0.0
         ],
         [
-          10,
-          0
+          9.4,
+          0.0
         ],
         [
-          10,
-          0.8
+          9.4,
+          0.6
         ],
         [
-          6,
-          0.8
+          6.1,
+          0.6
         ],
         [
-          6,
-          0
+          6.1,
+          0.0
         ]
       ],
       "attributes": {
@@ -571,27 +572,58 @@
     },
     {
       "id": "furn-4",
+      "name": "Kitchen Sink",
+      "geometry": [
+        [
+          9.4,
+          0.0
+        ],
+        [
+          10.0,
+          0.0
+        ],
+        [
+          10.0,
+          0.6
+        ],
+        [
+          9.4,
+          0.6
+        ],
+        [
+          9.4,
+          0.0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-2",
+        "type": "sink",
+        "material": "metal"
+      }
+    },
+    {
+      "id": "furn-5",
       "name": "Kitchen Island",
       "geometry": [
         [
-          6.5,
-          1.5
+          6.6,
+          1.6
         ],
         [
-          9.5,
-          1.5
+          8.2,
+          1.6
         ],
         [
-          9.5,
-          2.8
+          8.2,
+          2.5
         ],
         [
-          6.5,
-          2.8
+          6.6,
+          2.5
         ],
         [
-          6.5,
-          1.5
+          6.6,
+          1.6
         ]
       ],
       "attributes": {
@@ -601,28 +633,59 @@
       }
     },
     {
-      "id": "furn-5",
+      "id": "furn-6",
+      "name": "Refrigerator",
+      "geometry": [
+        [
+          9.3,
+          1.5
+        ],
+        [
+          10.0,
+          1.5
+        ],
+        [
+          10.0,
+          2.2
+        ],
+        [
+          9.3,
+          2.2
+        ],
+        [
+          9.3,
+          1.5
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-2",
+        "type": "fridge",
+        "material": "metal"
+      }
+    },
+    {
+      "id": "furn-7",
       "name": "Bed",
       "geometry": [
         [
           0.5,
-          4.5
+          5.0
         ],
         [
-          3.5,
-          4.5
+          2.0,
+          5.0
         ],
         [
-          3.5,
-          6.5
-        ],
-        [
-          0.5,
-          6.5
+          2.0,
+          7.0
         ],
         [
           0.5,
-          4.5
+          7.0
+        ],
+        [
+          0.5,
+          5.0
         ]
       ],
       "attributes": {
@@ -632,59 +695,90 @@
       }
     },
     {
-      "id": "furn-6",
+      "id": "furn-8",
       "name": "Bedside Table",
       "geometry": [
         [
-          3.5,
-          4.5
+          2.0,
+          6.55
         ],
         [
-          4.5,
-          4.5
+          2.45,
+          6.55
         ],
         [
-          4.5,
-          5.5
+          2.45,
+          6.95
         ],
         [
-          3.5,
-          5.5
+          2.0,
+          6.95
         ],
         [
-          3.5,
-          4.5
+          2.0,
+          6.55
         ]
       ],
       "attributes": {
         "roomId": "room-3",
-        "type": "table",
+        "type": "nightstand",
         "material": "metal"
       }
     },
     {
-      "id": "furn-7",
+      "id": "furn-9",
+      "name": "Wardrobe",
+      "geometry": [
+        [
+          3.0,
+          4.0
+        ],
+        [
+          4.6,
+          4.0
+        ],
+        [
+          4.6,
+          4.6
+        ],
+        [
+          3.0,
+          4.6
+        ],
+        [
+          3.0,
+          4.0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-3",
+        "type": "dresser",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-10",
       "name": "Study Desk",
       "geometry": [
         [
-          7.5,
-          4.5
+          7.4,
+          4.0
         ],
         [
-          9.5,
-          4.5
+          8.6,
+          4.0
         ],
         [
-          9.5,
-          5.3
+          8.6,
+          4.6
         ],
         [
-          7.5,
-          5.3
+          7.4,
+          4.6
         ],
         [
-          7.5,
-          4.5
+          7.4,
+          4.0
         ]
       ],
       "attributes": {
@@ -694,28 +788,28 @@
       }
     },
     {
-      "id": "furn-8",
+      "id": "furn-11",
       "name": "Bookshelf",
       "geometry": [
         [
-          7.5,
-          5.5
+          7.0,
+          4.05
         ],
         [
-          9,
-          5.5
+          7.3,
+          4.05
         ],
         [
-          9,
-          6
+          7.3,
+          4.95
         ],
         [
-          7.5,
-          6
+          7.0,
+          4.95
         ],
         [
-          7.5,
-          5.5
+          7.0,
+          4.05
         ]
       ],
       "attributes": {
@@ -725,34 +819,96 @@
       }
     },
     {
-      "id": "furn-9",
-      "name": "Added plant",
+      "id": "furn-12",
+      "name": "Toilet",
       "geometry": [
         [
-          7.6,
-          1.6
+          7.15,
+          6.25
         ],
         [
-          8.4,
-          1.6
+          7.55,
+          6.25
         ],
         [
-          8.4,
-          2.4
+          7.55,
+          6.9
         ],
         [
-          7.6,
-          2.4
+          7.15,
+          6.9
         ],
         [
-          7.6,
-          1.6
+          7.15,
+          6.25
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-5",
+        "type": "toilet",
+        "material": "ceramic"
+      }
+    },
+    {
+      "id": "furn-13",
+      "name": "Sink",
+      "geometry": [
+        [
+          9.3,
+          6.3
+        ],
+        [
+          9.8,
+          6.3
+        ],
+        [
+          9.8,
+          6.75
+        ],
+        [
+          9.3,
+          6.75
+        ],
+        [
+          9.3,
+          6.3
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-5",
+        "type": "sink",
+        "material": "ceramic"
+      }
+    },
+    {
+      "id": "furn-14",
+      "name": "Added rug",
+      "geometry": [
+        [
+          6.9,
+          0.8
+        ],
+        [
+          9.1,
+          0.8
+        ],
+        [
+          9.1,
+          3.2
+        ],
+        [
+          6.9,
+          3.2
+        ],
+        [
+          6.9,
+          0.8
         ]
       ],
       "attributes": {
         "roomId": "room-2",
-        "type": "plant",
-        "material": "natural"
+        "type": "rug",
+        "material": "fabric"
       }
     }
   ],
@@ -871,10 +1027,10 @@
   ],
   "analysis": {
     "_source": "Sensi",
-    "persona": "Neutral",
-    "depth": "analyze",
-    "timestamp": "2026-06-06T11:58:30",
-    "overallScore": 0.454,
+    "persona": "Emilie (architect)",
+    "depth": "edit",
+    "timestamp": "2026-06-22T10:50:27",
+    "overallScore": 0.422,
     "bestRoom": "room-1",
     "worstRoom": "room-2"
   }

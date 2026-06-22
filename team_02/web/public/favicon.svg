@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
+  <!-- Sensi brand mark: the concentric six-sense ring (mirrors SensiAvatar.jsx).
+       Rings outer→inner = thermal, visual, acoustic, spatial, olfactory, tactile.
+       Tuned for a 16px tab: dark backing disc, slightly heavier strokes, soft glow. -->
+  <defs>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="0.7" result="b" />
+      <feMerge>
+        <feMergeNode in="b" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  <circle cx="16" cy="16" r="15.5" fill="#0D0D0D" />
+  <g fill="none" stroke-width="1.15" filter="url(#glow)">
+    <circle cx="16" cy="16" r="14.5" stroke="#E8836A" />
+    <circle cx="16" cy="16" r="12"   stroke="#D4B96A" />
+    <circle cx="16" cy="16" r="9.5"  stroke="#9B8FD4" />
+    <circle cx="16" cy="16" r="7"    stroke="#6AB8C8" />
+    <circle cx="16" cy="16" r="4.5"  stroke="#8BB88A" />
+    <circle cx="16" cy="16" r="2"    stroke="#C4A882" />
+  </g>
+  <circle cx="16" cy="16" r="1.2" fill="#FFF4E6" opacity="0.85" />
+</svg>

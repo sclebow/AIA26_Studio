@@ -213,12 +213,17 @@ def next_id(layout: dict, key: str, prefix: str) -> str:
 
 def _anchor(geom) -> Optional[list]:
     """Centroid/midpoint of an element geometry (a segment or a footprint polygon).
-    Drives the edit-guide's focus point so the cue lands ON the changed element."""
+    Drives the edit-guide's focus point so the cue lands ON the changed element.
+    Drops a duplicated closing vertex first so a closed ring isn't pulled off-centre
+    toward its repeated corner."""
     if not geom:
         return None
+    pts = geom
+    if len(pts) > 1 and list(pts[0]) == list(pts[-1]):
+        pts = pts[:-1]
     try:
-        xs = [float(p[0]) for p in geom]
-        ys = [float(p[1]) for p in geom]
+        xs = [float(p[0]) for p in pts]
+        ys = [float(p[1]) for p in pts]
     except (TypeError, IndexError, ValueError):
         return None
     if not xs:
@@ -299,35 +304,91 @@ def apply_change_material(layout: dict, room: Optional[dict],
         return make_layout_diff(room, "wallMaterial", old_val, material, "tactile+acoustic")
 
     if room:
-        rid     = room.get("id")
-        changed = False
-        old_val = material
+        rid       = room.get("id")
+        changed   = False
+        old_val   = material
+        furn_geom = None
         for f in layout.get("furniture", []):
             if f.get("attributes", {}).get("roomId") == rid:
                 old_val = f.get("attributes", {}).get("material", "unknown")
                 f.setdefault("attributes", {})["material"] = material
                 changed = True
+                if furn_geom is None:
+                    furn_geom = f.get("geometry")   # light the (first) changed piece
         return make_layout_diff(
-            room, "furnitureMaterial", old_val if changed else "none", material, "tactile"
+            room, "furnitureMaterial", old_val if changed else "none", material, "tactile",
+            at=_anchor(furn_geom) if furn_geom else None,
+            el=furn_geom if furn_geom else None,
         )
 
     return {}
 
 
+# Realistic footprint VARIANTS (metres), LARGEST → smallest, so a piece can shrink to
+# fit a tight room instead of being rejected outright. All within check_layout_geometry's
+# plausible size ranges. "Smallest that fits wins" — try the biggest realistic size first
+# and step down only when nothing places soundly, so a plant almost always finds a home.
+_FOOTPRINT_VARIANTS = {
+    "plant":     [(0.7, 0.7), (0.5, 0.5), (0.35, 0.35), (0.25, 0.25)],
+    "armchair":  [(0.85, 0.85), (0.7, 0.7), (0.6, 0.6)],
+    "table":     [(0.9, 1.2), (0.8, 1.0), (0.6, 0.8)],
+    "desk":      [(0.7, 1.4), (0.6, 1.1), (0.5, 0.9)],
+    "shelf":     [(0.35, 1.0), (0.3, 0.7), (0.25, 0.5)],
+    "bookshelf": [(0.35, 1.0), (0.3, 0.7), (0.25, 0.5)],
+    "cabinet":   [(0.5, 1.0), (0.45, 0.8), (0.4, 0.6)],
+    "dresser":   [(0.5, 1.2), (0.45, 0.9), (0.45, 0.7)],
+}
+
+
+def _size_variants(ftype: str) -> list:
+    """Largest→smallest realistic footprints to try for `ftype`."""
+    if ftype in _FOOTPRINT_VARIANTS:
+        return _FOOTPRINT_VARIANTS[ftype]
+    w, h = _FOOTPRINT.get(ftype, (0.6, 0.6))
+    return [(w, h), (round(w * 0.82, 2), round(h * 0.82, 2))]
+
+
+def _place_sound(layout: dict, room: dict, ftype: str,
+                 audit_fn=None, baseline=None) -> tuple:
+    """Find a SOUND spot for `ftype` in `room`, trying multiple sizes (largest first) and
+    multiple candidate spots. With an `audit_fn` (layout-dict → defect list) it accepts only
+    a spot that introduces NO new architectural defect vs `baseline` — so the per-op revert
+    gate becomes a no-op for adds and a plant almost always lands somewhere. Without one
+    (preview / no gate) it falls back to the single best spot. Returns (ring|None, downsized)."""
+    variants = _size_variants(ftype)
+    if audit_fn is None:
+        w, h = variants[0]
+        return spatial.place_furniture(layout, room, w, h), False
+    base = set(baseline or [])
+    furn = layout.setdefault("furniture", [])
+    for vi, (w, h) in enumerate(variants):
+        for geo in spatial.place_furniture_candidates(layout, room, w, h):
+            probe = {"id": "__probe__", "name": "probe", "geometry": geo,
+                     "attributes": {"roomId": room.get("id"), "type": ftype}}
+            furn.append(probe)
+            new_defects = set(audit_fn(layout)) - base
+            furn.pop()
+            if not new_defects:
+                return geo, (vi > 0)
+    return None, False
+
+
 def apply_add_furniture(layout: dict, room: Optional[dict],
-                        ftype: str, material: str) -> dict:
+                        ftype: str, material: str,
+                        audit_fn=None, baseline=None) -> dict:
     """Append a furniture/plant/curtain element to `room`, placed SOUNDLY (against a
-    wall / at the window / centred for a rug — never the dead centre by default).
-    Returns the diff, or {} if no spot could be found."""
+    wall / at the window / centred for a rug — never the dead centre, never in a doorway).
+    Tries multiple sizes + spots, audit-checking each when `audit_fn` is given.
+    Returns the diff, or {} if no sound spot could be found at any size."""
     if not room:
         return {}
+    downsized = False
     if ftype in CURTAIN_TYPES:
         geo = spatial.place_curtain(layout, room)      # hang inside the window wall
     elif ftype == "rug":
         geo = spatial.place_rug(layout, room)          # centred floor covering
     else:
-        w, h = _FOOTPRINT.get(ftype, (0.6, 0.6))
-        geo = spatial.place_furniture(layout, room, w, h)   # clear spot against a wall
+        geo, downsized = _place_sound(layout, room, ftype, audit_fn, baseline)
     if not geo:
         return {}
     new_id = next_id(layout, "furniture", "furn")
@@ -338,8 +399,12 @@ def apply_add_furniture(layout: dict, room: Optional[dict],
         "attributes": {"roomId": room.get("id"), "type": ftype, "material": material},
     })
     sense = _ADD_SENSE.get(ftype, "tactile")
-    return make_layout_diff(room, "furniture", "none", f"added {ftype} ({material})", sense,
+    label = f"added {'compact ' if downsized else ''}{ftype} ({material})"
+    diff = make_layout_diff(room, "furniture", "none", label, sense,
                             at=_anchor(geo), el=geo)
+    if downsized:
+        diff["downsized"] = True   # transient flag; apply_edits pops it into edit_notes
+    return diff
 
 
 def apply_modify_glazing(layout: dict, room: Optional[dict],
@@ -353,18 +418,23 @@ def apply_modify_glazing(layout: dict, room: Optional[dict],
     attrs["glazingRatio"] = new_gr
 
     applied_gt = gtype or "triple"
-    rid    = room.get("id")
-    old_gt = "double"
+    rid      = room.get("id")
+    old_gt   = "double"
+    win_geom = None
     for win in layout.get("windows", []):
         if win.get("attributes", {}).get("roomId") == rid:
             old_gt = win.get("attributes", {}).get("glazingType", "double")
             win.setdefault("attributes", {})["glazingType"] = applied_gt
+            if win_geom is None:
+                win_geom = win.get("geometry")   # light the (first) changed window
 
     return make_layout_diff(
         room, "glazingRatio",
         f"ratio={old_gr:.2f}, type={old_gt}",
         f"ratio={new_gr:.2f}, type={applied_gt}",
         "visual+thermal",
+        at=_anchor(win_geom) if win_geom else None,
+        el=win_geom if win_geom else None,
     )
 
 

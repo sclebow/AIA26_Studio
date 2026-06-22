@@ -27,12 +27,13 @@ from comfort import suggestion_lifecycle as sugg_life
 COUNT_CAP = 5  # guard against "add 100 plants"
 
 
-def _apply_one(kind, op, layout, room, raw_prompt):
+def _apply_one(kind, op, layout, room, raw_prompt, audit_fn=None, baseline=None):
     """Apply ONE op to `layout` in place. Returns (diff_or_None, note_or_None).
 
     A `note` is a surfaced assumption ("capped at 5", "defaulted glazing to triple",
     "used 'wood' — unknown material 'oakwood'") so the response can stay honest.
-    """
+    `audit_fn`/`baseline` let add_furniture try multiple sizes/spots and keep only a
+    placement that introduces no NEW defect (so a plant almost always fits)."""
     if kind == "add_furniture":
         ftype = op.get("furniture_type") or _edits.detect_furniture_type(raw_prompt)
         mat   = _edits.validate_material(op.get("material")) or _edits.furniture_material_for(ftype)
@@ -42,16 +43,22 @@ def _apply_one(kind, op, layout, room, raw_prompt):
             count = 1
         capped = count > COUNT_CAP
         count = max(1, min(count, COUNT_CAP))
-        diff, placed = None, 0
+        diff, placed, downsized = None, 0, False
         for _ in range(count):
-            d = _edits.apply_add_furniture(layout, room, ftype, mat)
+            d = _edits.apply_add_furniture(layout, room, ftype, mat,
+                                           audit_fn=audit_fn, baseline=baseline)
             if not d:
                 break
+            downsized = downsized or bool(d.pop("downsized", False))
             diff, placed = d, placed + 1
         if diff and placed > 1:
             diff = {**diff, "new_value": f"added {placed}x {ftype} ({mat})"}
-        note = f"added {placed}, capped at {COUNT_CAP}" if capped else None
-        return (diff or None), note
+        notes = []
+        if capped:
+            notes.append(f"added {placed}, capped at {COUNT_CAP}")
+        if downsized:
+            notes.append(f"used a compact {ftype} to fit the available floor")
+        return (diff or None), ("; ".join(notes) or None)
 
     if kind == "modify_glazing":
         gtype = op.get("glazing_type")
@@ -160,7 +167,10 @@ def build_apply_edits_node():
 
             snapshot = json.loads(_edits.dump(layout))   # cheap deep copy for per-op revert
             try:
-                diff, note = _apply_one(kind, op, layout, room, raw_prompt)
+                # add_furniture searches sizes/spots audit-aware (audit_fn + baseline) so it
+                # only ever returns a placement that already passes the gate below.
+                diff, note = _apply_one(kind, op, layout, room, raw_prompt,
+                                        audit_fn=geo.audit_layout, baseline=baseline)
                 # Only audit when something actually changed (audit is the per-op gate).
                 new_defects = (set(geo.audit_layout(layout)) - baseline) if diff else set()
             except Exception as exc:  # a degenerate edit must never crash the whole turn
@@ -173,7 +183,9 @@ def build_apply_edits_node():
             if note:
                 notes.append(note)
             if not diff:
-                rejected.append({"op": kind, "reason": "couldn't apply it here", "phrase": _op_phrase(op)})
+                reason = ("no clear floor away from the doors, windows and walkways"
+                          if kind == "add_furniture" else "couldn't apply it here")
+                rejected.append({"op": kind, "reason": reason, "phrase": _op_phrase(op)})
                 continue
             if new_defects:
                 layout.clear()

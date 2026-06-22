@@ -62,15 +62,15 @@
           "_source": "Sensi",
           "persona": "Emilie (architect)",
           "depth": "edit",
-          "timestamp": "2026-06-19T11:52:57",
-          "overallScore": 0.51,
+          "timestamp": "2026-06-22T16:05:49",
+          "overallScore": 0.49,
           "comfortScores": {
             "thermal": 0.67,
-            "visual": 0.41,
-            "acoustic": 0.5,
+            "visual": 0.37,
+            "acoustic": 0.54,
             "spatial": 0.93,
             "olfactory": 0.65,
-            "tactile": 0.5
+            "tactile": 0.56
           },
           "conflicts": [],
           "suggestions": []
@@ -122,14 +122,14 @@
           "_source": "Sensi",
           "persona": "Emilie (architect)",
           "depth": "edit",
-          "timestamp": "2026-06-19T11:52:57",
-          "overallScore": 0.53,
+          "timestamp": "2026-06-22T16:05:49",
+          "overallScore": 0.54,
           "comfortScores": {
-            "thermal": 0.68,
+            "thermal": 0.73,
             "visual": 0.86,
-            "acoustic": 0.37,
+            "acoustic": 0.38,
             "spatial": 0.87,
-            "olfactory": 0.71,
+            "olfactory": 0.75,
             "tactile": 0.68
           },
           "conflicts": [],
@@ -169,20 +169,20 @@
         "orientation": "E",
         "glazingRatio": 0.12,
         "ventilationType": "mechanical",
-        "floorMaterial": "wood",
+        "floorMaterial": "ceramic",
         "analysis": {
           "_source": "Sensi",
           "persona": "Emilie (architect)",
           "depth": "edit",
-          "timestamp": "2026-06-19T11:52:57",
-          "overallScore": 0.39,
+          "timestamp": "2026-06-22T16:05:49",
+          "overallScore": 0.29,
           "comfortScores": {
-            "thermal": 0.47,
+            "thermal": 0.38,
             "visual": 0.66,
-            "acoustic": 0.25,
+            "acoustic": 0.12,
             "spatial": 0.87,
-            "olfactory": 0.38,
-            "tactile": 0.59
+            "olfactory": 0.33,
+            "tactile": 0.45
           },
           "conflicts": [],
           "suggestions": []
@@ -226,10 +226,10 @@
           "_source": "Sensi",
           "persona": "Emilie (architect)",
           "depth": "edit",
-          "timestamp": "2026-06-19T11:52:57",
+          "timestamp": "2026-06-22T16:05:49",
           "overallScore": 0.68,
           "comfortScores": {
-            "thermal": 0.83,
+            "thermal": 0.82,
             "visual": 0.74,
             "acoustic": 0.59,
             "spatial": 0.93,
@@ -278,10 +278,10 @@
           "_source": "Sensi",
           "persona": "Emilie (architect)",
           "depth": "edit",
-          "timestamp": "2026-06-19T11:52:57",
+          "timestamp": "2026-06-22T16:05:49",
           "overallScore": 0.68,
           "comfortScores": {
-            "thermal": 0.73,
+            "thermal": 0.71,
             "visual": 0.63,
             "acoustic": 0.78,
             "spatial": 0.64,
@@ -330,10 +330,10 @@
           "_source": "Sensi",
           "persona": "Emilie (architect)",
           "depth": "edit",
-          "timestamp": "2026-06-19T11:52:57",
+          "timestamp": "2026-06-22T16:05:49",
           "overallScore": 0.59,
           "comfortScores": {
-            "thermal": 0.68,
+            "thermal": 0.66,
             "visual": 0.63,
             "acoustic": 0.78,
             "spatial": 0.5,
@@ -382,15 +382,15 @@
           "_source": "Sensi",
           "persona": "Emilie (architect)",
           "depth": "edit",
-          "timestamp": "2026-06-19T11:52:57",
-          "overallScore": 0.49,
+          "timestamp": "2026-06-22T16:05:49",
+          "overallScore": 0.44,
           "comfortScores": {
             "thermal": 0.62,
-            "visual": 0.41,
-            "acoustic": 0.53,
+            "visual": 0.37,
+            "acoustic": 0.51,
             "spatial": 0.93,
-            "olfactory": 0.4,
-            "tactile": 0.56
+            "olfactory": 0.35,
+            "tactile": 0.52
           },
           "conflicts": [],
           "suggestions": []
@@ -434,15 +434,15 @@
           "_source": "Sensi",
           "persona": "Emilie (architect)",
           "depth": "edit",
-          "timestamp": "2026-06-19T11:52:57",
-          "overallScore": 0.41,
+          "timestamp": "2026-06-22T16:05:49",
+          "overallScore": 0.36,
           "comfortScores": {
-            "thermal": 0.47,
-            "visual": 0.32,
-            "acoustic": 0.34,
+            "thermal": 0.44,
+            "visual": 0.27,
+            "acoustic": 0.28,
             "spatial": 0.87,
-            "olfactory": 0.5,
-            "tactile": 0.48
+            "olfactory": 0.48,
+            "tactile": 0.46
           },
           "conflicts": [],
           "suggestions": []
@@ -456,11 +456,11 @@
       "name": "Foyer to Living",
       "geometry": [
         [
-          0.5,
+          0.45,
           6
         ],
         [
-          1.4,
+          1.45,
           6
         ]
       ],
@@ -562,11 +562,11 @@
       "geometry": [
         [
           2,
-          4.5
+          4.55
         ],
         [
           2,
-          5.4
+          5.35
         ]
       ],
       "attributes": {
@@ -582,11 +582,11 @@
       "name": "Living to Laundry",
       "geometry": [
         [
-          6,
+          6.05,
           4
         ],
         [
-          6.9,
+          6.85,
           4
         ]
       ],
@@ -768,24 +768,24 @@
       "name": "Living Sofa",
       "geometry": [
         [
-          1,
-          2
+          1.0,
+          2.2
         ],
         [
-          5,
-          2
+          3.6,
+          2.2
         ],
         [
-          5,
-          3.5
+          3.6,
+          3.1
         ],
         [
-          1,
-          3.5
+          1.0,
+          3.1
         ],
         [
-          1,
-          2
+          1.0,
+          2.2
         ]
       ],
       "attributes": {
@@ -800,23 +800,23 @@
       "geometry": [
         [
           5.5,
-          1
+          1.2
         ],
         [
-          8.5,
-          1
+          7.3,
+          1.2
         ],
         [
-          8.5,
-          3
-        ],
-        [
-          5.5,
-          3
+          7.3,
+          2.1
         ],
         [
           5.5,
-          1
+          2.1
+        ],
+        [
+          5.5,
+          1.2
         ]
       ],
       "attributes": {
@@ -827,27 +827,27 @@
     },
     {
       "id": "furn-3",
-      "name": "Living Room Plant 1",
+      "name": "Living Plant 1",
       "geometry": [
         [
-          1.2,
-          5
+          3.5,
+          0.3
         ],
         [
-          1.7,
-          5
+          4.0,
+          0.3
         ],
         [
-          1.7,
-          5.5
+          4.0,
+          0.8
         ],
         [
-          1.2,
-          5.5
+          3.5,
+          0.8
         ],
         [
-          1.2,
-          5
+          3.5,
+          0.3
         ]
       ],
       "attributes": {
@@ -858,26 +858,26 @@
     },
     {
       "id": "furn-4",
-      "name": "Living Room Plant 2",
+      "name": "Living Plant 2",
       "geometry": [
         [
-          0.5,
+          0.4,
           4.5
         ],
         [
-          1,
+          0.9,
           4.5
         ],
         [
-          1,
-          5
+          0.9,
+          5.0
         ],
         [
-          0.5,
-          5
+          0.4,
+          5.0
         ],
         [
-          0.5,
+          0.4,
           4.5
         ]
       ],
@@ -892,24 +892,24 @@
       "name": "Kitchen Island",
       "geometry": [
         [
-          10,
-          1
+          10.0,
+          1.0
         ],
         [
-          13,
-          1
+          11.8,
+          1.0
         ],
         [
-          13,
-          2.5
+          11.8,
+          1.9
         ],
         [
-          10,
-          2.5
+          10.0,
+          1.9
         ],
         [
-          10,
-          1
+          10.0,
+          1.0
         ]
       ],
       "attributes": {
@@ -923,24 +923,24 @@
       "name": "Kitchen Counter",
       "geometry": [
         [
-          9,
-          3
+          13.4,
+          0.5
         ],
         [
-          13.5,
-          3
+          14.0,
+          0.5
         ],
         [
-          13.5,
+          14.0,
           3.5
         ],
         [
-          9,
+          13.4,
           3.5
         ],
         [
-          9,
-          3
+          13.4,
+          0.5
         ]
       ],
       "attributes": {
@@ -951,27 +951,89 @@
     },
     {
       "id": "furn-7",
+      "name": "Kitchen Sink",
+      "geometry": [
+        [
+          9.2,
+          3.4
+        ],
+        [
+          9.8,
+          3.4
+        ],
+        [
+          9.8,
+          4.0
+        ],
+        [
+          9.2,
+          4.0
+        ],
+        [
+          9.2,
+          3.4
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-3",
+        "type": "sink",
+        "material": "metal"
+      }
+    },
+    {
+      "id": "furn-8",
+      "name": "Refrigerator",
+      "geometry": [
+        [
+          9.1,
+          0.1
+        ],
+        [
+          9.8,
+          0.1
+        ],
+        [
+          9.8,
+          0.8
+        ],
+        [
+          9.1,
+          0.8
+        ],
+        [
+          9.1,
+          0.1
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-3",
+        "type": "fridge",
+        "material": "metal"
+      }
+    },
+    {
+      "id": "furn-9",
       "name": "Master Bed",
       "geometry": [
         [
-          9.5,
-          5
+          10.2,
+          7.0
         ],
         [
-          12.5,
-          5
+          12.0,
+          7.0
         ],
         [
-          12.5,
-          7.5
+          12.0,
+          9.0
         ],
         [
-          9.5,
-          7.5
+          10.2,
+          9.0
         ],
         [
-          9.5,
-          5
+          10.2,
+          7.0
         ]
       ],
       "attributes": {
@@ -981,28 +1043,90 @@
       }
     },
     {
-      "id": "furn-8",
+      "id": "furn-10",
+      "name": "Master Nightstand L",
+      "geometry": [
+        [
+          9.75,
+          8.55
+        ],
+        [
+          10.2,
+          8.55
+        ],
+        [
+          10.2,
+          8.95
+        ],
+        [
+          9.75,
+          8.95
+        ],
+        [
+          9.75,
+          8.55
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-4",
+        "type": "nightstand",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-11",
+      "name": "Master Nightstand R",
+      "geometry": [
+        [
+          12.0,
+          8.55
+        ],
+        [
+          12.45,
+          8.55
+        ],
+        [
+          12.45,
+          8.95
+        ],
+        [
+          12.0,
+          8.95
+        ],
+        [
+          12.0,
+          8.55
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-4",
+        "type": "nightstand",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-12",
       "name": "Master Wardrobe",
       "geometry": [
         [
-          13,
-          4.5
+          12.0,
+          4.0
         ],
         [
-          14,
-          4.5
+          14.0,
+          4.0
         ],
         [
-          14,
-          8
+          14.0,
+          4.6
         ],
         [
-          13,
-          8
+          12.0,
+          4.6
         ],
         [
-          13,
-          4.5
+          12.0,
+          4.0
         ]
       ],
       "attributes": {
@@ -1012,28 +1136,28 @@
       }
     },
     {
-      "id": "furn-9",
+      "id": "furn-13",
       "name": "Master Plant",
       "geometry": [
         [
-          9.5,
-          8
+          9.3,
+          5.7
         ],
         [
-          10,
-          8
+          9.8,
+          5.7
         ],
         [
-          10,
-          8.5
+          9.8,
+          6.2
         ],
         [
-          9.5,
-          8.5
+          9.3,
+          6.2
         ],
         [
-          9.5,
-          8
+          9.3,
+          5.7
         ]
       ],
       "attributes": {
@@ -1043,28 +1167,28 @@
       }
     },
     {
-      "id": "furn-10",
+      "id": "furn-14",
       "name": "Children's Bed",
       "geometry": [
         [
-          2.5,
-          6.5
+          2.7,
+          7.0
         ],
         [
-          5,
-          6.5
+          4.1,
+          7.0
         ],
         [
-          5,
-          8.5
+          4.1,
+          8.9
         ],
         [
-          2.5,
-          8.5
+          2.7,
+          8.9
         ],
         [
-          2.5,
-          6.5
+          2.7,
+          7.0
         ]
       ],
       "attributes": {
@@ -1074,28 +1198,28 @@
       }
     },
     {
-      "id": "furn-11",
+      "id": "furn-15",
       "name": "Children's Desk",
       "geometry": [
         [
+          4.2,
+          6.0
+        ],
+        [
+          5.2,
+          6.0
+        ],
+        [
           5.2,
           6.5
         ],
         [
-          6,
+          4.2,
           6.5
         ],
         [
-          6,
-          7.5
-        ],
-        [
-          5.2,
-          7.5
-        ],
-        [
-          5.2,
-          6.5
+          4.2,
+          6.0
         ]
       ],
       "attributes": {
@@ -1105,28 +1229,28 @@
       }
     },
     {
-      "id": "furn-12",
+      "id": "furn-16",
       "name": "Guest Bed",
       "geometry": [
         [
-          6.5,
-          6.5
+          7.0,
+          7.0
         ],
         [
           8.5,
-          6.5
+          7.0
         ],
         [
           8.5,
-          8.5
+          9.0
         ],
         [
-          6.5,
-          8.5
+          7.0,
+          9.0
         ],
         [
-          6.5,
-          6.5
+          7.0,
+          7.0
         ]
       ],
       "attributes": {
@@ -1136,28 +1260,183 @@
       }
     },
     {
-      "id": "furn-13",
+      "id": "furn-17",
+      "name": "Guest Nightstand",
+      "geometry": [
+        [
+          8.5,
+          8.55
+        ],
+        [
+          8.95,
+          8.55
+        ],
+        [
+          8.95,
+          8.95
+        ],
+        [
+          8.5,
+          8.95
+        ],
+        [
+          8.5,
+          8.55
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-6",
+        "type": "nightstand",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-18",
+      "name": "Toilet",
+      "geometry": [
+        [
+          2.7,
+          4.1
+        ],
+        [
+          3.1,
+          4.1
+        ],
+        [
+          3.1,
+          4.75
+        ],
+        [
+          2.7,
+          4.75
+        ],
+        [
+          2.7,
+          4.1
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-7",
+        "type": "toilet",
+        "material": "ceramic"
+      }
+    },
+    {
+      "id": "furn-19",
+      "name": "Vanity",
+      "geometry": [
+        [
+          3.3,
+          4.1
+        ],
+        [
+          4.0,
+          4.1
+        ],
+        [
+          4.0,
+          4.6
+        ],
+        [
+          3.3,
+          4.6
+        ],
+        [
+          3.3,
+          4.1
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-7",
+        "type": "vanity",
+        "material": "wood"
+      }
+    },
+    {
+      "id": "furn-20",
+      "name": "Shower",
+      "geometry": [
+        [
+          4.0,
+          5.0
+        ],
+        [
+          4.9,
+          5.0
+        ],
+        [
+          4.9,
+          5.9
+        ],
+        [
+          4.0,
+          5.9
+        ],
+        [
+          4.0,
+          5.0
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-7",
+        "type": "shower",
+        "material": "ceramic"
+      }
+    },
+    {
+      "id": "furn-21",
+      "name": "Added rug",
+      "geometry": [
+        [
+          0.4,
+          6.6
+        ],
+        [
+          1.6,
+          6.6
+        ],
+        [
+          1.6,
+          8.4
+        ],
+        [
+          0.4,
+          8.4
+        ],
+        [
+          0.4,
+          6.6
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-1",
+        "type": "rug",
+        "material": "fabric"
+      }
+    },
+    {
+      "id": "furn-22",
       "name": "Added plant",
       "geometry": [
         [
-          11.1,
-          1.6
+          10.73,
+          0.04999999999999999
         ],
         [
-          11.9,
-          1.6
+          11.43,
+          0.04999999999999999
         ],
         [
-          11.9,
-          2.4
+          11.43,
+          0.75
         ],
         [
-          11.1,
-          2.4
+          10.73,
+          0.75
         ],
         [
-          11.1,
-          1.6
+          10.73,
+          0.04999999999999999
         ]
       ],
       "attributes": {
@@ -1351,8 +1630,8 @@
     "_source": "Sensi",
     "persona": "Emilie (architect)",
     "depth": "edit",
-    "timestamp": "2026-06-19T11:52:57",
-    "overallScore": 0.535,
+    "timestamp": "2026-06-22T16:05:49",
+    "overallScore": 0.5088,
     "bestRoom": "room-4",
     "worstRoom": "room-3"
   }

@@ -956,6 +956,188 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
 
 .aesthetic-note { font-family:var(--font-sans); font-weight: 300; font-size: 11px; line-height: 1.65; color: rgba(var(--fg-rgb), .38); margin-top: 8px; font-style: italic; }
 
+/* ── Profile reveal — responsive card grid that rises in (PersonaCard) ───────── */
+.persona-reveal {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  max-width: 720px;
+  margin: 18px auto 8px;
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas:
+    "identity   fingerprint"
+    "priorities priorities"
+    "aesthetic  aesthetic"
+    "scoring    scoring";
+}
+/* the in-layout drawer (compact) + narrow viewports stack to one column */
+.persona-reveal-compact {
+  grid-template-columns: 1fr;
+  grid-template-areas: "identity" "fingerprint" "priorities" "aesthetic" "scoring";
+  max-width: none; margin: 4px 0;
+}
+@media (max-width: 620px) {
+  .persona-reveal {
+    grid-template-columns: 1fr;
+    grid-template-areas: "identity" "fingerprint" "priorities" "aesthetic" "scoring";
+    max-width: none;
+  }
+}
+.preveal-card {
+  border: 1px solid rgba(var(--fg-rgb), .06);
+  border-radius: var(--r-md, 12px);
+  background: rgba(var(--fg-rgb), .015);
+  padding: 16px 18px;
+  animation: persona-rise .5s var(--ease-out, cubic-bezier(.22,.61,.36,1)) both;
+  animation-delay: var(--rd, 0ms);
+}
+.persona-reveal-compact .preveal-card { animation: none; padding: 14px; }
+@media (prefers-reduced-motion: reduce) { .preveal-card { animation: none !important; } }
+
+/* sense fingerprint (rose) card */
+.preveal-rose { display: flex; justify-content: center; padding: 6px 0 2px; }
+.preveal-rose-legend { display: flex; gap: 16px; justify-content: center; margin-top: 6px; }
+.preveal-rose-legend span { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; color: rgba(var(--fg-rgb), .40); display: flex; align-items: center; gap: 5px; }
+.prl-bar   { width: 14px; height: 8px; border-radius: 3px; background: rgba(var(--fg-rgb), .50); display: inline-block; }
+.prl-ghost { width: 14px; height: 8px; border-radius: 3px; border: 1px dashed rgba(var(--fg-rgb), .42); display: inline-block; }
+.preveal-rose-note { font-family: var(--font-sans); font-weight: 300; font-size: 12px; line-height: 1.6; text-align: center; color: rgba(var(--fg-rgb), .42); margin: 10px 0 0; min-height: 3.2em; transition: color .2s; }
+.preveal-rose-note.is-on { color: rgba(var(--fg-rgb), .64); }
+
+/* distilled "how scoring works" */
+.preveal-scoring { margin-top: 2px; }
+.psc-point { display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-start; }
+.psc-mark  { font-size: 11px; line-height: 1.55; color: rgba(var(--fg-rgb), .45); flex: 0 0 14px; }
+.psc-point p { font-family: var(--font-sans); font-weight: 300; font-size: 12.5px; line-height: 1.6; color: rgba(var(--fg-rgb), .60); margin: 0; }
+.psc-point strong { font-weight: 500; color: rgba(var(--fg-rgb), .82); }
+.psc-prov { font-family: var(--font-sans); font-weight: 300; font-style: italic; font-size: 11px; line-height: 1.6; color: rgba(var(--fg-rgb), .40); margin: 12px 0 0; }
+.psc-formula-toggle { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: rgba(var(--fg-rgb), .34); cursor: pointer; margin-top: 14px; transition: color .2s; }
+.psc-formula-toggle:hover { color: rgba(var(--fg-rgb), .50); }
+.psc-formula { border-left: 1px solid rgba(var(--fg-rgb), .08); padding-left: 12px; margin-top: 8px; }
+.psc-formula-line { font-family: var(--font-mono); font-size: 12px; line-height: 1.6; color: rgba(var(--fg-rgb), .70); margin: 0; }
+.psc-dim { color: rgba(var(--fg-rgb), .42); }
+.psc-formula-note { font-family: var(--font-sans); font-weight: 300; font-size: 11px; line-height: 1.6; color: rgba(var(--fg-rgb), .40); margin: 6px 0 0; }
+
+/* staggered petal draw-in for the persona reveal rose (opt-in via SenseSignature reveal prop) */
+.ss-reveal { animation: ss-petal-in .5s var(--ease-out, cubic-bezier(.22,.61,.36,1)) both; }
+@keyframes ss-petal-in { from { opacity: 0; transform: scale(.35); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .ss-reveal { animation: none; } }
+
+/* The reveal's own stage — a wide, single-screen container that replaces the narrow chat
+   thread on the profile-reveal screen. flex:1 + overflow:hidden keeps the whole reveal inside
+   one viewport (no page scroll) between the top bar and the CTA. */
+.preveal-stage {
+  flex: 1 1 auto; min-height: 0; width: 100%; max-width: 1180px;
+  margin: 0 auto; padding: 6px 28px 14px;
+  display: flex; flex-direction: column; gap: 12px; overflow: hidden;
+}
+.preveal-msg { flex: 0 0 auto; margin-bottom: 0; }
+
+/* ── Profile reveal v2 — single-screen landscape: hero rose (left) + evidence (right) ──
+   Composition A. The reveal lives in .preveal-stage (a wide, non-scrolling container that
+   breaks OUT of the chat reading column — see below). Here we lay out the card: a glowing
+   rose hero on the left, three evidence cards on the right that are COMPACT at rest and
+   LIFT / overlay on hover to reveal detail WITHOUT reflowing their siblings (each card is
+   absolutely positioned inside a fixed slot), so the page never grows past one screen. The
+   drawer (.is-compact) keeps the old stacked, always-expanded reading. */
+.persona-reveal2 { width: 100%; }
+.persona-reveal2:not(.is-compact) {
+  flex: 1 1 auto; min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 26px; align-items: stretch;
+}
+
+/* hero / left column */
+.preveal-hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 9px; padding: 8px 0 20px; }
+.persona-reveal2:not(.is-compact) .preveal-hero { justify-content: center; min-height: 0; padding: 0; }
+.preveal-hero-id { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 12px; }
+.preveal-hero-name { font-family: var(--font-sans); font-size: 26px; font-weight: 300; color: rgba(var(--fg-rgb), .92); }
+.preveal-hero-role { font-family: var(--font-mono); font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: rgba(var(--fg-rgb), .40); }
+.preveal-hero-house { font-family: var(--font-mono); font-size: 11px; letter-spacing: .04em; color: rgba(139,184,138,.78); }
+.preveal-readout { font-family: var(--font-sans); font-weight: 300; font-size: 13px; line-height: 1.6; color: rgba(var(--fg-rgb), .44); max-width: 460px; min-height: 2.6em; margin: 2px 0 0; transition: color .2s; }
+.preveal-readout.is-on { color: rgba(var(--fg-rgb), .72); }
+.preveal-bio { font-family: var(--font-sans); font-weight: 300; font-size: 12px; line-height: 1.65; color: rgba(var(--fg-rgb), .38); max-width: 420px; margin: 0; }
+
+/* evidence / right column — an ACCORDION in a fixed area. Each card is an equal panel; on
+   hover/focus it grows (revealing its detail) while the others shrink back to just their
+   summary. The total height is fixed (the column), so cards never overlap and the page never
+   shifts — the growth is driven by the detail's height, and min-content keeps every summary
+   legible even when a card is collapsed. No transform lift (that read as "unclean"). */
+.preveal-evidence { display: flex; flex-direction: column; gap: 14px; }
+.persona-reveal2:not(.is-compact) .preveal-evidence { height: 100%; min-height: 0; }
+.preveal-card2 {
+  border: 1px solid rgba(var(--fg-rgb), var(--o-hairline));
+  border-radius: var(--r-md); background: rgba(var(--fg-rgb), .015);
+  padding: 14px 16px; display: flex; flex-direction: column;
+}
+.persona-reveal2:not(.is-compact) .preveal-card2 {
+  flex: 1 1 0; overflow: hidden;   /* equal panels at rest; overflow:hidden keeps the collapsed
+                                      detail out of the flex min-size so heights stay controlled */
+  min-height: 96px;                /* never shrink below a summary when collapsed */
+  transition: flex-grow var(--dur-base) var(--ease-out),
+              border-color var(--dur-base) var(--ease-out),
+              background var(--dur-base) var(--ease-out);
+}
+/* per-card floors so each summary stays legible when collapsed: priorities (first) has 3 rows,
+   "how it's scored" (last) has 3 leads; aesthetic uses the base 96px */
+.persona-reveal2:not(.is-compact) .preveal-evidence > .preveal-card2:first-child { min-height: 154px; }
+.persona-reveal2:not(.is-compact) .preveal-evidence > .preveal-card2:last-child { min-height: 132px; }
+.persona-reveal2:not(.is-compact) .preveal-card2:hover,
+.persona-reveal2:not(.is-compact) .preveal-card2:focus-within {
+  flex-grow: 8;   /* the hovered panel takes most of the area; the others fall back to summary */
+  border-color: rgba(var(--fg-rgb), var(--o-faint));
+  background: rgba(var(--fg-rgb), .03);
+  outline: none;
+}
+
+/* detail revealed on hover/focus — collapsed at rest. Its height drives the accordion. */
+.preveal-detail {
+  max-height: 0; opacity: 0; overflow: hidden;
+  transition: max-height var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out);
+}
+.persona-reveal2:not(.is-compact) .preveal-card2:hover .preveal-detail,
+.persona-reveal2:not(.is-compact) .preveal-card2:focus-within .preveal-detail {
+  max-height: 260px; opacity: 1;
+}
+
+/* tighter section label inside the compact reveal cards (the 24px top margin is for the
+   long-form report, not these fixed-height slots) */
+.preveal-card2 .persona-section-label { margin: 0 0 8px; }
+.preveal-pri-row { display: flex; flex-direction: column; padding: 7px 10px; border: 1px solid; border-radius: var(--r-sm); margin-bottom: 6px; transition: background .15s; }
+.preveal-pri-row:last-child { margin-bottom: 0; }
+.preveal-pri-head { display: flex; align-items: center; gap: 7px; }
+.preveal-pri-glyph { font-size: 13px; line-height: 1; }
+.preveal-pri-name { font-family: var(--font-mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; }
+/* note margin is 0 by default so the COLLAPSED note adds no height to the priorities summary
+   (margin isn't clipped by max-height); the gap is restored only when it's actually shown */
+.preveal-pri-note { display: block; font-family: var(--font-sans); font-weight: 300; font-size: 11px; line-height: 1.5; color: rgba(var(--fg-rgb), .48); margin-top: 0; }
+.persona-reveal2.is-compact .preveal-pri-note,
+.persona-reveal2:not(.is-compact) .preveal-card2:hover .preveal-pri-note,
+.persona-reveal2:not(.is-compact) .preveal-card2:focus-within .preveal-pri-note { margin-top: 5px; }
+.preveal-board { display: flex; gap: 5px; flex-wrap: wrap; }
+.preveal-board img { height: 42px; flex: 1 0 auto; border-radius: var(--r-sm); object-fit: cover; min-width: 0; }
+.psc-body { display: flex; flex-direction: column; }
+.psc-rest { display: block; }
+
+/* drawer (compact) + narrow / short viewport: stack, always-expanded, scrollable */
+.persona-reveal2.is-compact { max-width: none; margin: 2px 0; }
+.persona-reveal2.is-compact .preveal-evidence { display: flex; flex-direction: column; gap: 12px; }
+.persona-reveal2.is-compact .preveal-hero { padding: 4px 0 14px; }
+.persona-reveal2.is-compact .preveal-hero-name { font-size: 20px; }
+.persona-reveal2.is-compact .preveal-detail { max-height: none; opacity: 1; overflow: visible; }
+
+@media (max-width: 900px), (max-height: 700px) {
+  .preveal-stage { overflow-y: auto; }
+  .persona-reveal2:not(.is-compact) { grid-template-columns: 1fr; grid-template-rows: none; }
+  .persona-reveal2:not(.is-compact) .preveal-card2 { flex: 0 0 auto; }
+  .persona-reveal2:not(.is-compact) .preveal-detail { max-height: none; opacity: 1; overflow: visible; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .persona-reveal2 .preveal-card2 { transition: none; }
+  .preveal-detail { transition: none; }
+}
+
 /* ── Report persona header — the opening frame: who this dwelling is for + the aesthetic
    they curated. Slim, glowing, no boxed callout — a preamble above the dwelling story. */
 .rp-header { position: relative; padding: 4px 2px 22px; margin-bottom: 22px;

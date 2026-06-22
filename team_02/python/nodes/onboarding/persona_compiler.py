@@ -825,13 +825,12 @@ def build_persona_compiler_node(llm, persona_output_path: str):
         priorities = persona_profile.get("sensory_priorities", [])
         top_senses = ", ".join(priorities[:3]) if priorities else "comfort overall"
 
+        # One warm, personalised line — the reveal card carries the detail; the CTA
+        # ("this is me — start shaping") carries the next step.
+        article = "an" if str(role)[:1].lower() in "aeiou" else "a"
         response = (
-            f"Your profile is ready, {name}! "
-            f"I now know you as a {role} who cares most about {top_senses}. "
-            "I've saved your comfort profile so you won't need to set this up again. "
-            "\n\n"
-            "Whenever you're ready, tell me which layout you'd like to explore "
-            "(201, 202, or 203) and we'll get started."
+            f"Here's who I'll be designing for, {name} — "
+            f"{article} {role} who cares most about {top_senses}. Take a look."
         )
 
         return {
