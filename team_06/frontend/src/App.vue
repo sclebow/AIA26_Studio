@@ -1,8 +1,8 @@
 <template>
   <div id="app">
     <div class="app-layout">
-      <Sidebar :parsedInput="parsedInput" :history="layoutHistory" :agentState="agentState" @restore="handleRestore" />
-      <WorkSpace :agentState="agentState" :parsedInput="parsedInput" @layoutLoaded="handleLayoutLoaded" @selectLayout="handleSelectLayout" @previewLayout="handlePreviewLayout" />
+      <Sidebar :parsedInput="parsedInput" :history="layoutHistory" :agentState="agentState" :previewId="historyPreview?.layoutId ?? null" @preview="handleHistoryPreview" @restore="handleRestore" @clearPreview="historyPreview = null" />
+      <WorkSpace :agentState="historyPreview ?? agentState" :isHistoryPreview="!!historyPreview" :parsedInput="parsedInput" @layoutLoaded="handleLayoutLoaded" @selectLayout="handleSelectLayout" @previewLayout="handlePreviewLayout" @findInBetween="handleFindInBetween" @restorePreview="handleRestore(historyPreview)" @clearPreview="historyPreview = null" />
       <ChatPanel :chat="chatHistory" :isBusy="isSending" @send="handleUserMessage" @newChat="handleNewChat" />
     </div>
   </div>
@@ -20,6 +20,7 @@ const chatHistory = ref([])
 const agentState = ref(null)
 const parsedInput = ref(null)
 const layoutHistory = ref([])
+const historyPreview = ref(null)
 const exploreResults = ref([])
 const isSending = ref(false)
 const hasUserSelectedTab = ref(false)
@@ -123,6 +124,7 @@ async function handleLayoutLoaded(json) {
 
 function applyAgentResponse(response) {
   if (!response) return
+  historyPreview.value = null
   if (response.brief !== undefined) parsedInput.value = response.brief
   if (response.search_results !== undefined) {
     applySearchResults(response.search_results)
@@ -133,6 +135,7 @@ function applyAgentResponse(response) {
       response.routine ?? null
     )
     agentState.value = layoutWithEvaluation
+    layoutHistory.value = layoutHistory.value.filter(h => h.layoutId !== layoutWithEvaluation.layoutId)
     layoutHistory.value.push({ ...layoutWithEvaluation, _savedAt: new Date().toISOString() })
     if (layoutHistory.value.length > 15) layoutHistory.value.shift()
   } else if (agentState.value) {
@@ -211,7 +214,12 @@ async function handleNewChat() {
   tab.value = 'brief'
 }
 
+function handleHistoryPreview(layout) {
+  historyPreview.value = layout
+}
+
 async function handleRestore(layout) {
+  historyPreview.value = null
   agentState.value = attachExploreResults(layout)
   try {
     // Strip frontend-only fields before sending to backend so the LLM receives
@@ -236,6 +244,10 @@ async function handleSelectLayout(layoutId) {
   } finally {
     isSending.value = false
   }
+}
+
+async function handleFindInBetween(idA, idB) {
+  await handleUserMessage(`find a layout in between ${idA} and ${idB}`)
 }
 
 async function handlePreviewLayout(layoutId) {

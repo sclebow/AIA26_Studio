@@ -9,16 +9,11 @@ import EmbeddingMap from './EmbeddingMap.vue'
 
 import { watch, ref, computed } from 'vue'
 const props = defineProps({
-  agentState: {
-    type: Object,
-    default: null
-  },
-  parsedInput: {
-    type: Object,
-    default: null
-  }
+  agentState:       { type: Object,  default: null },
+  parsedInput:      { type: Object,  default: null },
+  isHistoryPreview: { type: Boolean, default: false },
 })
-const emit = defineEmits(['layoutLoaded', 'selectLayout', 'previewLayout'])
+const emit = defineEmits(['layoutLoaded', 'selectLayout', 'previewLayout', 'findInBetween', 'restorePreview', 'clearPreview'])
 const viewMode = ref('layout')
 const activeRooms = ref({})
 const activeStep = ref(0)
@@ -62,6 +57,14 @@ function exportLayout() {
       <div class="toolbar-card toolbar-inline">
         <ToolBar :viewMode="viewMode" :hasLayout="!!props.agentState" :hasDaylight="hasDaylight" :hasRoutine="hasRoutine" :hasEmbeddingMap="hasEmbeddingMap" @viewChange="onViewChange" @layoutLoaded="emit('layoutLoaded', $event)" />
       </div>
+      <div v-if="props.isHistoryPreview" class="preview-banner">
+        Previewing history snapshot
+        <div class="preview-banner-actions">
+          <button class="btn-banner-restore" @click="emit('restorePreview')">Restore</button>
+          <button class="btn-banner-close"   @click="emit('clearPreview')">✕ Back</button>
+        </div>
+      </div>
+
       <template v-if="props.agentState">
         <div class="canvas-area">
           <div class="canvas-container" :class="{ 'canvas-explore': viewMode === 'explore' }">
@@ -72,6 +75,7 @@ function exportLayout() {
 
               @selectLayout="id => { viewMode = 'layout'; emit('selectLayout', id) }"
               @previewLayout="id => { viewMode = 'layout'; emit('previewLayout', id) }"
+              @findInBetween="(a, b) => emit('findInBetween', a, b)"
             />
             <LayoutCanvas
               v-else
@@ -163,6 +167,44 @@ function exportLayout() {
   width: fit-content;
   min-width: 0;
 }
+
+.preview-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff8ec;
+  border-bottom: 1px solid #F5A020;
+  padding: 8px 24px;
+  font-size: var(--font-size-small);
+  color: #a06000;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.preview-banner-actions {
+  display: flex;
+  gap: 8px;
+}
+.btn-banner-restore {
+  padding: 4px 12px;
+  background: #F5A020;
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  font-size: var(--font-size-small);
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-banner-restore:hover { opacity: 0.85; }
+.btn-banner-close {
+  padding: 4px 10px;
+  background: none;
+  border: 1px solid #F5A020;
+  border-radius: var(--radius);
+  font-size: var(--font-size-small);
+  color: #a06000;
+  cursor: pointer;
+}
+.btn-banner-close:hover { background: #ffecd0; }
 
 .welcome-screen {
   flex: 1 1 auto;

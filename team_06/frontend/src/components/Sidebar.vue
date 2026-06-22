@@ -9,8 +9,9 @@ const props = defineProps({
   parsedInput: { type: Object, default: null },
   history:     { type: Array,  default: () => [] },
   agentState:  { type: Object, default: null },
+  previewId:   { type: String, default: null },
 })
-const emit = defineEmits(['restore'])
+const emit = defineEmits(['restore', 'preview', 'clearPreview'])
 
 const historyOpen = ref(false)
 </script>
@@ -28,7 +29,7 @@ const historyOpen = ref(false)
           <img :src="chevronIcon" alt="" width="16" height="16" :class="{ rotated: historyOpen }" />
         </button>
         <div v-if="historyOpen" class="history-body">
-          <SidebarHistory :history="props.history" :agentState="props.agentState" @restore="emit('restore', $event)" />
+          <SidebarHistory :history="props.history" :agentState="props.agentState" :previewId="props.previewId" @preview="emit('preview', $event)" @restore="emit('restore', $event)" @clearPreview="emit('clearPreview')" />
         </div>
       </div>
     </div>
@@ -46,10 +47,11 @@ const historyOpen = ref(false)
 }
 .sidebar-content {
   flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   padding: 28px 28px 0 28px;
-  overflow-y: auto;
+  overflow: hidden;
   gap: 0;
 }
 .section-title {
@@ -61,6 +63,10 @@ const historyOpen = ref(false)
 .history-section {
   margin-top: 28px;
   border-top: 1px solid var(--color-border);
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .history-toggle {
   width: 100%;
@@ -86,6 +92,9 @@ const historyOpen = ref(false)
   transform: rotate(180deg);
 }
 .history-body {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
   padding-bottom: 24px;
 }
 </style>

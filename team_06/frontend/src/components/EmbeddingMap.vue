@@ -7,7 +7,7 @@ const props = defineProps({
   embeddingMap:  { type: Object, required: true },
   searchResults: { type: Array,  default: () => [] },
 })
-const emit = defineEmits(['selectLayout', 'previewLayout'])
+const emit = defineEmits(['selectLayout', 'previewLayout', 'findInBetween'])
 
 const VW = 800
 const VH = 520
@@ -28,6 +28,20 @@ const svgEl       = ref(null)
 const wrapperRef  = ref(null)
 const hovered     = ref(null)
 const mousePos    = ref({ x: 0, y: 0 })
+const clickedId   = ref(null)
+const clickedPos  = ref({ x: 0, y: 0 })
+const pinnedIds   = ref([])  // ordered, max 2
+
+function togglePin(id) {
+  const idx = pinnedIds.value.indexOf(id)
+  if (idx !== -1) {
+    pinnedIds.value = pinnedIds.value.filter(p => p !== id)
+  } else if (pinnedIds.value.length < 2) {
+    pinnedIds.value = [...pinnedIds.value, id]
+  }
+}
+function isPinned(id) { return pinnedIds.value.includes(id) }
+function pinIndex(id) { return pinnedIds.value.indexOf(id) + 1 }
 const layoutCache = ref({})
 const fetchingIds = new Set()
 let   fetchTimer  = null
@@ -218,8 +232,10 @@ watch([zoom, pan], () => {
 
 // ── popup ─────────────────────────────────────────────────────────────────────
 
+const activePopupId = computed(() => clickedId.value ?? hovered.value?.id ?? null)
+
 const popupDesc = computed(() => {
-  const id = hovered.value?.id
+  const id = activePopupId.value
   if (!id) return null
   return props.embeddingMap?.descriptions?.[id]
     ?? layoutFor(id)?.apartment?.attributes?.description
@@ -231,11 +247,12 @@ const POPUP_W = 192
 const popupStyle = computed(() => {
   if (!wrapperRef.value) return {}
   const rect   = wrapperRef.value.getBoundingClientRect()
-  const popupH = popupDesc.value ? 130 : 40
-  let x = mousePos.value.x + 20
-  let y = mousePos.value.y + 20
-  if (x + POPUP_W > rect.width  - 8) x = mousePos.value.x - POPUP_W - 12
-  if (y + popupH  > rect.height - 8) y = mousePos.value.y - popupH  - 12
+  const popupH = popupDesc.value ? 150 : 70
+  const pos    = clickedId.value ? clickedPos.value : mousePos.value
+  let x = pos.x + 20
+  let y = pos.y + 20
+  if (x + POPUP_W > rect.width  - 8) x = pos.x - POPUP_W - 12
+  if (y + popupH  > rect.height - 8) y = pos.y - popupH  - 12
   return { left: x + 'px', top: y + 'px' }
 })
 
@@ -295,8 +312,20 @@ function isDrag(e) {
 function onDotClick(e, id) {
   e.stopPropagation()
   if (isDrag(e)) return
-  emit('selectLayout', id)
+  if (clickedId.value === id) {
+    clickedId.value = null
+    return
+  }
+  clickedId.value = id
+  if (wrapperRef.value) {
+    const r = wrapperRef.value.getBoundingClientRect()
+    clickedPos.value = { x: e.clientX - r.left, y: e.clientY - r.top }
+  }
 }
+
+function clearClicked() { clickedId.value = null }
+function clearPins()   { pinnedIds.value = [] }
+function onSvgClick(e) { if (!isDrag(e)) clearClicked() }
 
 const transform = computed(() =>
   `translate(${pan.value.x}, ${pan.value.y}) scale(${zoom.value})`
@@ -304,7 +333,7 @@ const transform = computed(() =>
 </script>
 
 <template>
-  <div ref="wrapperRef" class="embedding-map" @mousemove="trackMouse">
+  <div ref="wrapperRef" class="embedding-map" @mousemove="trackMouse" @click.self="clearClicked">
 
     <span class="map-title">Explore layouts</span>
 
@@ -319,6 +348,7 @@ const transform = computed(() =>
       @mousemove="onSvgMousemove"
       @mouseup="onMouseup"
       @mouseleave="onMouseleave"
+      @click="onSvgClick"
     >
       <g :transform="transform">
 
@@ -336,7 +366,9 @@ const transform = computed(() =>
             <rect
               :x="-MINI_SIZE/2 - 2" :y="-MINI_SIZE/2 - 2"
               :width="MINI_SIZE + 4" :height="MINI_SIZE + 4"
-              rx="3" fill="white" stroke="#d0d5dd" stroke-width="0.8"
+              rx="3" fill="white"
+              :stroke="isPinned(p.id) ? '#F5A020' : '#d0d5dd'"
+              :stroke-width="isPinned(p.id) ? '1.5' : '0.8'"
               vector-effect="non-scaling-stroke"
             />
             <polygon
@@ -346,7 +378,11 @@ const transform = computed(() =>
               vector-effect="non-scaling-stroke"
             />
           </template>
-          <circle v-else cx="0" cy="0" r="4" :fill="dotColor(p.sx)" />
+          <template v-else>
+            <circle cx="0" cy="0" r="4" :fill="dotColor(p.sx)" />
+            <circle v-if="isPinned(p.id)" cx="0" cy="0" r="8" fill="none" stroke="#F5A020" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+          </template>
+          <text v-if="isPinned(p.id)" x="0" y="-9" text-anchor="middle" font-size="5" fill="#F5A020" font-weight="bold" vector-effect="non-scaling-stroke">{{ pinIndex(p.id) }}</text>
         </g>
 
         <!-- Top result — always on top, blue dot or blue-outlined miniature -->
@@ -363,7 +399,9 @@ const transform = computed(() =>
             <rect
               :x="-MINI_SIZE/2 - 2" :y="-MINI_SIZE/2 - 2"
               :width="MINI_SIZE + 4" :height="MINI_SIZE + 4"
-              rx="3" fill="white" stroke="var(--color-blue)" stroke-width="1.2"
+              rx="3" fill="white"
+              :stroke="isPinned(topResult.id) ? '#F5A020' : 'var(--color-blue)'"
+              :stroke-width="isPinned(topResult.id) ? '1.5' : '1.2'"
               vector-effect="non-scaling-stroke"
             />
             <polygon
@@ -373,10 +411,11 @@ const transform = computed(() =>
               vector-effect="non-scaling-stroke"
             />
           </template>
-          <circle v-else cx="0" cy="0" r="7"
-            fill="var(--color-blue)" stroke="white" stroke-width="2"
-            vector-effect="non-scaling-stroke"
-          />
+          <template v-else>
+            <circle cx="0" cy="0" r="7" fill="var(--color-blue)" stroke="white" stroke-width="2" vector-effect="non-scaling-stroke" />
+            <circle v-if="isPinned(topResult.id)" cx="0" cy="0" r="11" fill="none" stroke="#F5A020" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+          </template>
+          <text v-if="isPinned(topResult.id)" x="0" y="-13" text-anchor="middle" font-size="5" fill="#F5A020" font-weight="bold" vector-effect="non-scaling-stroke">{{ pinIndex(topResult.id) }}</text>
         </g>
 
         <!-- Query crosshair -->
@@ -388,13 +427,34 @@ const transform = computed(() =>
       </g>
     </svg>
 
-    <!-- Hover popup -->
-    <div v-if="hovered" class="mini-popup" :style="popupStyle">
+    <!-- Hover / click popup -->
+    <div
+      v-if="activePopupId"
+      class="mini-popup"
+      :class="{ 'mini-popup--sticky': !!clickedId }"
+      :style="popupStyle"
+      @click.stop
+    >
       <div class="popup-header">
-        <span class="popup-id">{{ hovered.id }}</span>
+        <span class="popup-id">{{ activePopupId }}</span>
+        <button v-if="clickedId" class="popup-close" @click="clearClicked">✕</button>
       </div>
       <p v-if="popupDesc" class="popup-desc">{{ popupDesc }}</p>
-      <div v-if="popupDesc" class="popup-hint">Click to select</div>
+      <div v-if="!clickedId" class="popup-hint">Click to open</div>
+      <div v-if="clickedId" class="popup-actions">
+        <button class="popup-select-btn" @click="emit('selectLayout', clickedId); clearClicked()">Select</button>
+        <button
+          class="popup-pin-btn"
+          :class="{ 'popup-pin-btn--active': isPinned(clickedId) }"
+          :disabled="!isPinned(clickedId) && pinnedIds.length >= 2"
+          @click="togglePin(clickedId); clearClicked()"
+        >{{ isPinned(clickedId) ? 'Unpin' : 'Pin' }}</button>
+      </div>
+    </div>
+
+    <!-- Find in between pill — appears when 2 are pinned -->
+    <div v-if="pinnedIds.length === 2" class="find-between-pill" @click="emit('findInBetween', pinnedIds[0], pinnedIds[1]); clearPins()">
+      Find in between
     </div>
 
     <!-- Legend -->
@@ -467,7 +527,70 @@ const transform = computed(() =>
   flex-direction: column;
   gap: 6px;
 }
+.mini-popup--sticky {
+  pointer-events: auto;
+  border-color: var(--color-blue);
+}
+.popup-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+.popup-select-btn,
+.popup-pin-btn {
+  flex: 1;
+  padding: 5px 8px;
+  border: none;
+  border-radius: var(--radius);
+  font-size: var(--font-size-small);
+  font-weight: 600;
+  cursor: pointer;
+}
+.popup-select-btn {
+  background: var(--color-blue);
+  color: white;
+}
+.popup-select-btn:hover { opacity: 0.85; }
+.popup-pin-btn {
+  background: #fff3e0;
+  color: #e07000;
+  border: 1px solid #F5A020;
+}
+.popup-pin-btn:hover { background: #ffe0b2; }
+.popup-pin-btn--active {
+  background: #F5A020;
+  color: white;
+}
+.popup-pin-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.find-between-pill {
+  position: absolute;
+  top: 20px;
+  right: 28px;
+  background: #F5A020;
+  color: white;
+  font-size: var(--font-size-small);
+  font-weight: 700;
+  padding: 7px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(245,160,32,0.35);
+  z-index: 20;
+  user-select: none;
+}
+.find-between-pill:hover { opacity: 0.88; }
 .popup-header { display: flex; align-items: center; gap: 6px; }
+.popup-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.popup-close:hover { color: var(--color-text); }
 .popup-rank {
   width: 18px; height: 18px;
   border-radius: 50%;

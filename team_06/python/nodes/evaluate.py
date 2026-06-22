@@ -1,5 +1,4 @@
 from typing import Any
-import ast
 import json
 import re
 from pathlib import Path
@@ -53,11 +52,9 @@ FIXED_CLOSING_SENTENCE = (
  
 SYSTEM_PROMPT = (
     "You are writing a short qualitative comment for a residential layout recommendation. "
-    "Return valid JSON with exactly this shape: "
-    '{"chat_summary":""}.'
-    "\nRules:\n"
-    "- chat_summary is 2 short sentences.\n"
-    "- Focus on how well the layout description matches the user's brief — what fits, what is missing or different.\n"
+    "Write exactly 2 sentences as plain text — no JSON, no markdown, no bullet points.\n"
+    "Rules:\n"
+    "- Focus on how well the layout matches the user's brief — what fits, what is missing or different.\n"
     "- Do NOT repeat or mention any numeric scores — they are already shown in the UI.\n"
     "- Do NOT mention daylight unless the user's brief explicitly asks for it in a specific room.\n"
     "- Do NOT comment on daylight in bathrooms, WCs, or wet rooms — these almost never have windows.\n"
@@ -65,7 +62,6 @@ SYSTEM_PROMPT = (
     "- Kitchen is always part of the living area in this dataset — never a separate room.\n"
     "- Treat circulation as entry, hallway, or corridor.\n"
     "- Do not invent features not present in the layout description.\n"
-    "- Do not return any extra keys.\n"
 )
 
 
@@ -120,38 +116,47 @@ def _load_planfinder_description(layout_id: str | None) -> str | None:
     return description.strip()
 
 
-def _parse_llm_json(content: str) -> dict[str, Any]:
-    content = content.strip()
-    content = re.sub(r"^```(?:json)?\s*", "", content)
-    content = re.sub(r"\s*```$", "", content).strip()
-    try:
-        return json.loads(content)
-    except json.JSONDecodeError:
-        pass
-    match = re.search(r"\{.*\}", content, re.DOTALL)
-    if match:
+def _extract_chat_summary(raw: str) -> str | None:
+    """Extract plain-text summary from whatever format the LLM returned."""
+    candidates: list[str] = []
+
+    # 1. Decision-schema wrapper: {"action":..., "final_response":"...", ...}
+    if '"final_response"' in raw:
         try:
-            return json.loads(match.group(0))
-        except json.JSONDecodeError:
+            outer = json.loads(raw)
+            fr = outer.get("final_response")
+            if isinstance(fr, dict):
+                candidates.append(json.dumps(fr))
+            elif isinstance(fr, str) and fr.strip() and not fr.strip() in ('{', '}'):
+                candidates.append(fr.strip())
+        except Exception:
             pass
+
+    # 2. Raw string itself (plain text or JSON)
+    candidates.append(raw.strip())
+
+    for candidate in candidates:
+        if not candidate:
+            continue
+        # Try parsing as {"chat_summary": "..."} JSON
         try:
-            return ast.literal_eval(match.group(0))
-        except (ValueError, SyntaxError):
+            parsed = json.loads(candidate)
+            if isinstance(parsed, dict):
+                cs = parsed.get("chat_summary")
+                if isinstance(cs, str) and cs.strip():
+                    return cs.strip()
+        except Exception:
             pass
-    raise ValueError(f"Cannot parse LLM response: {content[:120]}")
+        # Use as plain text if it doesn't look like a broken JSON fragment
+        if not candidate.startswith('{') and len(candidate) > 5:
+            return candidate
+    return None
 
 
-def _normalize_llm_output(value: object) -> dict[str, Any]:
-    if not isinstance(value, dict):
-        return {"chat_summary": "Evaluation unavailable."}
-    chat_summary = value.get("chat_summary")
-    if not isinstance(chat_summary, str) or not chat_summary.strip():
-        chat_summary = "Layout evaluated."
-    return {"chat_summary": chat_summary.strip()}
-
-
-def _format_evaluation_message(evaluation: dict[str, Any]) -> str:
+def _format_evaluation_message(evaluation: dict[str, Any], warning: str | None = None) -> str:
     parts = []
+    if warning:
+        parts.append(f"⚠️ {warning}")
     if evaluation.get("chat_summary"):
         parts.append(evaluation["chat_summary"])
     parts.append(FIXED_CLOSING_SENTENCE)
@@ -271,14 +276,10 @@ def build_evaluate_node(llm: Any) -> Any:
             ]
             try:
                 response = llm.invoke(llm_messages)
-                response_json = _parse_llm_json(response.content)
-                if "final_response" in response_json and "chat_summary" not in response_json:
-                    final_resp = response_json["final_response"]
-                    try:
-                        response_json = _parse_llm_json(final_resp)
-                    except Exception:
-                        response_json = {"chat_summary": final_resp} if isinstance(final_resp, str) and final_resp.strip() else {}
-                llm_output = _normalize_llm_output(response_json)
+                raw = response.content if isinstance(response.content, str) else str(response.content)
+                print(f"[evaluate] raw response (first 200): {raw[:200]}", flush=True)
+                chat_summary = _extract_chat_summary(raw)
+                llm_output = {"chat_summary": chat_summary} if chat_summary else {"chat_summary": "Layout evaluated."}
             except Exception as e:
                 print(f"[evaluate] LLM summary failed: {e}", flush=True)
                 llm_output = {"chat_summary": "Layout evaluated."}
@@ -294,7 +295,7 @@ def build_evaluate_node(llm: Any) -> Any:
 
             return {
                 "evaluation_json_string": json.dumps(evaluation_summary),
-                "clarification": _format_evaluation_message(evaluation_summary),
+                "clarification": _format_evaluation_message(evaluation_summary, state.get("routine_warning")),
                 "iteration": iteration + 1,
             }
 

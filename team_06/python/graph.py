@@ -11,6 +11,7 @@ from nodes.evaluate import build_evaluate_node
 from nodes.feedback import build_feedback_node
 from nodes.daylight import build_daylight_node
 from nodes.routine import build_routine_node
+from nodes.find_between import build_find_between_node
 
 
 # =============================================================================
@@ -26,6 +27,7 @@ STATUS_MESSAGES = {
     "preprocess": "Reviewing request.",
     "reason": "Interpreting layout requirements.",
     "search": "Searching candidate layouts.",
+    "find_between": "Finding layouts in between.",
     "select": "Loading the selected layout.",
     "adapt": "Adapting the layout to the provided boundary.",
     "daylight": "Running daylight analysis.",
@@ -57,6 +59,7 @@ class AgentState(TypedDict, total=False):
     layout_id: str | None         # Layout ID to be selected
     evaluation_json_string: str | None             # NEW - evaluation results
     routine_json_string: str | None                # Routine visualization payload
+    routine_warning: str | None                    # Non-fatal error from routine node shown in UI
     adaptation_issues: list[str] | None           # Validation or tool issues collected during adaptation
     adaptation_failed: bool | None                # Whether adaptation failed and the graph fell back to the selected layout
     #-----------results from nodes (for routing)-----------
@@ -65,6 +68,7 @@ class AgentState(TypedDict, total=False):
     search_result: str                             # Result from search node: "adapt" | "select" | "failed"
     select_result: str                             # NEW - which node to go to after select: "success" | "failed"
     adapt_result: str | None                       # NEW - result from adapt node: "success" | "failed"
+    find_between_result: str | None                # Result from find_between node: "select" | "adapt" | "feedback"
     daylight_result: str | None                    # Result from daylight node
     daylight_issues: list[str] | None             # Daylight problems preserved for evaluation if analysis cannot run
     
@@ -78,8 +82,17 @@ def _route_after_preprocessing(state: AgentState) -> str:
     return {
         "reason": "reason",
         "select": "select",
+        "find_between": "find_between",
         "end": "end",
     }.get(result, "end")
+
+def _route_after_find_between(state: AgentState) -> str:
+    result = state.get("find_between_result")
+    return {
+        "select": "select",
+        "adapt": "adapt",
+        "feedback": "feedback",
+    }.get(result, "feedback")
         
 def _route_after_reason(state: AgentState) -> str:
     result = state.get("reason_result")
@@ -98,24 +111,20 @@ def _route_after_search(state: AgentState) -> str:
     
 def _route_after_select(state: AgentState) -> str:
     result = state.get("select_result")
+    if state.get("input_layout_json_string"):
+        return "adapt"
     return {
-        "adapt": "adapt",      
-        "daylight": "daylight"    
+        "adapt": "adapt",
+        "daylight": "routine"
     }.get(result, "feedback")
     
 def _route_after_adapt(state: AgentState) -> str:
     result = state.get("adapt_result")
     return {
-        "daylight": "daylight",
-        "fallback_selected": "daylight",
+        "daylight": "routine",
+        "fallback_selected": "routine",
     }.get(result, "feedback")
 
-def _route_after_daylight(state: AgentState) -> str:
-    result = state.get("daylight_result")
-    return {
-        "evaluate": "evaluate",
-        "failed": "evaluate",
-    }.get(result, "evaluate")
 
 # ---------------------------------------------------------------------------
 # Graph wiring — add nodes and edges here.
@@ -143,6 +152,7 @@ def build_graph(ctx: Any, status_callback: Callable[[list[str], dict[str, Any] |
     reason = build_reason_node(ctx.llm)
     preprocess = build_preprocess_node()
     search = build_search_node()
+    find_between = build_find_between_node()
     select = build_select_node()
     adapt = build_adapt_node(ctx.mcp_client)
     daylight = build_daylight_node(ctx.mcp_client)
@@ -169,6 +179,7 @@ def build_graph(ctx: Any, status_callback: Callable[[list[str], dict[str, Any] |
     workflow.add_node("reason", make_instrumented_node(reason, "reason"))
     workflow.add_node("preprocess", make_instrumented_node(preprocess, "preprocess"))
     workflow.add_node("search", make_instrumented_node(search, "search"))
+    workflow.add_node("find_between", make_instrumented_node(find_between, "find_between"))
     workflow.add_node("select", make_instrumented_node(select, "select"))
     workflow.add_node("adapt", make_instrumented_node(adapt, "adapt"))
     workflow.add_node("daylight", make_instrumented_node(daylight, "daylight"))
@@ -182,7 +193,13 @@ def build_graph(ctx: Any, status_callback: Callable[[list[str], dict[str, Any] |
     workflow.add_conditional_edges("preprocess", _route_after_preprocessing, {
         "reason": "reason",
         "select": "select",
+        "find_between": "find_between",
         "end": END
+    })
+    workflow.add_conditional_edges("find_between", _route_after_find_between, {
+        "select": "select",
+        "adapt": "adapt",
+        "feedback": "feedback",
     })
     workflow.add_conditional_edges("reason", _route_after_reason, {
         "search": "search",
@@ -196,19 +213,15 @@ def build_graph(ctx: Any, status_callback: Callable[[list[str], dict[str, Any] |
     })
     workflow.add_conditional_edges("select", _route_after_select, {
         "adapt": "adapt",
-        "daylight": "routine",
+        "routine": "routine",
         "feedback": "feedback"
     })
     workflow.add_conditional_edges("adapt", _route_after_adapt, {
-        "daylight": "routine",
-        "select": "select",
+        "routine": "routine",
         "feedback": "feedback"
     })
     workflow.add_edge("routine", "daylight")
-    workflow.add_conditional_edges("daylight", _route_after_daylight, {
-        "evaluate": "evaluate",
-        "feedback": "feedback"
-    })
+    workflow.add_edge("daylight", "evaluate")
     workflow.add_edge("evaluate", "feedback")
     
     app = workflow.compile()
@@ -281,10 +294,12 @@ def _build_initial_state(prompt: str, ctx: Any, session: dict | None = None) -> 
         "layout_id": session.get("layout_id"),
         "evaluation_json_string": session.get("evaluation_json_string"),
         "routine_json_string": session.get("routine_json_string"),
+        "routine_warning": None,
         "preprocess_result": None,
         "reason_result": None,
         "search_result": None,
         "select_result": None,
         "adapt_result": None,
+        "find_between_result": None,
         "daylight_result": None,
     }

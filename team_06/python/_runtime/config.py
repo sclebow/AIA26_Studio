@@ -90,7 +90,7 @@ def _load_mcp_server_from_json(config_path: Path) -> tuple[str, str]:
 
 
 def load_settings() -> Settings:
-    load_dotenv(dotenv_path=_repo_root() / ".env", override=False)
+    load_dotenv(dotenv_path=_repo_root() / ".env", override=True)
 
     mcp_json_path = _repo_root() / "mcp.json"
     mcp_server_key, mcp_endpoint = _load_mcp_server_from_json(mcp_json_path)
