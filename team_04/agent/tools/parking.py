@@ -421,6 +421,10 @@ def _trim_strip(
     stalls: int,
 ) -> Polygon:
     """Clip poly along the edge direction to account for only `stalls` stalls."""
+    # The free strip can be a MultiPolygon on a concave site — clip the largest piece.
+    if not isinstance(poly, Polygon):
+        geoms = list(getattr(poly, "geoms", [poly]))
+        poly = max(geoms, key=lambda g: g.area)
     target_span = stalls * STALL_WIDTH_M
     ux, uy = edge_vec
     coords = list(poly.exterior.coords)

@@ -171,6 +171,22 @@ def _lazy_registry() -> dict[str, Any]:
     except Exception:
         pass
 
+    try:
+        from agent.tools.masterplan import (
+            generate_masterplan,
+            reserve_site_margins,
+            generate_movement_spine,
+            place_buildings_along_spine,
+            score_masterplan,
+        )
+        _REGISTRY["generate_masterplan"] = generate_masterplan
+        _REGISTRY["reserve_site_margins"] = reserve_site_margins
+        _REGISTRY["movement_spine"] = generate_movement_spine
+        _REGISTRY["place_buildings"] = place_buildings_along_spine
+        _REGISTRY["score_masterplan"] = score_masterplan
+    except Exception:
+        pass
+
     return _REGISTRY
 
 
