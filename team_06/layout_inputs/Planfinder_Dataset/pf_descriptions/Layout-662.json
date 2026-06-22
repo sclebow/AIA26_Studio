@@ -1,0 +1,9 @@
+{
+  "layoutId": "Layout-662",
+  "description": "Narrow and elongated. Living bright bedrooms dim. Deep — views through multiple spaces. No internal corridor — fully open layout. Kitchen: L-shaped or U-shaped, no island or peninsula — counter set back from windows, moderate natural light. Cook faces the wall — back to the living and dining area. Two cooks can work simultaneously on separate counter runs. Fully open plan — no wall separates kitchen from dining and living. Living arrangement: linear kitchen-dining-living, kitchen on side wall. Seating: sofa in lower-left corner facing into the living room; double bed along right side near the rear. Dining table (4 seats). TV on wall same wall as entry. Cook cannot see TV from cooking position. Diners do not face the TV. Entry: direct into living, first thing visible on arrival is living area. No door between entry and living — relevant where local regulations require separation. Studio apartment. Double bed. Bed partially visible from front door, partially visible from kitchen. Partial partition — some visual separation but cooking smells and sounds reach the sleeping area. Storage: generous wardrobe storage. One bathroom (shower, bathtub, and toilet). Single bathroom — all household members share one shower, sequential morning routine. Suits: singles or couples comfortable with combined living and sleeping space. Not suitable for: families with children; roommates needing separate private bedrooms; anyone requiring a dedicated home office with a door.",
+  "not_suitable_for": [
+    "families with children",
+    "roommates needing separate private bedrooms",
+    "anyone requiring a dedicated home office with a door"
+  ]
+}

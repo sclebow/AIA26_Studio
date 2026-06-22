@@ -1,0 +1,10 @@
+{
+  "layoutId": "Layout-427",
+  "description": "Compact and efficient. Well-lit throughout. Deep — views through multiple spaces. No internal corridor — fully open layout. Kitchen: L-shaped or U-shaped, no island or peninsula — counter set back from windows, moderate natural light. Cook faces the wall — back to the living and dining area. Two cooks can work simultaneously on separate counter runs. Fully open plan — no wall separates kitchen from dining and living. Living arrangement: split seating-kitchen-dining, kitchen on side wall. Seating: L-shaped sofa in lower-left living area facing inward toward the dining table and TV side; additional armchair seating nearby. Dining table (4 seats). TV on wall opposite wall to entry. Cook may see TV from cooking position. Diners do not face the TV. Entry: direct into living, first thing visible on arrival is living area. No door between entry and living — relevant where local regulations require separation. Double bedroom — accessed via own door off corridor, no walk-in wardrobe. Double bedroom at the rear — maximum distance from entry, best acoustic separation from living activity. Storage: generous wardrobe storage. One bathroom (shower, bathtub, and toilet). Single bathroom — all household members share one shower, sequential morning routine. Suits: singles or couples. Not suitable for: large families; households needing multiple bedrooms; those needing a dedicated home office or study space; roommates requiring private separate bedrooms.",
+  "not_suitable_for": [
+    "large families",
+    "households needing multiple bedrooms",
+    "those needing a dedicated home office or study space",
+    "roommates requiring private separate bedrooms"
+  ]
+}

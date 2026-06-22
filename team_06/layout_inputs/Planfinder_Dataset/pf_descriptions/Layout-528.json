@@ -1,0 +1,11 @@
+{
+  "layoutId": "Layout-528",
+  "description": "Narrow and elongated. Living bright bedrooms dim. Deep — views through multiple spaces. Short connecting link between entry and living area. Kitchen: single-wall, no island or peninsula — counter set back from windows, moderate natural light. Cook faces the wall — back to the living and dining area. One active cook at a time. Fully open plan — no wall separates kitchen from dining and living. Living arrangement: linear kitchen-dining-living, kitchen on side wall. Seating: sofa along upper exterior wall facing into the living zone toward the TV area; armchair-style seating near dining table. Dining table (4 seats). TV on wall right of entry. Cook can see TV from cooking position. Diners unclear if facing the TV. Entry: corridor entry, first thing visible on arrival is blank wall, L-shaped corridor, short. No door between entry and living — relevant where local regulations require separation. Studio apartment. Double bed. Bed partially visible from front door, visible from kitchen. Sleeping alcove offers slight visual separation but cooking smells reach the sleeping area. Storage: no wardrobe — very limited storage. One bathroom (shower, bathtub, and toilet). Single bathroom — all household members share one shower, sequential morning routine. Suits: singles or couples comfortable with combined living and sleeping space. Not suitable for: families with children; couples needing separate sleeping and living spaces; anyone requiring significant storage (no wardrobe); people working from home needing a dedicated desk/office; roommates sharing — only one open sleeping alcove.",
+  "not_suitable_for": [
+    "families with children",
+    "couples needing separate sleeping and living spaces",
+    "anyone requiring significant storage (no wardrobe)",
+    "people working from home needing a dedicated desk/office",
+    "roommates sharing — only one open sleeping alcove"
+  ]
+}

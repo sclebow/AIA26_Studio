@@ -23,9 +23,9 @@ import sys
 import networkx as nx
 from pathlib import Path
 
-REPO_ROOT      = Path(__file__).resolve().parents[2]
-PLANFINDER_DIR = Path(__file__).resolve().parent / "Planfinder_Dataset" / "pf_jsons"
-OUTPUT_PATH    = Path(__file__).resolve().parent / "planfinder_graphs.json"
+REPO_ROOT      = Path(__file__).resolve().parents[3]
+PLANFINDER_DIR = Path(__file__).resolve().parents[2] / "layout_inputs" / "Planfinder_Dataset" / "pf_jsons"
+OUTPUT_PATH    = Path(__file__).resolve().parents[2] / "layout_inputs" / "planfinder_graphs.json"
 
 sys.path.insert(0, str(REPO_ROOT / "team_06" / "python"))
 from utils.parser.schema_to_graph import create_graph_from_layout
@@ -87,7 +87,7 @@ def main():
 
     for json_file in json_files:
         layout    = json.loads(json_file.read_text(encoding="utf-8"))
-        layout_id = layout.get("apartment", {}).get("id") or json_file.stem
+        layout_id = layout.get("layoutId") or json_file.stem
 
         if not layout.get("rooms") or not layout.get("doors"):
             print(f"  skip (no rooms/doors): {layout_id}")
