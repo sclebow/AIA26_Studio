@@ -27,6 +27,10 @@ Supported tools exposed here (add more as needed):
   parking_demand       — parking_demand (Phase 4: stalls + area from apartment count)
   building_demand      — compute_building_demand (Phase 4: demand table for a list of buildings)
   parking_allocation   — allocate_parking_zones (Phase 4: rectangular lots near main road)
+  site_entries         — propose_site_entries (Phase 5: public/private entries on the boundary)
+  route_circulation    — route_internal_circulation (Phase 5: drivable corridor network)
+  entrance_orientation — building_entrance_orientation (Phase 5: entrance facing access)
+  fire_access          — check_fire_access (Phase 5: per-building reachability constraint)
 """
 from __future__ import annotations
 
@@ -150,6 +154,20 @@ def _lazy_registry() -> dict[str, Any]:
         _REGISTRY["parking_demand"] = parking_demand
         _REGISTRY["building_demand"] = compute_building_demand
         _REGISTRY["parking_allocation"] = allocate_parking_zones
+    except Exception:
+        pass
+
+    try:
+        from agent.tools.circulation import (
+            propose_site_entries,
+            route_internal_circulation,
+            building_entrance_orientation,
+            check_fire_access,
+        )
+        _REGISTRY["site_entries"] = propose_site_entries
+        _REGISTRY["route_circulation"] = route_internal_circulation
+        _REGISTRY["entrance_orientation"] = building_entrance_orientation
+        _REGISTRY["fire_access"] = check_fire_access
     except Exception:
         pass
 

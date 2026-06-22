@@ -2,7 +2,7 @@
 
 ## Planned Evolution (2026-06-12)
 
-`BACKEND_PLAN.md` defines the phased roadmap from the current view-only placement agent to a site-intelligent backend. **Phase 0 (reasoning core), Phase 1 (sun analysis fitness), Phase 2 (road context), Phase 2b (urban context), and Phase 3 (site grid & side alignment) are implemented** — see the 2026-06-15, 2026-06-17, 2026-06-18, and 2026-06-19 entries in `PROGRESS.md`. The architectural commitments they introduce:
+`BACKEND_PLAN.md` defines the phased roadmap from the current view-only placement agent to a site-intelligent backend. **Phase 0 (reasoning core), Phase 1 (sun analysis fitness), Phase 2 (road context), Phase 2b (urban context), Phase 3 (site grid & side alignment), Phase 4 (parking), and Phase 5 (circulation, access & fire safety) are implemented** — see the 2026-06-15 through 2026-06-22 entries in `PROGRESS.md`. The architectural commitments they introduce:
 
 - **Typed `DesignBrief`**: a one-shot LLM extraction node at graph start converts the user prompt into a typed brief (building count, shapes, areas, storeys, courtyard intent, parking, objective weights, explicit ambiguities). Downstream nodes read the brief, never re-parse the prompt; regex intent helpers in `decision_engine.py` become test-only fallbacks.
 - **Canonical `SiteModel`**: `read_site` builds one structured site object (boundary graph, per-side metadata, roads, placement grid, sun context, setbacks/buildable zone) that all tools consume — one source of truth instead of raw coordinate lists.
@@ -52,6 +52,8 @@ team_04/
 │       ├── sun_analysis.py # Phase 1: worst-sun vectors, 2D + 3D facade exposure, worst side, 3D viz
 │       ├── road_context.py # Phase 2: analyze_roads, main-road id, side tagging, edge_road_widths
 │       ├── site_grid.py    # Phase 3: grid from a chosen side (Phase 2: main-road side as default)
+│       ├── parking.py      # Phase 4: apartment demand, stall counts, road-frontage parking zones
+│       ├── circulation.py  # Phase 5: site entries, drivable corridors, entrance orientation, fire access (G<=0)
 │       └── view_optimizer.py # NSGA-II + objective registry (view, attractor, sun, alignment, frontage) + aligned placement
 ├── backend/                # FastAPI app + decision graph + routers
 │   ├── app.py
@@ -209,6 +211,17 @@ The lockstep frontend counterpart is `frontend/site/UrbanAnalysisOverlay.tsx` (r
   - (A *full* footprint-conforming experiment that pushed the whole polygon through the global Coons patch with a fixed bbox window was **removed** — it rubber-sheeted X/Y and blew up their area 4–9×. The Jacobian-local + blend approach is the size-preserving replacement.) The building thus *deforms* to fit the plot, and manipulation (move / stretch / reshape) happens in `(s, t)` / cell space with the world footprint re-conforming automatically. On a rectangle the map is affine, so edges stay straight — conforming is a strict generalisation of rigid placement. Internals: `_coons_inputs`/`_coons_eval` are shared by the grid and the mapper. `_select_quad_corners` **always anchors the bottom chain on the chosen alignment side** (the other two corners split the opposite arc into thirds), so re-keying the grid to a different side actually moves the grid — and any building on it — to follow that side, rather than drifting to whichever corners are sharpest.
 
 The optimizer replaces the free 5 m sweep + 36 rotations with grid-aligned placement. `sample_valid_placements(grid=...)` enumerates grid nodes × aligned orientations (hard restriction by default). Because that discrete set is small, `optimize_aligned_placement` ranks it **exhaustively** (exact, deterministic, no NSGA-II) with a use-driven objective mix from `OBJECTIVE_REGISTRY`: the new `grid_alignment` and `boundary_proximity` objectives join view/sun, and commercial/office/retail/mixed buildings get a strong `boundary_proximity` weight so they line the chosen frontage while residential leans on view + sun. `place_buildings_aligned` sequences two-or-more buildings, each aligned and clearing the rest. This is the same "Fitness assembly" pattern (the LLM sets weights/use via the brief; geometry stays deterministic) and the same 2D-now / graph-integration-Phase-8 split as Phases 1. The lockstep frontend counterpart is `frontend/site/GridOverlay.tsx` via `POST /tools/{site_grid,aligned_placement}` (`CONTRACT.md` §8).
+
+## Circulation, Access & Fire Safety (Phase 5)
+
+`agent/tools/circulation.py` makes access placement explain *why* a building sits where it sits, building on the Phase 2 main-road side and the Phase 4 parking zones. Like every other tool family it is pure geometry (Shapely in / dict out), deterministic, no LLM:
+
+- `propose_site_entries(site_model)` places a **public** entry at the midpoint of the main-road side (with an inward normal) and, when a `secondary`/`path` road tags another side, an optional **private/service** entry there. Without road context it falls back to the longest side and reports `ambiguity="no_road_data"` rather than inventing a street.
+- `route_internal_circulation(site_model, entries, buildings, parking)` grows a connected tree of straight/L-shaped drivable corridors (`DEFAULT_PATH_WIDTH_M = 6 m`): each target (building entrance point, then each parking zone, nearest first) connects to the nearest point on the network so far, with the L-corner kept inside the site. It returns centreline polylines, buffered corridor polygons (clipped to the site), and `occupied_polygons` so the corridors join parking as obstacles for subsequent placement.
+- `building_entrance_orientation(buildings, entries, circulation)` is the entrance heuristic: the entrance facade faces the nearest circulation path (or nearest public entry when no path exists), and the private/quiet facade (and, in Phase 6, the courtyard) faces the opposite `private_direction`.
+- `check_fire_access(buildings, circulation, max_distance=50, min_path_width=4)` is the hard fire-safety constraint. Only paths ≥ `min_path_width` qualify as appliance access; each building reports its nearest-point distance to the drivable network, a reachable-perimeter ratio, and `constraint_value = distance − max_distance`. Following the optimizer's `G ≤ 0` convention, ≤ 0 means reachable; `all_pass` / `max_constraint_value` summarise feasibility so Phase 8 can fold it in as a hard constraint that rejects any layout with an unreachable building.
+
+Same 2D-now / graph-integration-Phase-8 split as Phases 1–4: the tools and the four direct-tool endpoints (`POST /tools/{site_entries,route_circulation,entrance_orientation,fire_access}`) are ready; wiring fire access into `build_objectives` as a hard `G` and feeding `occupied_polygons` back into `sample_valid_placements` lands in Phase 8.
 
 ## Why This Structure
 

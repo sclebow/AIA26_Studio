@@ -1,5 +1,32 @@
 # Team 04 Progress
 
+## 2026-06-22 Phase 5 — Circulation, Access, and Fire Safety
+
+Implements Phase 5 of `BACKEND_PLAN.md`: access placement now explains *why* a building sits where it sits. A new deterministic tool proposes **site entries** (public on the main-road side from Phase 2, optional private/service entry on a secondary side), **routes a drivable corridor network** from the entry to each building and parking zone, **orients each building's entrance** toward the nearest path, and enforces **fire access** as the optimizer's hard constraint `G ≤ 0` (every building must be within 50 m of a ≥ 4 m drivable path). Builds on Phase 2 (road/main-road side) and Phase 4 (parking zones as targets). Circulation corridor polygons are returned as occupied obstacles to join parking for subsequent placement. All under `team_04/`, conflict-free with `main`.
+
+### Completed
+
+- [x] `agent/tools/circulation.py` — pure, LLM-free circulation/access/fire-safety tool (Shapely in / dict out):
+  - `propose_site_entries(site_model)` — public entry at the midpoint of the **main-road side** (Phase 2 `roads.main_road_side_index`), with an inward normal; optional **private/service** entry on the longest side carrying a `secondary`/`path` road. Falls back to the longest side with `ambiguity="no_road_data"` when no road context exists.
+  - `route_internal_circulation(site_model, entries, buildings, parking)` — grows a connected tree of straight/L-shaped corridors (`DEFAULT_PATH_WIDTH_M = 6 m`): each target (building entrance point, then parking zone) connects to the **nearest point on the network so far**, with the L-corner kept inside the site. Returns per-corridor centreline polylines + buffered polygons (clipped to the site), `occupied_polygons` (obstacles for placement), and `total_length_m`.
+  - `building_entrance_orientation(buildings, entries, circulation)` — entrance heuristic: entrance facade faces the nearest circulation path (or nearest public entry when no paths exist); the `private_direction` is the opposite. Returns the entrance point on the boundary + outward unit direction + distance.
+  - `check_fire_access(buildings, circulation, max_distance=50, min_path_width=4)` — only paths ≥ `min_path_width` count as fire access; per building reports `distance_m`, `reachable_perimeter_ratio` (boundary test points within reach, reusing `view_analysis.divide_boundary_into_test_points`), `within_reach`, `pass`, and `constraint_value = distance − max_distance` (**≤ 0 ⇒ feasible**, the optimizer's `G` convention). Top-level `all_pass` / `max_constraint_value` summarise the hard constraint.
+  - Constants centralised: `DEFAULT_PATH_WIDTH_M`, `MIN_PATH_WIDTH_M`, `MAX_FIRE_DISTANCE_M`, `PERIMETER_PIECE_LENGTH_M`, `SECONDARY_HIERARCHY`.
+- [x] `backend/routers/tools.py` — registered `site_entries`, `route_circulation`, `entrance_orientation`, `fire_access` in the direct-tool registry (mirroring the Phase 4 parking endpoints) so the frontend can run access analyses without a chat turn.
+
+### Validation
+
+- [x] `benchmarking/test_circulation.py` — **37 deterministic tests** (no LLM/MCP), 5 classes: entry placement (public on main road, lies on boundary, inward normal points into site, private on secondary side, longest-side fallback + ambiguity, empty boundary); corridor routing (one path per target, paths reach buildings, polygons stay inside site, custom width, raw-zone-list input, occupied polygons); entrance orientation (point on boundary, entrance/private opposite, unit vector, faces circulation vs. public entry); fire access (served buildings pass, no-circulation fails, **constraint sign convention pass/fail**, narrow path disqualified, `max_constraint_value` is worst, ratio bounds, raw-path-list input); and end-to-end pipeline integration. All 37 pass.
+- [x] Notebook `test_notebooks/test_circulation_fire.ipynb` executes top-to-bottom clean (nbconvert, 0 error outputs): (a) entries on main road, (b) routed network + parking with entrance-orientation arrows, (c) fire-access PASS colouring (both buildings green, within 50 m), (d) a deliberately failing big-site layout where the remote building's `G > 0` is rejected (red). Generator kept at `test_notebooks/_build_circulation_nb.py` for reproducibility.
+- [x] Full suite: `python -m unittest discover team_04/benchmarking` → 303/304 pass; the single failure (`test_generate_building_boundary.test_l_shape_is_translated_and_closed`, a centroid boundary-equality assertion) is **pre-existing and unrelated** to Phase 5 (confirmed: it fails with the Phase 5 changes stashed away).
+- [x] `git status` shows only `team_04/` paths.
+
+### Active MVP Status
+
+- [x] Entries, drivable corridors, entrance orientation, and the fire-access hard constraint are available as pure tools and direct backend endpoints.
+- [ ] Optimizer wiring (fire access as a hard `G`, circulation polygons fed back as obstacles into `sample_valid_placements`) lands in Phase 8 integration — the constraint and obstacle outputs are ready to consume.
+- [ ] Routing is intentionally simple (straight/L-shaped tree from one public entry); curved/loop networks and multi-entry meshing are out of scope for Phase 5.
+
 ## 2026-06-19 Phase 2b — Urban Context Analysis
 
 Extends Phase 2 with real-world urban intelligence: the agent now understands **what kind of urban site it sits on** — a crossroads corner, a T-junction terminal, a triangular corner, a linear frontage, etc. — and generates **architectural design responses** tailored to each condition. Data can come from a live OpenStreetMap fetch (Overpass API) or from offline-safe synthetic fallbacks; the same analysis pipeline works for both.
