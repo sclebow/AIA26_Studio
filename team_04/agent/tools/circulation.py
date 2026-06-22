@@ -491,11 +491,28 @@ def building_entrance_orientation(
                 "opening_point": court.get("opening_point"),
             })
 
+        # Attach a short human reason to each entrance (why it sits where it does).
+        for e in entrances:
+            e["reason"] = _entrance_reason(e["role"], e["faces"])
+
+        # Emergency exits from the footprint geometry — multiple independent
+        # directions, never dumping into an enclosed courtyard. (Reported
+        # alongside the access entrances so a caller can see the full door set.)
+        egress = generate_emergency_exits(bld, circulation)
+
         # Legacy fields mirror the public entrance (or first available).
         legacy = public_ent or (entrances[0] if entrances else None)
         results.append({
             "building_id": bld_id,
             "entrances": entrances,
+            "emergency_exits": egress["exits"],
+            "egress_summary": {
+                "n_exits": egress["n_exits"],
+                "independent_directions": egress["independent_directions"],
+                "multiple_directions": egress["multiple_directions"],
+                "single_point_failure": egress["single_point_failure"],
+                "courtyard_only_egress_risk": egress["courtyard_only_egress_risk"],
+            },
             "courtyards": court_records,
             "n_entrances": len(entrances),
             # ---- backward-compatible single-entrance fields ----
@@ -1216,4 +1233,967 @@ def _empty_circulation(path_width_m: float, reason: str) -> dict[str, Any]:
         "total_length_m": 0.0,
         "path_width_m": round(float(path_width_m), 2),
         "summary": f"Circulation routing skipped: {reason}",
+    }
+
+
+# ===========================================================================
+# Functional access reasoning layer (Phase 5+ rebuild)
+#
+# The functions above place geometry; the functions below reason about how
+# people *use* it — how they arrive, which door they pick, how cars reach
+# parking and people walk from it, and how everyone gets out in a fire. They
+# are additive: nothing above changed signature or contract.
+# ===========================================================================
+
+# ---- additional constants -------------------------------------------------
+
+PEDESTRIAN_PATH_WIDTH_M: float = 2.5
+"""Width of a walkable pedestrian route (m)."""
+
+COMFORT_WALK_M: float = 120.0
+"""Comfortable parking-to-entrance walking distance (m). Beyond this the link
+is flagged as too far."""
+
+ACCESSIBLE_WALK_M: float = 60.0
+"""Maximum barrier-free travel distance for accessible parking to an entrance
+(m) — accessible bays should sit within this of a public entrance."""
+
+FIRE_APPLIANCE_TURNING_RADIUS_M: float = 12.0
+"""Outer turning radius a fire appliance needs at a dead end / hammerhead (m)."""
+
+MIN_EMERGENCY_EXITS: int = 2
+"""Minimum independent emergency exits every building must offer."""
+
+EXIT_INDEPENDENCE_MIN_DEG: float = 60.0
+"""Two exits count as *independent* escape directions only when their outward
+normals differ by at least this angle (degrees)."""
+
+FACADE_MERGE_ANGLE_DEG: float = 15.0
+"""Consecutive edges whose directions differ by less than this are merged into
+one facade (so a slightly faceted wall reads as a single face)."""
+
+FACADE_PROBE_M: float = 3.0
+"""Distance a facade's outward normal is probed to tell open space from a
+concave courtyard pocket (m)."""
+
+
+# ---- small shared helpers -------------------------------------------------
+
+def _boundary_of(obj: Any) -> list:
+    if isinstance(obj, dict):
+        return obj.get("boundary") or obj.get("building_boundary") or obj.get("site_boundary") or []
+    return obj or []
+
+
+def _building_id_of(b: Any, idx: int = 0) -> str:
+    if isinstance(b, dict):
+        return str(b.get("building_id") or b.get("geometry_id") or f"building_{idx}")
+    return f"building_{idx}"
+
+
+def _solid_polygon(building: Any) -> Polygon | None:
+    """Footprint as a Shapely polygon **with its holes** preserved."""
+    if isinstance(building, Polygon):
+        return building if building.is_valid else building.buffer(0)
+    shell = [(float(p[0]), float(p[1])) for p in _boundary_of(building) if len(p) >= 2]
+    if len(shell) < 3:
+        return None
+    rings: list[list[tuple[float, float]]] = []
+    if isinstance(building, dict):
+        for ring in building.get("holes") or []:
+            r = [(float(p[0]), float(p[1])) for p in ring if len(p) >= 2]
+            if len(r) >= 3:
+                rings.append(r)
+    poly = Polygon(shell, rings)
+    return poly if poly.is_valid else poly.buffer(0)
+
+
+def _unit(dx: float, dy: float) -> tuple[float, float]:
+    L = math.hypot(dx, dy) or 1.0
+    return dx / L, dy / L
+
+
+def _angle_deg(nx: float, ny: float) -> float:
+    return math.degrees(math.atan2(ny, nx))
+
+
+def _ang_diff(a: float, b: float) -> float:
+    d = abs(a - b) % 360.0
+    return d if d <= 180.0 else 360.0 - d
+
+
+def _count_independent_dirs(angles: list[float], sep: float) -> int:
+    reps: list[float] = []
+    for a in angles:
+        if all(_ang_diff(a, r) >= sep for r in reps):
+            reps.append(a)
+    return len(reps)
+
+
+def _network_from_circulation(circulation: Any) -> Any:
+    lines: list[LineString] = []
+    for p in _coerce_paths(circulation):
+        pl = p.get("polyline") or []
+        if len(pl) >= 2:
+            lines.append(LineString([(pt[0], pt[1]) for pt in pl]))
+    return unary_union(lines) if lines else None
+
+
+def _public_entrance_index(orientation: Any) -> dict[str, tuple[float, float]]:
+    """``{building_id: (x, y)}`` for each building's public entrance."""
+    out: dict[str, tuple[float, float]] = {}
+    if not orientation:
+        return out
+    for b in orientation.get("buildings") or []:
+        bid = b.get("building_id")
+        pt = None
+        for e in b.get("entrances") or []:
+            if e.get("role") == "public":
+                pt = e.get("point")
+                break
+        if pt is None:
+            pt = b.get("entrance_point")
+        if bid is not None and pt:
+            out[str(bid)] = (float(pt[0]), float(pt[1]))
+    return out
+
+
+def _entrance_reason(role: str, faces: str) -> str:
+    if role == "public":
+        if faces == "circulation":
+            return ("Main entrance on the facade facing the internal circulation / main "
+                    "arrival route — direct and visible from where people arrive.")
+        if faces == "public_entry":
+            return "Main entrance on the facade closest to the public site entry on the main road."
+        return "Main entrance on the most publicly visible facade toward the street."
+    if role == "service":
+        return ("Service / loading entrance on a quieter facade facing the secondary "
+                "site entry, keeping public traffic away from servicing.")
+    if role == "residential":
+        if faces == "courtyard":
+            return "Quiet residential entrance opening onto the building's courtyard."
+        return "Quiet residential entrance on the calm facade opposite the public door."
+    if role == "courtyard":
+        return "Courtyard entrance on the inner facade serving the enclosed / open court."
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# Facade segmentation — the typology-aware primitive
+# ---------------------------------------------------------------------------
+
+def segment_facades(
+    building: Any,
+    *,
+    merge_angle_deg: float = FACADE_MERGE_ANGLE_DEG,
+) -> list[dict[str, Any]]:
+    """Break a footprint into facades, each tagged by what it faces.
+
+    Works for any footprint — a plain box, a winged U / H / X / Y / E, or a
+    courtyard / O building — so entrance and egress logic never needs the wing
+    graph. Each facade dict carries:
+
+    * ``facade_id``, ``start``, ``end``, ``midpoint`` [x,y,0], ``length_m``
+    * ``direction`` [ux,uy]      — unit vector along the facade
+    * ``outward_normal`` [nx,ny] — unit normal pointing away from the solid
+    * ``faces``                  — ``"open"`` (true exterior), ``"courtyard"``
+                                   (a concave pocket of a U/H/E shape) or
+                                   ``"enclosed_courtyard"`` (an interior hole ring)
+    * ``is_exterior``            — on the outer ring *and* facing open space
+
+    Args:
+        building: Footprint as a Shapely ``Polygon`` or a building dict
+                  (``boundary`` and optional ``holes``).
+        merge_angle_deg: Edges closer than this in direction merge into one face.
+
+    Returns:
+        List of facade dicts (outer-ring faces first, then any hole faces).
+    """
+    poly = _solid_polygon(building)
+    if poly is None or poly.is_empty:
+        return []
+    shell_hull = Polygon(poly.exterior).convex_hull
+
+    facades: list[dict[str, Any]] = []
+    facades += _ring_to_facades(list(poly.exterior.coords), poly, shell_hull, "exterior", merge_angle_deg)
+    for interior in poly.interiors:
+        facades += _ring_to_facades(list(interior.coords), poly, shell_hull, "hole", merge_angle_deg)
+    for i, f in enumerate(facades):
+        f["facade_id"] = f"facade_{i}"
+    return facades
+
+
+def _ring_to_facades(
+    ring: list,
+    solid: Polygon,
+    shell_hull: Polygon,
+    kind: str,
+    merge_angle_deg: float,
+) -> list[dict[str, Any]]:
+    pts = [(float(x), float(y)) for x, y in ring[:-1]] if len(ring) > 1 else []
+    n = len(pts)
+    if n < 2:
+        return []
+
+    # Edge directions, then group consecutive near-collinear edges.
+    edge_dirs = [_angle_deg(*_unit(pts[(i + 1) % n][0] - pts[i][0],
+                                   pts[(i + 1) % n][1] - pts[i][1])) for i in range(n)]
+    groups: list[list[int]] = [[0]]
+    for i in range(1, n):
+        if _ang_diff(edge_dirs[i], edge_dirs[i - 1]) <= merge_angle_deg:
+            groups[-1].append(i)
+        else:
+            groups.append([i])
+
+    facades: list[dict[str, Any]] = []
+    for grp in groups:
+        s = pts[grp[0]]
+        e = pts[(grp[-1] + 1) % n]
+        length = math.hypot(e[0] - s[0], e[1] - s[1])
+        if length < 1e-6:
+            continue
+        mx, my = (s[0] + e[0]) / 2.0, (s[1] + e[1]) / 2.0
+        ux, uy = _unit(e[0] - s[0], e[1] - s[1])
+
+        # Outward normal = the perpendicular whose probe leaves the solid.
+        n1 = (uy, -ux)
+        probe_in = Point(mx + n1[0] * 0.05, my + n1[1] * 0.05)
+        nx, ny = n1 if not solid.contains(probe_in) else (-uy, ux)
+
+        if kind == "hole":
+            faces = "enclosed_courtyard"
+        else:
+            probe = Point(mx + nx * FACADE_PROBE_M, my + ny * FACADE_PROBE_M)
+            faces = "courtyard" if (shell_hull.contains(probe) and not solid.contains(probe)) else "open"
+
+        facades.append({
+            "start": [round(s[0], 4), round(s[1], 4), 0.0],
+            "end": [round(e[0], 4), round(e[1], 4), 0.0],
+            "midpoint": [round(mx, 4), round(my, 4), 0.0],
+            "length_m": round(length, 3),
+            "direction": [round(ux, 6), round(uy, 6)],
+            "outward_normal": [round(nx, 6), round(ny, 6)],
+            "faces": faces,
+            "is_exterior": kind == "exterior" and faces == "open",
+        })
+    return facades
+
+
+# ---------------------------------------------------------------------------
+# Emergency exits — geometry-driven, multi-direction, courtyard-avoiding
+# ---------------------------------------------------------------------------
+
+def generate_emergency_exits(
+    building: Any,
+    circulation: Any = None,
+    *,
+    min_exits: int = MIN_EMERGENCY_EXITS,
+    independence_deg: float = EXIT_INDEPENDENCE_MIN_DEG,
+    max_distance: float = MAX_FIRE_DISTANCE_M,
+) -> dict[str, Any]:
+    """Generate emergency exits for one building from its geometry.
+
+    Exits are placed on **open exterior facades** (never into an enclosed or
+    open courtyard, which would trap occupants), spread to maximise independent
+    escape directions, and — for winged shapes — spread across the footprint so
+    each wing has its own way out. A single-point-failure flag fires when there
+    are fewer than two genuinely independent directions.
+
+    Args:
+        building:     Footprint dict or Shapely polygon.
+        circulation:  Optional drivable network (to report exit→road distance).
+        min_exits:    Minimum exits required (default 2).
+        independence_deg: Min angle between two outward normals to count as
+                      independent escape directions.
+        max_distance: Reach used to flag whether an exit makes it to a road.
+
+    Returns:
+        dict with ``building_id``, ``exits`` (list), ``n_exits``,
+        ``independent_directions``, ``multiple_directions``,
+        ``single_point_failure``, ``courtyard_only_egress_risk``,
+        ``wing_coverage``, ``summary``.
+    """
+    bld_id = _building_id_of(building)
+    facades = segment_facades(building)
+    open_f = [f for f in facades if f["faces"] == "open"]
+    court_f = [f for f in facades if f["faces"] != "open"]
+    network = _network_from_circulation(circulation)
+
+    ranked = sorted(open_f, key=lambda f: -f["length_m"])
+    chosen: list[dict[str, Any]] = []
+    for f in ranked:
+        a = _angle_deg(*f["outward_normal"])
+        if all(_ang_diff(a, _angle_deg(*c["outward_normal"])) >= independence_deg for c in chosen):
+            chosen.append(f)
+    # Top up to min_exits with the next-longest open facades if independence was strict.
+    if len(chosen) < min_exits:
+        for f in ranked:
+            if f not in chosen:
+                chosen.append(f)
+            if len(chosen) >= min_exits:
+                break
+
+    exits: list[dict[str, Any]] = []
+    for k, f in enumerate(chosen):
+        mid = f["midpoint"]
+        d = float(network.distance(Point(mid[0], mid[1]))) if network is not None else None
+        exits.append({
+            "exit_id": f"{bld_id}_exit_{k}",
+            "point": mid,
+            "direction": f["outward_normal"],
+            "faces": f["faces"],
+            "facade_id": f.get("facade_id"),
+            "leads_to_open": True,
+            "distance_to_access_m": round(d, 3) if d is not None else None,
+            "reaches_road": bool(d is not None and d <= float(max_distance) + 1e-6),
+        })
+
+    angles = [_angle_deg(*e["direction"]) for e in exits]
+    independent = _count_independent_dirs(angles, independence_deg)
+    courtyard_only_risk = (len(open_f) == 0 and len(court_f) > 0)
+    single_point = len(exits) < min_exits or independent < 2
+    wing_cov = _wing_exit_coverage(building, exits)
+
+    notes = []
+    if single_point:
+        notes.append("single-point-failure risk: fewer than 2 independent escape directions")
+    if courtyard_only_risk:
+        notes.append("no open exterior facade — exits would discharge into a courtyard")
+    if not wing_cov["covered"]:
+        notes.append("exits not well spread across the footprint (possible wing without an exit)")
+    summary = (f"{bld_id}: {len(exits)} exit(s), {independent} independent direction(s)"
+               + (" — " + "; ".join(notes) if notes else " — OK"))
+
+    return {
+        "building_id": bld_id,
+        "exits": exits,
+        "n_exits": len(exits),
+        "independent_directions": independent,
+        "multiple_directions": independent >= 2,
+        "single_point_failure": bool(single_point),
+        "courtyard_only_egress_risk": bool(courtyard_only_risk),
+        "wing_coverage": wing_cov,
+        "summary": summary,
+    }
+
+
+def _wing_exit_coverage(building: Any, exits: list[dict[str, Any]]) -> dict[str, Any]:
+    """Heuristic: are exits spread far enough apart to cover separate wings?"""
+    poly = _solid_polygon(building)
+    if poly is None or poly.is_empty or len(exits) < 2:
+        return {"covered": False, "detail": "fewer than 2 exits"}
+    minx, miny, maxx, maxy = poly.bounds
+    diag = math.hypot(maxx - minx, maxy - miny) or 1.0
+    pts = [Point(e["point"][0], e["point"][1]) for e in exits]
+    max_sep = max(p.distance(q) for p in pts for q in pts)
+    return {
+        "covered": bool(max_sep >= 0.45 * diag),
+        "max_exit_separation_m": round(max_sep, 2),
+        "footprint_diagonal_m": round(diag, 2),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Site arrival — pedestrian vs vehicular, per frontage
+# ---------------------------------------------------------------------------
+
+_PEDESTRIAN_HIERARCHIES = ("path", "footpath", "pedestrian")
+_VEHICULAR_HIERARCHIES = ("main", "primary", "secondary")
+
+
+def analyze_site_arrival(
+    site_model: dict[str, Any],
+    entries: Any,
+    orientation: Any = None,
+) -> dict[str, Any]:
+    """Reason about how users arrive from the street and which door they pick.
+
+    For every road frontage it states whether pedestrians and/or vehicles
+    arrive there; for every site entry it gives the user's mode and the
+    street → site → building sequence ending at the nearest public entrance.
+
+    Args:
+        site_model:  Canonical SiteModel (``sides`` carry ``adjacent_road``).
+        entries:     ``propose_site_entries`` result or its list.
+        orientation: ``building_entrance_orientation`` result (for door targets).
+
+    Returns:
+        dict with ``frontages``, ``arrivals``, ``summary``.
+    """
+    entry_list = _coerce_entries(entries)
+    sides = site_model.get("sides") or []
+    ent_pts = _public_entrance_index(orientation)
+
+    def hierarchy_of(side_index: int) -> str | None:
+        if 0 <= side_index < len(sides):
+            ar = sides[side_index].get("adjacent_road")
+            if isinstance(ar, dict):
+                return ar.get("hierarchy")
+        return None
+
+    frontages: list[dict[str, Any]] = []
+    for s in sides:
+        ar = s.get("adjacent_road")
+        if not isinstance(ar, dict):
+            continue
+        h = ar.get("hierarchy")
+        ped = h in _PEDESTRIAN_HIERARCHIES or h in ("main", "primary", "secondary")
+        veh = h in _VEHICULAR_HIERARCHIES
+        si = int(s.get("side_index", -1))
+        frontages.append({
+            "side_index": si,
+            "road_name": ar.get("name"),
+            "hierarchy": h,
+            "pedestrian_arrival": bool(ped),
+            "vehicular_arrival": bool(veh),
+            "entry_ids": [e["entry_id"] for e in entry_list if e.get("side_index") == si],
+            "note": ("vehicles + pedestrians" if veh and ped else
+                     "pedestrians only" if ped else "vehicles only" if veh else "—"),
+        })
+
+    arrivals: list[dict[str, Any]] = []
+    for e in entry_list:
+        h = hierarchy_of(int(e.get("side_index", -1)))
+        if h in _PEDESTRIAN_HIERARCHIES:
+            mode = "pedestrian"
+        elif e.get("type") == "public":
+            mode = "both"
+        else:
+            mode = "vehicular"
+        target = None
+        if ent_pts:
+            ex, ey = e["point"][0], e["point"][1]
+            target = min(ent_pts, key=lambda b: math.hypot(ent_pts[b][0] - ex, ent_pts[b][1] - ey))
+        road = e.get("road_name") or "street"
+        seq = f"{road} → {e['type']} site entry → internal route → " + (
+            f"{target} public entrance" if target else "building entrance")
+        arrivals.append({
+            "entry_id": e["entry_id"],
+            "type": e.get("type"),
+            "mode": mode,
+            "point": e["point"],
+            "serves_building": target,
+            "sequence": seq,
+        })
+
+    n_ped = sum(1 for a in arrivals if a["mode"] in ("pedestrian", "both"))
+    n_veh = sum(1 for a in arrivals if a["mode"] in ("vehicular", "both"))
+    summary = (f"{len(frontages)} road frontage(s); "
+               f"{n_ped} pedestrian and {n_veh} vehicular arrival point(s).")
+    return {"frontages": frontages, "arrivals": arrivals, "summary": summary}
+
+
+# ---------------------------------------------------------------------------
+# Pedestrian network — routes that avoid walking through parking
+# ---------------------------------------------------------------------------
+
+def route_pedestrian_network(
+    site_model: dict[str, Any],
+    entries: Any,
+    buildings: list[dict[str, Any]],
+    parking: Any = None,
+    orientation: Any = None,
+    *,
+    path_width_m: float = PEDESTRIAN_PATH_WIDTH_M,
+) -> dict[str, Any]:
+    """Route a pedestrian network: site entry → entrances, parking → entrances.
+
+    Pedestrian routes are obstacle-aware (visibility graph) like the vehicular
+    network, but additionally treat **parking zones as obstacles** so people are
+    not routed across a parking lot when a footway around it exists.
+
+    Returns a dict shaped like ``route_internal_circulation`` with every path
+    tagged ``mode="pedestrian"`` and a ``hierarchy`` of ``"primary"`` (a public
+    arrival walk) or ``"secondary"`` (a walk up from parking).
+    """
+    boundary = _boundary_of(site_model)
+    if not boundary or len(boundary) < 3:
+        return {"paths": [], "network_polyline": [], "total_length_m": 0.0,
+                "path_width_m": path_width_m, "mode": "pedestrian",
+                "summary": "Pedestrian routing skipped: no site boundary"}
+    site_poly = _to_polygon(boundary)
+    half = max(0.5, float(path_width_m)) / 2.0
+    entry_list = _coerce_entries(entries)
+    pub_pts = [Point(e["point"][0], e["point"][1]) for e in entry_list if e.get("type") == "public"]
+    if not pub_pts and entry_list:
+        pub_pts = [Point(entry_list[0]["point"][0], entry_list[0]["point"][1])]
+    ent_pts = _public_entrance_index(orientation)
+
+    bld_polys: list[tuple[str, Polygon]] = []
+    for i, b in enumerate(buildings or []):
+        bnd = _boundary_of(b)
+        if bnd and len(bnd) >= 3:
+            bld_polys.append((_building_id_of(b, i), _to_polygon(bnd)))
+    park_polys: list[tuple[str, Polygon]] = []
+    for z in _coerce_zones(parking):
+        zb = z.get("boundary") or []
+        if zb and len(zb) >= 3:
+            park_polys.append((str(z.get("zone_id") or f"parking_{len(park_polys)}"), _to_polygon(zb)))
+
+    paths: list[dict[str, Any]] = []
+    network: Any = unary_union(pub_pts) if pub_pts else None
+
+    def _emit(start, goal, serves, source, hierarchy, obstacles):
+        nonlocal network
+        route = _shortest_route(start, goal, site_poly, obstacles) or _l_polyline(start, goal, site_poly)
+        line = LineString(route)
+        if line.length < 1e-6:
+            return
+        paths.append({
+            "path_id": f"ped_{len(paths)}",
+            "polyline": [[round(x, 4), round(y, 4), 0.0] for x, y in route],
+            "width_m": round(float(path_width_m), 2),
+            "length_m": round(float(line.length), 2),
+            "serves": serves,
+            "source": source,
+            "target_type": "building_entrance",
+            "mode": "pedestrian",
+            "hierarchy": hierarchy,
+            "routed_around": max(len(route) - 2, 0),
+        })
+        network = unary_union([network, line]) if network is not None else line
+
+    # 1) Public arrival walks: nearest pedestrian node → each public entrance.
+    for bid, poly in bld_polys:
+        goal = ent_pts.get(bid)
+        goal_pt = Point(goal) if goal else nearest_points(poly.exterior, network or pub_pts[0])[1]
+        goal_xy = (goal_pt.x, goal_pt.y)
+        src = network if network is not None else (pub_pts[0] if pub_pts else goal_pt)
+        start_geom, _ = nearest_points(src, goal_pt)
+        obstacles = ([p.buffer(half + ROUTE_CLEARANCE_M, join_style=2) for oid, p in bld_polys if oid != bid]
+                     + [p.buffer(half, join_style=2) for _, p in park_polys])
+        _emit((start_geom.x, start_geom.y), goal_xy, bid, "site_entry", "primary", obstacles)
+
+    # 2) Parking egress walks: each zone → its nearest public entrance.
+    for zid, zpoly in park_polys:
+        if not ent_pts:
+            break
+        bid = min(ent_pts, key=lambda b: zpoly.distance(Point(ent_pts[b])))
+        goal_pt = Point(ent_pts[bid])
+        start_geom, _ = nearest_points(zpoly.exterior, goal_pt)
+        obstacles = ([p.buffer(half + ROUTE_CLEARANCE_M, join_style=2) for oid, p in bld_polys if oid != bid]
+                     + [p.buffer(half, join_style=2) for oid, p in park_polys if oid != zid])
+        _emit((start_geom.x, start_geom.y), (goal_pt.x, goal_pt.y), bid, zid, "secondary", obstacles)
+
+    total = round(sum(p["length_m"] for p in paths), 2)
+    n_pri = sum(1 for p in paths if p["hierarchy"] == "primary")
+    n_sec = sum(1 for p in paths if p["hierarchy"] == "secondary")
+    return {
+        "paths": paths,
+        "network_polyline": [p["polyline"] for p in paths],
+        "total_length_m": total,
+        "path_width_m": round(float(path_width_m), 2),
+        "mode": "pedestrian",
+        "summary": (f"{len(paths)} pedestrian route(s), {total} m "
+                    f"({n_pri} arrival walk(s), {n_sec} parking walk(s)); parking treated as obstacle."),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Parking integration analysis
+# ---------------------------------------------------------------------------
+
+def analyze_parking_access(
+    buildings: list[dict[str, Any]],
+    parking: Any,
+    orientation: Any,
+    pedestrian: Any = None,
+    *,
+    comfort_m: float = COMFORT_WALK_M,
+    accessible_m: float = ACCESSIBLE_WALK_M,
+) -> dict[str, Any]:
+    """Evaluate parking as part of the journey, not an isolated object.
+
+    For each parking zone: nearest public entrance and its walking distance, a
+    drop-off point on the zone edge closest to that entrance, whether the walk
+    is within comfortable / accessible range, and the full
+    street → site → parking → entrance sequence.
+
+    Returns dict with ``zones`` (per-zone rows), ``all_within_comfort``,
+    ``summary``.
+    """
+    ent_pts = _public_entrance_index(orientation)
+    ped_net = _network_from_circulation(pedestrian) if pedestrian else None
+
+    rows: list[dict[str, Any]] = []
+    for z in _coerce_zones(parking):
+        zb = z.get("boundary") or []
+        if not zb or len(zb) < 3:
+            continue
+        zid = str(z.get("zone_id") or f"parking_{len(rows)}")
+        zpoly = _to_polygon(zb)
+        if not ent_pts:
+            rows.append({"zone_id": zid, "nearest_entrance_building": None,
+                         "straight_distance_m": None, "note": "no building entrances resolved"})
+            continue
+        bid = min(ent_pts, key=lambda b: zpoly.distance(Point(ent_pts[b])))
+        ent_pt = Point(ent_pts[bid])
+        straight = float(zpoly.distance(ent_pt))
+        drop_geom, _ = nearest_points(zpoly.exterior, ent_pt)
+        walk = None
+        if ped_net is not None:
+            # distance along the pedestrian network's nearest node (approx walk)
+            walk = round(float(ped_net.distance(drop_geom)) + straight, 2)
+        rows.append({
+            "zone_id": zid,
+            "nearest_entrance_building": bid,
+            "straight_distance_m": round(straight, 2),
+            "approx_walk_distance_m": walk,
+            "drop_off_point": [round(drop_geom.x, 3), round(drop_geom.y, 3), 0.0],
+            "within_comfort_walk": bool(straight <= comfort_m),
+            "accessible_parking_ok": bool(straight <= accessible_m),
+            "is_main_road_side": bool(z.get("is_main_road_side")),
+            "sequence": f"street → site entry → {zid} → walk ~{round(straight)} m → {bid} public entrance",
+        })
+
+    all_comfort = all(r.get("within_comfort_walk") for r in rows) if rows else True
+    n_acc = sum(1 for r in rows if r.get("accessible_parking_ok"))
+    summary = (f"{len(rows)} parking zone(s); {n_acc} within accessible walk ({accessible_m} m); "
+               + ("all within comfortable walk." if all_comfort else "some beyond comfortable walk."))
+    return {"zones": rows, "all_within_comfort": bool(all_comfort), "summary": summary}
+
+
+# ---------------------------------------------------------------------------
+# Emergency egress + fire-appliance access (per building)
+# ---------------------------------------------------------------------------
+
+def analyze_egress(
+    buildings: list[dict[str, Any]],
+    circulation: Any = None,
+    *,
+    max_distance: float = MAX_FIRE_DISTANCE_M,
+) -> dict[str, Any]:
+    """Combine emergency egress and fire-appliance access into one report.
+
+    Per building: emergency exits (multi-direction, courtyard-avoiding, wing
+    coverage) plus the fire-appliance reach metrics from ``check_fire_access``
+    (nearest wall, deepest interior, courtyard reachability). A building is
+    ``compliant`` only when it has ≥2 independent exits, no single-point
+    failure, no courtyard-only egress, and a fire appliance can reach it.
+
+    Returns dict with ``buildings`` (rows), ``all_compliant``,
+    ``turning_radius_m``, ``min_clear_width_m``, ``summary``.
+    """
+    fire = check_fire_access(buildings, circulation, strict=True, max_distance=max_distance)
+    fire_by = {b["building_id"]: b for b in fire["buildings"]}
+
+    rows: list[dict[str, Any]] = []
+    for i, b in enumerate(buildings or []):
+        bid = _building_id_of(b, i)
+        ee = generate_emergency_exits(b, circulation, max_distance=max_distance)
+        fb = fire_by.get(bid, {})
+        appliance = {
+            "distance_m": fb.get("distance_m"),
+            "within_reach": fb.get("within_reach"),
+            "interior_within_reach": fb.get("interior_within_reach"),
+            "deepest_point_distance_m": fb.get("deepest_point_distance_m"),
+            "courtyards_reachable": fb.get("courtyards_reachable"),
+        }
+        compliant = bool(
+            ee["n_exits"] >= MIN_EMERGENCY_EXITS
+            and not ee["single_point_failure"]
+            and not ee["courtyard_only_egress_risk"]
+            and fb.get("within_reach")
+        )
+        rows.append({
+            "building_id": bid,
+            "exits": ee["exits"],
+            "n_exits": ee["n_exits"],
+            "independent_directions": ee["independent_directions"],
+            "multiple_directions": ee["multiple_directions"],
+            "single_point_failure": ee["single_point_failure"],
+            "courtyard_only_egress_risk": ee["courtyard_only_egress_risk"],
+            "wing_coverage": ee["wing_coverage"],
+            "fire_appliance_access": appliance,
+            "compliant": compliant,
+            "notes": ee["summary"],
+        })
+
+    all_ok = all(r["compliant"] for r in rows) if rows else False
+    n_ok = sum(1 for r in rows if r["compliant"])
+    summary = (f"{n_ok}/{len(rows)} building(s) egress-compliant "
+               f"(≥{MIN_EMERGENCY_EXITS} independent exits + fire-appliance reach).")
+    return {
+        "buildings": rows,
+        "all_compliant": bool(all_ok),
+        "turning_radius_m": FIRE_APPLIANCE_TURNING_RADIUS_M,
+        "min_clear_width_m": MIN_PATH_WIDTH_M,
+        "summary": summary,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Conflict detection (pedestrian × vehicle, parking × fire access)
+# ---------------------------------------------------------------------------
+
+def detect_circulation_conflicts(
+    vehicular: Any,
+    pedestrian: Any,
+    parking: Any = None,
+    fire: Any = None,
+) -> dict[str, Any]:
+    """Find pedestrian/vehicle conflicts and blocked fire access.
+
+    * **ped × vehicle crossings** — where a pedestrian route crosses a drivable
+      corridor (needs a marked / raised crossing).
+    * **ped through parking** — a pedestrian route clipping a parking polygon.
+    * **fire access fail** — any building the appliance network can't reach.
+
+    Returns dict with ``conflicts`` (each ``type``, ``location``,
+    ``resolution``) and ``summary``.
+    """
+    conflicts: list[dict[str, Any]] = []
+    veh_net = _network_from_circulation(vehicular)
+
+    ped_lines: list[tuple[str, LineString]] = []
+    for p in _coerce_paths(pedestrian):
+        pl = p.get("polyline") or []
+        if len(pl) >= 2:
+            ped_lines.append((p.get("path_id", "ped"), LineString([(pt[0], pt[1]) for pt in pl])))
+
+    if veh_net is not None:
+        seen_xy: list[tuple[float, float]] = []
+        for pid, line in ped_lines:
+            inter = line.intersection(veh_net)
+            for pt in _iter_points(inter):
+                # Dedupe crossings that land within ~2 m of one already recorded.
+                if any(math.hypot(pt.x - sx, pt.y - sy) < 2.0 for sx, sy in seen_xy):
+                    continue
+                seen_xy.append((pt.x, pt.y))
+                conflicts.append({
+                    "type": "pedestrian_vehicle_crossing",
+                    "path_id": pid,
+                    "location": [round(pt.x, 3), round(pt.y, 3), 0.0],
+                    "resolution": "provide a marked / raised pedestrian crossing with sightlines here",
+                })
+
+    park_by_id = {str(z.get("zone_id") or f"parking_{i}"): _to_polygon(z["boundary"])
+                  for i, z in enumerate(_coerce_zones(parking))
+                  if z.get("boundary") and len(z["boundary"]) >= 3}
+    ped_source = {p.get("path_id"): p.get("source") for p in _coerce_paths(pedestrian)}
+    for pid, line in ped_lines:
+        src = ped_source.get(pid)
+        for zid, zp in park_by_id.items():
+            if zid == src:
+                continue  # a walk *from* this zone necessarily starts at its edge
+            if line.intersection(zp).length > 0.5:
+                conflicts.append({
+                    "type": "pedestrian_through_parking",
+                    "path_id": pid,
+                    "location": [round(line.centroid.x, 3), round(line.centroid.y, 3), 0.0],
+                    "resolution": "route the footway around the parking edge or add a protected walkway",
+                })
+                break
+
+    if isinstance(fire, dict):
+        for b in fire.get("buildings", []):
+            if not b.get("within_reach"):
+                conflicts.append({
+                    "type": "fire_access_unreachable",
+                    "building_id": b.get("building_id"),
+                    "location": None,
+                    "resolution": "add a fire lane / hammerhead within 50 m of this building",
+                })
+
+    counts: dict[str, int] = {}
+    for c in conflicts:
+        counts[c["type"]] = counts.get(c["type"], 0) + 1
+    summary = (f"{len(conflicts)} conflict(s): "
+               + ", ".join(f"{k}×{v}" for k, v in counts.items())) if conflicts else "No conflicts detected."
+    return {"conflicts": conflicts, "counts": counts, "summary": summary}
+
+
+def _iter_points(geom: Any) -> list[Point]:
+    if geom is None or getattr(geom, "is_empty", True):
+        return []
+    if isinstance(geom, Point):
+        return [geom]
+    pts: list[Point] = []
+    for g in getattr(geom, "geoms", []):
+        if isinstance(g, Point):
+            pts.append(g)
+        elif hasattr(g, "representative_point"):
+            pts.append(g.representative_point())
+    return pts
+
+
+# ---------------------------------------------------------------------------
+# Circulation audit (the validation checklist)
+# ---------------------------------------------------------------------------
+
+def audit_circulation(
+    entries: Any,
+    orientation: Any,
+    vehicular: Any,
+    pedestrian: Any,
+    parking_access: Any,
+    egress: Any,
+    fire: Any,
+    conflicts: Any,
+) -> dict[str, Any]:
+    """Run the pre-finalisation circulation audit.
+
+    Verifies the user's checklist: every building has a public entrance and is
+    connected to the network, parking is connected to pedestrian routes, every
+    building has compliant egress and fire access, nothing is isolated, and
+    pedestrian/vehicle conflicts are bounded.
+
+    Returns dict with ``checks`` (each ``check``/``pass``/``detail``),
+    ``all_pass``, ``n_pass``, ``n_fail``, ``summary``.
+    """
+    checks: list[dict[str, Any]] = []
+
+    def add(name: str, ok: bool, detail: str) -> None:
+        checks.append({"check": name, "pass": bool(ok), "detail": detail})
+
+    blds = (orientation or {}).get("buildings") or []
+    network = unary_union([g for g in (_network_from_circulation(vehicular),
+                                       _network_from_circulation(pedestrian)) if g is not None]) \
+        if (vehicular or pedestrian) else None
+
+    # 1) public entrance per building
+    have_pub = [b for b in blds if any(e.get("role") == "public" for e in b.get("entrances", []))]
+    add("every_building_has_public_entrance", len(have_pub) == len(blds) and blds,
+        f"{len(have_pub)}/{len(blds)} buildings have a public entrance")
+
+    # 2) every entrance connected to the network
+    isolated = []
+    if network is not None:
+        for b in blds:
+            for e in b.get("entrances", []):
+                p = Point(e["point"][0], e["point"][1])
+                if network.distance(p) > MAX_FIRE_DISTANCE_M:
+                    isolated.append((b["building_id"], e["role"]))
+    add("entrances_connected_to_network", network is not None and not isolated,
+        "all entrances within reach of a route" if not isolated else f"isolated: {isolated}")
+    add("no_isolated_entrances", not isolated, f"{len(isolated)} isolated entrance(s)")
+
+    # 3) parking connected to pedestrian routes
+    pk = (parking_access or {}).get("zones") or []
+    pk_ok = all(z.get("nearest_entrance_building") for z in pk)
+    add("parking_connected_to_pedestrian_routes", pk_ok if pk else True,
+        f"{sum(1 for z in pk if z.get('nearest_entrance_building'))}/{len(pk)} zones linked to an entrance")
+
+    # 4) compliant egress per building
+    eg = (egress or {}).get("buildings") or []
+    add("every_building_has_compliant_egress", (egress or {}).get("all_compliant", False) and eg,
+        f"{sum(1 for r in eg if r.get('compliant'))}/{len(eg)} buildings egress-compliant")
+
+    # 5) fire vehicle access — can an appliance *reach* every building edge?
+    #    (loose reachability; whole-footprint servicing is the egress check's job.)
+    fb = (fire or {}).get("buildings") or []
+    veh_reach = bool(fb) and all(b.get("within_reach") for b in fb)
+    add("fire_vehicle_access_available", veh_reach,
+        f"{sum(1 for b in fb if b.get('within_reach'))}/{len(fb)} buildings reachable by a fire appliance")
+
+    # 6) no path without a destination (construction guarantees a target)
+    veh_paths = _coerce_paths(vehicular)
+    ped_paths = _coerce_paths(pedestrian)
+    dangling = [p.get("path_id") for p in veh_paths + ped_paths if not p.get("serves")]
+    add("no_path_without_destination", not dangling, f"{len(dangling)} dangling path(s)")
+
+    # 7) pedestrian/vehicle conflicts minimised
+    n_conf = len((conflicts or {}).get("conflicts", []))
+    crossings = (conflicts or {}).get("counts", {}).get("pedestrian_vehicle_crossing", 0)
+    add("pedestrian_vehicle_conflicts_minimised", crossings <= max(1, len(blds)),
+        f"{crossings} ped/vehicle crossing(s), {n_conf} conflict(s) total")
+
+    n_pass = sum(1 for c in checks if c["pass"])
+    n_fail = len(checks) - n_pass
+    all_pass = n_fail == 0
+    summary = (f"Audit: {n_pass}/{len(checks)} checks pass"
+               + ("" if all_pass else f" — {n_fail} need attention"))
+    return {"checks": checks, "all_pass": bool(all_pass), "n_pass": n_pass,
+            "n_fail": n_fail, "summary": summary}
+
+
+# ---------------------------------------------------------------------------
+# Orchestrator — the full functional-access evaluation for one layout
+# ---------------------------------------------------------------------------
+
+def evaluate_site_circulation(
+    site_model: dict[str, Any],
+    buildings: list[dict[str, Any]],
+    parking: Any = None,
+    *,
+    frontage_per_public_entry_m: float | None = None,
+    path_width_m: float = DEFAULT_PATH_WIDTH_M,
+) -> dict[str, Any]:
+    """End-to-end functional access evaluation for a placed layout.
+
+    Runs the whole pipeline and returns one report with the sections a reviewer
+    asks for: entrance reasoning, site-access strategy, the pedestrian and
+    vehicular networks, parking integration, fire-safety / egress, the
+    identified conflicts (with resolutions), and the validation audit.
+
+    This is the single call the agent / a notebook makes; the individual
+    functions remain available for finer-grained use.
+
+    Args:
+        site_model: Canonical SiteModel (``boundary``/``sides``/``roads``).
+        buildings:  Placed-building dicts (``boundary``, optional ``holes``).
+        parking:    ``allocate_parking_zones`` result or a raw zone list.
+        frontage_per_public_entry_m: Opt-in multiple public gates on long frontages.
+        path_width_m: Vehicular corridor width (m).
+
+    Returns:
+        dict with ``entrances``, ``site_access``, ``vehicular_circulation``,
+        ``pedestrian_circulation``, ``movement_hierarchy``,
+        ``parking_integration``, ``fire_safety_egress``, ``conflicts``,
+        ``audit``, ``summary``.
+    """
+    entries = propose_site_entries(site_model, frontage_per_public_entry_m=frontage_per_public_entry_m)
+
+    # First pass entrances (no circulation yet) so routing can aim at real doors.
+    orient0 = building_entrance_orientation(buildings, entries, None)
+    vehicular = route_internal_circulation(
+        site_model, entries, buildings, parking,
+        path_width_m=path_width_m, entrances_by_building=orient0,
+    )
+    # Final entrances now that corridors exist (public doors face the network).
+    orientation = building_entrance_orientation(buildings, entries, vehicular)
+
+    pedestrian = route_pedestrian_network(site_model, entries, buildings, parking, orientation)
+
+    # Movement hierarchy: stamp vehicular paths and bucket every route.
+    for p in vehicular.get("paths", []):
+        p["mode"] = "vehicular"
+        p["hierarchy"] = "primary"
+    movement_hierarchy = {
+        "primary": {
+            "vehicular": [p["path_id"] for p in vehicular.get("paths", [])],
+            "pedestrian": [p["path_id"] for p in pedestrian.get("paths", []) if p["hierarchy"] == "primary"],
+        },
+        "secondary": {
+            "pedestrian_from_parking": [p["path_id"] for p in pedestrian.get("paths", [])
+                                        if p["hierarchy"] == "secondary"],
+            "service_courtyard": "served via the typed service/courtyard entrances",
+        },
+        "tertiary": {"note": "maintenance / landscape paths not generated in this pass"},
+    }
+
+    arrival = analyze_site_arrival(site_model, entries, orientation)
+    parking_access = analyze_parking_access(buildings, parking, orientation, pedestrian)
+    fire = check_fire_access(buildings, vehicular, strict=True)
+    egress = analyze_egress(buildings, vehicular)
+    conflicts = detect_circulation_conflicts(vehicular, pedestrian, parking, fire)
+    audit = audit_circulation(entries, orientation, vehicular, pedestrian,
+                              parking_access, egress, fire, conflicts)
+
+    summary = (
+        f"{len(buildings or [])} building(s): "
+        f"{entries['summary']} | {vehicular['summary']} | {pedestrian['summary']} | "
+        f"{egress['summary']} | {conflicts['summary']} | {audit['summary']}"
+    )
+    return {
+        "entrances": orientation,
+        "site_access": arrival,
+        "vehicular_circulation": vehicular,
+        "pedestrian_circulation": pedestrian,
+        "movement_hierarchy": movement_hierarchy,
+        "parking_integration": parking_access,
+        "fire_safety_egress": {"fire_access": fire, "egress": egress},
+        "conflicts": conflicts,
+        "audit": audit,
+        "summary": summary,
     }

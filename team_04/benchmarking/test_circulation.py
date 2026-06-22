@@ -624,5 +624,200 @@ class TestFireAccessAdvanced(unittest.TestCase):
         )
 
 
+# ---------------------------------------------------------------------------
+# Class 10 — facade segmentation (typology-aware primitive)
+# ---------------------------------------------------------------------------
+
+class TestSegmentFacades(unittest.TestCase):
+
+    def test_rectangle_has_four_open_facades(self):
+        from agent.tools.circulation import segment_facades
+        facades = segment_facades(_BUILDING_A)
+        self.assertEqual(len(facades), 4)
+        self.assertTrue(all(f["faces"] == "open" for f in facades))
+        self.assertTrue(all(f["is_exterior"] for f in facades))
+
+    def test_u_shape_has_courtyard_facades(self):
+        from agent.tools.circulation import segment_facades
+        facades = segment_facades(_U_BUILDING)
+        kinds = {f["faces"] for f in facades}
+        self.assertIn("open", kinds)
+        self.assertIn("courtyard", kinds)  # inner faces of the U pocket
+
+    def test_o_shape_has_enclosed_facades(self):
+        from agent.tools.circulation import segment_facades
+        facades = segment_facades(_O_BUILDING)
+        self.assertTrue(any(f["faces"] == "enclosed_courtyard" for f in facades))
+        # The hole ring contributes 4 enclosed facades.
+        self.assertEqual(sum(1 for f in facades if f["faces"] == "enclosed_courtyard"), 4)
+
+    def test_outward_normal_points_out_of_solid(self):
+        from agent.tools.circulation import segment_facades
+        poly = _poly(_BUILDING_A["boundary"])
+        for f in segment_facades(_BUILDING_A):
+            mx, my, _ = f["midpoint"]
+            nx, ny = f["outward_normal"]
+            probe = Point(mx + nx * 0.5, my + ny * 0.5)
+            self.assertFalse(poly.contains(probe))
+            self.assertAlmostEqual(math.hypot(nx, ny), 1.0, places=4)
+
+
+# ---------------------------------------------------------------------------
+# Class 11 — emergency exits
+# ---------------------------------------------------------------------------
+
+class TestEmergencyExits(unittest.TestCase):
+
+    def test_box_gets_multiple_independent_exits(self):
+        from agent.tools.circulation import generate_emergency_exits
+        ee = generate_emergency_exits(_BUILDING_A)
+        self.assertGreaterEqual(ee["n_exits"], 2)
+        self.assertGreaterEqual(ee["independent_directions"], 2)
+        self.assertTrue(ee["multiple_directions"])
+        self.assertFalse(ee["single_point_failure"])
+
+    def test_exits_are_on_open_facades_not_courtyard(self):
+        from agent.tools.circulation import generate_emergency_exits
+        ee = generate_emergency_exits(_O_BUILDING)
+        self.assertTrue(all(e["faces"] == "open" for e in ee["exits"]))
+        self.assertFalse(ee["courtyard_only_egress_risk"])
+
+    def test_exits_lie_on_building_boundary(self):
+        from agent.tools.circulation import generate_emergency_exits
+        poly = _poly(_U_BUILDING["boundary"])
+        ee = generate_emergency_exits(_U_BUILDING)
+        for e in ee["exits"]:
+            pt = Point(e["point"][0], e["point"][1])
+            self.assertLess(poly.exterior.distance(pt), 1e-6)
+
+    def test_exit_distance_reported_with_circulation(self):
+        from agent.tools.circulation import generate_emergency_exits
+        ent = propose_site_entries(_SITE_MODEL)
+        circ = route_internal_circulation(_SITE_MODEL, ent, [_BUILDING_A], None)
+        ee = generate_emergency_exits(_BUILDING_A, circ)
+        self.assertIsNotNone(ee["exits"][0]["distance_to_access_m"])
+
+
+# ---------------------------------------------------------------------------
+# Class 12 — arrival, pedestrian network, parking, egress, conflicts, audit
+# ---------------------------------------------------------------------------
+
+class TestFunctionalAccessLayer(unittest.TestCase):
+
+    def setUp(self):
+        self.entries = propose_site_entries(_SITE_TWO_ROADS)
+        self.circ = route_internal_circulation(_SITE_TWO_ROADS, self.entries, [_U_BUILDING], None)
+        self.orient = building_entrance_orientation([_U_BUILDING], self.entries, self.circ)
+
+    def test_arrival_classifies_modes(self):
+        from agent.tools.circulation import analyze_site_arrival
+        arr = analyze_site_arrival(_SITE_TWO_ROADS, self.entries, self.orient)
+        modes = {a["mode"] for a in arr["arrivals"]}
+        self.assertTrue(modes & {"both", "vehicular", "pedestrian"})
+        self.assertGreaterEqual(len(arr["frontages"]), 1)
+
+    def test_pedestrian_network_one_path_per_building(self):
+        from agent.tools.circulation import route_pedestrian_network
+        ped = route_pedestrian_network(_SITE_TWO_ROADS, self.entries, [_U_BUILDING], None, self.orient)
+        self.assertTrue(all(p["mode"] == "pedestrian" for p in ped["paths"]))
+        self.assertGreaterEqual(len(ped["paths"]), 1)
+
+    def test_pedestrian_avoids_parking_interior(self):
+        from agent.tools.circulation import route_pedestrian_network
+        # A *partial* parking strip on the right of the frontage, leaving a gap on
+        # the left so the walk to building A (x 10–35) can route around it.
+        partial = {"zones": [{"zone_id": "parking_zone_0",
+                              "boundary": [[55.0, 0.3, 0.0], [89.7, 0.3, 0.0],
+                                           [89.7, 11.0, 0.0], [55.0, 11.0, 0.0]],
+                              "is_main_road_side": True}]}
+        ent = propose_site_entries(_SITE_MODEL)
+        circ = route_internal_circulation(_SITE_MODEL, ent, [_BUILDING_A], partial)
+        orient = building_entrance_orientation([_BUILDING_A], ent, circ)
+        ped = route_pedestrian_network(_SITE_MODEL, ent, [_BUILDING_A], partial, orient)
+        park = _poly(partial["zones"][0]["boundary"]).buffer(-0.5)
+        for p in ped["paths"]:
+            if p.get("source") == "parking_zone_0":
+                continue  # a walk FROM parking legitimately starts at its edge
+            line = LineString([(pt[0], pt[1]) for pt in p["polyline"]])
+            self.assertLess(line.intersection(park).length, 2.0)
+
+    def test_parking_access_reports_distance_and_dropoff(self):
+        from agent.tools.circulation import analyze_parking_access
+        ent = propose_site_entries(_SITE_MODEL)
+        circ = route_internal_circulation(_SITE_MODEL, ent, [_BUILDING_A], _PARKING)
+        orient = building_entrance_orientation([_BUILDING_A], ent, circ)
+        pa = analyze_parking_access([_BUILDING_A], _PARKING, orient)
+        z = pa["zones"][0]
+        self.assertEqual(z["nearest_entrance_building"], "A")
+        self.assertIsNotNone(z["drop_off_point"])
+        self.assertIsInstance(z["within_comfort_walk"], bool)
+
+    def test_egress_reports_compliance(self):
+        from agent.tools.circulation import analyze_egress
+        eg = analyze_egress([_U_BUILDING], self.circ)
+        row = eg["buildings"][0]
+        self.assertIn("compliant", row)
+        self.assertEqual(eg["min_clear_width_m"], MIN_PATH_WIDTH_M)
+
+    def test_conflicts_detects_crossings(self):
+        from agent.tools.circulation import (
+            route_pedestrian_network, detect_circulation_conflicts,
+        )
+        ent = propose_site_entries(_SITE_MODEL)
+        circ = route_internal_circulation(_SITE_MODEL, ent, [_BUILDING_A], _PARKING)
+        orient = building_entrance_orientation([_BUILDING_A], ent, circ)
+        ped = route_pedestrian_network(_SITE_MODEL, ent, [_BUILDING_A], _PARKING, orient)
+        conf = detect_circulation_conflicts(circ, ped, _PARKING)
+        self.assertIn("conflicts", conf)
+        self.assertIsInstance(conf["conflicts"], list)
+
+    def test_audit_runs_and_reports_checks(self):
+        from agent.tools.circulation import (
+            route_pedestrian_network, analyze_parking_access, analyze_egress,
+            detect_circulation_conflicts, audit_circulation,
+        )
+        ped = route_pedestrian_network(_SITE_TWO_ROADS, self.entries, [_U_BUILDING], None, self.orient)
+        pa = analyze_parking_access([_U_BUILDING], None, self.orient, ped)
+        eg = analyze_egress([_U_BUILDING], self.circ)
+        fire = check_fire_access([_U_BUILDING], self.circ)
+        conf = detect_circulation_conflicts(self.circ, ped, None, fire)
+        audit = audit_circulation(self.entries, self.orient, self.circ, ped, pa, eg, fire, conf)
+        names = {c["check"] for c in audit["checks"]}
+        self.assertIn("every_building_has_public_entrance", names)
+        self.assertIn("fire_vehicle_access_available", names)
+
+
+# ---------------------------------------------------------------------------
+# Class 13 — end-to-end orchestrator on a complex layout
+# ---------------------------------------------------------------------------
+
+class TestEvaluateSiteCirculation(unittest.TestCase):
+
+    def test_orchestrator_returns_all_sections(self):
+        from agent.tools.circulation import evaluate_site_circulation
+        rep = evaluate_site_circulation(_SITE_MODEL, [_BUILDING_A, _BUILDING_B], _PARKING)
+        for key in ("entrances", "site_access", "vehicular_circulation",
+                    "pedestrian_circulation", "movement_hierarchy",
+                    "parking_integration", "fire_safety_egress", "conflicts", "audit"):
+            self.assertIn(key, rep)
+
+    def test_orchestrator_aims_corridors_at_entrances(self):
+        from agent.tools.circulation import evaluate_site_circulation
+        rep = evaluate_site_circulation(_SITE_MODEL, [_BUILDING_A, _BUILDING_B], _PARKING)
+        veh = rep["vehicular_circulation"]
+        self.assertTrue(all(p.get("mode") == "vehicular" for p in veh["paths"]))
+        serves = {p["serves"] for p in veh["paths"]}
+        self.assertIn("A", serves)
+        self.assertIn("B", serves)
+
+    def test_orchestrator_handles_courtyard_building(self):
+        from agent.tools.circulation import evaluate_site_circulation
+        rep = evaluate_site_circulation(_SITE_TWO_ROADS, [_O_BUILDING], None)
+        # The enclosed-court building still gets ≥2 open-facade exits.
+        eg = rep["fire_safety_egress"]["egress"]["buildings"][0]
+        self.assertGreaterEqual(eg["n_exits"], 2)
+        self.assertFalse(eg["courtyard_only_egress_risk"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -1,15 +1,26 @@
-"""Generator for test_circulation_fire.ipynb (Phase 5).
+"""Generator for test_circulation_fire.ipynb (Phase 5+ — functional access).
 
 Run once to (re)emit the notebook JSON. Kept in the repo so the notebook is
 reproducible and reviewable as code. Not a test; not imported by anything.
 
-This version deliberately exercises the *hard* cases the simple-rectangle demo
-ignored:
-  - a concave (L-shaped) site — no real site is a clean rectangle;
-  - a U-shaped courtyard building and an O-shaped enclosed-courtyard building;
-  - an obstacle building that corridors must route *around*, not through;
-  - multiple typed building entrances (public / service / residential / courtyard);
-  - strict fire access that checks the deepest interior point and every courtyard.
+To re-embed the rendered figures after editing:
+
+    python team_04/test_notebooks/_build_circulation_nb.py
+    # then execute in VS Code, or re-run the nbclient one-liner used in the PR.
+
+This notebook exercises the *functional* access reasoning the rebuild added —
+how people arrive, which door they pick, how cars reach parking and people walk
+from it, and how everyone gets out in a fire — on the hard cases a simple
+rectangle never shows:
+
+  - an irregular concave site with several real wing-typology buildings;
+  - typed building entrances (public / service / residential / courtyard) WITH
+    the reason each sits where it does;
+  - separate pedestrian and vehicular networks (pedestrians avoid parking);
+  - parking integrated as a journey (drop-off, accessible walk, sequence);
+  - emergency egress with multiple independent directions, courtyard-avoiding;
+  - a full validation audit + identified conflicts and resolutions;
+  - an egress gallery across U / H / X / Y / E / courtyard typologies.
 """
 import json
 from pathlib import Path
@@ -20,27 +31,34 @@ code = lambda s: {"cell_type": "code", "metadata": {}, "execution_count": None,
 
 cells = []
 
-cells.append(md("""# Phase 5 — Circulation, Access & Fire Safety (complex sites)
+cells.append(md("""# Phase 5+ — Functional Circulation, Access & Fire Safety
 
-Access placement should explain *why* a building sits where it sits. This notebook
-exercises `agent/tools/circulation.py` on **non-rectangular sites and courtyard
-buildings**, not toy boxes:
+The first version of this tool only *placed* paths. This rebuild makes the agent
+reason about how a building is actually **used**: how people arrive from the
+street, which entrance they pick, how cars reach parking and people walk up from
+it, and how everyone gets **out** in a fire — on irregular sites and complex
+building forms, not toy rectangles.
 
-1. **`propose_site_entries`** — public entries on the main road (one, or several on
-   a long frontage) + a private/service entry on a secondary side.
-2. **`route_internal_circulation`** — drivable corridors routed with an
-   *obstacle-aware visibility graph*: they bend **around** other buildings and follow
-   the free space of a concave site instead of cutting through anything.
-3. **`detect_courtyards` / `building_entrance_orientation`** — every building gets
-   *typed* entrances: a public/main entrance, a service entrance, a quiet
-   residential entrance, and one courtyard entrance per detected courtyard.
-4. **`check_fire_access`** — every building within 50 m of a ≥ 4 m drivable path.
-   `strict=True` also checks the **deepest interior point** and each **courtyard's**
-   reachability — the cases the nearest-wall test silently passes.
+Everything here is driven by `agent/tools/circulation.py`. The single entry point
+is **`evaluate_site_circulation(site_model, buildings, parking)`**, which returns
+one report with the sections a reviewer asks for:
 
-Sections: (a) entries, (b) obstacle-aware network, (c) typed entrances,
-(d) strict fire access on a courtyard building, (e) a deliberately failing layout."""))
+| Section | Question it answers |
+|---|---|
+| `entrances` | Where is each public / service / residential / courtyard door, and **why**? |
+| `site_access` | How do pedestrians vs vehicles arrive at each frontage? |
+| `vehicular_circulation` | Drivable corridors (obstacle-aware, bend around buildings). |
+| `pedestrian_circulation` | Walkways that **avoid crossing parking**. |
+| `parking_integration` | Drop-off, accessible walk, street→park→door sequence. |
+| `fire_safety_egress` | Multi-direction emergency exits + fire-appliance reach. |
+| `conflicts` | Pedestrian/vehicle crossings + resolutions. |
+| `audit` | The pre-finalisation validation checklist. |
 
+**Scenes:** (A) an irregular site with mixed wing typologies — the full report,
+layer by layer; (B) an egress gallery across U/H/X/Y/E/courtyard forms;
+(C) the enclosed-courtyard case strict fire access catches."""))
+
+# --------------------------------------------------------------------------- setup
 cells.append(code("""
 from __future__ import annotations
 import sys
@@ -48,160 +66,95 @@ from pathlib import Path
 
 workspace_root = Path.cwd().resolve()
 candidate_roots = (
-    workspace_root,
-    workspace_root.parent,
-    workspace_root / 'team_04',
-    workspace_root.parent / 'team_04',
+    workspace_root, workspace_root.parent,
+    workspace_root / 'team_04', workspace_root.parent / 'team_04',
 )
 TEAM_ROOT = next((p for p in candidate_roots if (p / 'agent').exists()), None)
 if TEAM_ROOT is None:
     raise FileNotFoundError('Run from workspace root, team_04/, or team_04/test_notebooks/')
 if str(TEAM_ROOT) not in sys.path:
     sys.path.insert(0, str(TEAM_ROOT))
-
 print('TEAM_ROOT:', TEAM_ROOT)
 """))
 
 cells.append(code("""
+import math
 import plotly.graph_objects as go
 import plotly.io as pio
 
 # Embed figures so they render inline in VS Code / Jupyter (and survive a
-# pre-executed notebook). 'plotly_mimetype' is what VS Code renders natively;
-# 'notebook_connected' keeps the classic-notebook path working too.
+# pre-executed notebook). 'plotly_mimetype' is what VS Code renders natively.
 pio.renderers.default = 'plotly_mimetype+notebook_connected'
 
+from agent.tools.building_shape_graph import build_shape_model, apply_shape_transform
+from agent.tools.parking import compute_building_demand, allocate_parking_zones
 from agent.tools.circulation import (
     DEFAULT_PATH_WIDTH_M, MIN_PATH_WIDTH_M, MAX_FIRE_DISTANCE_M,
-    detect_courtyards,
-    propose_site_entries,
-    route_internal_circulation,
-    building_entrance_orientation,
-    check_fire_access,
+    evaluate_site_circulation,
+    propose_site_entries, route_internal_circulation, building_entrance_orientation,
+    route_pedestrian_network, analyze_site_arrival, analyze_parking_access,
+    analyze_egress, detect_circulation_conflicts, audit_circulation,
+    segment_facades, generate_emergency_exits, check_fire_access,
 )
+print('circulation tools imported OK')
 
-print('Circulation tool imported OK')
-print(f'  DEFAULT_PATH_WIDTH_M={DEFAULT_PATH_WIDTH_M} m  '
-      f'MIN_PATH_WIDTH_M={MIN_PATH_WIDTH_M} m  MAX_FIRE_DISTANCE_M={MAX_FIRE_DISTANCE_M} m')
+def shp_to_bnd(poly):
+    return [[round(float(x), 3), round(float(y), 3), 0.0] for x, y in poly.exterior.coords]
+
+def winged(building_type, area, depth, ratio, xy, rot=0.0):
+    m = build_shape_model(area=area, building_type=building_type,
+                          building_depth=depth, shape_ratio=ratio)
+    m = apply_shape_transform(m, translation_xy=xy, rotation_degrees=rot)
+    return shp_to_bnd(m.polygon)
 """))
 
-cells.append(md("""## A concave (L-shaped) site with real building footprints
-
-The site is **L-shaped** — the bottom-right quadrant is cut out, so corridors must
-respect a re-entrant boundary. Three buildings sit on it:
-
-* **`block`** — a long slab placed between the entry and the rest of the site; the
-  network has to drive *around* it.
-* **`court_U`** — a **U-shaped** building with an open courtyard.
-* **`court_O`** — an **O-shaped** building with a true enclosed courtyard (a hole)."""))
-
-cells.append(code("""
-# L-shaped site: bottom-right notch removed.
-SITE_BOUNDARY = [
-    [0.0,   0.0,   0.0],
-    [110.0, 0.0,   0.0],
-    [110.0, 45.0,  0.0],
-    [55.0,  45.0,  0.0],
-    [55.0,  95.0,  0.0],
-    [0.0,   95.0,  0.0],
-    [0.0,   0.0,   0.0],
-]
-
-SITE_MODEL = {
-    'boundary': SITE_BOUNDARY,
-    'sides': [
-        {'side_index': 0, 'start': [0.0, 0.0],   'end': [110.0, 0.0],
-         'adjacent_road': {'name': 'Main Street', 'hierarchy': 'main', 'width_m': 20.0}},
-        {'side_index': 1, 'start': [110.0, 0.0],  'end': [110.0, 45.0], 'adjacent_road': None},
-        {'side_index': 2, 'start': [110.0, 45.0], 'end': [55.0, 45.0],  'adjacent_road': None},
-        {'side_index': 3, 'start': [55.0, 45.0],  'end': [55.0, 95.0],  'adjacent_road': None},
-        {'side_index': 4, 'start': [55.0, 95.0],  'end': [0.0, 95.0],
-         'adjacent_road': {'name': 'Service Lane', 'hierarchy': 'secondary', 'width_m': 6.0}},
-        {'side_index': 5, 'start': [0.0, 95.0],   'end': [0.0, 0.0], 'adjacent_road': None},
-    ],
-    'roads': {'main_road_side_index': 0, 'main_road': {'name': 'Main Street', 'width_m': 20.0}},
-}
-
-# A wall-like slab that sits between the entry (bottom) and the upper-left
-# courtyard building, leaving a gap on the right — the network must detour
-# around its right end to reach anything above it on the left.
-BLOCK = {
-    'building_id': 'block', 'label': 'Slab (obstacle)', 'storeys': 4,
-    'boundary': [[4.0, 42.0, 0.0], [40.0, 42.0, 0.0], [40.0, 50.0, 0.0], [4.0, 50.0, 0.0]],
-}
-
-# U-shaped courtyard building (open court facing +y).
-COURT_U = {
-    'building_id': 'court_U', 'label': 'U-court', 'storeys': 6,
-    'boundary': [
-        [62.0, 8.0, 0.0], [100.0, 8.0, 0.0], [100.0, 38.0, 0.0], [86.0, 38.0, 0.0],
-        [86.0, 20.0, 0.0], [76.0, 20.0, 0.0], [76.0, 38.0, 0.0], [62.0, 38.0, 0.0],
-    ],
-}
-
-# O-shaped building with a true enclosed courtyard (a hole).
-COURT_O = {
-    'building_id': 'court_O', 'label': 'O-court', 'storeys': 7,
-    'boundary': [[8.0, 55.0, 0.0], [46.0, 55.0, 0.0], [46.0, 90.0, 0.0], [8.0, 90.0, 0.0]],
-    'holes': [[[18.0, 64.0], [36.0, 64.0], [36.0, 81.0], [18.0, 81.0]]],
-}
-
-BUILDINGS = [BLOCK, COURT_U, COURT_O]
-for b in BUILDINGS:
-    courts = detect_courtyards(b['boundary'], b.get('holes'))
-    print(f"{b['building_id']:8s}: {len(courts)} courtyard(s) -> "
-          f"{[(c['type'], round(c['area_sqm'])) for c in courts]}")
-"""))
-
+# --------------------------------------------------------------------------- helpers
 cells.append(md("""## Plot helpers
 
-Building **courtyards** are drawn as light voids; **site entries** are big triangles;
-**building entrances** are small arrows coloured by role (public/service/
-residential/courtyard)."""))
+Colour key — entrances by role: **public** red · **service** blue ·
+**residential** green · **courtyard** purple. **Emergency exits** are orange
+arrows. Vehicular corridors are grey bands; **pedestrian** routes are dashed
+green. Site entries are big triangles; parking is light blue with cyan drop-off
+diamonds; conflicts are black ✕."""))
 
 cells.append(code("""
-ROLE_COLORS = {
-    'public': '#dc2626', 'service': '#2563eb',
-    'residential': '#16a34a', 'courtyard': '#9333ea',
-}
+ROLE_COLORS = {'public': '#dc2626', 'service': '#2563eb',
+               'residential': '#16a34a', 'courtyard': '#9333ea'}
+EXIT_COLOR = '#ea580c'
 
 def _xy(pts):
     xs = [p[0] for p in pts] + [pts[0][0]]
     ys = [p[1] for p in pts] + [pts[0][1]]
     return xs, ys
 
-def base_fig(title):
+def new_fig(title, site_boundary, h=640):
     fig = go.Figure()
-    xs, ys = _xy(SITE_BOUNDARY)
-    fig.add_trace(go.Scatter(x=xs, y=ys, name='Site boundary',
-                             mode='lines', line=dict(color='#1d4ed8', width=3),
-                             showlegend=True, hoverinfo='skip'))
-    fig.update_layout(
-        title=title,
-        yaxis=dict(scaleanchor='x', scaleratio=1, visible=False),
-        xaxis=dict(visible=False),
-        margin=dict(l=0, r=0, t=40, b=0), height=620,
-        plot_bgcolor='#f0f4ff', paper_bgcolor='#f0f4ff',
-        legend=dict(x=1.02, y=1, bgcolor='white', bordercolor='#ccc', borderwidth=1),
-    )
+    xs, ys = _xy(site_boundary)
+    fig.add_trace(go.Scatter(x=xs, y=ys, name='Site boundary', mode='lines',
+                             line=dict(color='#1d4ed8', width=3), hoverinfo='skip'))
+    fig.update_layout(title=title, height=h,
+                      yaxis=dict(scaleanchor='x', scaleratio=1, visible=False),
+                      xaxis=dict(visible=False), margin=dict(l=0, r=0, t=44, b=0),
+                      plot_bgcolor='#f0f4ff', paper_bgcolor='#f0f4ff',
+                      legend=dict(x=1.02, y=1, bgcolor='white', bordercolor='#ccc', borderwidth=1))
     return fig
 
-def add_buildings(fig, buildings, fire=None):
-    fire_by_id = {b['building_id']: b for b in (fire or {}).get('buildings', [])}
-    palette = ['rgba(15,118,110,0.40)', 'rgba(124,58,237,0.40)', 'rgba(180,83,9,0.40)']
+def draw_buildings(fig, buildings, fire=None):
+    fire_by = {b['building_id']: b for b in (fire or {}).get('buildings', [])}
+    palette = ['rgba(15,118,110,0.35)', 'rgba(124,58,237,0.30)',
+               'rgba(180,83,9,0.30)', 'rgba(8,145,178,0.30)']
     for i, b in enumerate(buildings):
         xs, ys = _xy(b['boundary'])
-        passed = fire_by_id.get(b['building_id'], {}).get('pass')
+        passed = fire_by.get(b['building_id'], {}).get('pass')
         if passed is True:
-            fill, line = 'rgba(34,197,94,0.40)', '#15803d'
+            fill, line = 'rgba(34,197,94,0.35)', '#15803d'
         elif passed is False:
-            fill, line = 'rgba(239,68,68,0.40)', '#b91c1c'
+            fill, line = 'rgba(239,68,68,0.35)', '#b91c1c'
         else:
-            fill, line = palette[i % len(palette)], palette[i % len(palette)].replace('0.40', '1')
+            fill, line = palette[i % len(palette)], palette[i % len(palette)].replace('0.35', '1').replace('0.30', '1')
         fig.add_trace(go.Scatter(x=xs, y=ys, name=b.get('label', b['building_id']),
                                  mode='lines', fill='toself', fillcolor=fill,
-                                 line=dict(color=line, width=2), showlegend=True, hoverinfo='skip'))
-        # Punch out enclosed courtyards (holes) so they read as voids.
+                                 line=dict(color=line, width=2), hoverinfo='skip'))
         for hole in b.get('holes', []) or []:
             hxs, hys = _xy(hole)
             fig.add_trace(go.Scatter(x=hxs, y=hys, mode='lines', fill='toself',
@@ -209,243 +162,418 @@ def add_buildings(fig, buildings, fire=None):
                                      showlegend=False, hoverinfo='skip'))
         cx = sum(p[0] for p in b['boundary']) / len(b['boundary'])
         cy = sum(p[1] for p in b['boundary']) / len(b['boundary'])
-        label = b.get('label', b['building_id'])
-        if b['building_id'] in fire_by_id:
-            fb = fire_by_id[b['building_id']]
-            label += f"<br>near {fb['distance_m']}m  deep {fb['deepest_point_distance_m']}m"
-        fig.add_annotation(x=cx, y=cy, text=label, showarrow=False, font=dict(size=10, color='#111'))
+        fig.add_annotation(x=cx, y=cy, text=b.get('label', b['building_id']),
+                           showarrow=False, font=dict(size=11, color='#111'))
 
-def add_circulation(fig, circ):
-    for p in circ.get('paths', []):
-        if p['buffered_boundary']:
+def draw_vehicular(fig, veh):
+    first = True
+    for p in veh.get('paths', []):
+        if p.get('buffered_boundary'):
             xs, ys = _xy(p['buffered_boundary'])
             fig.add_trace(go.Scatter(x=xs, y=ys, mode='lines', fill='toself',
                                      fillcolor='rgba(100,116,139,0.30)',
-                                     line=dict(color='rgba(100,116,139,0.0)', width=0),
+                                     line=dict(color='rgba(0,0,0,0)', width=0),
                                      showlegend=False, hoverinfo='skip'))
-        px = [pt[0] for pt in p['polyline']]
-        py = [pt[1] for pt in p['polyline']]
-        fig.add_trace(go.Scatter(x=px, y=py, name=f"{p['path_id']} -> {p['serves']}",
-                                 mode='lines', line=dict(color='#334155', width=2),
-                                 showlegend=False, hoverinfo='skip'))
+        px = [pt[0] for pt in p['polyline']]; py = [pt[1] for pt in p['polyline']]
+        fig.add_trace(go.Scatter(x=px, y=py, name='vehicular corridor', mode='lines',
+                                 line=dict(color='#334155', width=2),
+                                 legendgroup='veh', showlegend=first, hoverinfo='skip'))
+        first = False
 
-def add_entries(fig, entries):
+def draw_pedestrian(fig, ped):
+    first = True
+    for p in ped.get('paths', []):
+        px = [pt[0] for pt in p['polyline']]; py = [pt[1] for pt in p['polyline']]
+        fig.add_trace(go.Scatter(x=px, y=py, name='pedestrian route', mode='lines',
+                                 line=dict(color='#16a34a', width=2, dash='dash'),
+                                 legendgroup='ped', showlegend=first, hoverinfo='text',
+                                 text=f"{p['serves']} ({p['hierarchy']})"))
+        first = False
+
+def draw_entries(fig, entries):
     seen = set()
     for e in entries['entries']:
         color = '#dc2626' if e['type'] == 'public' else '#0891b2'
-        show = e['type'] not in seen
-        seen.add(e['type'])
+        show = e['type'] not in seen; seen.add(e['type'])
         fig.add_trace(go.Scatter(x=[e['point'][0]], y=[e['point'][1]],
-                                 name=f"{e['type']} site entry",
-                                 mode='markers', marker=dict(size=16, color=color, symbol='triangle-up'),
-                                 showlegend=show, hoverinfo='skip'))
+                                 name=f"{e['type']} site entry", mode='markers',
+                                 marker=dict(size=17, color=color, symbol='triangle-up',
+                                             line=dict(color='white', width=1)),
+                                 showlegend=show, hoverinfo='text', text=e.get('road_name') or ''))
 
-def add_entrances(fig, orient):
+def draw_entrances(fig, orientation, arrow=8.0):
     shown = set()
-    for b in orient['buildings']:
+    for b in orientation['buildings']:
         for e in b['entrances']:
-            ex, ey, _ = e['point']
-            dx, dy = e['direction']
+            ex, ey, _ = e['point']; dx, dy = e['direction']
             color = ROLE_COLORS.get(e['role'], '#111')
-            fig.add_annotation(x=ex + dx * 7, y=ey + dy * 7, ax=ex, ay=ey,
-                               xref='x', yref='y', axref='x', ayref='y',
-                               showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2,
-                               arrowcolor=color)
-            if e['role'] not in shown:
-                shown.add(e['role'])
-                fig.add_trace(go.Scatter(x=[ex], y=[ey], mode='markers',
-                                         name=f"{e['role']} entrance",
-                                         marker=dict(size=9, color=color, symbol='circle'),
-                                         showlegend=True, hoverinfo='skip'))
+            fig.add_annotation(x=ex + dx * arrow, y=ey + dy * arrow, ax=ex, ay=ey,
+                               xref='x', yref='y', axref='x', ayref='y', showarrow=True,
+                               arrowhead=2, arrowsize=1.1, arrowwidth=2, arrowcolor=color)
+            fig.add_trace(go.Scatter(x=[ex], y=[ey], mode='markers',
+                                     name=f"{e['role']} entrance",
+                                     marker=dict(size=9, color=color, symbol='circle',
+                                                 line=dict(color='white', width=1)),
+                                     showlegend=e['role'] not in shown, legendgroup=e['role'],
+                                     hoverinfo='text', text=e.get('reason', '')))
+            shown.add(e['role'])
 
-print('Helpers defined')
+def draw_emergency_exits(fig, egress, arrow=7.0):
+    shown = False
+    for b in egress['buildings']:
+        for e in b['exits']:
+            ex, ey, _ = e['point']; dx, dy = e['direction']
+            fig.add_annotation(x=ex + dx * arrow, y=ey + dy * arrow, ax=ex, ay=ey,
+                               xref='x', yref='y', axref='x', ayref='y', showarrow=True,
+                               arrowhead=3, arrowsize=1.1, arrowwidth=2, arrowcolor=EXIT_COLOR)
+            fig.add_trace(go.Scatter(x=[ex], y=[ey], mode='markers', name='emergency exit',
+                                     marker=dict(size=9, color=EXIT_COLOR, symbol='square',
+                                                 line=dict(color='white', width=1)),
+                                     showlegend=not shown, legendgroup='exit', hoverinfo='skip'))
+            shown = True
+
+def draw_parking(fig, parking, parking_access=None):
+    for z in (parking or {}).get('zones', []):
+        xs, ys = _xy(z['boundary'])
+        fig.add_trace(go.Scatter(x=xs, y=ys, name='parking', mode='lines', fill='toself',
+                                 fillcolor='rgba(56,189,248,0.25)', line=dict(color='#0ea5e9', width=1),
+                                 legendgroup='park', showlegend=False, hoverinfo='skip'))
+    first = True
+    for z in (parking_access or {}).get('zones', []):
+        d = z.get('drop_off_point')
+        if d:
+            fig.add_trace(go.Scatter(x=[d[0]], y=[d[1]], mode='markers', name='drop-off',
+                                     marker=dict(size=11, color='#0891b2', symbol='diamond'),
+                                     showlegend=first, hoverinfo='text',
+                                     text=f"to {z['nearest_entrance_building']} ~{z['straight_distance_m']} m"))
+            first = False
+
+def draw_conflicts(fig, conflicts):
+    pts = [c['location'] for c in conflicts.get('conflicts', []) if c.get('location')]
+    if pts:
+        fig.add_trace(go.Scatter(x=[p[0] for p in pts], y=[p[1] for p in pts], mode='markers',
+                                 name='conflict', marker=dict(size=12, color='#111', symbol='x'),
+                                 hoverinfo='text', text=[c['type'] for c in conflicts['conflicts'] if c.get('location')]))
+print('helpers defined')
 """))
 
-cells.append(md("""## (a) Site entries — public on the main road, service on the secondary side"""))
+# =========================================================== Scene A
+cells.append(md("""# Scene A — Irregular site, mixed wing typologies
+
+A concave site (a notch cut from the top-right) fronted by **Main Street**
+(south) and a **Service Lane** (west). Three real buildings sit on it:
+
+* **U-court** — a U-shaped block (built from the wing model), open court facing in;
+* **H-block** — an H-shaped building with two pockets;
+* **O-court** — a perimeter block with a true enclosed courtyard (a hole).
+
+Parking is allocated from real demand on the main-road frontage. We then call
+`evaluate_site_circulation` once and read the report section by section."""))
 
 cells.append(code("""
-entries = propose_site_entries(SITE_MODEL)
-print(entries['summary'])
-for e in entries['entries']:
-    print(f"  {e['entry_id']:16s} type={e['type']:8s} side={e['side_index']} "
-          f"point={e['point'][:2]} road={e['road_name']}")
-
-fig = base_fig('(a) Site entries on a concave L-site')
-add_buildings(fig, BUILDINGS)
-add_entries(fig, entries)
-fig.show()
-"""))
-
-cells.append(md("""## (b) Obstacle-aware circulation — corridors bend around the slab
-
-The slab (`block`) sits between the entry and the courtyard buildings. The
-visibility-graph router drives **around** it; `routed_around > 0` flags every
-corridor that had to detour."""))
-
-cells.append(code("""
-circ = route_internal_circulation(SITE_MODEL, entries, BUILDINGS, None)
-print('Circulation:', circ['summary'])
-for p in circ['paths']:
-    print(f"  {p['path_id']:8s} -> {p['serves']:8s} {p['length_m']:6.1f} m "
-          f"vertices={len(p['polyline'])} routed_around={p['routed_around']}")
-
-fig = base_fig('(b) Obstacle-aware corridors (bend around the slab)')
-add_circulation(fig, circ)
-add_buildings(fig, BUILDINGS)
-add_entries(fig, entries)
-fig.show()
-"""))
-
-cells.append(md("""## (c) Typed building entrances — public / service / residential / courtyard
-
-Each building now gets several entrances by role. The U- and O-court buildings get a
-**courtyard** entrance facing into the void; the residential entrance is the quiet one
-(courtyard-facing when a court exists, otherwise opposite the public door)."""))
-
-cells.append(code("""
-orient = building_entrance_orientation(BUILDINGS, entries, circ)
-print(orient['summary'])
-for b in orient['buildings']:
-    roles = ', '.join(f"{e['role']}->{e['faces']}" for e in b['entrances'])
-    print(f"  {b['building_id']:8s} ({len(b['courtyards'])} court): {roles}")
-
-fig = base_fig('(c) Typed entrances (arrows coloured by role)')
-add_circulation(fig, circ)
-add_buildings(fig, BUILDINGS)
-add_entries(fig, entries)
-add_entrances(fig, orient)
-fig.show()
-"""))
-
-cells.append(md("""## (d) Fire access — loose vs strict
-
-`constraint_value = distance − max_distance` (≤ 0 ⇒ the nearest wall is reachable) is
-unchanged. **Loose** mode checks only that nearest wall. **Strict** mode also requires
-the *deepest interior point* and every *courtyard* to be serviceable — so a building
-whose outer wall is reachable but whose enclosed court is not will pass loose and
-**fail strict**."""))
-
-cells.append(code("""
-loose  = check_fire_access(BUILDINGS, circ, max_distance=MAX_FIRE_DISTANCE_M)
-strict = check_fire_access(BUILDINGS, circ, max_distance=MAX_FIRE_DISTANCE_M, strict=True)
-print('loose :', loose['summary'],  '| all_pass =', loose['all_pass'])
-print('strict:', strict['summary'], '| all_pass =', strict['all_pass'])
-for lb, sb in zip(loose['buildings'], strict['buildings']):
-    courts = ','.join(f"{c['type']}:{'ok' if c['reachable'] else 'X'}" for c in sb['courtyards']) or '-'
-    print(f"  {lb['building_id']:8s} near={lb['distance_m']:5}m deep={sb['deepest_point_distance_m']:5}m "
-          f"courts=[{courts}]  loose_pass={lb['pass']} strict_pass={sb['pass']}")
-
-fig = base_fig('(d) Strict fire access — green pass / red fail')
-add_circulation(fig, circ)
-add_buildings(fig, BUILDINGS, fire=strict)
-add_entries(fig, entries)
-fig.show()
-"""))
-
-cells.append(md("""## (d2) Strict mode catches an **unreachable enclosed courtyard**
-
-This is the case the nearest-wall test silently passes. A large **O-court** block sits
-on a wide plaza; the perimeter road touches its outer wall (`distance ≈ 0`, so the
-loose check and the optimizer's `G ≤ 0` constraint are happy). But its enclosed
-courtyard sits ~60 m inside, beyond hose reach — **strict mode fails it** and the
-courtyard is flagged unreachable. Compare the loose-green vs strict-red colouring."""))
-
-cells.append(code("""
-PLAZA = [[0,0,0],[170,0,0],[170,150,0],[0,150,0],[0,0,0]]
-PLAZA_MODEL = {'boundary': PLAZA, 'roads': {'main_road_side_index': 0}}
-
-# Big ring building: outer 130 x 120, a 60 x 60 enclosed courtyard in the middle.
-BIG_O = {
-    'building_id': 'big_O', 'label': 'Large O-court', 'storeys': 8,
-    'boundary': [[20,15,0],[150,15,0],[150,135,0],[20,135,0]],
-    'holes': [[[55,50],[115,50],[115,100],[55,100]]],
+SITE_BOUNDARY = [
+    [0,0,0], [165,0,0], [165,70,0], [110,70,0], [110,130,0], [0,130,0], [0,0,0],
+]
+SITE_MODEL = {
+    'boundary': SITE_BOUNDARY,
+    'sides': [
+        {'side_index':0,'start':[0,0],'end':[165,0],
+         'adjacent_road':{'name':'Main Street','hierarchy':'main','width_m':20.0}},
+        {'side_index':1,'start':[165,0],'end':[165,70],'adjacent_road':None},
+        {'side_index':2,'start':[165,70],'end':[110,70],'adjacent_road':None},
+        {'side_index':3,'start':[110,70],'end':[110,130],'adjacent_road':None},
+        {'side_index':4,'start':[110,130],'end':[0,130],
+         'adjacent_road':{'name':'Park Walk','hierarchy':'path','width_m':4.0}},
+        {'side_index':5,'start':[0,130],'end':[0,0],
+         'adjacent_road':{'name':'Service Lane','hierarchy':'secondary','width_m':6.0}},
+    ],
+    'roads': {'main_road_side_index': 0, 'main_road': {'name':'Main Street','width_m':20.0}},
 }
 
-plaza_ent  = propose_site_entries(PLAZA_MODEL)
-plaza_circ = route_internal_circulation(PLAZA_MODEL, plaza_ent, [BIG_O], None)
-loose_o  = check_fire_access([BIG_O], plaza_circ, strict=False)
-strict_o = check_fire_access([BIG_O], plaza_circ, strict=True)
+U_COURT = {'building_id':'U_court','label':'U-court','storeys':6,
+           'boundary': winged('U', area=1500, depth=12, ratio=0.5, xy=(18, 30))}
+H_BLOCK = {'building_id':'H_block','label':'H-block','storeys':7,
+           'boundary': winged('H', area=1700, depth=12, ratio=0.5, xy=(96, 28))}
+O_COURT = {'building_id':'O_court','label':'O-court','storeys':8,
+           'boundary':[[18,92,0],[78,92,0],[78,124,0],[18,124,0]],
+           'holes':[[[34,100],[62,100],[62,117],[34,117]]]}
+BUILDINGS = [U_COURT, H_BLOCK, O_COURT]
 
-lb, sb = loose_o['buildings'][0], strict_o['buildings'][0]
-print(f"outer-wall distance = {lb['distance_m']} m  -> within_reach={lb['within_reach']}  G={lb['constraint_value']}")
-print(f"deepest interior    = {sb['deepest_point_distance_m']} m")
-print(f"courtyard reachable = {sb['courtyards'][0]['reachable']} "
-      f"(court centre {sb['courtyards'][0]['distance_m']} m from a road)")
-print(f"loose pass = {lb['pass']}   |   strict pass = {sb['pass']}")
+demand  = compute_building_demand(BUILDINGS, parking_ratio=0.6)
+parking = allocate_parking_zones(SITE_MODEL, BUILDINGS, demand)
+print('parking:', parking['summary'])
 
-def plaza_fig(title, fire):
-    fig = go.Figure()
-    xs, ys = _xy(PLAZA)
-    fig.add_trace(go.Scatter(x=xs, y=ys, name='Site', mode='lines',
-                             line=dict(color='#1d4ed8', width=3), hoverinfo='skip'))
-    add_circulation(fig, plaza_circ)
-    add_buildings(fig, [BIG_O], fire=fire)
-    add_entries(fig, plaza_ent)
-    # Mark the unreachable courtyard centre.
-    c = sb['courtyards'][0]['centroid']
-    ok = sb['courtyards'][0]['reachable']
-    fig.add_trace(go.Scatter(x=[c[0]], y=[c[1]], mode='markers+text',
-                             text=['court OK' if ok else 'court UNREACHABLE'],
-                             textposition='top center',
-                             marker=dict(size=14, color='#15803d' if ok else '#b91c1c', symbol='x'),
-                             showlegend=False, hoverinfo='skip'))
-    fig.update_layout(title=title, yaxis=dict(scaleanchor='x', scaleratio=1, visible=False),
-                      xaxis=dict(visible=False), margin=dict(l=0, r=0, t=40, b=0), height=560,
-                      plot_bgcolor='#f0f4ff', paper_bgcolor='#f0f4ff',
-                      legend=dict(x=1.02, y=1, bgcolor='white', bordercolor='#ccc', borderwidth=1))
-    return fig
-
-plaza_fig('(d2) LOOSE — outer wall reachable, building passes (green)', loose_o).show()
-plaza_fig('(d2) STRICT — enclosed courtyard unreachable, building fails (red)', strict_o).show()
+report = evaluate_site_circulation(SITE_MODEL, BUILDINGS, parking)
+print()
+print(report['summary'])
 """))
 
-cells.append(md("""## (e) A deliberately failing layout — the constraint rejects it
+cells.append(md("""## A1 — Entrance placement **reasoning**
 
-A large site with a remote building that no corridor reaches: its
-`constraint_value > 0`, so the hard fire-access constraint **rejects** the layout —
-the same `G ≤ 0` signal the optimizer consumes."""))
+Each building gets typed entrances; hover any entrance marker to read *why* it
+sits there. The public door faces the arrival route; the service door faces the
+quiet Service Lane side; residential/courtyard doors open onto the court."""))
 
 cells.append(code("""
-BIG_BOUNDARY = [[0,0,0],[200,0,0],[200,200,0],[0,200,0],[0,0,0]]
-BIG_MODEL = {'boundary': BIG_BOUNDARY, 'roads': {'main_road_side_index': 0}}
-NEAR = {'building_id': 'near', 'label': 'Near (served)',
-        'boundary': [[15,15,0],[45,15,0],[45,40,0],[15,40,0]]}
-FAR  = {'building_id': 'far', 'label': 'Far (unreachable)',
-        'boundary': [[155,155,0],[190,155,0],[190,190,0],[155,190,0]]}
+orient = report['entrances']
+for b in orient['buildings']:
+    print(f"### {b['building_id']}  ({b['n_entrances']} entrances, {len(b['courtyards'])} courtyard)")
+    for e in b['entrances']:
+        print(f"   - {e['role']:11s} faces={e['faces']:12s} :: {e['reason']}")
 
-big_entries = propose_site_entries(BIG_MODEL)
-big_circ = route_internal_circulation(BIG_MODEL, big_entries, [NEAR], None)  # only serves NEAR
-big_fire = check_fire_access([NEAR, FAR], big_circ, max_distance=MAX_FIRE_DISTANCE_M)
-print(big_fire['summary'], '| all_pass =', big_fire['all_pass'])
-for b in big_fire['buildings']:
-    print(f"  {b['building_id']:6s}: d={b['distance_m']} m  G={b['constraint_value']}  pass={b['pass']}")
-
-fig = go.Figure()
-xs, ys = _xy(BIG_BOUNDARY)
-fig.add_trace(go.Scatter(x=xs, y=ys, name='Site', mode='lines',
-                         line=dict(color='#1d4ed8', width=3), hoverinfo='skip'))
-add_circulation(fig, big_circ)
-add_buildings(fig, [NEAR, FAR], fire=big_fire)
-add_entries(fig, big_entries)
-fig.update_layout(title='(e) Fire-access FAIL — far building unreachable (red)',
-                  yaxis=dict(scaleanchor='x', scaleratio=1, visible=False),
-                  xaxis=dict(visible=False), margin=dict(l=0, r=0, t=40, b=0), height=560,
-                  plot_bgcolor='#f0f4ff', paper_bgcolor='#f0f4ff',
-                  legend=dict(x=1.02, y=1, bgcolor='white', bordercolor='#ccc', borderwidth=1))
+fig = new_fig('A1 — Typed building entrances (hover for the reason)', SITE_BOUNDARY)
+draw_parking(fig, parking)
+draw_buildings(fig, BUILDINGS)
+draw_entries(fig, propose_site_entries(SITE_MODEL))
+draw_entrances(fig, orient)
 fig.show()
 """))
 
-cells.append(md("""## Summary
+cells.append(md("""## A2 — Site arrival strategy + vehicular network
 
-- **Concave site:** entries and corridors respect an L-shaped boundary, not a box.
-- **Obstacle-aware routing:** corridors bend *around* the slab (`routed_around > 0`)
-  and never cut through a neighbouring footprint — the old straight-L logic did.
-- **Typed entrances:** public, service, residential and courtyard doors per building,
-  with courtyard entrances facing into auto/explicitly detected courts.
-- **Courtyard-aware fire access:** `strict=True` adds the deepest-interior-point reach
-  and per-courtyard reachability, catching the enclosed-court case the nearest-wall
-  test silently passes — while keeping the optimizer's `G = d − max_distance`
-  constraint unchanged."""))
+`site_access` says, per frontage, whether pedestrians and/or vehicles arrive,
+and gives each site entry's street→site→building sequence. The vehicular network
+is obstacle-aware — corridors bend **around** other buildings."""))
+
+cells.append(code("""
+arr = report['site_access']
+print(arr['summary'])
+for f in arr['frontages']:
+    print(f"   frontage side {f['side_index']:>2} [{f['road_name']}] {f['hierarchy']:9s} -> {f['note']}")
+print('arrivals:')
+for a in arr['arrivals']:
+    print(f"   {a['entry_id']:16s} [{a['mode']:10s}] {a['sequence']}")
+
+veh = report['vehicular_circulation']
+print(); print('vehicular:', veh['summary'])
+
+fig = new_fig('A2 — Vehicular circulation (obstacle-aware)', SITE_BOUNDARY)
+draw_vehicular(fig, veh)
+draw_parking(fig, parking)
+draw_buildings(fig, BUILDINGS)
+draw_entries(fig, propose_site_entries(SITE_MODEL))
+fig.show()
+"""))
+
+cells.append(md("""## A3 — Pedestrian network + parking integration
+
+Pedestrian routes (dashed green) connect the site entry to each public door and
+walk people up from parking — and they treat **parking as an obstacle**, so they
+don't cut across the lot. Drop-off diamonds mark where you'd alight nearest each
+entrance; the report flags whether the walk is within comfortable / accessible
+range."""))
+
+cells.append(code("""
+ped = report['pedestrian_circulation']
+pa  = report['parking_integration']
+print('pedestrian:', ped['summary'])
+print('parking   :', pa['summary'])
+for z in pa['zones']:
+    print(f"   {z['zone_id']}: nearest={z['nearest_entrance_building']} "
+          f"~{z['straight_distance_m']} m  accessible_ok={z['accessible_parking_ok']}  "
+          f"| {z['sequence']}")
+
+fig = new_fig('A3 — Pedestrian network + drop-off (parking is an obstacle)', SITE_BOUNDARY)
+draw_vehicular(fig, veh)
+draw_pedestrian(fig, ped)
+draw_parking(fig, parking, pa)
+draw_buildings(fig, BUILDINGS)
+draw_entries(fig, propose_site_entries(SITE_MODEL))
+fig.show()
+"""))
+
+cells.append(md("""## A4 — Fire safety & emergency egress
+
+`fire_safety_egress` combines two things per building: **emergency exits**
+(orange arrows) placed on open exterior facades with multiple independent escape
+directions — never discharging into a courtyard — and **fire-appliance reach**
+(strict: nearest wall, deepest interior, every courtyard). Buildings shade green
+(serviceable) / red (a courtyard or core out of reach)."""))
+
+cells.append(code("""
+fs = report['fire_safety_egress']
+fire, egress = fs['fire_access'], fs['egress']
+print('fire  :', fire['summary'])
+print('egress:', egress['summary'])
+for r in egress['buildings']:
+    fa = r['fire_appliance_access']
+    print(f"   {r['building_id']:8s} exits={r['n_exits']} indep_dir={r['independent_directions']} "
+          f"single_point={r['single_point_failure']} court_only={r['courtyard_only_egress_risk']} "
+          f"| appliance: near={fa['distance_m']}m deep={fa['deepest_point_distance_m']}m "
+          f"courts_ok={fa['courtyards_reachable']} compliant={r['compliant']}")
+
+fig = new_fig('A4 — Emergency exits (orange) + fire-appliance reach (green/red)', SITE_BOUNDARY)
+draw_vehicular(fig, veh)
+draw_buildings(fig, BUILDINGS, fire=fire)
+draw_emergency_exits(fig, egress)
+draw_entries(fig, propose_site_entries(SITE_MODEL))
+fig.show()
+"""))
+
+cells.append(md("""## A5 — Conflicts & the validation audit
+
+`conflicts` lists every pedestrian/vehicle crossing and pedestrian-through-parking
+with a **resolution**; `audit` runs the pre-finalisation checklist. A failing
+conflict check here is a *correct* finding — the south parking forces arrival
+walks to cross it, which is exactly what the audit should surface."""))
+
+cells.append(code("""
+conf = report['conflicts']
+audit = report['audit']
+print(conf['summary'])
+for c in conf['conflicts']:
+    loc = c.get('location')
+    where = f"@({loc[0]:.0f},{loc[1]:.0f})" if loc else f"[{c.get('building_id')}]"
+    print(f"   {c['type']:28s} {where:14s} -> {c['resolution']}")
+print()
+print(audit['summary'])
+for c in audit['checks']:
+    print(f"   {'PASS' if c['pass'] else 'FAIL'}  {c['check']:38s} {c['detail']}")
+
+fig = new_fig('A5 — Conflicts (black ✕): ped/vehicle + ped-through-parking', SITE_BOUNDARY)
+draw_vehicular(fig, veh)
+draw_pedestrian(fig, ped)
+draw_parking(fig, parking, pa)
+draw_buildings(fig, BUILDINGS)
+draw_conflicts(fig, conf)
+fig.show()
+"""))
+
+# =========================================================== Scene B
+cells.append(md("""# Scene B — Emergency-egress gallery across typologies
+
+Egress reasoning is typology-aware because it runs on **facades**, not boxes.
+Each footprint below is split into facades (open = grey, courtyard pocket =
+purple, enclosed-court ring = dashed) and exits (orange) are placed only on
+**open** facades, spread for independent escape directions and per-wing coverage.
+This covers U, H, X, Y, an **E** comb, and a true **courtyard / O** building."""))
+
+cells.append(code("""
+# E-shaped comb footprint (spine + three prongs) — built by hand.
+E_SHAPE = [[0,0,0],[40,0,0],[40,10,0],[12,10,0],[12,25,0],[40,25,0],[40,35,0],
+           [12,35,0],[12,50,0],[40,50,0],[40,60,0],[0,60,0]]
+O_RING  = {'boundary':[[0,0,0],[44,0,0],[44,44,0],[0,44,0]],
+           'holes':[[[14,14],[30,14],[30,30],[14,30]]]}
+
+GALLERY = [
+    ('U', {'boundary': winged('U', 1500, 12, 0.5, (0, 0))}),
+    ('H', {'boundary': winged('H', 1700, 12, 0.5, (0, 0))}),
+    ('X', {'boundary': winged('X', 1500, 12, 0.5, (0, 0))}),
+    ('Y', {'boundary': winged('Y', 1500, 12, 0.5, (0, 0))}),
+    ('E (comb)', {'boundary': E_SHAPE}),
+    ('O (courtyard)', O_RING),
+]
+
+FACE_COLORS = {'open': 'rgba(100,116,139,0.30)', 'courtyard': 'rgba(147,51,234,0.25)',
+               'enclosed_courtyard': 'rgba(147,51,234,0.0)'}
+
+def egress_fig(name, bld):
+    facades = segment_facades(bld)
+    ee = generate_emergency_exits(bld)
+    poly = bld['boundary']
+    fig = go.Figure()
+    xs, ys = _xy(poly)
+    fig.add_trace(go.Scatter(x=xs, y=ys, mode='lines', fill='toself',
+                             fillcolor='rgba(15,118,110,0.12)', line=dict(color='#0f766e', width=2),
+                             showlegend=False, hoverinfo='skip'))
+    for hole in bld.get('holes', []) or []:
+        hxs, hys = _xy(hole)
+        fig.add_trace(go.Scatter(x=hxs, y=hys, mode='lines', fill='toself', fillcolor='white',
+                                 line=dict(color='#9333ea', width=1, dash='dot'),
+                                 showlegend=False, hoverinfo='skip'))
+    # facade midpoints coloured by what they face
+    for f in facades:
+        mx, my, _ = f['midpoint']
+        fig.add_trace(go.Scatter(x=[mx], y=[my], mode='markers',
+                                 marker=dict(size=8, color=FACE_COLORS.get(f['faces'], '#999'),
+                                             line=dict(color='#555', width=0.5)),
+                                 showlegend=False, hoverinfo='text', text=f['faces']))
+    # exits
+    for e in ee['exits']:
+        ex, ey, _ = e['point']; dx, dy = e['direction']
+        fig.add_annotation(x=ex + dx * 6, y=ey + dy * 6, ax=ex, ay=ey, xref='x', yref='y',
+                           axref='x', ayref='y', showarrow=True, arrowhead=3, arrowsize=1.1,
+                           arrowwidth=2, arrowcolor=EXIT_COLOR)
+    risk = ('  ⚠ ' + ('single-point ' if ee['single_point_failure'] else '')
+            + ('courtyard-only' if ee['courtyard_only_egress_risk'] else '')).rstrip()
+    title = (f"{name}: {ee['n_exits']} exits, {ee['independent_directions']} independent dir, "
+             f"wings_covered={ee['wing_coverage'].get('covered')}" + (risk if risk.strip('⚠ ') else '  ✓'))
+    fig.update_layout(title=title, height=380, width=440,
+                      yaxis=dict(scaleanchor='x', scaleratio=1, visible=False),
+                      xaxis=dict(visible=False), margin=dict(l=0, r=0, t=40, b=0),
+                      plot_bgcolor='#f8fafc', paper_bgcolor='#f8fafc')
+    return fig, ee
+
+for name, bld in GALLERY:
+    fig, ee = egress_fig(name, bld)
+    print(f"{name:16s}: {ee['summary']}")
+    fig.show()
+"""))
+
+# =========================================================== Scene C
+cells.append(md("""# Scene C — Strict fire access catches an unreachable enclosed courtyard
+
+The case the nearest-wall test silently passes. A large **O-court** sits on a
+plaza; the perimeter road touches its outer wall (`distance ≈ 0`, loose check and
+the optimizer's `G ≤ 0` constraint are happy) — but its enclosed courtyard is
+~60 m inside, beyond hose reach. **Strict mode fails it.** Note the emergency
+exits still sit on the *outer* facades (orange), never into the trapped court."""))
+
+cells.append(code("""
+PLAZA = [[0,0,0],[180,0,0],[180,150,0],[0,150,0]]
+PLAZA_MODEL = {'boundary': PLAZA, 'roads': {'main_road_side_index': 0}}
+BIG_O = {'building_id':'big_O','label':'Large O-court','storeys':8,
+         'boundary':[[25,18,0],[155,18,0],[155,135,0],[25,135,0]],
+         'holes':[[[60,52],[120,52],[120,102],[60,102]]]}
+
+p_ent  = propose_site_entries(PLAZA_MODEL)
+p_circ = route_internal_circulation(PLAZA_MODEL, p_ent, [BIG_O], None)
+loose  = check_fire_access([BIG_O], p_circ, strict=False)
+strict = check_fire_access([BIG_O], p_circ, strict=True)
+eg     = analyze_egress([BIG_O], p_circ)
+
+lb, sb = loose['buildings'][0], strict['buildings'][0]
+print(f"outer-wall distance = {lb['distance_m']} m  within_reach={lb['within_reach']}  G={lb['constraint_value']}")
+print(f"deepest interior    = {sb['deepest_point_distance_m']} m")
+print(f"courtyard reachable = {sb['courtyards'][0]['reachable']} "
+      f"(centre {sb['courtyards'][0]['distance_m']} m from a road)")
+print(f"loose pass = {lb['pass']}   |   strict pass = {sb['pass']}")
+print('egress:', eg['summary'])
+
+def plaza_fig(title, fire):
+    fig = new_fig(title, PLAZA, h=560)
+    draw_vehicular(fig, p_circ)
+    draw_buildings(fig, [BIG_O], fire=fire)
+    draw_emergency_exits(fig, eg)
+    draw_entries(fig, p_ent)
+    c = sb['courtyards'][0]['centroid']; ok = sb['courtyards'][0]['reachable']
+    fig.add_trace(go.Scatter(x=[c[0]], y=[c[1]], mode='markers+text',
+                             text=['court OK' if ok else 'court UNREACHABLE'], textposition='top center',
+                             marker=dict(size=14, color='#15803d' if ok else '#b91c1c', symbol='x'),
+                             showlegend=False, hoverinfo='skip'))
+    return fig
+
+plaza_fig('C — LOOSE: outer wall reachable, building passes (green)', loose).show()
+plaza_fig('C — STRICT: enclosed courtyard unreachable, building fails (red)', strict).show()
+"""))
+
+cells.append(md("""## Summary — what the rebuild added
+
+- **Functional, not just geometric.** `evaluate_site_circulation` reasons about
+  arrival → entrance → parking → walk → egress, returning one report per layout.
+- **Typed entrances with reasons.** Public / service / residential / courtyard
+  doors, each carrying *why* it sits where it does — placed on real facades.
+- **Pedestrian ≠ vehicular.** Separate networks; pedestrians route **around**
+  parking; conflicts where they cross are flagged with resolutions.
+- **Parking as a journey.** Drop-off points, accessible-walk checks, and the
+  street→site→park→door sequence — not an isolated rectangle.
+- **Egress that understands form.** Multi-direction emergency exits on open
+  facades only, courtyard-avoiding, with per-wing coverage and single-point-
+  failure flags — across U / H / X / Y / E / courtyard typologies.
+- **Audited.** A validation checklist (public entrance, connectivity, parking
+  link, compliant egress, fire access, no isolation, conflicts) gates the layout
+  — while the optimizer's `G = distance − max_distance` fire constraint is
+  unchanged, so nothing downstream broke."""))
 
 # nbformat minor 5 requires a stable id on every cell.
 for _k, _c in enumerate(cells):
