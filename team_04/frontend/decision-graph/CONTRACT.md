@@ -38,10 +38,36 @@ the payload, or keep a client-side cache keyed by `node_id`):
 { "node_id": "...", "type": "brief", "label": "...", "parent_id": "...", "is_selected": true }
 ```
 
-Emission order per user turn: `intent → brief → [clarify] → action(s) → branch → … → state`.
-The `brief` event arrives **right after `intent`, before the first `action`** — it is the
+Emission order per user turn:
+`intent → brief → [clarify] → thought → action(s) → validate → [retry → thought → action(s) → validate]* → … → state`.
+The `brief` event arrives **right after `intent`, before the first `thought`** — it is the
 agent's comprehension step (`extract_brief` graph node). A `clarify` event may follow the brief
 when the agent pauses to ask the user back (see §7); when it does, no actions run that turn.
+
+`thought`, `validate`, and `retry` are the **ReAct loop made visible** (added with the
+self-validation/self-debug feature): the supervisor's reasoning, the agent's verdict on its own
+geometry, and a self-debug correction before it regenerates. A failed `validate` is followed by a
+`retry` and another generate→validate cycle, bounded by `max_debug_attempts`.
+
+### 1c. Non-node activity SSE events (live ReAct trace)
+
+Tools here are plain Python calls inside graph nodes (not LangChain `Tool`s), so the chat stream
+drives the trace off each node's `on_chain_end` output. Alongside the `decision` events it emits
+these **non-node** events so the UI can show *what the agent is thinking, which tool it used, how
+many times, and the result* without re-fetching:
+
+```jsonc
+// event: thought      — the supervisor's reasoning for the step
+{ "action": "generate_shape", "reasoning": "..." }
+// event: tool         — a tool finished firing (count = running per-tool tally this turn)
+{ "name": "validate_design", "input_preview": "{...}", "count": 2 }
+// event: tool_result  — that tool's outcome
+{ "name": "validate_design", "ok": true, "summary": "validation passed", "count": 2 }
+// event: validation   — the self-validation verdict
+{ "passed": false, "failures": ["area"], "summary": "...", "metrics": {...}, "judge": {...} | null }
+// event: retry        — a self-debug attempt before regenerating
+{ "attempt": 1, "failures": ["area"], "diagnosis": "...", "directive": "..." }
+```
 
 The chat stream also emits a non-node `clarify` SSE event carrying the raw `ClarificationRequest`
 (so the UI can pop the form without re-fetching): `event: clarify, data: <ClarificationRequest>`.
@@ -54,7 +80,7 @@ The chat stream also emits a non-node `clarify` SSE event carrying the raw `Clar
 |---------------|-------------------------|-------|
 | `node_id`     | `string` (uuid)         | React Flow node `id` |
 | `parent_id`   | `string \| null`        | edge source; `null` only for the root |
-| `type`        | `DecisionNodeType`      | `intent \| brief \| action \| branch \| select \| state` |
+| `type`        | `DecisionNodeType`      | `intent \| brief \| clarify \| thought \| action \| validate \| retry \| branch \| select \| state` |
 | `label`       | `string`                | ≤120 chars, human-readable |
 | `timestamp`   | `string` (ISO-8601 UTC) | node creation time |
 | `is_selected` | `boolean`               | on the active path; branch children start `false` |
@@ -125,10 +151,33 @@ The agent paused to ask the user back. Payload holds the structured question the
 }
 ```
 
+### `thought`  — the supervisor's reasoning step (ReAct "Reason")
+```ts
+{ action: string, reasoning: string }   // reasoning ≤400 chars
+```
+Label format: `Reason → {action}`.
+
 ### `action`
 ```ts
-{ tool_name: string, input_preview: string }   // input_preview ≤200 chars
+{ tool_name: string, input_preview: string,    // input_preview ≤200 chars
+  call_count: number,                          // how many times this tool ran this turn
+  result_summary: string, ok: boolean }        // one-line digest of the tool's output
 ```
+Label format: `Tool: {tool_name}` (with `×{call_count}` suffix when >1).
+
+### `validate`  — the agent's verdict on its own geometry
+```ts
+{ passed: boolean, failures: string[],         // e.g. ["outside_site","area","brief_mismatch"]
+  summary: string, metrics: object,
+  judge: { satisfies_brief: boolean, score: number, reasons: string[] } | null }
+```
+Label format: `Validate: PASS` / `Validate: FAIL ({failures})`.
+
+### `retry`  — a self-debug attempt (the agent correcting itself)
+```ts
+{ attempt: number, directive: string, diagnosis: string, failures: string[] }
+```
+Label format: `Self-debug #{attempt}`.
 
 ### `branch`  — one child `state` node per Pareto option
 ```ts

@@ -15,13 +15,26 @@
 import type { NodeTypes } from 'reactflow';
 
 import { BriefNode } from './BriefNode';
-import { IntentNode, ClarifyNode, ActionNode, BranchNode, SelectNode, StateNode } from './BasicNodes';
+import {
+  IntentNode,
+  ClarifyNode,
+  ThoughtNode,
+  ActionNode,
+  ValidateNode,
+  RetryNode,
+  BranchNode,
+  SelectNode,
+  StateNode,
+} from './BasicNodes';
 
 export const nodeTypes: NodeTypes = {
   intent: IntentNode,
   brief: BriefNode,
   clarify: ClarifyNode,
+  thought: ThoughtNode,
   action: ActionNode,
+  validate: ValidateNode,
+  retry: RetryNode,
   branch: BranchNode,
   select: SelectNode,
   state: StateNode,

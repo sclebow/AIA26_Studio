@@ -50,6 +50,14 @@ interface ChatLine {
   content: string;
 }
 
+/** One row in the live ReAct activity trace (rendered in the Activity pane). */
+type ActivityEntry =
+  | { kind: 'thought'; action: string; reasoning: string }
+  | { kind: 'tool'; name: string; count: number; input_preview: string }
+  | { kind: 'tool_result'; name: string; ok: boolean; summary: string; count: number }
+  | { kind: 'validation'; passed: boolean; failures: string[]; summary: string }
+  | { kind: 'retry'; attempt: number; directive: string; diagnosis: string };
+
 export function AgentDashboard({
   sessionId,
   api = new Team04Api(),
@@ -69,6 +77,11 @@ export function AgentDashboard({
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState('');
+
+  // ── Live ReAct activity trace ─────────────────────────────────────────────
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [toolCounts, setToolCounts] = useState<Record<string, number>>({});
+  const activityEndRef = useRef<HTMLDivElement | null>(null);
 
   // ── Clarification state ───────────────────────────────────────────────────
   const [clarifyRequest, setClarifyRequest] = useState<ClarificationRequest | null>(null);
@@ -106,6 +119,11 @@ export function AgentDashboard({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamingText]);
 
+  // Auto-scroll the live activity trace as new steps stream in
+  useEffect(() => {
+    activityEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [activity]);
+
   // ── Focus a building ───────────────────────────────────────────────────────
   const focusBuilding = useCallback(
     async (buildingId: string) => {
@@ -140,6 +158,8 @@ export function AgentDashboard({
       setStreamingText('');
       setClarifyRequest(null);
       setError(null);
+      setActivity([]);
+      setToolCounts({});
 
       let accumulated = '';
 
@@ -155,6 +175,42 @@ export function AgentDashboard({
             if (ev.event === 'token') {
               accumulated += ev.data;
               setStreamingText(accumulated);
+            } else if (ev.event === 'thought') {
+              try {
+                const t = JSON.parse(ev.data) as { action: string; reasoning: string };
+                setActivity((prev) => [...prev, { kind: 'thought', ...t }]);
+              } catch {
+                /* ignore */
+              }
+            } else if (ev.event === 'tool') {
+              try {
+                const t = JSON.parse(ev.data) as { name: string; count: number; input_preview: string };
+                setActivity((prev) => [...prev, { kind: 'tool', ...t }]);
+                setToolCounts((prev) => ({ ...prev, [t.name]: t.count }));
+              } catch {
+                /* ignore */
+              }
+            } else if (ev.event === 'tool_result') {
+              try {
+                const t = JSON.parse(ev.data) as { name: string; ok: boolean; summary: string; count: number };
+                setActivity((prev) => [...prev, { kind: 'tool_result', ...t }]);
+              } catch {
+                /* ignore */
+              }
+            } else if (ev.event === 'validation') {
+              try {
+                const v = JSON.parse(ev.data) as { passed: boolean; failures: string[]; summary: string };
+                setActivity((prev) => [...prev, { kind: 'validation', ...v }]);
+              } catch {
+                /* ignore */
+              }
+            } else if (ev.event === 'retry') {
+              try {
+                const r = JSON.parse(ev.data) as { attempt: number; directive: string; diagnosis: string };
+                setActivity((prev) => [...prev, { kind: 'retry', ...r }]);
+              } catch {
+                /* ignore */
+              }
             } else if (ev.event === 'decision') {
               try {
                 const node = JSON.parse(ev.data) as DecisionNodeEvent;
@@ -314,15 +370,33 @@ export function AgentDashboard({
           />
         </div>
 
-        {/* Right — explorer */}
-        <div style={{ flex: '0 0 280px', overflowY: 'auto', padding: 10, borderLeft: '1px solid #e2e6ea' }}>
-          <ExplorerPanel
-            tree={tree}
-            focusedBuildingId={focusedBuildingId}
-            selectedOptionId={selectedOptionId}
-            onFocusBuilding={(id) => void focusBuilding(id)}
-            onSelectOption={(_buildingId, option) => setSelectedOptionId(option.option_id)}
-          />
+        {/* Right — live activity trace (top) + explorer (bottom) */}
+        <div
+          style={{
+            flex: '0 0 320px',
+            borderLeft: '1px solid #e2e6ea',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+          }}
+        >
+          <div style={{ flex: '1 1 55%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <ActivityTrace
+              activity={activity}
+              toolCounts={toolCounts}
+              streaming={streaming}
+              endRef={activityEndRef}
+            />
+          </div>
+          <div style={{ flex: '1 1 45%', overflowY: 'auto', padding: 10, borderTop: '1px solid #e2e6ea' }}>
+            <ExplorerPanel
+              tree={tree}
+              focusedBuildingId={focusedBuildingId}
+              selectedOptionId={selectedOptionId}
+              onFocusBuilding={(id) => void focusBuilding(id)}
+              onSelectOption={(_buildingId, option) => setSelectedOptionId(option.option_id)}
+            />
+          </div>
         </div>
       </div>
 
@@ -460,6 +534,176 @@ export function AgentDashboard({
       </div>
     </div>
   );
+}
+
+// ── Live ReAct activity trace ───────────────────────────────────────────────
+
+const ACTIVITY_STYLE: Record<
+  ActivityEntry['kind'],
+  { icon: string; color: string; bg: string }
+> = {
+  thought: { icon: '🧠', color: '#34495e', bg: '#ecf0f1' },
+  tool: { icon: '🔧', color: '#e67e22', bg: '#fef5ec' },
+  tool_result: { icon: '↳', color: '#5d6d7e', bg: '#f4f6f7' },
+  validation: { icon: '✅', color: '#27ae60', bg: '#eafaf1' },
+  retry: { icon: '🔁', color: '#d35400', bg: '#fdf2e9' },
+};
+
+function ActivityTrace({
+  activity,
+  toolCounts,
+  streaming,
+  endRef,
+}: {
+  activity: ActivityEntry[];
+  toolCounts: Record<string, number>;
+  streaming: boolean;
+  endRef: React.RefObject<HTMLDivElement>;
+}): JSX.Element {
+  const tools = Object.entries(toolCounts).sort((a, b) => b[1] - a[1]);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      <div
+        style={{
+          padding: '6px 10px',
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: 0.4,
+          color: '#2c3e50',
+          borderBottom: '1px solid #e2e6ea',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          flexShrink: 0,
+        }}
+      >
+        <span>AGENT ACTIVITY</span>
+        {streaming && <span style={{ color: '#2980b9', fontWeight: 600 }}>● live</span>}
+        <span style={{ marginLeft: 'auto', color: '#95a5a6', fontWeight: 500 }}>{activity.length} steps</span>
+      </div>
+
+      {/* Tool-usage tally — how many times each tool was reached for */}
+      {tools.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 4,
+            padding: '6px 10px',
+            borderBottom: '1px solid #eef2f4',
+            flexShrink: 0,
+          }}
+        >
+          {tools.map(([name, count]) => (
+            <span
+              key={name}
+              title={`${name} used ${count}×`}
+              style={{
+                fontSize: 10,
+                background: '#fef5ec',
+                color: '#b9650f',
+                border: '1px solid #f3d3b0',
+                borderRadius: 10,
+                padding: '1px 7px',
+                fontFamily: 'monospace',
+              }}
+            >
+              {name} ×{count}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '6px 8px', minHeight: 0 }}>
+        {activity.length === 0 && (
+          <div style={{ fontSize: 11, color: '#95a5a6', textAlign: 'center', marginTop: 16 }}>
+            The agent's reasoning, tool calls, validation and self-debug steps appear here as it works.
+          </div>
+        )}
+        {activity.map((entry, i) => {
+          const s = ACTIVITY_STYLE[entry.kind];
+          return (
+            <div
+              key={i}
+              style={{
+                display: 'flex',
+                gap: 6,
+                padding: '4px 6px',
+                marginBottom: 3,
+                background: s.bg,
+                borderLeft: `3px solid ${s.color}`,
+                borderRadius: 4,
+                fontSize: 11,
+              }}
+            >
+              <span style={{ flexShrink: 0 }}>{s.icon}</span>
+              <div style={{ minWidth: 0, wordBreak: 'break-word' }}>
+                <ActivityBody entry={entry} color={s.color} />
+              </div>
+            </div>
+          );
+        })}
+        <div ref={endRef} />
+      </div>
+    </div>
+  );
+}
+
+function ActivityBody({ entry, color }: { entry: ActivityEntry; color: string }): JSX.Element {
+  switch (entry.kind) {
+    case 'thought':
+      return (
+        <>
+          <strong style={{ color }}>Reason → {entry.action}</strong>
+          {entry.reasoning ? (
+            <div style={{ color: '#5d6d7e', fontStyle: 'italic' }}>{entry.reasoning}</div>
+          ) : null}
+        </>
+      );
+    case 'tool':
+      return (
+        <>
+          <strong style={{ color }}>
+            <code>{entry.name}</code>
+          </strong>
+          {entry.count > 1 ? <span style={{ color, fontWeight: 700 }}> ×{entry.count}</span> : null}
+          {entry.input_preview && entry.input_preview !== '{}' ? (
+            <div style={{ color: '#95a5a6', fontFamily: 'monospace', fontSize: 10 }}>
+              {entry.input_preview}
+            </div>
+          ) : null}
+        </>
+      );
+    case 'tool_result':
+      return (
+        <span style={{ color: entry.ok ? '#5d6d7e' : '#c0392b' }}>
+          {entry.ok ? '→ ' : '✗ '}
+          {entry.summary || (entry.ok ? 'ok' : 'failed')}
+        </span>
+      );
+    case 'validation':
+      return (
+        <>
+          <strong style={{ color: entry.passed ? '#27ae60' : '#c0392b' }}>
+            {entry.passed ? 'Validation passed' : 'Validation FAILED'}
+          </strong>
+          {!entry.passed && entry.failures?.length ? (
+            <div style={{ color: '#c0392b' }}>checks: {entry.failures.join(', ')}</div>
+          ) : null}
+          {entry.summary ? <div style={{ color: '#5d6d7e' }}>{entry.summary}</div> : null}
+        </>
+      );
+    case 'retry':
+      return (
+        <>
+          <strong style={{ color }}>Self-debug #{entry.attempt}</strong>
+          {entry.diagnosis ? <div style={{ color: '#c0392b' }}>{entry.diagnosis}</div> : null}
+          {entry.directive ? <div style={{ color: '#5d6d7e' }}>↻ {entry.directive}</div> : null}
+        </>
+      );
+    default:
+      return <span />;
+  }
 }
 
 export default AgentDashboard;

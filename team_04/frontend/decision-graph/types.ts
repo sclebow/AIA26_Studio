@@ -18,7 +18,8 @@ export type ShapePreference =
 /** Known node types. Kept as a union, but the wire field is an open string —
  *  always handle the `default`/unknown case so an old UI survives a new backend. */
 export type DecisionNodeType =
-  | 'intent' | 'brief' | 'clarify' | 'action' | 'branch' | 'select' | 'state';
+  | 'intent' | 'brief' | 'clarify' | 'thought' | 'action'
+  | 'validate' | 'retry' | 'branch' | 'select' | 'state';
 
 /** One building's intent inside a DesignBrief (agent/models.py BuildingSpec). */
 export interface BuildingSpec {

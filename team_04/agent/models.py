@@ -185,6 +185,8 @@ ActionName = Literal[
     "generate_shape",
     "check_requested_position",
     "check_constraints",
+    "validate",
+    "debug",
     "optimize",
     "evaluate",
     "place_building",
@@ -193,6 +195,26 @@ ActionName = Literal[
     "await_human",
     "finish",
 ]
+
+
+# Single source of truth for the action vocabulary the wire validators accept.
+_VALID_ACTIONS: frozenset[str] = frozenset(
+    {
+        "read_site",
+        "generate_shape",
+        "check_requested_position",
+        "check_constraints",
+        "validate",
+        "debug",
+        "optimize",
+        "evaluate",
+        "place_building",
+        "analyze_remaining_positions",
+        "report",
+        "await_human",
+        "finish",
+    }
+)
 
 PlanStatus = Literal["pending", "completed", "skipped"]
 
@@ -227,19 +249,7 @@ class RoutingDecision:
         user_question = str(payload.get("user_question", "")).strip()
         tool_calls_payload = payload.get("tool_calls", [])
 
-        if action not in {
-            "read_site",
-            "generate_shape",
-            "check_requested_position",
-            "check_constraints",
-            "optimize",
-            "evaluate",
-            "place_building",
-            "analyze_remaining_positions",
-            "report",
-            "await_human",
-            "finish",
-        }:
+        if action not in _VALID_ACTIONS:
             raise ValueError(f"Unsupported action: {action}")
 
         if not isinstance(tool_calls_payload, list):
@@ -278,19 +288,7 @@ class PlanStep:
 
         if not step_id:
             raise ValueError("Plan step is missing step_id")
-        if action not in {
-            "read_site",
-            "generate_shape",
-            "check_requested_position",
-            "check_constraints",
-            "optimize",
-            "evaluate",
-            "place_building",
-            "analyze_remaining_positions",
-            "report",
-            "await_human",
-            "finish",
-        }:
+        if action not in _VALID_ACTIONS:
             raise ValueError(f"Unsupported plan step action: {action}")
         if status not in {"pending", "completed", "skipped"}:
             raise ValueError(f"Unsupported plan step status: {status}")

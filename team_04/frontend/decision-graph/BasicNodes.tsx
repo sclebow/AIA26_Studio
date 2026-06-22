@@ -20,7 +20,11 @@ interface Accent {
 const ACCENTS: Record<string, Accent> = {
   intent: { color: '#2980b9', icon: '👤', title: 'USER INTENT' },
   clarify: { color: '#2980b9', icon: '✋', title: 'CLARIFY' },
+  thought: { color: '#34495e', icon: '🧠', title: 'REASON' },
   action: { color: '#e67e22', icon: '🔧', title: 'TOOL' },
+  validatePass: { color: '#27ae60', icon: '✅', title: 'VALIDATE' },
+  validateFail: { color: '#c0392b', icon: '⚠️', title: 'VALIDATE' },
+  retry: { color: '#d35400', icon: '🔁', title: 'SELF-DEBUG' },
   branch: { color: '#8e44ad', icon: '⑂', title: 'PARETO FORK' },
   select: { color: '#27ae60', icon: '✓', title: 'SELECTED' },
   state: { color: '#16a085', icon: '▣', title: 'STATE' },
@@ -109,9 +113,24 @@ export function ClarifyNode({ data, selected }: NodeProps<RFNodeData>): JSX.Elem
   );
 }
 
+export function ThoughtNode({ data, selected }: NodeProps<RFNodeData>): JSX.Element {
+  const reasoning = str(data.payload, 'reasoning');
+  return (
+    <NodeShell
+      data={data}
+      selected={selected}
+      accent={ACCENTS.thought}
+      detail={reasoning ? <span style={{ fontStyle: 'italic' }}>{reasoning.slice(0, 110)}</span> : undefined}
+    />
+  );
+}
+
 export function ActionNode({ data, selected }: NodeProps<RFNodeData>): JSX.Element {
   const tool = str(data.payload, 'tool_name');
   const preview = str(data.payload, 'input_preview');
+  const result = str(data.payload, 'result_summary');
+  const count = Number(data.payload?.call_count ?? 1);
+  const ok = data.payload?.ok !== false;
   return (
     <NodeShell
       data={data}
@@ -121,9 +140,49 @@ export function ActionNode({ data, selected }: NodeProps<RFNodeData>): JSX.Eleme
         tool ? (
           <>
             <code style={{ fontSize: 10 }}>{tool}</code>
-            {preview ? <div style={{ marginTop: 2, opacity: 0.75 }}>{preview.slice(0, 80)}</div> : null}
+            {count > 1 ? <span style={{ marginLeft: 4, color: '#e67e22', fontWeight: 700 }}>×{count}</span> : null}
+            {result ? (
+              <div style={{ marginTop: 2, color: ok ? '#5d6d7e' : '#c0392b' }}>
+                {ok ? '→ ' : '✗ '}
+                {result.slice(0, 80)}
+              </div>
+            ) : preview ? (
+              <div style={{ marginTop: 2, opacity: 0.75 }}>{preview.slice(0, 80)}</div>
+            ) : null}
           </>
         ) : undefined
+      }
+    />
+  );
+}
+
+export function ValidateNode({ data, selected }: NodeProps<RFNodeData>): JSX.Element {
+  const passed = data.payload?.passed === true;
+  const failures = (data.payload?.failures as string[] | undefined) ?? [];
+  const summary = str(data.payload, 'summary');
+  return (
+    <NodeShell
+      data={data}
+      selected={selected}
+      accent={passed ? ACCENTS.validatePass : ACCENTS.validateFail}
+      detail={passed ? (summary ?? 'all checks passed') : `failed: ${failures.join(', ') || '—'}`}
+    />
+  );
+}
+
+export function RetryNode({ data, selected }: NodeProps<RFNodeData>): JSX.Element {
+  const directive = str(data.payload, 'directive');
+  const diagnosis = str(data.payload, 'diagnosis');
+  return (
+    <NodeShell
+      data={data}
+      selected={selected}
+      accent={ACCENTS.retry}
+      detail={
+        <>
+          {diagnosis ? <div style={{ color: '#c0392b' }}>{diagnosis.slice(0, 80)}</div> : null}
+          {directive ? <div style={{ marginTop: 2 }}>↻ {directive.slice(0, 90)}</div> : null}
+        </>
       }
     />
   );

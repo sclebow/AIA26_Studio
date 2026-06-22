@@ -30,6 +30,10 @@ Active step:
 Design brief (the user's intent — let it guide shape, area, and emphasis):
 {design_brief}
 
+Self-debug directive (a previous attempt failed validation; if non-empty, follow
+this correction when choosing this step's tool arguments):
+{debug_directive}
+
 Return JSON only:
 {{
   "action": "{action}",
@@ -75,6 +79,58 @@ Rules:
 
 User request:
 {user_prompt}
+"""
+
+
+JUDGE_PROMPT = """
+You are the design judge in a site-planning agent's self-validation loop. The
+hard geometric checks (valid polygon, fits the site, no overlap, area tolerance)
+already PASSED. Your job is the softer question: does this footprint actually
+satisfy the user's design brief (requested shape family, use, emphasis)?
+
+Be decisive but fair — only fail when there is a clear, nameable mismatch with
+the brief, not for stylistic nitpicks. Return JSON only:
+{{
+  "satisfies_brief": <bool>,
+  "score": <0..1>,
+  "reasons": ["<short, concrete reason>", ...]
+}}
+
+Design brief:
+{design_brief}
+
+Validation metrics (from the deterministic checker):
+{validation_metrics}
+
+Current geometry summary:
+{geometry_summary}
+"""
+
+
+DEBUG_PROMPT = """
+You are the self-debug step of a site-planning agent. The last building footprint
+FAILED validation. Diagnose the most likely cause from the failures and produce a
+single, concrete corrective directive for the next regeneration attempt. Be
+specific about WHAT to change (area, shape family, depth/ratio, location, rotation)
+and in WHICH direction — the generator will read your directive verbatim.
+
+Do not repeat a directive that already failed (see prior attempts). Return JSON only:
+{{
+  "diagnosis": "<one sentence: why it failed>",
+  "directive": "<imperative instruction for the next generate_building_boundary call>"
+}}
+
+Design brief:
+{design_brief}
+
+Validation result (failures + metrics):
+{validation_result}
+
+Prior debug attempts (most recent last):
+{debug_history}
+
+Geometry summary:
+{geometry_summary}
 """
 
 
@@ -158,10 +214,28 @@ class RuleBasedPlanner:
             isinstance(item, dict) and item.get("geometry_id") == geometry_id
             for item in placed_buildings
         )
+
+        # Self-validation + self-debug loop. ``validate`` produces a pass/fail
+        # verdict for the *current* geometry; on failure ``debug`` reasons about
+        # why and clears the geometry so generate_shape runs again — bounded by
+        # ``max_debug_attempts`` so a hopeless candidate still reaches a report.
+        validation_for_current = bool(
+            geometry_id
+            and state.get("validated_geometry_id") == geometry_id
+            and state.get("validation_result")
+        )
+        validation_passed = validation_for_current and bool(state.get("validation_passed"))
+        validation_failed = validation_for_current and not bool(state.get("validation_passed"))
+        debug_attempts = int(state.get("debug_attempts", 0) or 0)
+        max_debug_attempts = int(state.get("max_debug_attempts", 0) or 0)
+        debug_exhausted = debug_attempts >= max_debug_attempts
+        validation_dead_end = validation_failed and debug_exhausted
+
         can_place_current_building = bool(
             geometry_id
             and current_geometry_checked
             and not violations
+            and validation_passed
             and (not active_requested_position or requested_position_checked)
             and not current_geometry_already_placed
         )
@@ -235,6 +309,46 @@ class RuleBasedPlanner:
                 ),
             )
 
+        if workflow_mode == "masterplan":
+            # Whole-site masterplanning: read the site, run the circulation-first
+            # 17-step pipeline once, then report. No per-building generate/validate
+            # loop — the masterplan tool places, scores and optimises the layout.
+            masterplan_done = bool(state.get("masterplan_result"))
+            return (
+                PlanStep(
+                    step_id="read_site",
+                    action="read_site",
+                    goal="Load site boundary, context, and legal constraints.",
+                    status="completed" if state.get("site_context") else "pending",
+                ),
+                PlanStep(
+                    step_id="generate_masterplan",
+                    action="generate_masterplan",
+                    goal="Generate, score and optimise a whole-site masterplan (circulation, fire, parking).",
+                    status=(
+                        "completed"
+                        if masterplan_done
+                        else ("pending" if state.get("site_context") else "skipped")
+                    ),
+                ),
+                PlanStep(
+                    step_id="await_human",
+                    action="await_human",
+                    goal=await_question or "Ask the user for missing clarification.",
+                    status="completed" if await_question and report_complete else ("pending" if await_question else "skipped"),
+                ),
+                PlanStep(
+                    step_id="report",
+                    action="report",
+                    goal="Write the masterplan report for the generated layout.",
+                    status=(
+                        "completed"
+                        if report_complete and not await_question
+                        else ("pending" if masterplan_done or state.get("error") else "skipped")
+                    ),
+                ),
+            )
+
         return (
             PlanStep(
                 step_id="read_site",
@@ -281,13 +395,33 @@ class RuleBasedPlanner:
                 status="pending" if violations and not maxed_out else "skipped",
             ),
             PlanStep(
+                step_id="validate",
+                action="validate",
+                goal=f"Validate {current_building_label}: valid polygon, fits the site, no overlap, area in tolerance, and matches the brief.{intent_suffix}",
+                status=(
+                    "completed"
+                    if validation_for_current
+                    else (
+                        "pending"
+                        if geometry_id and current_geometry_checked and not violations
+                        else "skipped"
+                    )
+                ),
+            ),
+            PlanStep(
+                step_id="debug",
+                action="debug",
+                goal=f"Diagnose why {current_building_label} failed validation and adjust the next attempt.{intent_suffix}",
+                status="pending" if validation_failed and not debug_exhausted else "skipped",
+            ),
+            PlanStep(
                 step_id="evaluate",
                 action="evaluate",
                 goal=f"Evaluate {current_building_label} for design quality and performance.{intent_suffix}",
                 status=(
                     "completed"
                     if state.get("evaluation_results")
-                    else ("pending" if current_geometry_checked and not violations else "skipped")
+                    else ("pending" if validation_passed else "skipped")
                 ),
             ),
             PlanStep(
@@ -325,7 +459,7 @@ class RuleBasedPlanner:
                     if report_complete and not await_question
                     else (
                         "pending"
-                        if report_ready or maxed_out or state.get("error")
+                        if report_ready or maxed_out or validation_dead_end or state.get("error")
                         else "skipped"
                     )
                 ),
@@ -353,6 +487,7 @@ class OpenAIDecisionEngine:
                 active_step=json.dumps(active_step.to_state(), indent=2),
                 action=active_step.action,
                 design_brief=json.dumps(state.get("design_brief", {}), indent=2),
+                debug_directive=str(state.get("debug_directive") or "").strip() or "(none)",
                 tool_catalog=catalog.render_for_action(active_step.action),
                 state_snapshot=json.dumps(snapshot, indent=2),
             ),
@@ -379,6 +514,51 @@ class OpenAIDecisionEngine:
         if isinstance(payload, dict):
             payload.setdefault("source", "llm")
         return DesignBrief.from_payload(payload)
+
+    def judge_design(self, state: dict[str, Any]) -> dict[str, Any]:
+        """LLM judge: does the (geometrically valid) footprint satisfy the brief?
+
+        Only called once the deterministic checks pass. Returns
+        ``{"satisfies_brief": bool, "score": float, "reasons": [...]}``. On any
+        failure it raises and the validate node treats the brief check as a soft
+        pass (the hard checks already guarantee a usable geometry).
+        """
+        payload = self._invoke_json(
+            system_prompt=JUDGE_PROMPT.format(
+                design_brief=json.dumps(state.get("design_brief", {}), indent=2),
+                validation_metrics=json.dumps(
+                    (state.get("validation_result") or {}).get("metrics", {}), indent=2
+                ),
+                geometry_summary=json.dumps(_geometry_summary(state), indent=2),
+            ),
+            user_prompt=state.get("user_prompt", ""),
+        )
+        return {
+            "satisfies_brief": bool(payload.get("satisfies_brief", True)),
+            "score": _clamp_unit(payload.get("score"), 0.5),
+            "reasons": [str(r).strip() for r in payload.get("reasons", []) if str(r).strip()],
+        }
+
+    def propose_debug(self, state: dict[str, Any]) -> dict[str, str]:
+        """LLM self-debug: turn validation failures into a corrective directive.
+
+        Returns ``{"diagnosis": ..., "directive": ...}``. The directive is fed
+        verbatim into the next supervisor call (see SUPERVISOR_PROMPT) so the
+        regeneration changes in a *reasoned* direction rather than blindly.
+        """
+        payload = self._invoke_json(
+            system_prompt=DEBUG_PROMPT.format(
+                design_brief=json.dumps(state.get("design_brief", {}), indent=2),
+                validation_result=json.dumps(state.get("validation_result", {}), indent=2),
+                debug_history=json.dumps(state.get("debug_history", []), indent=2),
+                geometry_summary=json.dumps(_geometry_summary(state), indent=2),
+            ),
+            user_prompt=state.get("user_prompt", ""),
+        )
+        return {
+            "diagnosis": str(payload.get("diagnosis", "")).strip(),
+            "directive": str(payload.get("directive", "")).strip(),
+        }
 
     def build_report(self, state: dict[str, Any]) -> str:
         snapshot = _build_state_snapshot(state)
@@ -452,9 +632,38 @@ def _build_state_snapshot(state: dict[str, Any]) -> dict[str, Any]:
         "violations": state.get("violations", []),
         "constraint_results": state.get("constraint_results", {}),
         "evaluation_results": state.get("evaluation_results", {}),
+        "masterplan_result": state.get("masterplan_result", {}),
         "placement_fit_summary": state.get("placement_fit_summary", {}),
         "human_request": state.get("human_request"),
+        "validation_passed": state.get("validation_passed"),
+        "validation_result": state.get("validation_result", {}),
+        "debug_attempts": state.get("debug_attempts"),
+        "max_debug_attempts": state.get("max_debug_attempts"),
+        "debug_directive": state.get("debug_directive"),
         "error": state.get("error"),
+    }
+
+
+def _geometry_summary(state: dict[str, Any]) -> dict[str, Any]:
+    """Compact description of the current footprint for judge/debug prompts."""
+    shape_context = state.get("shape_context", {})
+    payload: dict[str, Any] = {}
+    if isinstance(shape_context, dict):
+        for value in shape_context.values():
+            if isinstance(value, dict):
+                data = value.get("data", value)
+                if isinstance(data, dict) and isinstance(data.get("boundary"), list):
+                    payload = data
+                    break
+    metrics = (state.get("validation_result") or {}).get("metrics", {})
+    boundary = payload.get("boundary") if isinstance(payload, dict) else None
+    return {
+        "geometry_id": state.get("geometry_id"),
+        "shape_type": payload.get("shape_type") if isinstance(payload, dict) else None,
+        "parameters": payload.get("parameters") if isinstance(payload, dict) else None,
+        "boundary_point_count": len(boundary) if isinstance(boundary, list) else 0,
+        "building_area_sqm": metrics.get("building_area_sqm") if isinstance(metrics, dict) else None,
+        "target_area_sqm": metrics.get("target_area_sqm") if isinstance(metrics, dict) else None,
     }
 
 
@@ -559,6 +768,14 @@ def _repair_generate_shape_decision(
     if requested_rotation is not None:
         fallback_arguments.update(_rotation_arguments_for_requested_angle(requested_rotation))
 
+    # On a self-debug retry, perturb the random seed so the generator actually
+    # explores a different candidate instead of reproducing the rejected one.
+    debug_attempts = int(state.get("debug_attempts", 0) or 0)
+    if debug_attempts > 0:
+        base_seed = fallback_arguments.get("random_seed")
+        base_seed = int(base_seed) if isinstance(base_seed, (int, float)) else 0
+        fallback_arguments["random_seed"] = base_seed + debug_attempts * 1009
+
     patched_calls: list[ToolCall] = []
     for tool_call in decision.tool_calls:
         if tool_call.name not in available_names:
@@ -571,6 +788,8 @@ def _repair_generate_shape_decision(
             arguments["building_type"] = inferred_building_type
         if not has_explicit_building_area:
             arguments["area"] = fallback_arguments["area"]
+        if debug_attempts > 0:
+            arguments["random_seed"] = fallback_arguments["random_seed"]
         if requested_rotation is not None:
             arguments.update(_rotation_arguments_for_requested_angle(requested_rotation))
         if preferred_location is not None and _uses_default_location(arguments.get("location_xy")):

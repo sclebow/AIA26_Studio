@@ -7,19 +7,26 @@ React Flow or D3-DAG without transformation.
 
 Node types
 ----------
-  intent  — user sends a chat message
-  brief   — Phase 0 comprehension: the typed DesignBrief extracted from the
-            prompt (count, shapes, courtyard, objective weights). Sits between
-            the user intent and the first action so the rest of the chain is
-            explained by what the agent *understood*, not by re-parsing text.
-  clarify — the agent paused to ask the user back: a structured question
-            (shape / side / view-side / size / use / count) raised when a
-            placement-critical field is missing. Carries the clarification
-            request payload; the UI renders it as chips and POSTs answers.
-  action  — a tool fires (grouped per LangGraph step, not per micro-call)
-  branch  — optimizer returns Pareto solutions; children = one per option
-  select  — user picks an option from the explorer panel
-  state   — building placed; geometry snapshot stored
+  intent   — user sends a chat message
+  brief    — Phase 0 comprehension: the typed DesignBrief extracted from the
+             prompt (count, shapes, courtyard, objective weights). Sits between
+             the user intent and the first action so the rest of the chain is
+             explained by what the agent *understood*, not by re-parsing text.
+  clarify  — the agent paused to ask the user back: a structured question
+             (shape / side / view-side / size / use / count) raised when a
+             placement-critical field is missing. Carries the clarification
+             request payload; the UI renders it as chips and POSTs answers.
+  thought  — the supervisor's reasoning for the current step (the "Reason" half
+             of the ReAct loop): which action it chose and why.
+  action   — a tool fires; carries a running ``call_count`` for that tool so the
+             UI can show how many times the agent has reached for it.
+  validate — the self-validation verdict for the current geometry: pass/fail +
+             the failing checks (the agent verifying its own work).
+  retry    — a self-debug attempt: the agent diagnosed a validation failure and
+             issued a corrective directive before regenerating.
+  branch   — optimizer returns Pareto solutions; children = one per option
+  select   — user picks an option from the explorer panel
+  state    — building placed; geometry snapshot stored
 
 Branching
 ---------
@@ -192,17 +199,89 @@ def make_clarify_node(
     )
 
 
+def make_thought_node(
+    graph: DecisionGraph,
+    action: str,
+    reasoning: str,
+    parent_id: str | None,
+) -> str:
+    """The supervisor's reasoning for the step it is about to take."""
+    return graph.add_node(
+        "thought",
+        f"Reason → {action}",
+        parent_id=parent_id,
+        payload={"action": action, "reasoning": reasoning[:400]},
+    )
+
+
 def make_action_node(
     graph: DecisionGraph,
     tool_name: str,
     input_preview: str,
     parent_id: str | None,
+    *,
+    call_count: int = 1,
+    result_summary: str = "",
+    ok: bool = True,
 ) -> str:
+    suffix = f" ×{call_count}" if call_count > 1 else ""
     return graph.add_node(
         "action",
-        f"Tool: {tool_name}",
+        f"Tool: {tool_name}{suffix}",
         parent_id=parent_id,
-        payload={"tool_name": tool_name, "input_preview": input_preview[:200]},
+        payload={
+            "tool_name": tool_name,
+            "input_preview": input_preview[:200],
+            "call_count": call_count,
+            "result_summary": result_summary[:200],
+            "ok": ok,
+        },
+    )
+
+
+def make_validate_node(
+    graph: DecisionGraph,
+    validation: dict[str, Any],
+    parent_id: str | None,
+) -> str:
+    """The agent's verdict on its own geometry — pass/fail + failing checks."""
+    passed = bool(validation.get("passed", False))
+    failures = validation.get("failures", []) if isinstance(validation, dict) else []
+    label = "Validate: PASS" if passed else f"Validate: FAIL ({', '.join(failures) or '—'})"
+    return graph.add_node(
+        "validate",
+        label,
+        parent_id=parent_id,
+        payload={
+            "passed": passed,
+            "failures": failures,
+            "summary": validation.get("summary", "") if isinstance(validation, dict) else "",
+            "metrics": validation.get("metrics", {}) if isinstance(validation, dict) else {},
+            "judge": validation.get("judge") if isinstance(validation, dict) else None,
+        },
+    )
+
+
+def make_retry_node(
+    graph: DecisionGraph,
+    attempt: int,
+    directive: str,
+    parent_id: str | None,
+    *,
+    diagnosis: str = "",
+    failures: list[str] | None = None,
+) -> str:
+    """A self-debug attempt: diagnosis + corrective directive before regenerating."""
+    return graph.add_node(
+        "retry",
+        f"Self-debug #{attempt}",
+        parent_id=parent_id,
+        payload={
+            "attempt": attempt,
+            "directive": directive[:300],
+            "diagnosis": diagnosis[:300],
+            "failures": failures or [],
+        },
     )
 
 
