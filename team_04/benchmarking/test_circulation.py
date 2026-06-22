@@ -373,5 +373,256 @@ class TestPipelineIntegration(unittest.TestCase):
             self.assertTrue(_poly(poly_pts).area > 0)
 
 
+# ---------------------------------------------------------------------------
+# Complex fixtures — non-rectangular sites and courtyard footprints
+# ---------------------------------------------------------------------------
+
+# An L-shaped (concave) site — the bottom-right quadrant is cut out.
+_L_SITE = [
+    [0.0,   0.0,  0.0],
+    [60.0,  0.0,  0.0],
+    [60.0,  40.0, 0.0],
+    [100.0, 40.0, 0.0],
+    [100.0, 100.0, 0.0],
+    [0.0,   100.0, 0.0],
+    [0.0,   0.0,  0.0],
+]
+_L_SITE_MODEL = {"boundary": _L_SITE, "roads": {"main_road_side_index": 0}}
+
+# U-shaped footprint (open courtyard facing +y, the mouth at the top).
+_U_BUILDING = {
+    "building_id": "U1",
+    "boundary": [
+        [0.0, 0.0, 0.0], [40.0, 0.0, 0.0], [40.0, 30.0, 0.0], [28.0, 30.0, 0.0],
+        [28.0, 12.0, 0.0], [12.0, 12.0, 0.0], [12.0, 30.0, 0.0], [0.0, 30.0, 0.0],
+    ],
+    "storeys": 6,
+}
+
+# O-shaped footprint (true enclosed courtyard via an explicit hole).
+_O_BUILDING = {
+    "building_id": "O1",
+    "boundary": [[0.0, 0.0, 0.0], [40.0, 0.0, 0.0], [40.0, 40.0, 0.0], [0.0, 40.0, 0.0]],
+    "holes": [[[12.0, 12.0], [28.0, 12.0], [28.0, 28.0], [12.0, 28.0]]],
+    "storeys": 6,
+}
+
+# A site model with a main road (south) and a secondary/service road (north).
+_SITE_TWO_ROADS = {
+    "boundary": [[-10.0, -10.0, 0.0], [60.0, -10.0, 0.0], [60.0, 50.0, 0.0], [-10.0, 50.0, 0.0]],
+    "sides": [
+        {"side_index": 0, "start": [-10.0, -10.0], "end": [60.0, -10.0],
+         "adjacent_road": {"name": "Main St", "hierarchy": "main", "width_m": 20.0}},
+        {"side_index": 1, "start": [60.0, -10.0], "end": [60.0, 50.0], "adjacent_road": None},
+        {"side_index": 2, "start": [60.0, 50.0], "end": [-10.0, 50.0],
+         "adjacent_road": {"name": "Service Ln", "hierarchy": "secondary", "width_m": 6.0}},
+        {"side_index": 3, "start": [-10.0, 50.0], "end": [-10.0, -10.0], "adjacent_road": None},
+    ],
+    "roads": {"main_road_side_index": 0},
+}
+
+
+# ---------------------------------------------------------------------------
+# Class 6 — courtyard detection
+# ---------------------------------------------------------------------------
+
+class TestDetectCourtyards(unittest.TestCase):
+
+    def test_open_courtyard_from_u_shape(self):
+        from agent.tools.circulation import detect_courtyards
+        courts = detect_courtyards(_U_BUILDING["boundary"])
+        self.assertEqual(len(courts), 1)
+        self.assertEqual(courts[0]["type"], "open")
+        self.assertGreater(courts[0]["area_sqm"], 100.0)
+        # An open court advertises a drivable mouth.
+        self.assertIsNotNone(courts[0]["opening_point"])
+
+    def test_enclosed_courtyard_from_hole(self):
+        from agent.tools.circulation import detect_courtyards
+        courts = detect_courtyards(_O_BUILDING["boundary"], _O_BUILDING["holes"])
+        self.assertEqual(len(courts), 1)
+        self.assertEqual(courts[0]["type"], "enclosed")
+        self.assertIsNone(courts[0]["opening_point"])
+        self.assertAlmostEqual(courts[0]["area_sqm"], 256.0, places=1)
+
+    def test_solid_rectangle_has_no_courtyard(self):
+        from agent.tools.circulation import detect_courtyards
+        self.assertEqual(detect_courtyards(_BUILDING_A["boundary"]), [])
+
+    def test_courtyard_centroid_inside_void(self):
+        from agent.tools.circulation import detect_courtyards
+        courts = detect_courtyards(_U_BUILDING["boundary"])
+        cx, cy, _ = courts[0]["centroid"]
+        # Void centre should NOT be inside the (solid) footprint.
+        self.assertFalse(_poly(_U_BUILDING["boundary"]).contains(Point(cx, cy)))
+
+
+# ---------------------------------------------------------------------------
+# Class 7 — obstacle-aware routing on complex sites
+# ---------------------------------------------------------------------------
+
+class TestObstacleAwareRouting(unittest.TestCase):
+
+    def _block_far_site(self):
+        site = {"boundary": [[0, 0, 0], [100, 0, 0], [100, 60, 0], [0, 60, 0]],
+                "roads": {"main_road_side_index": 0}}
+        block = {"building_id": "block", "boundary": [[40, 10, 0], [60, 10, 0], [60, 50, 0], [40, 50, 0]]}
+        far = {"building_id": "far", "boundary": [[80, 20, 0], [95, 20, 0], [95, 40, 0], [80, 40, 0]]}
+        return site, block, far
+
+    def test_corridor_does_not_cut_through_other_buildings(self):
+        site, block, far = self._block_far_site()
+        ent = propose_site_entries(site)
+        circ = route_internal_circulation(site, ent, [block, far], None)
+        block_poly = _poly(block["boundary"]).buffer(-0.05)  # shrink to ignore grazing
+        for p in circ["paths"]:
+            if p["serves"] == "block":
+                continue
+            line = LineString([(pt[0], pt[1]) for pt in p["polyline"]])
+            self.assertLess(
+                line.intersection(block_poly).length, 0.1,
+                f"{p['path_id']} cuts through the blocking building",
+            )
+
+    def test_route_bends_around_obstacle(self):
+        site, block, far = self._block_far_site()
+        ent = propose_site_entries(site)
+        circ = route_internal_circulation(site, ent, [block, far], None)
+        far_path = next(p for p in circ["paths"] if p["serves"] == "far")
+        # A straight shot would be 2 points; bending introduces a waypoint.
+        self.assertGreaterEqual(len(far_path["polyline"]), 3)
+        self.assertGreaterEqual(far_path["routed_around"], 1)
+
+    def test_corridor_stays_inside_concave_site(self):
+        # The L-site has a notched-out region; corridors must not enter it.
+        ent = propose_site_entries(_L_SITE_MODEL)
+        b1 = {"building_id": "b1", "boundary": [[10, 10, 0], [40, 10, 0], [40, 30, 0], [10, 30, 0]]}
+        b2 = {"building_id": "b2", "boundary": [[20, 60, 0], [50, 60, 0], [50, 90, 0], [20, 90, 0]]}
+        circ = route_internal_circulation(_L_SITE_MODEL, ent, [b1, b2], None)
+        site = _poly(_L_SITE)
+        for p in circ["paths"]:
+            line = LineString([(pt[0], pt[1]) for pt in p["polyline"]])
+            self.assertLess(
+                line.difference(site).length, 0.5,
+                f"{p['path_id']} leaves the concave site",
+            )
+
+    def test_entrances_aim_circulation_when_provided(self):
+        site, block, far = self._block_far_site()
+        ent = propose_site_entries(site)
+        circ0 = route_internal_circulation(site, ent, [block, far], None)
+        orient = building_entrance_orientation([block, far], ent, circ0)
+        # Re-route aiming at the resolved entrances — still one path per target.
+        circ1 = route_internal_circulation(site, ent, [block, far], None, entrances_by_building=orient)
+        self.assertEqual(len({p["serves"] for p in circ1["paths"]}), 2)
+
+
+# ---------------------------------------------------------------------------
+# Class 8 — multiple typed entrances
+# ---------------------------------------------------------------------------
+
+class TestTypedEntrances(unittest.TestCase):
+
+    def test_public_service_and_residential_roles(self):
+        ent = propose_site_entries(_SITE_TWO_ROADS)
+        circ = route_internal_circulation(_SITE_TWO_ROADS, ent, [_U_BUILDING], None)
+        orient = building_entrance_orientation([_U_BUILDING], ent, circ)
+        roles = {e["role"] for e in orient["buildings"][0]["entrances"]}
+        self.assertIn("public", roles)
+        self.assertIn("service", roles)       # secondary road present
+        self.assertIn("residential", roles)
+
+    def test_residential_faces_courtyard_when_present(self):
+        ent = propose_site_entries(_SITE_TWO_ROADS)
+        circ = route_internal_circulation(_SITE_TWO_ROADS, ent, [_U_BUILDING], None)
+        orient = building_entrance_orientation([_U_BUILDING], ent, circ)
+        res = next(e for e in orient["buildings"][0]["entrances"] if e["role"] == "residential")
+        self.assertEqual(res["faces"], "courtyard")
+
+    def test_courtyard_building_reports_courtyards(self):
+        ent = propose_site_entries(_SITE_TWO_ROADS)
+        orient = building_entrance_orientation([_O_BUILDING], ent, None)
+        self.assertEqual(len(orient["buildings"][0]["courtyards"]), 1)
+
+    def test_legacy_single_entrance_fields_present(self):
+        ent = propose_site_entries(_SITE_MODEL)
+        circ = route_internal_circulation(_SITE_MODEL, ent, [_BUILDING_A], None)
+        orient = building_entrance_orientation([_BUILDING_A], ent, circ)
+        b = orient["buildings"][0]
+        # Old contract still satisfied.
+        self.assertIsNotNone(b["entrance_point"])
+        self.assertIsNotNone(b["entrance_direction"])
+        self.assertEqual(len(b["entrance_direction"]), 2)
+        self.assertAlmostEqual(b["entrance_direction"][0], -b["private_direction"][0], places=5)
+
+    def test_multiple_public_entries_on_long_frontage(self):
+        # A long main-road frontage with a small frontage budget → several gates.
+        result = propose_site_entries(_SITE_MODEL, frontage_per_public_entry_m=30.0)
+        self.assertGreater(result["public_count"], 1)
+        for e in result["entries"]:
+            if e["type"] == "public":
+                self.assertEqual(e["side_index"], 0)
+
+
+# ---------------------------------------------------------------------------
+# Class 9 — interior- and courtyard-aware fire access
+# ---------------------------------------------------------------------------
+
+class TestFireAccessAdvanced(unittest.TestCase):
+
+    def test_deepest_point_distance_reported(self):
+        ent = propose_site_entries(_SITE_MODEL)
+        circ = route_internal_circulation(_SITE_MODEL, ent, [_BUILDING_A], _PARKING)
+        fire = check_fire_access([_BUILDING_A], circ)
+        d = fire["buildings"][0]["deepest_point_distance_m"]
+        self.assertIsNotNone(d)
+        # The deepest interior point is at least as far as the nearest facade.
+        self.assertGreaterEqual(d, fire["buildings"][0]["distance_m"])
+
+    def test_courtyard_reported_in_fire_check(self):
+        ent = propose_site_entries(_SITE_TWO_ROADS)
+        circ = route_internal_circulation(_SITE_TWO_ROADS, ent, [_O_BUILDING], None)
+        fire = check_fire_access([_O_BUILDING], circ)
+        self.assertEqual(len(fire["buildings"][0]["courtyards"]), 1)
+
+    def test_strict_flag_recorded(self):
+        ent = propose_site_entries(_SITE_TWO_ROADS)
+        circ = route_internal_circulation(_SITE_TWO_ROADS, ent, [_U_BUILDING], None)
+        fire = check_fire_access([_U_BUILDING], circ, strict=True)
+        self.assertTrue(fire["strict"])
+
+    def test_enclosed_courtyard_unreachable_fails_strict(self):
+        # A big O-building: the enclosed court centre is far from any external road,
+        # so strict mode must reject it even though the outer wall is reachable.
+        big_o = {
+            "building_id": "bigO",
+            "boundary": [[0, 0, 0], [120, 0, 0], [120, 120, 0], [0, 120, 0]],
+            "holes": [[[40, 40], [80, 40], [80, 80], [40, 80]]],
+        }
+        site = {"boundary": [[-5, -5, 0], [125, -5, 0], [125, 125, 0], [-5, 125, 0]],
+                "roads": {"main_road_side_index": 0}}
+        ent = propose_site_entries(site)
+        circ = route_internal_circulation(site, ent, [big_o], None)
+        loose = check_fire_access([big_o], circ, strict=False)
+        strict = check_fire_access([big_o], circ, strict=True)
+        # Outer wall is reachable → passes the loose distance test…
+        self.assertTrue(loose["buildings"][0]["within_reach"])
+        # …but the enclosed courtyard core is not serviceable → strict fails.
+        self.assertFalse(strict["buildings"][0]["courtyards_reachable"])
+        self.assertFalse(strict["all_pass"])
+
+    def test_constraint_convention_unchanged_in_strict(self):
+        # strict tightens pass/fail but must NOT change the G = d - max constraint.
+        ent = propose_site_entries(_SITE_MODEL)
+        circ = route_internal_circulation(_SITE_MODEL, ent, [_BUILDING_A], _PARKING)
+        loose = check_fire_access([_BUILDING_A], circ, max_distance=50.0)
+        strict = check_fire_access([_BUILDING_A], circ, max_distance=50.0, strict=True)
+        self.assertAlmostEqual(
+            loose["buildings"][0]["constraint_value"],
+            strict["buildings"][0]["constraint_value"],
+            places=3,
+        )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
