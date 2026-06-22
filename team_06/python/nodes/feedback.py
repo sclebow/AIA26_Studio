@@ -7,12 +7,12 @@ def build_feedback_node() -> Any:
     def feedback(state: dict) -> dict:
         iteration = state.get("iteration", 0)
 
-        # --- Append user feedback to feedback_history ---
-        user_feedback = state.get("user_feedback")
+        # --- Append current user prompt to feedback_history ---
+        user_prompt = state.get("user_prompt", "")
         feedback_history = state.get("feedback_history", [])
-        if user_feedback:
-            feedback_history = list(feedback_history)  # ensure it's a list
-            feedback_history.append(user_feedback)
+        if user_prompt and user_prompt.strip():
+            feedback_history = list(feedback_history)
+            feedback_history.append(user_prompt.strip())
         # ---
 
         clarification = state.get("clarification")

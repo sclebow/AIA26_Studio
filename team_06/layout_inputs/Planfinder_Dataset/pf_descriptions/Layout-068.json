@@ -1,0 +1,10 @@
+{
+  "layoutId": "Layout-068",
+  "description": "Narrow and elongated. Living bright bedrooms dim. Deep — views through multiple spaces. No internal corridor — fully open layout. Kitchen: single-wall, no island or peninsula — counter set back from windows, moderate natural light. Cook faces the wall — back to the living and dining area. One active cook at a time. Fully open plan — no wall separates kitchen from dining and living. Living arrangement: linear kitchen-dining-living, kitchen on side wall. Seating: A sofa sits at the lower end of the living zone facing the bed/TV area; seating oriented toward the central space.. Dining table (4 seats). TV on wall unclear. Cook may see TV from cooking position. Diners do not face the TV. Entry: corridor entry, first thing visible on arrival is blank wall, straight corridor, short. No door between entry and living — relevant where local regulations require separation. Master suite (en-suite bathroom) — accessed via through living, no walk-in wardrobe. Master bedroom is only accessible through the living room — no direct corridor access, least private position. Master suite (en-suite bathroom) in a central position within the apartment. Storage: generous wardrobe storage. One bathroom (shower and toilet). Single bathroom — all household members share one shower, sequential morning routine. Suits: singles or couples. Not suitable for: large families; households needing multiple separate bedrooms; those requiring a dedicated home office; people wanting strong privacy separation between sleeping and living areas.",
+  "not_suitable_for": [
+    "large families",
+    "households needing multiple separate bedrooms",
+    "those requiring a dedicated home office",
+    "people wanting strong privacy separation between sleeping and living areas"
+  ]
+}

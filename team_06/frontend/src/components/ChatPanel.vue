@@ -245,6 +245,20 @@ watch(() => props.chat.length, () => {
 .chat-msg.status.error {
   color: #a04b4b;
 }
+.chat-msg.system {
+  align-self: center;
+  background: var(--color-grey-bg);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 3px 12px;
+  border-radius: 999px;
+  margin: 2px auto;
+  text-align: center;
+  max-width: fit-content;
+  box-shadow: none;
+}
 @keyframes statusPulse {
   0%, 100% {
     opacity: 0.25;

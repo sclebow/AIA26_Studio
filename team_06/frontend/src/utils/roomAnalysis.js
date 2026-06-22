@@ -18,13 +18,21 @@ export const PERSONA_COLORS = ['#4A7CA8', '#F5A020', '#00C7D4', '#D94020', '#7A8
 // 9 steps matching ROUTINE_TIMES (06:00–22:00), mirrored around midday.
 export const TOD_COLORS = [
   '#4A7CA8',  // 06:00 bedroom blue
+  '#4A7CA8',  // 07:00 bedroom blue
   '#7A8FA3',  // 08:00 bathroom cyan
+  '#7A8FA3',  // 09:00 bathroom cyan
   '#C8F4F0',  // 10:00 light yellow
+  '#C8F4F0',  // 11:00 light yellow
   '#F5E68A',  // 12:00 peak yellow
+  '#F5E68A',  // 13:00 peak yellow
   '#F0D050',  // 14:00 light yellow
+  '#F0D050',  // 15:00 light yellow
   '#F5E68A',  // 16:00 bathroom cyan
+  '#F5E68A',  // 17:00 bathroom cyan
   '#C8F4F0',  // 18:00 bedroom blue
+  '#C8F4F0',  // 19:00 bedroom blue
   '#7A8FA3',  // 20:00 bedroom blue
+  '#7A8FA3',  // 21:00 bedroom blue
   '#4A7CA8',  // 22:00 bedroom blue
 ]
 
@@ -37,6 +45,14 @@ export const DAYLIGHT_PALETTE = [
   { max: 3.0, color: '#F5A020' },
   { max: Infinity, color: '#D94020' },
 ]
+
+export function hexToRgba(hex, alpha) {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16)
+  const g = parseInt(h.slice(2, 4), 16)
+  const b = parseInt(h.slice(4, 6), 16)
+  return `rgba(${r},${g},${b},${alpha})`
+}
 
 export function toNumericValue(value) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null
@@ -72,13 +88,13 @@ export function formatDaylight(value) {
 }
 
 const PROGRAM_LABELS = {
-  bed: ['bedroom', 'bedrooms'],
-  bath: ['bathroom', 'bathrooms'],
-  living: ['living', 'living'],
-  kitchen: ['kitchen', 'kitchens'],
-  foyer: ['foyer', 'foyers'],
-  extra: ['extra', 'extra'],
-  study: ['study', 'studies'],
+  bed:          ['bedroom',      'bedrooms'],
+  bath:         ['bathroom',     'bathrooms'],
+  wc:           ['WC',           'WCs'],
+  living:       ['living',       'living'],
+  circulation:  ['circulation',  'circulation'],
+  storage:      ['storage',      'storage'],
+  walkincloset: ['walk-in closet', 'walk-in closets'],
 }
 
 export function formatRoomProgram(program, count = null) {
@@ -104,11 +120,13 @@ export function getRoomDisplayName(room) {
 // Keyed by `attributes.program` string.
 
 export const PROGRAM_COLORS = {
-  bed:     '#0082c2ff',
-  bath:    '#C8F4F0',
-  living:  '#00e0cdff',
-  foyer:   '#009fa6ff',
-  extra:   '#00c7d4ff',
+  bed:          '#0082C2',  // blue — primary sleeping space
+  bath:         '#A8DED8',  // soft teal — wet room
+  wc:           '#C8F4F0',  // lighter teal — smaller wet room
+  living:       '#00C8B4',  // bright teal — main living space
+  circulation:  '#009fa6ff',  // cool grey-blue — connector/hallway
+  storage:      '#00c7d4ff',  // warm taupe — utility
+  walkincloset: '#7A8FA3',  // soft mauve — personal/wardrobe
 }
 
 /**

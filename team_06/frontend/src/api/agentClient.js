@@ -134,6 +134,10 @@ export async function selectLayout(layoutId) {
   return payload
 }
 
+export async function fetchLayoutById(layoutId) {
+  return request(`/layout/${encodeURIComponent(layoutId)}`, { method: 'GET' })
+}
+
 export async function clearSession() {
   const sessionId = getSessionId()
   await request('/session', {

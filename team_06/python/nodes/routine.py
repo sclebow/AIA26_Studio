@@ -3,468 +3,335 @@ from __future__ import annotations
 import json
 import re
 from typing import Any
+from _runtime.llm import get_response_text
 
 
 DEFAULT_TIME_SLOTS = [
-    "06:00",
-    "08:00",
-    "10:00",
-    "12:00",
-    "14:00",
-    "16:00",
-    "18:00",
-    "20:00",
-    "22:00",
+    "06:00", "07:00", "08:00", "09:00", "10:00", "11:00",
+    "12:00", "13:00", "14:00", "15:00", "16:00", "17:00",
+    "18:00", "19:00", "20:00", "21:00", "22:00",
 ]
 
-PERSONA_COLORS = [
-    "#4A7CA8",
-    "#F5A020",
-    "#00C7D4",
-    "#D94020",
-    "#7A8FA3",
-]
+PERSONA_COLORS = ["#4A7CA8", "#F5A020", "#00C7D4", "#D94020", "#7A8FA3"]
 
 SYSTEM_PROMPT = (
-    "You are generating a simple residential daily routine for visualization. "
-    "Return valid JSON with exactly this shape: "
-    '{"time_slots":[],"personas":[{"persona":"","color":"","steps":[]}]}.'
-    "\nRules:\n"
-    "- Return only JSON, no explanation.\n"
-    "- Use the provided layout as the source of truth for available rooms.\n"
-    "- steps must be a list with one entry per time slot. Each step must be a room id string from the layout, or null when the person is away.\n"
-    "- Use neutral, common-sense weekday routines.\n"
-    "- Do not make assumptions based on gender, names, or relationship labels.\n"
-    "- Never infer that one person stays home, works outside, cooks, or cares for others because of sex, gender, or name.\n"
-    "- Only use explicit information from the household description.\n"
-    "- If role or schedule details are missing, use conservative neutral defaults. Adults without stated differences should receive comparable default weekday patterns.\n"
-    "- Prefer bedroom at night, bathroom in the morning, living in the evening, and null for away periods when appropriate.\n"
-    "- Do not place multiple people in the bathroom at the same time slot unless the input explicitly requires shared bathroom use.\n"
-    "- If a couple is present, prefer the largest available bedroom for that couple.\n"
-    "- If the brief says that one bedroom is used as a study, interpret that as at least one resident working from home during the day when household information does not contradict it.\n"
-    "- For work-from-home or study use, prefer a second bedroom when available. Otherwise use the living room, and only then fall back to the main bedroom.\n"
-    "- Do not use extra rooms as offices. Treat extra rooms as storage or circulation support only.\n"
-    "- Do not use room ids that do not exist.\n"
-    "- Keep colors as simple hex strings.\n"
+    "You are generating a realistic residential daily routine for visualization.\n"
+    "Return compact JSON (no whitespace, no newlines) with exactly this shape:\n"
+    '{"time_slots":[],"personas":[{"persona":"","color":"","steps":[]}]}\n'
+    "Return only JSON, no explanation.\n\n"
+
+    "FORMAT RULES — never break these:\n"
+    "- steps MUST have EXACTLY 17 entries, one per time slot, in order. Do not skip any slot.\n"
+    "- null = person is away from home that hour.\n"
+    '- ["<room_id>","<activity>"] = person is at home in that room that hour.\n'
+    "- ONLY use room ids from the provided rooms list. NEVER invent a room id.\n"
+    "- FORBIDDEN rooms — NEVER place anyone in: circulation, hallway, corridor, storage, walkincloset. Use bed/bath/living instead.\n"
+    "- Activity values: sleeping, showering, working, studying, relaxing, cooking, playing, dressing.\n"
+    "- Colors are hex strings.\n\n"
+
+    "DEFAULT SCHEDULE — apply this for every adult not described otherwise in the brief:\n"
+    "  06:00 → sleeping in bedroom\n"
+    "  07:00 → showering in bathroom\n"
+    "  08:00 → null (left for work)\n"
+    "  09:00 → null\n"
+    "  10:00 → null\n"
+    "  11:00 → null\n"
+    "  12:00 → null\n"
+    "  13:00 → null\n"
+    "  14:00 → null\n"
+    "  15:00 → null\n"
+    "  16:00 → null\n"
+    "  17:00 → null (still at work)\n"
+    "  18:00 → relaxing in living room\n"
+    "  19:00 → relaxing in living room\n"
+    "  20:00 → relaxing in living room\n"
+    "  21:00 → relaxing in living room\n"
+    "  22:00 → sleeping in bedroom\n\n"
+
+    "EXCEPTIONS — only apply when the brief explicitly states it:\n"
+    "- WFH/works from home: replace null 09:00–17:00 with working in office/studio or living room.\n"
+    "- Child/teen: null 08:00–14:00 (school), home relaxing from 15:00, sleeping by 21:00.\n"
+    "- Retired/stay-at-home adult: replace all nulls with relaxing in living room.\n"
+    "- Baby/infant: sleeping in bedroom all day, never null.\n\n"
+
+    "SLEEP:\n"
+    "- Couple/partners share the largest bedroom.\n"
+    "- Each child gets their own bedroom; shares only if rooms run out.\n"
+    "- Baby always sleeps in the parents' bedroom.\n\n"
+
+    "CONFLICTS:\n"
+    "- Never put two people in the same room at the same time (exception: couple sleeping together).\n"
+    "- Never put two people in the same bathroom at the same time — stagger shower times by 1 hour.\n"
 )
 
 
-def _safe_json_loads(value: str | None) -> dict[str, Any]:
-    if not isinstance(value, str) or not value.strip():
-        return {}
-    try:
-        parsed = json.loads(value)
-    except json.JSONDecodeError:
-        return {}
-    return parsed if isinstance(parsed, dict) else {}
+Step = dict[str, str] | None
 
 
-def _string(value: Any) -> str:
-    return value.strip() if isinstance(value, str) else ""
-
-
-def _parse_household(topology_json: str | None) -> list[dict[str, str]]:
-    payload = _safe_json_loads(topology_json)
-    household_raw = payload.get("household") if isinstance(payload.get("household"), list) else []
-    household: list[dict[str, str]] = []
-    for member in household_raw:
-        if not isinstance(member, dict):
-            continue
-        name = _string(member.get("name"))
-        relationship = _string(member.get("relationship"))
-        info = _string(member.get("info"))
-        if not name and not relationship and not info:
-            continue
-        household.append({
-            "name": name,
-            "relationship": relationship,
-            "info": info,
-        })
-    return household
-
-
-def _parse_description(topology_json: str | None) -> str:
-    payload = _safe_json_loads(topology_json)
-    return _string(payload.get("description"))
-
-
-def _layout_rooms(layout_data: dict[str, Any]) -> list[dict[str, str | None]]:
+def _layout_rooms(layout_data: dict[str, Any]) -> list[dict[str, Any]]:
     rooms_raw = layout_data.get("rooms") if isinstance(layout_data.get("rooms"), list) else []
-    rooms: list[dict[str, str | None]] = []
+    rooms = []
     for room in rooms_raw:
         if not isinstance(room, dict):
             continue
         room_id = room.get("id")
-        attributes = room.get("attributes") if isinstance(room.get("attributes"), dict) else {}
-        program = _string(attributes.get("program")).lower() or None
-        name = _string(room.get("name")) or None
-        area = attributes.get("area") if isinstance(attributes.get("area"), (int, float)) else None
         if room_id is None:
             continue
+        attributes = room.get("attributes") if isinstance(room.get("attributes"), dict) else {}
         rooms.append({
             "id": str(room_id),
-            "program": program,
-            "name": name,
-            "area": area,
+            "program": (attributes.get("program") or "").lower() or None,
+            "name": room.get("name") or None,
+            "area": attributes.get("area") if isinstance(attributes.get("area"), (int, float)) else None,
         })
     return rooms
 
 
-def _first_room_id(rooms: list[dict[str, str | None]], *programs: str) -> str | None:
-    for program in programs:
-        for room in rooms:
-            if room.get("program") == program:
-                room_id = room.get("id")
-                if isinstance(room_id, str) and room_id:
-                    return room_id
-    return None
+def _step_room(step: Step) -> str | None:
+    return step.get("room") if isinstance(step, dict) else None
 
 
-def _fallback_room(*room_ids: str | None) -> str | None:
-    for room_id in room_ids:
-        if isinstance(room_id, str) and room_id:
-            return room_id
-    return None
-
-
-def _member_label(member: dict[str, str], index: int) -> str:
-    name = _string(member.get("name"))
-    relationship = _string(member.get("relationship"))
-    info = _string(member.get("info"))
-    if name:
-        return name
-    if relationship:
-        return relationship.title()
-    if info:
-        return f"Resident {index + 1}"
-    return f"Resident {index + 1}"
-
-
-def _member_profile(member: dict[str, str]) -> str:
-    text = " ".join([
-        _string(member.get("relationship")),
-        _string(member.get("info")),
-    ]).lower()
-
-    if re.search(r"\b(child|kid|toddler|teen|student|school)\b", text):
-        return "child_school"
-    if re.search(r"\b(retired|elderly|senior|older|mobility)\b", text):
-        return "adult_home"
-    if re.search(r"\b(work from home|works from home|wfh|remote|home office)\b", text):
-        return "adult_home"
-    return "adult_default"
-
-
-def _study_implies_home_worker(description: str) -> bool:
-    text = description.lower()
-    return bool(re.search(r"\b(study|office|workspace)\b", text))
-
-
-def _largest_bedroom_id(rooms: list[dict[str, str | None]]) -> str | None:
-    bed_rooms = [room for room in rooms if room.get("program") == "bed"]
-    if not bed_rooms:
-        return None
-    ranked = sorted(
-        bed_rooms,
-        key=lambda room: float(room.get("area") or 0.0),
-        reverse=True,
-    )
-    room_id = ranked[0].get("id")
-    return room_id if isinstance(room_id, str) and room_id else None
-
-
-def _office_room_id(rooms: list[dict[str, str | None]]) -> str | None:
-    bed_rooms = [room for room in rooms if room.get("program") == "bed"]
-    ranked_beds = sorted(
-        bed_rooms,
-        key=lambda room: float(room.get("area") or 0.0),
-        reverse=True,
-    )
-
-    if len(ranked_beds) >= 2:
-        room_id = ranked_beds[1].get("id")
-        if isinstance(room_id, str) and room_id:
-            return room_id
-
-    living = _first_room_id(rooms, "living")
-    if living:
-        return living
-
-    if ranked_beds:
-        room_id = ranked_beds[0].get("id")
-        if isinstance(room_id, str) and room_id:
-            return room_id
-
-    return None
-
-
-def _adult_member_indexes(household: list[dict[str, str]]) -> list[int]:
-    indexes: list[int] = []
-    for index, member in enumerate(household):
-        if _member_profile(member) != "child_school":
-            indexes.append(index)
-    return indexes
-
-
-def _profiles_for_household(household: list[dict[str, str]], description: str) -> list[str]:
-    profiles = [_member_profile(member) for member in household]
-    if _study_implies_home_worker(description):
-        adult_indexes = _adult_member_indexes(household)
-        if adult_indexes and all(profiles[index] != "adult_home" for index in adult_indexes):
-            profiles[adult_indexes[0]] = "adult_home"
-    return profiles
-
-
-def _default_steps(profile: str, rooms: list[dict[str, str | None]]) -> list[str | None]:
-    bed = _first_room_id(rooms, "bed")
-    bath = _first_room_id(rooms, "bath")
-    living = _first_room_id(rooms, "living")
-    extra = _first_room_id(rooms, "extra")
-    foyer = _first_room_id(rooms, "foyer")
-    office = _office_room_id(rooms)
-
-    if profile == "child_school":
-        return [
-            _fallback_room(bed, living),
-            _fallback_room(bath, bed, living),
-            None,
-            None,
-            None,
-            _fallback_room(living, extra, bed),
-            _fallback_room(living, bed, extra),
-            _fallback_room(living, bed),
-            _fallback_room(bed, living),
-        ]
-
-    if profile == "adult_home":
-        return [
-            _fallback_room(bed, living),
-            _fallback_room(bath, living, bed),
-            _fallback_room(office, living, bed),
-            _fallback_room(living, office, bed),
-            _fallback_room(office, living, bed),
-            _fallback_room(living, office, bed),
-            _fallback_room(living, office, bed),
-            _fallback_room(living, bed),
-            _fallback_room(bed, living),
-        ]
-
-    return [
-        _fallback_room(bed, living),
-        _fallback_room(bath, living, bed),
-        None,
-        None,
-        None,
-        _fallback_room(foyer, living, extra),
-        _fallback_room(living, extra, bed),
-        _fallback_room(living, bed),
-        _fallback_room(bed, living),
-    ]
-
-
-def _reassign_from_bathroom(steps: list[str | None], step_index: int, rooms: list[dict[str, str | None]]) -> str | None:
-    bed = _first_room_id(rooms, "bed")
-    living = _first_room_id(rooms, "living")
-    extra = _first_room_id(rooms, "extra")
-    foyer = _first_room_id(rooms, "foyer")
-    current = steps[step_index] if step_index < len(steps) else None
-    previous = steps[step_index - 1] if step_index > 0 else None
-    return _fallback_room(previous, current, bed, living, extra, foyer)
-
-
-def _enforce_bathroom_spacing(personas: list[dict[str, Any]], rooms: list[dict[str, str | None]]) -> list[dict[str, Any]]:
-    bathroom_ids = {room["id"] for room in rooms if room.get("program") == "bath" and isinstance(room.get("id"), str)}
+def _enforce_bathroom_spacing(personas: list[dict[str, Any]], rooms: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    bathroom_ids = [r["id"] for r in rooms if r.get("program") == "bath" and isinstance(r.get("id"), str)]
     if not bathroom_ids:
         return personas
-
-    for step_index in range(len(DEFAULT_TIME_SLOTS)):
+    bathroom_set = set(bathroom_ids)
+    fallback_room = next((r["id"] for r in rooms if r.get("program") in ("bed", "living")), None)
+    for slot in range(len(DEFAULT_TIME_SLOTS)):
         occupied: set[str] = set()
         for persona in personas:
             steps = persona.get("steps") if isinstance(persona.get("steps"), list) else []
-            if step_index >= len(steps):
-                continue
-            room_id = steps[step_index]
-            if room_id not in bathroom_ids:
-                continue
-            if room_id in occupied:
-                steps[step_index] = _reassign_from_bathroom(steps, step_index, rooms)
-            else:
-                occupied.add(room_id)
-    return personas
-
-
-def _shared_sleeping_indexes(personas: list[dict[str, Any]], rooms: list[dict[str, str | None]]) -> list[int]:
-    bedroom_ids = {room["id"] for room in rooms if room.get("program") == "bed" and isinstance(room.get("id"), str)}
-    if not bedroom_ids:
-        return []
-
-    sleep_slots = [0, len(DEFAULT_TIME_SLOTS) - 1]
-    shared_indexes: set[int] = set()
-    for slot in sleep_slots:
-        occupancy: dict[str, list[int]] = {}
-        for index, persona in enumerate(personas):
-            steps = persona.get("steps") if isinstance(persona.get("steps"), list) else []
             if slot >= len(steps):
                 continue
-            room_id = steps[slot]
-            if room_id not in bedroom_ids:
+            room_id = _step_room(steps[slot])
+            if room_id not in bathroom_set:
                 continue
-            occupancy.setdefault(room_id, []).append(index)
-        for indexes in occupancy.values():
-            if len(indexes) >= 2:
-                shared_indexes.update(indexes)
-
-    return sorted(shared_indexes)
-
-
-def _apply_shared_sleeping_bedroom_rule(personas: list[dict[str, Any]], rooms: list[dict[str, str | None]]) -> list[dict[str, Any]]:
-    shared_sleepers = _shared_sleeping_indexes(personas, rooms)
-    largest_bedroom = _largest_bedroom_id(rooms)
-    if not shared_sleepers or not largest_bedroom:
-        return personas
-
-    sleep_slots = [0, len(DEFAULT_TIME_SLOTS) - 1]
-    for index in shared_sleepers:
-        if index >= len(personas):
-            continue
-        steps = personas[index].get("steps") if isinstance(personas[index].get("steps"), list) else []
-        for slot in sleep_slots:
-            if slot < len(steps):
-                steps[slot] = largest_bedroom
+            if room_id not in occupied:
+                occupied.add(room_id)
+            else:
+                free = next((b for b in bathroom_ids if b not in occupied), None)
+                if free:
+                    steps[slot] = {"room": free, "label": "showering"}
+                    occupied.add(free)
+                elif fallback_room:
+                    steps[slot] = {"room": fallback_room, "label": "at home"}
+                else:
+                    steps[slot] = None
     return personas
 
 
-def _fallback_routine(layout_data: dict[str, Any], topology_json: str | None) -> dict[str, Any]:
-    rooms = _layout_rooms(layout_data)
-    household = _parse_household(topology_json)
-    description = _parse_description(topology_json)
-    profiles = _profiles_for_household(household, description)
+def _stable_color_personas(personas: list[dict[str, Any]], topology_json: str | None) -> list[dict[str, Any]]:
+    """Reorder personas to match household order and assign stable colors by household index."""
+    household: list[dict] = []
+    if topology_json:
+        try:
+            payload = json.loads(topology_json)
+            household = payload.get("household", []) if isinstance(payload.get("household"), list) else []
+        except Exception:
+            pass
 
-    personas = []
-    for index, member in enumerate(household):
-        personas.append({
-            "persona": _member_label(member, index),
-            "color": PERSONA_COLORS[index % len(PERSONA_COLORS)],
-            "steps": _default_steps(profiles[index], rooms),
-        })
+    if not household:
+        return [{**p, "color": PERSONA_COLORS[i % len(PERSONA_COLORS)]} for i, p in enumerate(personas)]
 
-    personas = _apply_shared_sleeping_bedroom_rule(personas, rooms)
-    personas = _enforce_bathroom_spacing(personas, rooms)
-
-    return {
-        "time_slots": list(DEFAULT_TIME_SLOTS),
-        "personas": personas,
+    name_to_idx: dict[str, int] = {
+        (p.get("persona") or "").strip().lower(): i for i, p in enumerate(personas)
     }
+    used: set[int] = set()
+    ordered: list[dict[str, Any]] = []
 
+    for hi, member in enumerate(household):
+        color = PERSONA_COLORS[hi % len(PERSONA_COLORS)]
+        member_name = (member.get("name") or "").strip().lower()
+        member_rel = (member.get("relationship") or "").strip().lower()
+        idx = name_to_idx.get(member_name) if member_name else None
+        if idx is None:
+            idx = name_to_idx.get(member_rel)
+        if idx is not None and idx not in used:
+            ordered.append({**personas[idx], "color": color})
+            used.add(idx)
+        else:
+            for j, p in enumerate(personas):
+                if j not in used:
+                    ordered.append({**p, "color": color})
+                    used.add(j)
+                    break
+
+    for j, p in enumerate(personas):
+        if j not in used:
+            ordered.append({**p, "color": PERSONA_COLORS[j % len(PERSONA_COLORS)]})
+
+    return ordered
+
+
+_FORBIDDEN_PROGRAMS = {"circulation", "storage"}
 
 def _normalize_routine(value: Any, layout_data: dict[str, Any], topology_json: str | None) -> dict[str, Any]:
-    fallback = _fallback_routine(layout_data, topology_json)
+    """Validate LLM-generated routine: keep LLM decisions, reject invalid/forbidden room IDs."""
     rooms = _layout_rooms(layout_data)
-    valid_room_ids = {room["id"] for room in rooms if isinstance(room.get("id"), str)}
-    fallback_personas = fallback["personas"]
+    valid_ids = {r["id"] for r in rooms}
+    room_program = {r["id"]: r.get("program", "") for r in rooms}
+    _PROGRAM_LABEL = {
+        "bed": "sleeping", "bath": "showering", "walkincloset": "dressing",
+        "living": "relaxing", "wc": "showering",
+    }
+
+    def _is_valid_step(room_id: str) -> bool:
+        return room_id in valid_ids and room_program.get(room_id, "") not in _FORBIDDEN_PROGRAMS
 
     if not isinstance(value, dict):
-        return fallback
+        return _fallback_routine(layout_data, topology_json)
 
-    time_slots = value.get("time_slots") if isinstance(value.get("time_slots"), list) else []
-    normalized_time_slots = [slot.strip() for slot in time_slots if isinstance(slot, str) and slot.strip()]
-    if len(normalized_time_slots) != len(DEFAULT_TIME_SLOTS):
-        normalized_time_slots = list(DEFAULT_TIME_SLOTS)
+    time_slots = value.get("time_slots")
+    if not isinstance(time_slots, list) or len(time_slots) != len(DEFAULT_TIME_SLOTS):
+        time_slots = list(DEFAULT_TIME_SLOTS)
 
     personas_raw = value.get("personas") if isinstance(value.get("personas"), list) else []
     personas = []
-    for index, item in enumerate(personas_raw):
+    for idx, item in enumerate(personas_raw):
         if not isinstance(item, dict):
             continue
-        fallback_member = fallback_personas[index] if index < len(fallback_personas) else {
-            "persona": f"Resident {index + 1}",
-            "color": PERSONA_COLORS[index % len(PERSONA_COLORS)],
-            "steps": _default_steps("adult_default", rooms),
-        }
-        persona = _string(item.get("persona")) or fallback_member["persona"]
-        color = _string(item.get("color")) or fallback_member["color"]
+        persona = (item.get("persona") or f"Resident {idx + 1}").strip()
         steps_raw = item.get("steps") if isinstance(item.get("steps"), list) else []
-        steps: list[str | None] = []
-        for step_index in range(len(DEFAULT_TIME_SLOTS)):
-            raw_step = steps_raw[step_index] if step_index < len(steps_raw) else None
-            if raw_step is None:
-                steps.append(fallback_member["steps"][step_index])
-                continue
-            room_id = str(raw_step).strip()
-            if room_id in valid_room_ids:
-                steps.append(room_id)
+        steps: list[Step] = []
+        for i in range(len(DEFAULT_TIME_SLOTS)):
+            raw = steps_raw[i] if i < len(steps_raw) else None
+            if raw is None:
+                steps.append(None)
+            elif isinstance(raw, list) and raw:
+                room_id = str(raw[0]).strip()
+                label = str(raw[1]).strip() if len(raw) >= 2 else ""
+                label = label or _PROGRAM_LABEL.get(room_program.get(room_id, ""), "relaxing")
+                steps.append({"room": room_id, "label": label} if _is_valid_step(room_id) else None)
+            elif isinstance(raw, dict):
+                room_id = str(raw.get("room", "")).strip()
+                label = str(raw.get("label", "")).strip() or _PROGRAM_LABEL.get(room_program.get(room_id, ""), "relaxing")
+                steps.append({"room": room_id, "label": label} if _is_valid_step(room_id) else None)
+            elif isinstance(raw, str):
+                room_id = raw.strip()
+                label = _PROGRAM_LABEL.get(room_program.get(room_id, ""), "relaxing")
+                steps.append({"room": room_id, "label": label} if _is_valid_step(room_id) else None)
             else:
-                steps.append(fallback_member["steps"][step_index])
-        personas.append({
-            "persona": persona,
-            "color": color,
-            "steps": steps,
-        })
+                steps.append(None)
+        personas.append({"persona": persona, "steps": steps})
 
     if not personas:
-        personas = fallback_personas
+        return _fallback_routine(layout_data, topology_json)
 
-    personas = _apply_shared_sleeping_bedroom_rule(personas, rooms)
+    personas = _stable_color_personas(personas, topology_json)
     personas = _enforce_bathroom_spacing(personas, rooms)
-
-    return {
-        "time_slots": normalized_time_slots,
-        "personas": personas,
-    }
+    return {"time_slots": time_slots, "personas": personas}
 
 
-def _llm_payload(layout_data: dict[str, Any], topology_json: str | None) -> dict[str, Any]:
-    payload = _safe_json_loads(topology_json)
-    return {
-        "layoutId": layout_data.get("layoutId"),
-        "rooms": _layout_rooms(layout_data),
-        "brief": {
-            "household": payload.get("household", []),
-            "description": payload.get("description", ""),
-        },
-        "default_time_slots": list(DEFAULT_TIME_SLOTS),
-    }
+def _fallback_routine(layout_data: dict[str, Any], topology_json: str | None) -> dict[str, Any]:
+    """Basic fallback when LLM fails: keeps people visible at home."""
+    rooms = _layout_rooms(layout_data)
+    bed_id    = next((r["id"] for r in rooms if r.get("program") == "bed"),    None)
+    bath_id   = next((r["id"] for r in rooms if r.get("program") == "bath"),   None)
+    living_id = next((r["id"] for r in rooms if r.get("program") == "living"), None)
+    home = living_id or bed_id
+
+    def _home_steps() -> list[Step]:
+        steps: list[Step] = []
+        for slot in DEFAULT_TIME_SLOTS:
+            hour = int(slot.split(":")[0])
+            if hour <= 6 or hour >= 22:
+                steps.append({"room": bed_id,               "label": "sleeping"}  if bed_id             else None)
+            elif hour == 7:
+                steps.append({"room": bath_id or home,      "label": "showering"} if (bath_id or home)  else None)
+            else:
+                steps.append({"room": home,                 "label": "relaxing"}  if home               else None)
+        return steps
+
+    household: list[dict] = []
+    if topology_json:
+        try:
+            payload = json.loads(topology_json)
+            household = payload.get("household", []) if isinstance(payload.get("household"), list) else []
+        except Exception:
+            pass
+
+    personas = [
+        {
+            "persona": (m.get("name") or m.get("relationship") or f"Resident {i + 1}"),
+            "color": PERSONA_COLORS[i % len(PERSONA_COLORS)],
+            "steps": _home_steps(),
+        }
+        for i, m in enumerate(household)
+    ] or [{"persona": "Resident 1", "color": PERSONA_COLORS[0], "steps": _home_steps()}]
+
+    return {"time_slots": list(DEFAULT_TIME_SLOTS), "personas": personas}
+
+
+def _parse_routine_json(content: str) -> dict[str, Any]:
+    import ast
+    content = content.strip()
+    content = re.sub(r"^```(?:json)?\s*", "", content)
+    content = re.sub(r"\s*```$", "", content).strip()
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        pass
+    match = re.search(r"\{.*\}", content, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(0))
+        except json.JSONDecodeError:
+            pass
+        try:
+            return ast.literal_eval(match.group(0))
+        except (ValueError, SyntaxError):
+            pass
+    raise ValueError(f"Cannot parse routine LLM response: {content[:120]}")
 
 
 def build_routine_node(llm: Any) -> Any:
     def routine(state: dict) -> dict:
         layout_json = state.get("layout_json_string")
         topology_json = state.get("topology_graph_json_string")
+        user_prompt = state.get("user_prompt", "")
+        feedback_history = state.get("feedback_history", [])
         iteration = state.get("iteration", 0)
-        household = _parse_household(topology_json)
 
-        if not layout_json or not household:
-            return {
-                "routine_json_string": None,
-                "iteration": iteration + 1,
-            }
+        if not layout_json:
+            return {"routine_json_string": None, "iteration": iteration + 1}
+
+        all_turns = [t for t in feedback_history if isinstance(t, str) and t.strip()]
+        if user_prompt.strip() and user_prompt.strip() not in all_turns:
+            all_turns.append(user_prompt.strip())
+        full_brief = "\n\n".join(all_turns) if all_turns else "(none)"
 
         try:
             layout_data = json.loads(layout_json) if isinstance(layout_json, str) else layout_json
             if not isinstance(layout_data, dict):
                 raise ValueError("Routine layout is not valid JSON.")
 
-            llm_messages = [
+            rooms = _layout_rooms(layout_data)
+            messages = [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": (
-                    f"Routine input payload: {json.dumps(_llm_payload(layout_data, topology_json))}\n"
-                    "Generate a neutral weekday routine for visualization. If information is missing, use conservative defaults. Return only the required JSON."
+                    f"User brief (full conversation — apply every detail literally):\n{full_brief}\n\n"
+                    f"Available rooms (use only these IDs in steps):\n{json.dumps(rooms, separators=(',', ':'))}\n\n"
+                    f"Time slots: {', '.join(DEFAULT_TIME_SLOTS)}\n\n"
+                    "Generate the daily routine for every person mentioned in the brief. Return only compact JSON."
                 )},
             ]
-            response = llm.invoke(llm_messages)
-            parsed = json.loads(response.content.strip())
-            routine_payload = _normalize_routine(parsed, layout_data, topology_json)
+            response = llm.invoke(messages)
+            raw = get_response_text(response)
+            if '"final_response"' in raw:
+                try:
+                    wrapper = json.loads(raw)
+                    raw = wrapper.get("final_response", raw)
+                except Exception:
+                    pass
+            parsed = _parse_routine_json(raw)
+            payload = _normalize_routine(parsed, layout_data, topology_json)
+            return {"routine_json_string": json.dumps(payload), "routine_warning": None, "iteration": iteration + 1}
+
+        except Exception as e:
+            layout_data = json.loads(layout_json) if isinstance(layout_json, str) else layout_json
             return {
-                "routine_json_string": json.dumps(routine_payload),
-                "iteration": iteration + 1,
-            }
-        except Exception:
-            fallback = _fallback_routine(
-                json.loads(layout_json) if isinstance(layout_json, str) else layout_json,
-                topology_json,
-            )
-            return {
-                "routine_json_string": json.dumps(fallback),
+                "routine_json_string": json.dumps(_fallback_routine(layout_data, topology_json)),
+                "routine_warning": f"Routine generation encountered an issue ({type(e).__name__}: {e}). Showing a basic schedule.",
                 "iteration": iteration + 1,
             }
 

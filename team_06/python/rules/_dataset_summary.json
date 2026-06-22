@@ -1,0 +1,55 @@
+{
+  "layout_count": 546,
+  "available_programs": [
+    "bed",
+    "bath",
+    "living",
+    "circulation",
+    "storage",
+    "walkincloset",
+    "wc"
+  ],
+  "program_descriptions": {
+    "bed": "A private sleeping room. Present in 91% of layouts (0-3 per layout).",
+    "bath": "A full bathroom with shower or tub. Present in 100% of layouts (1-2 per layout).",
+    "living": "A shared living area, often open-plan with kitchen. Present in 100% of layouts.",
+    "circulation": "Hallway, corridor, or entry area connecting rooms. Present in 96% of layouts.",
+    "storage": "A storage or utility room. Present in 75% of layouts.",
+    "walkincloset": "A walk-in closet or dressing room. Rare, present in 1% of layouts.",
+    "wc": "A small toilet room (half-bath) without shower or tub. Present in 59% of layouts."
+  },
+  "unsupported_concepts": [
+    "dedicated studio or office program (no separate workspace)",
+    "dedicated music room",
+    "dedicated kitchen (kitchen is part of the living area)",
+    "dedicated gym",
+    "dedicated dining room",
+    "more than 2 bathrooms",
+    "more than 3 bedrooms"
+  ],
+  "size_range_m2": {
+    "min": 21,
+    "max": 182,
+    "typical": "45-141",
+    "median": 81
+  },
+  "bedroom_count_range": {
+    "min": 0,
+    "max": 3
+  },
+  "bathroom_count_range": {
+    "min": 1,
+    "max": 2
+  },
+  "shapes": {
+    "rectangular": 456,
+    "L-shape": 57,
+    "other": 33
+  },
+  "dataset_notes": [
+    "Targeted at young singles, couples, students sharing, and young professionals",
+    "Studios are open-plan; the bedroom is part of the living area",
+    "Kitchen is not a separate room; it is part of the living program",
+    "Circulation covers entry vestibules, hallways, and corridors"
+  ]
+}

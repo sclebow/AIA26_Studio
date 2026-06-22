@@ -1,7 +1,28 @@
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { Stage, Layer, Group, Line, Text } from 'vue-konva'
-import { getRoomColor, getRoomSecondaryLabel, TOD_COLORS, getRoomDisplayName } from '../utils/roomAnalysis.js'
+import { getRoomColor, getRoomSecondaryLabel, TOD_COLORS, getRoomDisplayName, hexToRgba } from '../utils/roomAnalysis.js'
+
+const ROOM_ALPHA = 0.75
+const CIRCLE_ALPHA = 0.88
+
+const wrapperRef = ref(null)
+const hoveredRoom = ref(null)
+const tooltipX = ref(0)
+const tooltipY = ref(0)
+
+function onRoomHover(konvaEvent, room) {
+  const { clientX, clientY } = konvaEvent.evt
+  const rect = wrapperRef.value?.getBoundingClientRect()
+  if (!rect) return
+  hoveredRoom.value = room
+  tooltipX.value = clientX - rect.left + 14
+  tooltipY.value = clientY - rect.top + 14
+}
+
+function onRoomLeave() {
+  hoveredRoom.value = null
+}
 
 const props = defineProps({
   layout:      { type: Object, default: null },
@@ -14,6 +35,19 @@ const CIRCLE_RADIUS = 14
 const CIRCLE_SPACING = 32  // horizontal gap between circles when multiple personas
 
 const stageConfig = ref({ width: 600, height: 600 })
+
+let resizeObserver = null
+onMounted(() => {
+  if (!wrapperRef.value) return
+  resizeObserver = new ResizeObserver(entries => {
+    const { width, height } = entries[0]?.contentRect ?? {}
+    if (width > 0 && height > 0) stageConfig.value = { width: Math.floor(width), height: Math.floor(height) }
+  })
+  resizeObserver.observe(wrapperRef.value)
+  const rect = wrapperRef.value.getBoundingClientRect()
+  if (rect.width > 0 && rect.height > 0) stageConfig.value = { width: Math.floor(rect.width), height: Math.floor(rect.height) }
+})
+onUnmounted(() => resizeObserver?.disconnect())
 
 
 
@@ -72,7 +106,7 @@ function recalcGeometry() {
   });
 }
 
-watch(() => props.layout, recalcGeometry, { immediate: true, deep: true })
+watch([() => props.layout, stageConfig], recalcGeometry, { immediate: true, deep: true })
 
 // Outline points for boundary-only mode (no rooms)
 const outlinePoints = computed(() => {
@@ -86,17 +120,17 @@ const outlinePoints = computed(() => {
 const roomRenderData = computed(() => {
   const rooms = props.layout?.rooms || []
   const vm = props.viewMode
-  const todFill = vm === 'routine' ? TOD_COLORS[props.activeStep] ?? TOD_COLORS[0] : null
+  const todHex = vm === 'routine' ? TOD_COLORS[props.activeStep] ?? TOD_COLORS[0] : null
+  const todFill = todHex ? hexToRgba(todHex, ROOM_ALPHA) : null
   return rooms.map(room => ({
     id: room.id,
     points: flattenAndScale(room.geometry),
-    fill: todFill ?? getRoomColor(room, vm),
+    fill: todFill ?? hexToRgba(getRoomColor(room, vm), ROOM_ALPHA),
     labelX: getLabelX(room.geometry),
     labelY: getLabelY(room.geometry),
     nameText: getRoomDisplayName(room),
-    nameOffsetX: getTextWidth(getRoomDisplayName(room), 18) / 2,
+    nameOffsetX: getTextWidth(getRoomDisplayName(room), 13) / 2,
     secondaryText: getRoomSecondaryLabel(room, vm),
-    secondaryOffsetX: getTextWidth(getRoomSecondaryLabel(room, vm), 14) / 2,
   }))
 })
 
@@ -126,7 +160,7 @@ const routineCircleData = computed(() => {
         key: `${room.id}-${i}`,
         x: cx - totalWidth / 2 + i * CIRCLE_SPACING,
         y: cy,
-        color,
+        color: hexToRgba(color, CIRCLE_ALPHA),
         personaName,
         roomName,
       })
@@ -176,64 +210,100 @@ function getTextWidth(text, fontSize) {
 </script>
 
 <style scoped>
+.canvas-wrapper {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.room-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 10;
+  white-space: nowrap;
+}
+.room-tooltip-name {
+  font-size: var(--font-size-small);
+  font-weight: 600;
+  color: var(--color-text);
+}
+.room-tooltip-detail {
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+}
 </style>
 
 <template>
-  <v-stage :config="stageConfig">
-    <v-layer :key="`rooms-${props.viewMode}-${props.activeStep}`">
-      <!-- Boundary outline (shown when no rooms yet) -->
-      <v-line
-        v-if="outlinePoints"
-        :points="outlinePoints"
-        :closed="true"
-        fill="rgba(0,103,181,0.06)"
-        stroke="#0067B5"
-        :strokeWidth="2"
-        :dash="[8, 6]"
-      />
-      <v-group v-for="room in roomRenderData" :key="room.id">
+  <div ref="wrapperRef" class="canvas-wrapper">
+    <v-stage :config="stageConfig">
+      <v-layer :key="`rooms-${props.viewMode}-${props.activeStep}`">
+        <!-- Boundary outline (shown when no rooms yet) -->
         <v-line
-          :config="{ points: room.points, closed: true, fill: room.fill, stroke: '#333', strokeWidth: 2 }"
+          v-if="outlinePoints"
+          :points="outlinePoints"
+          :closed="true"
+          fill="rgba(0,103,181,0.06)"
+          stroke="#0067B5"
+          :strokeWidth="2"
+          :dash="[8, 6]"
         />
-        <v-text
-          :x="room.labelX"
-          :y="room.labelY"
-          :text="room.nameText"
-          fontFamily="Inter"
-          fontSize="18"
-          fill="#222"
-          :offsetX="room.nameOffsetX"
-          :offsetY="18 / 2"
+        <v-group
+          v-for="room in roomRenderData"
+          :key="room.id"
+          @mousemove="onRoomHover($event, room)"
+          @mouseleave="onRoomLeave"
+        >
+          <v-line
+            :config="{ points: room.points, closed: true, fill: room.fill, stroke: '#333', strokeWidth: 2 }"
+          />
+          <v-text
+            :x="room.labelX"
+            :y="room.labelY"
+            :text="room.nameText"
+            fontFamily="Inter"
+            fontSize="13"
+            fill="#444"
+            :offsetX="room.nameOffsetX"
+            :offsetY="13 / 2"
+          />
+        </v-group>
+      </v-layer>
+      <!-- Routine persona circles only -->
+      <v-layer v-if="routineCircleData.length">
+        <v-circle
+          v-for="circle in routineCircleData"
+          :key="circle.key"
+          :config="{
+            x: circle.x,
+            y: circle.y,
+            radius: CIRCLE_RADIUS,
+            fill: circle.color,
+            stroke: '#ffffff',
+            strokeWidth: 3,
+            listening: false,
+          }"
         />
-        <v-text
-          :x="room.labelX"
-          :y="room.labelY + 16"
-          :text="room.secondaryText"
-          fontFamily="Inter"
-          fontSize="14"
-          fill="#222"
-          :offsetX="room.secondaryOffsetX"
-          :offsetY="14 / 2"
-        />
-      </v-group>
-    </v-layer>
-    <!-- Routine persona circles only -->
-    <v-layer v-if="routineCircleData.length">
-      <v-circle
-        v-for="circle in routineCircleData"
-        :key="circle.key"
-        :config="{
-          x: circle.x,
-          y: circle.y,
-          radius: CIRCLE_RADIUS,
-          fill: circle.color,
-          stroke: '#ffffff',
-          strokeWidth: 3,
-          listening: false,
-        }"
-      />
-    </v-layer>
-  </v-stage>
+      </v-layer>
+    </v-stage>
+
+    <!-- Room hover tooltip -->
+    <div
+      v-if="hoveredRoom"
+      class="room-tooltip"
+      :style="{ left: tooltipX + 'px', top: tooltipY + 'px' }"
+    >
+      <span class="room-tooltip-name">{{ hoveredRoom.nameText }}</span>
+      <span class="room-tooltip-detail">{{ hoveredRoom.secondaryText }}</span>
+    </div>
+  </div>
 </template>
 
 

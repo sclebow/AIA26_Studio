@@ -1,0 +1,309 @@
+{
+  "layoutId": "Layout-656",
+  "apartment": {
+    "id": "L_L16.5_W4.5_de0_dp0.9_wp2",
+    "name": "Studio apartment",
+    "geometry": [
+      [
+        15.75,
+        1.365
+      ],
+      [
+        15.75,
+        2.415
+      ],
+      [
+        15.75,
+        4.2
+      ],
+      [
+        12.285,
+        4.2
+      ],
+      [
+        0.0,
+        4.2
+      ],
+      [
+        0.0,
+        0.0
+      ],
+      [
+        12.285,
+        0.0
+      ],
+      [
+        15.75,
+        0.0
+      ],
+      [
+        15.75,
+        1.365
+      ]
+    ],
+    "attributes": {
+      "area": 66.15,
+      "description": "1 WC, 1 Bath, 1 Living, 1 Circulation"
+    }
+  },
+  "outline": [
+    [
+      15.75,
+      1.365
+    ],
+    [
+      15.75,
+      2.415
+    ],
+    [
+      15.75,
+      4.2
+    ],
+    [
+      12.285,
+      4.2
+    ],
+    [
+      0.0,
+      4.2
+    ],
+    [
+      0.0,
+      0.0
+    ],
+    [
+      12.285,
+      0.0
+    ],
+    [
+      15.75,
+      0.0
+    ],
+    [
+      15.75,
+      1.365
+    ]
+  ],
+  "door_point": [
+    15.75,
+    0.63
+  ],
+  "door_points": [
+    [
+      15.015,
+      1.365
+    ],
+    [
+      13.125,
+      1.365
+    ]
+  ],
+  "rooms": [
+    {
+      "id": "room-1",
+      "name": "WC",
+      "geometry": [
+        [
+          15.75,
+          2.415
+        ],
+        [
+          14.07,
+          2.415
+        ],
+        [
+          14.07,
+          1.365
+        ],
+        [
+          15.75,
+          1.365
+        ],
+        [
+          15.75,
+          2.415
+        ]
+      ],
+      "attributes": {
+        "area": 1.764,
+        "program": "wc"
+      }
+    },
+    {
+      "id": "room-2",
+      "name": "Bath",
+      "geometry": [
+        [
+          12.285,
+          1.365
+        ],
+        [
+          14.07,
+          1.365
+        ],
+        [
+          14.07,
+          2.415
+        ],
+        [
+          15.75,
+          2.415
+        ],
+        [
+          15.75,
+          4.2
+        ],
+        [
+          12.285,
+          4.2
+        ],
+        [
+          12.285,
+          1.365
+        ]
+      ],
+      "attributes": {
+        "area": 8.0593,
+        "program": "bath"
+      }
+    },
+    {
+      "id": "room-3",
+      "name": "Circulation",
+      "geometry": [
+        [
+          15.75,
+          0.0
+        ],
+        [
+          15.75,
+          1.365
+        ],
+        [
+          12.285,
+          1.365
+        ],
+        [
+          12.285,
+          0.0
+        ],
+        [
+          15.75,
+          0.0
+        ]
+      ],
+      "attributes": {
+        "area": 4.7297,
+        "program": "circulation"
+      }
+    },
+    {
+      "id": "room-4",
+      "name": "Living",
+      "geometry": [
+        [
+          12.285,
+          0.0
+        ],
+        [
+          12.285,
+          4.2
+        ],
+        [
+          0.0,
+          4.2
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          12.285,
+          0.0
+        ]
+      ],
+      "attributes": {
+        "area": 51.597,
+        "program": "living"
+      }
+    }
+  ],
+  "doors": [
+    {
+      "id": "door-1",
+      "name": "Door 1",
+      "geometry": [
+        [
+          15.015,
+          1.365
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-1",
+          "room-3"
+        ]
+      }
+    },
+    {
+      "id": "door-2",
+      "name": "Door 2",
+      "geometry": [
+        [
+          13.125,
+          1.365
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-2",
+          "room-3"
+        ]
+      }
+    }
+  ],
+  "facades": [
+    {
+      "id": "facade-1",
+      "name": "Facade 1",
+      "geometry": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          4.2
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "length": 4.2
+      }
+    }
+  ],
+  "circulation": [
+    {
+      "id": "circulation-1",
+      "name": "Front Door Axis",
+      "geometry": [
+        [
+          15.75,
+          0.0
+        ],
+        [
+          15.75,
+          4.2
+        ]
+      ],
+      "attributes": {
+        "type": "circulation",
+        "length": 4.2
+      }
+    }
+  ],
+  "windows": [],
+  "furniture": [],
+  "mep": [],
+  "structure": []
+}

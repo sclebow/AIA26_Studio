@@ -1,44 +1,67 @@
 from typing import Any
 import json
+import re
 from pathlib import Path
-from tools.layout_evaluator import summarize_evaluation
+from functools import lru_cache
+from tools.layout_evaluator import (
+    summarize_evaluation,
+    compute_daylight_score,
+    compute_room_fit_score,
+    compute_access_fit,
+    compute_adjacency_fit,
+    compute_size_score,
+)
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
+_SUBSCORE_WEIGHTS: dict[str, float] = {
+    "room_fit":      0.30,
+    "lifestyle_fit": 0.25,
+    "access_fit":    0.20,
+    "adjacency_fit": 0.12,
+    "size":          0.13,
+}
+
+
+
+@lru_cache(maxsize=1)
+def _get_description_index():
+    from tools.embedding_matcher import DescriptionIndex
+    descriptions_dir = _REPO_ROOT / "layout_inputs" / "Planfinder_Dataset" / "pf_descriptions"
+    return DescriptionIndex(descriptions_dir)
+
+
+def _compute_lifestyle_fit(description_query: str, layout_id: str) -> dict | None:
+    if not description_query or not layout_id:
+        return None
+    try:
+        index = _get_description_index()
+        results = index.search(description_query, candidate_ids={layout_id})
+        for lid, cosine in results:
+            if lid == layout_id:
+                # Rescale: 0.30 → 0, 0.85 → 100 (typical cosine range for layout descriptions)
+                score = max(0, min(100, round((cosine - 0.30) / 0.55 * 100)))
+                return {"score": score}
+    except Exception:
+        pass
+    return None
 
 FIXED_CLOSING_SENTENCE = (
     "If you are happy with this layout, we can keep it. Otherwise, you can select a different candidate layout or refine the search with more information."
 )
  
 SYSTEM_PROMPT = (
-    "You are evaluating how well a residential layout matches a household's needs. "
-    "Return valid JSON with exactly this shape: "
-    '{"fit_score":0,"chat_summary":"","strengths":[],"concerns":[]}.'
-    "\nRules:\n"
-    "- fit_score is an integer from 0 to 100.\n"
-    "- chat_summary is a short descriptive summary for the chat UI, usually 2 short sentences.\n"
-    "- chat_summary should briefly explain what works, what does not work, and what potential the layout still has.\n"
-    "- chat_summary should read naturally as chat text, not as tags or bullet fragments.\n"
-    "- strengths is a list of short positive pill labels, maximum 2 to 4 words each.\n"
-    "- concerns is a list of short negative pill labels, maximum 2 to 4 words each.\n"
-    "- Pill labels must be tag-like, not sentence fragments, and must not repeat wording already used in chat_summary.\n"
-    "- Example pill labels: coherent to brief, enough daylight, appropriate room size, bathroom without window.\n"
-    "- Use the structured graph and description from the brief, and use the layout JSON as the source of truth for what exists now.\n"
-    "- If a Planfinder layout description is provided, use it as extra context about intended use or character, but do not let it override the actual layout JSON when they differ.\n"
-    "- If daylight information is present in the layout, include it in the reasoning.\n"
-    "- Treat a bathroom and a living space as baseline expected programs even if the user did not explicitly request them. Missing either should usually be a concern.\n"
-    "- The dataset room categories are living, bed, bath, foyer, and extra. Interpret the layout using those categories.\n"
-    "- There are no apartments with a separate kitchen room in this dataset. Interpret kitchen as furnishing or open-plan use within the living area, not as a missing or expected standalone room.\n"
-    "- Treat foyer as satisfying entry, entrance hall, or hall requests.\n"
-    "- Treat extra as able to cover storage or circulation support.\n"
-    "- If the brief asked for a study, an additional bedroom may satisfy it approximately when no separate study category exists; mention the approximation when relevant.\n"
-    "- If the brief asked for a double bedroom, expect the corresponding bedroom to be relatively generous in size.\n"
-    "- If the brief asked for a single bedroom, a medium or small bedroom can still be appropriate.\n"
-    "- Ignore rooms whose program or name is 'extra' unless they create a clear disadvantage such as taking space away from essential rooms. Do not count 'extra' as satisfying a missing required program.\n"
-    "- A bathroom does not require natural light by default. If the user did not ask for a bathroom window or daylight, do not treat lack of bathroom daylight alone as a hard failure. If window information is available and the bathroom has no window, highlight that it may require artificial ventilation.\n"
-    "- If the brief explicitly asks for a bathroom window, ventilation, or daylight, then assess bathroom daylight as a requirement.\n"
-    "- Comment on missing key programs, room sizes, and room proportions when the layout data suggests problems.\n"
-    "- Distinguish between issues that came from candidate selection versus failure to fit the selected layout into the uploaded boundary.\n"
-    "- Do not invent rooms or performance data that are not present.\n"
-    "- Keep the response concise and easy to scan.\n"
-    "- Do not return any extra keys.\n"
+    "You are writing a short qualitative comment for a residential layout recommendation. "
+    "Write exactly 2 sentences as plain text — no JSON, no markdown, no bullet points.\n"
+    "Rules:\n"
+    "- Focus on how well the layout matches the user's brief — what fits, what is missing or different.\n"
+    "- Do NOT repeat or mention any numeric scores — they are already shown in the UI.\n"
+    "- Do NOT mention daylight unless the user's brief explicitly asks for it in a specific room.\n"
+    "- Do NOT comment on daylight in bathrooms, WCs, or wet rooms — these almost never have windows.\n"
+    "- If adaptation failed, briefly note the comment refers to the closest available layout.\n"
+    "- Kitchen is always part of the living area in this dataset — never a separate room.\n"
+    "- Treat circulation as entry, hallway, or corridor.\n"
+    "- Do not invent features not present in the layout description.\n"
 )
 
 
@@ -57,7 +80,6 @@ def _build_layout_evaluation_payload(layout_data: dict[str, Any], topology_json:
             "name": room.get("name"),
             "program": attributes.get("program"),
             "area": attributes.get("area"),
-            "daylight": attributes.get("daylight"),
             "vertex_count": len(geometry),
         })
 
@@ -71,7 +93,6 @@ def _build_layout_evaluation_payload(layout_data: dict[str, Any], topology_json:
         "brief": topology_json,
         "rooms": compact_rooms,
         "rule_issues": summary.get("evaluation_issues", []) if isinstance(summary, dict) else [],
-        "daylight_stats": summary.get("daylight_stats", {}) if isinstance(summary, dict) else {},
     }
 
 
@@ -95,143 +116,99 @@ def _load_planfinder_description(layout_id: str | None) -> str | None:
     return description.strip()
 
 
-def _normalize_evaluation(value: object) -> dict[str, Any]:
-    if not isinstance(value, dict):
-        return {
-            "fit_score": 0,
-            "chat_summary": "Evaluation unavailable.",
-            "strengths": [],
-            "concerns": ["Evaluation response could not be parsed."],
-        }
+def _extract_chat_summary(raw: str) -> str | None:
+    """Extract plain-text summary from whatever format the LLM returned."""
+    candidates: list[str] = []
 
-    fit_score = value.get("fit_score")
-    if not isinstance(fit_score, int):
-        fit_score = 0
+    # 1. Decision-schema wrapper: {"action":..., "final_response":"...", ...}
+    if '"final_response"' in raw:
+        try:
+            outer = json.loads(raw)
+            fr = outer.get("final_response")
+            if isinstance(fr, dict):
+                candidates.append(json.dumps(fr))
+            elif isinstance(fr, str) and fr.strip() and not fr.strip() in ('{', '}'):
+                candidates.append(fr.strip())
+        except Exception:
+            pass
 
-    def _string_list(field: str) -> list[str]:
-        data = value.get(field)
-        if not isinstance(data, list):
-            return []
-        return [item.strip() for item in data if isinstance(item, str) and item.strip()]
+    # 2. Raw string itself (plain text or JSON)
+    candidates.append(raw.strip())
 
-    strengths = _string_list("strengths")
-    concerns = _string_list("concerns")
-
-    chat_summary = value.get("chat_summary")
-    if not isinstance(chat_summary, str) or not chat_summary.strip():
-        summary_parts = []
-        if strengths:
-            summary_parts.append(f"It works best for {strengths[0].lower()}.")
-        if concerns:
-            summary_parts.append(f"The main issue is {concerns[0].lower()}.")
-        summary_parts.append("It could improve with another iteration.")
-        chat_summary = " ".join(summary_parts)
-
-    def _normalize_pill_label(text: str, positive: bool) -> str:
-        value = text.lower().strip()
-
-        ordered_rules = [
-            (("bathroom without window",), "bathroom without window"),
-            (("without window", "no window"), "without window"),
-            (("door", "connect", "access"), "good connectivity" if positive else "poor connectivity"),
-            (("circulation",), "good circulation" if positive else "poor circulation"),
-            (("daylight", "bright", "light"), "enough daylight" if positive else "low daylight"),
-            (("size", "spacious", "large", "small", "tight"), "appropriate room size" if positive else "tight room size"),
-            (("brief", "fit", "match"), "coherent to brief" if positive else "poor brief fit"),
-            (("storage",), "storage"),
-            (("circulation",), "circulation"),
-            (("foyer", "entry", "hall"), "entry space"),
-            (("bathroom", "bath"), "bathroom"),
-            (("living",), "living"),
-            (("bedroom", "bed"), "bedroom"),
-            (("extra",), "storage" if positive else "extra space"),
-            (("ventilation",), "ventilation"),
-        ]
-
-        for tokens, label in ordered_rules:
-            if any(token in value for token in tokens):
-                return label
-
-        words = [word for word in value.split() if word]
-        return " ".join(words[:4]).strip()
-
-    def _compact_pills(field: str, sentence: str) -> list[str]:
-        compact_items: list[str] = []
-        sentence_words = set(sentence.lower().replace(",", " ").replace(".", " ").split())
-        positive = field == "strengths"
-
-        for item in _string_list(field)[:6]:
-            compact = _normalize_pill_label(item, positive)
-            if not compact:
-                continue
-
-            compact = " ".join(compact.split()[:4]).strip()
-
-            compact_words = set(compact.split())
-            if compact_words and compact_words.issubset(sentence_words):
-                continue
-
-            if compact not in compact_items:
-                compact_items.append(compact)
-
-            if len(compact_items) >= 4:
-                break
-
-        return compact_items
-
-    return {
-        "fit_score": max(0, min(100, fit_score)),
-        "chat_summary": chat_summary.strip(),
-        "strengths": _compact_pills("strengths", chat_summary),
-        "concerns": _compact_pills("concerns", chat_summary),
-    }
+    for candidate in candidates:
+        if not candidate:
+            continue
+        # Try parsing as {"chat_summary": "..."} JSON
+        try:
+            parsed = json.loads(candidate)
+            if isinstance(parsed, dict):
+                cs = parsed.get("chat_summary")
+                if isinstance(cs, str) and cs.strip():
+                    return cs.strip()
+        except Exception:
+            pass
+        # Use as plain text if it doesn't look like a broken JSON fragment
+        if not candidate.startswith('{') and len(candidate) > 5:
+            return candidate
+    return None
 
 
-def _format_evaluation_message(evaluation: dict[str, Any]) -> str:
+def _format_evaluation_message(evaluation: dict[str, Any], warning: str | None = None) -> str:
     parts = []
+    if warning:
+        parts.append(f"⚠️ {warning}")
     if evaluation.get("chat_summary"):
         parts.append(evaluation["chat_summary"])
     parts.append(FIXED_CLOSING_SENTENCE)
     return "\n\n".join(parts)
 
 
-def _merge_selected_layout_fallback(evaluation: dict[str, Any], adaptation_failed: bool) -> dict[str, Any]:
-    if not adaptation_failed:
-        return evaluation
-
-    concerns = list(evaluation.get("concerns", []))
-    fallback_note = "The selected layout could not be fitted into the uploaded boundary, so this review refers to the original selected layout instead."
-    if fallback_note not in concerns:
-        concerns.append(fallback_note)
-
-    return {
-        **evaluation,
-        "concerns": concerns,
+def _build_subscores(
+    room_fit: dict | None,
+    lifestyle_fit: dict | None,
+    access_fit: dict | None = None,
+    adjacency_fit: dict | None = None,
+    size: dict | None = None,
+) -> tuple[int, list[dict]]:
+    """Compute fit_score from available subscores and build the subscores list."""
+    available: dict[str, dict | None] = {
+        "room_fit":      room_fit,
+        "lifestyle_fit": lifestyle_fit,
+        "access_fit":    access_fit,
+        "adjacency_fit": adjacency_fit,
+        "size":          size,
     }
 
+    total_weight = 0.0
+    weighted_sum = 0.0
+    for id_, weight in _SUBSCORE_WEIGHTS.items():
+        s = available.get(id_)
+        if s is not None and s.get("score") is not None:
+            weighted_sum += s["score"] * weight
+            total_weight += weight
+    fit_score = round(weighted_sum / total_weight) if total_weight > 0 else 0
 
-def _merge_daylight_issues(evaluation: dict[str, Any], daylight_issues: list[str]) -> dict[str, Any]:
-    issues = [issue.strip() for issue in daylight_issues if isinstance(issue, str) and issue.strip()]
-    if not issues:
-        return evaluation
+    def _slot(id_: str, label: str, result: dict | None) -> dict:
+        if result is None:
+            return {"id": id_, "label": label, "score": None, "available": False, "details": None}
+        return {"id": id_, "label": label, "score": result.get("score"), "available": True, "details": result.get("details")}
 
-    concerns = list(evaluation.get("concerns", []))
-    for issue in issues:
-        if issue not in concerns:
-            concerns.append(issue)
+    subscores = [
+        _slot("room_fit",      "Rooms",   room_fit),
+        _slot("lifestyle_fit", "Lifestyle",  lifestyle_fit),
+        _slot("access_fit",    "Access",     access_fit),
+        _slot("adjacency_fit", "Adjacency",  adjacency_fit),
+        _slot("size",          "Size",       size),
+    ]
 
-    return {
-        **evaluation,
-        "concerns": concerns,
-    }
+    return fit_score, subscores
 
 
 def build_evaluate_node(llm: Any) -> Any:
-    """Use the LLM to evaluate the current layout against the parsed brief."""
+    """Evaluate the current layout against the parsed brief."""
     def evaluate(state: dict) -> dict:
         layout_json = state.get("layout_json_string")
         adaptation_failed = state.get("adaptation_failed", False)
-        daylight_issues = state.get("daylight_issues") or []
         iteration = state.get("iteration", 0)
 
         if not layout_json:
@@ -243,26 +220,82 @@ def build_evaluate_node(llm: Any) -> Any:
         try:
             layout_data = json.loads(layout_json) if isinstance(layout_json, str) else layout_json
             topology_json = state.get("topology_graph_json_string")
+            layout_id = state.get("layout_id")
+
+            # --- Deterministic subscores ---
+            room_fit      = compute_room_fit_score(layout_data, topology_json)
+            access_fit    = compute_access_fit(layout_data, topology_json)
+            adjacency_fit = compute_adjacency_fit(layout_data, topology_json)
+            size          = compute_size_score(layout_data, topology_json)
+            description_query = ""
+            if topology_json:
+                try:
+                    description_query = json.loads(topology_json).get("description", "")
+                except Exception:
+                    pass
+            lifestyle_fit = _compute_lifestyle_fit(description_query, layout_id or "")
+            fit_score, subscores = _build_subscores(
+                room_fit, lifestyle_fit, access_fit, adjacency_fit, size
+            )
+
+            # --- Daylight (optional, deterministic) ---
+            daylight_evaluation = compute_daylight_score(layout_data)
+
+            # --- Layout context for the LLM ---
             evaluation_payload = _build_layout_evaluation_payload(layout_data, topology_json)
             evaluation_payload["planfinder_description"] = _load_planfinder_description(evaluation_payload.get("layoutId"))
+
+            planfinder_description = evaluation_payload.get("planfinder_description") or ""
+            brief_description = ""
+            if topology_json:
+                try:
+                    brief_description = json.loads(topology_json).get("description", "")
+                except Exception:
+                    pass
+
+            # Build a factual room count summary from the actual layout data
+            rooms_raw = layout_data.get("rooms") if isinstance(layout_data.get("rooms"), list) else []
+            from collections import Counter
+            prog_counts = Counter(
+                r.get("attributes", {}).get("program", "unknown")
+                for r in rooms_raw if isinstance(r, dict)
+            )
+            room_facts = ", ".join(
+                f"{count}× {prog}" for prog, count in sorted(prog_counts.items())
+            ) or "unknown"
+
             llm_messages = [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": (
-                    f"Parsed brief JSON: {topology_json}\n"
-                    f"Layout evaluation payload: {json.dumps(evaluation_payload)}\n"
-                    f"Adaptation failed completely: {json.dumps(adaptation_failed)}\n"
-                    f"Daylight issues: {json.dumps(daylight_issues)}\n"
-                    "Evaluate how well the layout matches the brief. Return only the compact score, one short chat sentence, and short pros/concerns pills."
+                    f"User brief: {brief_description or topology_json}\n\n"
+                    f"Layout description: {planfinder_description or '(not available)'}\n\n"
+                    f"Actual rooms in this layout: {room_facts}\n\n"
+                    + (f"Note: adaptation to this layout failed — comment refers to the closest available layout.\n\n" if adaptation_failed else "")
+                    + "Write the 2-sentence qualitative comment. Use the actual room facts if the description is inaccurate."
                 )}
             ]
-            response = llm.invoke(llm_messages)
-            evaluation_summary = _normalize_evaluation(json.loads(response.content.strip()))
-            evaluation_summary = _merge_selected_layout_fallback(evaluation_summary, adaptation_failed)
-            evaluation_summary = _merge_daylight_issues(evaluation_summary, daylight_issues)
+            try:
+                response = llm.invoke(llm_messages)
+                raw = response.content if isinstance(response.content, str) else str(response.content)
+                print(f"[evaluate] raw response (first 200): {raw[:200]}", flush=True)
+                chat_summary = _extract_chat_summary(raw)
+                llm_output = {"chat_summary": chat_summary} if chat_summary else {"chat_summary": "Layout evaluated."}
+            except Exception as e:
+                print(f"[evaluate] LLM summary failed: {e}", flush=True)
+                llm_output = {"chat_summary": "Layout evaluated."}
+
+            evaluation_summary: dict[str, Any] = {
+                "fit_score": fit_score,
+                "subscores": subscores,
+                **llm_output,
+            }
+            if daylight_evaluation is not None:
+                evaluation_summary["daylight_score"] = daylight_evaluation["score"]
+                evaluation_summary["daylight_rooms"] = daylight_evaluation["rooms"]
 
             return {
                 "evaluation_json_string": json.dumps(evaluation_summary),
-                "clarification": _format_evaluation_message(evaluation_summary),
+                "clarification": _format_evaluation_message(evaluation_summary, state.get("routine_warning")),
                 "iteration": iteration + 1,
             }
 

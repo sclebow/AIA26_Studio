@@ -1,8 +1,8 @@
 <template>
   <div id="app">
     <div class="app-layout">
-      <Sidebar :tab="tab" @change="handleTabChange" :parsedInput="parsedInput" :history="layoutHistory" :exploreResults="exploreResults" :agentState="agentState" @restore="handleRestore" @selectCandidate="handleSelectCandidate" />
-      <WorkSpace :agentState="agentState" :parsedInput="parsedInput" @layoutLoaded="handleLayoutLoaded" />
+      <Sidebar :parsedInput="parsedInput" :history="layoutHistory" :agentState="agentState" :previewId="historyPreview?.layoutId ?? null" @preview="handleHistoryPreview" @restore="handleRestore" @clearPreview="historyPreview = null" />
+      <WorkSpace :agentState="historyPreview ?? agentState" :isHistoryPreview="!!historyPreview" :parsedInput="parsedInput" @layoutLoaded="handleLayoutLoaded" @selectLayout="handleSelectLayout" @previewLayout="handlePreviewLayout" @findInBetween="handleFindInBetween" @restorePreview="handleRestore(historyPreview)" @clearPreview="historyPreview = null" />
       <ChatPanel :chat="chatHistory" :isBusy="isSending" @send="handleUserMessage" @newChat="handleNewChat" />
     </div>
   </div>
@@ -13,13 +13,14 @@ import { onMounted, ref } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import ChatPanel from './components/ChatPanel.vue'
 import WorkSpace from './components/WorkSpace.vue'
-import { clearSession, restoreLayout, sendChatMessage, startFreshSession, uploadBoundaryLayout } from './api/agentClient.js'
+import { clearSession, fetchLayoutById, restoreLayout, selectLayout as selectLayoutApi, sendChatMessage, startFreshSession, uploadBoundaryLayout } from './api/agentClient.js'
 
 const tab = ref('brief')
 const chatHistory = ref([])
 const agentState = ref(null)
 const parsedInput = ref(null)
 const layoutHistory = ref([])
+const historyPreview = ref(null)
 const exploreResults = ref([])
 const isSending = ref(false)
 const hasUserSelectedTab = ref(false)
@@ -88,9 +89,6 @@ function handleTabChange(nextTab) {
 
 function applySearchResults(searchResults) {
   exploreResults.value = Array.isArray(searchResults) ? searchResults : []
-  if (!hasUserSelectedTab.value && exploreResults.value.length > 0) {
-    tab.value = 'explore'
-  }
 }
 
 onMounted(async () => {
@@ -125,16 +123,19 @@ async function handleLayoutLoaded(json) {
 }
 
 function applyAgentResponse(response) {
+  if (!response) return
+  historyPreview.value = null
   if (response.brief !== undefined) parsedInput.value = response.brief
   if (response.search_results !== undefined) {
     applySearchResults(response.search_results)
   }
   if (response.layout) {
     const layoutWithEvaluation = attachRoutine(
-      attachExploreResults({ ...response.layout, evaluation: response.evaluation ?? null }),
+      attachExploreResults({ ...response.layout, evaluation: response.evaluation ?? null, embedding_map: response.embedding_map ?? null }),
       response.routine ?? null
     )
     agentState.value = layoutWithEvaluation
+    layoutHistory.value = layoutHistory.value.filter(h => h.layoutId !== layoutWithEvaluation.layoutId)
     layoutHistory.value.push({ ...layoutWithEvaluation, _savedAt: new Date().toISOString() })
     if (layoutHistory.value.length > 15) layoutHistory.value.shift()
   } else if (agentState.value) {
@@ -156,7 +157,8 @@ function applyPartialResponse(response) {
       ...response.layout,
       evaluation: suppressAncillaryPartials.value
         ? null
-        : response.evaluation ?? (sameLayout ? agentState.value?.evaluation ?? null : null)
+        : response.evaluation ?? (sameLayout ? agentState.value?.evaluation ?? null : null),
+      embedding_map: response.embedding_map ?? (sameLayout ? agentState.value?.embedding_map ?? null : null),
     }), suppressAncillaryPartials.value ? null : response.routine ?? (sameLayout ? agentState.value?.routine ?? null : null))
   } else if (response.routine && agentState.value && !suppressAncillaryPartials.value) {
     agentState.value = attachRoutine(attachExploreResults(agentState.value), response.routine)
@@ -212,13 +214,81 @@ async function handleNewChat() {
   tab.value = 'brief'
 }
 
+function handleHistoryPreview(layout) {
+  historyPreview.value = layout
+}
+
 async function handleRestore(layout) {
+  historyPreview.value = null
   agentState.value = attachExploreResults(layout)
+  pushChatMessage('system', 'Layout restored from history')
   try {
-    await restoreLayout(agentState.value)
+    // Strip frontend-only fields before sending to backend so the LLM receives
+    // only the raw layout JSON (rooms, outline, apartment, layoutId).
+    const { embedding_map, searchResults, routine, evaluation, _savedAt, ...cleanLayout } = layout
+    await restoreLayout(cleanLayout)
   } catch (error) {
     pushChatMessage('agent', `Could not restore layout in backend session: ${error.message}`)
   }
+}
+
+async function handleSelectLayout(layoutId) {
+  if (isSending.value) return
+  isSending.value = true
+  pushChatMessage('system', 'Layout selected from map')
+  const statusId = pushChatMessage('status', 'Selecting layout…', { isLoading: true })
+  try {
+    const response = await selectLayoutApi(layoutId)
+    removeChatMessage(statusId)
+    applyAgentResponse(response)
+  } catch (error) {
+    updateChatMessage(statusId, 'Could not select layout', { isLoading: false, tone: 'error' })
+  } finally {
+    isSending.value = false
+  }
+}
+
+async function handleFindInBetween(idA, idB) {
+  if (isSending.value) return
+  hasUserSelectedTab.value = false
+  tab.value = 'brief'
+  pushChatMessage('system', 'Finding layout between pinned candidates')
+  const statusMessageId = pushChatMessage('status', 'Thinking', { isLoading: true })
+  isSending.value = true
+  try {
+    const response = await sendChatMessage(`find a layout in between ${idA} and ${idB}`, ({ statusMessages, partialResult }) => {
+      updateChatMessage(statusMessageId, formatStatusMessages(statusMessages), { isLoading: true })
+      applyPartialResponse(partialResult)
+    })
+    removeChatMessage(statusMessageId)
+    suppressAncillaryPartials.value = false
+    applyAgentResponse(response)
+  } catch (error) {
+    suppressAncillaryPartials.value = false
+    updateChatMessage(statusMessageId, 'Request failed', { isLoading: false, tone: 'error' })
+    pushChatMessage('agent', `Backend error: ${error.message}`)
+  } finally {
+    suppressAncillaryPartials.value = false
+    isSending.value = false
+  }
+}
+
+async function handlePreviewLayout(layoutId) {
+  if (isSending.value) return
+  try {
+    const data = await fetchLayoutById(layoutId)
+    if (!data?.layout) return
+    const layout = {
+      ...data.layout,
+      layoutId: data.layoutId,
+      evaluation: null,
+      embedding_map: agentState.value?.embedding_map ?? null,
+    }
+    agentState.value = attachRoutine(attachExploreResults(layout), null)
+    // Send only the raw layout fields so the backend session holds a clean JSON
+    // that the LLM can process — not the full frontend state with all_coords etc.
+    await restoreLayout({ ...data.layout, layoutId: data.layoutId })
+  } catch { /* silently ignore */ }
 }
 
 async function handleSelectCandidate(candidate) {

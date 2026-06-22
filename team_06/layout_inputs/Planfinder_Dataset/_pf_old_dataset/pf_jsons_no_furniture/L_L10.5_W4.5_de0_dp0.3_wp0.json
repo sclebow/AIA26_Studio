@@ -1,0 +1,285 @@
+{
+  "layoutId": "Layout-318",
+  "apartment": {
+    "id": "L_L10.5_W4.5_de0_dp0.3_wp0",
+    "name": "Studio apartment",
+    "geometry": [
+      [
+        1.05,
+        1.89
+      ],
+      [
+        1.05,
+        0.0
+      ],
+      [
+        2.1,
+        0.0
+      ],
+      [
+        3.465,
+        0.0
+      ],
+      [
+        10.5,
+        0.0
+      ],
+      [
+        10.5,
+        4.5
+      ],
+      [
+        3.465,
+        4.5
+      ],
+      [
+        1.05,
+        4.5
+      ],
+      [
+        1.05,
+        1.89
+      ]
+    ],
+    "attributes": {
+      "area": 42.5249,
+      "description": "1 Bath, 1 Living, 1 Storage, 1 Circulation"
+    }
+  },
+  "outline": [
+    [
+      1.05,
+      1.89
+    ],
+    [
+      1.05,
+      0.0
+    ],
+    [
+      2.1,
+      0.0
+    ],
+    [
+      3.465,
+      0.0
+    ],
+    [
+      10.5,
+      0.0
+    ],
+    [
+      10.5,
+      4.5
+    ],
+    [
+      3.465,
+      4.5
+    ],
+    [
+      1.05,
+      4.5
+    ],
+    [
+      1.05,
+      1.89
+    ]
+  ],
+  "door_point": [
+    2.94,
+    0.0
+  ],
+  "door_points": [
+    [
+      2.1,
+      0.63
+    ],
+    [
+      2.835,
+      1.89
+    ]
+  ],
+  "rooms": [
+    {
+      "id": "room-1",
+      "name": "Storage",
+      "geometry": [
+        [
+          2.1,
+          1.89
+        ],
+        [
+          1.05,
+          1.89
+        ],
+        [
+          1.05,
+          0.0
+        ],
+        [
+          2.1,
+          0.0
+        ],
+        [
+          2.1,
+          1.89
+        ]
+      ],
+      "attributes": {
+        "area": 1.9845,
+        "program": "storage"
+      }
+    },
+    {
+      "id": "room-2",
+      "name": "Bath",
+      "geometry": [
+        [
+          3.465,
+          1.89
+        ],
+        [
+          3.465,
+          4.5
+        ],
+        [
+          1.05,
+          4.5
+        ],
+        [
+          1.05,
+          1.89
+        ],
+        [
+          3.465,
+          1.89
+        ]
+      ],
+      "attributes": {
+        "area": 6.3031,
+        "program": "bath"
+      }
+    },
+    {
+      "id": "room-3",
+      "name": "Circulation",
+      "geometry": [
+        [
+          3.465,
+          0.0
+        ],
+        [
+          3.465,
+          1.89
+        ],
+        [
+          2.1,
+          1.89
+        ],
+        [
+          2.1,
+          0.0
+        ],
+        [
+          3.465,
+          0.0
+        ]
+      ],
+      "attributes": {
+        "area": 2.5798,
+        "program": "circulation"
+      }
+    },
+    {
+      "id": "room-4",
+      "name": "Living",
+      "geometry": [
+        [
+          3.465,
+          0.0
+        ],
+        [
+          10.5,
+          0.0
+        ],
+        [
+          10.5,
+          4.5
+        ],
+        [
+          3.465,
+          4.5
+        ],
+        [
+          3.465,
+          0.0
+        ]
+      ],
+      "attributes": {
+        "area": 31.6575,
+        "program": "living"
+      }
+    }
+  ],
+  "doors": [
+    {
+      "id": "door-2",
+      "name": "Door 2",
+      "geometry": [
+        [
+          2.835,
+          1.89
+        ]
+      ],
+      "attributes": {
+        "connectsRooms": [
+          "room-2",
+          "room-3"
+        ]
+      }
+    }
+  ],
+  "facades": [
+    {
+      "id": "facade-1",
+      "name": "Facade 1",
+      "geometry": [
+        [
+          10.5,
+          0.0
+        ],
+        [
+          10.5,
+          4.5
+        ]
+      ],
+      "attributes": {
+        "type": "exterior",
+        "length": 4.5
+      }
+    }
+  ],
+  "circulation": [
+    {
+      "id": "circulation-1",
+      "name": "Front Door Axis",
+      "geometry": [
+        [
+          1.05,
+          0.0
+        ],
+        [
+          10.5,
+          0.0
+        ]
+      ],
+      "attributes": {
+        "type": "circulation",
+        "length": 9.45
+      }
+    }
+  ],
+  "windows": [],
+  "furniture": [],
+  "mep": [],
+  "structure": []
+}

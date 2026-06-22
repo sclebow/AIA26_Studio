@@ -16,9 +16,13 @@
 
 from __future__ import annotations
 import json
+from pathlib import Path
 from typing import Any
 from functools import lru_cache
 import logging
+
+import numpy as np
+from sklearn.decomposition import PCA
 
 logger = logging.getLogger(__name__)
 
@@ -128,3 +132,144 @@ def match_layouts(
         "query": query,
         "count": len(results)
     }
+
+
+# ============================================================================
+# DescriptionIndex — pre-encoded description embeddings with 2D PCA projection.
+#
+# Build once at startup, reuse across all queries:
+#   - All layout descriptions encoded to 384-dim vectors (normalised)
+#   - PCA fitted to those vectors, giving a stable 2D coordinate per layout
+#   - search(): cosine similarity against the pre-built matrix (fast)
+#   - project(): map a new query string into the same 2D PCA space
+# ============================================================================
+
+class DescriptionIndex:
+
+    def __init__(
+        self,
+        descriptions_dir: Path,
+        graph_index: dict[str, list[float]] | None = None,
+    ):
+        ids: list[str] = []
+        texts: list[str] = []
+
+        for desc_file in sorted(descriptions_dir.glob("*.json")):
+            try:
+                payload = json.loads(desc_file.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            lid = payload.get("layoutId", desc_file.stem)
+            desc = payload.get("description")
+            if lid and desc:
+                ids.append(lid)
+                texts.append(desc)
+
+        if not ids:
+            raise ValueError(f"No descriptions found in {descriptions_dir}")
+
+        logger.info(f"[DescriptionIndex] Encoding {len(ids)} descriptions…")
+        model = get_embedding_model()
+        raw = model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+
+        # L2-normalise so dot product == cosine similarity
+        norms = np.linalg.norm(raw, axis=1, keepdims=True)
+        norms[norms == 0] = 1.0
+        desc_norm = raw / norms
+
+        # Build combined matrix for PCA: 0.65 * desc + 0.35 * graph (same fusion weights)
+        if graph_index:
+            graph_dim = len(next(iter(graph_index.values())))
+            graph_vecs = np.array(
+                [graph_index.get(lid, [0.0] * graph_dim) for lid in ids], dtype=float
+            )
+            g_norms = np.linalg.norm(graph_vecs, axis=1, keepdims=True)
+            g_norms[g_norms == 0] = 1.0
+            graph_norm = graph_vecs / g_norms
+            combined = np.hstack([0.65 * desc_norm, 0.35 * graph_norm])
+            self._has_graph = True
+            self._graph_dim = graph_dim
+        else:
+            combined = desc_norm
+            self._has_graph = False
+            self._graph_dim = 0
+
+        pca = PCA(n_components=2)
+        coords_2d = pca.fit_transform(combined)
+
+        self._ids: list[str] = ids
+        self._matrix: np.ndarray = desc_norm     # shape (N, 384), normalised — for search
+        self._pca: PCA = pca
+        self._coords: dict[str, dict[str, float]] = {
+            lid: {"x": float(x), "y": float(y)}
+            for lid, (x, y) in zip(ids, coords_2d)
+        }
+        self._descriptions: dict[str, str] = dict(zip(ids, texts))
+        logger.info(f"[DescriptionIndex] Ready (combined={'yes' if graph_index else 'no'}).")
+
+    # ------------------------------------------------------------------
+    @property
+    def coords(self) -> dict[str, dict[str, float]]:
+        """2D PCA coordinates for every layout in the index."""
+        return self._coords
+
+    @property
+    def descriptions(self) -> dict[str, str]:
+        """Description text for every layout in the index."""
+        return self._descriptions
+
+    # ------------------------------------------------------------------
+    def search(
+        self,
+        query: str,
+        top_k: int | None = None,
+        candidate_ids: set[str] | None = None,
+    ) -> list[tuple[str, float]]:
+        """Return (layout_id, cosine_score) pairs, best first.
+
+        candidate_ids: if given, only rank those layouts (room-count pre-filter).
+        """
+        model = get_embedding_model()
+        q_vec = model.encode(query, convert_to_numpy=True, show_progress_bar=False)
+        q_norm = np.linalg.norm(q_vec)
+        if q_norm > 0:
+            q_vec = q_vec / q_norm
+
+        scores = self._matrix @ q_vec  # cosine similarities, shape (N,)
+        results = [
+            (self._ids[i], float(scores[i]))
+            for i in range(len(self._ids))
+            if candidate_ids is None or self._ids[i] in candidate_ids
+        ]
+        results.sort(key=lambda x: x[1], reverse=True)
+        if top_k is not None:
+            results = results[:top_k]
+        return results
+
+    # ------------------------------------------------------------------
+    def project(self, query: str, graph_vec: list[float] | None = None) -> dict[str, float]:
+        """Project a query into the same 2D PCA space as the index.
+
+        graph_vec: optional graph feature vector for the query (required when the
+        index was built with a graph_index to keep the projection consistent).
+        """
+        model = get_embedding_model()
+        q_vec = model.encode(query, convert_to_numpy=True, show_progress_bar=False)
+        q_norm = np.linalg.norm(q_vec)
+        if q_norm > 0:
+            q_vec = q_vec / q_norm
+
+        if self._has_graph:
+            if graph_vec is not None:
+                gv = np.array(graph_vec, dtype=float)
+                g_norm = np.linalg.norm(gv)
+                if g_norm > 0:
+                    gv = gv / g_norm
+            else:
+                gv = np.zeros(self._graph_dim)
+            combined = np.concatenate([0.65 * q_vec, 0.35 * gv])
+        else:
+            combined = q_vec
+
+        xy = self._pca.transform(combined.reshape(1, -1))[0]
+        return {"x": float(xy[0]), "y": float(xy[1])}

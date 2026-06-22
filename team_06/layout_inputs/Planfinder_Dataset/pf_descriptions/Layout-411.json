@@ -1,0 +1,11 @@
+{
+  "layoutId": "Layout-411",
+  "description": "Narrow and elongated. Living bright bedrooms dim. Deep — views through multiple spaces. No internal corridor — fully open layout. Kitchen: unclear, no island or peninsula — counter set back from windows, moderate natural light. Cook faces the wall — back to the living and dining area. One active cook at a time. Fully open plan — no wall separates kitchen from dining and living. Living arrangement: linear kitchen-dining-living, kitchen on side wall. Seating: A sofa sits in the central living zone facing toward the windows; small armchairs/dining seating near the table. Entry: corridor entry, first thing visible on arrival is blank wall, straight corridor, short. No door between entry and living — relevant where local regulations require separation. Studio apartment. Unclear bed. Bed visible from front door, visible from kitchen. Fully open plan — cooking smells and sounds reach the sleeping area directly. Storage: no wardrobe — very limited storage. One bathroom (shower and toilet). Single bathroom — all household members share one shower, sequential morning routine. Suits: singles or couples comfortable with combined living and sleeping space. Not suitable for: families with children; couples needing separate sleeping and living spaces; people requiring significant storage; those wanting a home office with privacy; anyone needing a guest bedroom.",
+  "not_suitable_for": [
+    "families with children",
+    "couples needing separate sleeping and living spaces",
+    "people requiring significant storage",
+    "those wanting a home office with privacy",
+    "anyone needing a guest bedroom"
+  ]
+}

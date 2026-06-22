@@ -1,0 +1,10 @@
+{
+  "layoutId": "Layout-183",
+  "description": "Compact and efficient. Living bright bedrooms dim. Deep — views through multiple spaces. Short connecting link between entry and living area. Kitchen: unclear, no island or peninsula — counter deep in plan, limited natural light while cooking. Cook faces the wall — back to the living and dining area. One active cook at a time. Fully open plan — no wall separates kitchen from dining and living. Living arrangement: split seating-kitchen-dining, kitchen on side wall. Seating: Sofa in upper living area facing into the room; secondary seating near the centre. Entry: corridor entry, first thing visible on arrival is bedroom doors, L-shaped corridor, short. No door between entry and living — relevant where local regulations require separation. Double bedroom — accessed via own door off corridor, no walk-in wardrobe. Double bedroom closest to entry — lighter acoustic separation from the arrival zone. Storage: no wardrobe — very limited storage. One bathroom (shower and toilet). Single bathroom — all household members share one shower, sequential morning routine. Suits: singles or couples. Not suitable for: households needing significant storage (no wardrobe and very limited storage); roommates or sharers (only one bedroom); anyone requiring a home office with good light (no dedicated workspace); families with children (single bedroom only).",
+  "not_suitable_for": [
+    "households needing significant storage (no wardrobe and very limited storage)",
+    "roommates or sharers (only one bedroom)",
+    "anyone requiring a home office with good light (no dedicated workspace)",
+    "families with children (single bedroom only)"
+  ]
+}

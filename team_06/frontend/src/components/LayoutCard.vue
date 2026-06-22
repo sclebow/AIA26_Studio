@@ -1,7 +1,13 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { getDaylightColor, formatDaylight, PROGRAM_COLORS, toNumericValue, getRoomDisplayName } from '../utils/roomAnalysis.js'
-import { ROUTINE_TIMES } from '../mock/agentMock.js'
+
+const ROUTINE_TIMES = [
+  '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
+  '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
+  '18:00', '19:00', '20:00', '21:00', '22:00',
+]
+import ScoreBar from './ScoreBar.vue'
 
 const props = defineProps({
   layout:      { type: Object, default: null },
@@ -23,7 +29,7 @@ const activeRooms = computed(() => {
   if (props.viewMode !== 'routine' || !props.routine) return {}
   const map = {}
   for (const p of props.routine) {
-    const roomId = p.steps?.[activeStep.value]
+    const roomId = stepRoomId(p.steps?.[activeStep.value])
     if (roomId != null) {
       if (!map[roomId]) map[roomId] = []
       map[roomId].push({ color: p.color, name: p.persona })
@@ -47,48 +53,57 @@ const hasRooms = computed(() =>
 
 const evaluation = computed(() => props.layout?.evaluation ?? null)
 
-const daylightKeywords = ['daylight', 'light', 'window', 'ventilation', 'bright']
 
-function isDaylightPill(text) {
-  const value = String(text ?? '').toLowerCase()
-  return daylightKeywords.some((keyword) => value.includes(keyword))
-}
-
-const evaluationStrengths = computed(() => evaluation.value?.strengths ?? [])
-const evaluationConcerns = computed(() => evaluation.value?.concerns ?? [])
-const layoutStrengths = computed(() => evaluationStrengths.value.filter((item) => !isDaylightPill(item)))
-const layoutConcerns = computed(() => evaluationConcerns.value.filter((item) => !isDaylightPill(item)))
-const daylightStrengths = computed(() => evaluationStrengths.value.filter(isDaylightPill))
-const daylightConcerns = computed(() => evaluationConcerns.value.filter(isDaylightPill))
-
+// Prefer backend-computed daylight score, fall back to frontend calculation
 const daylightScore = computed(() => {
+  const backendScore = evaluation.value?.daylight_score
+  if (typeof backendScore === 'number') return backendScore
+
   const rooms = Array.isArray(props.layout?.rooms) ? props.layout.rooms : []
   const scoredRooms = rooms
     .map((room) => {
       const daylight = toNumericValue(room.attributes?.daylight)
       if (daylight == null) return null
-
       const program = room.attributes?.program
-      const target = {
-        living: 2.0,
-        bed: 1.5,
-        foyer: 1.0,
-        bath: 0.4,
-        extra: 0.8,
-      }[program] ?? 1.0
-
-      const roomScore = Math.max(0, Math.min(1, daylight / target))
-      return roomScore * 100
+      const target = { living: 2.0, bed: 1.5, walkincloset: 1.2, circulation: 1.0, bath: 0.4, wc: 0.3, storage: 0.5 }[program] ?? 1.0
+      return Math.max(0, Math.min(1, daylight / target)) * 100
     })
-    .filter((value) => typeof value === 'number')
+    .filter((v) => typeof v === 'number')
+  return scoredRooms.length ? Math.round(scoredRooms.reduce((a, b) => a + b, 0) / scoredRooms.length) : null
+})
 
-  if (!scoredRooms.length) return null
-  return Math.round(scoredRooms.reduce((sum, value) => sum + value, 0) / scoredRooms.length)
+// Per-room daylight bars from backend (preferred) or layout rooms
+const daylightRooms = computed(() => {
+  const backendRooms = evaluation.value?.daylight_rooms
+  if (Array.isArray(backendRooms) && backendRooms.length) return backendRooms
+  return null
 })
 
 const layoutScore = computed(() => {
   const fitScore = evaluation.value?.fit_score
   return typeof fitScore === 'number' ? fitScore : null
+})
+
+// Subscores from backend evaluation
+const subscores = computed(() => evaluation.value?.subscores ?? null)
+
+// Daylight grouped by area type (frontend grouping from per-room backend data)
+const DAYLIGHT_CATEGORIES = [
+  { id: 'day_area',   label: 'Day area',   programs: ['living'] },
+  { id: 'night_area', label: 'Night area', programs: ['bed', 'walkincloset'] },
+  { id: 'wet_rooms',  label: 'Wet rooms',  programs: ['bath', 'wc'] },
+]
+const daylightCategories = computed(() => {
+  const rooms = daylightRooms.value
+  if (!rooms?.length) return null
+  const result = []
+  for (const cat of DAYLIGHT_CATEGORIES) {
+    const matching = rooms.filter(r => cat.programs.includes(r.program))
+    if (!matching.length) continue
+    const score = Math.round(matching.reduce((s, r) => s + r.score, 0) / matching.length)
+    result.push({ id: cat.id, label: cat.label, score, available: true, passing: matching.every(r => r.meets_minimum) })
+  }
+  return result.length ? result : null
 })
 
 const displayId = computed(() => {
@@ -101,16 +116,67 @@ function roomNameForId(id) {
   return r ? (getRoomDisplayName(r) || id) : id
 }
 
+// Steps can be null (away) or {room, label} objects from the backend.
+function stepRoomId(step) {
+  if (!step) return null
+  if (typeof step === 'string') return step           // backward compat
+  return step.room ?? null
+}
+
+function stepActivity(step) {
+  if (!step) return 'away'
+  if (typeof step === 'string') {
+    // backward compat: infer from room program
+    const room = props.layout?.rooms?.find(r => String(r.id) === String(step))
+    const p = room?.attributes?.program
+    return { bed: 'sleeping', bath: 'showering', walkincloset: 'dressing',
+             living: 'at home', wc: 'bathroom' }[p] ?? 'at home'
+  }
+  return step.label || 'at home'
+}
+
+const ACTIVITY_ORDER = ['sleeping', 'napping', 'showering', 'dressing', 'working', 'studying',
+                        'cooking', 'relaxing', 'playing', 'at home', 'bathroom', 'away']
+
+const activityGroups = computed(() => {
+  if (!props.routine) return []
+  const groups = {}
+  for (const p of props.routine) {
+    const step = p.steps?.[activeStep.value]
+    const activity = stepActivity(step)
+    if (!groups[activity]) groups[activity] = { activity, personas: [] }
+    groups[activity].personas.push({ name: p.persona, color: p.color })
+  }
+  const ordered = ACTIVITY_ORDER.filter(a => groups[a]).map(a => groups[a])
+  const rest = Object.values(groups).filter(g => !ACTIVITY_ORDER.includes(g.activity))
+  return [...ordered, ...rest]
+})
+
+const personaSteps = computed(() => {
+  if (!props.routine) return []
+  return props.routine.map(p => {
+    const step = p.steps?.[activeStep.value]
+    const roomId = stepRoomId(step)
+    const activity = stepActivity(step)
+    const room = roomId ? props.layout?.rooms?.find(r => String(r.id) === String(roomId)) : null
+    return {
+      name: p.persona,
+      color: p.color,
+      activity,
+      roomName: room?.name ?? null,
+      away: step == null,
+    }
+  })
+})
+
 function scoreRingStyle(score) {
   const value = Math.max(0, Math.min(100, score ?? 0))
+  const angle = value * 3.6
   return {
-    background: `conic-gradient(#0067B5 ${value * 3.6}deg, #E9ECEF 0deg)`
+    background: `conic-gradient(from 0deg, #00E0CD 0deg, #0067B5 ${angle}deg, #E9ECEF ${angle}deg)`
   }
 }
 
-function hasItems(items) {
-  return Array.isArray(items) && items.length > 0
-}
 </script>
 
 <template>
@@ -131,13 +197,14 @@ function hasItems(items) {
             step="1"
             v-model.number="activeStep"
           />
-          <ul class="layout-summary-list routine-persona-list">
-            <li v-for="p in routine" :key="p.persona" class="layout-summary-room-row">
-              <span class="room-swatch" :style="{ background: p.color }"></span>
-              <span class="routine-persona-name">{{ p.persona }}</span>
-              <span class="routine-persona-room">{{ roomNameForId(p.steps?.[activeStep]) ?? '–' }}</span>
-            </li>
-          </ul>
+          <div class="persona-step-list">
+            <div v-for="p in personaSteps" :key="p.name" class="persona-step-row">
+              <span class="persona-step-dot" :style="{ background: p.color }"></span>
+              <span class="persona-step-name">{{ p.name }}</span>
+              <span class="persona-step-activity" :class="{ away: p.away }">{{ p.activity }}</span>
+              <span v-if="!p.away && p.roomName" class="persona-step-room">{{ p.roomName }}</span>
+            </div>
+          </div>
         </template>
         <template v-else>
           <span class="no-rooms-tag">No routine yet</span>
@@ -157,27 +224,22 @@ function hasItems(items) {
             </li>
           </ul>
 
-          <div v-if="evaluation && (daylightScore != null || hasItems(daylightStrengths) || hasItems(daylightConcerns))" class="evaluation-section">
+          <div v-if="daylightScore != null" class="evaluation-section">
             <div class="layout-summary-title evaluation-section-title">Daylight quality</div>
-            <div v-if="daylightScore != null" class="evaluation-score-ring" :style="scoreRingStyle(daylightScore)">
+            <div class="evaluation-score-ring" :style="scoreRingStyle(daylightScore)">
               <div class="evaluation-score-core">
                 <div class="evaluation-score">{{ daylightScore }}</div>
                 <div class="evaluation-percent">%</div>
               </div>
             </div>
-
-            <div v-if="daylightStrengths.length" class="tag-block">
-              <div class="tag-block-title positive">Pros</div>
-              <div class="tag-list">
-                <span v-for="item in daylightStrengths" :key="item" class="eval-tag eval-tag-positive">{{ item }}</span>
-              </div>
-            </div>
-
-            <div v-if="daylightConcerns.length" class="tag-block">
-              <div class="tag-block-title negative">Watchouts</div>
-              <div class="tag-list">
-                <span v-for="item in daylightConcerns" :key="item" class="eval-tag eval-tag-negative">{{ item }}</span>
-              </div>
+            <div v-if="daylightCategories" class="subscore-list">
+              <ScoreBar
+                v-for="cat in daylightCategories"
+                :key="cat.id"
+                :label="cat.label"
+                :score="cat.score"
+                :available="cat.available"
+              />
             </div>
           </div>
         </template>
@@ -192,12 +254,6 @@ function hasItems(items) {
           <div class="layout-summary-area">
             {{ props.layout.rooms.reduce((sum, r) => sum + (r.attributes?.area || 0), 0).toFixed(2) }}<span style="font-size:1.1rem;font-weight:400;"> m²</span>
           </div>
-          <ul class="layout-summary-list">
-            <li v-for="room in props.layout.rooms" :key="room.id" class="layout-summary-room-row">
-              <span class="room-swatch" :style="{ background: PROGRAM_COLORS[room.attributes?.program] ?? '#ddd' }"></span>
-              {{ getRoomDisplayName(room) }} - {{ (room.attributes?.area ?? 0).toFixed(2) }} m²
-            </li>
-          </ul>
         </template>
         <template v-else>
           <div class="layout-summary-area" v-if="props.layout.attributes?.area">
@@ -206,27 +262,29 @@ function hasItems(items) {
           <span class="no-rooms-tag">No rooms yet</span>
         </template>
 
-        <div v-if="evaluation && (layoutScore != null || hasItems(layoutStrengths) || hasItems(layoutConcerns))" class="evaluation-section">
+        <ul class="layout-summary-list">
+          <li v-for="room in props.layout.rooms" :key="room.id" class="layout-summary-room-row">
+            <span class="room-swatch" :style="{ background: PROGRAM_COLORS[room.attributes?.program] ?? '#ddd' }"></span>
+            {{ getRoomDisplayName(room) }} — {{ (room.attributes?.area ?? 0).toFixed(1) }} m²
+          </li>
+        </ul>
+
+        <div v-if="layoutScore != null" class="evaluation-section">
           <div class="layout-summary-title evaluation-section-title">Layout quality</div>
-          <div v-if="layoutScore != null" class="evaluation-score-ring" :style="scoreRingStyle(layoutScore)">
+          <div class="evaluation-score-ring" :style="scoreRingStyle(layoutScore)">
             <div class="evaluation-score-core">
               <div class="evaluation-score">{{ layoutScore }}</div>
               <div class="evaluation-percent">%</div>
             </div>
           </div>
-
-          <div v-if="layoutStrengths.length" class="tag-block">
-            <div class="tag-block-title positive">Pros</div>
-            <div class="tag-list">
-              <span v-for="item in layoutStrengths" :key="item" class="eval-tag eval-tag-positive">{{ item }}</span>
-            </div>
-          </div>
-
-          <div v-if="layoutConcerns.length" class="tag-block">
-            <div class="tag-block-title negative">Watchouts</div>
-            <div class="tag-list">
-              <span v-for="item in layoutConcerns" :key="item" class="eval-tag eval-tag-negative">{{ item }}</span>
-            </div>
+          <div v-if="subscores" class="subscore-list">
+            <ScoreBar
+              v-for="s in subscores"
+              :key="s.id"
+              :label="s.label"
+              :score="s.score"
+              :available="s.available"
+            />
           </div>
         </div>
       </template>
@@ -270,26 +328,6 @@ function hasItems(items) {
   font-size: var(--font-size-title);
   font-weight: var(--font-weight-bold);
   color: var(--color-blue);
-}
-.layout-summary-list {
-  padding: 0;
-  list-style: none;
-  color: var(--color-text-primary);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.layout-summary-room-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.room-swatch {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  flex-shrink: 0;
 }
 .layout-summary-issues {
   margin-top: 10px;
@@ -342,26 +380,90 @@ function hasItems(items) {
   color: var(--color-blue);
   font-weight: 600;
 }
-.routine-persona-list {
-  margin-top: 4px;
+.layout-summary-list {
+  padding: 0;
+  list-style: none;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
-.routine-persona-name {
-  flex: 1;
+.layout-summary-room-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-small);
+  color: var(--color-text);
+}
+.room-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.persona-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 8px;
+}
+.persona-step-row {
+  display: grid;
+  grid-template-columns: 10px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: var(--color-surface, #fff);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.08);
+}
+.persona-step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.persona-step-name {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.persona-step-activity {
+  font-size: var(--font-size-small);
   color: var(--color-text-secondary);
+  white-space: nowrap;
 }
-.routine-persona-room {
-  color: var(--color-text-primary);
-  font-weight: 500;
-  font-size: var(--font-size-standard);
+.persona-step-activity.away {
+  font-style: italic;
+  opacity: 0.6;
+}
+.persona-step-room {
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+  opacity: 0.55;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
 }
 .evaluation-section {
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--color-border);
 }
+.subscore-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0 4px;
+}
 .evaluation-score-ring {
-  width: 96px;
-  height: 96px;
+  width: 88px;
+  height: 88px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -369,8 +471,8 @@ function hasItems(items) {
   margin: 0 auto 12px;
 }
 .evaluation-score-core {
-  width: 72px;
-  height: 72px;
+  width: 76px;
+  height: 76px;
   border-radius: 50%;
   background: white;
   display: flex;
@@ -388,40 +490,5 @@ function hasItems(items) {
   font-size: 0.85rem;
   color: var(--color-blue);
   line-height: 1;
-}
-.tag-block {
-  margin-top: 10px;
-}
-.tag-block-title {
-  margin-bottom: 6px;
-  font-size: var(--font-size-standard);
-  font-weight: 600;
-}
-.tag-block-title.positive {
-  color: #2f9e44;
-}
-.tag-block-title.negative {
-  color: #e03131;
-}
-.tag-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-.eval-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: var(--font-size-small);
-  line-height: 1.2;
-}
-.eval-tag-positive {
-  background: #ebfbee;
-  color: #2b8a3e;
-}
-.eval-tag-negative {
-  background: #fff5f5;
-  color: #c92a2a;
 }
 </style>

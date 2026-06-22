@@ -1,0 +1,10 @@
+{
+  "layoutId": "Layout-090",
+  "description": "Narrow and elongated. Living bright bedrooms dim. Deep — views through multiple spaces. No internal corridor — fully open layout. Kitchen: single-wall, no island or peninsula — counter set back from windows, moderate natural light. Cook faces the wall — back to the living and dining area. One active cook at a time. Fully open plan — no wall separates kitchen from dining and living. Living arrangement: split seating-kitchen-dining, kitchen on side wall. Seating: Two facing sofas in the central living zone with a coffee table between them; one sofa faces the kitchen/TV wall and the other faces back toward the entry.. Dining table (4 seats). TV on wall right of entry. Cook can see TV from cooking position. Diners unclear if facing the TV. Entry: direct into living, first thing visible on arrival is living area. No door between entry and living — relevant where local regulations require separation. Master suite (en-suite bathroom) — accessed via through living, no walk-in wardrobe. Master bedroom is only accessible through the living room — no direct corridor access, least private position. Master suite (en-suite bathroom) at the rear — maximum distance from entry, best acoustic separation from living activity. Storage: generous wardrobe storage. Sanitary rooms: bathroom (shower and toilet); separate WC. One bathroom plus separate WC — one person can shower while another uses the toilet. Simultaneous showering not possible. Suits: singles or couples. Not suitable for: wheelchair users (narrow elongated layout with tight bathroom access); households needing a home office with natural light (no dedicated desk space); families with more than one child (single bedroom only); people wanting bedroom privacy from living (master accessed through living zone).",
+  "not_suitable_for": [
+    "wheelchair users (narrow elongated layout with tight bathroom access)",
+    "households needing a home office with natural light (no dedicated desk space)",
+    "families with more than one child (single bedroom only)",
+    "people wanting bedroom privacy from living (master accessed through living zone)"
+  ]
+}

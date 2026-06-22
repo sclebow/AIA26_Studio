@@ -1,0 +1,10 @@
+{
+  "layoutId": "Layout-040",
+  "description": "Compact and efficient. Living bright bedrooms dim. Deep — views through multiple spaces. Short connecting link between entry and living area. Kitchen: single-wall, no island or peninsula — counter set back from windows, moderate natural light. Cook faces the wall — back to the living and dining area. One active cook at a time. Fully open plan — no wall separates kitchen from dining and living. Living arrangement: linear kitchen-dining-living, kitchen on end wall. Seating: sofa along the right side of the living area facing inward toward the centre, with armchairs near the lower living zone. Dining table (4 seats). Entry: corridor entry, first thing visible on arrival is kitchen, L-shaped corridor, short. No door between entry and living — relevant where local regulations require separation. Master suite (en-suite bathroom) — accessed via through living, no walk-in wardrobe. Master bedroom is only accessible through the living room — no direct corridor access, least private position. Master suite (en-suite bathroom) at the rear — maximum distance from entry, best acoustic separation from living activity. Storage: generous wardrobe storage. One bathroom (shower and toilet). Bathroom accessed directly from the living area — no private corridor. Single bathroom — all household members share one shower, sequential morning routine. Suits: singles or couples. Not suitable for: large families needing multiple bedrooms; households needing a home office with natural light; people requiring a bathtub; those wanting a dedicated dining space for more than 4 people.",
+  "not_suitable_for": [
+    "large families needing multiple bedrooms",
+    "households needing a home office with natural light",
+    "people requiring a bathtub",
+    "those wanting a dedicated dining space for more than 4 people"
+  ]
+}
