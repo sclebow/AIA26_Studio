@@ -5,6 +5,7 @@ Streamlit GUI: interactive floor-plan cost heatmap + agent chat.
 Run with:  streamlit run streamlit_ui.py
 Requires:  streamlit>=1.33, plotly, pandas
 """
+import base64
 import copy
 import json
 import os
@@ -19,11 +20,23 @@ from langgraph_agent import LangGraphAgent
 
 # ── page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="AIA Cost Advisor — Team 05",
+    page_title="PlanWise",
     page_icon="🏗",
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# ── logo ─────────────────────────────────────────────────────────────────────
+_LOGO_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 364 84">
+  <rect x="2" y="2" width="76" height="80" fill="none" stroke="#1e2840" stroke-width="4.5" rx="1"/>
+  <line x1="2" y1="52" x2="52" y2="52" stroke="#1e2840" stroke-width="4"/>
+  <line x1="52" y1="2" x2="52" y2="82" stroke="#1e2840" stroke-width="4"/>
+  <line x1="52" y1="67" x2="78" y2="67" stroke="#1e2840" stroke-width="3.5"/>
+  <polyline points="54,2 78,2 78,26" fill="none" stroke="#00AAAC" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="27" cy="67" r="5.5" fill="#00AAAC"/>
+  <text x="96" y="66" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif" font-size="58" font-weight="700" letter-spacing="-1.5"><tspan fill="#1e2840">Plan</tspan><tspan fill="#00AAAC">Wise</tspan></text>
+</svg>"""
+_LOGO_B64 = base64.b64encode(_LOGO_SVG.encode()).decode()
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -1201,11 +1214,9 @@ def render_sustainability_tab():
 
 # SIDEBAR
 with st.sidebar:
-    st.markdown("""
-<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1.25rem">
-  <span style="font-size:1rem;font-weight:700;letter-spacing:-0.03em;color:#111">AIA Studio</span>
-  <span style="font-size:0.55rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
-    color:#fff;background:#18181b;padding:0.12rem 0.4rem;border-radius:3px">Cost Advisor</span>
+    st.markdown(f"""
+<div style="margin-bottom:1.25rem">
+  <img src="data:image/svg+xml;base64,{_LOGO_B64}" width="148" alt="PlanWise" style="display:block"/>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1402,16 +1413,12 @@ with st.sidebar:
 # =============================================================================
 # MAIN
 # =============================================================================
-st.markdown("""
-<div style="display:flex;align-items:center;gap:0.65rem;margin-bottom:0.3rem">
-  <span style="font-size:1.55rem;font-weight:700;letter-spacing:-0.04em;color:#111">AIA Studio</span>
-  <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
-    color:#fff;background:#18181b;padding:0.18rem 0.55rem;border-radius:4px;flex-shrink:0">
-    Cost Advisor
-  </span>
+st.markdown(f"""
+<div style="margin-bottom:0.2rem">
+  <img src="data:image/svg+xml;base64,{_LOGO_B64}" width="210" alt="PlanWise" style="display:block"/>
 </div>
-<p style="font-size:0.8rem;color:#8a8880;margin:0 0 1.25rem;letter-spacing:-0.005em">
-  AI-powered cost &amp; carbon intelligence for architectural projects
+<p style="font-size:0.76rem;color:#8a8880;margin:0 0 1.25rem;letter-spacing:0.01em;font-weight:400">
+  AI cost advisor for AEC
 </p>
 """, unsafe_allow_html=True)
 
