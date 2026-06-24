@@ -1,5 +1,9 @@
 # Team 03 — Industrial Spatial Flow Agent
 
+<p align="center">
+  <img src="ramon_experiments/spatial_flow_graph_meta%202.gif" alt="Spatial Flow Graph" width="100%"/>
+</p>
+
 An AI agent that optimizes **industrial** floor plan layouts by placing equipment and analyzing spatial quality against OSHA, NFPA, and ISO standards. It connects a Python LangGraph pipeline to a Grasshopper/Rhino simulation backend via MCP (Model Context Protocol), using Swiftlet as the MCP server.
 
 **Scope: industrial only** — factories, workshops, warehouses, assembly halls, fabrication areas, clean rooms.
@@ -20,6 +24,59 @@ An AI agent that optimizes **industrial** floor plan layouts by placing equipmen
 - [Industrial Profiles](#industrial-profiles)
 - [Known Issues](#known-issues)
 - [File Structure](#file-structure)
+
+---
+
+## Web Interface (AGENT\_ui)
+
+<p align="center">
+  <img src="media/spatial_flow_noframe.gif" alt="AGENT_ui — Spatial Flow" width="100%"/>
+</p>
+
+A full-stack web app for chatting with the agent, visualizing layouts in 3D, and reviewing analysis results — all in real time.
+
+**Stack:** React 19 + Three.js frontend · FastAPI + WebSocket backend · LangGraph pipeline · pure-Python spatial analysis (no Rhino required for visibility/path/observer tools)
+
+### Key features
+
+- Natural language chat wired to the real LangGraph pipeline
+- Interactive 3D viewport with layer toggles (BEFORE / AFTER / collision / visibility / paths)
+- Pipeline panel showing live node progress
+- Draggable observer point (1.7 m person) synced with Grasshopper
+- Provider + model selector (Anthropic Haiku/Sonnet · Google Gemini Flash/Pro) switchable at runtime
+- AI Layout Generator (Sonnet) — generates floor plans from a brief, saves accepted plans
+- Benchmark dashboard — records every pipeline run, compares models across score and timing
+- 3D model export (OBJ + MTL ZIP) of the current visible layers
+- Onboarding flow (user profile + space profile)
+
+### Stress test
+
+<p align="center">
+  <video src="media/stress_test.mp4" controls width="100%"></video>
+</p>
+
+### How to run
+
+Backend (port 3000):
+
+```bash
+cd team_03/AGENT_ui/backend
+pip install -r requirements.txt
+python server.py
+```
+
+Frontend (port 5173):
+
+```bash
+cd team_03/AGENT_ui/frontend
+npm install
+npm run dev
+```
+
+Then open **http://localhost:5173**
+
+> API calls from the frontend are proxied automatically to the backend on port 3000.
+> Swiftlet/Rhino does **not** need to be running for the spatial assistant (observer, visibility, path analysis) — those run in pure Python. Rhino is only needed for `place_objects` and Grasshopper-backed simulation tools.
 
 ---
 
@@ -112,57 +169,6 @@ Edited Layout JSON:
 
 ---
 
-## Web Interface (AGENT\_ui)
-
-The web UI lives in `team_03/AGENT_ui/`. Run backend and frontend in **two separate terminals**.
-
-### Backend (port 3000)
-
-```bash
-cd team_03/AGENT_ui/backend
-pip install -r requirements.txt
-python server.py
-```
-
-### Frontend (port 5173)
-
-```bash
-cd team_03/AGENT_ui/frontend
-npm install
-npm run dev
-```
-
-Then open **http://localhost:5173**
-
-> API calls from the frontend are proxied automatically to the backend on port 3000.
-
-### Production build (optional)
-
-```bash
-cd team_03/AGENT_ui/frontend
-npm run build
-# Outputs to frontend/dist/ — served directly by the backend on port 3000
-```
-
-### Notes
-
-- The backend must be running before the frontend connects.
-- Swiftlet/Rhino **does not need to be running** to use the UI — the spatial assistant (observer, visibility, path analysis) works in pure Python. Rhino is only needed for Grasshopper-backed tools (`place_objects`, `collision-detector-grid`, etc.).
-- If Swiftlet is down, `build_context` will detect it and show a clear error in chat instead of hanging.
-- Avoid `uvicorn --reload` in development — it can leave stale workers serving old code. Use `python server.py` directly.
-
-### Key features
-
-- Natural language chat wired to the real LangGraph pipeline
-- Interactive 3D viewport with layer toggles (BEFORE / AFTER / collision / visibility / paths)
-- Pipeline panel showing live node progress
-- Draggable observer point (1.7m person) synced with Grasshopper
-- Model selector (Haiku / Sonnet) switchable at runtime
-- AI Layout Generator (Sonnet) — generates floor plans from a brief, saves accepted plans
-- Onboarding flow (user profile + space profile)
-
----
-
 ## Interactive Graph Visualizer
 
 Live HTML visualization of the spatial graph. No server framework required. Runs at `http://127.0.0.1:7477`.
@@ -209,7 +215,7 @@ python test_spatial_graph.py --session
 4. **Populate Agent** (optional) — if the prompt contains `populate` / `fill` / `generate layout`, splits the space into functional zones and fills each one.
 5. **Reason** — the LLM decides whether to place objects, call tools, or query.
 6. **Parallel analysis** (5 tools):
-   - Collision (BFS grid, 0.10m resolution)
+   - Collision (BFS grid, 0.10 m resolution)
    - Visibility (isovist + sightlines, 72 rays)
    - Paths (BFS room-level + A* with furniture)
    - Ergonomic reachability
@@ -282,6 +288,7 @@ The agent recalls rules and preferences across sessions for the same layout.
 team_03/
   README.md                       # This file
   CLAUDE.md                       # Full technical documentation
+  media/                          # GIFs and videos for this README
   python/
     main.py                       # CLI entry point
     graph.py                      # LangGraph StateGraph
