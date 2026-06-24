@@ -34,12 +34,18 @@ st.markdown("""
     color: #111111;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 }
-.stApp * { color: #111111 !important; }
+.stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5,
+.stApp label, .stApp td, .stApp th { color: #111111; }
 .block-container { padding-top: 1.5rem !important; }
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */
 section[data-testid="stSidebar"] { background: #eeeee9; border-right: 1px solid #e0e0db; }
-section[data-testid="stSidebar"] * { color: #111111 !important; }
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] h4 { color: #111111; }
 
 /* ── Headings ────────────────────────────────────────────────────────────── */
 h1, h2, h3, h4, h5 {
@@ -187,6 +193,293 @@ button[kind="primary"] * { color: #ffffff !important; }
     border-color: #ddddd8 !important;
 }
 [data-baseweb="select"] svg { fill: #888888 !important; }
+
+/* ── Three-panel division cards ──────────────────────────────────────────────── */
+/* Each top-level column appears as a floating white card */
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid #e2e2dc;
+    border-top: 2.5px solid #111111;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04);
+}
+
+/* Reset inner nested columns — no card effect, just clean content */
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+    background: transparent !important;
+    border: none !important;
+    border-top: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+}
+
+/* Thin vertical separator between inner side-by-side columns */
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:not(:last-child) {
+    border-right: 1px solid #ededea !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ── Design System v2 — overrides and new tokens ───────────────────────────────
+st.markdown("""
+<style>
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
+:root {
+  --bg:           #f4f3ef;
+  --card:         #ffffff;
+  --sidebar-bg:   #f9f8f5;
+  --border:       #e5e2db;
+  --border-light: #eeebe4;
+  --text:         #111111;
+  --text-2:       #3d3c39;
+  --muted:        #8a8880;
+  --accent:       #18181b;
+  --accent-2:     #2563eb;
+  --accent-bg:    #eff6ff;
+  --r-xs: 4px;  --r-sm: 8px;  --r: 12px;  --r-lg: 16px;
+  --s-xs: 0 1px 2px rgba(0,0,0,0.05);
+  --s-sm: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04);
+  --s:    0 2px 8px rgba(0,0,0,0.07), 0 8px 24px rgba(0,0,0,0.04);
+  --s-lg: 0 4px 16px rgba(0,0,0,0.09), 0 16px 40px rgba(0,0,0,0.05);
+  --font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ============================================================
+   GLOBAL BASE
+   ============================================================ */
+/* Inter for UI text */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* Material Symbols Rounded — restores Streamlit expander arrow icons */
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=block');
+
+/* Restore Material Symbols so expander arrows render as glyphs, not text */
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded' !important;
+  font-weight: normal !important;
+  font-style: normal !important;
+  font-size: 1.2rem !important;
+  line-height: 1 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  display: inline-block !important;
+  white-space: nowrap !important;
+  direction: ltr !important;
+  -webkit-font-smoothing: antialiased !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
+}
+
+.stApp { background: var(--bg) !important; font-family: var(--font); }
+
+/* Apply Inter to text elements only — preserve icon font classes */
+.stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
+.stApp label, .stApp button, .stApp input, .stApp textarea, .stApp select,
+.stApp td, .stApp th, .stApp li { font-family: var(--font); }
+
+.block-container { padding-top: 1.75rem !important; padding-bottom: 2.5rem !important; max-width: none !important; }
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+section[data-testid="stSidebar"] {
+  background: var(--sidebar-bg) !important;
+  border-right: 1px solid var(--border) !important;
+}
+section[data-testid="stSidebar"] > div { padding: 1.5rem 1.1rem !important; }
+section[data-testid="stSidebar"] * { color: var(--text) !important; }
+
+/* ============================================================
+   TYPOGRAPHY
+   ============================================================ */
+h1,h2,h3,h4,h5 { font-family: var(--font) !important; letter-spacing: -0.025em !important; color: var(--text) !important; }
+h4 { font-size: 1rem !important; font-weight: 600 !important; margin-top: 0.6rem !important; }
+
+/* ============================================================
+   METRICS — card-style
+   ============================================================ */
+[data-testid="stMetric"] {
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-sm) !important;
+  padding: 0.85rem 1rem !important;
+  box-shadow: var(--s-xs) !important;
+}
+[data-testid="stMetricLabel"] {
+  font-size: 0.65rem !important; font-weight: 700 !important;
+  text-transform: uppercase !important; letter-spacing: 0.09em !important;
+  color: var(--muted) !important;
+}
+[data-testid="stMetricValue"] {
+  font-size: 1.45rem !important; font-weight: 700 !important;
+  letter-spacing: -0.03em !important; color: var(--text) !important;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+[data-testid="stBaseButton-primary"], button[kind="primary"] {
+  background: var(--accent) !important; color: #fff !important;
+  border: 1px solid var(--accent) !important; border-radius: var(--r-sm) !important;
+  font-size: 0.875rem !important; font-weight: 500 !important;
+  letter-spacing: 0.005em !important; box-shadow: var(--s-xs) !important;
+  transition: background 0.15s, box-shadow 0.15s !important;
+}
+[data-testid="stBaseButton-primary"] *, button[kind="primary"] * { color: #fff !important; }
+[data-testid="stBaseButton-primary"]:hover { background: #2a2a2a !important; box-shadow: var(--s-sm) !important; }
+
+[data-testid="stBaseButton-secondary"], button[kind="secondary"] {
+  background: var(--card) !important; color: var(--text-2) !important;
+  border: 1px solid var(--border) !important; border-radius: var(--r-sm) !important;
+  font-size: 0.875rem !important; font-weight: 400 !important; box-shadow: none !important;
+}
+[data-testid="stBaseButton-secondary"]:hover {
+  background: var(--bg) !important; border-color: #aaa !important; color: var(--text) !important;
+}
+
+/* ============================================================
+   INPUTS
+   ============================================================ */
+[data-testid="stFileUploaderDropzone"] {
+  background: var(--card) !important; border: 1.5px dashed var(--border) !important;
+  border-radius: var(--r-sm) !important;
+}
+[data-testid="stFileUploaderDropzone"]:hover { border-color: var(--accent-2) !important; }
+
+[data-baseweb="select"] > div {
+  background: var(--card) !important; border-color: var(--border) !important;
+  border-radius: var(--r-sm) !important; color: var(--text) !important;
+}
+[data-baseweb="select"] [data-testid="stSelectboxVirtualDropdown"],
+[data-baseweb="popover"] ul, [data-baseweb="popover"] li {
+  background: var(--card) !important; color: var(--text) !important; border-color: var(--border) !important;
+}
+[data-baseweb="select"] svg { fill: var(--muted) !important; }
+
+/* ============================================================
+   EXPANDERS
+   ============================================================ */
+[data-testid="stExpander"] details {
+  background: var(--card) !important; border: 1px solid var(--border) !important;
+  border-radius: var(--r) !important; box-shadow: var(--s-xs) !important;
+}
+[data-testid="stExpander"] summary {
+  font-size: 0.875rem !important; font-weight: 500 !important;
+  letter-spacing: -0.01em !important; color: var(--text-2) !important;
+}
+
+/* ============================================================
+   CHAT
+   ============================================================ */
+[data-testid="stChatInput"] {
+  background: var(--card) !important; border: 1.5px solid var(--border) !important;
+  border-radius: var(--r-sm) !important; box-shadow: var(--s-xs) !important;
+}
+[data-testid="stChatInput"] > div,
+[data-testid="stChatInput"] form,
+[data-testid="stChatInput"] section { background: var(--card) !important; }
+[data-testid="stChatInput"] button { background: transparent !important; border: none !important; }
+[data-testid="stChatInput"] textarea, [data-baseweb="textarea"] textarea {
+  background: var(--card) !important; color: var(--text) !important;
+  font-size: 0.875rem !important; border: none !important;
+}
+[data-testid="stChatMessageContent"] {
+  background: #f0efe9 !important; border: 1px solid var(--border-light) !important;
+  border-radius: var(--r) !important; font-size: 0.875rem !important; line-height: 1.6 !important;
+}
+
+/* ============================================================
+   TABLES & DATA
+   ============================================================ */
+[data-testid="stDataFrame"] *, [data-testid="stTable"] * {
+  background: var(--card) !important; color: var(--text) !important;
+  border-color: var(--border-light) !important;
+}
+[data-testid="stTable"] { border-radius: var(--r) !important; overflow: hidden !important; }
+
+/* ============================================================
+   MISC
+   ============================================================ */
+hr { border-color: var(--border-light) !important; margin: 0.9rem 0 !important; }
+.stCaption, small { color: var(--muted) !important; font-size: 0.78rem !important; }
+[data-testid="stAlertContainer"] { border-radius: var(--r-sm) !important; }
+
+/* ============================================================
+   THREE-PANEL CARDS  (overrides previous block)
+   ============================================================ */
+
+/* Outer panel cards — the three visible divisions */
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+  background: var(--card) !important;
+  border-radius: var(--r-lg) !important;
+  border: 1px solid var(--border) !important;
+  border-top: 2px solid var(--accent) !important;
+  box-shadow: var(--s) !important;
+  padding: 1.5rem 1.5rem 1.75rem !important;   /* clear breathing room inside each panel */
+}
+
+/* Inner nested columns — no card, no extra padding */
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+  background: transparent !important; border: none !important;
+  border-top: none !important; box-shadow: none !important;
+  border-radius: 0 !important; padding: 0 0.5rem !important;
+}
+
+/* Thin separator between inner side-by-side columns */
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:not(:last-child) {
+  border-right: 1px solid var(--border-light) !important;
+  padding-right: 1rem !important;
+}
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:not(:first-child) {
+  padding-left: 1rem !important;
+}
+
+/* ============================================================
+   COMPONENT CLASSES  (used via st.markdown unsafe_allow_html)
+   ============================================================ */
+
+/* Section label with extending rule */
+.section-lbl {
+  font-size: 0.62rem; font-weight: 700; color: var(--muted);
+  letter-spacing: 0.13em; text-transform: uppercase;
+  margin: 0.75rem 0 0.6rem; display: flex; align-items: center; gap: 0.55rem;
+}
+.section-lbl::after { content: ''; flex: 1; height: 1px; background: var(--border-light); }
+
+/* Sidebar card wrapper */
+.sb-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--r-sm);
+  padding: 0.9rem 1rem; margin-bottom: 0.5rem; box-shadow: var(--s-xs);
+}
+
+/* Project title in sidebar */
+.proj-title {
+  font-size: 0.88rem; font-weight: 600; color: var(--text);
+  letter-spacing: -0.01em; margin: 0 0 0.6rem; line-height: 1.3;
+}
+
+/* kv rows for room cards */
+.kv-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.28rem 0; border-bottom: 1px solid var(--border-light); font-size: 0.84rem; gap: 0.5rem;
+}
+.kv-row:last-child { border-bottom: none; }
+.kv-key { color: var(--muted); }
+.kv-val { color: var(--text); font-weight: 600; text-align: right; }
+
+/* Room card */
+.room-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--r-sm);
+  padding: 0.85rem 1rem; margin-top: 0.4rem; box-shadow: var(--s-xs);
+}
+.room-card h4 { margin: 0 0 0.45rem; font-size: 0.95rem; font-weight: 600; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1200px) {
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] { border-radius: var(--r) !important; }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -908,7 +1201,15 @@ def render_sustainability_tab():
 
 # SIDEBAR
 with st.sidebar:
-    st.markdown("### Load Layouts")
+    st.markdown("""
+<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1.25rem">
+  <span style="font-size:1rem;font-weight:700;letter-spacing:-0.03em;color:#111">AIA Studio</span>
+  <span style="font-size:0.55rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+    color:#fff;background:#18181b;padding:0.12rem 0.4rem;border-radius:3px">Cost Advisor</span>
+</div>
+""", unsafe_allow_html=True)
+
+    st.markdown('<p class="section-lbl">Load Layouts</p>', unsafe_allow_html=True)
     uploads = st.file_uploader(
         "Layout JSON files",
         type=["json"],
@@ -917,11 +1218,8 @@ with st.sidebar:
         key="layout_uploader_main"
     )
 
-
-    # 1. Global Sensitivity Engine (Top-level, stable location)
-    st.divider()
-    st.markdown("### Global Sensitivity Engine")
-
+    # 1. Global Sensitivity Engine
+    st.markdown('<p class="section-lbl">Sensitivity Engine</p>', unsafe_allow_html=True)
     st.slider("Labor Cost Multiplier", 0.8, 1.5, 1.0, 0.05, key="labor")
     st.slider("Material Inflation (%)", 0, 20, 0, 1, key="inflation")
     st.slider("Carbon Tax ($/tCO2e)", 0, 200, 0, 5, key="carbon_tax")
@@ -933,9 +1231,8 @@ with st.sidebar:
     }
 
     # 2. Currency selector
-    st.divider()
-    st.markdown("### Display Currency")
-    st.caption("All rates are stored in AED. Select a currency to convert displayed costs.")
+    st.markdown('<p class="section-lbl">Display Currency</p>', unsafe_allow_html=True)
+    st.caption("Rates stored in AED — select to convert.")
     _CURRENCIES = {
         "AED — Arab Emirates Dirham": ("AED",  1.000),
         "USD — US Dollar":            ("USD",  0.272),
@@ -987,7 +1284,7 @@ with st.sidebar:
             st.error("Failed to parse: " + ", ".join(failed_names[:3]))
 
     # 3. Plan Selection & Analysis
-    st.divider()
+    st.markdown('<p class="section-lbl">Active Plan</p>', unsafe_allow_html=True)
     if st.session_state.layouts:
         plan_keys = list(st.session_state.layouts.keys())
         current_selection = st.session_state.selected_plan_key
@@ -995,7 +1292,7 @@ with st.sidebar:
             current_selection = plan_keys[0]
             st.session_state.selected_plan_key = current_selection
 
-        chosen_key = st.selectbox("Active plan", options=plan_keys, index=plan_keys.index(current_selection))
+        chosen_key = st.selectbox("Active plan", options=plan_keys, index=plan_keys.index(current_selection), label_visibility="collapsed")
 
         if chosen_key != st.session_state.selected_plan_key:
             st.session_state.selected_plan_key = chosen_key
@@ -1012,7 +1309,9 @@ with st.sidebar:
         _sb_code = st.session_state.get("currency_code", "AED")
         _sb_factor = st.session_state.get("currency_factor", 1.0)
 
-        st.markdown(f"**{proj.get('name','')}**")
+        _proj_name = proj.get('name', '')
+        if _proj_name:
+            st.markdown(f'<p class="proj-title">{_proj_name}</p>', unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         c1.metric("Rooms", len(rooms))
         c2.metric("Footprint", f"{proj.get('footprint_m2', 0):.0f} m²")
@@ -1020,7 +1319,7 @@ with st.sidebar:
         if grand != room_total:
             st.metric("Grand total", f"{grand * _sb_factor:,.0f} {_sb_code}")
 
-        st.divider()
+        st.markdown('<div style="height:0.4rem"></div>', unsafe_allow_html=True)
 
         if st.button("Analyze All Saved Plans", use_container_width=True):
             from swiftlet_mcp import push_layout_to_grasshopper
@@ -1046,9 +1345,8 @@ with st.sidebar:
         st.info("Upload JSON files to begin.")
 
     # ── Client DNA ───────────────────────────────────────────────────────────
-    st.divider()
-    st.markdown("### Client DNA")
-    st.caption("Upload up to 3 past project CSVs to learn this client's spending habits.")
+    st.markdown('<p class="section-lbl">Client DNA</p>', unsafe_allow_html=True)
+    st.caption("Upload past project CSVs to learn spending habits (max 3).")
 
     _dna_uploads = st.file_uploader(
         "Past project CSVs (max 3)",
@@ -1104,168 +1402,246 @@ with st.sidebar:
 # =============================================================================
 # MAIN
 # =============================================================================
-st.markdown(
-    '<h2 style="font-size:1.35rem;font-weight:400;letter-spacing:-0.02em;'
-    'color:#111;margin:0 0 0.15rem 0">AIA Studio '
-    '<span style="color:#cccccc">·</span> Cost Advisor</h2>',
-    unsafe_allow_html=True,
-)
-st.caption("Upload a layout in the sidebar to begin")
+st.markdown("""
+<div style="display:flex;align-items:center;gap:0.65rem;margin-bottom:0.3rem">
+  <span style="font-size:1.55rem;font-weight:700;letter-spacing:-0.04em;color:#111">AIA Studio</span>
+  <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+    color:#fff;background:#18181b;padding:0.18rem 0.55rem;border-radius:4px;flex-shrink:0">
+    Cost Advisor
+  </span>
+</div>
+<p style="font-size:0.8rem;color:#8a8880;margin:0 0 1.25rem;letter-spacing:-0.005em">
+  AI-powered cost &amp; carbon intelligence for architectural projects
+</p>
+""", unsafe_allow_html=True)
 
-with st.expander("📖 Welcome! How to use this interface", expanded=(not st.session_state.layout)):
+with st.expander("How to use this interface", expanded=(not st.session_state.layout)):
     st.markdown("""
-    **Welcome to the Interactive Cost & Carbon Advisor. Here is how to navigate the tools:**
+**Get started in 3 steps:**
+1. **Upload** a `layout.json` file using the sidebar — the floor plan heatmap will appear instantly.
+2. **Adjust** Labor, Inflation, and Carbon Tax sliders to model real-world cost sensitivity.
+3. **Ask** the Agent Chat anything: *"Set master bedroom floor to marble"*, *"What's the total cost?"*
 
-    * **⬅️ Sidebar | Load Layouts:** Start by uploading one or multiple `layout.json` files. You can manage multiple plans (max 5) and easily switch between them.
-    * **🎛️ Sidebar | Global Sensitivity Engine:** Adjust real-world economic factors like Labor Cost, Material Inflation, and Carbon Tax. Watch the tables and charts update instantly!
-    * **🗺️ Floor Plan & Chat Tab:** Toggle between 2D and 3D heatmaps of your project. Click any room to see its specific metrics. Use the **Agent Chat** on the right to ask the AI questions or assign materials (e.g., *"Set the living room floor finish to hardwood"*).
-    * **🧱 Architectural Advice Tab:** View a smart table of all materials used in your project, complete with fire ratings, carbon footprints, and lower-carbon alternatives. Check the **Carbon Budget Tracker** to see if you meet RIBA 2030 targets.
-    * **🌱 Sustainability Analysis Tab:** Compare Cost vs. Carbon across all your uploaded plans at once to find the most efficient design iteration.
-    * **🎯 Cost Matching Tab:** Over budget? Enter your target cost, and the algorithm will suggest specific material swaps to hit your financial goals.
+**Right panel tabs:** Architectural Advice · Sustainability Analysis · Cost Matching · Client DNA
     """)
 
-st.divider()
+st.markdown('<div style="height:0.5rem"></div>', unsafe_allow_html=True)
 
 # =============================================================================
-# TWO-COLUMN LAYOUT: Heatmap (left, always visible) | Vertical Tabs (right)
+# TWO-COLUMN LAYOUT: Main (left) | Vertical Tabs (right)
 # =============================================================================
-col_heatmap, col_panel = st.columns([5, 2], gap="large")
+col_main, col_panel = st.columns([5, 2], gap="large")
 
-# ── LEFT: Always-visible heatmap ─────────────────────────────────────────────
-with col_heatmap:
+# ── LEFT: Heatmap + Chat (top row) | Cost Table (bottom) ─────────────────────
+with col_main:
+    st.markdown('<p class="section-lbl">Floor Plan · Cost Analysis</p>', unsafe_allow_html=True)
     if st.session_state.layout:
-        st.markdown("#### Floor Plan — Cost Heatmap")
 
-        view_mode = st.radio(
-            "Visualization Mode",
-            ["2D Flat Floorplan", "Interactive 3D Skyline"],
-            horizontal=True,
-            key="view_mode_main",
-        )
+        # ── TOP ROW: Heatmap (left) and Agent Chat (right) side by side ───────
+        col_heatmap_inner, col_chat_inner = st.columns([3, 2], gap="medium")
 
-        if "3D" in view_mode:
-            st.caption("Drag to rotate, scroll to zoom. Z-height represents total room cost.")
-            render_3d_heatmap(st.session_state.layout, "skyline")
-        else:
-            st.caption("Colors from Grasshopper. Click a room to select it.")
+        # ── HEATMAP PANEL ─────────────────────────────────────────────────────
+        with col_heatmap_inner:
+            st.markdown('<p class="section-lbl">Cost Heatmap</p>', unsafe_allow_html=True)
 
-            sel_id = (st.session_state.selected_room or {}).get("id")
-            fig    = build_floor_plan(st.session_state.layout, sel_id, plot_height=560)
+            view_mode = st.radio(
+                "Visualization Mode",
+                ["2D Flat Floorplan", "Interactive 3D Skyline"],
+                horizontal=True,
+                key="view_mode_main",
+            )
 
-            _sel_el = st.session_state.get("selected_element")
-            if _sel_el and _sel_el.get("cx") is not None:
-                _ann_cost = float(_sel_el.get("cost") or 0)
-                _ann_cur  = _sel_el.get("currency", "")
-                _ann_type = _sel_el.get("type", "")
-                _ann_name = _sel_el.get("name", "")
-                if _ann_type == "room":
-                    _ann_text = (
-                        f"<b>{_ann_name}</b><br>"
-                        f"Cost: {_ann_cost:,.0f} {_ann_cur}<br>"
-                        f"Area: {_sel_el.get('area', 0):.1f} m²<br>"
-                        f"Rate: {_sel_el.get('rate', 0):,.0f} {_ann_cur}/m²"
+            if "3D" in view_mode:
+                st.caption("Drag to rotate, scroll to zoom. Z-height represents total room cost.")
+                render_3d_heatmap(st.session_state.layout, "skyline")
+            else:
+                st.caption("Colors from Grasshopper. Click a room to select it.")
+
+                sel_id = (st.session_state.selected_room or {}).get("id")
+                fig    = build_floor_plan(st.session_state.layout, sel_id, plot_height=500)
+
+                _sel_el = st.session_state.get("selected_element")
+                if _sel_el and _sel_el.get("cx") is not None:
+                    _ann_cost = float(_sel_el.get("cost") or 0)
+                    _ann_cur  = _sel_el.get("currency", "")
+                    _ann_type = _sel_el.get("type", "")
+                    _ann_name = _sel_el.get("name", "")
+                    if _ann_type == "room":
+                        _ann_text = (
+                            f"<b>{_ann_name}</b><br>"
+                            f"Cost: {_ann_cost:,.0f} {_ann_cur}<br>"
+                            f"Area: {_sel_el.get('area', 0):.1f} m²<br>"
+                            f"Rate: {_sel_el.get('rate', 0):,.0f} {_ann_cur}/m²"
+                        )
+                    else:
+                        _ann_text = (
+                            f"<b>{_ann_type.capitalize()}</b> · {_ann_name}<br>"
+                            f"Cost: {_ann_cost:,.0f} {_ann_cur}"
+                        )
+                    fig.add_annotation(
+                        x=_sel_el["cx"], y=_sel_el["cy"],
+                        text=_ann_text,
+                        showarrow=True,
+                        arrowhead=2,
+                        arrowcolor="#4a90d9",
+                        arrowwidth=1.5,
+                        bgcolor="white",
+                        bordercolor="#4a90d9",
+                        borderwidth=1.5,
+                        borderpad=6,
+                        font=dict(size=10, color="#1a1a2e"),
+                        align="left",
+                        ax=60, ay=-60,
+                        xanchor="left",
                     )
-                else:
-                    _ann_text = (
-                        f"<b>{_ann_type.capitalize()}</b> · {_ann_name}<br>"
-                        f"Cost: {_ann_cost:,.0f} {_ann_cur}"
+
+                plan_col, legend_col = st.columns([5, 1], gap="small")
+
+                with legend_col:
+                    st.markdown(
+                        '<div style="padding-top:2.5rem">'
+                        + build_gh_legend(st.session_state.layout)
+                        + "</div>",
+                        unsafe_allow_html=True,
                     )
-                fig.add_annotation(
-                    x=_sel_el["cx"], y=_sel_el["cy"],
-                    text=_ann_text,
-                    showarrow=True,
-                    arrowhead=2,
-                    arrowcolor="#4a90d9",
-                    arrowwidth=1.5,
-                    bgcolor="white",
-                    bordercolor="#4a90d9",
-                    borderwidth=1.5,
-                    borderpad=6,
-                    font=dict(size=10, color="#1a1a2e"),
-                    align="left",
-                    ax=60, ay=-60,
-                    xanchor="left",
-                )
 
-            plan_col, legend_col = st.columns([5, 1], gap="small")
+                with plan_col:
+                    try:
+                        event = st.plotly_chart(
+                            fig, use_container_width=True,
+                            on_select="rerun", key="floor_plan_chart",
+                        )
+                        if event:
+                            pts = (event.get("selection") or {}).get("points", [])
+                            if pts:
+                                cd = pts[0].get("customdata", [])
+                                if cd and len(cd) >= 4:
+                                    el_id    = cd[0]
+                                    el_type  = cd[1]
+                                    el_name  = cd[2]
+                                    el_cost  = float(cd[3] or 0)
+                                    currency = (st.session_state.layout or {}).get("project", {}).get("currency", "")
 
-            with legend_col:
-                st.markdown(
-                    '<div style="padding-top:2.5rem">'
-                    + build_gh_legend(st.session_state.layout)
-                    + "</div>",
-                    unsafe_allow_html=True,
-                )
+                                    def _centroid(poly: list) -> tuple:
+                                        if not poly:
+                                            return (0, 0)
+                                        return (
+                                            sum(p[0] for p in poly) / len(poly),
+                                            sum(p[1] for p in poly) / len(poly),
+                                        )
 
-            with plan_col:
-                try:
-                    event = st.plotly_chart(
-                        fig, use_container_width=True,
-                        on_select="rerun", key="floor_plan_chart",
-                    )
-                    if event:
-                        pts = (event.get("selection") or {}).get("points", [])
-                        if pts:
-                            cd = pts[0].get("customdata", [])
-                            if cd and len(cd) >= 4:
-                                el_id    = cd[0]
-                                el_type  = cd[1]
-                                el_name  = cd[2]
-                                el_cost  = float(cd[3] or 0)
-                                currency = (st.session_state.layout or {}).get("project", {}).get("currency", "")
-
-                                def _centroid(poly: list) -> tuple:
-                                    if not poly:
-                                        return (0, 0)
-                                    return (
-                                        sum(p[0] for p in poly) / len(poly),
-                                        sum(p[1] for p in poly) / len(poly),
-                                    )
-
-                                if el_type == "room":
-                                    all_rooms = st.session_state.layout.get("rooms", [])
-                                    room = next((r for r in all_rooms if r.get("id") == el_id), None)
-                                    if room:
-                                        cx, cy = _centroid(room.get("polygon", []))
-                                        st.session_state.selected_room = room
+                                    if el_type == "room":
+                                        all_rooms = st.session_state.layout.get("rooms", [])
+                                        room = next((r for r in all_rooms if r.get("id") == el_id), None)
+                                        if room:
+                                            cx, cy = _centroid(room.get("polygon", []))
+                                            st.session_state.selected_room = room
+                                            st.session_state.selected_element = {
+                                                "type": "room",
+                                                "id": el_id,
+                                                "name": room.get("name", el_name),
+                                                "cost": room.get("total_cost", el_cost),
+                                                "area": room.get("area_m2", 0),
+                                                "rate": room.get("rate_per_m2", 0),
+                                                "category": room.get("category", ""),
+                                                "currency": currency,
+                                                "cx": cx, "cy": cy,
+                                            }
+                                    else:
+                                        all_ops = (
+                                            st.session_state.layout.get("openings", [])
+                                            + st.session_state.layout.get("columns", [])
+                                        )
+                                        el_obj = next((o for o in all_ops if o.get("id") == el_id), None)
+                                        cx, cy = _centroid((el_obj or {}).get("polygon", []))
+                                        st.session_state.selected_room = None
                                         st.session_state.selected_element = {
-                                            "type": "room",
+                                            "type": el_type,
                                             "id": el_id,
-                                            "name": room.get("name", el_name),
-                                            "cost": room.get("total_cost", el_cost),
-                                            "area": room.get("area_m2", 0),
-                                            "rate": room.get("rate_per_m2", 0),
-                                            "category": room.get("category", ""),
+                                            "name": el_name or el_type.capitalize(),
+                                            "cost": el_cost,
+                                            "area": 0.0,
+                                            "rate": 0.0,
+                                            "category": "",
                                             "currency": currency,
                                             "cx": cx, "cy": cy,
                                         }
-                                else:
-                                    all_ops = (
-                                        st.session_state.layout.get("openings", [])
-                                        + st.session_state.layout.get("columns", [])
-                                    )
-                                    el_obj = next((o for o in all_ops if o.get("id") == el_id), None)
-                                    cx, cy = _centroid((el_obj or {}).get("polygon", []))
-                                    st.session_state.selected_room = None
-                                    st.session_state.selected_element = {
-                                        "type": el_type,
-                                        "id": el_id,
-                                        "name": el_name or el_type.capitalize(),
-                                        "cost": el_cost,
-                                        "area": 0.0,
-                                        "rate": 0.0,
-                                        "category": "",
-                                        "currency": currency,
-                                        "cx": cx, "cy": cy,
-                                    }
-                                st.rerun()
-                except TypeError:
-                    st.plotly_chart(fig, use_container_width=True)
+                                    st.rerun()
+                    except TypeError:
+                        st.plotly_chart(fig, use_container_width=True)
 
-        # Element info panel — appears below chart when any element is clicked
-        _render_element_panel()
+            # Element info panel — appears below chart when any element is clicked
+            _render_element_panel()
 
-        # Cost breakdown table
+        # ── AGENT CHAT PANEL ──────────────────────────────────────────────────
+        with col_chat_inner:
+            st.markdown('<p class="section-lbl">Agent Chat</p>', unsafe_allow_html=True)
+            if st.session_state.selected_plan_key:
+                st.caption(f"Active: {st.session_state.selected_plan_key}")
+
+            chat_area = st.container(height=560)
+            with chat_area:
+                if st.session_state.messages:
+                    render_chat()
+                else:
+                    st.caption("Ask a question or click a room to start.")
+
+            pending = st.session_state.pop("pending_prompt", "") \
+                      if "pending_prompt" in st.session_state else ""
+
+            user_text = st.chat_input(
+                placeholder='e.g. "bedroom 3 floor finish marble" or "total cost?"',
+                key="chat_input",
+            )
+
+            if pending and not user_text:
+                user_text = pending
+
+            if user_text and user_text.strip():
+                st.session_state.messages.append({"role": "user", "content": user_text.strip()})
+                with chat_area:
+                    with st.chat_message("user"):
+                        st.markdown(user_text.strip())
+                    with st.chat_message("assistant"):
+                        placeholder = st.empty()
+                        placeholder.markdown("_Thinking..._")
+                reply = None
+                gh_synced = False
+                try:
+                    reply = st.session_state.agent.process(
+                        user_text.strip(),
+                        layout=st.session_state.layout,
+                        plans=st.session_state.layouts,
+                        active_plan_key=st.session_state.selected_plan_key,
+                        history=st.session_state.messages[:-1],
+                        client_profile=st.session_state.get("client_profile") or None,
+                    )
+                    updated = st.session_state.agent.get_updated_layout()
+                    if updated is not None and st.session_state.layout is not None:
+                        st.session_state.layout = _merge_gh_colors(
+                            st.session_state.layout, updated
+                        )
+                        if st.session_state.selected_plan_key in st.session_state.layouts:
+                            st.session_state.layouts[st.session_state.selected_plan_key] = st.session_state.layout
+                        st.session_state.selected_room = None
+                        _write_gh_file(st.session_state.layout)
+                        gh_synced = True
+                except Exception as exc:
+                    reply = f"Agent error: {exc}"
+                finally:
+                    if reply is not None:
+                        placeholder.markdown(reply)
+                        st.session_state.messages.append({"role": "assistant", "content": reply})
+                if gh_synced:
+                    st.toast("Heatmap & Grasshopper synced", icon="✅")
+                st.rerun()
+
+            if st.button("Clear conversation", use_container_width=True, key="clear_chat_main"):
+                st.session_state.messages = []
+                st.rerun()
+
+        # ── COST BREAKDOWN TABLE (full width below both panels) ────────────────
+        st.divider()
         if st.session_state.get("client_applied"):
             st.info("Client DNA template applied. Rates and costs below reflect the client's spending profile.")
         with st.expander("Cost Breakdown Table", expanded=True):
@@ -1275,72 +1651,6 @@ with col_heatmap:
             else:
                 st.info("No cost data available in this layout.")
 
-        # ── Agent Chat (below heatmap) ────────────────────────────────────────
-        st.divider()
-        st.markdown("#### Agent Chat")
-        if st.session_state.selected_plan_key:
-            st.caption(f"Analyzing: {st.session_state.selected_plan_key}")
-
-        chat_area = st.container(height=340)
-        with chat_area:
-            if st.session_state.messages:
-                render_chat()
-            else:
-                st.caption("Ask a question or click a room to start.")
-
-        pending = st.session_state.pop("pending_prompt", "") \
-                  if "pending_prompt" in st.session_state else ""
-
-        user_text = st.chat_input(
-            placeholder='e.g. "bedroom 3 floor finish marble" or "total cost?"',
-            key="chat_input",
-        )
-
-        if pending and not user_text:
-            user_text = pending
-
-        if user_text and user_text.strip():
-            st.session_state.messages.append({"role": "user", "content": user_text.strip()})
-            with chat_area:
-                with st.chat_message("user"):
-                    st.markdown(user_text.strip())
-                with st.chat_message("assistant"):
-                    placeholder = st.empty()
-                    placeholder.markdown("_Thinking..._")
-            reply = None
-            gh_synced = False
-            try:
-                reply = st.session_state.agent.process(
-                    user_text.strip(),
-                    layout=st.session_state.layout,
-                    plans=st.session_state.layouts,
-                    active_plan_key=st.session_state.selected_plan_key,
-                    history=st.session_state.messages[:-1],
-                    client_profile=st.session_state.get("client_profile") or None,
-                )
-                updated = st.session_state.agent.get_updated_layout()
-                if updated is not None and st.session_state.layout is not None:
-                    st.session_state.layout = _merge_gh_colors(
-                        st.session_state.layout, updated
-                    )
-                    if st.session_state.selected_plan_key in st.session_state.layouts:
-                        st.session_state.layouts[st.session_state.selected_plan_key] = st.session_state.layout
-                    st.session_state.selected_room = None
-                    _write_gh_file(st.session_state.layout)
-                    gh_synced = True
-            except Exception as exc:
-                reply = f"Agent error: {exc}"
-            finally:
-                if reply is not None:
-                    placeholder.markdown(reply)
-                    st.session_state.messages.append({"role": "assistant", "content": reply})
-            if gh_synced:
-                st.toast("Heatmap & Grasshopper synced", icon="✅")
-            st.rerun()
-
-        if st.button("Clear conversation", use_container_width=True, key="clear_chat_main"):
-            st.session_state.messages = []
-            st.rerun()
     else:
         st.info("Upload a layout in the sidebar to see the heatmap.")
 
@@ -1353,11 +1663,7 @@ with col_panel:
         "Cost Matching",
         "Client DNA",
     ]
-    st.markdown(
-        '<p style="font-size:0.68rem;color:#aaaaaa;letter-spacing:0.12em;'
-        'text-transform:uppercase;margin:0 0 0.6rem 0">Navigate</p>',
-        unsafe_allow_html=True,
-    )
+    st.markdown('<p class="section-lbl">Analysis · Navigate</p>', unsafe_allow_html=True)
     for _tab_name in _NAV_TABS:
         _is_active = st.session_state.get("active_tab") == _tab_name
         if st.button(

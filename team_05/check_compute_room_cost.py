@@ -19,4 +19,4 @@ for t in tools:
         print(f"\n  Input Schema:")
         schema = t.get('inputSchema', {})
         print(json.dumps(schema, indent=4))
-        print("\n" + "-" * 80)
+        print("\n" + "-" * 80)conda
