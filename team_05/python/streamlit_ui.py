@@ -66,33 +66,44 @@ st.markdown("""
 
 /* ── TOKENS ──────────────────────────────────────────────────────────────── */
 :root {
+  /* ── Backgrounds ── */
   --bg:        #1e2a45;
   --bg-text:   #c8ccdc;
   --card:      #ffffff;
-  --card-alt:  #faf9f6;
+  --card-alt:  #f9f8f6;
+  /* ── Sidebar ── */
   --sb-bg:     #1a2035;
   --sb-surf:   #212840;
   --sb-border: #2d3655;
   --sb-text:   #c8ccdc;
   --sb-muted:  #5c6278;
   --sb-lbl:    #3e4562;
-  --text:      #171717;
+  /* ── Text ── */
+  --text:      #1a1a1a;
   --text-2:    #404040;
   --muted:     #8a8784;
+  /* ── Accent ── */
   --teal:      #00AAAC;
   --teal-dk:   #007b80;
-  --teal-lt:   #dff6f6;
+  --teal-lt:   #e0f5f5;
   --navy:      #1a2035;
+  /* ── Status ── */
   --green:     #10b981;
   --amber:     #f59e0b;
   --red:       #ef4444;
-  --border:    #e0dbd2;
-  --border-lt: #eceae2;
-  --r-xs:3px; --r-sm:6px; --r:10px; --r-lg:14px;
-  --s-xs: 0 1px 2px rgba(0,0,0,0.05);
-  --s-sm: 0 1px 3px rgba(0,0,0,0.06),0 2px 8px rgba(0,0,0,0.04);
-  --s:    0 2px 8px rgba(0,0,0,0.06),0 8px 24px rgba(0,0,0,0.05);
-  --s-lg: 0 4px 16px rgba(0,0,0,0.09),0 16px 40px rgba(0,0,0,0.06);
+  /* ── Borders ── */
+  --border:    #e4dfd8;
+  --border-lt: #eee9e2;
+  /* ── Radius ── */
+  --r-xs:4px; --r-sm:8px; --r:12px; --r-lg:18px;
+  /* ── Shadows ── */
+  --s-xs: 0 1px 3px rgba(0,0,0,0.06);
+  --s-sm: 0 2px 6px rgba(0,0,0,0.06),0 1px 3px rgba(0,0,0,0.04);
+  --s:    0 4px 18px rgba(0,0,0,0.07),0 1px 4px rgba(0,0,0,0.04);
+  --s-lg: 0 8px 32px rgba(0,0,0,0.10),0 2px 8px rgba(0,0,0,0.06);
+  /* ── Spacing ── */
+  --sp-xs:4px; --sp-sm:8px; --sp-md:16px; --sp-lg:24px; --sp-xl:40px;
+  /* ── Font ── */
   --font: 'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 }
 
@@ -120,7 +131,7 @@ st.markdown("""
 [data-testid="stExpander"] td,[data-testid="stExpander"] th,
 [data-testid="stExpander"] li { color: var(--text) !important; }
 
-.block-container { padding-top:2rem !important; padding-bottom:3rem !important; max-width:none !important; }
+.block-container { padding-top:2.75rem !important; padding-bottom:4rem !important; padding-left:2.25rem !important; padding-right:2.25rem !important; max-width:none !important; }
 
 /* Icon font — keeps expander arrows as glyphs */
 .material-symbols-rounded {
@@ -138,7 +149,7 @@ section[data-testid="stSidebar"] {
   background: var(--sb-bg) !important;
   border-right: 1px solid var(--sb-border) !important;
 }
-section[data-testid="stSidebar"] > div { padding: 1.5rem 1.25rem !important; }
+section[data-testid="stSidebar"] > div { padding: 2rem 1.5rem 3rem !important; }
 section[data-testid="stSidebar"] p,
 section[data-testid="stSidebar"] label,
 section[data-testid="stSidebar"] h1,section[data-testid="stSidebar"] h2,
@@ -191,45 +202,46 @@ section[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover {
 
 /* ── TYPOGRAPHY ──────────────────────────────────────────────────────────── */
 h1,h2,h3,h4,h5 { font-family:var(--font) !important; letter-spacing:-0.025em !important; color:var(--bg-text) !important; }
-h4 { font-size:1rem !important; font-weight:600 !important; margin-top:0.5rem !important; }
-hr { border-color:var(--border-lt) !important; margin:1rem 0 !important; }
-.stCaption,small { color:var(--muted) !important; font-size:0.78rem !important; }
+h4 { font-size:1.05rem !important; font-weight:600 !important; margin-top:0.75rem !important; margin-bottom:0.2rem !important; }
+hr { border-color:var(--border-lt) !important; margin:1.25rem 0 !important; }
+.stCaption,small { color:var(--muted) !important; font-size:0.8rem !important; line-height:1.55 !important; }
 
 /* ── METRICS ─────────────────────────────────────────────────────────────── */
 [data-testid="stMetric"] {
   background:var(--card) !important; border:1px solid var(--border) !important;
-  border-radius:var(--r-sm) !important; padding:0.85rem 1rem !important;
+  border-radius:var(--r) !important; padding:1.1rem 1.25rem !important;
   box-shadow:var(--s-xs) !important;
 }
 [data-testid="stMetricLabel"] {
-  font-size:0.63rem !important; font-weight:700 !important;
-  text-transform:uppercase !important; letter-spacing:0.09em !important; color:var(--muted) !important;
+  font-size:0.65rem !important; font-weight:600 !important;
+  text-transform:uppercase !important; letter-spacing:0.07em !important; color:var(--muted) !important;
 }
 [data-testid="stMetricValue"] {
-  font-size:1.4rem !important; font-weight:700 !important;
-  letter-spacing:-0.03em !important; color:var(--text) !important;
+  font-size:1.6rem !important; font-weight:700 !important;
+  letter-spacing:-0.04em !important; color:var(--text) !important; line-height:1.15 !important;
 }
 
 /* ── BUTTONS ─────────────────────────────────────────────────────────────── */
 [data-testid="stBaseButton-primary"] {
   background:var(--teal) !important; color:#fff !important;
   border:1px solid var(--teal) !important; border-radius:var(--r-sm) !important;
-  font-size:0.875rem !important; font-weight:500 !important;
-  box-shadow:0 1px 3px rgba(0,170,172,0.25) !important;
+  font-size:0.875rem !important; font-weight:600 !important;
+  box-shadow:0 1px 4px rgba(0,170,172,0.28) !important;
   transition:background 0.15s,box-shadow 0.15s !important;
 }
 [data-testid="stBaseButton-primary"] * { color:#fff !important; }
 [data-testid="stBaseButton-primary"]:hover {
   background:var(--teal-dk) !important;
-  box-shadow:0 2px 8px rgba(0,170,172,0.35) !important;
+  box-shadow:0 3px 10px rgba(0,170,172,0.38) !important;
 }
 [data-testid="stBaseButton-secondary"] {
   background:var(--card) !important; color:var(--text-2) !important;
   border:1px solid var(--border) !important; border-radius:var(--r-sm) !important;
-  font-size:0.875rem !important; font-weight:400 !important; box-shadow:none !important;
+  font-size:0.875rem !important; font-weight:500 !important; box-shadow:none !important;
+  transition:border-color 0.12s,background 0.12s !important;
 }
 [data-testid="stBaseButton-secondary"]:hover {
-  background:var(--bg) !important; border-color:#b0aba2 !important; color:var(--text) !important;
+  background:var(--card-alt) !important; border-color:#c0bab2 !important; color:var(--text) !important;
 }
 
 /* ── INPUTS ──────────────────────────────────────────────────────────────── */
@@ -252,16 +264,19 @@ hr { border-color:var(--border-lt) !important; margin:1rem 0 !important; }
 [data-testid="stExpander"] details {
   background:var(--card) !important; border:1px solid var(--border) !important;
   border-radius:var(--r) !important; box-shadow:var(--s-xs) !important;
+  padding:0 0.85rem !important;
 }
 [data-testid="stExpander"] summary {
-  font-size:0.875rem !important; font-weight:500 !important;
+  font-size:0.9rem !important; font-weight:600 !important;
   letter-spacing:-0.01em !important; color:var(--text-2) !important;
+  padding:0.95rem 0 !important;
 }
 
 /* ── CHAT ────────────────────────────────────────────────────────────────── */
 [data-testid="stChatInput"] {
   background:var(--card) !important; border:1.5px solid var(--border) !important;
-  border-radius:var(--r-sm) !important; box-shadow:var(--s-xs) !important;
+  border-radius:var(--r) !important; box-shadow:var(--s-xs) !important;
+  margin-top:0.5rem !important;
 }
 [data-testid="stChatInput"] > div,
 [data-testid="stChatInput"] form,
@@ -269,12 +284,13 @@ hr { border-color:var(--border-lt) !important; margin:1rem 0 !important; }
 [data-testid="stChatInput"] button { background:transparent !important; border:none !important; }
 [data-testid="stChatInput"] textarea,[data-baseweb="textarea"] textarea {
   background:var(--card) !important; color:var(--text) !important;
-  font-size:0.875rem !important; border:none !important;
+  font-size:0.9rem !important; border:none !important; padding:0.6rem 0.75rem !important;
 }
 [data-testid="stChatMessageContent"] {
   background:var(--card-alt) !important; border:1px solid var(--border-lt) !important;
   border-radius:var(--r) !important; font-size:0.875rem !important;
-  line-height:1.65 !important; color:var(--text) !important;
+  line-height:1.7 !important; color:var(--text) !important;
+  padding:0.85rem 1rem !important;
 }
 
 /* ── TABLES ──────────────────────────────────────────────────────────────── */
@@ -296,30 +312,31 @@ hr { border-color:var(--border-lt) !important; margin:1rem 0 !important; }
 [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
   background:var(--card) !important; border-radius:var(--r-lg) !important;
   border:1px solid var(--border) !important; box-shadow:var(--s) !important;
-  padding:1.5rem 1.5rem 1.75rem !important;
+  padding:2rem 2rem 2.25rem !important;
 }
 [data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
   background:transparent !important; border:none !important;
-  box-shadow:none !important; border-radius:0 !important; padding:0 0.5rem !important;
+  box-shadow:none !important; border-radius:0 !important; padding:0 0.75rem !important;
 }
 [data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:not(:last-child) {
-  border-right:1px solid var(--border-lt) !important; padding-right:1rem !important;
+  border-right:1px solid var(--border-lt) !important; padding-right:1.5rem !important;
 }
 [data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:not(:first-child) {
-  padding-left:1rem !important;
+  padding-left:1.5rem !important;
 }
 
 /* ── COMPONENT CLASSES ───────────────────────────────────────────────────── */
 .section-lbl {
-  font-size:0.6rem; font-weight:700; color:var(--muted);
-  letter-spacing:0.14em; text-transform:uppercase;
-  margin:0.75rem 0 0.65rem; display:flex; align-items:center; gap:0.5rem;
+  font-size:0.65rem; font-weight:600; color:var(--muted);
+  letter-spacing:0.1em; text-transform:uppercase;
+  margin:1.25rem 0 0.9rem; display:flex; align-items:center; gap:0.6rem;
 }
+.section-lbl:first-child { margin-top:0.25rem; }
 .section-lbl::after { content:''; flex:1; height:1px; background:var(--border-lt); }
 
 .sb-card {
   background:var(--sb-surf); border:1px solid var(--sb-border);
-  border-radius:var(--r-sm); padding:0.85rem 1rem; margin-bottom:0.5rem;
+  border-radius:var(--r-sm); padding:1rem 1.1rem; margin-bottom:0.6rem;
 }
 
 .proj-title {
@@ -329,7 +346,7 @@ hr { border-color:var(--border-lt) !important; margin:1rem 0 !important; }
 
 .kv-row {
   display:flex; justify-content:space-between; align-items:center;
-  padding:0.28rem 0; border-bottom:1px solid var(--border-lt);
+  padding:0.38rem 0; border-bottom:1px solid var(--border-lt);
   font-size:0.84rem; gap:0.5rem;
 }
 .kv-row:last-child { border-bottom:none; }
@@ -338,10 +355,10 @@ hr { border-color:var(--border-lt) !important; margin:1rem 0 !important; }
 
 .room-card {
   background:var(--card); border:1px solid var(--border);
-  border-radius:var(--r-sm); padding:0.85rem 1rem; margin-top:0.4rem;
+  border-radius:var(--r); padding:1rem 1.15rem; margin-top:0.6rem;
   box-shadow:var(--s-xs);
 }
-.room-card h4 { margin:0 0 0.45rem; font-size:0.95rem; font-weight:600; }
+.room-card h4 { margin:0 0 0.5rem; font-size:0.95rem; font-weight:600; }
 
 @media (max-width:1200px) {
   [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] { border-radius:var(--r) !important; }
@@ -1622,17 +1639,6 @@ with col_main:
                 st.session_state.messages = []
                 st.rerun()
 
-            # ── COST BREAKDOWN TABLE (below agent chat) ────────────────────────
-            st.divider()
-            if st.session_state.get("client_applied"):
-                st.info("Client DNA template applied. Rates and costs below reflect the client's spending profile.")
-            with st.expander("Cost Breakdown Table", expanded=True):
-                df = build_cost_df(st.session_state.layout)
-                if not df.empty:
-                    st.table(df)
-                else:
-                    st.info("No cost data available in this layout.")
-
     else:
         st.info("Upload a layout in the sidebar to see the heatmap.")
 
@@ -2247,6 +2253,20 @@ with col_panel:
             elif not st.session_state.layout:
                 st.info("Upload a layout in the sidebar to generate a spending template.")
 
+
+# =============================================================================
+# FULL WIDTH: Cost Breakdown Table
+# =============================================================================
+if st.session_state.layout:
+    st.markdown('<div style="height:0.5rem"></div>', unsafe_allow_html=True)
+    if st.session_state.get("client_applied"):
+        st.info("Client DNA template applied. Rates and costs below reflect the client's spending profile.")
+    with st.expander("Cost Breakdown Table", expanded=True):
+        _cost_df = build_cost_df(st.session_state.layout)
+        if not _cost_df.empty:
+            st.table(_cost_df)
+        else:
+            st.info("No cost data available in this layout.")
 
 # =============================================================================
 # FULL WIDTH: Cost Breakdown Charts
