@@ -26,14 +26,22 @@ httpd = socketserver.TCPServer(("127.0.0.1", PORT), Handler)
 threading.Thread(target=httpd.serve_forever, daemon=True).start()
 time.sleep(0.6)
 
+PROFILE = TMP / "_edge_profile"  # dedicated profile so Edge never reuses the user's running instance
 for i in range(N):
     png = TMP / f"p{i:02}.png"
+    if png.exists():
+        png.unlink()
     subprocess.run(
         [EDGE, "--headless=new", "--disable-gpu", "--hide-scrollbars",
-         "--window-size=1280,720", "--virtual-time-budget=5000",
+         "--no-first-run", "--no-default-browser-check", f"--user-data-dir={PROFILE}",
+         "--window-size=1280,720", "--virtual-time-budget=6000",
          f"--screenshot={png}", f"http://127.0.0.1:{PORT}/index.html#/{i}"],
-        timeout=45, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        timeout=60, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
+    for _ in range(40):  # wait for the async screenshot to actually land
+        if png.exists() and png.stat().st_size > 0:
+            break
+        time.sleep(0.3)
     print("captured", i, "ok" if png.exists() else "MISSING", flush=True)
 
 httpd.shutdown()
@@ -47,9 +55,11 @@ for i in range(N):
     pdfbytes = img.convert_to_pdf()
     img.close()
     doc.insert_pdf(fitz.open("pdf", pdfbytes))
+doc_pages = doc.page_count
 doc.save(str(OUT))
 doc.close()
+import shutil
 for f in TMP.glob("*.png"):
     f.unlink()
-TMP.rmdir()
-print("PDF saved:", OUT, OUT.stat().st_size, "bytes")
+shutil.rmtree(TMP, ignore_errors=True)
+print(f"PDF saved: {OUT} ({doc_pages} pages, {OUT.stat().st_size} bytes)")

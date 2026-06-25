@@ -62,15 +62,15 @@
           "_source": "Sensi",
           "persona": "Emilie (architect)",
           "depth": "edit",
-          "timestamp": "2026-06-22T10:50:27",
-          "overallScore": 0.5,
+          "timestamp": "2026-06-23T16:41:53",
+          "overallScore": 0.57,
           "comfortScores": {
-            "thermal": 0.61,
-            "visual": 0.77,
-            "acoustic": 0.39,
-            "spatial": 0.83,
-            "olfactory": 0.59,
-            "tactile": 0.45
+            "thermal": 0.66,
+            "visual": 0.87,
+            "acoustic": 0.45,
+            "spatial": 0.89,
+            "olfactory": 0.67,
+            "tactile": 0.49
           },
           "conflicts": [],
           "suggestions": []
@@ -107,23 +107,22 @@
         "roomType": "kitchen",
         "height": 3.2,
         "orientation": "S",
-        "glazingRatio": 0.25,
+        "glazingRatio": 0.12,
         "ventilationType": "mechanical",
         "floorMaterial": "ceramic",
-        "wallMaterial": "wood",
         "analysis": {
           "_source": "Sensi",
           "persona": "Emilie (architect)",
           "depth": "edit",
-          "timestamp": "2026-06-22T10:50:27",
-          "overallScore": 0.34,
+          "timestamp": "2026-06-23T16:41:53",
+          "overallScore": 0.41,
           "comfortScores": {
-            "thermal": 0.42,
+            "thermal": 0.5,
             "visual": 0.69,
-            "acoustic": 0.2,
-            "spatial": 0.87,
-            "olfactory": 0.23,
-            "tactile": 0.47
+            "acoustic": 0.28,
+            "spatial": 0.94,
+            "olfactory": 0.33,
+            "tactile": 0.42
           },
           "conflicts": [],
           "suggestions": []
@@ -167,15 +166,15 @@
           "_source": "Sensi",
           "persona": "Emilie (architect)",
           "depth": "edit",
-          "timestamp": "2026-06-22T10:50:27",
-          "overallScore": 0.42,
+          "timestamp": "2026-06-23T16:41:53",
+          "overallScore": 0.56,
           "comfortScores": {
-            "thermal": 0.56,
-            "visual": 0.58,
-            "acoustic": 0.28,
-            "spatial": 0.87,
-            "olfactory": 0.65,
-            "tactile": 0.49
+            "thermal": 0.75,
+            "visual": 0.64,
+            "acoustic": 0.44,
+            "spatial": 0.94,
+            "olfactory": 0.77,
+            "tactile": 0.53
           },
           "conflicts": [],
           "suggestions": []
@@ -219,15 +218,15 @@
           "_source": "Sensi",
           "persona": "Emilie (architect)",
           "depth": "edit",
-          "timestamp": "2026-06-22T10:50:27",
-          "overallScore": 0.41,
+          "timestamp": "2026-06-23T16:41:53",
+          "overallScore": 0.47,
           "comfortScores": {
             "thermal": 0.6,
-            "visual": 0.48,
-            "acoustic": 0.67,
-            "spatial": 0.58,
-            "olfactory": 0.54,
-            "tactile": 0.3
+            "visual": 0.54,
+            "acoustic": 0.65,
+            "spatial": 0.59,
+            "olfactory": 0.63,
+            "tactile": 0.37
           },
           "conflicts": [],
           "suggestions": []
@@ -271,13 +270,13 @@
           "_source": "Sensi",
           "persona": "Emilie (architect)",
           "depth": "edit",
-          "timestamp": "2026-06-22T10:50:27",
-          "overallScore": 0.44,
+          "timestamp": "2026-06-23T16:41:53",
+          "overallScore": 0.43,
           "comfortScores": {
             "thermal": 0.56,
-            "visual": 0.37,
-            "acoustic": 0.73,
-            "spatial": 0.68,
+            "visual": 0.36,
+            "acoustic": 0.7,
+            "spatial": 0.71,
             "olfactory": 0.35,
             "tactile": 0.48
           },
@@ -452,7 +451,7 @@
         "roomId": "room-3",
         "area": 2.5,
         "orientation": "N",
-        "glazingType": "single"
+        "glazingType": "triple"
       }
     },
     {
@@ -910,6 +909,285 @@
         "type": "rug",
         "material": "fabric"
       }
+    },
+    {
+      "id": "furn-15",
+      "name": "Added curtain",
+      "geometry": [
+        [
+          7,
+          0.020000000000000004
+        ],
+        [
+          9,
+          0.020000000000000004
+        ],
+        [
+          9,
+          0.14
+        ],
+        [
+          7,
+          0.14
+        ],
+        [
+          7,
+          0.020000000000000004
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-2",
+        "type": "curtain",
+        "material": "fabric"
+      }
+    },
+    {
+      "id": "furn-17",
+      "name": "Added plant",
+      "geometry": [
+        [
+          5.250000000000001,
+          0.04999999999999999
+        ],
+        [
+          5.95,
+          0.04999999999999999
+        ],
+        [
+          5.95,
+          0.75
+        ],
+        [
+          5.250000000000001,
+          0.75
+        ],
+        [
+          5.250000000000001,
+          0.04999999999999999
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-1",
+        "type": "plant",
+        "material": "natural"
+      }
+    },
+    {
+      "id": "furn-18",
+      "name": "Added plant",
+      "geometry": [
+        [
+          7.970000000000001,
+          3.25
+        ],
+        [
+          8.67,
+          3.25
+        ],
+        [
+          8.67,
+          3.95
+        ],
+        [
+          7.970000000000001,
+          3.95
+        ],
+        [
+          7.970000000000001,
+          3.25
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-2",
+        "type": "plant",
+        "material": "natural"
+      }
+    },
+    {
+      "id": "furn-19",
+      "name": "Added plant",
+      "geometry": [
+        [
+          0.04999999999999999,
+          4.05
+        ],
+        [
+          0.75,
+          4.05
+        ],
+        [
+          0.75,
+          4.749999999999999
+        ],
+        [
+          0.04999999999999999,
+          4.749999999999999
+        ],
+        [
+          0.04999999999999999,
+          4.05
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-3",
+        "type": "plant",
+        "material": "natural"
+      }
+    },
+    {
+      "id": "furn-20",
+      "name": "Added plant",
+      "geometry": [
+        [
+          9.25,
+          4.05
+        ],
+        [
+          9.95,
+          4.05
+        ],
+        [
+          9.95,
+          4.749999999999999
+        ],
+        [
+          9.25,
+          4.749999999999999
+        ],
+        [
+          9.25,
+          4.05
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-4",
+        "type": "plant",
+        "material": "natural"
+      }
+    },
+    {
+      "id": "furn-21",
+      "name": "Added sofa",
+      "geometry": [
+        [
+          3.05,
+          0.050000000000000044
+        ],
+        [
+          3.95,
+          0.050000000000000044
+        ],
+        [
+          3.95,
+          2.05
+        ],
+        [
+          3.05,
+          2.05
+        ],
+        [
+          3.05,
+          0.050000000000000044
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-1",
+        "type": "sofa",
+        "material": "fabric"
+      }
+    },
+    {
+      "id": "furn-22",
+      "name": "Added curtain",
+      "geometry": [
+        [
+          1,
+          6.86
+        ],
+        [
+          4,
+          6.86
+        ],
+        [
+          4,
+          6.9799999999999995
+        ],
+        [
+          1,
+          6.9799999999999995
+        ],
+        [
+          1,
+          6.86
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-3",
+        "type": "curtain",
+        "material": "fabric"
+      }
+    },
+    {
+      "id": "furn-23",
+      "name": "Added rug",
+      "geometry": [
+        [
+          2.4,
+          4.6
+        ],
+        [
+          4.6,
+          4.6
+        ],
+        [
+          4.6,
+          6.4
+        ],
+        [
+          2.4,
+          6.4
+        ],
+        [
+          2.4,
+          4.6
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-3",
+        "type": "rug",
+        "material": "fabric"
+      }
+    },
+    {
+      "id": "furn-24",
+      "name": "Added sofa",
+      "geometry": [
+        [
+          4.85,
+          4.95
+        ],
+        [
+          5.75,
+          4.95
+        ],
+        [
+          5.75,
+          6.95
+        ],
+        [
+          4.85,
+          6.95
+        ],
+        [
+          4.85,
+          4.95
+        ]
+      ],
+      "attributes": {
+        "roomId": "room-3",
+        "type": "sofa",
+        "material": "fabric"
+      }
     }
   ],
   "structure": [
@@ -1029,8 +1307,8 @@
     "_source": "Sensi",
     "persona": "Emilie (architect)",
     "depth": "edit",
-    "timestamp": "2026-06-22T10:50:27",
-    "overallScore": 0.422,
+    "timestamp": "2026-06-23T16:41:53",
+    "overallScore": 0.488,
     "bestRoom": "room-1",
     "worstRoom": "room-2"
   }
