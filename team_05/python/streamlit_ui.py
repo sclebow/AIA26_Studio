@@ -66,7 +66,8 @@ st.markdown("""
 
 /* ── TOKENS ──────────────────────────────────────────────────────────────── */
 :root {
-  --bg:        #eceae5;
+  --bg:        #1e2a45;
+  --bg-text:   #c8ccdc;
   --card:      #ffffff;
   --card-alt:  #faf9f6;
   --sb-bg:     #1a2035;
@@ -99,7 +100,26 @@ st.markdown("""
 .stApp { background: var(--bg) !important; font-family: var(--font); }
 .stApp p,.stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp h5,.stApp h6,
 .stApp label,.stApp button,.stApp input,.stApp textarea,.stApp select,
-.stApp td,.stApp th,.stApp li { font-family: var(--font); color: var(--text); }
+.stApp td,.stApp th,.stApp li { font-family: var(--font); color: var(--bg-text); }
+
+/* Restore dark text inside white card columns */
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] p,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] h1,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] h2,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] h3,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] h4,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] h5,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] label,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] td,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] th,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] li { color: var(--text) !important; }
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] .stCaption,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] small { color: var(--muted) !important; }
+[data-testid="stExpander"] p,[data-testid="stExpander"] h1,[data-testid="stExpander"] h2,
+[data-testid="stExpander"] h3,[data-testid="stExpander"] h4,[data-testid="stExpander"] label,
+[data-testid="stExpander"] td,[data-testid="stExpander"] th,
+[data-testid="stExpander"] li { color: var(--text) !important; }
+
 .block-container { padding-top:2rem !important; padding-bottom:3rem !important; max-width:none !important; }
 
 /* Icon font — keeps expander arrows as glyphs */
@@ -170,7 +190,7 @@ section[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover {
 }
 
 /* ── TYPOGRAPHY ──────────────────────────────────────────────────────────── */
-h1,h2,h3,h4,h5 { font-family:var(--font) !important; letter-spacing:-0.025em !important; color:var(--text) !important; }
+h1,h2,h3,h4,h5 { font-family:var(--font) !important; letter-spacing:-0.025em !important; color:var(--bg-text) !important; }
 h4 { font-size:1rem !important; font-weight:600 !important; margin-top:0.5rem !important; }
 hr { border-color:var(--border-lt) !important; margin:1rem 0 !important; }
 .stCaption,small { color:var(--muted) !important; font-size:0.78rem !important; }
@@ -326,6 +346,20 @@ hr { border-color:var(--border-lt) !important; margin:1rem 0 !important; }
 @media (max-width:1200px) {
   [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] { border-radius:var(--r) !important; }
 }
+
+/* ── CHART LEGEND OVERLAY ────────────────────────────────────────────────── */
+.chart-legend-overlay {
+  position:relative; float:right; z-index:100;
+  margin-top:-770px; margin-right:14px;
+  width:172px;
+  background:rgba(255,255,255,0.93);
+  border:1px solid #e0dbd2; border-radius:8px;
+  padding:10px 12px;
+  box-shadow:0 2px 10px rgba(0,0,0,0.10);
+  pointer-events:none;
+}
+/* let the column and vertical blocks show the overlay */
+[data-testid="stVerticalBlock"],[data-testid="stColumn"] { overflow:visible !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -844,13 +878,29 @@ def build_floor_plan(
             ),
         ))
 
+    # Compute tight coordinate bounds to eliminate dead whitespace
+    _all_pts = (
+        [p for r in rooms for p in r.get("polygon", [])] +
+        [p for o in (openings + columns) for p in o.get("polygon", [])]
+    )
+    if _all_pts:
+        _xs = [p[0] for p in _all_pts]
+        _ys = [p[1] for p in _all_pts]
+        _xpad = (max(_xs) - min(_xs)) * 0.03
+        _ypad = (max(_ys) - min(_ys)) * 0.03
+        _xrange = [min(_xs) - _xpad, max(_xs) + _xpad]
+        _yrange = [min(_ys) - _ypad, max(_ys) + _ypad]
+    else:
+        _xrange = None
+        _yrange = None
+
     fig.update_layout(
         showlegend=False,
-        margin=dict(l=10, r=10, t=10, b=10),
-        paper_bgcolor="#ffffff", plot_bgcolor="#f5f2ed",
+        margin=dict(l=4, r=4, t=4, b=4),
+        paper_bgcolor="#ffffff", plot_bgcolor="#ffffff",
         xaxis=dict(showgrid=False, zeroline=False, scaleanchor="y",
-                   scaleratio=1, showticklabels=False),
-        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                   scaleratio=1, showticklabels=False, range=_xrange),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=_yrange),
         clickmode="event+select", dragmode="select",
     )
     if plot_height is not None:
@@ -890,6 +940,101 @@ def build_gh_legend(layout: dict) -> str:
   </div>
 </div>""")
     return "\n".join(blocks)
+
+
+# ── in-chart legend overlay ───────────────────────────────────────────────────
+def _add_legend_to_figure(fig: go.Figure, layout: dict) -> None:
+    """Overlay gradient color-scale bars inside the Plotly chart (top-right)."""
+    heatmap  = layout.get("heatmap", {})
+    ranges   = heatmap.get("ranges", {})
+    ramps    = heatmap.get("ramps", {})
+    currency = layout.get("project", {}).get("currency", "")
+
+    _fallback: dict[str, list[tuple[str, float]]] = {
+        "rooms":   [("#FFF5DC", 0.00), ("#FED976", 0.25), ("#FEB24C", 0.50), ("#F06913", 0.75), ("#BD0026", 1.00)],
+        "doors":   [("#E8CDAA", 0.00), ("#B27A41", 0.50), ("#643719", 1.00)],
+        "windows": [("#D2E8F0", 0.00), ("#5AA0CD", 0.50), ("#194B91", 1.00)],
+        "columns": [("#C8C8C8", 0.00), ("#828282", 0.50), ("#404040", 1.00)],
+    }
+    cats   = ["rooms", "doors", "windows", "columns"]
+    N_SEGS = 20
+
+    # Legend box in the top-right corner (paper coords: 0=plot-left, 1=plot-right)
+    lx0, lx1 = 0.72, 0.997
+    ly0, ly1 = 0.57, 0.995
+    slot_h   = (ly1 - ly0) / len(cats)   # vertical space per category
+    bar_h    = 0.038                      # bar thickness in paper units
+
+    # Semi-transparent white backing
+    fig.add_shape(
+        type="rect", xref="paper", yref="paper",
+        x0=lx0 - 0.012, y0=ly0 - 0.012, x1=lx1 + 0.004, y1=ly1 + 0.006,
+        fillcolor="rgba(255,255,255,0.90)",
+        line=dict(color="#cccccc", width=0.8), layer="above",
+    )
+
+    for i, cat in enumerate(cats):
+        r  = ranges.get(cat, {})
+        lo = float(r.get("min", 0))
+        hi = float(r.get("max", 0))
+
+        raw = ramps.get(cat, [])
+        stops: list[tuple[str, float]] = []
+        if isinstance(raw, list):
+            for s in raw:
+                if isinstance(s, dict):
+                    h = s.get("hex"); t = s.get("t")
+                    if isinstance(h, str) and isinstance(t, (int, float)):
+                        stops.append((h, float(t)))
+        if not stops:
+            stops = list(_fallback[cat])
+        stops.sort(key=lambda x: x[1])
+
+        top    = ly1 - i * slot_h
+        bar_y1 = top - 0.028
+        bar_y0 = bar_y1 - bar_h
+        val_y  = bar_y0 - 0.008
+
+        # Category label + range text
+        fig.add_annotation(
+            x=lx0, y=top - 0.004, xref="paper", yref="paper",
+            text=f"<b>{cat.upper()}</b>  {lo:,.0f}–{hi:,.0f} {currency}",
+            showarrow=False, xanchor="left", yanchor="top",
+            font=dict(size=8, color="#444444"),
+        )
+
+        # Gradient bar: N_SEGS thin coloured rectangles
+        for j in range(N_SEGS):
+            t_mid = (j + 0.5) / N_SEGS
+            col = stops[-1][0]
+            if t_mid <= stops[0][1]:
+                col = stops[0][0]
+            else:
+                for k in range(len(stops) - 1):
+                    h1, t1 = stops[k]; h2, t2 = stops[k + 1]
+                    if t1 <= t_mid <= t2:
+                        lt = (t_mid - t1) / (t2 - t1) if t2 > t1 else 0.0
+                        col = _interp_hex(h1, h2, lt)
+                        break
+            sx0 = lx0 + (lx1 - lx0) * j / N_SEGS
+            sx1 = lx0 + (lx1 - lx0) * (j + 1) / N_SEGS
+            fig.add_shape(
+                type="rect", xref="paper", yref="paper",
+                x0=sx0, y0=bar_y0, x1=sx1, y1=bar_y1,
+                fillcolor=col, line=dict(width=0), layer="above",
+            )
+
+        # Min / max tick labels
+        fig.add_annotation(
+            x=lx0, y=val_y, xref="paper", yref="paper",
+            text=f"{lo:,.0f}", showarrow=False,
+            xanchor="left", yanchor="top", font=dict(size=7, color="#888888"),
+        )
+        fig.add_annotation(
+            x=lx1, y=val_y, xref="paper", yref="paper",
+            text=f"{hi:,.0f}", showarrow=False,
+            xanchor="right", yanchor="top", font=dict(size=7, color="#888888"),
+        )
 
 
 # ── cost table ────────────────────────────────────────────────────────────────
@@ -1049,7 +1194,7 @@ def render_sustainability_tab():
 with st.sidebar:
     st.markdown(f"""
 <div style="margin-bottom:1.25rem">
-  <img src="data:image/svg+xml;base64,{_LOGO_B64_LIGHT}" width="148" alt="PlanWise" style="display:block"/>
+  <img src="data:image/svg+xml;base64,{_LOGO_B64_LIGHT}" width="192" alt="PlanWise" style="display:block"/>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1247,15 +1392,15 @@ with st.sidebar:
 # MAIN
 # =============================================================================
 st.markdown(f"""
-<div style="margin-bottom:0.2rem">
-  <img src="data:image/svg+xml;base64,{_LOGO_B64}" width="210" alt="PlanWise" style="display:block"/>
+<div style="margin-bottom:0.3rem">
+  <img src="data:image/svg+xml;base64,{_LOGO_B64_LIGHT}" width="420" alt="PlanWise" style="display:block"/>
 </div>
-<p style="font-size:0.76rem;color:#8a8880;margin:0 0 1.25rem;letter-spacing:0.01em;font-weight:400">
+<p style="font-size:0.82rem;color:#8a95b5;margin:0 0 1.5rem;letter-spacing:0.01em;font-weight:400">
   AI cost advisor for AEC
 </p>
 """, unsafe_allow_html=True)
 
-with st.expander("How to use this interface", expanded=(not st.session_state.layout)):
+with st.expander("How to use this interface", expanded=False):
     st.markdown("""
 **Get started in 3 steps:**
 1. **Upload** a `layout.json` file using the sidebar — the floor plan heatmap will appear instantly.
@@ -1278,7 +1423,7 @@ with col_main:
     if st.session_state.layout:
 
         # ── TOP ROW: Heatmap (left) and Agent Chat (right) side by side ───────
-        col_heatmap_inner, col_chat_inner = st.columns([3, 2], gap="medium")
+        col_heatmap_inner, col_chat_inner = st.columns([4, 2], gap="medium")
 
         # ── HEATMAP PANEL ─────────────────────────────────────────────────────
         with col_heatmap_inner:
@@ -1298,7 +1443,7 @@ with col_main:
                 st.caption("Colors from Grasshopper. Click a room to select it.")
 
                 sel_id = (st.session_state.selected_room or {}).get("id")
-                fig    = build_floor_plan(st.session_state.layout, sel_id, plot_height=500)
+                fig    = build_floor_plan(st.session_state.layout, sel_id, plot_height=800)
 
                 _sel_el = st.session_state.get("selected_element")
                 if _sel_el and _sel_el.get("cx") is not None:
@@ -1335,80 +1480,77 @@ with col_main:
                         xanchor="left",
                     )
 
-                plan_col, legend_col = st.columns([5, 1], gap="small")
-
-                with legend_col:
-                    st.markdown(
-                        '<div style="padding-top:2.5rem">'
-                        + build_gh_legend(st.session_state.layout)
-                        + "</div>",
-                        unsafe_allow_html=True,
+                try:
+                    event = st.plotly_chart(
+                        fig, use_container_width=True,
+                        on_select="rerun", key="floor_plan_chart",
                     )
+                    if event:
+                        pts = (event.get("selection") or {}).get("points", [])
+                        if pts:
+                            cd = pts[0].get("customdata", [])
+                            if cd and len(cd) >= 4:
+                                el_id    = cd[0]
+                                el_type  = cd[1]
+                                el_name  = cd[2]
+                                el_cost  = float(cd[3] or 0)
+                                currency = (st.session_state.layout or {}).get("project", {}).get("currency", "")
 
-                with plan_col:
-                    try:
-                        event = st.plotly_chart(
-                            fig, use_container_width=True,
-                            on_select="rerun", key="floor_plan_chart",
-                        )
-                        if event:
-                            pts = (event.get("selection") or {}).get("points", [])
-                            if pts:
-                                cd = pts[0].get("customdata", [])
-                                if cd and len(cd) >= 4:
-                                    el_id    = cd[0]
-                                    el_type  = cd[1]
-                                    el_name  = cd[2]
-                                    el_cost  = float(cd[3] or 0)
-                                    currency = (st.session_state.layout or {}).get("project", {}).get("currency", "")
+                                def _centroid(poly: list) -> tuple:
+                                    if not poly:
+                                        return (0, 0)
+                                    return (
+                                        sum(p[0] for p in poly) / len(poly),
+                                        sum(p[1] for p in poly) / len(poly),
+                                    )
 
-                                    def _centroid(poly: list) -> tuple:
-                                        if not poly:
-                                            return (0, 0)
-                                        return (
-                                            sum(p[0] for p in poly) / len(poly),
-                                            sum(p[1] for p in poly) / len(poly),
-                                        )
-
-                                    if el_type == "room":
-                                        all_rooms = st.session_state.layout.get("rooms", [])
-                                        room = next((r for r in all_rooms if r.get("id") == el_id), None)
-                                        if room:
-                                            cx, cy = _centroid(room.get("polygon", []))
-                                            st.session_state.selected_room = room
-                                            st.session_state.selected_element = {
-                                                "type": "room",
-                                                "id": el_id,
-                                                "name": room.get("name", el_name),
-                                                "cost": room.get("total_cost", el_cost),
-                                                "area": room.get("area_m2", 0),
-                                                "rate": room.get("rate_per_m2", 0),
-                                                "category": room.get("category", ""),
-                                                "currency": currency,
-                                                "cx": cx, "cy": cy,
-                                            }
-                                    else:
-                                        all_ops = (
-                                            st.session_state.layout.get("openings", [])
-                                            + st.session_state.layout.get("columns", [])
-                                        )
-                                        el_obj = next((o for o in all_ops if o.get("id") == el_id), None)
-                                        cx, cy = _centroid((el_obj or {}).get("polygon", []))
-                                        st.session_state.selected_room = None
+                                if el_type == "room":
+                                    all_rooms = st.session_state.layout.get("rooms", [])
+                                    room = next((r for r in all_rooms if r.get("id") == el_id), None)
+                                    if room:
+                                        cx, cy = _centroid(room.get("polygon", []))
+                                        st.session_state.selected_room = room
                                         st.session_state.selected_element = {
-                                            "type": el_type,
+                                            "type": "room",
                                             "id": el_id,
-                                            "name": el_name or el_type.capitalize(),
-                                            "cost": el_cost,
-                                            "area": 0.0,
-                                            "rate": 0.0,
-                                            "category": "",
+                                            "name": room.get("name", el_name),
+                                            "cost": room.get("total_cost", el_cost),
+                                            "area": room.get("area_m2", 0),
+                                            "rate": room.get("rate_per_m2", 0),
+                                            "category": room.get("category", ""),
                                             "currency": currency,
                                             "cx": cx, "cy": cy,
                                         }
-                                    st.rerun()
-                    except TypeError:
-                        st.plotly_chart(fig, use_container_width=True)
+                                else:
+                                    all_ops = (
+                                        st.session_state.layout.get("openings", [])
+                                        + st.session_state.layout.get("columns", [])
+                                    )
+                                    el_obj = next((o for o in all_ops if o.get("id") == el_id), None)
+                                    cx, cy = _centroid((el_obj or {}).get("polygon", []))
+                                    st.session_state.selected_room = None
+                                    st.session_state.selected_element = {
+                                        "type": el_type,
+                                        "id": el_id,
+                                        "name": el_name or el_type.capitalize(),
+                                        "cost": el_cost,
+                                        "area": 0.0,
+                                        "rate": 0.0,
+                                        "category": "",
+                                        "currency": currency,
+                                        "cx": cx, "cy": cy,
+                                    }
+                                st.rerun()
+                except TypeError:
+                    st.plotly_chart(fig, use_container_width=True)
+
+                # HTML legend overlaid in the top-right corner of the chart via CSS negative margin
+                st.markdown(
+                    '<div class="chart-legend-overlay">'
+                    + build_gh_legend(st.session_state.layout)
+                    + "</div>",
+                    unsafe_allow_html=True,
+                )
 
             # Element info panel — appears below chart when any element is clicked
             _render_element_panel()
@@ -1480,16 +1622,16 @@ with col_main:
                 st.session_state.messages = []
                 st.rerun()
 
-        # ── COST BREAKDOWN TABLE (full width below both panels) ────────────────
-        st.divider()
-        if st.session_state.get("client_applied"):
-            st.info("Client DNA template applied. Rates and costs below reflect the client's spending profile.")
-        with st.expander("Cost Breakdown Table", expanded=True):
-            df = build_cost_df(st.session_state.layout)
-            if not df.empty:
-                st.table(df)
-            else:
-                st.info("No cost data available in this layout.")
+            # ── COST BREAKDOWN TABLE (below agent chat) ────────────────────────
+            st.divider()
+            if st.session_state.get("client_applied"):
+                st.info("Client DNA template applied. Rates and costs below reflect the client's spending profile.")
+            with st.expander("Cost Breakdown Table", expanded=True):
+                df = build_cost_df(st.session_state.layout)
+                if not df.empty:
+                    st.table(df)
+                else:
+                    st.info("No cost data available in this layout.")
 
     else:
         st.info("Upload a layout in the sidebar to see the heatmap.")
