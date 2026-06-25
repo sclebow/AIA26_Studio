@@ -350,7 +350,7 @@ hr { border-color:var(--border-lt) !important; margin:1rem 0 !important; }
 /* ── CHART LEGEND OVERLAY ────────────────────────────────────────────────── */
 .chart-legend-overlay {
   position:relative; float:right; z-index:100;
-  margin-top:-770px; margin-right:14px;
+  margin-top:-850px; margin-right:14px;
   width:172px;
   background:rgba(255,255,255,0.93);
   border:1px solid #e0dbd2; border-radius:8px;
@@ -585,7 +585,7 @@ def render_3d_heatmap(layout_data, extrusion_mode="skyline"):
     </body>
     </html>
     """
-    components.html(html_code, height=600)
+    components.html(html_code, height=880)
 
 def _merge_gh_colors(base: dict, gh: dict) -> dict:
     """
@@ -1443,7 +1443,7 @@ with col_main:
                 st.caption("Colors from Grasshopper. Click a room to select it.")
 
                 sel_id = (st.session_state.selected_room or {}).get("id")
-                fig    = build_floor_plan(st.session_state.layout, sel_id, plot_height=800)
+                fig    = build_floor_plan(st.session_state.layout, sel_id, plot_height=880)
 
                 _sel_el = st.session_state.get("selected_element")
                 if _sel_el and _sel_el.get("cx") is not None:
