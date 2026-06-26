@@ -863,7 +863,7 @@ def build_floor_plan(
         fig.add_annotation(
             x=cx, y=cy,
             text=f"<b>{room.get('name','')}</b><br>{room.get('total_cost',0)/1000:.0f}k {currency}",
-            showarrow=False, font=dict(size=9, color=_text_on(t)), align="center",
+            showarrow=False, font=dict(size=13, color=_text_on(t)), align="center",
         )
 
     for op in (openings + columns):
