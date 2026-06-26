@@ -5,6 +5,7 @@ Streamlit GUI: interactive floor-plan cost heatmap + agent chat.
 Run with:  streamlit run streamlit_ui.py
 Requires:  streamlit>=1.33, plotly, pandas
 """
+import base64
 import copy
 import json
 import os
@@ -19,174 +20,363 @@ from langgraph_agent import LangGraphAgent
 
 # ── page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="AIA Cost Advisor — Team 05",
+    page_title="PlanWise",
     page_icon="🏗",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
+# ── logo ─────────────────────────────────────────────────────────────────────
+_LOGO_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 364 84">
+  <rect x="2" y="2" width="76" height="80" fill="none" stroke="#1e2840" stroke-width="4.5" rx="1"/>
+  <line x1="2" y1="52" x2="52" y2="52" stroke="#1e2840" stroke-width="4"/>
+  <line x1="52" y1="2" x2="52" y2="82" stroke="#1e2840" stroke-width="4"/>
+  <line x1="52" y1="67" x2="78" y2="67" stroke="#1e2840" stroke-width="3.5"/>
+  <polyline points="54,2 78,2 78,26" fill="none" stroke="#00AAAC" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="27" cy="67" r="5.5" fill="#00AAAC"/>
+  <text x="96" y="66" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif" font-size="58" font-weight="700" letter-spacing="-1.5"><tspan fill="#1e2840">Plan</tspan><tspan fill="#00AAAC">Wise</tspan></text>
+</svg>"""
+_LOGO_B64 = base64.b64encode(_LOGO_SVG.encode()).decode()
+
+_LOGO_SVG_LIGHT = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 364 84">
+  <rect x="2" y="2" width="76" height="80" fill="none" stroke="#ffffff" stroke-width="4.5" rx="1"/>
+  <line x1="2" y1="52" x2="52" y2="52" stroke="#ffffff" stroke-width="4"/>
+  <line x1="52" y1="2" x2="52" y2="82" stroke="#ffffff" stroke-width="4"/>
+  <line x1="52" y1="67" x2="78" y2="67" stroke="#ffffff" stroke-width="3.5"/>
+  <polyline points="54,2 78,2 78,26" fill="none" stroke="#00AAAC" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="27" cy="67" r="5.5" fill="#00AAAC"/>
+  <text x="96" y="66" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif" font-size="58" font-weight="700" letter-spacing="-1.5"><tspan fill="#ffffff">Plan</tspan><tspan fill="#00AAAC">Wise</tspan></text>
+</svg>"""
+_LOGO_B64_LIGHT = base64.b64encode(_LOGO_SVG_LIGHT.encode()).decode()
+
 # ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-/* ── Base ─────────────────────────────────────────────────────────────────── */
-.stApp {
-    background: #f6f6f4;
-    color: #111111;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+/* ── Design System v3 — PlanWise ─────────────────────────────────────────── */
+/* This placeholder block intentionally left blank — real CSS is below */
+.stApp-placeholder { display: none; }
+</style>
+""", unsafe_allow_html=True)
+
+# ── Design System v3 — PlanWise ─────────────────────────────────────────────
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=block');
+
+/* ── TOKENS ──────────────────────────────────────────────────────────────── */
+:root {
+  /* ── Backgrounds ── */
+  --bg:        #1e2a45;
+  --bg-text:   #c8ccdc;
+  --card:      #ffffff;
+  --card-alt:  #f9f8f6;
+  /* ── Sidebar ── */
+  --sb-bg:     #1a2035;
+  --sb-surf:   #212840;
+  --sb-border: #2d3655;
+  --sb-text:   #c8ccdc;
+  --sb-muted:  #5c6278;
+  --sb-lbl:    #3e4562;
+  /* ── Text ── */
+  --text:      #1a1a1a;
+  --text-2:    #404040;
+  --muted:     #8a8784;
+  /* ── Accent ── */
+  --teal:      #00AAAC;
+  --teal-dk:   #007b80;
+  --teal-lt:   #e0f5f5;
+  --navy:      #1a2035;
+  /* ── Status ── */
+  --green:     #10b981;
+  --amber:     #f59e0b;
+  --red:       #ef4444;
+  /* ── Borders ── */
+  --border:    #e4dfd8;
+  --border-lt: #eee9e2;
+  /* ── Radius ── */
+  --r-xs:4px; --r-sm:8px; --r:12px; --r-lg:18px;
+  /* ── Shadows ── */
+  --s-xs: 0 1px 3px rgba(0,0,0,0.06);
+  --s-sm: 0 2px 6px rgba(0,0,0,0.06),0 1px 3px rgba(0,0,0,0.04);
+  --s:    0 4px 18px rgba(0,0,0,0.07),0 1px 4px rgba(0,0,0,0.04);
+  --s-lg: 0 8px 32px rgba(0,0,0,0.10),0 2px 8px rgba(0,0,0,0.06);
+  /* ── Spacing ── */
+  --sp-xs:4px; --sp-sm:8px; --sp-md:16px; --sp-lg:24px; --sp-xl:40px;
+  /* ── Font ── */
+  --font: 'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 }
-.stApp * { color: #111111 !important; }
-.block-container { padding-top: 1.5rem !important; }
 
-/* ── Sidebar ─────────────────────────────────────────────────────────────── */
-section[data-testid="stSidebar"] { background: #eeeee9; border-right: 1px solid #e0e0db; }
-section[data-testid="stSidebar"] * { color: #111111 !important; }
+/* ── BASE ────────────────────────────────────────────────────────────────── */
+.stApp { background: var(--bg) !important; font-family: var(--font); }
+.stApp p,.stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp h5,.stApp h6,
+.stApp label,.stApp button,.stApp input,.stApp textarea,.stApp select,
+.stApp td,.stApp th,.stApp li { font-family: var(--font); color: var(--bg-text); }
 
-/* ── Headings ────────────────────────────────────────────────────────────── */
-h1, h2, h3, h4, h5 {
-    color: #111111 !important;
-    font-weight: 500 !important;
-    letter-spacing: -0.015em !important;
+/* Restore dark text inside white card columns */
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] p,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] h1,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] h2,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] h3,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] h4,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] h5,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] label,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] td,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] th,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] li { color: var(--text) !important; }
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] .stCaption,
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] small { color: var(--muted) !important; }
+[data-testid="stExpander"] p,[data-testid="stExpander"] h1,[data-testid="stExpander"] h2,
+[data-testid="stExpander"] h3,[data-testid="stExpander"] h4,[data-testid="stExpander"] label,
+[data-testid="stExpander"] td,[data-testid="stExpander"] th,
+[data-testid="stExpander"] li { color: var(--text) !important; }
+
+.block-container { padding-top:2.75rem !important; padding-bottom:4rem !important; padding-left:2.25rem !important; padding-right:2.25rem !important; max-width:none !important; }
+
+/* Icon font — keeps expander arrows as glyphs */
+.material-symbols-rounded {
+  font-family:'Material Symbols Rounded' !important;
+  font-weight:normal !important; font-style:normal !important;
+  font-size:1.2rem !important; line-height:1 !important;
+  letter-spacing:normal !important; text-transform:none !important;
+  display:inline-block !important; white-space:nowrap !important;
+  direction:ltr !important; -webkit-font-smoothing:antialiased !important;
+  font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24 !important;
 }
 
-/* ── Metrics ─────────────────────────────────────────────────────────────── */
+/* ── SIDEBAR — dark navy ─────────────────────────────────────────────────── */
+section[data-testid="stSidebar"] {
+  background: var(--sb-bg) !important;
+  border-right: 1px solid var(--sb-border) !important;
+}
+section[data-testid="stSidebar"] > div { padding: 2rem 1.5rem 3rem !important; }
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] h1,section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,section[data-testid="stSidebar"] h4,
+section[data-testid="stSidebar"] td,section[data-testid="stSidebar"] th,
+section[data-testid="stSidebar"] li { color: var(--sb-text) !important; }
+section[data-testid="stSidebar"] .stCaption,
+section[data-testid="stSidebar"] small { color: var(--sb-muted) !important; }
+section[data-testid="stSidebar"] .section-lbl { color: var(--sb-muted) !important; }
+section[data-testid="stSidebar"] .section-lbl::after { background: var(--sb-lbl) !important; }
+section[data-testid="stSidebar"] .proj-title { color:#fff !important; font-weight:600 !important; }
+section[data-testid="stSidebar"] [data-baseweb="select"] > div {
+  background:var(--sb-surf) !important; border-color:var(--sb-border) !important;
+  color:var(--sb-text) !important;
+}
+section[data-testid="stSidebar"] [data-baseweb="select"] svg { fill:var(--sb-muted) !important; }
+section[data-testid="stSidebar"] [data-baseweb="popover"] ul,
+section[data-testid="stSidebar"] [data-baseweb="popover"] li {
+  background:var(--sb-surf) !important; color:var(--sb-text) !important;
+  border-color:var(--sb-border) !important;
+}
+section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
+  background:var(--sb-surf) !important; border-color:var(--sb-border) !important;
+}
+section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] p,
+section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] span,
+section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] label {
+  color:var(--sb-text) !important;
+}
+section[data-testid="stSidebar"] [data-testid="stMetric"] {
+  background:var(--sb-surf) !important; border-color:var(--sb-border) !important;
+}
+section[data-testid="stSidebar"] [data-testid="stMetricLabel"] { color:var(--sb-muted) !important; }
+section[data-testid="stSidebar"] [data-testid="stMetricValue"] { color:var(--teal) !important; }
+section[data-testid="stSidebar"] [data-testid="stAlertContainer"] {
+  background:var(--sb-surf) !important; border-color:var(--sb-border) !important;
+}
+section[data-testid="stSidebar"] [data-testid="stAlertContainer"] p { color:var(--sb-text) !important; }
+section[data-testid="stSidebar"] [data-testid="stBaseButton-primary"] {
+  background:var(--teal) !important; border-color:var(--teal) !important; color:#fff !important;
+}
+section[data-testid="stSidebar"] [data-testid="stBaseButton-primary"] * { color:#fff !important; }
+section[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] {
+  background:var(--sb-surf) !important; border-color:var(--sb-border) !important;
+  color:var(--sb-text) !important;
+}
+section[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover {
+  background:var(--sb-border) !important; color:#fff !important;
+}
+
+/* ── TYPOGRAPHY ──────────────────────────────────────────────────────────── */
+h1,h2,h3,h4,h5 { font-family:var(--font) !important; letter-spacing:-0.025em !important; color:var(--bg-text) !important; }
+h4 { font-size:1.05rem !important; font-weight:600 !important; margin-top:0.75rem !important; margin-bottom:0.2rem !important; }
+hr { border-color:var(--border-lt) !important; margin:1.25rem 0 !important; }
+.stCaption,small { color:var(--muted) !important; font-size:0.8rem !important; line-height:1.55 !important; }
+
+/* ── METRICS ─────────────────────────────────────────────────────────────── */
+[data-testid="stMetric"] {
+  background:var(--card) !important; border:1px solid var(--border) !important;
+  border-radius:var(--r) !important; padding:1.1rem 1.25rem !important;
+  box-shadow:var(--s-xs) !important;
+}
 [data-testid="stMetricLabel"] {
-    color: #999999 !important;
-    font-size: 0.72rem !important;
-    text-transform: uppercase;
-    letter-spacing: 0.07em !important;
+  font-size:0.65rem !important; font-weight:600 !important;
+  text-transform:uppercase !important; letter-spacing:0.07em !important; color:var(--muted) !important;
 }
-[data-testid="stMetricValue"] { color: #111111 !important; font-weight: 600 !important; }
-
-/* ── Divider ─────────────────────────────────────────────────────────────── */
-hr { border-color: #e4e4e0 !important; margin: 1.1rem 0 !important; }
-
-/* ── Secondary buttons (inactive nav + general actions) ──────────────────── */
-[data-testid="stBaseButton-secondary"],
-button[kind="secondary"] {
-    background: #ffffff !important;
-    color: #333333 !important;
-    border: 1px solid #ddddd8 !important;
-    border-radius: 6px !important;
-    font-size: 0.92rem !important;
-    font-weight: 400 !important;
-    letter-spacing: 0.005em !important;
-    box-shadow: none !important;
-}
-[data-testid="stBaseButton-secondary"]:hover,
-button[kind="secondary"]:hover {
-    background: #f2f2ef !important;
-    border-color: #aaaaaa !important;
-    color: #111111 !important;
+[data-testid="stMetricValue"] {
+  font-size:1.6rem !important; font-weight:700 !important;
+  letter-spacing:-0.04em !important; color:var(--text) !important; line-height:1.15 !important;
 }
 
-/* ── Primary buttons (active nav item) ───────────────────────────────────── */
-[data-testid="stBaseButton-primary"],
-button[kind="primary"] {
-    background: #111111 !important;
-    color: #ffffff !important;
-    border: 1px solid #111111 !important;
-    border-radius: 6px !important;
-    font-size: 0.92rem !important;
-    font-weight: 500 !important;
-    letter-spacing: 0.005em !important;
-    box-shadow: none !important;
+/* ── BUTTONS ─────────────────────────────────────────────────────────────── */
+[data-testid="stBaseButton-primary"] {
+  background:var(--teal) !important; color:#fff !important;
+  border:1px solid var(--teal) !important; border-radius:var(--r-sm) !important;
+  font-size:0.875rem !important; font-weight:600 !important;
+  box-shadow:0 1px 4px rgba(0,170,172,0.28) !important;
+  transition:background 0.15s,box-shadow 0.15s !important;
 }
-[data-testid="stBaseButton-primary"] *,
-button[kind="primary"] * { color: #ffffff !important; }
-
-/* ── File uploader ───────────────────────────────────────────────────────── */
-[data-testid="stFileUploaderDropzone"],
-[data-testid="stFileUploaderDropzone"] * {
-    background: #ffffff !important;
-    color: #333333 !important;
-    border-color: #ddddd8 !important;
+[data-testid="stBaseButton-primary"] * { color:#fff !important; }
+[data-testid="stBaseButton-primary"]:hover {
+  background:var(--teal-dk) !important;
+  box-shadow:0 3px 10px rgba(0,170,172,0.38) !important;
+}
+[data-testid="stBaseButton-secondary"] {
+  background:var(--card) !important; color:var(--text-2) !important;
+  border:1px solid var(--border) !important; border-radius:var(--r-sm) !important;
+  font-size:0.875rem !important; font-weight:500 !important; box-shadow:none !important;
+  transition:border-color 0.12s,background 0.12s !important;
+}
+[data-testid="stBaseButton-secondary"]:hover {
+  background:var(--card-alt) !important; border-color:#c0bab2 !important; color:var(--text) !important;
 }
 
-/* ── Chat input ──────────────────────────────────────────────────────────── */
+/* ── INPUTS ──────────────────────────────────────────────────────────────── */
+[data-testid="stFileUploaderDropzone"] {
+  background:var(--card) !important; border:1.5px dashed var(--border) !important;
+  border-radius:var(--r-sm) !important;
+}
+[data-testid="stFileUploaderDropzone"]:hover { border-color:var(--teal) !important; }
+[data-baseweb="select"] > div {
+  background:var(--card) !important; border-color:var(--border) !important;
+  border-radius:var(--r-sm) !important; color:var(--text) !important;
+}
+[data-baseweb="select"] [data-testid="stSelectboxVirtualDropdown"],
+[data-baseweb="popover"] ul,[data-baseweb="popover"] li {
+  background:var(--card) !important; color:var(--text) !important; border-color:var(--border) !important;
+}
+[data-baseweb="select"] svg { fill:var(--muted) !important; }
+
+/* ── EXPANDERS ───────────────────────────────────────────────────────────── */
+[data-testid="stExpander"] details {
+  background:var(--card) !important; border:1px solid var(--border) !important;
+  border-radius:var(--r) !important; box-shadow:var(--s-xs) !important;
+  padding:0 0.85rem !important;
+}
+[data-testid="stExpander"] summary {
+  font-size:0.9rem !important; font-weight:600 !important;
+  letter-spacing:-0.01em !important; color:var(--text-2) !important;
+  padding:0.95rem 0 !important;
+}
+
+/* ── CHAT ────────────────────────────────────────────────────────────────── */
 [data-testid="stChatInput"] {
-    background: #ffffff !important;
-    border: 1px solid #ddddd8 !important;
-    border-radius: 8px !important;
+  background:var(--card) !important; border:1.5px solid var(--border) !important;
+  border-radius:var(--r) !important; box-shadow:var(--s-xs) !important;
+  margin-top:0.5rem !important;
 }
 [data-testid="stChatInput"] > div,
 [data-testid="stChatInput"] form,
-[data-testid="stChatInput"] section { background: #ffffff !important; }
-[data-testid="stChatInput"] button {
-    background: transparent !important;
-    color: #666666 !important;
-    border: none !important;
+[data-testid="stChatInput"] section { background:var(--card) !important; }
+[data-testid="stChatInput"] button { background:transparent !important; border:none !important; }
+[data-testid="stChatInput"] textarea,[data-baseweb="textarea"] textarea {
+  background:var(--card) !important; color:var(--text) !important;
+  font-size:0.9rem !important; border:none !important; padding:0.6rem 0.75rem !important;
 }
-[data-testid="stChatInput"] textarea,
-[data-testid="stChatInput"] input,
-[data-baseweb="textarea"] textarea,
-[data-baseweb="input"] input {
-    background: #ffffff !important;
-    color: #111111 !important;
-    border: none !important;
-}
-
-/* ── Chat bubbles ────────────────────────────────────────────────────────── */
 [data-testid="stChatMessageContent"] {
-    background: #efefec !important;
-    color: #111111 !important;
-    border: none !important;
-    border-radius: 10px !important;
+  background:var(--card-alt) !important; border:1px solid var(--border-lt) !important;
+  border-radius:var(--r) !important; font-size:0.875rem !important;
+  line-height:1.7 !important; color:var(--text) !important;
+  padding:0.85rem 1rem !important;
 }
 
-/* ── Expanders / tables ──────────────────────────────────────────────────── */
-[data-testid="stExpander"] details {
-    background: #ffffff !important;
-    border: 1px solid #e4e4e0 !important;
-    border-radius: 8px !important;
+/* ── TABLES ──────────────────────────────────────────────────────────────── */
+[data-testid="stDataFrame"] *,[data-testid="stTable"] * {
+  background:var(--card) !important; color:var(--text) !important;
+  border-color:var(--border-lt) !important;
 }
-[data-testid="stExpander"] summary { color: #333333 !important; font-weight: 500 !important; }
-[data-testid="stDataFrame"],
-[data-testid="stDataFrame"] *,
-[data-testid="stTable"],
-[data-testid="stTable"] * {
-    background: #ffffff !important;
-    color: #111111 !important;
-    border-color: #e4e4e0 !important;
+[data-testid="stTable"] { border-radius:var(--r) !important; overflow:hidden !important; }
+[data-testid="stTable"] th {
+  background:var(--card-alt) !important; font-size:0.7rem !important;
+  font-weight:700 !important; text-transform:uppercase !important;
+  letter-spacing:0.07em !important; color:var(--muted) !important;
 }
 
-/* ── Room card ───────────────────────────────────────────────────────────── */
-.room-card {
-    background: #ffffff;
-    border: 1px solid #e4e4e0;
-    border-radius: 8px;
-    padding: 0.85rem 1rem;
-    margin-top: 0.5rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+/* ── ALERTS ──────────────────────────────────────────────────────────────── */
+[data-testid="stAlertContainer"] { border-radius:var(--r-sm) !important; }
+
+/* ── THREE-PANEL CARDS ───────────────────────────────────────────────────── */
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+  background:var(--card) !important; border-radius:var(--r-lg) !important;
+  border:1px solid var(--border) !important; box-shadow:var(--s) !important;
+  padding:2rem 2rem 2.25rem !important;
 }
-.room-card h4 { margin: 0 0 0.5rem 0; color: #111111; font-weight: 500; }
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+  background:transparent !important; border:none !important;
+  box-shadow:none !important; border-radius:0 !important; padding:0 0.75rem !important;
+}
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:not(:last-child) {
+  border-right:1px solid var(--border-lt) !important; padding-right:1.5rem !important;
+}
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:not(:first-child) {
+  padding-left:1.5rem !important;
+}
+
+/* ── COMPONENT CLASSES ───────────────────────────────────────────────────── */
+.section-lbl {
+  font-size:0.65rem; font-weight:600; color:var(--muted);
+  letter-spacing:0.1em; text-transform:uppercase;
+  margin:1.25rem 0 0.9rem; display:flex; align-items:center; gap:0.6rem;
+}
+.section-lbl:first-child { margin-top:0.25rem; }
+.section-lbl::after { content:''; flex:1; height:1px; background:var(--border-lt); }
+
+.sb-card {
+  background:var(--sb-surf); border:1px solid var(--sb-border);
+  border-radius:var(--r-sm); padding:1rem 1.1rem; margin-bottom:0.6rem;
+}
+
+.proj-title {
+  font-size:0.88rem; font-weight:600; color:var(--text);
+  letter-spacing:-0.01em; margin:0 0 0.6rem; line-height:1.3;
+}
+
 .kv-row {
-    display: flex;
-    justify-content: space-between;
-    border-bottom: 1px solid #f0f0ee;
-    padding: 0.22rem 0;
-    font-size: 0.87rem;
+  display:flex; justify-content:space-between; align-items:center;
+  padding:0.38rem 0; border-bottom:1px solid var(--border-lt);
+  font-size:0.84rem; gap:0.5rem;
 }
-.kv-key { color: #999999; }
-.kv-val { color: #111111; font-weight: 600; }
+.kv-row:last-child { border-bottom:none; }
+.kv-key { color:var(--muted); }
+.kv-val { color:var(--text); font-weight:600; text-align:right; }
 
-/* ── Captions ────────────────────────────────────────────────────────────── */
-.stCaption, small { color: #999999 !important; font-size: 0.8rem !important; }
+.room-card {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:var(--r); padding:1rem 1.15rem; margin-top:0.6rem;
+  box-shadow:var(--s-xs);
+}
+.room-card h4 { margin:0 0 0.5rem; font-size:0.95rem; font-weight:600; }
 
-/* ── Selectbox ───────────────────────────────────────────────────────────── */
-[data-baseweb="select"] > div {
-    background: #ffffff !important;
-    color: #111111 !important;
-    border-color: #ddddd8 !important;
-    border-radius: 6px !important;
+@media (max-width:1200px) {
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] { border-radius:var(--r) !important; }
 }
-[data-baseweb="select"] [data-testid="stSelectboxVirtualDropdown"],
-[data-baseweb="popover"] ul,
-[data-baseweb="popover"] li {
-    background: #ffffff !important;
-    color: #111111 !important;
-    border-color: #ddddd8 !important;
+
+/* ── CHART LEGEND OVERLAY ────────────────────────────────────────────────── */
+.chart-legend-overlay {
+  position:relative; float:right; z-index:100;
+  margin-top:-850px; margin-right:14px;
+  width:172px;
+  background:rgba(255,255,255,0.93);
+  border:1px solid #e0dbd2; border-radius:8px;
+  padding:10px 12px;
+  box-shadow:0 2px 10px rgba(0,0,0,0.10);
+  pointer-events:none;
 }
-[data-baseweb="select"] svg { fill: #888888 !important; }
+/* let the column and vertical blocks show the overlay */
+[data-testid="stVerticalBlock"],[data-testid="stColumn"] { overflow:visible !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -412,7 +602,7 @@ def render_3d_heatmap(layout_data, extrusion_mode="skyline"):
     </body>
     </html>
     """
-    components.html(html_code, height=600)
+    components.html(html_code, height=880)
 
 def _merge_gh_colors(base: dict, gh: dict) -> dict:
     """
@@ -654,7 +844,7 @@ def build_floor_plan(
 
         fig.add_trace(go.Scatter(
             x=xs, y=ys, fill="toself", fillcolor=fill,
-            line=dict(color="#60a5fa" if is_sel else "#555", width=3 if is_sel else 1),
+            line=dict(color="#00AAAC" if is_sel else "#555", width=3 if is_sel else 1),
             mode="lines", name=room.get("name", ""),
             hoveron="fills+points",
             customdata=[[
@@ -673,7 +863,7 @@ def build_floor_plan(
         fig.add_annotation(
             x=cx, y=cy,
             text=f"<b>{room.get('name','')}</b><br>{room.get('total_cost',0)/1000:.0f}k {currency}",
-            showarrow=False, font=dict(size=9, color=_text_on(t)), align="center",
+            showarrow=False, font=dict(size=13, color=_text_on(t)), align="center",
         )
 
     for op in (openings + columns):
@@ -705,13 +895,29 @@ def build_floor_plan(
             ),
         ))
 
+    # Compute tight coordinate bounds to eliminate dead whitespace
+    _all_pts = (
+        [p for r in rooms for p in r.get("polygon", [])] +
+        [p for o in (openings + columns) for p in o.get("polygon", [])]
+    )
+    if _all_pts:
+        _xs = [p[0] for p in _all_pts]
+        _ys = [p[1] for p in _all_pts]
+        _xpad = (max(_xs) - min(_xs)) * 0.03
+        _ypad = (max(_ys) - min(_ys)) * 0.03
+        _xrange = [min(_xs) - _xpad, max(_xs) + _xpad]
+        _yrange = [min(_ys) - _ypad, max(_ys) + _ypad]
+    else:
+        _xrange = None
+        _yrange = None
+
     fig.update_layout(
         showlegend=False,
-        margin=dict(l=10, r=10, t=10, b=10),
-        paper_bgcolor="#ffffff", plot_bgcolor="#f7f7f7",
+        margin=dict(l=4, r=4, t=4, b=4),
+        paper_bgcolor="#ffffff", plot_bgcolor="#ffffff",
         xaxis=dict(showgrid=False, zeroline=False, scaleanchor="y",
-                   scaleratio=1, showticklabels=False),
-        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                   scaleratio=1, showticklabels=False, range=_xrange),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=_yrange),
         clickmode="event+select", dragmode="select",
     )
     if plot_height is not None:
@@ -742,15 +948,110 @@ def build_gh_legend(layout: dict) -> str:
             grad = "linear-gradient(to right," + ",".join(f"{h} {int(t*100)}%" for h,t in _fallback[cat]) + ")"
         blocks.append(f"""
 <div style="margin-bottom:10px">
-  <div style="font-size:0.78rem;color:#555;margin-bottom:3px">
-    {cat.capitalize()} ({lo:,.0f}–{hi:,.0f} {currency})
+  <div style="font-size:0.72rem;color:#8a8784;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">
+    {cat.capitalize()}<span style="font-weight:400;letter-spacing:0"> &nbsp;{lo:,.0f}–{hi:,.0f} {currency}</span>
   </div>
-  <div style="height:14px;border-radius:4px;background:{grad};border:1px solid #ccc"></div>
-  <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#888;margin-top:2px">
+  <div style="height:10px;border-radius:4px;background:{grad};border:1px solid #e0dbd2"></div>
+  <div style="display:flex;justify-content:space-between;font-size:0.68rem;color:#8a8784;margin-top:2px">
     <span>{lo:,.0f}</span><span>{hi:,.0f}</span>
   </div>
 </div>""")
     return "\n".join(blocks)
+
+
+# ── in-chart legend overlay ───────────────────────────────────────────────────
+def _add_legend_to_figure(fig: go.Figure, layout: dict) -> None:
+    """Overlay gradient color-scale bars inside the Plotly chart (top-right)."""
+    heatmap  = layout.get("heatmap", {})
+    ranges   = heatmap.get("ranges", {})
+    ramps    = heatmap.get("ramps", {})
+    currency = layout.get("project", {}).get("currency", "")
+
+    _fallback: dict[str, list[tuple[str, float]]] = {
+        "rooms":   [("#FFF5DC", 0.00), ("#FED976", 0.25), ("#FEB24C", 0.50), ("#F06913", 0.75), ("#BD0026", 1.00)],
+        "doors":   [("#E8CDAA", 0.00), ("#B27A41", 0.50), ("#643719", 1.00)],
+        "windows": [("#D2E8F0", 0.00), ("#5AA0CD", 0.50), ("#194B91", 1.00)],
+        "columns": [("#C8C8C8", 0.00), ("#828282", 0.50), ("#404040", 1.00)],
+    }
+    cats   = ["rooms", "doors", "windows", "columns"]
+    N_SEGS = 20
+
+    # Legend box in the top-right corner (paper coords: 0=plot-left, 1=plot-right)
+    lx0, lx1 = 0.72, 0.997
+    ly0, ly1 = 0.57, 0.995
+    slot_h   = (ly1 - ly0) / len(cats)   # vertical space per category
+    bar_h    = 0.038                      # bar thickness in paper units
+
+    # Semi-transparent white backing
+    fig.add_shape(
+        type="rect", xref="paper", yref="paper",
+        x0=lx0 - 0.012, y0=ly0 - 0.012, x1=lx1 + 0.004, y1=ly1 + 0.006,
+        fillcolor="rgba(255,255,255,0.90)",
+        line=dict(color="#cccccc", width=0.8), layer="above",
+    )
+
+    for i, cat in enumerate(cats):
+        r  = ranges.get(cat, {})
+        lo = float(r.get("min", 0))
+        hi = float(r.get("max", 0))
+
+        raw = ramps.get(cat, [])
+        stops: list[tuple[str, float]] = []
+        if isinstance(raw, list):
+            for s in raw:
+                if isinstance(s, dict):
+                    h = s.get("hex"); t = s.get("t")
+                    if isinstance(h, str) and isinstance(t, (int, float)):
+                        stops.append((h, float(t)))
+        if not stops:
+            stops = list(_fallback[cat])
+        stops.sort(key=lambda x: x[1])
+
+        top    = ly1 - i * slot_h
+        bar_y1 = top - 0.028
+        bar_y0 = bar_y1 - bar_h
+        val_y  = bar_y0 - 0.008
+
+        # Category label + range text
+        fig.add_annotation(
+            x=lx0, y=top - 0.004, xref="paper", yref="paper",
+            text=f"<b>{cat.upper()}</b>  {lo:,.0f}–{hi:,.0f} {currency}",
+            showarrow=False, xanchor="left", yanchor="top",
+            font=dict(size=8, color="#444444"),
+        )
+
+        # Gradient bar: N_SEGS thin coloured rectangles
+        for j in range(N_SEGS):
+            t_mid = (j + 0.5) / N_SEGS
+            col = stops[-1][0]
+            if t_mid <= stops[0][1]:
+                col = stops[0][0]
+            else:
+                for k in range(len(stops) - 1):
+                    h1, t1 = stops[k]; h2, t2 = stops[k + 1]
+                    if t1 <= t_mid <= t2:
+                        lt = (t_mid - t1) / (t2 - t1) if t2 > t1 else 0.0
+                        col = _interp_hex(h1, h2, lt)
+                        break
+            sx0 = lx0 + (lx1 - lx0) * j / N_SEGS
+            sx1 = lx0 + (lx1 - lx0) * (j + 1) / N_SEGS
+            fig.add_shape(
+                type="rect", xref="paper", yref="paper",
+                x0=sx0, y0=bar_y0, x1=sx1, y1=bar_y1,
+                fillcolor=col, line=dict(width=0), layer="above",
+            )
+
+        # Min / max tick labels
+        fig.add_annotation(
+            x=lx0, y=val_y, xref="paper", yref="paper",
+            text=f"{lo:,.0f}", showarrow=False,
+            xanchor="left", yanchor="top", font=dict(size=7, color="#888888"),
+        )
+        fig.add_annotation(
+            x=lx1, y=val_y, xref="paper", yref="paper",
+            text=f"{hi:,.0f}", showarrow=False,
+            xanchor="right", yanchor="top", font=dict(size=7, color="#888888"),
+        )
 
 
 # ── cost table ────────────────────────────────────────────────────────────────
@@ -816,11 +1117,11 @@ def _render_element_panel() -> None:
 
     hdr, close_btn = st.columns([8, 1])
     hdr.markdown(
-        f'<div style="background:#f0f4ff;border:1.5px solid #4a90d9;border-radius:10px;'
+        f'<div style="background:#dff6f6;border:1.5px solid #00AAAC;border-radius:10px;'
         f'padding:0.7rem 1rem 0.2rem 1rem;margin-bottom:0">'
-        f'<span style="font-size:0.78rem;color:#4a90d9;font-weight:600;text-transform:uppercase;'
+        f'<span style="font-size:0.78rem;color:#00AAAC;font-weight:600;text-transform:uppercase;'
         f'letter-spacing:0.05em">{etype.capitalize()}</span>'
-        f'<h4 style="margin:0 0 0.6rem 0;color:#1a1a2e">{name}</h4>',
+        f'<h4 style="margin:0 0 0.6rem 0;color:#1a2035">{name}</h4>',
         unsafe_allow_html=True,
     )
     if close_btn.button("✕", key="close_el_panel"):
@@ -868,7 +1169,7 @@ def render_sustainability_tab():
         st.info("Upload layouts in the sidebar to see the comparison.")
         return
 
-    _palette = ["#ef4444", "#f59e0b", "#3b82f6", "#10b981", "#8b5cf6"]
+    _palette = ["#00AAAC", "#f59e0b", "#1a2035", "#10b981", "#8b5cf6"]
 
     for idx, (name, layout) in enumerate(st.session_state.layouts.items()):
         st.divider()
@@ -897,7 +1198,7 @@ def render_sustainability_tab():
                 xaxis_title="Construction Cost per m² ($)",
                 yaxis_title="Embodied Carbon (kgCO2e/m²)",
                 paper_bgcolor="#ffffff",
-                plot_bgcolor="#f7f7f7",
+                plot_bgcolor="#f5f2ed",
                 height=400,
                 margin=dict(l=20, r=20, t=20, b=20)
             )
@@ -908,7 +1209,13 @@ def render_sustainability_tab():
 
 # SIDEBAR
 with st.sidebar:
-    st.markdown("### Load Layouts")
+    st.markdown(f"""
+<div style="margin-bottom:1.25rem">
+  <img src="data:image/svg+xml;base64,{_LOGO_B64_LIGHT}" width="192" alt="PlanWise" style="display:block"/>
+</div>
+""", unsafe_allow_html=True)
+
+    st.markdown('<p class="section-lbl">Load Layouts</p>', unsafe_allow_html=True)
     uploads = st.file_uploader(
         "Layout JSON files",
         type=["json"],
@@ -917,11 +1224,8 @@ with st.sidebar:
         key="layout_uploader_main"
     )
 
-
-    # 1. Global Sensitivity Engine (Top-level, stable location)
-    st.divider()
-    st.markdown("### Global Sensitivity Engine")
-
+    # 1. Global Sensitivity Engine
+    st.markdown('<p class="section-lbl">Sensitivity Engine</p>', unsafe_allow_html=True)
     st.slider("Labor Cost Multiplier", 0.8, 1.5, 1.0, 0.05, key="labor")
     st.slider("Material Inflation (%)", 0, 20, 0, 1, key="inflation")
     st.slider("Carbon Tax ($/tCO2e)", 0, 200, 0, 5, key="carbon_tax")
@@ -933,9 +1237,8 @@ with st.sidebar:
     }
 
     # 2. Currency selector
-    st.divider()
-    st.markdown("### Display Currency")
-    st.caption("All rates are stored in AED. Select a currency to convert displayed costs.")
+    st.markdown('<p class="section-lbl">Display Currency</p>', unsafe_allow_html=True)
+    st.caption("Rates stored in AED — select to convert.")
     _CURRENCIES = {
         "AED — Arab Emirates Dirham": ("AED",  1.000),
         "USD — US Dollar":            ("USD",  0.272),
@@ -987,7 +1290,7 @@ with st.sidebar:
             st.error("Failed to parse: " + ", ".join(failed_names[:3]))
 
     # 3. Plan Selection & Analysis
-    st.divider()
+    st.markdown('<p class="section-lbl">Active Plan</p>', unsafe_allow_html=True)
     if st.session_state.layouts:
         plan_keys = list(st.session_state.layouts.keys())
         current_selection = st.session_state.selected_plan_key
@@ -995,7 +1298,7 @@ with st.sidebar:
             current_selection = plan_keys[0]
             st.session_state.selected_plan_key = current_selection
 
-        chosen_key = st.selectbox("Active plan", options=plan_keys, index=plan_keys.index(current_selection))
+        chosen_key = st.selectbox("Active plan", options=plan_keys, index=plan_keys.index(current_selection), label_visibility="collapsed")
 
         if chosen_key != st.session_state.selected_plan_key:
             st.session_state.selected_plan_key = chosen_key
@@ -1012,7 +1315,9 @@ with st.sidebar:
         _sb_code = st.session_state.get("currency_code", "AED")
         _sb_factor = st.session_state.get("currency_factor", 1.0)
 
-        st.markdown(f"**{proj.get('name','')}**")
+        _proj_name = proj.get('name', '')
+        if _proj_name:
+            st.markdown(f'<p class="proj-title">{_proj_name}</p>', unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         c1.metric("Rooms", len(rooms))
         c2.metric("Footprint", f"{proj.get('footprint_m2', 0):.0f} m²")
@@ -1020,7 +1325,7 @@ with st.sidebar:
         if grand != room_total:
             st.metric("Grand total", f"{grand * _sb_factor:,.0f} {_sb_code}")
 
-        st.divider()
+        st.markdown('<div style="height:0.4rem"></div>', unsafe_allow_html=True)
 
         if st.button("Analyze All Saved Plans", use_container_width=True):
             from swiftlet_mcp import push_layout_to_grasshopper
@@ -1046,9 +1351,8 @@ with st.sidebar:
         st.info("Upload JSON files to begin.")
 
     # ── Client DNA ───────────────────────────────────────────────────────────
-    st.divider()
-    st.markdown("### Client DNA")
-    st.caption("Upload up to 3 past project CSVs to learn this client's spending habits.")
+    st.markdown('<p class="section-lbl">Client DNA</p>', unsafe_allow_html=True)
+    st.caption("Upload past project CSVs to learn spending habits (max 3).")
 
     _dna_uploads = st.file_uploader(
         "Past project CSVs (max 3)",
@@ -1104,100 +1408,95 @@ with st.sidebar:
 # =============================================================================
 # MAIN
 # =============================================================================
-st.markdown(
-    '<h2 style="font-size:1.35rem;font-weight:400;letter-spacing:-0.02em;'
-    'color:#111;margin:0 0 0.15rem 0">AIA Studio '
-    '<span style="color:#cccccc">·</span> Cost Advisor</h2>',
-    unsafe_allow_html=True,
-)
-st.caption("Upload a layout in the sidebar to begin")
+st.markdown(f"""
+<div style="margin-bottom:0.3rem">
+  <img src="data:image/svg+xml;base64,{_LOGO_B64_LIGHT}" width="420" alt="PlanWise" style="display:block"/>
+</div>
+<p style="font-size:0.82rem;color:#8a95b5;margin:0 0 1.5rem;letter-spacing:0.01em;font-weight:400">
+  AI cost advisor for AEC
+</p>
+""", unsafe_allow_html=True)
 
-with st.expander("📖 Welcome! How to use this interface", expanded=(not st.session_state.layout)):
+with st.expander("How to use this interface", expanded=False):
     st.markdown("""
-    **Welcome to the Interactive Cost & Carbon Advisor. Here is how to navigate the tools:**
+**Get started in 3 steps:**
+1. **Upload** a `layout.json` file using the sidebar — the floor plan heatmap will appear instantly.
+2. **Adjust** Labor, Inflation, and Carbon Tax sliders to model real-world cost sensitivity.
+3. **Ask** the Agent Chat anything: *"Set master bedroom floor to marble"*, *"What's the total cost?"*
 
-    * **⬅️ Sidebar | Load Layouts:** Start by uploading one or multiple `layout.json` files. You can manage multiple plans (max 5) and easily switch between them.
-    * **🎛️ Sidebar | Global Sensitivity Engine:** Adjust real-world economic factors like Labor Cost, Material Inflation, and Carbon Tax. Watch the tables and charts update instantly!
-    * **🗺️ Floor Plan & Chat Tab:** Toggle between 2D and 3D heatmaps of your project. Click any room to see its specific metrics. Use the **Agent Chat** on the right to ask the AI questions or assign materials (e.g., *"Set the living room floor finish to hardwood"*).
-    * **🧱 Architectural Advice Tab:** View a smart table of all materials used in your project, complete with fire ratings, carbon footprints, and lower-carbon alternatives. Check the **Carbon Budget Tracker** to see if you meet RIBA 2030 targets.
-    * **🌱 Sustainability Analysis Tab:** Compare Cost vs. Carbon across all your uploaded plans at once to find the most efficient design iteration.
-    * **🎯 Cost Matching Tab:** Over budget? Enter your target cost, and the algorithm will suggest specific material swaps to hit your financial goals.
+**Right panel tabs:** Architectural Advice · Sustainability Analysis · Cost Matching · Client DNA
     """)
 
-st.divider()
+st.markdown('<div style="height:0.5rem"></div>', unsafe_allow_html=True)
 
 # =============================================================================
-# TWO-COLUMN LAYOUT: Heatmap (left, always visible) | Vertical Tabs (right)
+# TWO-COLUMN LAYOUT: Main (left) | Vertical Tabs (right)
 # =============================================================================
-col_heatmap, col_panel = st.columns([5, 2], gap="large")
+col_main, col_panel = st.columns([5, 2], gap="large")
 
-# ── LEFT: Always-visible heatmap ─────────────────────────────────────────────
-with col_heatmap:
+# ── LEFT: Heatmap + Chat (top row) | Cost Table (bottom) ─────────────────────
+with col_main:
+    st.markdown('<p class="section-lbl">Floor Plan · Cost Analysis</p>', unsafe_allow_html=True)
     if st.session_state.layout:
-        st.markdown("#### Floor Plan — Cost Heatmap")
 
-        view_mode = st.radio(
-            "Visualization Mode",
-            ["2D Flat Floorplan", "Interactive 3D Skyline"],
-            horizontal=True,
-            key="view_mode_main",
-        )
+        # ── TOP ROW: Heatmap (left) and Agent Chat (right) side by side ───────
+        col_heatmap_inner, col_chat_inner = st.columns([4, 2], gap="medium")
 
-        if "3D" in view_mode:
-            st.caption("Drag to rotate, scroll to zoom. Z-height represents total room cost.")
-            render_3d_heatmap(st.session_state.layout, "skyline")
-        else:
-            st.caption("Colors from Grasshopper. Click a room to select it.")
+        # ── HEATMAP PANEL ─────────────────────────────────────────────────────
+        with col_heatmap_inner:
+            st.markdown('<p class="section-lbl">Cost Heatmap</p>', unsafe_allow_html=True)
 
-            sel_id = (st.session_state.selected_room or {}).get("id")
-            fig    = build_floor_plan(st.session_state.layout, sel_id, plot_height=560)
+            view_mode = st.radio(
+                "Visualization Mode",
+                ["2D Flat Floorplan", "Interactive 3D Skyline"],
+                horizontal=True,
+                key="view_mode_main",
+            )
 
-            _sel_el = st.session_state.get("selected_element")
-            if _sel_el and _sel_el.get("cx") is not None:
-                _ann_cost = float(_sel_el.get("cost") or 0)
-                _ann_cur  = _sel_el.get("currency", "")
-                _ann_type = _sel_el.get("type", "")
-                _ann_name = _sel_el.get("name", "")
-                if _ann_type == "room":
-                    _ann_text = (
-                        f"<b>{_ann_name}</b><br>"
-                        f"Cost: {_ann_cost:,.0f} {_ann_cur}<br>"
-                        f"Area: {_sel_el.get('area', 0):.1f} m²<br>"
-                        f"Rate: {_sel_el.get('rate', 0):,.0f} {_ann_cur}/m²"
+            if "3D" in view_mode:
+                st.caption("Drag to rotate, scroll to zoom. Z-height represents total room cost.")
+                render_3d_heatmap(st.session_state.layout, "skyline")
+            else:
+                st.caption("Colors from Grasshopper. Click a room to select it.")
+
+                sel_id = (st.session_state.selected_room or {}).get("id")
+                fig    = build_floor_plan(st.session_state.layout, sel_id, plot_height=880)
+
+                _sel_el = st.session_state.get("selected_element")
+                if _sel_el and _sel_el.get("cx") is not None:
+                    _ann_cost = float(_sel_el.get("cost") or 0)
+                    _ann_cur  = _sel_el.get("currency", "")
+                    _ann_type = _sel_el.get("type", "")
+                    _ann_name = _sel_el.get("name", "")
+                    if _ann_type == "room":
+                        _ann_text = (
+                            f"<b>{_ann_name}</b><br>"
+                            f"Cost: {_ann_cost:,.0f} {_ann_cur}<br>"
+                            f"Area: {_sel_el.get('area', 0):.1f} m²<br>"
+                            f"Rate: {_sel_el.get('rate', 0):,.0f} {_ann_cur}/m²"
+                        )
+                    else:
+                        _ann_text = (
+                            f"<b>{_ann_type.capitalize()}</b> · {_ann_name}<br>"
+                            f"Cost: {_ann_cost:,.0f} {_ann_cur}"
+                        )
+                    fig.add_annotation(
+                        x=_sel_el["cx"], y=_sel_el["cy"],
+                        text=_ann_text,
+                        showarrow=True,
+                        arrowhead=2,
+                        arrowcolor="#00AAAC",
+                        arrowwidth=1.5,
+                        bgcolor="white",
+                        bordercolor="#00AAAC",
+                        borderwidth=1.5,
+                        borderpad=6,
+                        font=dict(size=10, color="#1a2035"),
+                        align="left",
+                        ax=60, ay=-60,
+                        xanchor="left",
                     )
-                else:
-                    _ann_text = (
-                        f"<b>{_ann_type.capitalize()}</b> · {_ann_name}<br>"
-                        f"Cost: {_ann_cost:,.0f} {_ann_cur}"
-                    )
-                fig.add_annotation(
-                    x=_sel_el["cx"], y=_sel_el["cy"],
-                    text=_ann_text,
-                    showarrow=True,
-                    arrowhead=2,
-                    arrowcolor="#4a90d9",
-                    arrowwidth=1.5,
-                    bgcolor="white",
-                    bordercolor="#4a90d9",
-                    borderwidth=1.5,
-                    borderpad=6,
-                    font=dict(size=10, color="#1a1a2e"),
-                    align="left",
-                    ax=60, ay=-60,
-                    xanchor="left",
-                )
 
-            plan_col, legend_col = st.columns([5, 1], gap="small")
-
-            with legend_col:
-                st.markdown(
-                    '<div style="padding-top:2.5rem">'
-                    + build_gh_legend(st.session_state.layout)
-                    + "</div>",
-                    unsafe_allow_html=True,
-                )
-
-            with plan_col:
                 try:
                     event = st.plotly_chart(
                         fig, use_container_width=True,
@@ -1262,85 +1561,97 @@ with col_heatmap:
                 except TypeError:
                     st.plotly_chart(fig, use_container_width=True)
 
-        # Element info panel — appears below chart when any element is clicked
-        _render_element_panel()
-
-        # Cost breakdown table
-        if st.session_state.get("client_applied"):
-            st.info("Client DNA template applied. Rates and costs below reflect the client's spending profile.")
-        with st.expander("Cost Breakdown Table", expanded=True):
-            df = build_cost_df(st.session_state.layout)
-            if not df.empty:
-                st.table(df)
-            else:
-                st.info("No cost data available in this layout.")
-
-        # ── Agent Chat (below heatmap) ────────────────────────────────────────
-        st.divider()
-        st.markdown("#### Agent Chat")
-        if st.session_state.selected_plan_key:
-            st.caption(f"Analyzing: {st.session_state.selected_plan_key}")
-
-        chat_area = st.container(height=340)
-        with chat_area:
-            if st.session_state.messages:
-                render_chat()
-            else:
-                st.caption("Ask a question or click a room to start.")
-
-        pending = st.session_state.pop("pending_prompt", "") \
-                  if "pending_prompt" in st.session_state else ""
-
-        user_text = st.chat_input(
-            placeholder='e.g. "bedroom 3 floor finish marble" or "total cost?"',
-            key="chat_input",
-        )
-
-        if pending and not user_text:
-            user_text = pending
-
-        if user_text and user_text.strip():
-            st.session_state.messages.append({"role": "user", "content": user_text.strip()})
-            with chat_area:
-                with st.chat_message("user"):
-                    st.markdown(user_text.strip())
-                with st.chat_message("assistant"):
-                    placeholder = st.empty()
-                    placeholder.markdown("_Thinking..._")
-            reply = None
-            gh_synced = False
-            try:
-                reply = st.session_state.agent.process(
-                    user_text.strip(),
-                    layout=st.session_state.layout,
-                    plans=st.session_state.layouts,
-                    active_plan_key=st.session_state.selected_plan_key,
-                    history=st.session_state.messages[:-1],
-                    client_profile=st.session_state.get("client_profile") or None,
+                # HTML legend overlaid in the top-right corner of the chart via CSS negative margin
+                st.markdown(
+                    '<div class="chart-legend-overlay">'
+                    + build_gh_legend(st.session_state.layout)
+                    + "</div>",
+                    unsafe_allow_html=True,
                 )
-                updated = st.session_state.agent.get_updated_layout()
-                if updated is not None and st.session_state.layout is not None:
-                    st.session_state.layout = _merge_gh_colors(
-                        st.session_state.layout, updated
-                    )
-                    if st.session_state.selected_plan_key in st.session_state.layouts:
-                        st.session_state.layouts[st.session_state.selected_plan_key] = st.session_state.layout
-                    st.session_state.selected_room = None
-                    _write_gh_file(st.session_state.layout)
-                    gh_synced = True
-            except Exception as exc:
-                reply = f"Agent error: {exc}"
-            finally:
-                if reply is not None:
-                    placeholder.markdown(reply)
-                    st.session_state.messages.append({"role": "assistant", "content": reply})
-            if gh_synced:
-                st.toast("Heatmap & Grasshopper synced", icon="✅")
-            st.rerun()
 
-        if st.button("Clear conversation", use_container_width=True, key="clear_chat_main"):
-            st.session_state.messages = []
-            st.rerun()
+            # Element info panel — appears below chart when any element is clicked
+            _render_element_panel()
+
+            # ── COST BREAKDOWN TABLE — below heatmap in the same column ───────
+            st.markdown('<div style="height:0.75rem"></div>', unsafe_allow_html=True)
+            if st.session_state.get("client_applied"):
+                st.info("Client DNA template applied. Rates and costs below reflect the client's spending profile.")
+            with st.expander("Cost Breakdown Table", expanded=True):
+                _cost_df = build_cost_df(st.session_state.layout)
+                if not _cost_df.empty:
+                    st.table(_cost_df)
+                else:
+                    st.info("No cost data available in this layout.")
+
+        # ── AGENT CHAT PANEL ──────────────────────────────────────────────────
+        with col_chat_inner:
+            st.markdown('<p class="section-lbl">Agent Chat</p>', unsafe_allow_html=True)
+            if st.session_state.selected_plan_key:
+                st.caption(f"Active: {st.session_state.selected_plan_key}")
+
+            # Match left-column height: heatmap (880) + table rows (~60px each) + fixed chrome
+            _n_rooms = len(st.session_state.layout.get("rooms", []))
+            chat_area = st.container(height=max(600, 665 + 60 * _n_rooms))
+            with chat_area:
+                if st.session_state.messages:
+                    render_chat()
+                else:
+                    st.caption("Ask a question or click a room to start.")
+
+            pending = st.session_state.pop("pending_prompt", "") \
+                      if "pending_prompt" in st.session_state else ""
+
+            user_text = st.chat_input(
+                placeholder='e.g. "bedroom 3 floor finish marble" or "total cost?"',
+                key="chat_input",
+            )
+
+            if pending and not user_text:
+                user_text = pending
+
+            if user_text and user_text.strip():
+                st.session_state.messages.append({"role": "user", "content": user_text.strip()})
+                with chat_area:
+                    with st.chat_message("user"):
+                        st.markdown(user_text.strip())
+                    with st.chat_message("assistant"):
+                        placeholder = st.empty()
+                        placeholder.markdown("_Thinking..._")
+                reply = None
+                gh_synced = False
+                try:
+                    reply = st.session_state.agent.process(
+                        user_text.strip(),
+                        layout=st.session_state.layout,
+                        plans=st.session_state.layouts,
+                        active_plan_key=st.session_state.selected_plan_key,
+                        history=st.session_state.messages[:-1],
+                        client_profile=st.session_state.get("client_profile") or None,
+                    )
+                    updated = st.session_state.agent.get_updated_layout()
+                    if updated is not None and st.session_state.layout is not None:
+                        st.session_state.layout = _merge_gh_colors(
+                            st.session_state.layout, updated
+                        )
+                        if st.session_state.selected_plan_key in st.session_state.layouts:
+                            st.session_state.layouts[st.session_state.selected_plan_key] = st.session_state.layout
+                        st.session_state.selected_room = None
+                        _write_gh_file(st.session_state.layout)
+                        gh_synced = True
+                except Exception as exc:
+                    reply = f"Agent error: {exc}"
+                finally:
+                    if reply is not None:
+                        placeholder.markdown(reply)
+                        st.session_state.messages.append({"role": "assistant", "content": reply})
+                if gh_synced:
+                    st.toast("Heatmap & Grasshopper synced", icon="✅")
+                st.rerun()
+
+            if st.button("Clear conversation", use_container_width=True, key="clear_chat_main"):
+                st.session_state.messages = []
+                st.rerun()
+
     else:
         st.info("Upload a layout in the sidebar to see the heatmap.")
 
@@ -1353,11 +1664,7 @@ with col_panel:
         "Cost Matching",
         "Client DNA",
     ]
-    st.markdown(
-        '<p style="font-size:0.68rem;color:#aaaaaa;letter-spacing:0.12em;'
-        'text-transform:uppercase;margin:0 0 0.6rem 0">Navigate</p>',
-        unsafe_allow_html=True,
-    )
+    st.markdown('<p class="section-lbl">Analysis · Navigate</p>', unsafe_allow_html=True)
     for _tab_name in _NAV_TABS:
         _is_active = st.session_state.get("active_tab") == _tab_name
         if st.button(
@@ -1437,19 +1744,20 @@ with col_panel:
         _adv_rows: list[dict] = st.session_state.get("arch_advice_rows") or []
         if _adv_rows:
             _FIRE_COLOR = {
-                "A1": "#27ae60", "A2": "#27ae60",
-                "B": "#f39c12", "C": "#e67e22",
-                "D": "#c0392b", "E": "#c0392b", "F": "#c0392b",
+                "A1": "#10b981", "A2": "#10b981",
+                "B": "#f59e0b", "C": "#f59e0b",
+                "D": "#ef4444", "E": "#ef4444", "F": "#ef4444",
             }
             _th = (
-                "text-align:left;padding:8px 14px;"
-                "border-bottom:2px solid #ddd;color:#555;font-size:0.82rem;font-weight:600"
+                "text-align:left;padding:7px 14px;background:#faf9f6;"
+                "border-bottom:2px solid #e0dbd2;color:#8a8784;font-size:0.68rem;"
+                "font-weight:700;text-transform:uppercase;letter-spacing:0.07em"
             )
-            _td = "padding:8px 14px;border-bottom:1px solid #eee;font-size:0.88rem;color:#111"
+            _td = "padding:8px 14px;border-bottom:1px solid #eceae2;font-size:0.86rem;color:#171717"
             _headers = ["Material", "Carbon Footprint", "Fire Rating", "Lifespan (yrs)", "Lower-Carbon Alternative", "Recommendation"]
             _head_html = "".join(f'<th style="{_th}">{h}</th>' for h in _headers)
             _body_html = ""
-            _td_alt = _td + ";color:#1a7a3a;font-style:italic"
+            _td_alt = _td + ";color:#059669;font-style:italic"
             for _r in _adv_rows:
                 _fire = str(_r.get("Fire Rating", "—"))
                 _fc   = _FIRE_COLOR.get(_fire, "#111")
@@ -1518,9 +1826,9 @@ with col_panel:
                 delta_color="inverse",
             )
 
-            _bar_color = "#27ae60" if _pct < 70 else "#f39c12" if _pct < 100 else "#c0392b"
+            _bar_color = "#10b981" if _pct < 70 else "#f59e0b" if _pct < 100 else "#ef4444"
             st.markdown(
-                f'<div style="background:#eee;border-radius:6px;height:18px;margin:6px 0">'
+                f'<div style="background:#e0dbd2;border-radius:6px;height:10px;margin:6px 0">'
                 f'<div style="background:{_bar_color};width:{min(_pct,100):.1f}%;'
                 f'height:100%;border-radius:6px;transition:width 0.4s"></div></div>',
                 unsafe_allow_html=True,
@@ -1533,8 +1841,8 @@ with col_panel:
 
             if _budget["breakdown"]:
                 with st.expander("Room breakdown", expanded=True):
-                    _th_s = "text-align:left;padding:6px 12px;border-bottom:2px solid #ddd;color:#555;font-size:0.8rem;font-weight:600"
-                    _td_s = "padding:6px 12px;border-bottom:1px solid #eee;font-size:0.85rem;color:#111"
+                    _th_s = "text-align:left;padding:6px 12px;background:#faf9f6;border-bottom:2px solid #e0dbd2;color:#8a8784;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em"
+                    _td_s = "padding:6px 12px;border-bottom:1px solid #eceae2;font-size:0.84rem;color:#171717"
                     _cols = ["Room", "Finish", "Material", "Area (m²)", "kgCO2e/m²", "Total kgCO2e"]
                     _head = "".join(f'<th style="{_th_s}">{c}</th>' for c in _cols)
                     _rows = ""
@@ -1615,8 +1923,8 @@ with col_panel:
                     xaxis_title="Construction cost per m²",
                     yaxis_title="Embodied carbon (kgCO2e/m²)",
                     paper_bgcolor="#ffffff",
-                    plot_bgcolor="#f7f7f7",
-                    font=dict(color="#111"),
+                    plot_bgcolor="#f5f2ed",
+                    font=dict(color="#171717"),
                     height=420,
                     margin=dict(l=10, r=10, t=20, b=10),
                     legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5),
@@ -1688,9 +1996,9 @@ with col_panel:
                 _k4.metric("Similarity",     f"{_pct:.1f}%",
                            delta=f"{'On target' if _pct >= 99 else 'Approx match'}")
 
-                _bar_color = "#2ecc71" if _pct >= 90 else "#f39c12" if _pct >= 70 else "#e74c3c"
+                _bar_color = "#10b981" if _pct >= 90 else "#f59e0b" if _pct >= 70 else "#ef4444"
                 st.markdown(
-                    f'<div style="background:#e9e9e9;border-radius:8px;height:18px;margin:6px 0 14px">'
+                    f'<div style="background:#e0dbd2;border-radius:6px;height:10px;margin:6px 0 14px">'
                     f'<div style="background:{_bar_color};width:{min(_pct,100):.1f}%;height:100%;'
                     f'border-radius:8px;transition:width 0.5s"></div></div>',
                     unsafe_allow_html=True,
@@ -1703,8 +2011,9 @@ with col_panel:
                     st.markdown(f"#### Suggested finish changes ({len(_sugg)} adjustment{'s' if len(_sugg)!=1 else ''})")
 
                     _th = "".join(
-                        f'<th style="padding:6px 10px;text-align:left;background:#f0f0f0;'
-                        f'border-bottom:2px solid #ccc;white-space:nowrap">{h}</th>'
+                        f'<th style="padding:6px 10px;text-align:left;background:#faf9f6;'
+                        f'border-bottom:2px solid #e0dbd2;white-space:nowrap;font-size:0.68rem;'
+                        f'font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#8a8784">{h}</th>'
                         for h in ["Room", "Surface", "From", f"Rate ({_cur}/m²)",
                                   "To", f"Rate ({_cur}/m²)", "Area m²",
                                   f"Delta ({_cur})", f"New room total ({_cur})"]
@@ -1713,7 +2022,7 @@ with col_panel:
                     for i, s in enumerate(_sugg):
                         _bg  = "#ffffff" if i % 2 == 0 else "#f9f9f9"
                         _d   = s["delta_cost"]
-                        _dc  = "#c0392b" if _d > 0 else "#27ae60"
+                        _dc  = "#ef4444" if _d > 0 else "#10b981"
                         def _td(v, bold=False, color=None):
                             _st = f'padding:5px 10px;white-space:nowrap;'
                             if color: _st += f'color:{color};'
@@ -1739,7 +2048,7 @@ with col_panel:
                     )
 
                     _total_delta = sum(s["delta_cost"] for s in _sugg)
-                    _dc_total = "#c0392b" if _total_delta > 0 else "#27ae60"
+                    _dc_total = "#ef4444" if _total_delta > 0 else "#10b981"
                     st.markdown(
                         f'<p style="margin-top:10px;font-size:13px;color:#555">'
                         f'Total adjustment: <b style="color:{_dc_total}">{_total_delta:+,.0f} {_cur}</b> '
@@ -1764,9 +2073,9 @@ with col_panel:
                 _adj_costs = [_adj_map.get(n, 0) for n in _room_names]
 
                 _bar_colors = [
-                    "#27ae60" if _adj_map.get(n, 0) < (r.get("total_cost", 0) or 0)
-                    else "#c0392b" if _adj_map.get(n, 0) > (r.get("total_cost", 0) or 0)
-                    else "#95a5a6"
+                    "#10b981" if _adj_map.get(n, 0) < (r.get("total_cost", 0) or 0)
+                    else "#ef4444" if _adj_map.get(n, 0) > (r.get("total_cost", 0) or 0)
+                    else "#b8b4ac"
                     for n, r in zip(_room_names, _all_rooms)
                 ]
 
@@ -1775,7 +2084,7 @@ with col_panel:
                     name="Current cost",
                     x=_room_names,
                     y=_orig_costs,
-                    marker_color="#aab4c8",
+                    marker_color="#c8c4bc",
                     text=[f"{v:,.0f}" for v in _orig_costs],
                     textposition="outside",
                     hovertemplate="<b>%{x}</b><br>Current: %{y:,.0f} " + _cur + "<extra></extra>",
@@ -1791,20 +2100,20 @@ with col_panel:
                 ))
                 _fig_bar.add_hline(
                     y=_tgt / max(len(_room_names), 1),
-                    line_dash="dot", line_color="#e67e22", line_width=1.5,
+                    line_dash="dot", line_color="#f59e0b", line_width=1.5,
                     annotation_text=f"Target avg/room: {_tgt/max(len(_room_names),1):,.0f}",
                     annotation_position="top right",
                 )
                 _fig_bar.update_layout(
                     barmode="group",
                     paper_bgcolor="#ffffff",
-                    plot_bgcolor="#f7f7f7",
-                    font=dict(color="#111"),
+                    plot_bgcolor="#f5f2ed",
+                    font=dict(color="#171717"),
                     height=380,
                     margin=dict(l=10, r=10, t=30, b=10),
                     legend=dict(orientation="h", yanchor="bottom", y=-0.25,
                                 xanchor="center", x=0.5),
-                    yaxis=dict(title=f"Cost ({_cur})", gridcolor="#e5e5e5"),
+                    yaxis=dict(title=f"Cost ({_cur})", gridcolor="#e0dbd2"),
                     xaxis=dict(tickangle=-20),
                 )
                 st.plotly_chart(_fig_bar, use_container_width=True)
@@ -1826,8 +2135,6 @@ with col_panel:
             _dna_cats    = _dna_profile.get("categories", {})
             _dna_ranked  = _dna_profile.get("ranked_categories", [])
 
-            st.markdown(_dna_summary)
-
             if _dna_ranked and _dna_cats:
                 st.divider()
                 st.markdown("#### Spending by Category")
@@ -1840,32 +2147,32 @@ with col_panel:
                 with _ch_col1:
                     _fig_pct = go.Figure(go.Bar(
                         x=_ch_labels, y=_ch_pcts,
-                        marker_color="#F06913",
+                        marker_color="#00AAAC",
                         text=[f"{p:.0f}%" for p in _ch_pcts],
                         textposition="outside",
                     ))
                     _fig_pct.update_layout(
                         title="Budget allocation (%)",
                         yaxis_title="% of total budget",
-                        paper_bgcolor="#ffffff", plot_bgcolor="#f7f7f7",
+                        paper_bgcolor="#ffffff", plot_bgcolor="#f5f2ed",
                         height=300, margin=dict(l=10, r=10, t=40, b=10),
-                        font=dict(color="#111"),
+                        font=dict(color="#171717"),
                     )
                     st.plotly_chart(_fig_pct, use_container_width=True)
 
                 with _ch_col2:
                     _fig_rate = go.Figure(go.Bar(
                         x=_ch_labels, y=_ch_rates,
-                        marker_color="#3b82f6",
+                        marker_color="#1a2035",
                         text=[f"{r:,.0f}" for r in _ch_rates],
                         textposition="outside",
                     ))
                     _fig_rate.update_layout(
                         title="Average rate per m²",
                         yaxis_title="Rate (currency/m²)",
-                        paper_bgcolor="#ffffff", plot_bgcolor="#f7f7f7",
+                        paper_bgcolor="#ffffff", plot_bgcolor="#f5f2ed",
                         height=300, margin=dict(l=10, r=10, t=40, b=10),
-                        font=dict(color="#111"),
+                        font=dict(color="#171717"),
                     )
                     st.plotly_chart(_fig_rate, use_container_width=True)
 
@@ -1879,10 +2186,6 @@ with col_panel:
             if _dna_template and st.session_state.layout:
                 st.divider()
                 st.markdown("#### Proposed Spending Template")
-                st.caption(
-                    "Rates and finishes are suggested from this client's past projects. "
-                    "▲ = more expensive than current · ▼ = cheaper than current."
-                )
 
                 _currency = st.session_state.layout.get("project", {}).get("currency", "")
                 _tpl_rows = []
@@ -1897,8 +2200,6 @@ with col_panel:
                         f"Current cost ({_currency})":        int(_t["current_cost"]),
                         f"Suggested cost ({_currency})":      int(_t["suggested_cost"]),
                         f"Delta ({_currency})":               f"{_sign} {abs(int(_delta)):,}",
-                        "Preferred floor finish":             _t["preferred_floor"] or "—",
-                        "Preferred wall finish":              _t["preferred_wall"]  or "—",
                     })
 
                 st.table(pd.DataFrame(_tpl_rows))
@@ -2176,7 +2477,7 @@ if len(st.session_state.layouts) >= 2:
                 for name, layout in st.session_state.layouts.items()
             ]
             spider_df = pd.DataFrame(spider_rows)
-            _palette = ["#ef4444", "#f59e0b", "#3b82f6", "#10b981", "#8b5cf6"]
+            _palette = ["#00AAAC", "#f59e0b", "#1a2035", "#10b981", "#8b5cf6"]
             plan_color_map = {name: _palette[i % len(_palette)] for i, name in enumerate(st.session_state.layouts)}
 
             if not spider_df.empty:
@@ -2306,7 +2607,7 @@ if len(st.session_state.layouts) >= 2:
                     height=260,
                     margin=dict(l=10, r=10, t=10, b=10),
                     paper_bgcolor="#ffffff",
-                    plot_bgcolor="#f7f7f7",
+                    plot_bgcolor="#f5f2ed",
                     font=dict(color="#111111"),
                     xaxis=dict(title=dict(text=f"Grand Total ({currency})", font=dict(color="#111111")), tickfont=dict(color="#111111")),
                     yaxis=dict(tickfont=dict(color="#111111"), title=""),
@@ -2330,3 +2631,7 @@ if len(st.session_state.layouts) >= 2:
             st.rerun()
     with info_col:
         st.caption("Comparison is hidden until you choose to show it.")
+
+
+
+
