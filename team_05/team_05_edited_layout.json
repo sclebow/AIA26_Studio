@@ -1,6 +1,6 @@
 {
   "project": {
-    "name": "Villa V1 - Master Suite Focus",
+    "name": "Villa V4 - Wider Corridor + Big Bathroom",
     "currency": "USD",
     "units": "meters",
     "footprint_m2": 154.0,
@@ -13,14 +13,14 @@
       "columns": "light gray -> dark gray (sequential concrete)"
     },
     "splits": {
-      "x_living_dining": 7.0,
-      "corridor_y_low": 5.0,
+      "x_living_dining": 8.0,
+      "corridor_y_low": 4.5,
       "corridor_y_high": 6.5,
-      "x_master_br2": 6.5,
-      "x_br2_br3": 9.5,
-      "x_br3_bathroom": 11.5
+      "x_master_br2": 5.0,
+      "x_br2_br3": 8.0,
+      "x_br3_bathroom": 11.0
     },
-    "note": "shrinks living+dining, enlarges master bedroom"
+    "note": "corridor widened to 2 m for circulation; bathroom enlarged"
   },
   "rooms": [
     {
@@ -33,54 +33,21 @@
           0
         ],
         [
-          7.0,
+          8.0,
           0
         ],
         [
-          7.0,
-          5.0
+          8.0,
+          4.5
         ],
         [
           0,
-          5.0
+          4.5
         ]
       ],
-      "rate_per_m2": 3200,
-      "area_m2": 35.0,
-      "total_cost": 112000,
-      "color_hex": "#BD0125",
-      "color_rgb": [
-        189,
-        1,
-        37
-      ],
-      "heat_t": 0.9962
-    },
-    {
-      "id": "dining",
-      "name": "Dining Room",
-      "category": "common",
-      "polygon": [
-        [
-          7.0,
-          0
-        ],
-        [
-          14.0,
-          0
-        ],
-        [
-          14.0,
-          5.0
-        ],
-        [
-          7.0,
-          5.0
-        ]
-      ],
-      "rate_per_m2": 3210.0,
-      "area_m2": 35.0,
-      "total_cost": 112350.0,
+      "rate_per_m2": 3405.0,
+      "area_m2": 36.0,
+      "total_cost": 122580.0,
       "color_hex": "#BD0026",
       "color_rgb": [
         189,
@@ -91,17 +58,50 @@
       "floor-finish": "marble"
     },
     {
+      "id": "dining",
+      "name": "Dining Room",
+      "category": "common",
+      "polygon": [
+        [
+          8.0,
+          0
+        ],
+        [
+          14.0,
+          0
+        ],
+        [
+          14.0,
+          4.5
+        ],
+        [
+          8.0,
+          4.5
+        ]
+      ],
+      "rate_per_m2": 2800,
+      "area_m2": 27.0,
+      "total_cost": 75600,
+      "color_hex": "#FEB24C",
+      "color_rgb": [
+        254,
+        178,
+        76
+      ],
+      "heat_t": 0.4942
+    },
+    {
       "id": "corridor",
       "name": "Corridor",
       "category": "circulation",
       "polygon": [
         [
           0,
-          5.0
+          4.5
         ],
         [
           14.0,
-          5.0
+          4.5
         ],
         [
           14.0,
@@ -113,15 +113,15 @@
         ]
       ],
       "rate_per_m2": 1500,
-      "area_m2": 21.0,
-      "total_cost": 31500,
-      "color_hex": "#FEE6A8",
+      "area_m2": 28.0,
+      "total_cost": 42000,
+      "color_hex": "#FEE6A5",
       "color_rgb": [
         254,
         230,
-        168
+        165
       ],
-      "heat_t": 0.1264
+      "heat_t": 0.1324
     },
     {
       "id": "master_bed",
@@ -133,11 +133,11 @@
           6.5
         ],
         [
-          6.5,
+          5.0,
           6.5
         ],
         [
-          6.5,
+          5.0,
           11.0
         ],
         [
@@ -146,15 +146,15 @@
         ]
       ],
       "rate_per_m2": 2800,
-      "area_m2": 29.25,
-      "total_cost": 81900,
-      "color_hex": "#F48025",
+      "area_m2": 22.5,
+      "total_cost": 63000,
+      "color_hex": "#FEC863",
       "color_rgb": [
-        244,
-        128,
-        37
+        254,
+        200,
+        99
       ],
-      "heat_t": 0.671
+      "heat_t": 0.3585
     },
     {
       "id": "bedroom_2",
@@ -162,32 +162,32 @@
       "category": "bedroom",
       "polygon": [
         [
-          6.5,
+          5.0,
           6.5
         ],
         [
-          9.5,
+          8.0,
           6.5
         ],
         [
-          9.5,
+          8.0,
           11.0
         ],
         [
-          6.5,
+          5.0,
           11.0
         ]
       ],
       "rate_per_m2": 2200,
       "area_m2": 13.5,
       "total_cost": 29700,
-      "color_hex": "#FEE9B0",
+      "color_hex": "#FFF5DC",
       "color_rgb": [
-        254,
-        233,
-        176
+        255,
+        245,
+        220
       ],
-      "heat_t": 0.107
+      "heat_t": 0.0
     },
     {
       "id": "bedroom_3",
@@ -195,25 +195,25 @@
       "category": "bedroom",
       "polygon": [
         [
-          9.5,
+          8.0,
           6.5
         ],
         [
-          11.5,
+          11.0,
           6.5
         ],
         [
-          11.5,
+          11.0,
           11.0
         ],
         [
-          9.5,
+          8.0,
           11.0
         ]
       ],
       "rate_per_m2": 2200,
-      "area_m2": 9.0,
-      "total_cost": 19800,
+      "area_m2": 13.5,
+      "total_cost": 29700,
       "color_hex": "#FFF5DC",
       "color_rgb": [
         255,
@@ -228,7 +228,7 @@
       "category": "wet",
       "polygon": [
         [
-          11.5,
+          11.0,
           6.5
         ],
         [
@@ -240,20 +240,20 @@
           11.0
         ],
         [
-          11.5,
+          11.0,
           11.0
         ]
       ],
       "rate_per_m2": 4500,
-      "area_m2": 11.25,
-      "total_cost": 50625,
-      "color_hex": "#FECC68",
+      "area_m2": 13.5,
+      "total_cost": 60750,
+      "color_hex": "#FECB67",
       "color_rgb": [
         254,
-        204,
-        104
+        203,
+        103
       ],
-      "heat_t": 0.3331
+      "heat_t": 0.3343
     }
   ],
   "openings": [
@@ -263,19 +263,19 @@
       "subtype": "exterior_entrance",
       "polygon": [
         [
-          3.0,
+          3.5,
           -0.1
         ],
         [
-          4.0,
+          4.5,
           -0.1
         ],
         [
-          4.0,
+          4.5,
           0.1
         ],
         [
-          3.0,
+          3.5,
           0.1
         ]
       ],
@@ -290,20 +290,20 @@
       "subtype": "interior_standard",
       "polygon": [
         [
-          3.0,
-          4.9
+          3.5,
+          4.4
         ],
         [
-          4.0,
-          4.9
+          4.5,
+          4.4
         ],
         [
-          4.0,
-          5.1
+          4.5,
+          4.6
         ],
         [
-          3.0,
-          5.1
+          3.5,
+          4.6
         ]
       ],
       "cost": 1800,
@@ -318,20 +318,20 @@
       "subtype": "interior_standard",
       "polygon": [
         [
-          10.0,
-          4.9
+          10.5,
+          4.4
         ],
         [
-          11.0,
-          4.9
+          11.5,
+          4.4
         ],
         [
-          11.0,
-          5.1
+          11.5,
+          4.6
         ],
         [
-          10.0,
-          5.1
+          10.5,
+          4.6
         ]
       ],
       "cost": 1800,
@@ -346,19 +346,19 @@
       "subtype": "interior_standard",
       "polygon": [
         [
-          2.8,
+          2.05,
           6.4
         ],
         [
-          3.7,
+          2.95,
           6.4
         ],
         [
-          3.7,
+          2.95,
           6.6
         ],
         [
-          2.8,
+          2.05,
           6.6
         ]
       ],
@@ -374,19 +374,19 @@
       "subtype": "interior_standard",
       "polygon": [
         [
-          7.55,
+          6.05,
           6.4
         ],
         [
-          8.45,
+          6.95,
           6.4
         ],
         [
-          8.45,
+          6.95,
           6.6
         ],
         [
-          7.55,
+          6.05,
           6.6
         ]
       ],
@@ -402,19 +402,19 @@
       "subtype": "interior_standard",
       "polygon": [
         [
-          10.05,
+          9.05,
           6.4
         ],
         [
-          10.95,
+          9.95,
           6.4
         ],
         [
-          10.95,
+          9.95,
           6.6
         ],
         [
-          10.05,
+          9.05,
           6.6
         ]
       ],
@@ -430,19 +430,19 @@
       "subtype": "interior_wet",
       "polygon": [
         [
-          12.3,
+          12.05,
           6.4
         ],
         [
-          13.2,
+          12.95,
           6.4
         ],
         [
-          13.2,
+          12.95,
           6.6
         ],
         [
-          12.3,
+          12.05,
           6.6
         ]
       ],
@@ -458,19 +458,19 @@
       "subtype": "picture_large",
       "polygon": [
         [
-          1.4000000000000001,
+          1.6,
           -0.1
         ],
         [
-          3.4000000000000004,
+          3.6,
           -0.1
         ],
         [
-          3.4000000000000004,
+          3.6,
           0.1
         ],
         [
-          1.4000000000000001,
+          1.6,
           0.1
         ]
       ],
@@ -512,19 +512,19 @@
       "subtype": "picture_large",
       "polygon": [
         [
-          9.1,
+          9.8,
           -0.1
         ],
         [
-          11.1,
+          11.8,
           -0.1
         ],
         [
-          11.1,
+          11.8,
           0.1
         ],
         [
-          9.1,
+          9.8,
           0.1
         ]
       ],
@@ -539,19 +539,19 @@
       "subtype": "standard_large",
       "polygon": [
         [
-          2.25,
+          1.5,
           10.9
         ],
         [
-          4.25,
+          3.5,
           10.9
         ],
         [
-          4.25,
+          3.5,
           11.1
         ],
         [
-          2.25,
+          1.5,
           11.1
         ]
       ],
@@ -566,19 +566,19 @@
       "subtype": "standard",
       "polygon": [
         [
+          5.75,
+          10.9
+        ],
+        [
           7.25,
           10.9
         ],
         [
-          8.75,
-          10.9
-        ],
-        [
-          8.75,
+          7.25,
           11.1
         ],
         [
-          7.25,
+          5.75,
           11.1
         ]
       ],
@@ -593,19 +593,19 @@
       "subtype": "standard",
       "polygon": [
         [
-          9.75,
+          8.75,
           10.9
         ],
         [
-          11.25,
+          10.25,
           10.9
         ],
         [
-          11.25,
+          10.25,
           11.1
         ],
         [
-          9.75,
+          8.75,
           11.1
         ]
       ],
@@ -769,19 +769,19 @@
       ],
       "polygon": [
         [
-          6.85,
+          7.85,
           0.0
         ],
         [
-          7.15,
+          8.15,
           0.0
         ],
         [
-          7.15,
+          8.15,
           0.3
         ],
         [
-          6.85,
+          7.85,
           0.3
         ]
       ],
@@ -798,19 +798,19 @@
       ],
       "polygon": [
         [
-          9.35,
+          7.85,
           10.7
         ],
         [
-          9.65,
+          8.15,
           10.7
         ],
         [
-          9.65,
+          8.15,
           11.0
         ],
         [
-          9.35,
+          7.85,
           11.0
         ]
       ],
@@ -828,19 +828,19 @@
       "polygon": [
         [
           13.7,
-          5.6
+          5.35
         ],
         [
           14.0,
-          5.6
+          5.35
         ],
         [
           14.0,
-          5.9
+          5.65
         ],
         [
           13.7,
-          5.9
+          5.65
         ]
       ],
       "cost": 4000,
@@ -857,19 +857,19 @@
       "polygon": [
         [
           0.0,
-          5.6
+          5.35
         ],
         [
           0.3,
-          5.6
+          5.35
         ],
         [
           0.3,
-          5.9
+          5.65
         ],
         [
           0.0,
-          5.9
+          5.65
         ]
       ],
       "cost": 4000,
@@ -885,20 +885,20 @@
       ],
       "polygon": [
         [
-          6.75,
-          5.5
+          7.75,
+          5.25
         ],
         [
-          7.25,
-          5.5
+          8.25,
+          5.25
         ],
         [
-          7.25,
-          6.0
+          8.25,
+          5.75
         ],
         [
-          6.75,
-          6.0
+          7.75,
+          5.75
         ]
       ],
       "cost": 11000,
@@ -907,28 +907,28 @@
     }
   ],
   "summary": {
-    "rooms_total": 423525,
+    "rooms_total": 415950,
     "doors_total": 15700,
     "windows_total": 27900,
     "columns_total": 47000,
     "openings_total": 43600,
     "structure_total": 47000,
-    "grand_total": 514125
+    "grand_total": 506550
   },
   "heatmap": {
     "ranges": {
       "rooms": {
-        "min": 19800,
-        "max": 112350.0
+        "min": 29700,
+        "max": 122580.0
       }
     }
   },
   "totals": {
     "currency": "USD",
-    "rooms": 437875.0,
+    "rooms": 423330.0,
     "doors": 15700,
     "windows": 27900,
     "columns": 47000,
-    "grand": 528475.0
+    "grand": 513930.0
   }
 }
