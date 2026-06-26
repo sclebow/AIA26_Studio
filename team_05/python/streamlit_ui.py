@@ -1589,7 +1589,9 @@ with col_main:
             if st.session_state.selected_plan_key:
                 st.caption(f"Active: {st.session_state.selected_plan_key}")
 
-            chat_area = st.container(height=1280)
+            # Match left-column height: heatmap (880) + table rows (~60px each) + fixed chrome
+            _n_rooms = len(st.session_state.layout.get("rooms", []))
+            chat_area = st.container(height=max(600, 665 + 60 * _n_rooms))
             with chat_area:
                 if st.session_state.messages:
                     render_chat()
@@ -2133,8 +2135,6 @@ with col_panel:
             _dna_cats    = _dna_profile.get("categories", {})
             _dna_ranked  = _dna_profile.get("ranked_categories", [])
 
-            st.markdown(_dna_summary)
-
             if _dna_ranked and _dna_cats:
                 st.divider()
                 st.markdown("#### Spending by Category")
@@ -2186,10 +2186,6 @@ with col_panel:
             if _dna_template and st.session_state.layout:
                 st.divider()
                 st.markdown("#### Proposed Spending Template")
-                st.caption(
-                    "Rates and finishes are suggested from this client's past projects. "
-                    "▲ = more expensive than current · ▼ = cheaper than current."
-                )
 
                 _currency = st.session_state.layout.get("project", {}).get("currency", "")
                 _tpl_rows = []
