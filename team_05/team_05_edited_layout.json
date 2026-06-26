@@ -45,17 +45,17 @@
           5.0
         ]
       ],
-      "rate_per_m2": 3405.0,
+      "rate_per_m2": 3145.0,
       "area_m2": 30.0,
-      "total_cost": 102150.0,
-      "color_hex": "#D42F1D",
+      "total_cost": 94350.0,
+      "color_hex": "#E65416",
       "color_rgb": [
-        212,
-        47,
-        29
+        230,
+        84,
+        22
       ],
-      "heat_t": 0.8871,
-      "floor-finish": "marble"
+      "heat_t": 0.7977,
+      "floor-finish": "carpet"
     },
     {
       "id": "dining",
@@ -895,10 +895,10 @@
   },
   "totals": {
     "currency": "USD",
-    "rooms": 422275.0,
+    "rooms": 414475.0,
     "doors": 15700,
     "windows": 27900,
     "columns": 36000,
-    "grand": 501875.0
+    "grand": 494075.0
   }
 }

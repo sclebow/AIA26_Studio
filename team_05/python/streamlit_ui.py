@@ -1572,13 +1572,24 @@ with col_main:
             # Element info panel — appears below chart when any element is clicked
             _render_element_panel()
 
+            # ── COST BREAKDOWN TABLE — below heatmap in the same column ───────
+            st.markdown('<div style="height:0.75rem"></div>', unsafe_allow_html=True)
+            if st.session_state.get("client_applied"):
+                st.info("Client DNA template applied. Rates and costs below reflect the client's spending profile.")
+            with st.expander("Cost Breakdown Table", expanded=True):
+                _cost_df = build_cost_df(st.session_state.layout)
+                if not _cost_df.empty:
+                    st.table(_cost_df)
+                else:
+                    st.info("No cost data available in this layout.")
+
         # ── AGENT CHAT PANEL ──────────────────────────────────────────────────
         with col_chat_inner:
             st.markdown('<p class="section-lbl">Agent Chat</p>', unsafe_allow_html=True)
             if st.session_state.selected_plan_key:
                 st.caption(f"Active: {st.session_state.selected_plan_key}")
 
-            chat_area = st.container(height=560)
+            chat_area = st.container(height=1280)
             with chat_area:
                 if st.session_state.messages:
                     render_chat()
@@ -2193,8 +2204,6 @@ with col_panel:
                         f"Current cost ({_currency})":        int(_t["current_cost"]),
                         f"Suggested cost ({_currency})":      int(_t["suggested_cost"]),
                         f"Delta ({_currency})":               f"{_sign} {abs(int(_delta)):,}",
-                        "Preferred floor finish":             _t["preferred_floor"] or "—",
-                        "Preferred wall finish":              _t["preferred_wall"]  or "—",
                     })
 
                 st.table(pd.DataFrame(_tpl_rows))
@@ -2253,20 +2262,6 @@ with col_panel:
             elif not st.session_state.layout:
                 st.info("Upload a layout in the sidebar to generate a spending template.")
 
-
-# =============================================================================
-# FULL WIDTH: Cost Breakdown Table
-# =============================================================================
-if st.session_state.layout:
-    st.markdown('<div style="height:0.5rem"></div>', unsafe_allow_html=True)
-    if st.session_state.get("client_applied"):
-        st.info("Client DNA template applied. Rates and costs below reflect the client's spending profile.")
-    with st.expander("Cost Breakdown Table", expanded=True):
-        _cost_df = build_cost_df(st.session_state.layout)
-        if not _cost_df.empty:
-            st.table(_cost_df)
-        else:
-            st.info("No cost data available in this layout.")
 
 # =============================================================================
 # FULL WIDTH: Cost Breakdown Charts
