@@ -574,6 +574,8 @@ pip install langchain-openai langchain-anthropic langgraph grandalf shapely http
 4. **`place_objects` format mismatch (FIXED)** — `_parse_objects_list` (`nodes/add_objects.py`) now accepts BOTH the colon form `name:WxDxH:x=X,y=Y` AND the JSON array the LLM often emits (`[{"name":..,"position":[x,y],"size":[w,d,h]}]`). Previously the JSON form parsed to nothing and silently placed no objects.
 5. **`test_spatial_graph.py --session` shows 0 furniture for base layout** — Expected: `--session` reads the live workspace; without it the base layout has no furniture.
 6. **`spatial_graph.py` import fails if networkx missing** — `pip install networkx`. All call sites are wrapped in try/except so it degrades gracefully.
+7. **AI Layout Generator returns invalid JSON (FIXED 2026-06-26)** — `max_tokens` was 8192, too low for industrial layouts with many elements; the model truncated mid-JSON. Raised to 16000 in `AGENT_ui/backend/layout_generator.py`. Error handling now detects truncation via `stop_reason == "max_tokens"` and reports it explicitly.
+8. **AGENT_ui backend missing dependencies on first run** — `fastapi`, `uvicorn`, `networkx`, `shapely` are not auto-installed. Run `pip install -r team_03/AGENT_ui/backend/requirements.txt && pip install networkx shapely` before starting the backend.
 
 ---
 
