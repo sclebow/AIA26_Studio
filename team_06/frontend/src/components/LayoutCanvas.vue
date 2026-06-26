@@ -2,6 +2,9 @@
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { Stage, Layer, Group, Line, Text } from 'vue-konva'
 import { getRoomColor, getRoomSecondaryLabel, TOD_COLORS, getRoomDisplayName, hexToRgba } from '../utils/roomAnalysis.js'
+import catWhiteUrl from '../assets/icons/cat-white.svg'
+import dogWhiteUrl from '../assets/icons/dog-white.svg'
+import userWhiteUrl from '../assets/icons/user-white.svg'
 
 const ROOM_ALPHA = 0.35
 const CIRCLE_ALPHA = 0.88
@@ -12,6 +15,7 @@ const tooltipX = ref(0)
 const tooltipY = ref(0)
 
 function onRoomHover(konvaEvent, room) {
+  if (props.viewMode === 'routine') return
   const { clientX, clientY } = konvaEvent.evt
   const rect = wrapperRef.value?.getBoundingClientRect()
   if (!rect) return
@@ -37,11 +41,29 @@ const emit = defineEmits(['roomHover', 'roomLeave'])
 
 const CIRCLE_RADIUS = 14
 const CIRCLE_SPACING = 32  // horizontal gap between circles when multiple personas
+const CIRCLE_ICON_SIZE = 14
 
 const stageConfig = ref({ width: 600, height: 600 })
+const iconImages = ref({ person: null, cat: null, dog: null })
+
+function inferKind(name) {
+  const n = (name || '').toLowerCase()
+  if (/\b(dog|puppy|hound)\b/.test(n)) return 'dog'
+  if (/\b(cat|kitty|feline)\b/.test(n)) return 'cat'
+  return 'person'
+}
+
+function loadIcon(src) {
+  return new Promise(resolve => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => resolve(null)
+    img.src = src
+  })
+}
 
 let resizeObserver = null
-onMounted(() => {
+onMounted(async () => {
   if (!wrapperRef.value) return
   resizeObserver = new ResizeObserver(entries => {
     const { width, height } = entries[0]?.contentRect ?? {}
@@ -50,6 +72,13 @@ onMounted(() => {
   resizeObserver.observe(wrapperRef.value)
   const rect = wrapperRef.value.getBoundingClientRect()
   if (rect.width > 0 && rect.height > 0) stageConfig.value = { width: Math.floor(rect.width), height: Math.floor(rect.height) }
+
+  const [person, cat, dog] = await Promise.all([
+    loadIcon(userWhiteUrl),
+    loadIcon(catWhiteUrl),
+    loadIcon(dogWhiteUrl),
+  ])
+  iconImages.value = { person, cat, dog }
 })
 onUnmounted(() => resizeObserver?.disconnect())
 
@@ -134,9 +163,9 @@ const roomRenderData = computed(() => {
     const isOccupied = occupiedIds?.size > 0 && occupiedIds.has(String(room.id))
     let alpha
     if (vm === 'routine' && occupiedIds) {
-      alpha = occupiedIds.size > 0 ? (isOccupied ? 0.9 : 0.15) : ROOM_ALPHA
+      alpha = occupiedIds.size > 0 ? (isOccupied ? 0.65 : 0.15) : ROOM_ALPHA
     } else if (hovered) {
-      alpha = isHovered ? 0.9 : 0.15
+      alpha = isHovered ? 0.65 : 0.15
     } else {
       alpha = ROOM_ALPHA
     }
@@ -178,6 +207,7 @@ const routineCircleData = computed(() => {
     entries.forEach((entry, i) => {
       const color = typeof entry === 'object' ? entry.color : entry
       const personaName = typeof entry === 'object' ? entry.name : ''
+      const kind = (typeof entry === 'object' && entry.kind) ? entry.kind : inferKind(personaName)
       circles.push({
         key: `${room.id}-${i}`,
         x: cx - totalWidth / 2 + i * CIRCLE_SPACING,
@@ -185,6 +215,7 @@ const routineCircleData = computed(() => {
         color: hexToRgba(color, CIRCLE_ALPHA),
         personaName,
         roomName,
+        kind,
       })
     })
   }
@@ -221,10 +252,10 @@ function getLabelY(geometry) {
   const [cx, cy] = getCentroid(geometry);
   return cy * scale.value + offset.value.y;
 }
-const furnitureRenderData = computed(() => {
-  const furniture = props.layout?.furniture || []
-  return furniture.flatMap(item =>
+function buildCurveRenderData(items) {
+  return items.flatMap(item =>
     (item.all_curves || []).map((curve, i) => {
+      if (!Array.isArray(curve) || curve.length < 2) return null
       const isClosed = curve.length > 2 &&
         curve[0][0] === curve[curve.length - 1][0] &&
         curve[0][1] === curve[curve.length - 1][1]
@@ -233,9 +264,13 @@ const furnitureRenderData = computed(() => {
         points: flattenAndScale(isClosed ? curve.slice(0, -1) : curve),
         closed: isClosed,
       }
-    })
+    }).filter(Boolean)
   )
-})
+}
+
+const furnitureRenderData = computed(() => buildCurveRenderData(props.layout?.furniture || []))
+const doorsRenderData = computed(() => buildCurveRenderData(props.layout?.doors || []))
+const windowsRenderData = computed(() => buildCurveRenderData(props.layout?.windows || []))
 
 function getTextWidth(text, fontSize) {
   if (!text) return 0;
@@ -328,21 +363,61 @@ function getTextWidth(text, fontSize) {
           }"
         />
       </v-layer>
-      <!-- Routine persona circles only -->
-      <v-layer v-if="routineCircleData.length">
-        <v-circle
-          v-for="circle in routineCircleData"
-          :key="circle.key"
+      <!-- Doors layer -->
+      <v-layer v-if="doorsRenderData.length">
+        <v-line
+          v-for="curve in doorsRenderData"
+          :key="curve.key"
           :config="{
-            x: circle.x,
-            y: circle.y,
-            radius: CIRCLE_RADIUS,
-            fill: circle.color,
-            stroke: '#ffffff',
-            strokeWidth: 3,
+            points: curve.points,
+            closed: curve.closed,
+            stroke: '#3a6ea8',
+            strokeWidth: 1.0,
             listening: false,
           }"
         />
+      </v-layer>
+      <!-- Windows layer -->
+      <v-layer v-if="windowsRenderData.length">
+        <v-line
+          v-for="curve in windowsRenderData"
+          :key="curve.key"
+          :config="{
+            points: curve.points,
+            closed: curve.closed,
+            stroke: '#5BC8F5',
+            strokeWidth: 1.2,
+            listening: false,
+          }"
+        />
+      </v-layer>
+      <!-- Routine persona circles only -->
+      <v-layer v-if="routineCircleData.length">
+        <template v-for="circle in routineCircleData" :key="circle.key">
+          <v-circle
+            :config="{
+              x: circle.x,
+              y: circle.y,
+              radius: CIRCLE_RADIUS,
+              fill: circle.color,
+              stroke: '#ffffff',
+              strokeWidth: 3,
+              listening: false,
+            }"
+          />
+          <v-image
+            v-if="iconImages[circle.kind]"
+            :config="{
+              x: circle.x - CIRCLE_ICON_SIZE / 2,
+              y: circle.y - CIRCLE_ICON_SIZE / 2,
+              width: CIRCLE_ICON_SIZE,
+              height: CIRCLE_ICON_SIZE,
+              image: iconImages[circle.kind],
+              listening: false,
+              opacity: 0.85,
+            }"
+          />
+        </template>
       </v-layer>
     </v-stage>
 

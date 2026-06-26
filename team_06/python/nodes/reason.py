@@ -11,8 +11,8 @@ SYSTEM_PROMPT = (
     "Rules:\n"
     "- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n"
     "- Return the full updated summary, not just a delta.\n"
-    "- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n"
-    "- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n"
+    "- Set latest_prompt_useful to true if the latest user input adds, corrects, or changes any information that is useful for finding the right layout. This includes room programs, spatial preferences, household routines, lifestyle descriptions, and daily schedule patterns — anything that helps narrow down the right apartment.\n"
+    "- Set latest_prompt_useful to false only if the latest user input is a greeting, acknowledgement, single word, or pure repetition that adds no new information at all.\n"
     "- graph is the strict structured representation of spatial requirements.\n"
     "- graph.programs is a flat list with duplicates when counts matter, for example [\"bed\", \"bed\", \"bath\"].\n"
     "- The available room categories in the dataset are only: living, bed, bath, circulation, storage, walkincloset, and wc.\n"
@@ -244,10 +244,14 @@ def _greeting(household: list[dict]) -> str:
 
 def _clarification_for_state(graph: dict, description: str, latest_prompt_useful: bool, household: list[dict]) -> str:
     greeting = _greeting(household)
-    if not graph.get("programs") and not description.strip():
+    has_programs = bool(graph.get("programs"))
+    has_description = bool(description.strip())
+    has_other_graph = any(graph.get(k) for k in graph if k != "programs")
+
+    if not has_programs and not has_description and not has_other_graph:
         return f"{greeting}, I am here to help you find the right layout. Could you describe the apartment you are looking for — rooms, connections, or lifestyle preferences?"
-    if not graph.get("programs"):
-        return "I did not get any room requirements. Could you tell me which rooms you need?"
+    if not has_programs:
+        return "Got it. Could you also tell me which rooms you need — for example, bedrooms, bathrooms, or a living area?"
     return "I need a bit more detail. Could you add room connections, household info, or other preferences?"
 
 
@@ -293,6 +297,10 @@ def build_reason_node(llm):
             parsed_payload = _normalize_payload(response_json)
             parsed_payload = _apply_dataset_program_rules(user_prompt, parsed_payload)
             latest_prompt_useful = parsed_payload["latest_prompt_useful"]
+            # If the description grew substantially, treat the input as useful even if
+            # the LLM returned false — lifestyle/routine text is enough to drive search.
+            if not latest_prompt_useful and len(parsed_payload["description"]) > len(existing_description) + 30:
+                latest_prompt_useful = True
             updated_search_payload = {
                 "graph": parsed_payload["graph"],
                 "household": parsed_payload["household"],

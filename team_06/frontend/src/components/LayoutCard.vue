@@ -1,6 +1,9 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { getDaylightColor, formatDaylight, PROGRAM_COLORS, toNumericValue, getRoomDisplayName } from '../utils/roomAnalysis.js'
+import catIcon from '../assets/icons/cat.svg'
+import dogIcon from '../assets/icons/dog.svg'
+import userIcon from '../assets/icons/user.svg'
 
 const ROUTINE_TIMES = [
   '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
@@ -33,7 +36,7 @@ const activeRooms = computed(() => {
     const roomId = stepRoomId(p.steps?.[activeStep.value])
     if (roomId != null) {
       if (!map[roomId]) map[roomId] = []
-      map[roomId].push({ color: p.color, name: p.persona })
+      map[roomId].push({ color: p.color, name: p.persona, kind: p.kind })
     }
   }
   return map
@@ -163,12 +166,22 @@ const personaSteps = computed(() => {
     return {
       name: p.persona,
       color: p.color,
+      kind: p.kind,
       activity,
       roomName: room?.name ?? null,
       away: step == null,
     }
   })
 })
+
+function getPersonaIcon(persona, kind) {
+  if (kind === 'dog') return dogIcon
+  if (kind === 'cat') return catIcon
+  const name = (persona || '').toLowerCase()
+  if (/\b(dog|puppy)\b/.test(name)) return dogIcon
+  if (/\b(cat|kitty)\b/.test(name)) return catIcon
+  return userIcon
+}
 
 function scoreRingStyle(score) {
   const value = Math.max(0, Math.min(100, score ?? 0))
@@ -200,7 +213,9 @@ function scoreRingStyle(score) {
           />
           <div class="persona-step-list">
             <div v-for="p in personaSteps" :key="p.name" class="persona-step-row">
-              <span class="persona-step-dot" :style="{ background: p.color }"></span>
+              <span class="persona-step-dot" :style="{ background: p.color }">
+                <img :src="getPersonaIcon(p.name, p.kind)" class="persona-dot-icon" />
+              </span>
               <span class="persona-step-name">{{ p.name }}</span>
               <span class="persona-step-activity" :class="{ away: p.away }">{{ p.activity }}</span>
               <span v-if="!p.away && p.roomName" class="persona-step-room">{{ p.roomName }}</span>
@@ -431,7 +446,7 @@ function scoreRingStyle(score) {
 }
 .persona-step-row {
   display: grid;
-  grid-template-columns: 10px 1fr auto auto;
+  grid-template-columns: 20px 1fr auto auto;
   align-items: center;
   gap: 8px;
   padding: 5px 10px;
@@ -440,10 +455,19 @@ function scoreRingStyle(score) {
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.08);
 }
 .persona-step-dot {
-  width: 8px;
-  height: 8px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.persona-dot-icon {
+  width: 12px;
+  height: 12px;
+  filter: brightness(0) invert(1);
+  opacity: 0.9;
 }
 .persona-step-name {
   font-size: var(--font-size-small);

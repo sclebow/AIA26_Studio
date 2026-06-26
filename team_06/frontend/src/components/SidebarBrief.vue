@@ -196,6 +196,21 @@ const useSpecificationBlock = computed(() => {
   border: 1px solid var(--color-border);
   white-space: normal;
   overflow-wrap: anywhere;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+.spec-block::-webkit-scrollbar {
+  width: 4px;
+}
+.spec-block::-webkit-scrollbar-track {
+  background: transparent;
+}
+.spec-block::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+.spec-block::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
 }
 .spec-chip {
   display: inline-flex;

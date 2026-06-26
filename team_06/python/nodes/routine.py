@@ -26,7 +26,7 @@ SYSTEM_PROMPT = (
     '- ["<room_id>","<activity>"] = person is at home in that room that hour.\n'
     "- ONLY use room ids from the provided rooms list. NEVER invent a room id.\n"
     "- FORBIDDEN rooms — NEVER place anyone in: circulation, hallway, corridor, storage, walkincloset. Use bed/bath/living instead.\n"
-    "- Activity values: sleeping, showering, working, studying, relaxing, cooking, playing, dressing.\n"
+    "- Activity values: sleeping, showering, working, studying, relaxing, cooking, playing, dressing. Outdoor activities are always null, not an activity value.\n"
     "- Colors are hex strings.\n\n"
 
     "DEFAULT SCHEDULE — apply this for every adult not described otherwise in the brief:\n"
@@ -61,7 +61,19 @@ SYSTEM_PROMPT = (
 
     "CONFLICTS:\n"
     "- Never put two people in the same room at the same time (exception: couple sleeping together).\n"
-    "- Never put two people in the same bathroom at the same time — stagger shower times by 1 hour.\n"
+    "- Never put two people in the same bathroom at the same time — stagger shower times by 1 hour.\n\n"
+
+    "OUTDOORS:\n"
+    "- Any activity that happens outside the home (walk, going out, shopping, errand, outing) must be null — the person is not in any room.\n"
+    "- 'Going for a walk', 'taking the dog out', 'going outside' = null for that hour for EVERY person AND pet involved.\n\n"
+
+    "PETS:\n"
+    "- Include dogs, cats, and other pets mentioned in the brief as their own personas.\n"
+    "- Name pet personas using only their name (e.g. 'Sky', 'Pixel') — do not append the species.\n"
+    "- Pet schedule: sleeping in bedroom 06:00–07:00, playing or relaxing in living room during the day, sleeping in bedroom at 22:00.\n"
+    "- PET WALK SYNC — CRITICAL: when a person takes the dog for a walk, the dog's steps must be null for exactly the same time slots as that person. They leave together and return together.\n"
+    "- When the pet is home alone (owner away for work etc.), the pet relaxes in the living room — not null.\n"
+    "- Never place a pet in a bathroom or wc.\n"
 )
 
 
@@ -143,22 +155,46 @@ def _stable_color_personas(personas: list[dict[str, Any]], topology_json: str | 
         color = PERSONA_COLORS[hi % len(PERSONA_COLORS)]
         member_name = (member.get("name") or "").strip().lower()
         member_rel = (member.get("relationship") or "").strip().lower()
+        kind = "dog" if member_rel in ("dog", "puppy") else "cat" if member_rel in ("cat", "kitty", "feline") else "person"
         idx = name_to_idx.get(member_name) if member_name else None
         if idx is None:
             idx = name_to_idx.get(member_rel)
         if idx is not None and idx not in used:
-            ordered.append({**personas[idx], "color": color})
+            ordered.append({**personas[idx], "color": color, "kind": kind})
             used.add(idx)
         else:
             for j, p in enumerate(personas):
                 if j not in used:
-                    ordered.append({**p, "color": color})
+                    ordered.append({**p, "color": color, "kind": kind})
                     used.add(j)
                     break
 
     for j, p in enumerate(personas):
         if j not in used:
             ordered.append({**p, "color": PERSONA_COLORS[j % len(PERSONA_COLORS)]})
+
+    # Correction pass: cascade mismatches can assign the wrong kind.
+    # Re-apply kind directly from household for any persona whose name matches a pet.
+    pet_kind_by_name: dict[str, str] = {}
+    for m in household:
+        if not isinstance(m, dict):
+            continue
+        mname = (m.get("name") or "").strip().lower()
+        mrel = (m.get("relationship") or "").strip().lower()
+        if not mname:
+            continue
+        if mrel in ("dog", "puppy"):
+            pet_kind_by_name[mname] = "dog"
+        elif mrel in ("cat", "kitty", "feline"):
+            pet_kind_by_name[mname] = "cat"
+
+    for p in ordered:
+        pname = (p.get("persona") or "").strip().lower()
+        matched = pet_kind_by_name.get(pname) or next(
+            (k for pet_name, k in pet_kind_by_name.items() if pet_name in pname), None
+        )
+        if matched:
+            p["kind"] = matched
 
     return ordered
 
@@ -250,14 +286,19 @@ def _fallback_routine(layout_data: dict[str, Any], topology_json: str | None) ->
         except Exception:
             pass
 
+    def _member_kind(m: dict) -> str:
+        rel = (m.get("relationship") or "").strip().lower()
+        return "dog" if rel in ("dog", "puppy") else "cat" if rel in ("cat", "kitty", "feline") else "person"
+
     personas = [
         {
             "persona": (m.get("name") or m.get("relationship") or f"Resident {i + 1}"),
             "color": PERSONA_COLORS[i % len(PERSONA_COLORS)],
+            "kind": _member_kind(m),
             "steps": _home_steps(),
         }
         for i, m in enumerate(household)
-    ] or [{"persona": "Resident 1", "color": PERSONA_COLORS[0], "steps": _home_steps()}]
+    ] or [{"persona": "Resident 1", "color": PERSONA_COLORS[0], "kind": "person", "steps": _home_steps()}]
 
     return {"time_slots": list(DEFAULT_TIME_SLOTS), "personas": personas}
 
@@ -312,7 +353,7 @@ def build_routine_node(llm: Any) -> Any:
                     f"User brief (full conversation — apply every detail literally):\n{full_brief}\n\n"
                     f"Available rooms (use only these IDs in steps):\n{json.dumps(rooms, separators=(',', ':'))}\n\n"
                     f"Time slots: {', '.join(DEFAULT_TIME_SLOTS)}\n\n"
-                    "Generate the daily routine for every person mentioned in the brief. Return only compact JSON."
+                    "Generate the daily routine for every person and pet mentioned in the brief. Return only compact JSON."
                 )},
             ]
             response = llm.invoke(messages)
