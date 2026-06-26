@@ -11,12 +11,14 @@ import VersionHistory from './components/VersionHistory/VersionHistory';
 import AILayoutGenerator from './components/AILayoutGenerator';
 import SelectionPanel from './components/ThreeViewport/SelectionPanel';
 import ReasoningLog from './components/ReasoningLog/ReasoningLog';
+import BenchmarkDashboard from './components/Benchmark/BenchmarkDashboard';
 import ThemeToggle, { useTheme } from './components/common/ThemeToggle';
 import FloatingPanel from './components/common/FloatingPanel';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useSelectionSync } from './hooks/useSelectionSync';
 import { useLayoutState } from './hooks/useLayoutState';
 import { useAgentState } from './hooks/useAgentState';
+import { useBenchmarkState } from './hooks/useBenchmarkState';
 import type { ViewAction } from './hooks/useAgentState';
 import WelcomePage from "./components/WelcomePage";
 import OnboardingPage, { OnboardingData, LAYOUT_STATUS, WORKFLOWS } from "./components/OnboardingPage";
@@ -30,7 +32,7 @@ const defaultVisibility: LayerVisibility = {
   furniture: true, mep: true, structure: true,
 };
 
-type ViewMode = 'geometry' | 'graph';
+type ViewMode = 'geometry' | 'graph' | 'benchmark';
 
 const IconLog = () => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -46,6 +48,7 @@ export default function App() {
   const { selectedId, select, applyRemoteSelection } = useSelectionSync(ws);
   const layoutState = useLayoutState();
   const agentState = useAgentState({ onScoresReady: layoutState.setScores });
+  const benchmarkState = useBenchmarkState();
 
   // Auth gates
   const [loggedIn, setLoggedIn] = useState(false);
@@ -97,6 +100,7 @@ export default function App() {
       case 'agent_say':        agentState.handleAgentSay(msg);        break;
       case 'agent_checkpoint': agentState.handleAgentCheckpoint(msg); break;
       case 'state_update':     layoutState.updateFromWS(msg);         break;
+      case 'benchmark_update': benchmarkState.handleBenchmarkUpdate(msg); break;
       case 'selection_sync':   applyRemoteSelection(msg.elementId, msg.source); break;
       case 'observer_result': {
         const ao = msg.status === 'ok' ? (msg.agentObserver ?? null) : null;
@@ -584,7 +588,7 @@ export default function App() {
 
         {/* View mode pills */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', borderRadius: 10, padding: 3, border: panelBorder }}>
-          {(['geometry', 'graph'] as ViewMode[]).map(m => (
+          {(['geometry', 'graph', 'benchmark'] as ViewMode[]).map(m => (
             <button key={m} onClick={() => switchMode(m)} style={{
               padding: '5px 16px', borderRadius: 8, border: 'none',
               fontSize: 12, fontWeight: 500, letterSpacing: '0.02em',
@@ -592,7 +596,7 @@ export default function App() {
               background: viewMode === m ? (isDark ? 'rgba(139,92,246,0.15)' : 'rgba(124,58,237,0.12)') : 'transparent',
               color: viewMode === m ? colors.accent : colors.muted,
             }}>
-              {m === 'geometry' ? '3D Viewport' : 'Spatial Graph'}
+              {m === 'geometry' ? '3D Viewport' : m === 'graph' ? 'Spatial Graph' : 'Benchmark'}
             </button>
           ))}
         </div>
@@ -746,7 +750,14 @@ export default function App() {
         {/* ── CENTER (col 2, row 1) ─────────────────────────────────────── */}
         <div style={{ gridColumn: '2', gridRow: '1', position: 'relative', overflow: 'hidden', minWidth: 0, minHeight: 0 }}>
           <div style={swapStyle}>
-            {displayMode === 'geometry' ? (
+            {displayMode === 'benchmark' ? (
+              <BenchmarkDashboard
+                data={benchmarkState.data}
+                loading={benchmarkState.loading}
+                onRefresh={benchmarkState.refresh}
+                onClear={benchmarkState.clear}
+              />
+            ) : displayMode === 'geometry' ? (
               viewportProps ? (
                 <div style={{ width: '100%', height: '100%', position: 'relative' }}>
                   <ThreeViewport {...viewportProps} />
@@ -782,11 +793,11 @@ export default function App() {
           {/* Row 1 — Spatial Graph (~29%) */}
           <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', borderBottom: panelBorder, minHeight: 0 }}>
             <div style={sectionHeaderStyle}>
-              <span>{displayMode === 'geometry' ? 'Spatial Graph' : '3D View'}</span>
+              <span>{displayMode === 'graph' ? '3D View' : 'Spatial Graph'}</span>
             </div>
             <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: 0 }}>
               <div style={swapStyle}>
-                {displayMode === 'geometry' ? (
+                {displayMode !== 'graph' ? (
                   <GraphPanel graphData={layoutState.graphData} selectedId={selectedId} onSelect={handleGraphSelect} showLabels={showLabels} isAgentRunning={agentState.isAgentRunning} />
                 ) : (
                   viewportProps ? <ThreeViewport {...viewportProps} /> : noLayoutPlaceholder
@@ -878,6 +889,7 @@ export default function App() {
           visible={true}
           onToggle={() => setLogOpen(v => !v)}
           isRunning={agentState.isAgentRunning}
+          messages={agentState.messages}
         />
       </FloatingPanel>
     </div>

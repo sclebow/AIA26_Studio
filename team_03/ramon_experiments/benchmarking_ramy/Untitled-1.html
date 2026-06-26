@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spatial Flow — Benchmark Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f3ff;
+  --ink: #1a1025;
+  --accent: #7c3aed;
+  --accent-dim: rgba(124,58,237,0.1);
+  --accent-mid: rgba(124,58,237,0.25);
+  --green: #059669;
+  --red: #dc2626;
+  --orange: #d97706;
+  --muted: #7c6f9a;
+  --card: #ffffff;
+  --border: #e2d9f3;
+  --mono: 'DM Mono', monospace;
+  --sans: 'Syne', sans-serif;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  min-height: 100vh;
+  padding: 0;
+}
+
+/* ── TOP NAV ── */
+.topnav {
+  background: #fff;
+  border-bottom: 1.5px solid var(--border);
+  padding: 0 48px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.nav-logo {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--accent);
+  padding: 16px 24px 16px 0;
+  margin-right: 24px;
+  border-right: 1.5px solid var(--border);
+}
+
+.nav-logo span { color: var(--ink); }
+
+.nav-tab {
+  padding: 18px 20px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-bottom: 2.5px solid transparent;
+  color: var(--muted);
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.nav-tab:hover { color: var(--accent); }
+.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.nav-right {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+/* ── PAGE ── */
+.page { display: none; padding: 48px; }
+.page.active { display: block; }
+
+/* ── PAGE HEADER ── */
+.page-header {
+  margin-bottom: 40px;
+  padding-bottom: 28px;
+  border-bottom: 1.5px solid var(--border);
+}
+
+.page-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 3px 10px;
+  display: inline-block;
+  margin-bottom: 12px;
+}
+
+.page-title {
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin-bottom: 16px;
+}
+
+.page-title span { color: var(--accent); }
+
+.questions {
+  background: var(--accent-dim);
+  border-left: 3px solid var(--accent);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.questions p {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+.questions p::before { content: '→ '; color: var(--accent); }
+
+/* ── SECTION ── */
+.section {
+  margin-bottom: 36px;
+  position: relative;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.section-header h2 {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.section-header::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+.delete-section-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.delete-section-btn:hover { border-color: var(--red); color: var(--red); background: #fff0f0; }
+
+/* ── GRID ── */
+.grid { display: grid; gap: 20px; }
+.g2 { grid-template-columns: 1fr 1fr; }
+.g3 { grid-template-columns: 1fr 1fr 1fr; }
+.g4 { grid-template-columns: repeat(4,1fr); }
+
+/* ── CARD ── */
+.card {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  padding: 24px 28px;
+  animation: fadeUp 0.4s ease both;
+}
+
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(12px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+.card-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.card-title { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+.card-sub { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-bottom: 18px; }
+
+/* ── KPI ── */
+.kpi-big {
+  font-size: 64px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.kpi-unit { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+.editable-big {
+  border: none; background: transparent;
+  font-size: 64px; font-weight: 800; letter-spacing: -0.04em;
+  color: var(--accent); width: 100%; max-width: 200px;
+  border-bottom: 2px dashed var(--border);
+  outline: none; font-family: var(--sans);
+}
+.editable-big:focus { border-bottom-color: var(--accent); }
+
+.kpi-meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 16px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.editable-inline {
+  border: none; background: transparent;
+  font-family: var(--mono); font-size: 11px;
+  color: var(--ink); width: 36px; text-align: right;
+  border-bottom: 1px dashed var(--muted); outline: none;
+}
+.editable-inline:focus { border-bottom-color: var(--accent); }
+
+/* ── BAR ── */
+.bar-row { margin-bottom: 14px; }
+.bar-header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px; }
+.bar-name { font-size: 13px; font-weight: 600; }
+.bar-val { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.bar-track { height: 8px; background: var(--bg); border: 1px solid var(--border); overflow: hidden; }
+.bar-fill { height: 100%; background: var(--accent); transition: width 1s cubic-bezier(.16,1,.3,1); width: 0; }
+.bar-fill.green { background: var(--green); }
+.bar-fill.red { background: var(--red); }
+.bar-fill.orange { background: var(--orange); }
+
+/* ── DONUT ── */
+.donut-wrap { display:flex; align-items:center; gap:28px; }
+.legend-item { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.legend-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+.legend-label { font-size:12px; font-weight:600; }
+.legend-pct { font-family:var(--mono); font-size:10px; color:var(--muted); margin-left:auto; }
+
+/* ── HEATMAP ── */
+.heatmap { display:grid; gap:4px; }
+.heatmap-row { display:flex; gap:4px; align-items:center; }
+.heatmap-label { font-family:var(--mono); font-size:10px; color:var(--muted); width:80px; text-align:right; padding-right:8px; }
+.heatmap-cell {
+  width:40px; height:40px; border-radius:3px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--mono); font-size:11px; font-weight:500;
+  cursor:pointer; transition:transform 0.15s;
+}
+.heatmap-cell:hover { transform:scale(1.08); }
+.heatmap-col-labels { display:flex; gap:4px; margin-left:88px; margin-bottom:4px; }
+.heatmap-col-label { width:40px; text-align:center; font-family:var(--mono); font-size:10px; color:var(--muted); }
+
+/* ── TABLE ── */
+.bench-table { width:100%; border-collapse:collapse; }
+.bench-table th {
+  font-family:var(--mono); font-size:9px; letter-spacing:0.15em;
+  text-transform:uppercase; color:var(--muted);
+  padding:8px 12px; text-align:left;
+  border-bottom:1.5px solid var(--ink);
+}
+.bench-table td { padding:11px 12px; font-size:12px; font-family:var(--mono); border-bottom:1px solid var(--border); }
+.bench-table tr:hover td { background:var(--bg); }
+
+.badge { display:inline-block; padding:2px 8px; font-size:10px; font-family:var(--mono); }
+.badge.good { background:#d1fae5; color:var(--green); }
+.badge.warn { background:#fef3c7; color:var(--orange); }
+.badge.bad  { background:#fee2e2; color:var(--red); }
+
+/* ── TREND SVG ── */
+.trend-wrap { position:relative; height:200px; }
+
+/* ── MODEL BARS ── */
+.model-row { display:flex; align-items:center; gap:16px; padding:14px 0; border-bottom:1px solid var(--border); }
+.model-row:last-child { border-bottom:none; }
+.model-metric { width:90px; font-size:13px; font-weight:600; }
+.model-bars { flex:1; }
+.model-bar-line { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
+.model-bar-line:last-child { margin-bottom:0; }
+.model-tag { font-family:var(--mono); font-size:9px; letter-spacing:0.1em; width:50px; }
+.model-track { flex:1; height:5px; background:var(--bg); border:1px solid var(--border); }
+.model-fill { height:100%; transition:width 1s ease; }
+.model-score { font-family:var(--mono); font-size:10px; width:28px; text-align:right; }
+
+/* ── GANTT ── */
+.gantt-row { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+.gantt-label { font-family:var(--mono); font-size:10px; color:var(--muted); width:130px; text-align:right; }
+.gantt-track { flex:1; height:22px; background:var(--bg); border:1px solid var(--border); position:relative; }
+.gantt-bar {
+  position:absolute; top:2px; bottom:2px; left:0;
+  display:flex; align-items:center; padding:0 6px;
+  font-family:var(--mono); font-size:9px; color:#fff;
+  cursor:pointer; white-space:nowrap;
+  transition:width 0.8s ease;
+}
+.gantt-val { font-family:var(--mono); font-size:10px; color:var(--muted); width:36px; text-align:right; }
+
+/* ── WATERFALL ── */
+.wf-wrap { display:flex; align-items:flex-end; gap:8px; height:160px; position:relative; }
+.wf-col { display:flex; flex-direction:column; align-items:center; flex:1; height:100%; }
+.wf-bar-wrap { flex:1; width:100%; display:flex; align-items:flex-end; }
+.wf-bar { width:100%; cursor:pointer; position:relative; }
+.wf-bar-val { position:absolute; top:-16px; left:50%; transform:translateX(-50%); font-family:var(--mono); font-size:9px; white-space:nowrap; }
+.wf-label { font-family:var(--mono); font-size:9px; color:var(--muted); margin-top:4px; text-align:center; }
+
+/* ── TIMELINE ── */
+.tl { position:relative; padding-left:20px; }
+.tl::before { content:''; position:absolute; left:6px; top:0; bottom:0; width:1.5px; background:var(--border); }
+.tl-item { position:relative; margin-bottom:14px; }
+.tl-dot { position:absolute; left:-18px; top:5px; width:8px; height:8px; border-radius:50%; border:2px solid; }
+.tl-time { font-family:var(--mono); font-size:9px; color:var(--muted); }
+.tl-label { font-size:12px; font-weight:600; }
+.tl-detail { font-family:var(--mono); font-size:10px; color:var(--muted); }
+
+/* ── BTN ── */
+.btn {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid var(--accent-mid);
+  padding: 8px 18px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  margin-top: 14px;
+  transition: all 0.2s;
+}
+.btn:hover { background: var(--accent); color: #fff; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="topnav">
+  <div class="nav-logo">SPATIAL <span>FLOW</span></div>
+  <div class="nav-tab active" onclick="showPage('p1',this)">01 · Placement Quality</div>
+  <div class="nav-tab" onclick="showPage('p2',this)">02 · Spatial Analysis</div>
+  <div class="nav-tab" onclick="showPage('p3',this)">03 · Workflow Performance</div>
+  <div class="nav-right" id="nav-date"></div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════════ PAGE 1 -->
+<div class="page active" id="p1">
+  <div class="page-header">
+    <div class="page-tag">Module 01</div>
+    <div class="page-title">PLACEMENT <span>QUALITY</span></div>
+    <div class="questions">
+      <p>Did it place the requested number of objects? (requested 30, got 30 = 100% accuracy)</p>
+      <p>Are objects in the correct rooms? (zone assignment accuracy)</p>
+      <p>Are objects overlapping? (collision-free rate)</p>
+      <p>Are objects inside room bounds? (wall violation rate)</p>
+    </div>
+  </div>
+
+  <!-- S1: KPI CARDS -->
+  <div class="section" id="s1-kpis">
+    <div class="section-header">
+      <h2>Key Metrics</h2>
+      <button class="delete-section-btn" onclick="deleteSection('s1-kpis')">✕ Remove section</button>
+    </div>
+    <div class="grid g4">
+      <div class="card">
+        <div class="card-label">Object Count Accuracy</div>
+        <input class="editable-big" id="kpi-count" value="100" oninput="updateKPI('kpi-count','%')">
+        <div class="kpi-unit">% objects placed vs requested</div>
+        <div class="kpi-meta">
+          Req: <input class="editable-inline" id="req" value="30" onchange="recalcCount()">
+          &nbsp; Placed: <input class="editable-inline" id="placed" value="30" onchange="recalcCount()">
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Zone Assignment Accuracy</div>
+        <input class="editable-big" id="kpi-zone" value="94" oninput="">
+        <div class="kpi-unit">% objects in correct room</div>
+        <div class="kpi-meta">
+          Correct: <input class="editable-inline" id="z-ok" value="22" onchange="recalcZone()">
+          &nbsp; Wrong: <input class="editable-inline" id="z-bad" value="1" onchange="recalcZone()">
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Collision-Free Rate</div>
+        <input class="editable-big" id="kpi-cf" value="87" oninput="">
+        <div class="kpi-unit">% objects with OK clearance</div>
+        <div class="kpi-meta">
+          OK: <input class="editable-inline" id="cf-ok" value="20" onchange="recalcCF()">
+          &nbsp; Violations: <input class="editable-inline" id="cf-bad" value="3" onchange="recalcCF()">
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Wall Violation Rate</div>
+        <input class="editable-big" id="kpi-wall" value="4" style="color:var(--red)" oninput="">
+        <div class="kpi-unit">% objects outside room bounds</div>
+        <div class="kpi-meta">
+          Inside: <input class="editable-inline" id="w-ok" value="22" onchange="recalcWall()">
+          &nbsp; Outside: <input class="editable-inline" id="w-bad" value="1" onchange="recalcWall()">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- S2: ZONE BREAKDOWN + DONUT -->
+  <div class="section" id="s1-zones">
+    <div class="section-header">
+      <h2>Zone Breakdown</h2>
+      <button class="delete-section-btn" onclick="deleteSection('s1-zones')">✕ Remove section</button>
+    </div>
+    <div class="grid g2">
+      <div class="card">
+        <div class="card-label">Objects Placed Per Zone</div>
+        <div class="card-title">Actual vs Target by Room</div>
+        <div class="card-sub">Click counts to edit</div>
+        <div id="zone-bars"></div>
+        <button class="btn" onclick="renderZoneBars()">↺ Refresh</button>
+      </div>
+      <div class="card">
+        <div class="card-label">Object Status Distribution</div>
+        <div class="card-title">Where Placed Objects Ended Up</div>
+        <div class="card-sub">Proportional breakdown of all placements</div>
+        <div class="donut-wrap" style="margin-top:8px">
+          <svg id="donut-svg" width="140" height="140"></svg>
+          <div id="donut-legend"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- S3: HEATMAP -->
+  <div class="section" id="s1-heatmap">
+    <div class="section-header">
+      <h2>Room × Metric Heatmap</h2>
+      <button class="delete-section-btn" onclick="deleteSection('s1-heatmap')">✕ Remove section</button>
+    </div>
+    <div class="card">
+      <div class="card-label">Placement Score by Room</div>
+      <div class="card-title">0–100 per Metric per Zone</div>
+      <div class="card-sub">Click any cell to edit its score</div>
+      <div class="heatmap-col-labels" id="hm-cols"></div>
+      <div class="heatmap" id="heatmap"></div>
+    </div>
+  </div>
+
+  <!-- S4: COMPARISON TABLE -->
+  <div class="section" id="s1-table">
+    <div class="section-header">
+      <h2>Multi-Run Comparison</h2>
+      <button class="delete-section-btn" onclick="deleteSection('s1-table')">✕ Remove section</button>
+    </div>
+    <div class="card">
+      <div class="card-label">Placement Quality Across Runs</div>
+      <div class="card-title">Edit any cell directly</div>
+      <table class="bench-table" id="cmp-table">
+        <thead><tr>
+          <th>Run</th><th>Prompt</th><th>Model</th>
+          <th>Req</th><th>Placed</th><th>Count %</th>
+          <th>Zone %</th><th>CF %</th><th>Overall</th>
+        </tr></thead>
+        <tbody id="cmp-body"></tbody>
+      </table>
+      <button class="btn" onclick="addRun()">+ Add Run</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ PAGE 2 -->
+<div class="page" id="p2">
+  <div class="page-header">
+    <div class="page-tag">Module 02</div>
+    <div class="page-title">SPATIAL <span>ANALYSIS</span></div>
+    <div class="questions">
+      <p>Run the same prompt 5 times and record: collision, visibility, path, reachability, orientation scores</p>
+      <p>Measure consistency — does the same prompt give similar scores each run?</p>
+      <p>Compare Haiku vs Sonnet scores on the same prompt</p>
+    </div>
+  </div>
+
+  <!-- S1: SCORE TREND + MODEL COMPARISON -->
+  <div class="section" id="s2-trend">
+    <div class="section-header">
+      <h2>Score Trend & Model Comparison</h2>
+      <button class="delete-section-btn" onclick="deleteSection('s2-trend')">✕ Remove section</button>
+    </div>
+    <div class="grid g2">
+      <div class="card">
+        <div class="card-label">Score Trend</div>
+        <div class="card-title">Overall Score Over Runs</div>
+        <div class="card-sub">Click points to edit · Add runs below</div>
+        <div class="trend-wrap">
+          <svg id="trend-svg" width="100%" height="200"></svg>
+        </div>
+        <button class="btn" onclick="addTrendPt()">+ Add Run</button>
+      </div>
+      <div class="card">
+        <div class="card-label">Model Comparison</div>
+        <div class="card-title">Haiku vs Sonnet — Score per Metric</div>
+        <div class="card-sub">Click score values to edit</div>
+        <div id="model-cmp"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ PAGE 3 -->
+<div class="page" id="p3">
+  <div class="page-header">
+    <div class="page-tag">Module 03</div>
+    <div class="page-title">WORKFLOW <span>PERFORMANCE</span></div>
+    <div class="questions">
+      <p>How many reasoning turns per zone? (efficiency)</p>
+      <p>How many API calls per full run? (cost)</p>
+      <p>Total time from prompt to approved layout</p>
+      <p>How often does the recursion limit get hit?</p>
+    </div>
+  </div>
+
+  <!-- S1: KPIs -->
+  <div class="section" id="s3-kpis">
+    <div class="section-header">
+      <h2>Key Performance Indicators</h2>
+      <button class="delete-section-btn" onclick="deleteSection('s3-kpis')">✕ Remove section</button>
+    </div>
+    <div class="grid g4">
+      <div class="card">
+        <div class="card-label">Avg Turns / Zone</div>
+        <input class="editable-big" value="8" oninput="">
+        <div class="kpi-unit">LLM reasoning calls per zone</div>
+      </div>
+      <div class="card">
+        <div class="card-label">API Calls / Run</div>
+        <input class="editable-big" value="47" oninput="">
+        <div class="kpi-unit">total calls end-to-end</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Total Run Time</div>
+        <input class="editable-big" value="4.2" oninput="">
+        <div class="kpi-unit">minutes prompt → approved</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Recursion Limit Hits</div>
+        <input class="editable-big" value="0" style="color:var(--green)" oninput="">
+        <div class="kpi-unit">out of last 5 runs</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- S2: GANTT + WATERFALL -->
+  <div class="section" id="s3-time">
+    <div class="section-header">
+      <h2>Time & API Distribution</h2>
+      <button class="delete-section-btn" onclick="deleteSection('s3-time')">✕ Remove section</button>
+    </div>
+    <div class="grid g2">
+      <div class="card">
+        <div class="card-label">Pipeline Stage Duration</div>
+        <div class="card-title">Time per Stage (seconds)</div>
+        <div class="card-sub">Click any bar to edit duration</div>
+        <div id="gantt"></div>
+        <button class="btn" onclick="renderGantt()">↺ Refresh</button>
+      </div>
+      <div class="card">
+        <div class="card-label">API Calls Breakdown</div>
+        <div class="card-title">Calls per Pipeline Node</div>
+        <div class="card-sub">Click a bar to edit · Total shown above</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:8px" id="wf-total"></div>
+        <div class="wf-wrap" id="waterfall"></div>
+        <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap" id="wf-legend"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- S3: TIMELINE + PERF TREND -->
+  <div class="section" id="s3-timeline">
+    <div class="section-header">
+      <h2>Run Timeline & Trend</h2>
+      <button class="delete-section-btn" onclick="deleteSection('s3-timeline')">✕ Remove section</button>
+    </div>
+    <div class="grid g2">
+      <div class="card">
+        <div class="card-label">Event Log — Last Run</div>
+        <div class="card-title">Key Events with Timestamps</div>
+        <div class="card-sub">Click any field to edit</div>
+        <div class="tl" id="timeline"></div>
+        <button class="btn" onclick="addTlEvent()">+ Add Event</button>
+      </div>
+      <div class="card">
+        <div class="card-label">Multi-Run Performance</div>
+        <div class="card-title">Turns & Duration Across Runs</div>
+        <div class="card-sub">Click points to edit values</div>
+        <svg id="perf-svg" width="100%" height="220" style="margin-top:8px"></svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+// NAV
+// ══════════════════════════════════════════════════
+function showPage(id, tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  tab.classList.add('active');
+  setTimeout(() => { renderTrend(); renderPerfTrend(); }, 50);
+}
+
+function deleteSection(id) {
+  if (confirm('Remove this section?')) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  }
+}
+
+document.getElementById('nav-date').textContent =
+  new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+
+// ══════════════════════════════════════════════════
+// PAGE 1 DATA
+// ══════════════════════════════════════════════════
+function recalcCount() {
+  const r = +document.getElementById('req').value||1;
+  const p = +document.getElementById('placed').value||0;
+  document.getElementById('kpi-count').value = Math.round(p/r*100);
+}
+function recalcZone() {
+  const ok = +document.getElementById('z-ok').value||0;
+  const bad = +document.getElementById('z-bad').value||0;
+  document.getElementById('kpi-zone').value = Math.round(ok/Math.max(ok+bad,1)*100);
+}
+function recalcCF() {
+  const ok = +document.getElementById('cf-ok').value||0;
+  const bad = +document.getElementById('cf-bad').value||0;
+  document.getElementById('kpi-cf').value = Math.round(ok/Math.max(ok+bad,1)*100);
+}
+function recalcWall() {
+  const ok = +document.getElementById('w-ok').value||0;
+  const bad = +document.getElementById('w-bad').value||0;
+  document.getElementById('kpi-wall').value = Math.round(bad/Math.max(ok+bad,1)*100);
+}
+function updateKPI() {}
+
+// ZONE BARS
+let zoneData = [
+  {name:'Receiving Area',    target:4,  actual:4,  color:''},
+  {name:'Distribution Floor',target:20, actual:20, color:''},
+  {name:'Packaging Area',    target:4,  actual:4,  color:''},
+  {name:'Shipping Area',     target:2,  actual:2,  color:''},
+];
+
+
+function renderZoneBars() {
+  const w = document.getElementById('zone-bars');
+  w.innerHTML = '';
+  const maxT = Math.max(...zoneData.map(d=>d.target));
+  zoneData.forEach((z,i) => {
+    const pct = Math.round(z.actual/z.target*100);
+    const color = pct>=90?'green':pct>=70?'':'red';
+    w.innerHTML += `<div class="bar-row">
+      <div class="bar-header">
+        <span class="bar-name">${z.name}</span>
+        <span class="bar-val">
+          <input style="width:24px;border:none;border-bottom:1px dashed #b0a8c8;font-family:var(--mono);font-size:11px;text-align:center;background:transparent;outline:none"
+            value="${z.actual}" onchange="zoneData[${i}].actual=+this.value;renderZoneBars()"> / ${z.target} · <b>${pct}%</b>
+        </span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill ${color}" style="width:${pct}%"></div>
+      </div>
+    </div>`;
+  });
+  setTimeout(()=>document.querySelectorAll('.bar-fill').forEach(b=>{const w=b.style.width;b.style.width='0';setTimeout(()=>b.style.width=w,10)}),10);
+}
+
+// DONUT
+const donutData = [
+  {label:'Correct zone, OK clearance', pct:62, color:'#7c3aed'},
+  {label:'Correct zone, violation',     pct:18, color:'#d97706'},
+  {label:'Wrong zone',                  pct: 6, color:'#dc2626'},
+  {label:'Not placed',                  pct:14, color:'#e2d9f3'},
+];
+
+function drawDonut() {
+  const svg = document.getElementById('donut-svg');
+  const leg = document.getElementById('donut-legend');
+  const cx=70,cy=70,r=52;
+  svg.innerHTML=''; leg.innerHTML='';
+  let off=-90;
+  donutData.forEach(d=>{
+    const a=(d.pct/100)*360;
+    const r1=off*Math.PI/180, r2=(off+a)*Math.PI/180;
+    const x1=cx+r*Math.cos(r1),y1=cy+r*Math.sin(r1);
+    const x2=cx+r*Math.cos(r2),y2=cy+r*Math.sin(r2);
+    const lg=a>180?1:0;
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d',`M${cx} ${cy} L${x1} ${y1} A${r} ${r} 0 ${lg} 1 ${x2} ${y2}Z`);
+    path.setAttribute('fill',d.color);
+    path.setAttribute('stroke','#fff');
+    path.setAttribute('stroke-width','2');
+    svg.appendChild(path);
+    leg.innerHTML+=`<div class="legend-item">
+      <div class="legend-dot" style="background:${d.color}"></div>
+      <span class="legend-label" style="font-size:11px">${d.label}</span>
+      <span class="legend-pct">${d.pct}%</span>
+    </div>`;
+    off+=a;
+  });
+  ['23','PLACED'].forEach((t,i)=>{
+    const el=document.createElementNS('http://www.w3.org/2000/svg','text');
+    el.setAttribute('x',cx);el.setAttribute('y',cy+(i===0?6:18));
+    el.setAttribute('text-anchor','middle');
+    el.setAttribute('font-size',i===0?'22':'9');
+    el.setAttribute('font-weight',i===0?'800':'400');
+    el.setAttribute('fill',i===0?'#1a1025':'#7c6f9a');
+    el.setAttribute('font-family',i===0?'Syne':'DM Mono');
+    el.textContent=t; svg.appendChild(el);
+  });
+}
+
+// HEATMAP
+const hmRooms=['Receiving','Distribution','Packaging','Shipping'];
+const hmMetrics=['Count','Zone','Clearance','Overlap'];
+let hmVals=[[75,100,67,100],[85,95,82,94],[50,100,60,100],[50,100,75,100]];
+
+function drawHeatmap() {
+  document.getElementById('hm-cols').innerHTML=hmMetrics.map(m=>`<div class="heatmap-col-label">${m}</div>`).join('');
+  const w=document.getElementById('heatmap'); w.innerHTML='';
+  hmRooms.forEach((room,ri)=>{
+    const row=document.createElement('div'); row.className='heatmap-row';
+    row.innerHTML=`<div class="heatmap-label">${room}</div>`;
+    hmMetrics.forEach((_,mi)=>{
+      const v=hmVals[ri][mi];
+      const g=Math.round(80+(v/100)*120);
+      const bg=v>=80?`rgb(${Math.round(255-(v/100)*180)},${g},${Math.round(60+(v/100)*40)})`
+        :v>=60?`rgb(${Math.round(220-(v/100)*80)},${Math.round(140+(v/100)*60)},${Math.round(30+(v/100)*30)})`
+        :`rgb(${Math.round(200+(v/100)*30)},${Math.round(80+(v/100)*60)},${Math.round(60+(v/100)*40)})`;
+      const fg=v>55?'#fff':'#1a1025';
+      const cell=document.createElement('div');
+      cell.className='heatmap-cell';
+      cell.style.background=bg; cell.style.color=fg;
+      cell.textContent=v;
+      cell.onclick=()=>{
+        const nv=prompt(`${room} — ${hmMetrics[mi]}:`,v);
+        if(nv!==null&&!isNaN(+nv)){hmVals[ri][mi]=Math.min(100,Math.max(0,+nv));drawHeatmap();}
+      };
+      row.appendChild(cell);
+    });
+    w.appendChild(row);
+  });
+}
+
+// COMPARISON TABLE
+let runs=[
+  {run:'Run 01',prompt:'30-eq electronics line',model:'Haiku',req:30,placed:23,zone:94,cf:87},
+  {run:'Run 02',prompt:'30-eq electronics line',model:'Sonnet',req:30,placed:30,zone:97,cf:91},
+  {run:'Run 03',prompt:'20-eq woodworking shop',model:'Haiku',req:20,placed:20,zone:89,cf:84},
+];
+
+function badge(v){
+  if(v>=90) return `<span class="badge good">${v}%</span>`;
+  if(v>=75) return `<span class="badge warn">${v}%</span>`;
+  return `<span class="badge bad">${v}%</span>`;
+}
+
+function renderTable() {
+  const b=document.getElementById('cmp-body'); b.innerHTML='';
+  runs.forEach((r,i)=>{
+    const cp=Math.round(r.placed/r.req*100);
+    const ov=Math.round((cp+r.zone+r.cf)/3);
+    b.innerHTML+=`<tr>
+      <td contenteditable="true">${r.run}</td>
+      <td contenteditable="true">${r.prompt}</td>
+      <td contenteditable="true">${r.model}</td>
+      <td contenteditable="true" onblur="runs[${i}].req=+this.textContent;renderTable()">${r.req}</td>
+      <td contenteditable="true" onblur="runs[${i}].placed=+this.textContent;renderTable()">${r.placed}</td>
+      <td>${badge(cp)}</td>
+      <td contenteditable="true" onblur="runs[${i}].zone=+this.textContent;renderTable()">${badge(r.zone)}</td>
+      <td contenteditable="true" onblur="runs[${i}].cf=+this.textContent;renderTable()">${badge(r.cf)}</td>
+      <td>${badge(ov)}</td>
+    </tr>`;
+  });
+}
+
+function addRun() {
+  runs.push({run:`Run 0${runs.length+1}`,prompt:'New prompt',model:'Haiku',req:30,placed:0,zone:0,cf:0});
+  renderTable();
+}
+
+// ══════════════════════════════════════════════════
+// PAGE 2 DATA
+// ══════════════════════════════════════════════════
+let trendPts=[92,95,88,94,93,97,93.8];
+
+function renderTrend() {
+  const svgEl=document.getElementById('trend-svg');
+  if(!svgEl) return;
+  const W=svgEl.parentElement.clientWidth-20, H=180;
+  svgEl.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  svgEl.innerHTML='';
+  const pad={l:36,r:16,t:20,b:28};
+  const n=trendPts.length;
+  const xS=(W-pad.l-pad.r)/Math.max(n-1,1);
+  const yMin=80,yMax=100;
+  const toX=i=>pad.l+i*xS;
+  const toY=v=>pad.t+(H-pad.t-pad.b)*(1-(v-yMin)/(yMax-yMin));
+
+  // Grid
+  [85,90,95,100].forEach(v=>{
+    const y=toY(v);
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',pad.l);line.setAttribute('x2',W-pad.r);
+    line.setAttribute('y1',y);line.setAttribute('y2',y);
+    line.setAttribute('stroke','#e2d9f3');line.setAttribute('stroke-width','1');
+    svgEl.appendChild(line);
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',pad.l-4);t.setAttribute('y',y+4);
+    t.setAttribute('text-anchor','end');
+    t.setAttribute('font-size','9');t.setAttribute('fill','#7c6f9a');
+    t.setAttribute('font-family','DM Mono');t.textContent=v;
+    svgEl.appendChild(t);
+  });
+
+  // Area
+  const areaD=`M${toX(0)},${toY(trendPts[0])} ${trendPts.map((v,i)=>`L${toX(i)},${toY(v)}`).join(' ')} L${toX(n-1)},${H-pad.b} L${pad.l},${H-pad.b}Z`;
+  const area=document.createElementNS('http://www.w3.org/2000/svg','path');
+  area.setAttribute('d',areaD);area.setAttribute('fill','rgba(124,58,237,0.08)');
+  svgEl.appendChild(area);
+
+  // Line
+  const lineD=trendPts.map((v,i)=>`${i===0?'M':'L'}${toX(i)},${toY(v)}`).join(' ');
+  const line=document.createElementNS('http://www.w3.org/2000/svg','path');
+  line.setAttribute('d',lineD);line.setAttribute('fill','none');
+  line.setAttribute('stroke','#7c3aed');line.setAttribute('stroke-width','2');
+  svgEl.appendChild(line);
+
+  // Dots
+  trendPts.forEach((v,i)=>{
+    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',toX(i));c.setAttribute('cy',toY(v));
+    c.setAttribute('r','5');c.setAttribute('fill','#7c3aed');
+    c.setAttribute('stroke','#fff');c.setAttribute('stroke-width','2');
+    c.style.cursor='pointer';
+    c.onclick=()=>{const nv=prompt(`Run ${i+1} score:`,v);if(nv&&!isNaN(+nv)){trendPts[i]=+nv;renderTrend();}};
+    svgEl.appendChild(c);
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',toX(i));t.setAttribute('y',toY(v)-10);
+    t.setAttribute('text-anchor','middle');
+    t.setAttribute('font-size','9');t.setAttribute('fill','#7c3aed');
+    t.setAttribute('font-family','DM Mono');t.textContent=v;
+    svgEl.appendChild(t);
+  });
+}
+
+function addTrendPt() {
+  const v=prompt('Score for new run:','93');
+  if(v&&!isNaN(+v)){trendPts.push(+v);renderTrend();}
+}
+
+// MODEL COMPARISON
+const modelData=[
+  {metric:'Overall',   haiku:88,sonnet:94},
+  {metric:'Collision', haiku:82,sonnet:89},
+  {metric:'Visibility',haiku:98,sonnet:100},
+  {metric:'Path',      haiku:90,sonnet:96},
+  {metric:'Reach',     haiku:97,sonnet:100},
+];
+
+function renderModelCmp() {
+  const w=document.getElementById('model-cmp');
+  w.innerHTML='';
+  modelData.forEach((d,i)=>{
+    const div=document.createElement('div');
+    div.className='model-row';
+    div.innerHTML=`
+      <div class="model-metric">${d.metric}</div>
+      <div class="model-bars">
+        <div class="model-bar-line">
+          <span class="model-tag" style="color:#7c3aed">HAIKU</span>
+          <div class="model-track"><div class="model-fill" style="width:${d.haiku}%;background:#7c3aed"></div></div>
+          <span class="model-score" style="color:#7c3aed" contenteditable="true"
+            onblur="modelData[${i}].haiku=+this.textContent;renderModelCmp()">${d.haiku}</span>
+        </div>
+        <div class="model-bar-line">
+          <span class="model-tag" style="color:#059669">SONNET</span>
+          <div class="model-track"><div class="model-fill" style="width:${d.sonnet}%;background:#059669"></div></div>
+          <span class="model-score" style="color:#059669" contenteditable="true"
+            onblur="modelData[${i}].sonnet=+this.textContent;renderModelCmp()">${d.sonnet}</span>
+        </div>
+      </div>`;
+    w.appendChild(div);
+  });
+}
+
+// ══════════════════════════════════════════════════
+// PAGE 3 DATA
+// ══════════════════════════════════════════════════
+let ganttData=[
+  {label:'Profile Agent',    dur:12,color:'#7c3aed'},
+  {label:'Space Type Agent', dur:14,color:'#7c3aed'},
+  {label:'Populate Plan',    dur:18,color:'#a78bfa'},
+  {label:'Zone: Receiving',  dur:38,color:'#059669'},
+  {label:'Zone: Distribution',dur:95,color:'#059669'},
+  {label:'Zone: Packaging',  dur:22,color:'#059669'},
+  {label:'Zone: Shipping',   dur:30,color:'#059669'},
+  {label:'Explain & Save',   dur:8, color:'#d97706'},
+];
+
+function renderGantt() {
+  const w=document.getElementById('gantt'); w.innerHTML='';
+  const mx=Math.max(...ganttData.map(d=>d.dur));
+  ganttData.forEach((d,i)=>{
+    const pct=(d.dur/mx)*100;
+    w.innerHTML+=`<div class="gantt-row">
+      <div class="gantt-label">${d.label}</div>
+      <div class="gantt-track">
+        <div class="gantt-bar" style="background:${d.color};width:${pct}%"
+          onclick="const v=prompt('Duration (s):','${d.dur}');if(v&&!isNaN(+v)){ganttData[${i}].dur=+v;renderGantt()}">${d.dur}s</div>
+      </div>
+      <div class="gantt-val">${d.dur}s</div>
+    </div>`;
+  });
+}
+
+let wfData=[
+  {label:'Profile', calls:8, color:'#7c3aed'},
+  {label:'Space',   calls:9, color:'#7c3aed'},
+  {label:'Populate',calls:5, color:'#a78bfa'},
+  {label:'Reason',  calls:18,color:'#059669'},
+  {label:'Tools',   calls:12,color:'#d97706'},
+  {label:'Analysis',calls:8, color:'#dc2626'},
+  {label:'Other',   calls:3, color:'#9ca3af'},
+];
+
+function renderWaterfall() {
+  const w=document.getElementById('waterfall');
+  const leg=document.getElementById('wf-legend');
+  const tot=document.getElementById('wf-total');
+  w.innerHTML=''; leg.innerHTML='';
+  const total=wfData.reduce((s,d)=>s+d.calls,0);
+  const mx=Math.max(...wfData.map(d=>d.calls));
+  tot.textContent=`Total: ${total} API calls`;
+  wfData.forEach((d,i)=>{
+    const h=Math.round((d.calls/mx)*140);
+    const col=document.createElement('div');
+    col.className='wf-col';
+    col.innerHTML=`<div class="wf-bar-wrap">
+      <div class="wf-bar" style="height:${h}px;background:${d.color}"
+        onclick="const v=prompt('Calls for ${d.label}:','${d.calls}');if(v&&!isNaN(+v)){wfData[${i}].calls=+v;renderWaterfall()}">
+        <div class="wf-bar-val" style="color:${d.color}">${d.calls}</div>
+      </div>
+    </div>
+    <div class="wf-label">${d.label}</div>`;
+    w.appendChild(col);
+    leg.innerHTML+=`<div style="display:flex;align-items:center;gap:4px">
+      <div style="width:7px;height:7px;border-radius:50%;background:${d.color}"></div>
+      <span style="font-family:var(--mono);font-size:9px;color:var(--muted)">${d.label}:${d.calls}</span>
+    </div>`;
+  });
+}
+
+let tlEvents=[
+  {time:'00:00',label:'Session started',     detail:'industrial_03.json loaded',       color:'#7c3aed'},
+  {time:'00:12',label:'Profile detected',    detail:'standard_worker · 0.915m path',   color:'#a78bfa'},
+  {time:'00:26',label:'Space classified',    detail:'assembly_hall · clearance 1.2m',  color:'#a78bfa'},
+  {time:'00:44',label:'Plan generated',      detail:'30 objects across 4 zones',       color:'#059669'},
+  {time:'01:22',label:'Zone 1 complete',     detail:'Receiving: 3/4 objects placed',   color:'#059669'},
+  {time:'02:57',label:'Zone 2 complete',     detail:'Distribution: 17/18 objects',     color:'#059669'},
+  {time:'03:19',label:'Zone 3 complete',     detail:'Packaging: 4 objects placed',     color:'#059669'},
+  {time:'03:49',label:'Zone 4 complete',     detail:'Shipping: 2 objects placed',      color:'#059669'},
+  {time:'04:02',label:'Layout approved',     detail:'Score 93.8/100 · Grade A',        color:'#d97706'},
+  {time:'04:12',label:'Saved to output',     detail:'industrial_03_final.json',        color:'#d97706'},
+];
+
+function renderTimeline() {
+  const w=document.getElementById('timeline'); w.innerHTML='';
+  tlEvents.forEach((e,i)=>{
+    const item=document.createElement('div'); item.className='tl-item';
+    item.innerHTML=`
+      <div class="tl-dot" style="background:${e.color};border-color:${e.color}"></div>
+      <div class="tl-time" contenteditable="true">${e.time}</div>
+      <div class="tl-label" contenteditable="true">${e.label}</div>
+      <div class="tl-detail" contenteditable="true">${e.detail}</div>`;
+    w.appendChild(item);
+  });
+}
+
+function addTlEvent() {
+  tlEvents.push({time:'00:00',label:'New event',detail:'Description',color:'#7c3aed'});
+  renderTimeline();
+}
+
+let perfRuns=[
+  {run:1,turns:52,time:6.0},
+  {run:2,turns:47,time:4.8},
+  {run:3,turns:44,time:4.2},
+  {run:4,turns:41,time:3.9},
+  {run:5,turns:47,time:4.2},
+];
+
+function renderPerfTrend() {
+  const svgEl=document.getElementById('perf-svg');
+  if(!svgEl) return;
+  const W=svgEl.parentElement.clientWidth-20, H=200;
+  svgEl.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  svgEl.innerHTML='';
+  const pad={l:40,r:16,t:24,b:28};
+  const n=perfRuns.length;
+  const xS=(W-pad.l-pad.r)/Math.max(n-1,1);
+  const mxT=Math.max(...perfRuns.map(d=>d.turns))*1.15;
+  const mxTm=Math.max(...perfRuns.map(d=>d.time))*1.15;
+  const toX=i=>pad.l+i*xS;
+  const toYT=v=>pad.t+(H-pad.t-pad.b)*(1-v/mxT);
+  const toYTm=v=>pad.t+(H-pad.t-pad.b)*(1-v/mxTm);
+
+  // Grid
+  for(let p=25;p<=100;p+=25){
+    const y=pad.t+(H-pad.t-pad.b)*(1-p/100);
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',pad.l);line.setAttribute('x2',W-pad.r);
+    line.setAttribute('y1',y);line.setAttribute('y2',y);
+    line.setAttribute('stroke','#e2d9f3');line.setAttribute('stroke-width','1');
+    svgEl.appendChild(line);
+  }
+
+  const drawSeries=(getFn,color,label)=>{
+    const pts=perfRuns.map((d,i)=>`${i===0?'M':'L'}${toX(i)},${getFn(d)}`).join(' ');
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d',pts);path.setAttribute('fill','none');
+    path.setAttribute('stroke',color);path.setAttribute('stroke-width','2');
+    svgEl.appendChild(path);
+    perfRuns.forEach((d,i)=>{
+      const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      c.setAttribute('cx',toX(i));c.setAttribute('cy',getFn(d));
+      c.setAttribute('r','4');c.setAttribute('fill',color);
+      c.setAttribute('stroke','#fff');c.setAttribute('stroke-width','2');
+      c.style.cursor='pointer';
+      svgEl.appendChild(c);
+      const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('x',toX(i));t.setAttribute('y',getFn(d)-9);
+      t.setAttribute('text-anchor','middle');
+      t.setAttribute('font-size','8');t.setAttribute('fill',color);
+      t.setAttribute('font-family','DM Mono');
+      t.textContent=label==='Turns'?d.turns:d.time+'m';
+      svgEl.appendChild(t);
+    });
+  };
+
+  drawSeries(d=>toYT(d.turns),'#7c3aed','Turns');
+  drawSeries(d=>toYTm(d.time*8),'#059669','Time');
+
+  // X labels
+  perfRuns.forEach((d,i)=>{
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',toX(i));t.setAttribute('y',H-6);
+    t.setAttribute('text-anchor','middle');
+    t.setAttribute('font-size','8');t.setAttribute('fill','#7c6f9a');
+    t.setAttribute('font-family','DM Mono');t.textContent=`Run ${d.run}`;
+    svgEl.appendChild(t);
+  });
+
+  // Legend
+  [['#7c3aed','LLM Turns'],['#059669','Duration (min)']].forEach(([c,l],i)=>{
+    const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    r.setAttribute('x',W-130);r.setAttribute('y',8+i*14);
+    r.setAttribute('width',10);r.setAttribute('height',4);r.setAttribute('fill',c);
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',W-116);t.setAttribute('y',13+i*14);
+    t.setAttribute('font-size','8');t.setAttribute('fill','#7c6f9a');
+    t.setAttribute('font-family','DM Mono');t.textContent=l;
+    svgEl.appendChild(r);svgEl.appendChild(t);
+  });
+}
+
+// ══════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════
+renderZoneBars();
+drawDonut();
+drawHeatmap();
+renderTable();
+renderModelCmp();
+renderGantt();
+renderWaterfall();
+renderTimeline();
+setTimeout(()=>{renderTrend();renderPerfTrend();},100);
+</script>
+</body>
+</html>

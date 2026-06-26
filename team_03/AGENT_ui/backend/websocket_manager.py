@@ -23,6 +23,7 @@ class MessageType(str, Enum):
     chat_decision = "chat_decision"
     version_saved = "version_saved"
     analysis_overlay = "analysis_overlay"
+    benchmark_update = "benchmark_update"
 
 
 class ConnectionManager:

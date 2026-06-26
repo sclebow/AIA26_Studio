@@ -28,6 +28,7 @@ from pipeline_bridge import (
     CheckpointParser,
     read_session_layout,
 )
+import benchmark
 
 
 # Graph node names → ProcessPanel card names (where they differ).
@@ -117,6 +118,19 @@ async def start_session(
         _session.owner = websocket
         _session.input_queue = queue.Queue()
 
+    # ── Benchmark recorder ────────────────────────────────────────────────
+    # Resolve the active pipeline provider/model (UI toggle or .env default) so
+    # the run is attributed to the right model for the benchmark dashboard.
+    try:
+        from pipeline_bridge import get_pipeline_provider, get_pipeline_model
+        from _runtime.config import load_settings as _load_settings
+        _settings = _load_settings()
+        _bench_provider = get_pipeline_provider() or _settings.llm_provider
+        _bench_model = get_pipeline_model() or _settings.llm_model
+    except Exception:
+        _bench_provider, _bench_model = None, None
+    rec = benchmark.BenchRunRecorder(prompt, layout_name, _bench_provider, _bench_model)
+
     def emit(msg: Dict[str, Any]) -> None:
         """Send a WS message from the worker thread to the main event loop."""
         try:
@@ -126,6 +140,18 @@ async def start_session(
 
     def emit_event(node: str, status: str, data: Any = None) -> None:
         """Emit a per-node pipeline event (drives the Pipeline panel + Log)."""
+        # Feed the benchmark recorder with raw (un-aliased) node timings. `setup`
+        # streams granular progress as repeated "completed" lines, so skip it.
+        if node != "setup":
+            try:
+                if status == "started":
+                    rec.node_started(node)
+                elif status == "completed":
+                    rec.node_completed(node)
+                elif status == "error":
+                    rec.node_error(node, str(data or ""))
+            except Exception:
+                pass
         ui_node = _NODE_ALIAS.get(node, node)
         msg = {"type": MessageType.agent_event.value, "node": ui_node, "status": status}
         if data is not None:
@@ -145,6 +171,10 @@ async def start_session(
         if not breakdown and not overall:
             return
         scores_emitted["v"] = True
+        try:
+            rec.set_scoring(overall, grade, breakdown)
+        except Exception:
+            pass
 
         def _sc(tool: str) -> float:
             return round(float((breakdown.get(tool) or {}).get("score", 0) or 0))
@@ -174,6 +204,7 @@ async def start_session(
         parser = CheckpointParser()
         ctx = None
         state = {"current_node": None}
+        bench_status = {"v": "ok"}
 
         def on_line(line: str) -> None:
             parser.feed(line)
@@ -199,6 +230,10 @@ async def start_session(
         # Patched input(): the call itself signals "menu printed, awaiting decision".
         def patched_input(prompt_text: str = "") -> str:
             payload = parser.take_checkpoint()
+            try:
+                rec.note_checkpoint()
+            except Exception:
+                pass
             # Strip raw JSON bleed from agent message — happens when LLM
             # outputs markdown+JSON mixed instead of pure JSON
             agent_msg = payload.get("agentMessage", "") or ""
@@ -392,10 +427,17 @@ async def start_session(
                         emit_scores(sr.get("total_score"), sr.get("grade"), sr.get("breakdown") or {})
                 except Exception as exc:
                     print(f"[analyze] deterministic backfill failed: {exc}")
+            bench_status["v"] = "ok"
         except _Aborted:
             # Client disconnected / superseded — unwind quietly, no chat error.
-            pass
+            bench_status["v"] = "aborted"
         except Exception as exc:  # noqa: BLE001 — surface any failure in chat + panel
+            bench_status["v"] = "error"
+            if "recursion" in str(exc).lower():
+                try:
+                    rec.note_recursion_hit()
+                except Exception:
+                    pass
             cur = state.get("current_node")
             if cur:
                 emit_event(cur, "error", str(exc))
@@ -410,6 +452,13 @@ async def start_session(
                 ),
             })
         finally:
+            # Finalize the benchmark record (always — ok / aborted / error) and
+            # notify the UI so the Benchmark dashboard refreshes live.
+            try:
+                run_record = rec.finalize(bench_status["v"])
+                emit({"type": MessageType.benchmark_update.value, "run": run_record})
+            except Exception as exc:
+                print(f"[benchmark] finalize failed: {exc}")
             builtins.input = real_input
             try:
                 agent_loop.close()

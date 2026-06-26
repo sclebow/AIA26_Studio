@@ -393,24 +393,90 @@ assistant". (Pure Python — works even when Swiftlet/Rhino is down.)
 | Variable | Description | Default |
 |---------|-------------|---------|
 | `LLM_PROVIDER` | `openai`, `anthropic`, `local`, `google`, `cloudflare` | required |
-| `ANTHROPIC_MODEL` | Model id when provider is `anthropic` | `claude-haiku-4-5` |
-| `OPENAI_MODEL` / `GOOGLE_MODEL` / `CF_MODEL` | Model id for the matching provider | per provider |
+| `GOOGLE_API_KEY` | API key when provider is `google` | required if google |
+| `GOOGLE_MODEL` | Model id when provider is `google` | `gemini-2.5-flash` |
+| `ANTHROPIC_API_KEY` | Anthropic key — always required for AGENT_ui auxiliary features | required |
+| `ANTHROPIC_MODEL` | Model id for AGENT_ui auxiliary features (pure_chat, spatial_assistant) | `claude-haiku-4-5` |
+| `OPENAI_MODEL` / `CF_MODEL` | Model id for the matching provider | per provider |
 | `LOCAL_LLM_ENDPOINT` | e.g. `http://localhost:1234/v1/` | required if local |
 | `REQUEST_TIMEOUT_SECONDS` | HTTP timeout for MCP + LLM | `120` |
 | `MAX_ITERATIONS` | Max tool call cycles | `100` |
 | `DEBUG_GRAPH` | Print graph debug info | `false` |
 | `LAYOUT_FILE` | Layout name (env alt to `--layout`) | — |
 
-**Cost policy — prefer the cheapest model (Haiku):** the model is read from `.env`
-(`ANTHROPIC_MODEL`, etc.); there is no hardcoded default in `_runtime/config.py`.
-The agent is standardized on **`claude-haiku-4-5`** (Haiku 4.5 — the cheapest
-Anthropic model). The terminal (`main.py`) follows `.env`. The **AGENT_ui backend no
-longer hard-forces Haiku** (changed in the 2026-06-07 UI_fix commit): `build_context`
-uses `get_active_model() or settings.llm_model`, so it follows `.env` unless the UI
-switches the active model at runtime via a `model_switch` WebSocket message
-(`haiku` → `claude-haiku-4-5-20251001`, `sonnet` → `claude-sonnet-4-6`). **Sonnet is
-therefore selectable from the UI** — mind the cost. Keep `ANTHROPIC_MODEL =
-"claude-haiku-4-5"` in `.env` as the default for both the terminal and the web agent.
+**Provider architecture — hybrid Google + Anthropic (current setup):**
+
+The pipeline runs in **hybrid mode**: the LangGraph agent uses Google Gemini as its
+main LLM, while three AGENT_ui auxiliary features remain on Anthropic.
+
+| Feature | Provider | Key used | Model |
+|---------|----------|----------|-------|
+| LangGraph agent pipeline (reason, profile, space_type, populate) | **Google** | `GOOGLE_API_KEY` | `GOOGLE_MODEL` |
+| AGENT_ui pure_chat (direct chatbot) | **Anthropic** | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL` |
+| AGENT_ui spatial_assistant (observer / visibility / path) | **Anthropic** | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL` |
+| AGENT_ui layout_generator (AI layout generation) | **Anthropic** | `ANTHROPIC_API_KEY` | `claude-sonnet-4-6` (or `LAYOUT_GEN_MODEL`) |
+
+**Google Gemini specifics (`_runtime/llm.py`):** Gemini is routed through its
+OpenAI-compatibility endpoint (`generativelanguage.googleapis.com/v1beta/openai`) via
+`langchain_openai.ChatOpenAI`. Four Gemini-specific adjustments are applied (added
+2026-06-19 to fix a bug where multi-object move/place requests silently did nothing):
+- `max_tokens=8192` — a generous output budget. Gemini 2.5 enables "thinking" by
+  default and those tokens count against `max_tokens` via the OpenAI-compat layer; with
+  a small budget the decision JSON gets truncated mid-output (invalid JSON → tool calls
+  silently dropped → placements vanish while the agent appears to "talk about" them).
+- `reasoning_effort="low"` — caps Gemini's "thinking" so most of the budget goes to the
+  actual decision JSON, not hidden reasoning. (Passed as an explicit `ChatOpenAI` param,
+  not via `model_kwargs`, to avoid a LangChain warning. NOTE: `extra_body` with a
+  `google.thinking_config` block is **rejected** by this endpoint — 400 "Unknown name
+  google"; `reasoning_effort` is the correct knob.)
+- **JSON mode** — `get_llm_response_format` returns `{"response_format": {"type":
+  "json_object"}}` for `google` (NOT the strict `json_schema`, which Gemini's OpenAI-compat
+  layer only partially honours). This forces syntactically valid JSON and stops the model
+  rambling / dumping coordinates into prose. The SYSTEM_PROMPT already describes the
+  decision shape; `_normalize_llm_decision` validates it.
+- **Truncation detection** — `call_llm` checks `response_metadata.finish_reason`. On
+  `"length"` it logs loudly and raises (so `reason.py`'s retry loop runs) instead of the
+  old silent fallback in `_parse_llm_json` that treated a truncated reply as a plain
+  conversational "final" with no tool calls.
+
+For multi-step placement where Flash still misclassifies (e.g. picks the wrong object,
+or chooses `action:query` for a move), the next lever is `GOOGLE_MODEL=gemini-2.5-pro`.
+
+**UI provider + model switcher (pipeline only):** the AGENT_ui chat panel exposes a
+**Provider** toggle (`Anthropic` | `Google`) and a dependent **Model** picker
+(haiku/sonnet for Anthropic; flash/pro for Google). A `provider_switch` WebSocket
+message calls `pipeline_bridge.set_pipeline_llm(provider, model_key)`, which validates
+the provider's API key and sets the process-global `_pipeline_provider` /
+`_pipeline_model` (`PIPELINE_MODELS` maps the UI model keys to full ids). `build_context`
+then resolves that provider's own key/base_url/model (`resolve_provider_credentials` in
+`_runtime/config.py`) and passes `provider=` explicitly to `create_chat_llm` /
+`get_llm_response_format`. The switch **controls only the LangGraph pipeline** and applies
+to the **next** chat session. `GET /api/llm-config` reports the active provider/model,
+selectable models, and which providers have credentials so the UI starts in sync.
+
+**Cerebro vs manos (what the toggle does and does NOT do):** the provider toggle only
+changes *which LLM generates the decision* (`reason.py` → `_runtime/llm.py` `call_llm`).
+It does **not** change the machinery that writes the JSON or moves the geometry — *that*
+is always the same pipeline: `place_objects` (MCP) → `nodes/add_objects.py` →
+`workspace/session_active.json` (via `_runtime/session.py`) → on approval,
+`nodes/output.py` → `output/<layout>_*.json`. The provider only affects the
+**quality/reliability** of the moves (a better model decides better; a truncated/invalid
+JSON loses its `tool_calls` so nothing moves — see "Google Gemini specifics"), never the
+mechanism.
+
+**Credentials & graceful degradation:** both API keys are optional **except** the one for
+the active `LLM_PROVIDER` — the app boots on the `.env` provider. If the *other* provider's
+key is missing, toggling to it fails with a clear notice (`provider_switch_ack
+status:"error"`, `missingKey`, `envPath`) telling the user to add
+`GOOGLE_API_KEY` / `ANTHROPIC_API_KEY` to the repo-root `.env` and restart the backend; the
+pipeline keeps running on the provider that already worked. So a user with only the
+Anthropic key runs fine on Anthropic and simply can't switch to Google until they add it.
+
+**Auxiliary config helper:** `pipeline_bridge.anthropic_aux_config()` returns the
+Anthropic key + model for the three auxiliary features, reading `ANTHROPIC_API_KEY` /
+`ANTHROPIC_MODEL` directly from the repo-root `.env` regardless of `LLM_PROVIDER` and of the
+pipeline toggle. The auxiliary features therefore **always** run on Anthropic; only its key
+must be present in `.env` to use chat / spatial assistant / layout generator.
 
 **Important:** Grasshopper tool calls can take >2 minutes. Set `REQUEST_TIMEOUT_SECONDS=300` or higher.
 
@@ -508,6 +574,8 @@ pip install langchain-openai langchain-anthropic langgraph grandalf shapely http
 4. **`place_objects` format mismatch (FIXED)** — `_parse_objects_list` (`nodes/add_objects.py`) now accepts BOTH the colon form `name:WxDxH:x=X,y=Y` AND the JSON array the LLM often emits (`[{"name":..,"position":[x,y],"size":[w,d,h]}]`). Previously the JSON form parsed to nothing and silently placed no objects.
 5. **`test_spatial_graph.py --session` shows 0 furniture for base layout** — Expected: `--session` reads the live workspace; without it the base layout has no furniture.
 6. **`spatial_graph.py` import fails if networkx missing** — `pip install networkx`. All call sites are wrapped in try/except so it degrades gracefully.
+7. **AI Layout Generator returns invalid JSON (FIXED 2026-06-26)** — `max_tokens` was 8192, too low for industrial layouts with many elements; the model truncated mid-JSON. Raised to 16000 in `AGENT_ui/backend/layout_generator.py`. Error handling now detects truncation via `stop_reason == "max_tokens"` and reports it explicitly.
+8. **AGENT_ui backend missing dependencies on first run** — `fastapi`, `uvicorn`, `networkx`, `shapely` are not auto-installed. Run `pip install -r team_03/AGENT_ui/backend/requirements.txt && pip install networkx shapely` before starting the backend.
 
 ---
 
@@ -604,3 +672,48 @@ Master schema for floor plans as JSON. 7 layers; all coordinates 2D `[x, y]` in 
 | rooms | room-N | | furniture | furn-N |
 | doors | door-N | | mep | mep-N |
 | windows | window-N | | structure | wall-N |
+
+---
+
+## Recent features (2026-06-20 → 2026-06-21)
+
+### Benchmark dashboard — model performance tracking (AGENT_ui)
+
+A third nav-pill view (`Benchmark`) in the AGENT_ui that auto-records every pipeline run
+and compares model performance across Anthropic (Haiku/Sonnet) and Google Gemini (Flash/Pro).
+
+**Auto-recording:** `AGENT_ui/backend/benchmark.py` (`BenchRunRecorder`) hooks into
+`agent_runner.run()` via existing node events — no changes to `team_03/python/` (read-only).
+Each run captures: provider + model, per-node timings (Gantt), reason turns, API call
+breakdown by category, recursion hits, checkpoints, and the full scoring breakdown (overall +
+grade + 5 weighted metrics). Persisted to `AGENT_ui/backend/benchmarks/runs.json` (append,
+max 500). `GET/DELETE /api/benchmarks` REST endpoints. `benchmark_update` WS message triggers
+live UI refresh after each run.
+
+**Frontend:** `hooks/useBenchmarkState.ts` + `components/Benchmark/BenchmarkDashboard.tsx`.
+Two internal tabs (Models & Scores / Workflow), model filter pills, summary KPI row:
+- **Models & Scores** — score trend over runs (points colored by model), per-metric comparison
+  bars, leaderboard table. The Google Gemini vs Anthropic comparison lands here.
+- **Workflow** — Gantt of node durations, API-calls breakdown by category, event timeline, and
+  a multi-run turns/duration trend chart.
+- **Export PNG** button — captures the current tab as a high-resolution PNG (3× pixel ratio)
+  via `html-to-image`. Full-scroll capture (expands overflow before capture, restores after).
+
+### 3D model export — OBJ + MTL ZIP (AGENT_ui 3D viewport)
+
+**OBJ button** in the 3D viewport controls (top-right row). Downloads `<layoutId>_<date>.zip`
+containing a `.obj` + `.mtl` with the **currently visible layers** as separate groups.
+
+- Source: generated from the **live layout JSON** (not the Three.js scene) so export matches
+  whatever the agent has placed, deterministically.
+- Coordinate basis: **Z-up, metres, real layout origin** — `vertex = (layout.x, layout.y, z)`.
+  Re-imports in Rhino/GH at the exact position and orientation of the original plan.
+- Per-layer structure: each layer (`rooms`, `structure`, `doors`, `windows`, `furniture`, `mep`,
+  `outline`) is a self-contained `g <layer>` block with vertices and faces interleaved within
+  the block (not all verts at the top), so Rhino/Blender split by layer correctly.
+- Walls have door/window openings cut out via `buildWallPieces`. Concave polygons triangulated
+  with `THREE.ShapeUtils.triangulateShape`. MTL colors each layer neutrally.
+- Single ZIP download (`fflate` — already a transitive dep) avoids the browser user-gesture
+  block that prevented the earlier two-file approach.
+- Shared geometry rules live in `ThreeViewport/geometry.ts` (extracted from `FloorPlanRenderer`
+  so viewport and exporter can never drift). `utils/objExporter.ts` contains the exporter.

@@ -90,6 +90,43 @@ def _load_mcp_server_from_json(config_path: Path) -> tuple[str, str]:
     return server_key, endpoint
 
 
+def resolve_provider_credentials(provider: str) -> tuple[str, str, str]:
+    """Resolve (api_key, base_url, default_model) for a given provider from env.
+
+    Pure env lookup — does NOT call load_dotenv (callers are expected to have the
+    env populated, e.g. via load_settings() earlier in the same process). Raises
+    ValueError (from _required_env) naming the missing variable when a required key
+    is absent, so a runtime provider switch can surface "add GOOGLE_API_KEY" cleanly
+    instead of crashing. Used both by load_settings() and by the AGENT_ui provider
+    toggle (pipeline_bridge.build_context) to resolve the *active* provider when it
+    differs from the .env LLM_PROVIDER.
+    """
+    provider = provider.strip().lower()
+
+    if provider == "local":
+        return "No API Key Required", _required_env("LOCAL_LLM_ENDPOINT"), "local"
+
+    if provider == "cloudflare":
+        api_key = _required_env("CF_API_TOKEN")
+        base_url = f"https://api.cloudflare.com/client/v4/accounts/{_required_env('CF_ACCOUNT_ID')}/ai/v1"
+        return api_key, base_url, _required_env("CF_MODEL")
+
+    if provider == "openai":
+        return _required_env("OPENAI_API_KEY"), "https://api.openai.com/v1", _required_env("OPENAI_MODEL")
+
+    if provider == "google":
+        return (
+            _required_env("GOOGLE_API_KEY"),
+            "https://generativelanguage.googleapis.com/v1beta/openai",
+            _required_env("GOOGLE_MODEL"),
+        )
+
+    if provider == "anthropic":
+        return _required_env("ANTHROPIC_API_KEY"), "", _required_env("ANTHROPIC_MODEL")
+
+    raise ValueError(f"Unsupported LLM_PROVIDER: {provider}")
+
+
 def load_settings() -> Settings:
     load_dotenv(dotenv_path=_repo_root() / ".env", override=True)
 
@@ -100,34 +137,7 @@ def load_settings() -> Settings:
     max_iterations_value = os.environ.get("MAX_ITERATIONS", "4")
 
     llm_provider = _required_env("LLM_PROVIDER").strip().lower()
-
-    if llm_provider == "local":
-        api_key = "No API Key Required"
-        base_url = _required_env("LOCAL_LLM_ENDPOINT")
-        llm_model = "local"
-
-    elif llm_provider == "cloudflare":
-        api_key = _required_env("CF_API_TOKEN")
-        base_url = f"https://api.cloudflare.com/client/v4/accounts/{_required_env('CF_ACCOUNT_ID')}/ai/v1"
-        llm_model = _required_env("CF_MODEL")
-
-    elif llm_provider == "openai":
-        api_key = _required_env("OPENAI_API_KEY")
-        base_url = "https://api.openai.com/v1"
-        llm_model = _required_env("OPENAI_MODEL")
-
-    elif llm_provider == "google":
-        api_key = _required_env("GOOGLE_API_KEY")
-        base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
-        llm_model = _required_env("GOOGLE_MODEL")
-
-    elif llm_provider == "anthropic":
-        api_key = _required_env("ANTHROPIC_API_KEY")
-        base_url = ""
-        llm_model = _required_env("ANTHROPIC_MODEL")
-
-    else:
-        raise ValueError(f"Unsupported LLM_PROVIDER: {llm_provider}")
+    api_key, base_url, llm_model = resolve_provider_credentials(llm_provider)
 
     return Settings(
         llm_provider=llm_provider,

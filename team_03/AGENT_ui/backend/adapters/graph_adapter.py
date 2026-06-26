@@ -34,6 +34,32 @@ try:
 except Exception as exc:  # pragma: no cover
     _IMPORT_OK = False
     _IMPORT_ERROR = str(exc)
+    build_graph_from_layout = None  # type: ignore
+    enrich_graph_from_analysis = None  # type: ignore
+    graph_to_dict = None  # type: ignore
+    serialize_for_llm = None  # type: ignore
+
+
+def _try_reimport() -> bool:
+    """Re-attempt the spatial_graph import (e.g. if networkx was installed after
+    the server started). Updates module globals in place."""
+    global _IMPORT_OK, _IMPORT_ERROR
+    global build_graph_from_layout, enrich_graph_from_analysis, graph_to_dict, serialize_for_llm
+    if _IMPORT_OK:
+        return True
+    try:
+        import importlib
+        sg = importlib.import_module("spatial_graph")
+        build_graph_from_layout = sg.build_graph_from_layout
+        enrich_graph_from_analysis = sg.enrich_graph_from_analysis
+        graph_to_dict = sg.graph_to_dict
+        serialize_for_llm = sg.serialize_for_llm
+        _IMPORT_OK = True
+        _IMPORT_ERROR = None
+        return True
+    except Exception as exc:
+        _IMPORT_ERROR = str(exc)
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -51,11 +77,11 @@ def build_graph(layout: dict) -> dict:
     Returns:
         node-link dict (networkx.node_link_data format) or an error dict.
     """
-    if not _IMPORT_OK:
+    if not _IMPORT_OK and not _try_reimport():
         return {"error": f"spatial_graph import failed: {_IMPORT_ERROR}"}
     try:
-        G = build_graph_from_layout(layout)
-        return graph_to_dict(G)
+        G = build_graph_from_layout(layout)  # type: ignore[misc]
+        return graph_to_dict(G)  # type: ignore[misc]
     except Exception as exc:
         return {"error": str(exc)}
 

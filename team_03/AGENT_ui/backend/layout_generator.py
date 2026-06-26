@@ -34,7 +34,7 @@ _REPO_ROOT = _HERE.parents[3]
 
 # Sonnet by default (stronger geometry); override with LAYOUT_GEN_MODEL in the environment.
 DEFAULT_MODEL = "claude-sonnet-4-6"
-_MAX_TOKENS = 8192
+_MAX_TOKENS = 16000
 _TEMPERATURE = 0.8
 
 _LAYER_KEYS = ("rooms", "doors", "windows", "furniture", "mep", "structure")
@@ -243,7 +243,12 @@ async def generate_one(req: Dict[str, Any], variant_index: int = 0) -> Dict[str,
     if not text.strip():
         raise RuntimeError("Model returned an empty response.")
 
-    layout = _normalize(_extract_json_object(text))
+    try:
+        layout = _normalize(_extract_json_object(text))
+    except json.JSONDecodeError as exc:
+        truncated = response.stop_reason == "max_tokens"
+        hint = " (response was truncated — increase max_tokens)" if truncated else ""
+        raise RuntimeError(f"Model returned invalid JSON{hint}: {exc}") from exc
 
     if not layout_loader.validate_layout(layout):
         raise ValueError("Generated layout is missing required keys (layoutId, outline, rooms).")

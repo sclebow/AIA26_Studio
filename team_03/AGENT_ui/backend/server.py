@@ -98,10 +98,10 @@ async def _handle_spatial(content: str, websocket: WebSocket) -> None:
         })
         return
 
-    from _runtime.config import load_settings
-    from pipeline_bridge import get_active_model
-    settings = load_settings()
-    model = get_active_model() or settings.llm_model
+    # The spatial assistant uses the Anthropic SDK directly, so it always runs on
+    # Anthropic (its own key/model) even when the main pipeline is on Google.
+    from pipeline_bridge import anthropic_aux_config
+    aux_key, aux_model = anthropic_aux_config()
 
     async def emit(msg: dict) -> None:
         await manager.send_personal(websocket, msg)
@@ -109,7 +109,7 @@ async def _handle_spatial(content: str, websocket: WebSocket) -> None:
     try:
         answer = await spatial_assistant.handle(
             content, list(_spatial_history), layout, session.get_observer(),
-            emit, session.set_observer, settings.api_key, model,
+            emit, session.set_observer, aux_key, aux_model,
         )
     except Exception as exc:
         answer = f"Spatial analysis error: {exc}"
@@ -289,24 +289,46 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     "isovist": iso,
                 })
 
-            elif msg_type == "model_switch":
-                # Switch the active Anthropic model (haiku / sonnet).
-                # Only applies when LLM_PROVIDER=anthropic.
-                from pipeline_bridge import set_active_model
-                key = str(data.get("model", "haiku"))
+            elif msg_type == "provider_switch":
+                # Switch the active PIPELINE provider + model (anthropic/google).
+                # If a pipeline run is currently active, abort it so the next
+                # chat_message always starts build_context fresh with the new provider.
+                # Auxiliary features (pure_chat, spatial_assistant) stay on Anthropic.
+                # If the chosen provider's API key is missing, the active provider is
+                # left unchanged and an error ack tells the user which key to add.
+                from pipeline_bridge import set_pipeline_llm
+                provider = str(data.get("provider", "anthropic"))
+                model_key = data.get("model")
+                model_key = str(model_key) if model_key is not None else None
+                # Abort any active run so it does not continue with the old LLM.
+                agent_runner.abort_session(websocket)
                 try:
-                    full_model = set_active_model(key)
+                    active_provider, full_model = set_pipeline_llm(provider, model_key)
                     await manager.send_personal(websocket, {
-                        "type": "model_switch_ack",
-                        "model": key,
+                        "type": "provider_switch_ack",
+                        "provider": active_provider,
+                        "model": model_key,
                         "full_model": full_model,
                         "status": "ok",
                     })
                 except ValueError as exc:
+                    # _required_env raises "Missing or empty required environment variable: GOOGLE_API_KEY"
+                    detail = str(exc)
+                    missing_key = None
+                    if "required environment variable:" in detail:
+                        missing_key = detail.split(":", 1)[1].strip()
+                    from pipeline_bridge import _team_dir
+                    env_path = str(_team_dir().parent / ".env")
                     await manager.send_personal(websocket, {
-                        "type": "model_switch_ack",
+                        "type": "provider_switch_ack",
+                        "provider": provider,
                         "status": "error",
-                        "detail": str(exc),
+                        "missingKey": missing_key,
+                        "envPath": env_path,
+                        "detail": (
+                            f"Cannot switch to {provider}: {detail}. "
+                            f"Add {missing_key or 'the API key'} to {env_path} and restart the backend."
+                        ),
                     })
 
             elif msg_type == "pure_chat":
@@ -317,13 +339,13 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     continue
                 try:
                     import anthropic
-                    from _runtime.config import load_settings
-                    from pipeline_bridge import get_active_model
+                    from pipeline_bridge import anthropic_aux_config
 
-                    settings = load_settings()
-                    model = get_active_model() or settings.llm_model
+                    # Direct Anthropic chatbot — always runs on Anthropic's own
+                    # key/model, independent of the main pipeline's provider.
+                    aux_key, model = anthropic_aux_config()
 
-                    client = anthropic.AsyncAnthropic(api_key=settings.api_key)
+                    client = anthropic.AsyncAnthropic(api_key=aux_key)
 
                     # Build messages: history + new user message
                     messages = [

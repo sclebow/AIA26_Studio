@@ -30,6 +30,42 @@ def set_session(session: SessionManager) -> None:
 
 
 # ---------------------------------------------------------------------------
+# LLM config (pipeline provider toggle)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api/llm-config")
+async def get_llm_config():
+    """Active pipeline provider/model + selectable models + which providers have
+    credentials, so the UI can render the provider toggle synced to the real .env
+    and dim a provider whose API key is missing.
+    """
+    import os
+
+    from _runtime.config import load_settings, _repo_root
+    from pipeline_bridge import (
+        PIPELINE_MODELS,
+        get_pipeline_provider,
+        get_pipeline_model,
+    )
+
+    settings = load_settings()  # also (re)loads .env into os.environ
+    provider = get_pipeline_provider() or settings.llm_provider
+    model = get_pipeline_model() or settings.llm_model
+
+    return {
+        "provider": provider,
+        "model": model,
+        "available": PIPELINE_MODELS,
+        "credentials": {
+            "anthropic": bool(os.environ.get("ANTHROPIC_API_KEY")),
+            "google": bool(os.environ.get("GOOGLE_API_KEY")),
+        },
+        "envPath": str(_repo_root() / ".env"),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Layouts
 # ---------------------------------------------------------------------------
 
@@ -503,6 +539,15 @@ async def get_graph():
         raise HTTPException(status_code=404, detail="No active session.")
     graph = state.get("graph")
     if graph is None:
+        # Try to build the graph on-the-fly from the current layout
+        layout = state.get("layout")
+        if layout:
+            graph_data = build_graph(layout)
+            if "error" not in graph_data:
+                _session.update_graph(graph_data)
+                return graph_data
+            # Surface the error so it's visible in the frontend console
+            return JSONResponse(content={"error": graph_data.get("error", "unknown build error")})
         return JSONResponse(content=None)
     return graph
 
@@ -577,6 +622,31 @@ async def commit_layout(name: str, body: LayoutCommit):
         _session.clear_pending()
 
     return {"status": "ok", "path": str(saved)}
+
+
+# ---------------------------------------------------------------------------
+# Benchmarks — recorded pipeline runs + per-model aggregates
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api/benchmarks")
+async def get_benchmarks():
+    """All recorded pipeline runs (newest first) + per-model aggregates.
+
+    Each chat session is auto-recorded by `agent_runner` (provider/model, per-node
+    timings, reason turns, API-call breakdown, recursion hits, scoring breakdown).
+    Drives the Benchmark dashboard's workflow + score-trend + model-comparison
+    modules."""
+    import benchmark
+    return benchmark.get_all()
+
+
+@router.delete("/api/benchmarks")
+async def clear_benchmarks():
+    """Delete the entire benchmark history (team_03/AGENT_ui/backend/benchmarks/)."""
+    import benchmark
+    removed = benchmark.clear_all()
+    return {"status": "ok", "removed": removed}
 
 
 @router.get("/api/scores")

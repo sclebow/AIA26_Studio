@@ -16,7 +16,7 @@ AGENT_ui/
 │   ├── websocket_manager.py    WebSocket ConnectionManager
 │   ├── session_manager.py      In-memory session state
 │   ├── agent_runner.py         Real LangGraph runner (threaded app.astream_events + input() bridge)
-│   ├── pipeline_bridge.py      build_context (Haiku-forced), StdoutTee, CheckpointParser, MCP probe
+│   ├── pipeline_bridge.py      build_context (provider+model toggle), StdoutTee, CheckpointParser, MCP probe
 │   ├── layout_loader.py        Loads layout JSONs from team_03/layout/
 │   ├── adapters/
 │   │   ├── graph_adapter.py    Wraps spatial_graph.py from team_03/python/
@@ -133,7 +133,7 @@ Then open http://localhost:5173
 **Client → Server** (message types):
 - `chat_message`: `{ type: "chat_message", content: "..." }`
 - `selection_sync`: `{ type: "selection_sync", selectedId: "...", timestamp: ... }`
-- `model_switch`: `{ type: "model_switch", model: "haiku" | "sonnet" }` — switch the active Anthropic model at runtime (see "LLM model" below).
+- `provider_switch`: `{ type: "provider_switch", provider: "anthropic" | "google", model: "<key>" }` — switch the **pipeline** provider + model at runtime (`model` is a key from `PIPELINE_MODELS`: haiku/sonnet for Anthropic, flash/pro for Google). Applies to the next chat session. See "LLM model" below.
 - `pure_chat`: `{ type: "pure_chat", content: "...", history: [{role, content}, ...] }` — pure chatbot: a direct Anthropic call, **no pipeline / no LangGraph**.
 
 **Server → Client** (message types, from MessageType enum):
@@ -142,10 +142,16 @@ Then open http://localhost:5173
 - `agent_event`: Pipeline node started/completed
 - `state_update`: Session state changed (layout, graph, scores)
 - `selection_sync`: Selection broadcast to all clients
-- `model_switch_ack`: `{ model, full_model, status }` — confirms (or errors on) a `model_switch`.
+- `provider_switch_ack`: on success `{ provider, model, full_model, status: "ok" }`; on a missing API key `{ provider, status: "error", missingKey, envPath, detail }` (the active provider is left unchanged so the pipeline keeps working).
 - `pure_chat_response`: `{ content, model }` — reply to a `pure_chat` message.
 
 See `backend/websocket_manager.py` for ConnectionManager.
+
+**GET `/api/llm-config`** (REST, not WS): returns the active pipeline `{ provider, model }`,
+the selectable `available` models (`PIPELINE_MODELS`), which providers have credentials
+(`credentials: { anthropic, google }`), and the repo-root `.env` path (`envPath`). The chat
+panel calls it on mount to render the provider toggle synced to the real `.env` and to dim a
+provider whose key is missing.
 
 ### API Endpoints
 
@@ -270,17 +276,56 @@ the browser". No demo/stub anymore.
 - `build_context` does a fast TCP `_probe_mcp` and emits setup progress, so a
   down Swiftlet/Rhino fails fast with a clear chat error instead of hanging.
 
-**LLM model — runtime switch (Haiku/Sonnet):** the hard Haiku-force was removed.
-`build_context` now uses `get_active_model() or settings.llm_model` — i.e. it follows
-`.env` (`ANTHROPIC_MODEL`) unless the UI has switched the active model. A `model_switch`
-WebSocket message calls `pipeline_bridge.set_active_model(key)` where `key` is `haiku`
-(`claude-haiku-4-5-20251001`) or `sonnet` (`claude-sonnet-4-6`); the choice is process-global
-runtime state (`_active_model`) shared by both the pipeline and `pure_chat`. **Cost note:**
-Sonnet is now selectable from the UI — it is no longer impossible to run a pricier Claude.
-See `team_03/CLAUDE.md` → Configuration.
+**LLM provider + model — runtime switch (pipeline only):** the chat panel has a two-row
+selector — **Provider** (`Anthropic` | `Google`) and **Model** (haiku/sonnet or flash/pro,
+depending on the provider). It controls **only the LangGraph pipeline**; the Anthropic
+auxiliary features (`pure_chat`, `spatial_assistant`, `layout_generator`) are unaffected.
+
+- A `provider_switch` WebSocket message calls `pipeline_bridge.set_pipeline_llm(provider,
+  model_key)`, which validates the provider's API key (via `resolve_provider_credentials`)
+  before mutating the process-global `_pipeline_provider` / `_pipeline_model`. On a missing key
+  it raises and the server replies `provider_switch_ack status:"error"` with `missingKey` +
+  `envPath` — the active provider stays as-is, so the pipeline keeps working.
+- `build_context` reads `get_pipeline_provider() or settings.llm_provider`; when the active
+  provider differs from the `.env` one it resolves that provider's own key/base_url/model via
+  `resolve_provider_credentials`, and passes `provider=` explicitly to `create_chat_llm` /
+  `get_llm_response_format` so the right model id and JSON format are used (no `claude-...`
+  sent to the Gemini endpoint).
+- The switch applies to the **next chat session** (`build_context` runs at `start_session`),
+  not the run in progress.
+- **Cerebro vs manos:** the toggle only changes *which LLM generates the decision* — it does
+  **not** touch the JSON-writing / geometry-moving machinery (`place_objects` MCP →
+  `add_objects.py` → `workspace/session_active.json` → `output.py`), which is identical for
+  both providers. See `team_03/CLAUDE.md` → Configuration.
+
+**Cost note:** Sonnet (and Gemini Pro) are selectable from the UI — mind the cost.
+
+**Provider choice guidance:**
+- **Google (Flash / Pro) — recommended for pipeline testing.** Flash is fast and cheap for iteration; Pro offers stronger spatial reasoning for final benchmark runs. Use Flash by default.
+- **Anthropic (Haiku / Sonnet) — auxiliary features only.** Pure chat, spatial assistant, and the AI Layout Generator always use Anthropic regardless of the pipeline toggle. **The Anthropic API is not currently used for the LangGraph pipeline** because the pipeline requires strict JSON-mode responses that Anthropic's API does not return in the expected format — switching the pipeline to Anthropic will likely cause parse errors. Test pipeline runs with Google.
 
 **Run the dev backend as a single process** (`python -m uvicorn server:app
---port 3000`); uvicorn `--reload` can leave stale workers serving old code.
+--port 3000`); uvicorn `--reload` can leave stale workers serving old code. Note its
+`--reload` watcher only watches `AGENT_ui/backend/` — edits to `team_03/python/`
+(e.g. `_runtime/llm.py`) need a manual backend restart to load.
+
+## Agent Log panel (`components/ReasoningLog/ReasoningLog.tsx`)
+
+The floating **Agent Log** panel renders `agentState.logEntries` (pipeline
+`node_start`/`node_complete`/`tool_call`/`reasoning`/`info` events). The on-screen
+message is abridged (data truncated to ~120 chars, reasoning to ~150). Two header
+buttons export the **full** content to the clipboard:
+
+- **COPY LOG** — `buildDetailedLog(entries)`: every event with ms-precision timestamp,
+  raw node name, the complete untruncated message, **and the entry's `data` payload**
+  (pretty-printed JSON), which the panel itself never displays.
+- **COPY CHAT** — `buildChatTranscript(messages)`: the conversation (user prompts +
+  agent replies) in order, with timestamps and any `toolCalls` attached to a message.
+  `messages` is passed in from `App.tsx` (`agentState.messages`).
+
+Both use `navigator.clipboard.writeText` with a hidden-`textarea` + `execCommand`
+fallback for non-secure contexts, and flash **COPIED** for 1.5s. Each is disabled when
+its source is empty. All logic is self-contained in `ReasoningLog.tsx`.
 
 ## AI Layout Generator (UI)
 
@@ -360,9 +405,75 @@ is down** and answers in real time, drawing the result in the 3D viewport.
 - **Caveat**: the conversational answer uses Anthropic tool-use (like `pure_chat`) → needs
   `LLM_PROVIDER=anthropic` + a valid key. The analysis + viewport drawing need no Rhino.
 
+## Export 3D model (OBJ + MTL)
+
+The 3D viewport has an **OBJ** button (top-right compact controls row, next to
+Center/Labels, `ThreeViewport.tsx` `handleExportObj`) that downloads the **currently
+visible layers** as a 3D model — `<layoutId>_<timestamp>.obj` + a matching `.mtl`.
+
+- **Source of truth:** the OBJ is generated **from the live layout JSON** (`layoutState.layout`
+  — i.e. whatever the agent has placed), not from the Three.js scene, so it's clean and
+  deterministic. The shared geometry rules live in `ThreeViewport/geometry.ts` (extracted from
+  `FloorPlanRenderer.tsx` — constants `WALL_HEIGHT`/`DOOR_HEIGHT`/…, `resolveHeight`,
+  `assignOpenings`, `buildWallPieces`, `wallRectFromLine`), imported by **both** the renderer
+  and the exporter so they can't drift.
+- **Coordinate basis — Z-up, metres, real origin:** OBJ vertex = `(layout.x, layout.y, height)`.
+  The floor plan stays in the XY plane and Z is vertical (the basis the JSON / Rhino / GH were
+  authored in), un-centered — so a re-import lands exactly on the original plan, right way up.
+  (The viewport itself is Y-up + centered; the exporter deliberately does NOT use that.)
+- **Per-layer geometry** (`utils/objExporter.ts` `layoutToObj`): rooms = flat floor faces at
+  Z=0; structure = wall pieces with door/window openings cut out, extruded; doors = boxes Z
+  0→2.2; windows = boxes Z 1.0→2.0; furniture/mep = polygons extruded to `resolveHeight`;
+  outline = a closed polyline (`l`). Concave polygons are triangulated via
+  `THREE.ShapeUtils.triangulateShape`. Each layer is an OBJ group (`g <layer>`) with one object
+  (`o <id>_<name>`) per element; the `.mtl` assigns each layer a color.
+- **WYSIWYG:** only layers toggled on in the viewport are exported. Two files download per click
+  (`.obj` then `.mtl`) — the browser may ask to allow multiple downloads once.
+
+## Benchmark dashboard (model performance + workflow)
+
+A third top-nav view (`3D Viewport` | `Spatial Graph` | **`Benchmark`**, `App.tsx`
+`ViewMode='benchmark'`) that records and compares every pipeline run — built from the
+`ramon_experiments/benchmarking_ramy` prototype, re-themed and made **data-driven**.
+
+**Auto-recording (backend).** Each chat session = one **BenchRun**, captured by
+`backend/benchmark.py` (`BenchRunRecorder`) and hooked into `agent_runner.run()` — it
+reuses the events the runner already streams, so `team_03/python/` (read-only) is untouched:
+- `emit_event(node, started|completed|error)` → per-node timings (Gantt) + API-call
+  categories (`_NODE_CATEGORY`: profile/space/populate/memory/reason/tools/analysis/other) +
+  `reason` turn count. `setup` is skipped (it streams repeated progress lines).
+- `emit_scores(overall, grade, breakdown)` → final scoring (overall + grade + 5 weighted metrics).
+- `patched_input` → checkpoint count; a `recursion`-flagged exception → `recursion_hits`.
+- Provider/model resolved at run start from `pipeline_bridge.get_pipeline_provider/model`
+  (UI toggle) falling back to `.env` → `model_label` (`Gemini Flash`/`Gemini Pro`/`Haiku`/
+  `Sonnet`/…), so runs are attributed to the right model.
+
+Runs persist to `backend/benchmarks/runs.json` (append, capped at 500, survives restarts).
+On finalize the runner emits a `benchmark_update` WS message → the UI re-fetches.
+
+**REST + WS.**
+- `GET /api/benchmarks` → `{ runs (newest-first), aggregate.models (per-model averages), count }`.
+- `DELETE /api/benchmarks` → wipe history.
+- `benchmark_update` (added to `MessageType` + `wsProtocol.ts`) → live refresh signal.
+
+**Frontend.** `hooks/useBenchmarkState.ts` (fetch on mount + on `benchmark_update`, `clear`)
+feeds `components/Benchmark/BenchmarkDashboard.tsx`. Two internal tabs, a model filter, and a
+scope summary KPI row:
+- **Models & Scores** (prototype module 02) — score trend over runs (points colored by model),
+  per-metric model comparison bars, and a per-model leaderboard table. This is where the
+  **Google Gemini Flash/Pro vs Anthropic Haiku/Sonnet** performance comparison lands.
+- **Workflow** (prototype module 03) — turns/zone, API calls, time, recursion KPIs; a Gantt of
+  per-node durations + an API-calls-by-category breakdown for the latest run; an event-log
+  timeline; and a multi-run turns/duration trend.
+
+**Status / next iterations:** module 01 (Placement Quality — req/placed, zone assignment,
+collision-free, wall violations, heatmap) is scaffolded in `benchmark.py`
+(`set_placement_quality`, `run["placement"]`) but not yet wired — planned next, derived from
+`collision_results` + the base→final layout diff.
+
 ---
 
-**Last updated**: 2026-06-07  
+**Last updated**: 2026-06-22  
 **Status**: Chat wired to the real pipeline; live progress + options panel. Default theme
 now **light** (white startup background), favicon + new logo, StrictMode disabled. **Runtime
 model switch** (Haiku/Sonnet via `model_switch` WS) replaces the old Haiku-force; added a
@@ -373,3 +484,9 @@ one at a time, library of 4, live preview, saves accepted plans to AI_GENERATED.
 report: delta/violations/changes/door changes). **Spatial assistant** auto-routes
 observer/visibility/path questions to a Rhino-free agent (place a person / start a path /
 "which furniture blocks the view") that draws the isovist live and answers in chat.
+**Spatial graph resilience fix** (2026-06-22): `adapters/graph_adapter.py` now retries the
+`spatial_graph` import dynamically (`_try_reimport`) if it initially failed (e.g. networkx
+installed after server start). `GET /api/graph` builds the graph on-demand if missing from
+the session. **Operational note**: on Windows, multiple Python server processes can silently
+bind to the same port — if the Spatial Graph shows "No graph data loaded" after a restart,
+run `netstat -ano | findstr :3000` and kill any stale `python.exe` workers with old PIDs.
