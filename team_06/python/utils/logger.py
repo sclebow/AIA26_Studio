@@ -5,7 +5,7 @@ import logging
 import time
 from pathlib import Path
 
-LOG_PATH = Path(__file__).resolve().parents[3] / "log.txt"
+LOG_PATH = Path(__file__).resolve().parents[2] / "log.txt"
 
 _handler = logging.FileHandler(LOG_PATH, encoding="utf-8")
 _handler.setFormatter(logging.Formatter("%(message)s"))
