@@ -101,6 +101,24 @@ class FallbackExtractorTests(unittest.TestCase):
         self.assertTrue(brief.courtyard_requested)  # U shape implies courtyard
         self.assertEqual(brief.source, "fallback")
 
+    def test_area_is_not_misread_as_building_count(self) -> None:
+        # Regression: "1200 m²" must not be parsed as a 1200-building count.
+        for prompt in (
+            "Place a 1200 m² L-shaped building that fits inside the site",
+            "Design an L-shaped building with a footprint area of 800 sqm",
+            "Make a 950 square meters U-shaped building",
+        ):
+            brief = extract_brief_fallback(prompt, {})
+            self.assertEqual(brief.building_count, 1, prompt)
+            self.assertEqual(len(brief.buildings), 1, prompt)
+
+    def test_area_unit_does_not_block_real_counts(self) -> None:
+        # The lookahead must not suppress a genuine count next to an area.
+        brief = extract_brief_fallback(
+            "Place two 1200 m² L-shaped buildings on the site", {}
+        )
+        self.assertEqual(brief.building_count, 2)
+
     def test_respects_explicit_layout_count_and_intents(self) -> None:
         brief = extract_brief_fallback(
             "Design an L-shaped office building.",

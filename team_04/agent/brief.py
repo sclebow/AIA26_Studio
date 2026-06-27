@@ -37,11 +37,16 @@ _COURTYARD_SHAPES = {"U", "O", "H"}
 _COURTYARD_QUALITY_WORDS = ("quiet", "sunny", "private", "green", "shaded", "lively")
 _NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
 
+# An area unit immediately following a number, so "1200 m²" reads as a size, not
+# a count. Covers m²/m2/m^2, sqm, sq m / sq. m, and "square metre(s)/meter(s)".
+_AREA_UNIT = r"(?:m²|m2|m\^2|sqm|sq\.?\s*m|square\s*met(?:re|er)s?)"
+
 # A number (digit or word) that refers to "building(s)" within a few words, so
 # "two U-shaped buildings" and "place 3 office buildings" both resolve, not just
-# the literal "two building" the old heuristic required.
+# the literal "two building" the old heuristic required. The negative lookahead
+# stops an area like "1200 m²" from being misread as a 1200-building count.
 _COUNT_PATTERN = re.compile(
-    r"\b(\d+|one|two|three|four|five)\b[\w\s-]{0,25}?buildings?\b",
+    r"\b(\d+|one|two|three|four|five)\b(?!\s*" + _AREA_UNIT + r")[\w\s-]{0,25}?buildings?\b",
     flags=re.IGNORECASE,
 )
 
