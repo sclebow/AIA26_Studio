@@ -6,6 +6,7 @@ import ToolBar from './ToolBar.vue'
 import LayoutCanvas from './LayoutCanvas.vue'
 import LayoutCard from './LayoutCard.vue'
 import EmbeddingMap from './EmbeddingMap.vue'
+import GraphView from './GraphView.vue'
 
 import { watch, ref, computed } from 'vue'
 const props = defineProps({
@@ -77,6 +78,13 @@ function exportLayout() {
               @selectLayout="id => { viewMode = 'layout'; emit('selectLayout', id) }"
               @previewLayout="id => { viewMode = 'layout'; emit('previewLayout', id) }"
               @findInBetween="(a, b) => emit('findInBetween', a, b)"
+            />
+            <GraphView
+              v-else-if="viewMode === 'graph'"
+              :layout="props.agentState"
+              :hoveredRoomId="hoveredRoomId"
+              @roomHover="hoveredRoomId = $event"
+              @roomLeave="hoveredRoomId = null"
             />
             <LayoutCanvas
               v-else

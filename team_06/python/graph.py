@@ -151,6 +151,7 @@ def _session_from_state(state: AgentState) -> dict[str, Any]:
 def build_graph(ctx: Any, status_callback: Callable[[list[str], dict[str, Any] | None], None] | None = None) -> Any:
     """Build the layout agent graph."""
     status_updates: list[str] = []
+    nodes_executed: list[str] = []
     reason = build_reason_node(ctx.llm)
     preprocess = build_preprocess_node()
     search = build_search_node()
@@ -166,6 +167,7 @@ def build_graph(ctx: Any, status_callback: Callable[[list[str], dict[str, Any] |
         def instrumented_wrapper(state):
             status_message = STATUS_MESSAGES.get(node_name, f"Running {node_name}.")
             status_updates.append(status_message)
+            nodes_executed.append(node_name)
             print(f"Status: {status_message}", flush=True)
             result = node_fn(state)
             result["status_messages"] = list(status_updates)
@@ -228,6 +230,7 @@ def build_graph(ctx: Any, status_callback: Callable[[list[str], dict[str, Any] |
     
     app = workflow.compile()
     app._status_updates = status_updates
+    app._nodes_executed = nodes_executed
     return app
 
 
@@ -257,7 +260,9 @@ def run_agent(
     # Return response + updated session for next turn
     updated_session = _session_from_state(final_state)
     updated_session["status_messages"] = list(getattr(app, "_status_updates", []))
-    
+    updated_session["nodes_executed"] = list(getattr(app, "_nodes_executed", []))
+    updated_session["routine_warning"] = final_state.get("routine_warning")
+
     return final_response, updated_session
 
 

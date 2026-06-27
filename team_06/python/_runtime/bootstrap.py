@@ -17,6 +17,8 @@ class Context:
     edited_layout_path: Path
     reference_layout_path: Path
     input_layout_path: Path | None
+    llm_provider: str
+    llm_model: str
 
 def bootstrap() -> Context:
     """Load settings, connect to the MCP server, discover tools, and build the LLM.
@@ -44,9 +46,10 @@ def bootstrap() -> Context:
     except Exception:
         pass
 
-    # Build the LLM. Anthropic doesn't support OpenAI-style json_schema response_format,
-    # so we skip model_kwargs for that provider — Claude follows JSON schemas from prompts.
-    model_kwargs = {} if settings.llm_provider == "anthropic" else get_llm_response_format(tools)
+    # Build the LLM. Anthropic and Google don't support OpenAI-style json_schema response_format
+    # via their OpenAI-compatible endpoints — they follow JSON schemas from prompts instead.
+    _NO_SCHEMA_FORMAT = {"anthropic", "google"}
+    model_kwargs = {} if settings.llm_provider in _NO_SCHEMA_FORMAT else get_llm_response_format(tools)
     llm = create_chat_llm(
         api_key=settings.api_key,
         base_url=settings.base_url,
@@ -66,4 +69,6 @@ def bootstrap() -> Context:
         edited_layout_path=edited_layout_path,
         reference_layout_path=reference_layout_path,
         input_layout_path=None,
+        llm_provider=settings.llm_provider,
+        llm_model=settings.llm_model,
     )

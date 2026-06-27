@@ -34,6 +34,12 @@
         <span class="tooltip">Daylight</span>
       </div>
       <div class="tooltip-wrap">
+        <button class="layout-input-btn view-btn" :class="{ active: hasLayout && viewMode === 'graph' }" :disabled="!hasLayout" @click="hasLayout && emit('viewChange', 'graph')">
+          <img :src="hasLayout && viewMode === 'graph' ? graphBlueIcon : graphIcon" alt="Graph" width="22" height="22" />
+        </button>
+        <span class="tooltip">Graph</span>
+      </div>
+      <div class="tooltip-wrap">
         <button class="layout-input-btn view-btn" :class="{ active: hasEmbeddingMap && viewMode === 'explore' }" :disabled="!hasEmbeddingMap" @click="hasEmbeddingMap && emit('viewChange', 'explore')">
           <img :src="hasEmbeddingMap && viewMode === 'explore' ? exploreBlueIcon : exploreIcon" alt="Explore" width="22" height="22" />
         </button>
@@ -53,6 +59,8 @@ import sunIcon from '../assets/icons/sun.svg'
 import sunBlueIcon from '../assets/icons/sun-blue.svg'
 import clockIcon from '../assets/icons/clock.svg'
 import clockBlueIcon from '../assets/icons/clock-blue.svg'
+import graphIcon from '../assets/icons/graph.svg'
+import graphBlueIcon from '../assets/icons/graph-blue.svg'
 import exploreIcon from '../assets/icons/explore.svg'
 import exploreBlueIcon from '../assets/icons/explore-blue.svg'
 

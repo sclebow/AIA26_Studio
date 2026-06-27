@@ -111,6 +111,7 @@ async function handleLayoutLoaded(json) {
 
   if (json) {
     agentState.value = attachRoutine(attachExploreResults({
+      ...json,
       layoutId: json.layoutId || 'Boundary',
       outline: json.outline || json.apartment?.geometry || [],
       rooms: json.rooms || [],
