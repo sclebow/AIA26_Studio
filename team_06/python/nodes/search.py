@@ -277,11 +277,9 @@ def build_search_node() -> Any:
             }
 
             top_layout_id = candidates[0]["id"]
-            has_input_layout = bool(state.get("input_layout_json_string"))
-            next_result = "adapt" if has_input_layout else "select"
 
-            result_state = {
-                "search_result": next_result,
+            return {
+                "search_result": "select",
                 "search_results_json_string": json.dumps(candidates),
                 "embedding_map_json_string": json.dumps(embedding_map),
                 "layout_id": top_layout_id,
@@ -289,20 +287,6 @@ def build_search_node() -> Any:
                 "routine_json_string": None,
                 "iteration": iteration + 1,
             }
-
-            if has_input_layout:
-                selected_layout = _load_layout_by_id(top_layout_id, repo_root)
-                if not selected_layout:
-                    return {
-                        "search_result": "failed",
-                        "search_results_json_string": json.dumps(candidates),
-                        "embedding_map_json_string": json.dumps(embedding_map),
-                        "clarification": f"Selected layout {top_layout_id} could not be loaded for adaptation.",
-                        "iteration": iteration + 1,
-                    }
-                result_state["layout_json_string"] = json.dumps(selected_layout)
-
-            return result_state
 
         except Exception as e:
             return {

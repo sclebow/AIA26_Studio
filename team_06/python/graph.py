@@ -111,6 +111,8 @@ def _route_after_search(state: AgentState) -> str:
     
 def _route_after_select(state: AgentState) -> str:
     result = state.get("select_result")
+    if result == "failed":
+        return "feedback"
     if state.get("input_layout_json_string"):
         return "adapt"
     return {
