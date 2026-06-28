@@ -6,7 +6,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
 
 :root {
-  --color-blue: #0067B5;
+  --color-blue: #0082c2;
   --color-light-blue: #E6F0FF;
   --color-marine: #00E0CD;
   --color-grey-bg: #F5F5F5;
@@ -18,7 +18,7 @@
   --radius: 14px;
   --radius-card: 18px;
   --font-family: 'Inter', sans-serif;
-  --font-size-title: 2.2rem;
+  --font-size-title: 2.26rem;
   --font-size-subtitle: 1.2rem;
   --font-size-standard: 1rem;
   --font-size-small: 0.875rem;

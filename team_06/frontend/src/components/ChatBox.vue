@@ -6,7 +6,7 @@
       v-model="inputMsg"
       @keyup.enter="sendMessage"
       :disabled="disabled"
-      placeholder="What do you want to create next?"
+      placeholder="Please describe your lifestyle."
     />
     <div class="chatbox-bottom-row">
       <button v-if="inputMsg.trim()" class="chatbox-send-btn" :disabled="disabled" @click="sendMessage">
