@@ -1,0 +1,148 @@
+/* ===== Workflow stepper — mission-control progress rail ===== */
+#workflow-stepper { padding: 16px 14px 8px; border-bottom: 1px solid var(--border); }
+.ws-title {
+  font-family: var(--display); font-size: 11px; font-weight: 600;
+  letter-spacing: 2.5px; text-transform: uppercase; color: var(--text-dim);
+  margin-bottom: 10px;
+}
+.ws-rail { display: flex; flex-direction: column; }
+.ws-step { position: relative; display: flex; align-items: center; gap: 12px; padding: 6px 6px; }
+.ws-node { position: relative; flex-shrink: 0; }
+.ws-ico {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 11px;
+  border: 1px solid var(--border); color: var(--text-dim);
+  background: rgba(120, 180, 255, 0.03);
+  transition: all 0.3s var(--ease);
+}
+.ws-ico svg { width: 17px; height: 17px; }
+/* connector line to the next node */
+.ws-connector {
+  position: absolute; left: 50%; top: 100%; transform: translateX(-50%);
+  width: 2px; height: 14px; background: var(--border);
+  transition: background 0.3s var(--ease);
+}
+.ws-meta { display: flex; flex-direction: column; line-height: 1.25; }
+.ws-label { font-size: 13px; font-weight: 600; color: var(--text-dim); transition: color 0.3s var(--ease); }
+.ws-state { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.5px; color: var(--text-dim); opacity: 0.7; }
+
+/* done */
+.ws-step.done .ws-ico {
+  border-color: rgba(87, 224, 138, 0.4); color: var(--good);
+  box-shadow: 0 0 14px var(--good-glow);
+}
+.ws-step.done .ws-connector { background: linear-gradient(var(--good), var(--accent)); }
+.ws-step.done .ws-label { color: var(--text); }
+
+/* active — glowing pulse */
+.ws-step.active .ws-ico {
+  border-color: var(--accent); color: #03201d;
+  background: linear-gradient(135deg, var(--accent), var(--accent-blue));
+  box-shadow: 0 0 22px var(--accent-glow);
+  animation: ws-pulse 2s ease-in-out infinite;
+}
+.ws-step.active .ws-label { color: var(--text-bright); }
+.ws-step.active .ws-state { color: var(--accent-2); opacity: 1; }
+@keyframes ws-pulse {
+  0%, 100% { box-shadow: 0 0 18px var(--accent-glow); }
+  50% { box-shadow: 0 0 30px var(--accent-glow), 0 0 8px var(--accent-glow); }
+}
+
+/* Left panel — futuristic project explorer (same tree structure, premium skin). */
+.explorer-header {
+  padding: 16px 18px 10px;
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2.5px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+.tree { padding: 4px 8px 18px; font-size: 13px; }
+
+.tree-folder > .tree-row { font-weight: 600; color: var(--text-bright); }
+.tree-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  margin: 1px 0;
+  cursor: pointer;
+  white-space: nowrap;
+  border-radius: var(--radius-sm);
+  transition: background 0.22s var(--ease), box-shadow 0.22s var(--ease), color 0.22s var(--ease);
+}
+.tree-row:hover {
+  background: rgba(120, 180, 255, 0.06);
+  color: var(--text-bright);
+}
+/* glowing active state */
+.tree-row.active {
+  background: linear-gradient(90deg, rgba(40, 224, 208, 0.14), rgba(124, 123, 255, 0.06));
+  color: var(--accent-2);
+  box-shadow: inset 0 0 0 1px rgba(40, 224, 208, 0.25), 0 0 18px rgba(40, 224, 208, 0.12);
+}
+.tree-row.active::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 18%; bottom: 18%;
+  width: 3px; border-radius: 3px;
+  background: linear-gradient(var(--accent-2), var(--accent-violet));
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.tree-row .twisty {
+  width: 14px; text-align: center; font-size: 9px;
+  color: var(--text-dim); flex-shrink: 0;
+  transition: transform 0.25s var(--ease), color 0.2s ease;
+}
+.tree-folder > .tree-row:hover .twisty { color: var(--accent-2); }
+.tree-row .ico {
+  width: 18px; text-align: center; flex-shrink: 0;
+  filter: drop-shadow(0 0 4px rgba(120, 200, 255, 0.25));
+}
+.tree-row .label { overflow: hidden; text-overflow: ellipsis; }
+.tree-row .badge {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent-2);
+  background: rgba(40, 224, 208, 0.1);
+  border: 1px solid rgba(40, 224, 208, 0.18);
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+
+/* Urban Context layer rows: swatch + label + count + nearest distance + eye. */
+.tree-row.context-layer { gap: 6px; }
+.ctx-swatch { width: 10px; height: 10px; border-radius: 3px; flex: 0 0 auto; box-shadow: 0 0 6px currentColor; }
+.tree-row.context-layer .label { flex: 1 1 auto; font-size: 12px; }
+.ctx-count {
+  font-family: var(--mono); font-size: 10px; color: var(--text-bright);
+  background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 999px;
+}
+.ctx-dist { font-family: var(--mono); font-size: 10px; color: var(--text-dim); min-width: 38px; text-align: right; }
+.ctx-eye { background: none; border: none; cursor: pointer; font-size: 12px; padding: 0 2px; }
+
+/* animated expand/collapse */
+.tree-children {
+  margin-left: 16px;
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
+  overflow: hidden;
+  animation: tree-expand 0.3s var(--ease);
+}
+@keyframes tree-expand {
+  from { opacity: 0; transform: translateY(-4px); max-height: 0; }
+  to   { opacity: 1; transform: translateY(0); max-height: 800px; }
+}
+.tree-children.collapsed { display: none; }
+
+.tree-empty {
+  padding: 5px 10px 5px 30px;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+  opacity: 0.7;
+}

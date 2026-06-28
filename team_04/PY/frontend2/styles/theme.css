@@ -1,0 +1,145 @@
+/* TerraPilot — futuristic spatial-intelligence theme.
+   Premium dark glassmorphism with ambient glow. Workflow/structure unchanged;
+   this is the design foundation (tokens, base, ambient field, glass utilities). */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  /* deep spatial backdrop */
+  --bg: #070b14;
+  --bg-2: rgba(18, 26, 42, 0.55);   /* glass surface */
+  --bg-3: rgba(30, 41, 64, 0.55);
+  --bg-4: rgba(44, 58, 88, 0.6);
+  --bg-solid: #0b1120;
+  --panel: rgba(13, 20, 36, 0.62);  /* floating glass panel */
+  --panel-strong: rgba(13, 20, 36, 0.85);
+  --border: rgba(120, 160, 220, 0.14);
+  --border-bright: rgba(120, 200, 255, 0.35);
+
+  --text: #c4d2ec;
+  --text-dim: #6c7a99;
+  --text-bright: #f2f7ff;
+
+  /* high-end cyan/violet accent system */
+  --accent: #28e0d0;          /* teal-cyan */
+  --accent-2: #57f2e6;
+  --accent-glow: rgba(40, 224, 208, 0.55);
+  --accent-violet: #7c7bff;
+  --accent-violet-glow: rgba(124, 123, 255, 0.5);
+  --accent-blue: #38bdf8;
+
+  --danger: #ff5f6d;
+  --warn: #ffb454;
+  --good: #57e08a;
+  --good-glow: rgba(87, 224, 138, 0.45);
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 18px;
+
+  --font: "Inter", "Segoe UI", system-ui, sans-serif;
+  --display: "Space Grotesk", "Inter", sans-serif;
+  --mono: "JetBrains Mono", "Cascadia Code", monospace;
+
+  --shadow-soft: 0 8px 30px rgba(0, 0, 0, 0.45);
+  --shadow-glow: 0 0 0 1px var(--border), 0 8px 40px rgba(0, 0, 0, 0.5);
+  --blur: 18px;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Ambient spatial field — soft drifting nebula glows behind the whole app. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  z-index: -2;
+  background:
+    radial-gradient(40% 40% at 18% 22%, rgba(40, 224, 208, 0.12), transparent 60%),
+    radial-gradient(45% 45% at 82% 30%, rgba(124, 123, 255, 0.13), transparent 62%),
+    radial-gradient(50% 50% at 60% 88%, rgba(56, 189, 248, 0.10), transparent 60%);
+  animation: ambient-drift 26s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+/* faint holographic grid */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgba(120, 180, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 180, 255, 0.035) 1px, transparent 1px);
+  background-size: 46px 46px;
+  mask-image: radial-gradient(circle at 50% 40%, black, transparent 85%);
+  pointer-events: none;
+}
+
+@keyframes ambient-drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(2%, -2%, 0) scale(1.06); }
+}
+
+button { font-family: inherit; cursor: pointer; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(var(--accent-violet), var(--accent));
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  opacity: 0.6;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--accent); background-clip: padding-box; }
+
+.hidden { display: none !important; }
+
+/* Glass surface utility */
+.glass {
+  background: var(--panel);
+  backdrop-filter: blur(var(--blur)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(140%);
+  border: 1px solid var(--border);
+}
+
+/* Premium buttons */
+.btn {
+  background: var(--bg-3);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.25s var(--ease);
+}
+.btn:hover {
+  border-color: var(--border-bright);
+  color: var(--text-bright);
+  box-shadow: 0 0 18px var(--accent-glow);
+  transform: translateY(-1px);
+}
+.btn.primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-blue));
+  border: none;
+  color: #03201d;
+  font-weight: 700;
+  box-shadow: 0 4px 20px var(--accent-glow);
+}
+.btn.primary:hover { box-shadow: 0 6px 28px var(--accent-glow); }
+.btn.danger:hover { border-color: var(--danger); color: var(--danger); box-shadow: 0 0 18px rgba(255, 95, 109, 0.4); }

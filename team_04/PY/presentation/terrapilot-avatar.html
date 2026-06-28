@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TerraPilot · 3D Avatar</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:#070b18;display:flex;align-items:center;justify-content:center;min-height:100vh;overflow:hidden}
+  .bg-glow{position:fixed;inset:0;pointer-events:none;
+    background:radial-gradient(700px 500px at 50% 42%,rgba(52,227,208,.10),transparent 60%),
+               radial-gradient(700px 500px at 50% 80%,rgba(124,123,255,.10),transparent 60%)}
+
+  .stage{position:relative;width:440px;height:520px;display:flex;align-items:center;justify-content:center}
+
+  /* the floating bot */
+  .bot{position:relative;z-index:2;width:300px;transform-origin:50% 60%;
+       animation:float 3.4s ease-in-out infinite}
+  @keyframes float{
+    0%,100%{transform:translateY(0) rotate(-1deg)}
+    50%{transform:translateY(-22px) rotate(1deg)}
+  }
+  .bot svg{display:block;width:100%;height:auto;
+    filter:drop-shadow(0 18px 26px rgba(52,227,208,.18));}
+
+  /* glowing antenna dot */
+  .antdot{transform-origin:center;animation:pulseDot 1.8s ease-in-out infinite}
+  @keyframes pulseDot{0%,100%{opacity:.65}50%{opacity:1}}
+
+  /* blink — squash the eyes vertically every few sec */
+  .eyes{transform-origin:center;animation:blink 4.2s infinite}
+  @keyframes blink{0%,92%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+
+  /* the moving circle below (the "logo" radar) */
+  .pad{position:absolute;bottom:46px;left:50%;transform:translateX(-50%);z-index:1;
+       width:230px;height:64px}
+  .pad .shadow{position:absolute;inset:0;border-radius:50%;
+    background:radial-gradient(ellipse at center,#7c7bff 0%,#34e3d0 70%,transparent 72%);
+    opacity:.9;animation:padPulse 3.4s ease-in-out infinite}
+  @keyframes padPulse{
+    0%,100%{transform:scale(1);opacity:.85}
+    50%{transform:scale(.82);opacity:.55}   /* shrinks as the bot lifts away */
+  }
+  /* radar rings expanding from the pad — the signature logo motion */
+  .ring{position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+    width:120px;height:34px;border:2px solid #34e3d0;border-radius:50%;opacity:0;
+    animation:radar 3.4s ease-out infinite}
+  .ring.r2{animation-delay:1.1s}.ring.r3{animation-delay:2.2s}
+  @keyframes radar{
+    0%{width:90px;height:26px;opacity:.0}
+    20%{opacity:.55}
+    100%{width:300px;height:86px;opacity:0}
+  }
+</style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+
+  <div class="stage">
+    <!-- moving circle (logo radar) -->
+    <div class="pad">
+      <span class="ring"></span><span class="ring r2"></span><span class="ring r3"></span>
+      <span class="shadow"></span>
+    </div>
+
+    <!-- the bot -->
+    <div class="bot">
+      <svg viewBox="0 0 300 360" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="head" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#141a2c"/><stop offset="1" stop-color="#0c1120"/>
+          </linearGradient>
+          <linearGradient id="eye" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#5cf0e0"/><stop offset="1" stop-color="#1bbfae"/>
+          </linearGradient>
+        </defs>
+
+        <!-- antenna -->
+        <line x1="150" y1="70" x2="150" y2="40" stroke="#34e3d0" stroke-width="4" stroke-linecap="round"/>
+        <circle class="antdot" cx="150" cy="34" r="9" fill="#7c7bff"/>
+
+        <!-- ears -->
+        <ellipse cx="64" cy="190" rx="26" ry="32" fill="url(#head)" stroke="#34e3d0" stroke-width="4"/>
+        <circle cx="64" cy="190" r="8" fill="#7c7bff"/>
+        <ellipse cx="236" cy="190" rx="26" ry="32" fill="url(#head)" stroke="#34e3d0" stroke-width="4"/>
+        <circle cx="236" cy="190" r="8" fill="#7c7bff"/>
+
+        <!-- head -->
+        <rect x="62" y="70" width="176" height="180" rx="34" fill="url(#head)" stroke="#34e3d0" stroke-width="5"/>
+        <!-- face panel -->
+        <rect x="88" y="98" width="124" height="120" rx="24" fill="#0a1020" stroke="#1d6f68" stroke-width="3"/>
+
+        <!-- eyes (blink) -->
+        <g class="eyes">
+          <ellipse cx="125" cy="150" rx="17" ry="22" fill="url(#eye)"/>
+          <ellipse cx="175" cy="150" rx="17" ry="22" fill="url(#eye)"/>
+          <circle cx="120" cy="142" r="5" fill="#eafffb"/>
+          <circle cx="170" cy="142" r="5" fill="#eafffb"/>
+        </g>
+        <!-- cheek dots -->
+        <circle cx="104" cy="186" r="5" fill="#7c7bff"/>
+        <circle cx="196" cy="186" r="5" fill="#7c7bff"/>
+        <!-- smile -->
+        <path d="M128 192 Q150 210 172 192" fill="none" stroke="#34e3d0" stroke-width="5" stroke-linecap="round"/>
+
+        <!-- body/neck with the floor-plate triangle (ties to the logo) -->
+        <path d="M108 252 L192 252 L210 312 L90 312 Z" fill="url(#head)" stroke="#34e3d0" stroke-width="4"/>
+        <polygon points="150,268 168,300 132,300" fill="none" stroke="#5cf0e0" stroke-width="3"/>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>
