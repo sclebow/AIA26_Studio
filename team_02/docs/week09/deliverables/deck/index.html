@@ -113,10 +113,10 @@ img.shot{border:1px solid var(--bd);border-radius:12px;object-fit:cover;}
 
 /* clip pages */
 section.clip .frame{padding:0;}
-.clip-stage{position:absolute;inset:0 0 64px 0;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;}
-.clip-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+.clip-stage{position:absolute;inset:0 0 64px 0;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;}
+.clip-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;}
 .clip-ph{position:relative;z-index:2;text-align:center;}
-.clip.has-video .clip-ph{display:none;}
+.clip.playing .clip-ph{display:none;}
 .play{width:0;height:0;border-style:solid;border-width:24px 0 24px 40px;border-color:transparent transparent transparent var(--therm);margin:0 auto 24px;opacity:.92;}
 .clip-ph .ct{font:500 24px 'JetBrains Mono',monospace;color:var(--therm);letter-spacing:.1em;}
 .clip-ph .cs{font:400 15px 'JetBrains Mono',monospace;color:var(--mut);margin-top:11px;}
@@ -166,7 +166,7 @@ section.clip .frame{padding:0;}
     <div class="lead" style="margin-top:20px;color:var(--mut);max-width:660px;font-size:27px;line-height:1.46">Sensi reads a floor plan and tells you <span style="color:var(--fg)">how each room will feel</span>, across six senses, for one&nbsp;person.</div>
     <div style="font:400 14px 'JetBrains Mono',monospace;color:var(--dim);margin-top:28px">Charles Abi Chahine&nbsp;&nbsp;·&nbsp;&nbsp;Emilie El Chidiac&nbsp;&nbsp;·&nbsp;&nbsp;Lakzhmy Zaro&nbsp;&nbsp;·&nbsp;&nbsp;María Sánchez Domínguez</div>
   </div>
-  <aside class="notes">[Maria · ~19s] Hi, we're Team 02, and this is Sensi. It reads a floor plan and tells you how each room will feel, across six senses, for the one person who will live in it. Why would you want that? Let me show you what it is, and why it matters.</aside>
+  <aside class="notes">[Maria · ~5s] Hi, we're Team 02, and this is Sensi, a comfort copilot.</aside>
 </section>
 
 <!-- 2 · WHAT IS SENSI -->
@@ -217,7 +217,7 @@ section.clip .frame{padding:0;}
     </div>
   </div>
   <div class="foot"><span class="cap">structure, cost, energy, code, and now: how a space feels.</span></div>
-  <aside class="notes">[Maria · ~34s] So, what is Sensi? In the AEC we model a building in layers: structure, cost, energy, code. Every one of them has a number. The way a space will feel to be in never did. Sensi adds that layer. It reads the plan and scores how each room feels across six senses, the sensory layer on top of the stack. Three things make it ours. It is personal, scored for one person, not an average. It is honest, we never average the six, the worst sense carries the weight. And the senses are coupled, they pull on each other.</aside>
+  <aside class="notes">[Maria · ~40s] So, what is Sensi? In building, we already model a plan in layers, structure, cost, energy, and code. The way a space will actually feel was never an accountable layer. Sensi adds the sensory layer. It reads the plan and scores how each room feels across six senses, for the one person who'll live in it. While designing it we kept the following in mind: it's personal, scored for you, it prioritizes the worst sense to carry the weight; and the senses are coupled, they pull on each other.</aside>
 </section>
 
 <!-- 3 · THE GAP IN THE AEC -->
@@ -281,7 +281,7 @@ section.clip .frame{padding:0;}
     <div style="flex:1;line-height:1.46"><b style="font-family:'JetBrains Mono',monospace;color:var(--vis)">R2 · the bridge</b><br><b style="color:#cfcbc2;font-weight:600">Spence et al., 2020</b><br><span style="color:var(--mut)">senses of place, the multisensory mind: you take a room in all at once</span></div>
     <div style="flex:1;line-height:1.46"><b style="font-family:'JetBrains Mono',monospace;color:#E0524A">R3 · coupled</b><br><b style="color:#cfcbc2;font-weight:600">Multi-sensory thermal comfort review, 2025</b><br><span style="color:var(--mut)">cross-modal: one sense moderates another</span></div>
   </div>
-  <aside class="notes">[Maria · ~32s] We did not start from the product, we started from the research. In the AEC we measure energy, cost, and code, but never how a room feels. And comfort itself is usually studied one sense at a time, in isolation, on the left. The research says otherwise. Spence and colleagues, in 2020, the multisensory mind: you take a room in through all your senses at once. And a 2025 cross-modal review: the senses are coupled, one moderates another. So the honest picture is on the right, one coupled system, where changing one sense moves the others, and some links run only one way.</aside>
+  <aside class="notes">[Maria · ~28s] Comfort itself is usually studied one sense at a time, in isolation. The research says otherwise. Spence and colleagues, in 2020, the multisensory mind, you take a room in through all your senses at once. And a 2025 cross-modal review, the senses are coupled, one moderates another. So we leaned on the coupled system, where changing one sense moves the others as a network.</aside>
 </section>
 
 <!-- 4 · THE RIPPLE -->
@@ -330,7 +330,7 @@ section.clip .frame{padding:0;}
     </div>
   </div>
   <div class="foot" style="font-size:12.5px"><span style="line-height:1.46"><b style="font-family:'JetBrains Mono',monospace;color:#E0524A">R3 · coupled</b> &nbsp;&nbsp; <b style="color:#cfcbc2;font-weight:600">Multi-sensory thermal comfort review, 2025</b> &nbsp;&nbsp; <span style="color:var(--mut)">cross-modal: one sense moderates another, additive, synergistic, or compensatory</span></span></div>
-  <aside class="notes">[Maria · ~30s] Take one ordinary move, a bigger window. The daylight gets better, that is the upgrade you see. But the same glass is a thinner sound barrier, so noise gets in, and it leaks heat, so the room is colder in winter. Those are the costs you do not see. And here is the ripple: the noise it let in even dims the daylight you gained, one sense moderating another. One move, and the whole room shifts. So we asked, could a designer catch this while it is still a plan?</aside>
+  <aside class="notes">[Maria · ~32s] Let's take the following as an example. A bigger window affects the daylight positively, that's the upgrade you see. But the same glass is a thinner sound barrier, so noise gets in, and it leaks heat, so the room's colder in winter. Those are the costs you don't see. That is what we call the ripple: the noise it let in even dims the daylight you gained, one sense moderating another.</aside>
 </section>
 
 <!-- 5 · THE SAME PLAN, TWO PEOPLE (NEW placeholder) -->
@@ -383,7 +383,7 @@ section.clip .frame{padding:0;}
     <div style="line-height:1.46"><b style="font-family:'JetBrains Mono',monospace;color:var(--vis)">S4 · weights</b> &nbsp; <b style="color:#cfcbc2;font-weight:600">Frontiers Built Env., 2026</b> &nbsp; <span style="color:var(--mut)">comfort weights are context-dependent, not constants</span></div>
     <div style="line-height:1.46"><b style="font-family:'JetBrains Mono',monospace;color:var(--vis)">R1 · sensitivity</b> &nbsp; <b style="color:#cfcbc2;font-weight:600">Al-Harasis et al., 2025</b> &nbsp; <span style="color:var(--mut)">sensory sensitivity is individual</span></div>
   </div>
-  <aside class="notes">[Maria · ~24s] Here is why we start with you. This is one plan, read through two people. Slide the lens to a child, who minds noise, and the loud living room lights up as the problem. Slide it to a grandmother, who minds warmth, and the cold bedroom does instead. The plan never changes; who is standing in it decides what you feel. That is why Sensi opens by learning who you are.</aside>
+  <aside class="notes">[Maria · ~26s] It all starts with getting to know the user. One plan, read differently for two people. Slide the lens to a child, who minds noise, and the loud living room lights up as the problem. Slide it to a grandmother, who minds the cold, and the cold bedroom does instead. That's why Sensi opens by learning who you are.</aside>
 </section>
 
 <!-- 6 · THE THREE ACTS -->
@@ -425,7 +425,7 @@ section.clip .frame{padding:0;}
       </svg>
     </div>
   </div>
-  <aside class="notes">[Maria · ~28s] So here is the whole shape of it. Sensi is a conversation in three acts. In Onboard, you tell it who you are, and it builds your sensory persona. In Shape, you work the plan in plain language, and it scores, edits, and shows the ripple. In Report, your scores become a first-person image of each room. You talk, it answers, and the output of each act carries into the next. Let's zoom into the first.</aside>
+  <aside class="notes">[Maria · ~32s] So Sensi is a conversation in three acts. First, Onboard, where it gets to know you, that's the main input. Then Shape, the heart of it, a back-and-forth between you and the agent to edit the plan and watch it respond. And finally Report, which carries the outputs forward, the renders and the edited JSON. You talk, it answers, and the output of each act becomes the input to the next.</aside>
 </section>
 
 <!-- 7 · ACT 1 / ONBOARD -->
@@ -473,17 +473,15 @@ section.clip .frame{padding:0;}
     </div>
   </div>
   <div class="foot" style="color:var(--vis)">the persona you build here is the lens for everything that follows.</div>
-  <aside class="notes">[Maria · ~28s · then hand to Clip 1] Act one is Onboard, the first act of the conversation. You answer a few questions, about the senses that matter to you and who else lives here. Then you teach it your eye, with a curated moodboard. It folds all of that into one thing: your sensory persona, the lens for everything that follows. This is easier to watch than to describe, so let's watch.</aside>
+  <aside class="notes">[Maria · ~39s · then hand to Clip 1] Let's zoom into the first act. Onboarding is where it learns who you are. You answer a few questions, then you build a moodboard, and behind the scenes Sensi reads both: your words become sense weights, and each image you keep nudges those weights toward the senses you're drawn to. It compiles all of it into your persona, your personal weighting of the six senses, and that carries into act two as the lens for every score. Easier to watch than to describe, so let's see it.</aside>
 </section>
 
 <!-- 8 · CLIP 1 / ONBOARD -->
 <section class="clip" data-clip="Onboard">
-  <div class="demolabel">▶ DEMO 1 / 3 · ONBOARD</div>
   <div class="frame"><div class="clip-stage">
-    <video class="clip-vid" playsinline preload="auto" data-autoplay><source src="assets/clips/onboard.mp4" type="video/mp4"></video>
-    <div class="clip-ph"><div class="play"></div><div class="ct">CLIP 1 / ONBOARD</div><div class="cs">~55s · pre-recorded narrated demo</div><div class="cd">quiz &rarr; moodboard &rarr; the sensory persona it compiles &nbsp;·&nbsp; drop <span class="mono">assets/clips/onboard.mp4</span></div></div>
+    <video class="clip-vid" playsinline preload="auto"><source src="assets/clips/onboard.mp4" type="video/mp4"></video>
   </div></div>
-  <aside class="notes">[DEMO VO · Emilie · ~55s] Sensi starts by getting to know you. A few quick questions: your name, your role, the story of the space you're shaping. You toggle the senses that matter most. You say who lives here, and the one thing you won't compromise on. Then it learns your eye. You type an aesthetic in your own words, Sensi gives you rounds of images, and you keep what feels right. Three passes, and a moodboard takes shape. Then it compiles your answers and your choices into a single sensory persona: your weights, your priorities, in its words. That persona is the lens for everything that follows.</aside>
+  <aside class="notes">[DEMO VO · Emilie · live over the clip · ~1:15] Alright, so let's see it in action. This is Sensi, let me walk you through onboarding. I start by typing who I am and what I do, a space I really remember, the senses that matter most to me, my age, who I live with, and the things I won't compromise on. Then I get to the moodboard, where I build my aesthetic. I give it a few keywords, pick from what it shows me, and each picture quietly tells it which sense I'm leaning toward. Once my selection's done, I get my moodboard, and then my profile reveal, where I can see the average I landed on versus someone like me. Then, in the shape phase, I can always refine my persona: say I don't care much for tactile or thermal, and I just got a new dog, and you'll see the petal rose update based on that. And that's onboarding.</aside>
 </section>
 
 <!-- 9 · IT'S PERSONAL -->
@@ -548,7 +546,7 @@ section.clip .frame{padding:0;}
     </div>
   </div>
   <div class="foot"><span>the card on the left is what these inputs produce.</span> <span class="mut">persona compiled, now we shape a plan: Act 2.</span></div>
-  <aside class="notes">[Charles · ~30s · opens after Clip 1] Three inputs compile into one set of weights, one per sense. Your words from the quiz: name a sense, like noise, and it climbs. Your eye from the moodboard: warm wood lifts touch, plants lift smell. And your household: a child, a grandmother, a cat each lean the scores toward whoever feels a problem most. A higher weight raises that sense's alert bar, so Sensi flags it sooner for you. The formula is in the footnote; the concept is what matters. Now we have your persona, and we are ready to shape a plan. That is Act 2.</aside>
+  <aside class="notes">[Charles · ~9s] So that's your persona, compiled from your answers, your eye, and your situation. This becomes the lens for everything that follows.</aside>
 </section>
 
 <!-- 10 · BRIDGE · THE DESIGN LEVERS -->
@@ -597,7 +595,7 @@ section.clip .frame{padding:0;}
     </div>
   </div>
   <div class="foot" style="display:flex;gap:40px;align-items:flex-start;font-size:12px"><span style="color:var(--mut);line-height:1.5"><b style="color:var(--pass)">＋ helps</b> &nbsp; <b style="color:var(--fail)">− harms</b> &nbsp; <b style="color:#E0A92E">± trade-off</b><br>solid = research-verified &nbsp; dashed = room physics</span><span style="color:var(--mut);line-height:1.5;margin-left:auto"><b style="font-family:'JetBrains Mono',monospace;color:var(--olf)">S5-S7 · standards</b> &nbsp; BS 8233, ASHRAE 62.2, daylight metrics<br><b style="font-family:'JetBrains Mono',monospace;color:var(--olf)">R6 · materials</b> &nbsp; Velt et al., 2012, tactile warmth from the surface</span></div>
-  <aside class="notes">[Charles · ~24s] So how does Sensi read a room? Comfort is driven by a handful of design moves: which way it faces, how much glass, whether it breathes, how big it is, the surfaces, and what is next door. Each lever pulls on one or more senses, and the colour says which way: green helps, red harms, orange is a trade-off. Glazing helps the visual but harms the acoustic, and cuts both ways on thermal. These levers are the first half of how a score is built.</aside>
+  <aside class="notes">[Charles · ~29s] Comfort comes from a handful of design moves, which way it faces, how much glass, whether it breathes, how big it is, the surfaces, and what's next door. Each lever pulls on one or more senses, and the colour says which way: green helps, red harms, orange is a trade-off. Glazing helps the visual, but hurts the acoustic, and it cuts both ways on thermal.</aside>
 </section>
 
 <!-- 11 · BRIDGE · COUPLING + THE VETO -->
@@ -648,7 +646,7 @@ section.clip .frame{padding:0;}
     </div>
   </div>
   <div class="foot" style="display:flex;gap:40px;align-items:flex-start;font-size:12px"><span style="color:var(--mut);line-height:1.5"><b style="color:var(--pass)">+ helps</b> &#160; <b style="color:var(--fail)">&#8722; harms</b> &#160; <b style="color:#E0A92E">&#177; trade-off</b> &#160; <b style="color:var(--mut)">&#183; none</b><br>solid = research-verified &#160; dashed = room physics</span><span style="color:var(--mut);line-height:1.5;margin-left:auto"><b style="font-family:'JetBrains Mono',monospace;color:var(--pass)">18 / 25</b> couplings survived a 3-vote adversarial check<br><b style="font-family:'JetBrains Mono',monospace;color:#cfcbc2">Yang &amp; Moon, 2019</b> the acoustic-thermal link and the one-way acoustic-visual asymmetry</span></div>
-  <aside class="notes">[Charles · ~28s · the core] Here is the centre of the project. The levers move each sense, but the senses also move each other. A failing sense drags its neighbours down. My favourite cell: noise harms how bright a room feels, but the mirror is empty, because light does nothing to loudness. The coupling runs one way. Then the honest part: to turn six senses into one number we refuse to average. The worst sense vetoes, half the mean, half the single worst. So a kitchen mostly fine lands at 0.34, floored by smell.</aside>
+  <aside class="notes">[Charles · ~16s · the core] As mentioned before, the ripple is what matters, so we studied the couplings as a matrix, based on researched connections and physics. And the worst sense carries the room, because that's the one you'd actually feel.</aside>
 </section>
 
 <!-- 12 · ACT 2 / SHAPE -->
@@ -720,17 +718,15 @@ section.clip .frame{padding:0;}
     </div>
   </div>
   <div class="foot" style="display:flex;gap:34px;align-items:center"><span><span class="mut">three kinds of work</span> &nbsp; <span style="color:var(--vis)">&#9679; understand</span> &nbsp; <span style="color:var(--ac)">&#9679; edit, the ripple</span> &nbsp; <span style="color:var(--sp)">&#9679; see it anew</span></span><span class="cite"><span style="color:#e9e3d6">&#9679; you</span> &nbsp; <span style="color:var(--pass)">&#9679; Sensi</span> &nbsp; <span style="color:var(--vis)">&middot;&middot;&middot; persona carries forward</span></span></div>
-  <aside class="notes">[Charles · ~32s · then hand to Clip 2] Now the agent, Act two opened up. On the left, what you say. In the middle, the work it triggers. On the right, Sensi's answer, in plain words. Ask how a room feels, and it scores the room, finds the conflicts, and tells you it is at 0.41. Say change the walls to cork, and it plans the edit, keeps the plan sound, re-scores, and reports the ripple. Or ask to see it a new way, and it draws the galaxy. The other two acts sit collapsed, above and below. Let's watch it happen.</aside>
+  <aside class="notes">[Charles · ~52s · then hand to Clip 2] So, act two, Shape, this is where the agentic power lives, and it's the heart of the system. When you ask for something, a fast model first routes your intent, are you asking to score, to edit, or to see it a new way, in one quick step. If it's an edit, the agent plans it, places it soundly so the plan stays valid, applies it, and re-scores. If it's a question, a heavier model reads the whole room, all six scores, their couplings, and your persona, and answers in plain words. It all funnels through one agent, so you can edit materials, furniture, plants, windows and more, and watch the layout and the relationships respond.</aside>
 </section>
 
 <!-- 13 · CLIP 2 / SHAPE -->
 <section class="clip" data-clip="Shape">
-  <div class="demolabel">▶ DEMO 2 / 3 · SHAPE</div>
   <div class="frame"><div class="clip-stage">
-    <video class="clip-vid" playsinline preload="auto" data-autoplay><source src="assets/clips/shape.mp4" type="video/mp4"></video>
-    <div class="clip-ph"><div class="play"></div><div class="ct">CLIP 2 / SHAPE</div><div class="cs">~95s · pre-recorded narrated demo</div><div class="cd">CAD plan &rarr; scores &rarr; conflict &rarr; edit &rarr; Focus Pull &rarr; re-score &rarr; checkpoint graph &rarr; galaxy &nbsp;·&nbsp; drop <span class="mono">assets/clips/shape.mp4</span></div></div>
+    <video class="clip-vid" playsinline preload="auto"><source src="assets/clips/shape.mp4" type="video/mp4"></video>
   </div></div>
-  <aside class="notes">[DEMO VO · Emilie · ~95s] Now the real work. We load an actual floor plan, layout 201, and Sensi draws it as clean CAD linework: walls, doors, windows, furniture. We hit analyze, and in a few seconds every room is scored across all six senses, shown as a six-petal rose: the bigger the petal, the better that sense. Right away a conflict surfaces, a sense flagged below your personal bar. Before we fix it, look at what the agent can do: this menu is its full vocabulary, organized by sense. Nine edit tools, add a window, change a wall, hang curtains, add ventilation, swap a material, plus ways to see the plan differently. So we just say, in plain language, change the kitchen walls to cork. It plans the edit, applies it, and Focus Pull takes over: the whole plan dims and only what changed lights up, right where it is. Hover, and you see the before, the after, and which scores moved. The room re-scores, and the suggestion that flagged it crosses itself off. Open the checkpoint graph, and every sense is a strand you can watch weave as you edit. And the galaxy shows the whole project as one map, hover any thread and the Narrator explains it in plain words.</aside>
+  <aside class="notes">[DEMO VO · Emilie · live over the clip · ~2:00] So we're in the design space. Let's pick a layout, that one doesn't really match my grandma and me, so let's go with the city apartment. I run a full analysis, take a look at the capabilities while it works, and then I can read the model's actual answer and find it in the plan itself. It gives me suggestions, so let's try one: I'll add a large window in the kitchen and the living room, and you can see the focus pull land right on those, hover, and you get more detail. We can keep editing to make the space better, adding a rug and curtains, and you'll see the suggestions cross themselves off automatically. Let's commit those changes. Now let's add plans to all the rooms, where the biggest changes show, and we can see them all at a glance. We can also map the topology of the space, and look at the commits so far and how each one moves each sense. In the graph, you can see that ripple we keep talking about, one per sense, hover any one to see how it pulls on the others. We also have the galaxy view, meant for exploration: we see the rooms, the senses, and the design levers behind them. Expand a room to see its senses, they connect to each other too, and on hover you get the ripple, between a lever and the senses, and between the senses themselves.</aside>
 </section>
 
 <!-- 14 · UNDER THAT SCORE -->
@@ -780,7 +776,7 @@ section.clip .frame{padding:0;}
     </div>
   </div>
   <div class="foot" style="display:flex;gap:40px;align-items:flex-start;font-size:12px"><span style="color:var(--mut);line-height:1.5"><b style="font-family:'JetBrains Mono',monospace;color:var(--olf)">S5-S7 &middot; standards</b> &nbsp; BS 8233 acoustic, ASHRAE 62.2 ventilation, residential daylight</span><span style="color:var(--mut);line-height:1.5;margin-left:auto"><b style="font-family:'JetBrains Mono',monospace;color:var(--olf)">S2 &middot; the veto</b> &nbsp; Yang &amp; Moon, 2019, non-additive aggregation &nbsp; <b style="font-family:'JetBrains Mono',monospace;color:var(--olf)">R6</b> material physics</span></div>
-  <aside class="notes">[Charles · ~30s · after Clip 2] You watched it score a kitchen; here is the engine underneath, on layout 202. It is deterministic, not a guess: each sense starts at a baseline, the levers move it, the senses couple, and the worst one vetoes the average. The two ringed in red fall hard, sound at 0.28, a hard, boxy room by the living and bedroom, and smell at 0.33, mechanical ventilation and low glazing. Every rule traces to a real standard, the room lands at 0.41, no black box.</aside>
+  <aside class="notes">[Charles · ~11s · after Clip 2] So everything you just saw, every score is built from those levers and their couplings, with fixed rules underneath, deterministic scoring, not LLM reasoning.</aside>
 </section>
 
 <!-- 15 · SEE IT A NEW WAY: GALAXY (moved into Act 2) -->
@@ -828,7 +824,7 @@ section.clip .frame{padding:0;}
     </div>
   </div>
   <div class="foot" style="font-size:12px"><span style="color:var(--mut);line-height:1.5"><b style="font-family:'JetBrains Mono',monospace;color:var(--olf)">R1 &middot; sensory zoning</b> &nbsp; Al-Harasis et al., 2025, a taxonomy for sensory design in autism</span></div>
-  <aside class="notes">[Charles · ~28s] Take the kitchen you just scored, and zoom out to the whole plan. Now the doors light up, each carrying the senses that bleed between rooms: the kitchen's noise and smell reach the bedroom, the busiest room. It is a real graph, rooms as nodes, doors as edges, and it finds the hubs and the bridges. So comfort becomes a zoning problem you can see, straight from the autism sensory-design research.</aside>
+  <aside class="notes">[Charles · ~32s] As we saw in the demo, the relationship graph between the rooms matters too: rooms as nodes, doors as edges, finding the hubs and the bridges, carrying the senses that bleed between rooms, the kitchen's noise and smell reaching the bedroom. So comfort becomes a zoning problem you can see, straight from the autism sensory-design research. And that's the vision we had for the galaxy, the whole project as one living map.</aside>
 </section>
 
 <!-- 16 · EVERY EDIT, TRACKED -->
@@ -878,7 +874,7 @@ section.clip .frame{padding:0;}
     </div>
   </div>
   <div class="foot" style="display:flex;gap:26px;align-items:flex-start;font-size:12px"><span style="color:#9a978f;line-height:1.5"><b style="color:#8BB88A">scope shows in the weave:</b> a room edit moves a sense or two, a layout edit ripples through everything. the coupling, not noise.</span><span style="color:#9a978f;line-height:1.5;margin-left:auto"><b style="color:#9B8FD4">only committed checkpoints carry forward:</b> the dashed trial stays here, the Report renders the committed plan.</span></div>
-  <aside class="notes">[Charles &middot; ~22s] Every edit is kept as a checkpoint, so you watch the plan improve honestly. Each line is a sense, rising as it gets better. A single-room change moves a sense or two; a layout-wide change ripples through everything, and that strong weave is the coupling working, not noise. And it sets up the next act: only committed checkpoints carry forward, so the Report renders the plan you actually kept.</aside>
+  <aside class="notes">[Charles · ~28s] Every edit is kept as a checkpoint, so you watch the plan improve honestly, each line is a sense, rising as it gets better. A single-room change nudges a sense or two; a layout-wide change ripples through everything, and that strong weave is the coupling working. And only what you commit carries forward, so the Report shows the plan you actually kept.</aside>
 </section>
 
 <!-- 17 · ACT 3 / REPORT -->
@@ -927,17 +923,15 @@ section.clip .frame{padding:0;}
     </div>
   </div>
   <div class="foot" style="color:var(--therm)">the output answers the input: the loop closes.</div>
-  <aside class="notes">[Lakzhmy · ~28s · then hand to Clip 3] Last act, Report. This is where the loop closes, and the output answers the input you gave at the very start. Your persona and the look you curated come back, the cached scores become a prompt, and the prompt becomes an image of how each room actually feels. The honest rule: only the extreme senses speak. Take a look.</aside>
+  <aside class="notes">[Lakzhmy · ~17s · then hand to Clip 3] Last act, the Report, is where the loop closes. You get the outputs, the final edited layout, and a vision model that brings your changes to life, so you can compare it back to your moodboard and your needs.</aside>
 </section>
 
 <!-- 18 · CLIP 3 / REPORT -->
 <section class="clip" data-clip="Report">
-  <div class="demolabel">▶ DEMO 3 / 3 · REPORT</div>
   <div class="frame"><div class="clip-stage">
-    <video class="clip-vid" playsinline preload="auto" data-autoplay><source src="assets/clips/report.mp4" type="video/mp4"></video>
-    <div class="clip-ph"><div class="play"></div><div class="ct">CLIP 3 / REPORT</div><div class="cs">~75s · pre-recorded narrated demo</div><div class="cd">persona + moodboard return &rarr; per-room renders &rarr; before/after &nbsp;·&nbsp; drop <span class="mono">assets/clips/report.mp4</span></div></div>
+    <video class="clip-vid" playsinline preload="auto"><source src="assets/clips/report.mp4" type="video/mp4"></video>
   </div></div>
-  <aside class="notes">[DEMO VO · Emilie · ~75s] This is the Report, and notice what greets you first: your persona, and the moodboard you built at the very start. The output opens by remembering your input. We expand a room. It reveals in stages: the scores, then the reasoning, then the room itself, rendered. A first-person image of how that space feels to be in: this room, with its real comfort scores turned into light, material, and air. And for a room we edited, we can wipe between before and after: same room, same angle, only the change moving, so you see the improvement, not just read it. That's the whole loop, closed. You told Sensi who you are; it read your plan, scored how it feels, and showed you the trade-offs, and every room you walk through here, you've already shaped, without lifting a pencil.</aside>
+  <aside class="notes">[DEMO VO · Emilie · live over the clip · ~0:45] Okay, now we jump into the report. I've got uncommitted changes, so let me commit them first so they show up here. Then we see the moodboard we chose at the start, we can explore the senses coupling, and the before-and-after Sensi generated for the most changed room. We also get a render per room. You can dig into the scores and the prompt behind them, hover any sense to see how it was read into words, and download it as an image, or the plan as JSON. And that's the report.</aside>
 </section>
 
 <!-- 19 · SCORES -> PROMPT -> IMAGE -->
@@ -1000,7 +994,7 @@ section.clip .frame{padding:0;}
     </div>
   </div>
   <div class="foot">the look you curated at minute one returns here. input and output meet.</div>
-  <aside class="notes">[Lakzhmy · ~28s · after Clip 3] This is the real screen, and what you saw is generated, not stock photos. On the left, the room's scores write the prompt. The honest rule: only the extreme senses speak. A clearly bad or good sense writes a phrase, in its sense colour, and the comfortable middle stays silent. On the right, the same room before and after an edit: same angle, only the change moving. The look you curated at minute one returns here. Input and output meet.</aside>
+  <aside class="notes">[Lakzhmy · ~23s · after Clip 3] On the left, the room's scores write the prompt, and the honest rule holds: only the extreme senses speak, a clearly good or bad sense writes a phrase in its colour, and the comfortable middle stays quiet. On the right, the same room before and after, same angle, only the change moving.</aside>
 </section>
 
 <!-- 20 · WHAT WE LEARNED + OPENS -->
@@ -1015,9 +1009,9 @@ section.clip .frame{padding:0;}
         <div class="annoK" style="grid-column:3;grid-row:1;color:#E8836A"><i class="ti ti-flask" style="vertical-align:-2px"></i> WHAT STAYS OPEN</div>
         <div style="grid-column:1;grid-row:2;display:flex;gap:13px;align-items:flex-start"><i class="ti ti-wave-sine" style="font-size:21px;color:var(--pass);flex:0 0 auto;margin-top:1px"></i><div><div style="font-size:15.5px;color:#e9e2d2;font-weight:500">ripple and veto reprioritised the rooms</div><div class="cap">we worried about different rooms than the headline number</div></div></div>
         <div style="grid-column:3;grid-row:2;display:flex;gap:13px;align-items:flex-start"><i class="ti ti-microscope" style="font-size:21px;color:#E8836A;flex:0 0 auto;margin-top:1px"></i><div><div style="font-size:15.5px;color:#e9e2d2;font-weight:500">Could we ever prove it?</div><div class="cap">no ground-truth data to check it against; <span class="mono" style="color:#E8836A">18 of 25</span> couplings survived a model vote: agreement, not truth</div></div></div>
-        <div style="grid-column:1;grid-row:3;display:flex;gap:13px;align-items:flex-start"><i class="ti ti-bolt" style="font-size:21px;color:#cfcbc2;flex:0 0 auto;margin-top:1px"></i><div><div style="font-size:15.5px;color:#e9e2d2;font-weight:500">routing <b class="mono" style="color:#fff">~0.6s</b>, the felt read <b class="mono" style="color:#fff">~24s</b></div><div class="cap">routing only labels the turn; the felt read reasons over all six scores, their couplings, and your persona</div></div></div>
-        <div style="grid-column:3;grid-row:3;display:flex;gap:13px;align-items:flex-start"><i class="ti ti-brain" style="font-size:21px;color:#E8836A;flex:0 0 auto;margin-top:1px"></i><div><div style="font-size:15.5px;color:#e9e2d2;font-weight:500">Is it thinking, or talking?</div><div class="cap">the scores come from fixed rules, not the model guessing; so what is the AI really doing, the reasoning or the words?</div></div></div>
-        <div style="grid-column:1;grid-row:4;display:flex;gap:13px;align-items:flex-start"><i class="ti ti-photo" style="font-size:21px;color:#cfcbc2;flex:0 0 auto;margin-top:1px"></i><div><div style="font-size:15.5px;color:#e9e2d2;font-weight:500">renders <b class="mono" style="color:#fff">2.75x</b> faster than OpenAI</div><div class="cap"><span class="mono">$0.039</span> vs <span class="mono">$0.042</span> a room; about 4x cheaper than OpenAI&rsquo;s premium tier</div></div></div>
+        <div style="grid-column:1;grid-row:3;display:flex;gap:13px;align-items:flex-start"><i class="ti ti-bolt" style="font-size:21px;color:var(--pass);flex:0 0 auto;margin-top:1px"></i><div><div style="font-size:15.5px;color:#e9e2d2;font-weight:500">routing <b class="mono" style="color:#fff">~0.6s</b>, the felt read <b class="mono" style="color:#fff">~24s</b></div><div class="cap">routing only labels the turn; the felt read reasons over all six scores, their couplings, and your persona</div></div></div>
+        <div style="grid-column:3;grid-row:3;display:flex;gap:13px;align-items:flex-start"><i class="ti ti-accessible" style="font-size:21px;color:#E8836A;flex:0 0 auto;margin-top:1px"></i><div><div style="font-size:15.5px;color:#e9e2d2;font-weight:500">What if a sense doesn&rsquo;t apply?</div><div class="cap">for a blind or Deaf occupant, could Sensi drop that channel and rebalance its weight onto the senses they live by, so the space works harder through those?</div></div></div>
+        <div style="grid-column:1;grid-row:4;display:flex;gap:13px;align-items:flex-start"><i class="ti ti-photo" style="font-size:21px;color:var(--pass);flex:0 0 auto;margin-top:1px"></i><div><div style="font-size:15.5px;color:#e9e2d2;font-weight:500">renders <b class="mono" style="color:#fff">2.75x</b> faster than OpenAI</div><div class="cap"><span class="mono">$0.039</span> vs <span class="mono">$0.042</span> a room; about 4x cheaper than OpenAI&rsquo;s premium tier</div></div></div>
         <div style="grid-column:3;grid-row:4;display:flex;gap:13px;align-items:flex-start"><i class="ti ti-scale" style="font-size:21px;color:#E8836A;flex:0 0 auto;margin-top:1px"></i><div><div style="font-size:15.5px;color:#e9e2d2;font-weight:500">Help, or decide for you?</div><div class="cap">a confident score is easy to just follow; does Sensi help a designer decide, or quietly decide for them?</div></div></div>
       </div>
       <div style="border-top:1px solid #211f1c;padding-top:24px;text-align:center">
@@ -1026,7 +1020,7 @@ section.clip .frame{padding:0;}
       </div>
     </div>
   </div>
-  <aside class="notes">[Lakzhmy &middot; ~40s] What holds, and what opens. The trade-offs became legible: ripple and veto changed which rooms we worried about. Two build notes: routing only labels the turn in under a second; the felt read takes about twenty-four, because it reasons over all six scores, their couplings, and your persona. And our renders run 2.75 times faster than OpenAI. Then the open ground: could we ever prove it? With no ground-truth data, eighteen of twenty-five couplings surviving a vote is agreement, not truth. Is the AI thinking, or just talking? And does a confident score help a designer decide, or decide for them? The one we leave you with: we made the layer of the senses legible. What else can we make legible?</aside>
+  <aside class="notes">[Lakzhmy · ~38s] We want to end with what we learned. We got the ripple to become legible, and we benchmarked different nodes to understand where to put the weight and which models perform better. But the real learning is in the questions it raised. Could we ever prove it? What about a sense that doesn't apply, could Sensi lean its weight onto the senses a blind or Deaf person lives by? Which brings us back to: we made the senses legible, what else can we make legible?</aside>
 </section>
 
 <!-- 21 · THANKS -->
@@ -1040,7 +1034,7 @@ section.clip .frame{padding:0;}
     <div class="glyphrow" style="margin-top:30px;justify-content:center"><span style="color:var(--therm)">△</span><span style="color:var(--vis)">○</span><span style="color:var(--ac)">∿</span><span style="color:var(--sp)">□</span><span style="color:var(--olf)">≈</span><span style="color:var(--tac)">∶</span></div>
     <div style="font:400 14px 'JetBrains Mono',monospace;color:var(--dim);margin-top:40px;line-height:1.7">Charles Abi Chahine&nbsp;&nbsp;·&nbsp;&nbsp;Emilie El Chidiac&nbsp;&nbsp;·&nbsp;&nbsp;Lakzhmy Zaro&nbsp;&nbsp;·&nbsp;&nbsp;María Sánchez Domínguez</div>
   </div>
-  <aside class="notes">[Lakzhmy · ~12s] That's Sensi. Comfort, made legible while a building is still a plan. Thank you. We'd love your questions.</aside>
+  <aside class="notes">[Lakzhmy · ~3s] That's Sensi. Thank you for listening.</aside>
 </section>
 
 </div></div>
@@ -1093,6 +1087,7 @@ section.clip .frame{padding:0;}
     width:1280, height:720, margin:0.04, center:false,
     hash:true, controls:false, progress:false, slideNumber:false,
     transition:'fade', backgroundTransition:'fade',
+    autoPlayMedia:false,
     plugins:[ RevealNotes ]
   });
   var counter = document.getElementById('counter');
@@ -1107,15 +1102,18 @@ section.clip .frame{padding:0;}
     counter.classList.remove('demo');
     counter.textContent = (idx+1) + ' / ' + secs.length;
   }
-  document.querySelectorAll('.clip video').forEach(function(v){
-    v.addEventListener('loadeddata', function(){ v.closest('.clip').classList.add('has-video'); });
-    v.style.cursor='pointer';
-    v.addEventListener('click', function(){ if(v.paused){ try{v.play();}catch(_){} } else { v.pause(); } });
+  document.querySelectorAll('.clip').forEach(function(clip){
+    var v = clip.querySelector('video'); if(!v) return;
+    var stage = clip.querySelector('.clip-stage');
+    function toggle(){ if(v.paused){ try{v.play();}catch(_){} } else { v.pause(); } }
+    if(stage) stage.addEventListener('click', toggle);
+    v.addEventListener('play',  function(){ clip.classList.add('playing'); });
+    v.addEventListener('pause', function(){ clip.classList.remove('playing'); });
+    v.addEventListener('ended', function(){ clip.classList.remove('playing'); });
   });
   Reveal.on('ready', updateCounter);
   Reveal.on('slidechanged', function(e){
-    document.querySelectorAll('.clip video').forEach(function(v){ try{v.pause();}catch(_){} });
-    if (e.currentSlide.classList.contains('clip')){ var v=e.currentSlide.querySelector('video'); if(v&&v.readyState>=2){ try{v.currentTime=0;v.play();}catch(_){} } }
+    document.querySelectorAll('.clip video').forEach(function(v){ try{v.pause();v.currentTime=0;}catch(_){} });
     updateCounter();
   });
 </script>
