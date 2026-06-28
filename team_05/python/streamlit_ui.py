@@ -111,7 +111,7 @@ def _get_space_color(space_type: str, category: str = None) -> str:
     if category:
         category = alias_map.get(category, category)
 
-    # Try exact type match first
+    # Try exact match first
     if space_type in SPACE_TYPE_COLORS:
         return SPACE_TYPE_COLORS[space_type]
     # Try category match
@@ -185,7 +185,6 @@ def _generate_component_polygon(component: dict, x_center: float = 0, y_center: 
         width = 1.0
         depth = 1.0
     
-    # Create rectangle centered at (x_center, y_center)
     w2 = width / 2
     d2 = depth / 2
     
@@ -235,11 +234,7 @@ def _room_bbox(room: dict) -> tuple[float, float, float, float] | None:
 
 
 def _host_edges_from_bboxes(host_bboxes: list[tuple[float, float, float, float]]) -> list[tuple[str, float, float, float]]:
-    """Build axis-aligned wall-edge segments from room bboxes.
-
-    Returns tuples: (orientation, line_value, seg_min, seg_max)
-    orientation: 'v' for x=const segment, 'h' for y=const segment.
-    """
+    """Build axis-aligned wall-edge segments from room bboxes."""
     edges: list[tuple[str, float, float, float]] = []
     for x0, y0, x1, y1 in host_bboxes:
         edges.append(("v", x0, y0, y1))
@@ -674,9 +669,14 @@ hr { border-color:var(--border-lt) !important; margin:0.8rem 0 !important; }
 }
 
 /* ── TABLES ──────────────────────────────────────────────────────────────── */
-[data-testid="stDataFrame"] *,[data-testid="stTable"] * {
+[data-testid="stTable"] * {
   background:var(--card) !important; color:var(--text) !important;
   border-color:var(--border-lt) !important;
+}
+[data-testid="stDataFrame"] {
+  background:var(--card) !important;
+  border-radius:var(--r) !important;
+  overflow:hidden !important;
 }
 [data-testid="stTable"] { border-radius:var(--r) !important; overflow:hidden !important; }
 [data-testid="stTable"] th {
@@ -775,7 +775,6 @@ for _k, _v in {
     "selected_plan_key": None,
     "_uploaded_ids": [],
     "show_plan_comparison": False,
-    "show_cost_breakdown_charts": True,
     "messages": [],
     "selected_room": None,
     "selected_element": None,
@@ -2015,7 +2014,7 @@ def _add_legend_to_figure(fig: go.Figure, layout: dict) -> None:
     lx0, lx1 = 0.83, 0.995
     ly0, ly1 = 0.68, 0.992
     slot_h   = (ly1 - ly0) / len(cats)   # vertical space per category
-    bar_h    = 0.022                      # bar thickness in paper units
+    bar_h    = 0.022                       # bar thickness in paper units
 
     # Semi-transparent white backing
     fig.add_shape(
@@ -2097,6 +2096,36 @@ def build_cost_df(layout: dict) -> pd.DataFrame:
         except (ValueError, TypeError):
             return default
 
+    def as_items(value) -> list:
+        if isinstance(value, dict):
+            return list(value.values())
+        if isinstance(value, list):
+            return value
+        return []
+
+    def first_value(source: dict, keys: tuple[str, ...], default=None):
+        attrs = source.get("attributes", {}) if isinstance(source.get("attributes"), dict) else {}
+        for key in keys:
+            value = source.get(key)
+            if value is None:
+                value = attrs.get(key)
+            if value is not None:
+                return value
+        return default
+
+    def source_collection(*paths: tuple[str, ...]) -> list:
+        for path in paths:
+            current = layout
+            for part in path:
+                if not isinstance(current, dict):
+                    current = None
+                    break
+                current = current.get(part)
+            items = as_items(current)
+            if items:
+                return items
+        return []
+
     labor_mult = safe_float(st.session_state.get("labor", 1.0))
     inflation = 1 + (safe_float(st.session_state.get("inflation", 0)) / 100)
     tax = safe_float(st.session_state.get("carbon_tax", 0))
@@ -2105,240 +2134,161 @@ def build_cost_df(layout: dict) -> pd.DataFrame:
         proj = {}
     cur_code = st.session_state.get("currency_code") or proj.get("currency", "AED")
     cur_factor = safe_float(st.session_state.get("currency_factor", 1.0), 1.0)
-
-    rooms_list = layout.get("rooms") or layout.get("costs", {}).get("rooms", {}).get("rooms", [])
-
+    
     rows = []
-    for r in rooms_list:
+
+    # 1. Rooms/Spaces. Layouts arrive in both flat and nested cost schemas.
+    rooms_source = source_collection(
+        ("rooms",),
+        ("costs", "rooms", "rooms"),
+        ("costs", "rooms"),
+    )
+    explicit_openings = bool(as_items(layout.get("openings")))
+    explicit_columns = bool(as_items(layout.get("columns")))
+
+    for r in rooms_source:
+        if not isinstance(r, dict):
+            continue
+
+        category_raw = str(first_value(r, ("category", "room_type", "type", "program"), "Zone") or "Zone")
+        category_key = category_raw.strip().lower()
+        if explicit_openings and category_key in {"door", "doors", "window", "windows"}:
+            continue
+        if explicit_columns and category_key in {"column", "columns"}:
+            continue
+
         base_rate = safe_float(r.get("rate_per_m2") or r.get("rate_per_m2_usd") or r.get("rate"))
-        base_cost = safe_float(r.get("total_cost") or r.get("total_cost_usd") or r.get("cost_usd") or r.get("cost"))
-        area = safe_float(r.get("area_m2") or r.get("area"))
-        gwp = safe_float(r.get("gwp"))
+        base_cost = safe_float(first_value(r, ("total_cost", "total_cost_usd", "cost_usd", "cost", "total"), 0))
+        area = safe_float(first_value(r, ("area_m2", "area"), 0))
+        gwp = safe_float(first_value(r, ("gwp", "kgco2e", "carbon"), 0))
 
-        adj_rate = base_rate * labor_mult * inflation * cur_factor
-        adj_cost = ((base_cost * labor_mult * inflation) + (gwp * tax)) * cur_factor
+        if base_rate <= 0 and base_cost > 0 and area > 0:
+            base_rate = base_cost / area
+        if base_cost <= 0 and base_rate > 0 and area > 0:
+            base_cost = base_rate * area
 
+        is_simple_component = category_key in {"door", "doors", "window", "windows", "column", "columns"}
+        calc_total = int(
+            (base_cost * cur_factor)
+            if is_simple_component
+            else ((base_cost * labor_mult * inflation) + (gwp * tax)) * cur_factor
+        )
+        qty = "1 Unit" if is_simple_component and area <= 0 else f"{round(area, 1)} m²"
         rows.append({
-            "Room": r.get("name", "Unknown"),
-            "Category": r.get("category", "Space").capitalize(),
-            "Area (m²)": round(area, 1),
-            f"Rate ({cur_code}/m²)": int(adj_rate),
-            f"Cost ({cur_code})": int(adj_cost)
+            "Element": str(first_value(r, ("name", "id"), "Space") or "Space").title(), 
+            "Category": category_raw.title(), 
+            "Qty/Area": qty,
+            f"Unit Rate ({cur_code})": int(base_rate * labor_mult * inflation * cur_factor), 
+            f"Total Cost ({cur_code})": calc_total
+        })
+            
+    # 2. Openings (Doors/Windows)
+    openings_source = source_collection(
+        ("openings",),
+        ("costs", "openings", "openings"),
+        ("costs", "openings"),
+    )
+    for o in openings_source:
+        if not isinstance(o, dict):
+            continue
+        cost = safe_float(first_value(o, ("cost", "cost_usd", "total_cost", "total_cost_usd"), 0))
+        calc_total = int(cost * labor_mult * inflation * cur_factor)
+        rows.append({
+            "Element": str(first_value(o, ("subtype", "name", "type", "id"), "Opening") or "Opening").title(), 
+            "Category": str(first_value(o, ("type", "category"), "Opening") or "Opening").title(), 
+            "Qty/Area": "1 Unit",
+            f"Unit Rate ({cur_code})": calc_total, 
+            f"Total Cost ({cur_code})": calc_total
+        })
+            
+    # 3. Columns
+    columns_source = source_collection(
+        ("columns",),
+        ("costs", "columns", "columns"),
+        ("costs", "columns"),
+    )
+    for c in columns_source:
+        if not isinstance(c, dict):
+            continue
+        cost = safe_float(first_value(c, ("cost", "cost_usd", "total_cost", "total_cost_usd"), 0))
+        calc_total = int(cost * labor_mult * inflation * cur_factor)
+        rows.append({
+            "Element": str(first_value(c, ("name", "subtype", "id"), "Structural Column") or "Structural Column").title(), 
+            "Category": "Structure", 
+            "Qty/Area": "1 Unit",
+            f"Unit Rate ({cur_code})": calc_total, 
+            f"Total Cost ({cur_code})": calc_total
         })
 
-    df = pd.DataFrame(rows)
-    return df
+    # Fallback if empty
+    if not rows:
+        rows.append({
+            "Element": "Awaiting Calculation...", 
+            "Category": "-", 
+            "Qty/Area": "-",
+            f"Unit Rate ({cur_code})": 0, 
+            f"Total Cost ({cur_code})": 0
+        })
+
+    return pd.DataFrame(rows)
 
 
-def build_component_price_reference_chart(layout: dict) -> go.Figure | None:
-    """Build a compact reference-style combo chart for component totals and share."""
-    def _safe_float(v, default=0.0):
-        try:
-            return float(v) if v is not None else default
-        except (TypeError, ValueError):
-            return default
+def render_cost_breakdown_table(layout: dict) -> None:
+    """Render cost rows as plain HTML so Streamlit's dataframe canvas cannot appear blank."""
+    import html
 
-    labor_mult = _safe_float(st.session_state.get("labor", 1.0), 1.0)
-    inflation = 1 + (_safe_float(st.session_state.get("inflation", 0.0), 0.0) / 100.0)
-    tax = _safe_float(st.session_state.get("carbon_tax", 0.0), 0.0)
-    cur_factor = _safe_float(st.session_state.get("currency_factor", 1.0), 1.0)
+    df = build_cost_df(layout)
+    if df.empty:
+        st.info("No cost rows found in the current layout.")
+        return
 
-    proj = layout.get("project", {})
-    if isinstance(proj, str):
-        proj = {}
-    currency = st.session_state.get("currency_code") or proj.get("currency", "AED")
+    st.caption(f"Showing {len(df):,} cost row{'s' if len(df) != 1 else ''}.")
+    display_df = df.head(250).copy()
+    total_rows = len(df)
 
-    rooms = layout.get("rooms", [])
-    openings = layout.get("openings", [])
-    columns = layout.get("columns", [])
-
-    def _el_cost(el: dict) -> float:
-        return _safe_float(
-            el.get("total_cost")
-            or el.get("total_cost_usd")
-            or el.get("cost")
-            or el.get("cost_usd")
-            or 0
-        )
-
-    def _adj_room_cost(room: dict) -> float:
-        base = _el_cost(room)
-        gwp = _safe_float(room.get("gwp"), 0.0)
-        return ((base * labor_mult * inflation) + (gwp * tax)) * cur_factor
-
-    breakdown: dict[str, float] = {}
-    bucket_colors: dict[str, list[str]] = {}
-
-    def _add(bucket: str, amount: float) -> None:
-        if amount <= 0:
-            return
-        breakdown[bucket] = breakdown.get(bucket, 0.0) + float(amount)
-
-    def _room_geom_color(el: dict) -> str | None:
-        c = el.get("space_color_hex") or el.get("color_hex") or el.get("color")
-        if isinstance(c, str) and c.strip():
-            return c.strip()
-        rgb = el.get("color_rgb")
-        if isinstance(rgb, (list, tuple)) and len(rgb) >= 3:
-            try:
-                return _rgb_to_hex((int(rgb[0]), int(rgb[1]), int(rgb[2])))
-            except (TypeError, ValueError):
-                return None
-        return None
-
-    def _remember_color(bucket: str, color_hex: str | None) -> None:
-        if not color_hex:
-            return
-        bucket_colors.setdefault(bucket, []).append(color_hex)
-
-    def _hex_to_rgb_safe(hex_color: str) -> tuple[int, int, int] | None:
-        try:
-            return _hex_to_rgb(hex_color)
-        except Exception:
-            return None
-
-    def _avg_bucket_color(bucket: str, fallback: str) -> str:
-        vals = bucket_colors.get(bucket, [])
-        if not vals:
-            return fallback
-        rgbs = [_hex_to_rgb_safe(v) for v in vals]
-        rgbs = [x for x in rgbs if x is not None]
-        if not rgbs:
-            return fallback
-        r = int(sum(c[0] for c in rgbs) / len(rgbs))
-        g = int(sum(c[1] for c in rgbs) / len(rgbs))
-        b = int(sum(c[2] for c in rgbs) / len(rgbs))
-        return _rgb_to_hex((r, g, b))
-
-    def _label_from_room_type(room: dict) -> str:
-        raw = (
-            room.get("room_type")
-            or room.get("type")
-            or room.get("category")
-            or room.get("name")
-            or "room"
-        )
-        text = str(raw).replace("_", " ").strip().lower()
-        alias = {
-            "mep": "MEP",
-            "duct": "MEP",
-            "stair": "Staircases",
-            "stairs": "Staircases",
-            "staircase": "Staircases",
-            "door": "Doors",
-            "window": "Windows",
-            "column": "Columns",
-            "columns": "Columns",
-            "lift": "Lifts",
-            "elevator": "Lifts",
-        }
-        if text in alias:
-            return alias[text]
-        return text.title()
-
-    has_explicit_openings = len(openings) > 0
-    has_explicit_columns = len(columns) > 0
-
-    for r in rooms:
-        rtype = (r.get("type") or r.get("room_type") or r.get("category") or "").strip().lower()
-
-        # Avoid double counting when openings/columns are provided in their own arrays.
-        if has_explicit_openings and rtype in {"door", "window"}:
-            continue
-        if has_explicit_columns and rtype in {"column", "columns"}:
-            continue
-
-        if rtype in {"door", "window", "column", "columns"}:
-            amount = _el_cost(r) * cur_factor
-        else:
-            amount = _adj_room_cost(r)
-
-        bucket = _label_from_room_type(r)
-        _add(bucket, amount)
-        _remember_color(bucket, _room_geom_color(r))
-
-    for op in openings:
-        otype = (op.get("type") or op.get("category") or "").strip().lower()
-        if otype == "door":
-            _add("Doors", _safe_float(op.get("cost"), 0.0) * cur_factor)
-            _remember_color("Doors", _room_geom_color(op) or _get_space_color("door", "door"))
-        elif otype == "window":
-            _add("Windows", _safe_float(op.get("cost"), 0.0) * cur_factor)
-            _remember_color("Windows", _room_geom_color(op) or _get_space_color("window", "window"))
-
-    for c in columns:
-        _add("Columns", _safe_float(c.get("cost"), 0.0) * cur_factor)
-        _remember_color("Columns", _room_geom_color(c) or _get_space_color("column", "column"))
-
-    if not breakdown:
-        return None
-
-    sorted_items = sorted(breakdown.items(), key=lambda kv: kv[1], reverse=True)
-    labels = [k for k, _ in sorted_items]
-    values = [v for _, v in sorted_items]
-    total = sum(values)
-    if total <= 0:
-        return None
-
-    pct = [(v / total) * 100.0 for v in values]
-    fallback_map = {
-        "Bedroom": "#1d2f6f",
-        "Living Room": "#2f5597",
-        "Kitchen": "#8b5a2b",
-        "Bathroom": "#2f8dbd",
-        "Dining": "#6f8f2f",
-        "Doors": "#9a5d2f",
-        "Windows": "#1fa0d6",
-        "MEP": "#6c757d",
-        "Staircases": "#7a4f2a",
-        "Columns": "#8a8f98",
-        "Lifts": "#b1523a",
-    }
-    fallback = [
-        "#1d2f6f", "#2f5597", "#7a4f2a", "#2f8dbd", "#6f8f2f", "#9a5d2f",
-        "#1fa0d6", "#6c757d", "#b1523a", "#8a8f98", "#5e60ce", "#4361ee",
+    numeric_cols = [
+        col for col in display_df.columns
+        if "Cost" in str(col) or "Rate" in str(col)
     ]
-    colors = [
-        _avg_bucket_color(lbl, fallback_map.get(lbl, fallback[i % len(fallback)]))
-        for i, lbl in enumerate(labels)
-    ]
+    for col in numeric_cols:
+        display_df[col] = display_df[col].map(
+            lambda v: f"{float(v):,.0f}" if pd.notna(v) else ""
+        )
 
-    fig = go.Figure()
-    fig.add_trace(
-        go.Bar(
-            x=labels,
-            y=values,
-            marker_color=colors,
-            text=[f"{v:,.0f}" for v in values],
-            textposition="outside",
-            name="Total cost",
-            hovertemplate="<b>%{x}</b><br>Total: %{y:,.0f} " + currency + "<extra></extra>",
+    header_cells = "".join(
+        f'<th style="padding:7px 10px;text-align:left;background:#faf9f6;'
+        f'border-bottom:2px solid #e0dbd2;color:#6f6b66;font-size:0.68rem;'
+        f'font-weight:700;text-transform:uppercase;letter-spacing:0.06em;'
+        f'white-space:nowrap">{html.escape(str(col))}</th>'
+        for col in display_df.columns
+    )
+
+    body_rows = []
+    for idx, row in display_df.iterrows():
+        bg = "#ffffff" if idx % 2 == 0 else "#fbfaf8"
+        cells = "".join(
+            f'<td style="padding:7px 10px;border-bottom:1px solid #eceae2;'
+            f'font-size:0.82rem;color:#171717;white-space:nowrap">'
+            f'{html.escape(str(value))}</td>'
+            for value in row.tolist()
         )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=labels,
-            y=pct,
-            mode="lines+markers",
-            line=dict(color="#dc3b2a", width=3),
-            marker=dict(size=8, color="#dc3b2a"),
-            name="Share %",
-            yaxis="y2",
-            hovertemplate="<b>%{x}</b><br>Share: %{y:.1f}%<extra></extra>",
+        body_rows.append(f'<tr style="background:{bg}">{cells}</tr>')
+
+    more_note = ""
+    if total_rows > len(display_df):
+        more_note = (
+            f'<p style="margin:8px 0 0;color:#6f6b66;font-size:0.76rem">'
+            f'Showing first {len(display_df):,} of {total_rows:,} rows.</p>'
         )
+
+    st.markdown(
+        f'<div style="max-height:270px;overflow:auto;border:1px solid #e0dbd2;'
+        f'border-radius:8px;background:#fff">'
+        f'<table style="width:100%;border-collapse:collapse;background:#fff">'
+        f'<thead style="position:sticky;top:0;z-index:1"><tr>{header_cells}</tr></thead>'
+        f'<tbody>{"".join(body_rows)}</tbody></table></div>{more_note}',
+        unsafe_allow_html=True,
     )
-    fig.update_layout(
-        height=268,
-        margin=dict(l=14, r=14, t=36, b=16),
-        paper_bgcolor="#ffffff",
-        plot_bgcolor="#f6f6f8",
-        xaxis=dict(showgrid=False, tickfont=dict(size=12, color="#222"), tickangle=-15 if len(labels) > 6 else 0),
-        yaxis=dict(title=f"Cost ({currency})", gridcolor="#d9d9dd", zeroline=False),
-        yaxis2=dict(title="Share %", overlaying="y", side="right", ticksuffix="%", showgrid=False, rangemode="tozero"),
-        legend=dict(orientation="h", x=0.01, xanchor="left", y=0.99, yanchor="top",
-                    bgcolor="rgba(255,255,255,0.75)", bordercolor="#e0dbd2", borderwidth=1),
-    )
-    return fig
 
 
 def build_cost_report_pdf(layout: dict) -> bytes:
@@ -2478,7 +2428,7 @@ def build_cost_report_pdf(layout: dict) -> bytes:
             "Top room costs:",
         ]
         if not df.empty:
-            room_col = "Room" if "Room" in df.columns else df.columns[0]
+            room_col = "Element" if "Element" in df.columns else df.columns[0]
             cost_col = df.columns[-1]
             for _, row in df.sort_values(by=cost_col, ascending=False).head(30).iterrows():
                 lines.append(f"- {row.get(room_col, 'Room')}: {float(row.get(cost_col, 0)):,.0f} {currency}")
@@ -2486,7 +2436,8 @@ def build_cost_report_pdf(layout: dict) -> bytes:
             lines.append("- No room cost rows found.")
         return _simple_pdf(lines)
 
-  # ── room card ─────────────────────────────────────────────────────────────────
+
+# ── room card ─────────────────────────────────────────────────────────────────
 def render_room_card(room: dict, currency: str) -> None:
     def kv(k, v):
         return f'<div class="kv-row"><span class="kv-key">{k}</span><span class="kv-val">{v}</span></div>'
@@ -2819,8 +2770,8 @@ with st.sidebar:
                         # Define apartment positions for non-overlapping pinwheel layout (in meters)
                         # Core is at approximately (7, 7.5), units are 14m x 11m
                         apt_positions = {
-                            "apt_SW": (0, 0, 0, False),           # Southwest: origin, no rotation
-                            "apt_SE": (15, 0, 270, False),        # Southeast: x offset, -90° rotation
+                            "apt_SW": (0, 0, 0, False),            # Southwest: origin, no rotation
+                            "apt_SE": (15, 0, 270, False),         # Southeast: x offset, -90° rotation
                             "apt_NE": (15, 15, 180, False),       # Northeast: x,y offset, 180° rotation
                             "apt_NW": (0, 15, 90, False),         # Northwest: y offset, 90° rotation
                             "apt_N": (7, 26, 0, False),           # North: centered x, far y offset, no rotation
@@ -3294,37 +3245,8 @@ with col_main:
             # Element info panel — appears below chart when any element is clicked
             _render_element_panel()
 
-            # ── COST BREAKDOWN TABLE — below heatmap in the same column ───────
-            st.markdown('<div style="height:0.75rem"></div>', unsafe_allow_html=True)
-            if st.session_state.get("client_applied"):
-                st.info("Client DNA template applied. Rates and costs below reflect the client's spending profile.")
-            _act_pdf_col, _act_charts_col = st.columns(2)
-            with _act_pdf_col:
-                try:
-                    _pdf_bytes = build_cost_report_pdf(st.session_state.layout)
-                    st.download_button(
-                        "Export Cost Report (PDF)",
-                        data=_pdf_bytes,
-                        file_name="planwise_cost_report.pdf",
-                        mime="application/pdf",
-                        use_container_width=True,
-                        key="download_cost_pdf",
-                    )
-                except Exception as _pdf_err:
-                    st.caption(f"PDF export unavailable: {_pdf_err}")
-            with _act_charts_col:
-                _show_text = "Hide Price Chart" if st.session_state.show_cost_breakdown_charts else "Show Price Chart"
-                if st.button(_show_text, use_container_width=True, key="toggle_price_charts"):
-                    st.session_state.show_cost_breakdown_charts = not st.session_state.show_cost_breakdown_charts
-                    st.rerun()
-            st.caption("Use PDF export for full table details. The price chart below shows totals and share by component.")
-
-            if st.session_state.get("show_cost_breakdown_charts", True):
-                _comp_fig = build_component_price_reference_chart(st.session_state.layout)
-                if _comp_fig is not None:
-                    st.plotly_chart(_comp_fig, use_container_width=True, config={"displaylogo": False})
-                else:
-                    st.info("No component price data available for charting in the current layout.")
+            st.markdown("<h3 style='margin-top:1rem;'>Cost Breakdown</h3>", unsafe_allow_html=True)
+            render_cost_breakdown_table(st.session_state.layout)
 
         # ── Cost Matching results — always below the floor plan ───────────────
         _cm_res_blw   = st.session_state.get("cm_result")
@@ -4230,7 +4152,3 @@ if len(st.session_state.layouts) >= 2:
             st.rerun()
     with info_col:
         st.caption("Comparison is hidden until you choose to show it.")
-
-
-
-
