@@ -1,0 +1,1041 @@
+{
+  "project": {
+    "name": "Tower Floor Plate \u2014 Pinwheel \u2014 5 apartments",
+    "currency": "USD",
+    "units": "meters",
+    "apt_area_m2": 154.0,
+    "units_per_floor": 5,
+    "total_residential_area_m2": 770.0,
+    "gross_floor_area_m2": 850.0,
+    "layout_option": "option_2",
+    "description": "Core offset slightly at centre. 5 units pinwheel around it. All units achieve corner exposure and dual-aspect views."
+  },
+  "canonical_unit": {
+    "rooms": [
+      {
+        "id": "living",
+        "name": "Living room",
+        "category": "common",
+        "polygon": [
+          [
+            0,
+            0
+          ],
+          [
+            7,
+            0
+          ],
+          [
+            7,
+            5
+          ],
+          [
+            0,
+            5
+          ]
+        ],
+        "rate_per_m2": 3200,
+        "area_m2": 35.0,
+        "total_cost": 112000
+      },
+      {
+        "id": "dining",
+        "name": "Dining room",
+        "category": "common",
+        "polygon": [
+          [
+            7,
+            0
+          ],
+          [
+            14,
+            0
+          ],
+          [
+            14,
+            5
+          ],
+          [
+            7,
+            5
+          ]
+        ],
+        "rate_per_m2": 2800,
+        "area_m2": 35.0,
+        "total_cost": 98000
+      },
+      {
+        "id": "corridor",
+        "name": "Corridor",
+        "category": "circulation",
+        "polygon": [
+          [
+            0,
+            5
+          ],
+          [
+            14,
+            5
+          ],
+          [
+            14,
+            6.5
+          ],
+          [
+            0,
+            6.5
+          ]
+        ],
+        "rate_per_m2": 1500,
+        "area_m2": 21.0,
+        "total_cost": 31500
+      },
+      {
+        "id": "master_bed",
+        "name": "Master bedroom",
+        "category": "bedroom",
+        "polygon": [
+          [
+            0,
+            6.5
+          ],
+          [
+            6.5,
+            6.5
+          ],
+          [
+            6.5,
+            11
+          ],
+          [
+            0,
+            11
+          ]
+        ],
+        "rate_per_m2": 2800,
+        "area_m2": 29.25,
+        "total_cost": 81900
+      },
+      {
+        "id": "bedroom_2",
+        "name": "Bedroom 2",
+        "category": "bedroom",
+        "polygon": [
+          [
+            6.5,
+            6.5
+          ],
+          [
+            9.5,
+            6.5
+          ],
+          [
+            9.5,
+            11
+          ],
+          [
+            6.5,
+            11
+          ]
+        ],
+        "rate_per_m2": 2200,
+        "area_m2": 13.5,
+        "total_cost": 29700
+      },
+      {
+        "id": "bedroom_3",
+        "name": "Bedroom 3",
+        "category": "bedroom",
+        "polygon": [
+          [
+            9.5,
+            6.5
+          ],
+          [
+            11.5,
+            6.5
+          ],
+          [
+            11.5,
+            11
+          ],
+          [
+            9.5,
+            11
+          ]
+        ],
+        "rate_per_m2": 2200,
+        "area_m2": 9.0,
+        "total_cost": 19800
+      },
+      {
+        "id": "bathroom",
+        "name": "Bathroom",
+        "category": "wet",
+        "polygon": [
+          [
+            11.5,
+            6.5
+          ],
+          [
+            14,
+            6.5
+          ],
+          [
+            14,
+            11
+          ],
+          [
+            11.5,
+            11
+          ]
+        ],
+        "rate_per_m2": 4500,
+        "area_m2": 11.25,
+        "total_cost": 50625
+      }
+    ],
+    "columns": [
+      {
+        "id": "col_corner_sw",
+        "subtype": "corner",
+        "section_m": [
+          0.3,
+          0.3
+        ],
+        "polygon": [
+          [
+            0,
+            0
+          ],
+          [
+            0.3,
+            0
+          ],
+          [
+            0.3,
+            0.3
+          ],
+          [
+            0,
+            0.3
+          ]
+        ],
+        "cost": 5000,
+        "location": "perimeter_corner"
+      },
+      {
+        "id": "col_corner_se",
+        "subtype": "corner",
+        "section_m": [
+          0.3,
+          0.3
+        ],
+        "polygon": [
+          [
+            13.7,
+            0
+          ],
+          [
+            14,
+            0
+          ],
+          [
+            14,
+            0.3
+          ],
+          [
+            13.7,
+            0.3
+          ]
+        ],
+        "cost": 5000,
+        "location": "perimeter_corner"
+      },
+      {
+        "id": "col_corner_ne",
+        "subtype": "corner",
+        "section_m": [
+          0.3,
+          0.3
+        ],
+        "polygon": [
+          [
+            13.7,
+            10.7
+          ],
+          [
+            14,
+            10.7
+          ],
+          [
+            14,
+            11
+          ],
+          [
+            13.7,
+            11
+          ]
+        ],
+        "cost": 5000,
+        "location": "perimeter_corner"
+      },
+      {
+        "id": "col_corner_nw",
+        "subtype": "corner",
+        "section_m": [
+          0.3,
+          0.3
+        ],
+        "polygon": [
+          [
+            0,
+            10.7
+          ],
+          [
+            0.3,
+            10.7
+          ],
+          [
+            0.3,
+            11
+          ],
+          [
+            0,
+            11
+          ]
+        ],
+        "cost": 5000,
+        "location": "perimeter_corner"
+      },
+      {
+        "id": "col_edge_south",
+        "subtype": "edge",
+        "section_m": [
+          0.3,
+          0.3
+        ],
+        "polygon": [
+          [
+            6.85,
+            0
+          ],
+          [
+            7.15,
+            0
+          ],
+          [
+            7.15,
+            0.3
+          ],
+          [
+            6.85,
+            0.3
+          ]
+        ],
+        "cost": 4000,
+        "location": "perimeter_edge"
+      },
+      {
+        "id": "col_edge_north",
+        "subtype": "edge",
+        "section_m": [
+          0.3,
+          0.3
+        ],
+        "polygon": [
+          [
+            9.35,
+            10.7
+          ],
+          [
+            9.65,
+            10.7
+          ],
+          [
+            9.65,
+            11
+          ],
+          [
+            9.35,
+            11
+          ]
+        ],
+        "cost": 4000,
+        "location": "perimeter_edge"
+      },
+      {
+        "id": "col_edge_east",
+        "subtype": "edge",
+        "section_m": [
+          0.3,
+          0.3
+        ],
+        "polygon": [
+          [
+            13.7,
+            5.6
+          ],
+          [
+            14,
+            5.6
+          ],
+          [
+            14,
+            5.9
+          ],
+          [
+            13.7,
+            5.9
+          ]
+        ],
+        "cost": 4000,
+        "location": "perimeter_edge"
+      },
+      {
+        "id": "col_edge_west",
+        "subtype": "edge",
+        "section_m": [
+          0.3,
+          0.3
+        ],
+        "polygon": [
+          [
+            0,
+            5.6
+          ],
+          [
+            0.3,
+            5.6
+          ],
+          [
+            0.3,
+            5.9
+          ],
+          [
+            0,
+            5.9
+          ]
+        ],
+        "cost": 4000,
+        "location": "perimeter_edge"
+      },
+      {
+        "id": "col_center",
+        "subtype": "interior",
+        "section_m": [
+          0.5,
+          0.5
+        ],
+        "polygon": [
+          [
+            6.75,
+            5.5
+          ],
+          [
+            7.25,
+            5.5
+          ],
+          [
+            7.25,
+            6
+          ],
+          [
+            6.75,
+            6
+          ]
+        ],
+        "cost": 11000,
+        "location": "interior",
+        "note": "0.5x0.5m \u2014 higher tributary load"
+      }
+    ],
+    "openings": [
+      {
+        "id": "front_door",
+        "type": "door",
+        "subtype": "exterior_entrance",
+        "position": {
+          "wall": "south",
+          "x_center": 3.5,
+          "width": 1.0
+        },
+        "polygon": [
+          [
+            3,
+            -0.1
+          ],
+          [
+            4,
+            -0.1
+          ],
+          [
+            4,
+            0.1
+          ],
+          [
+            3,
+            0.1
+          ]
+        ],
+        "swing_radius": 1.0,
+        "swing_direction": "inward",
+        "cost": 4500,
+        "linked_rooms": [
+          "living"
+        ]
+      },
+      {
+        "id": "door_living_corridor",
+        "type": "door",
+        "subtype": "interior_standard",
+        "position": {
+          "wall": "living_corridor",
+          "x_center": 3.5,
+          "width": 1.0
+        },
+        "polygon": [
+          [
+            3,
+            4.9
+          ],
+          [
+            4,
+            4.9
+          ],
+          [
+            4,
+            5.1
+          ],
+          [
+            3,
+            5.1
+          ]
+        ],
+        "swing_radius": 0.9,
+        "swing_direction": "inward_corridor",
+        "cost": 1800,
+        "linked_rooms": [
+          "living",
+          "corridor"
+        ]
+      },
+      {
+        "id": "door_dining_corridor",
+        "type": "door",
+        "subtype": "interior_standard",
+        "position": {
+          "wall": "dining_corridor",
+          "x_center": 10.5,
+          "width": 1.0
+        },
+        "polygon": [
+          [
+            10,
+            4.9
+          ],
+          [
+            11,
+            4.9
+          ],
+          [
+            11,
+            5.1
+          ],
+          [
+            10,
+            5.1
+          ]
+        ],
+        "swing_radius": 0.9,
+        "swing_direction": "inward_corridor",
+        "cost": 1800,
+        "linked_rooms": [
+          "dining",
+          "corridor"
+        ]
+      },
+      {
+        "id": "door_master",
+        "type": "door",
+        "subtype": "interior_standard",
+        "position": {
+          "wall": "corridor_master",
+          "x_center": 3.25,
+          "width": 0.9
+        },
+        "polygon": [
+          [
+            2.8,
+            6.4
+          ],
+          [
+            3.7,
+            6.4
+          ],
+          [
+            3.7,
+            6.6
+          ],
+          [
+            2.8,
+            6.6
+          ]
+        ],
+        "swing_radius": 0.9,
+        "swing_direction": "inward_master",
+        "cost": 1800,
+        "linked_rooms": [
+          "master_bed",
+          "corridor"
+        ]
+      },
+      {
+        "id": "door_bedroom_2",
+        "type": "door",
+        "subtype": "interior_standard",
+        "position": {
+          "wall": "corridor_bed2",
+          "x_center": 8.0,
+          "width": 0.9
+        },
+        "polygon": [
+          [
+            7.55,
+            6.4
+          ],
+          [
+            8.45,
+            6.4
+          ],
+          [
+            8.45,
+            6.6
+          ],
+          [
+            7.55,
+            6.6
+          ]
+        ],
+        "swing_radius": 0.9,
+        "swing_direction": "inward_bed2",
+        "cost": 1800,
+        "linked_rooms": [
+          "bedroom_2",
+          "corridor"
+        ]
+      },
+      {
+        "id": "door_bedroom_3",
+        "type": "door",
+        "subtype": "interior_standard",
+        "position": {
+          "wall": "corridor_bed3",
+          "x_center": 10.5,
+          "width": 0.9
+        },
+        "polygon": [
+          [
+            10.05,
+            6.4
+          ],
+          [
+            10.95,
+            6.4
+          ],
+          [
+            10.95,
+            6.6
+          ],
+          [
+            10.05,
+            6.6
+          ]
+        ],
+        "swing_radius": 0.9,
+        "swing_direction": "inward_bed3",
+        "cost": 1800,
+        "linked_rooms": [
+          "bedroom_3",
+          "corridor"
+        ]
+      },
+      {
+        "id": "door_bathroom",
+        "type": "door",
+        "subtype": "interior_wet",
+        "position": {
+          "wall": "corridor_bathroom",
+          "x_center": 12.75,
+          "width": 0.9
+        },
+        "polygon": [
+          [
+            12.3,
+            6.4
+          ],
+          [
+            13.2,
+            6.4
+          ],
+          [
+            13.2,
+            6.6
+          ],
+          [
+            12.3,
+            6.6
+          ]
+        ],
+        "swing_radius": 0.9,
+        "swing_direction": "inward_bathroom",
+        "cost": 2200,
+        "linked_rooms": [
+          "bathroom",
+          "corridor"
+        ]
+      },
+      {
+        "id": "window_living_south",
+        "type": "window",
+        "subtype": "picture_large",
+        "position": {
+          "wall": "south",
+          "x_start": 1.4,
+          "x_end": 3.4
+        },
+        "polygon": [
+          [
+            1.4,
+            -0.1
+          ],
+          [
+            3.4,
+            -0.1
+          ],
+          [
+            3.4,
+            0.1
+          ],
+          [
+            1.4,
+            0.1
+          ]
+        ],
+        "width_m": 2.0,
+        "cost": 5500,
+        "linked_rooms": [
+          "living"
+        ]
+      },
+      {
+        "id": "window_living_west",
+        "type": "window",
+        "subtype": "picture_large",
+        "position": {
+          "wall": "west",
+          "y_start": 1.0,
+          "y_end": 4.0
+        },
+        "polygon": [
+          [
+            -0.1,
+            1
+          ],
+          [
+            0.1,
+            1
+          ],
+          [
+            0.1,
+            4
+          ],
+          [
+            -0.1,
+            4
+          ]
+        ],
+        "height_m": 3.0,
+        "cost": 5500,
+        "linked_rooms": [
+          "living"
+        ]
+      },
+      {
+        "id": "window_dining_south",
+        "type": "window",
+        "subtype": "picture_large",
+        "position": {
+          "wall": "south",
+          "x_start": 9.1,
+          "x_end": 11.1
+        },
+        "polygon": [
+          [
+            9.1,
+            -0.1
+          ],
+          [
+            11.1,
+            -0.1
+          ],
+          [
+            11.1,
+            0.1
+          ],
+          [
+            9.1,
+            0.1
+          ]
+        ],
+        "width_m": 2.0,
+        "cost": 5500,
+        "linked_rooms": [
+          "dining"
+        ]
+      },
+      {
+        "id": "window_master_north",
+        "type": "window",
+        "subtype": "standard_large",
+        "position": {
+          "wall": "north",
+          "x_start": 2.25,
+          "x_end": 4.25
+        },
+        "polygon": [
+          [
+            2.25,
+            10.9
+          ],
+          [
+            4.25,
+            10.9
+          ],
+          [
+            4.25,
+            11.1
+          ],
+          [
+            2.25,
+            11.1
+          ]
+        ],
+        "width_m": 2.0,
+        "cost": 4000,
+        "linked_rooms": [
+          "master_bed"
+        ]
+      },
+      {
+        "id": "window_bedroom_2_north",
+        "type": "window",
+        "subtype": "standard",
+        "position": {
+          "wall": "north",
+          "x_start": 7.25,
+          "x_end": 8.75
+        },
+        "polygon": [
+          [
+            7.25,
+            10.9
+          ],
+          [
+            8.75,
+            10.9
+          ],
+          [
+            8.75,
+            11.1
+          ],
+          [
+            7.25,
+            11.1
+          ]
+        ],
+        "width_m": 1.5,
+        "cost": 2800,
+        "linked_rooms": [
+          "bedroom_2"
+        ]
+      },
+      {
+        "id": "window_bedroom_3_north",
+        "type": "window",
+        "subtype": "standard",
+        "position": {
+          "wall": "north",
+          "x_start": 9.75,
+          "x_end": 11.25
+        },
+        "polygon": [
+          [
+            9.75,
+            10.9
+          ],
+          [
+            11.25,
+            10.9
+          ],
+          [
+            11.25,
+            11.1
+          ],
+          [
+            9.75,
+            11.1
+          ]
+        ],
+        "width_m": 1.5,
+        "cost": 2800,
+        "linked_rooms": [
+          "bedroom_3"
+        ]
+      },
+      {
+        "id": "window_bathroom_east",
+        "type": "window",
+        "subtype": "small_obscured",
+        "position": {
+          "wall": "east",
+          "y_start": 8.25,
+          "y_end": 9.25
+        },
+        "polygon": [
+          [
+            13.9,
+            8.25
+          ],
+          [
+            14.1,
+            8.25
+          ],
+          [
+            14.1,
+            9.25
+          ],
+          [
+            13.9,
+            9.25
+          ]
+        ],
+        "height_m": 1.0,
+        "cost": 1800,
+        "linked_rooms": [
+          "bathroom"
+        ]
+      }
+    ],
+    "unit_summary": {
+      "rooms_total": 423525,
+      "doors_total": 15700,
+      "windows_total": 27900,
+      "columns_total": 47000,
+      "unit_total": 514125
+    }
+  },
+  "core": {
+    "id": "core",
+    "description": "Shared vertical core \u2014 lifts, stairs, lobby, MEP risers",
+    "area_m2": 80.0,
+    "components": [
+      {
+        "id": "lift_1",
+        "type": "lift",
+        "capacity_persons": 13,
+        "width_m": 2.1,
+        "depth_m": 2.1
+      },
+      {
+        "id": "lift_2",
+        "type": "lift",
+        "capacity_persons": 13,
+        "width_m": 2.1,
+        "depth_m": 2.1
+      },
+      {
+        "id": "stair_main",
+        "type": "stair",
+        "subtype": "scissor",
+        "width_m": 2.4,
+        "depth_m": 5.0
+      },
+      {
+        "id": "stair_escape",
+        "type": "stair",
+        "subtype": "fire_escape",
+        "width_m": 1.2,
+        "depth_m": 3.0
+      },
+      {
+        "id": "lobby",
+        "type": "lobby",
+        "area_m2": 20.0
+      },
+      {
+        "id": "service_duct",
+        "type": "duct",
+        "subtype": "MEP_riser",
+        "width_m": 0.6,
+        "depth_m": 4.0
+      },
+      {
+        "id": "core_door_n",
+        "type": "door",
+        "subtype": "fire_rated_60min",
+        "width_m": 0.9,
+        "cost": 3500
+      },
+      {
+        "id": "core_door_s",
+        "type": "door",
+        "subtype": "fire_rated_60min",
+        "width_m": 0.9,
+        "cost": 3500
+      }
+    ],
+    "cost_estimate": 280000
+  },
+  "layout": {
+    "core_position": "centre_offset",
+    "corridor_type": "radial",
+    "apartments": [
+      {
+        "apt_id": "apt_NW",
+        "rotation_deg": 90,
+        "mirror": true,
+        "face": "north-west"
+      },
+      {
+        "apt_id": "apt_NE",
+        "rotation_deg": 180,
+        "mirror": false,
+        "face": "north-east"
+      },
+      {
+        "apt_id": "apt_SE",
+        "rotation_deg": 270,
+        "mirror": true,
+        "face": "south-east"
+      },
+      {
+        "apt_id": "apt_SW",
+        "rotation_deg": 0,
+        "mirror": false,
+        "face": "south-west"
+      },
+      {
+        "apt_id": "apt_N",
+        "rotation_deg": 180,
+        "mirror": false,
+        "face": "north"
+      }
+    ]
+  },
+  "floor_cost_summary": {
+    "residential": 2570625,
+    "core": 280000,
+    "total_per_floor": 2850625
+  }
+}

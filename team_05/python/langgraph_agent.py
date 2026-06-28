@@ -25,20 +25,22 @@ class LangGraphAgent:
         """Route input to the appropriate backend and return the response text."""
         self._updated_layout = None  # reset on each call
 
-        context = self._build_context(user_input, layout, plans, active_plan_key, history, client_profile)
+        resolved_input = self._resolve_followup_input(user_input, history)
 
-        if self._should_compare_plans(user_input, plans) and plans:
-            response = self._compare_plans(user_input, plans, active_plan_key)
+        context = self._build_context(resolved_input, layout, plans, active_plan_key, history, client_profile)
+
+        if self._should_compare_plans(resolved_input, plans) and plans:
+            response = self._compare_plans(resolved_input, plans, active_plan_key)
             return response
 
-        if self._should_use_copilot(user_input):
+        if self._should_use_copilot(resolved_input):
             response = process_with_copilot(context)
             # if this was a finish-change, produce the updated layout and push to GH
             if layout is not None:
-                updated = apply_finish_to_layout(user_input, layout)
+                updated = apply_finish_to_layout(resolved_input, layout)
                 if updated is not None:
                     self._updated_layout = updated
-                    self._push_to_grasshopper(user_input, updated)
+                    self._push_to_grasshopper(resolved_input, updated)
         else:
             response = process_with_swiftlet(context)
 
@@ -87,6 +89,53 @@ class LangGraphAgent:
         )
         lower = user_input.lower()
         return any(k in lower for k in keywords)
+
+    def _resolve_followup_input(self, user_input: str, history: list[dict] | None) -> str:
+        """
+        Convert one-word follow-ups like "all" into a full finish-change command
+        by reusing the latest user finish-change request from chat history.
+        """
+        text = (user_input or "").strip()
+        lower = text.lower()
+        ack_words = {"ok", "okay", "yes", "y", "sure", "go ahead", "continue"}
+
+        # If user acknowledges after a clarification error, replay the latest actionable user command
+        # instead of routing to MCP with a generic "ok".
+        if lower in ack_words and history:
+            saw_target_prompt = False
+            for msg in reversed(history):
+                role = msg.get("role")
+                content = (msg.get("content") or "").strip()
+                content_low = content.lower()
+                if role == "assistant" and ("need the room target" in content_low or "need a room target" in content_low):
+                    saw_target_prompt = True
+                    continue
+                if saw_target_prompt and role == "user" and content:
+                    return content
+
+        is_all_followup = lower in {"all", "all rooms", "all spaces"} or lower.startswith("all ")
+        if not is_all_followup:
+            return text
+        if not history:
+            return text
+
+        for msg in reversed(history):
+            if msg.get("role") != "user":
+                continue
+            prev = (msg.get("content") or "").strip()
+            prev_low = prev.lower()
+
+            # Area-change follow-up (e.g. previous: "increase living room area by 10%", now: "all living room").
+            if ("area" in prev_low or "m2" in prev_low or "m²" in prev_low or "sqm" in prev_low) and any(
+                k in prev_low for k in ("increase", "decrease", "reduce", "shrink", "expand", "larger", "smaller", "%")
+            ):
+                return f"{prev} for {text}"
+
+            if ("floor" in prev_low or "wall" in prev_low or "ceiling" in prev_low) and any(
+                m in prev_low for m in ("marble", "granite", "porcelain", "ceramic", "wood", "carpet", "vinyl", "epoxy", "tile")
+            ):
+                return f"{prev} for {text}"
+        return text
 
     def _should_compare_plans(self, user_input: str, plans: dict[str, dict] | None = None) -> bool:
         lower = user_input.lower()
@@ -209,6 +258,8 @@ class LangGraphAgent:
     @staticmethod
     def _summarise_layout(layout: dict) -> str:
         proj = layout.get("project", {})
+        if isinstance(proj, str):
+            proj = {"name": proj}
         rooms = layout.get("rooms", [])
         currency = proj.get("currency", "")
         total = sum(r.get("total_cost", 0) for r in rooms)

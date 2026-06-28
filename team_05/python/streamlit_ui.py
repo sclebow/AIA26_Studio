@@ -7,8 +7,12 @@ Requires:  streamlit>=1.33, plotly, pandas
 """
 import base64
 import copy
+import io
 import json
+import math
 import os
+import re
+from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -17,6 +21,363 @@ import streamlit.components.v1 as components
 from nodes.arch_advice import get_room_carbon_data
 
 from langgraph_agent import LangGraphAgent
+
+# ── Color palette for space types ─────────────────────────────────────────────
+SPACE_TYPE_COLORS = {
+    # Residential spaces
+    "bedroom": "#FFB6C1",          # Light pink
+    "bathroom": "#87CEEB",         # Sky blue
+    "kitchen": "#FFD700",          # Gold
+    "living": "#98FB98",           # Pale green
+    "dining": "#DEB887",           # Burlywood
+    "corridor": "#D3D3D3",         # Light gray
+    "laundry": "#DDA0DD",          # Plum
+    "balcony": "#F0E68C",          # Khaki
+    "common": "#98FB98",           # Pale green
+    # Core spaces
+    "lift": "#FF6B6B",             # Red
+    "stair": "#8B4513",            # Saddle brown
+    "stairs": "#8B4513",           # Saddle brown
+    "lobby": "#FFB347",            # Pastel orange
+    "duct": "#808080",             # Gray (MEP)
+    "mep": "#808080",              # Gray (MEP)
+    "door": "#CD853F",             # Peru
+    "window": "#E6F2FF",           # Light blue
+    "column": "#6F6F6F",           # Medium gray
+    "columns": "#6F6F6F",          # Medium gray
+    "core": "#A0A0A0",             # Core gray
+    "staircase": "#8B4513",        # Saddle brown
+    "elevator": "#FF6B6B",         # Red (lift synonym)
+    # Circulation
+    "circulation": "#D3D3D3",      # Light gray
+    # Fallback
+    "default": "#CCCCCC"           # Light gray
+}
+
+COMPONENT_COLOR_TYPES = {
+    "lift", "elevator", "stair", "stairs", "staircase",
+    "duct", "mep", "lobby", "door", "doors",
+    "window", "windows", "column", "columns", "core"
+}
+
+STAIR_TYPES = {"stair", "stairs", "staircase"}
+MEP_TYPES = {"mep", "duct"}
+FIXED_COMPONENT_TYPES = COMPONENT_COLOR_TYPES - STAIR_TYPES - MEP_TYPES
+
+# ── Geometry utilities ────────────────────────────────────────────────────────
+def _transform_polygon(polygon: list, rotation_deg: float, mirror: bool, offset_x: float, offset_y: float) -> list:
+    """Transform polygon with rotation, mirror, and translation."""
+    if not polygon:
+        return polygon
+    
+    rad = math.radians(rotation_deg)
+    cos_a = math.cos(rad)
+    sin_a = math.sin(rad)
+    
+    transformed = []
+    for pt in polygon:
+        x, y = pt[0], pt[1]
+        
+        # Apply mirror around y-axis if needed
+        if mirror:
+            x = -x
+        
+        # Apply rotation around origin
+        rotated_x = x * cos_a - y * sin_a
+        rotated_y = x * sin_a + y * cos_a
+        
+        # Apply translation
+        final_x = rotated_x + offset_x
+        final_y = rotated_y + offset_y
+        
+        transformed.append([final_x, final_y])
+    
+    return transformed
+
+
+def _get_space_color(space_type: str, category: str = None) -> str:
+    """Get color for a space type."""
+    space_type = (space_type or "").strip().lower()
+    category = (category or "").strip().lower() if category else None
+
+    alias_map = {
+        "elevator": "lift",
+        "staircase": "stair",
+        "doors": "door",
+        "windows": "window",
+        "columns": "column",
+    }
+    space_type = alias_map.get(space_type, space_type)
+    if category:
+        category = alias_map.get(category, category)
+
+    # Try exact type match first
+    if space_type in SPACE_TYPE_COLORS:
+        return SPACE_TYPE_COLORS[space_type]
+    # Try category match
+    if category and category in SPACE_TYPE_COLORS:
+        return SPACE_TYPE_COLORS[category]
+    # Return default
+    return SPACE_TYPE_COLORS.get("default", "#CCCCCC")
+
+
+def _format_space_label(value: str) -> str:
+    """Format labels while preserving visible spacing between words/tokens."""
+    text = str(value or "").replace("_", " ")
+    text = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", text)
+    text = re.sub(r"(?<=[A-Za-z])(?=[0-9])", " ", text)
+    text = re.sub(r"(?<=[0-9])(?=[A-Za-z])", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    if not text:
+        return "Room"
+    return text.title() if text.islower() else text
+
+
+def _compact_space_label(value: str) -> str:
+    """Return a short single-word label to avoid multi-line stacking on dense plans."""
+    label = _format_space_label(value)
+    lower = label.lower()
+    shorthand = {
+        "bedroom": "Bed",
+        "bed room": "Bed",
+        "living room": "Living",
+        "bathroom": "Bath",
+        "bath room": "Bath",
+        "powder room": "Powder",
+        "maid room": "Maid",
+        "storage room": "Storage",
+        "store room": "Store",
+    }
+    if lower in shorthand:
+        return shorthand[lower]
+    if lower.endswith(" room"):
+        label = label[:-5].strip()
+    parts = label.split()
+    if not parts:
+        return "Room"
+    first = parts[0]
+    m = re.search(r"\b(\d+)\b", label)
+    if m and m.group(1) not in first:
+        return f"{first} {m.group(1)}"
+    return first
+
+
+def _generate_component_polygon(component: dict, x_center: float = 0, y_center: float = 0) -> list:
+    """Generate a rectangular polygon for core components (lifts, stairs, MEP)."""
+    comp_type = component.get("type", "")
+    
+    if comp_type == "lift":
+        width = component.get("width_m", 2.1)
+        depth = component.get("depth_m", 2.1)
+    elif comp_type in ["stair", "stairs"]:
+        width = component.get("width_m", 1.5)
+        depth = component.get("depth_m", 3.0)
+    elif comp_type in ["duct", "mep"]:
+        width = component.get("width_m", 1.2)
+        depth = component.get("depth_m", 1.2)
+    elif comp_type == "door":
+        width = 1.0
+        depth = 0.1
+    elif comp_type == "lobby":
+        width = component.get("width_m", 4.0)
+        depth = component.get("depth_m", 4.0)
+    else:
+        width = 1.0
+        depth = 1.0
+    
+    # Create rectangle centered at (x_center, y_center)
+    w2 = width / 2
+    d2 = depth / 2
+    
+    polygon = [
+        [x_center - w2, y_center - d2],
+        [x_center + w2, y_center - d2],
+        [x_center + w2, y_center + d2],
+        [x_center - w2, y_center + d2]
+    ]
+    
+    return polygon
+
+
+def _rect_polygon_from_xywh(x: float, y: float, w: float, h: float) -> list:
+    """Create rectangle polygon from x/y origin and width/depth dimensions."""
+    return [
+        [x, y],
+        [x + w, y],
+        [x + w, y + h],
+        [x, y + h],
+    ]
+
+
+def _rect_polygon_from_center(cx: float, cy: float, w: float, h: float) -> list:
+    """Create rectangle polygon from center point and dimensions."""
+    x0 = cx - (w / 2)
+    y0 = cy - (h / 2)
+    return _rect_polygon_from_xywh(x0, y0, w, h)
+
+
+def _room_bbox(room: dict) -> tuple[float, float, float, float] | None:
+    """Return (x0, y0, x1, y1) bbox for a room-like object."""
+    x = room.get("x")
+    y = room.get("y")
+    w = room.get("width")
+    d = room.get("depth")
+    if all(isinstance(v, (int, float)) for v in (x, y, w, d)):
+        return float(x), float(y), float(x) + float(w), float(y) + float(d)
+
+    poly = room.get("polygon") or []
+    if isinstance(poly, list) and poly:
+        xs = [p[0] for p in poly if isinstance(p, (list, tuple)) and len(p) >= 2]
+        ys = [p[1] for p in poly if isinstance(p, (list, tuple)) and len(p) >= 2]
+        if xs and ys:
+            return min(xs), min(ys), max(xs), max(ys)
+    return None
+
+
+def _host_edges_from_bboxes(host_bboxes: list[tuple[float, float, float, float]]) -> list[tuple[str, float, float, float]]:
+    """Build axis-aligned wall-edge segments from room bboxes.
+
+    Returns tuples: (orientation, line_value, seg_min, seg_max)
+    orientation: 'v' for x=const segment, 'h' for y=const segment.
+    """
+    edges: list[tuple[str, float, float, float]] = []
+    for x0, y0, x1, y1 in host_bboxes:
+        edges.append(("v", x0, y0, y1))
+        edges.append(("v", x1, y0, y1))
+        edges.append(("h", y0, x0, x1))
+        edges.append(("h", y1, x0, x1))
+    return edges
+
+
+def _point_to_axis_segment_distance(px: float, py: float, edge: tuple[str, float, float, float]) -> float:
+    """Distance from point to axis-aligned segment represented by edge tuple."""
+    orient, line_val, seg_min, seg_max = edge
+    if orient == "v":
+        x = line_val
+        y = min(max(py, seg_min), seg_max)
+        return math.hypot(px - x, py - y)
+    y = line_val
+    x = min(max(px, seg_min), seg_max)
+    return math.hypot(px - x, py - y)
+
+
+def _oriented_opening_polygon(
+    room: dict,
+    host_bboxes: list[tuple[float, float, float, float]],
+    host_edges: list[tuple[str, float, float, float]] | None = None,
+) -> list | None:
+    """Orient door/window to nearest host wall edge (parallel to wall)."""
+    x = room.get("x")
+    y = room.get("y")
+    w = room.get("width")
+    d = room.get("depth")
+    if not all(isinstance(v, (int, float)) for v in (x, y, w, d)):
+        return None
+
+    x = float(x)
+    y = float(y)
+    w = float(w)
+    d = float(d)
+    cx = x + (w / 2)
+    cy = y + (d / 2)
+    long_dim = max(w, d)
+    thin_dim = min(w, d)
+
+    if not host_bboxes:
+        return _rect_polygon_from_xywh(x, y, w, d)
+
+    edges = host_edges or _host_edges_from_bboxes(host_bboxes)
+    if not edges:
+        return _rect_polygon_from_xywh(x, y, w, d)
+
+    nearest = min(edges, key=lambda e: _point_to_axis_segment_distance(cx, cy, e))
+    nearest_orient = nearest[0]
+
+    # Openings should run parallel to the nearest wall edge.
+    if nearest_orient == "v":
+        return _rect_polygon_from_center(cx, cy, thin_dim, long_dim)
+    return _rect_polygon_from_center(cx, cy, long_dim, thin_dim)
+
+
+def _normalize_layout_schema(layout: dict) -> dict:
+    """Normalize heterogeneous JSON room schemas into the dashboard's canonical shape."""
+    if not isinstance(layout, dict):
+        return {"rooms": []}
+
+    proj = layout.get("project", {})
+    if isinstance(proj, str):
+        proj = {"name": proj}
+    elif not isinstance(proj, dict):
+        proj = {}
+
+    rooms = layout.get("rooms", [])
+    if isinstance(rooms, list):
+        host_bboxes: list[tuple[float, float, float, float]] = []
+        for host in rooms:
+            if not isinstance(host, dict):
+                continue
+            h_type = (host.get("room_type") or host.get("type") or host.get("category") or "").strip().lower()
+            if h_type in COMPONENT_COLOR_TYPES:
+                continue
+            bb = _room_bbox(host)
+            if bb is not None:
+                host_bboxes.append(bb)
+        host_edges = _host_edges_from_bboxes(host_bboxes)
+
+        for idx, room in enumerate(rooms):
+            if not isinstance(room, dict):
+                continue
+
+            room.setdefault("id", room.get("name") or f"room_{idx}")
+
+            room_type = (room.get("room_type") or room.get("type") or "").strip().lower()
+            if room_type:
+                room.setdefault("type", room_type)
+                room.setdefault("category", room_type)
+
+            if room.get("total_cost") is None:
+                room["total_cost"] = (
+                    room.get("total_cost_usd")
+                    or room.get("cost_usd")
+                    or room.get("cost")
+                    or 0
+                )
+
+            if room.get("rate_per_m2") is None:
+                room["rate_per_m2"] = (
+                    room.get("rate_per_m2_usd")
+                    or room.get("rate")
+                    or 0
+                )
+
+            if room.get("area_m2") is None:
+                w = room.get("width")
+                d = room.get("depth")
+                if isinstance(w, (int, float)) and isinstance(d, (int, float)):
+                    room["area_m2"] = float(w) * float(d)
+
+            if not room.get("space_color_hex"):
+                room["space_color_hex"] = room.get("color_hex") or room.get("color")
+
+            if not room.get("polygon"):
+                x = room.get("x")
+                y = room.get("y")
+                w = room.get("width")
+                d = room.get("depth")
+                if all(isinstance(v, (int, float)) for v in (x, y, w, d)):
+                    if room_type in {"door", "window"}:
+                        room["polygon"] = _oriented_opening_polygon(room, host_bboxes, host_edges) or _rect_polygon_from_xywh(float(x), float(y), float(w), float(d))
+                    else:
+                        room["polygon"] = _rect_polygon_from_xywh(float(x), float(y), float(w), float(d))
+
+    if not proj.get("currency"):
+        if any(isinstance(r, dict) and r.get("total_cost_usd") is not None for r in rooms if isinstance(rooms, list)):
+            proj["currency"] = "USD"
+        else:
+            proj["currency"] = "AED"
+
+    layout["project"] = proj
+    return layout
 
 # ── page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -102,7 +463,7 @@ st.markdown("""
   --s:    0 4px 18px rgba(0,0,0,0.07),0 1px 4px rgba(0,0,0,0.04);
   --s-lg: 0 8px 32px rgba(0,0,0,0.10),0 2px 8px rgba(0,0,0,0.06);
   /* ── Spacing ── */
-  --sp-xs:4px; --sp-sm:8px; --sp-md:16px; --sp-lg:24px; --sp-xl:40px;
+    --sp-xs:3px; --sp-sm:6px; --sp-md:12px; --sp-lg:18px; --sp-xl:28px;
   /* ── Font ── */
   --font: 'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 }
@@ -112,6 +473,25 @@ st.markdown("""
 .stApp p,.stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp h5,.stApp h6,
 .stApp label,.stApp button,.stApp input,.stApp textarea,.stApp select,
 .stApp td,.stApp th,.stApp li { font-family: var(--font); color: var(--bg-text); }
+
+html, body { overflow: hidden !important; height: 100% !important; }
+.stApp { height: 100vh !important; overflow: hidden !important; }
+
+/* Remove top white Streamlit chrome strip and reclaim vertical space */
+[data-testid="stHeader"] { display:none !important; }
+[data-testid="stToolbar"] { display:none !important; }
+[data-testid="stDecoration"] { display:none !important; }
+[data-testid="stAppViewContainer"] { margin-top:0 !important; }
+[data-testid="stAppViewContainer"] > .main { height: 100vh !important; overflow: hidden !important; }
+[data-testid="stAppViewContainer"] section.stMain { overflow-y: auto !important; }
+[data-testid="stAppViewContainer"] > .main .block-container { height: 100vh !important; overflow: hidden !important; }
+
+/* Keep layout usable without page scroll: each main column scrolls internally. */
+[data-testid="stAppViewContainer"] > .main .block-container > div > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+    max-height: calc(100vh - 54px) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+}
 
 /* Restore dark text inside white card columns */
 [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] p,
@@ -131,7 +511,7 @@ st.markdown("""
 [data-testid="stExpander"] td,[data-testid="stExpander"] th,
 [data-testid="stExpander"] li { color: var(--text) !important; }
 
-.block-container { padding-top:2.75rem !important; padding-bottom:4rem !important; padding-left:2.25rem !important; padding-right:2.25rem !important; max-width:none !important; }
+.block-container { padding-top:0.35rem !important; padding-bottom:0.55rem !important; padding-left:0.7rem !important; padding-right:0.7rem !important; max-width:none !important; }
 
 /* Icon font — keeps expander arrows as glyphs */
 .material-symbols-rounded {
@@ -202,14 +582,14 @@ section[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover {
 
 /* ── TYPOGRAPHY ──────────────────────────────────────────────────────────── */
 h1,h2,h3,h4,h5 { font-family:var(--font) !important; letter-spacing:-0.025em !important; color:var(--bg-text) !important; }
-h4 { font-size:1.05rem !important; font-weight:600 !important; margin-top:0.75rem !important; margin-bottom:0.2rem !important; }
-hr { border-color:var(--border-lt) !important; margin:1.25rem 0 !important; }
-.stCaption,small { color:var(--muted) !important; font-size:0.8rem !important; line-height:1.55 !important; }
+h4 { font-size:0.96rem !important; font-weight:600 !important; margin-top:0.5rem !important; margin-bottom:0.15rem !important; }
+hr { border-color:var(--border-lt) !important; margin:0.8rem 0 !important; }
+.stCaption,small { color:var(--muted) !important; font-size:0.74rem !important; line-height:1.4 !important; }
 
 /* ── METRICS ─────────────────────────────────────────────────────────────── */
 [data-testid="stMetric"] {
   background:var(--card) !important; border:1px solid var(--border) !important;
-  border-radius:var(--r) !important; padding:1.1rem 1.25rem !important;
+    border-radius:var(--r) !important; padding:0.75rem 0.9rem !important;
   box-shadow:var(--s-xs) !important;
 }
 [data-testid="stMetricLabel"] {
@@ -217,7 +597,7 @@ hr { border-color:var(--border-lt) !important; margin:1.25rem 0 !important; }
   text-transform:uppercase !important; letter-spacing:0.07em !important; color:var(--muted) !important;
 }
 [data-testid="stMetricValue"] {
-  font-size:1.6rem !important; font-weight:700 !important;
+    font-size:1.25rem !important; font-weight:700 !important;
   letter-spacing:-0.04em !important; color:var(--text) !important; line-height:1.15 !important;
 }
 
@@ -267,9 +647,9 @@ hr { border-color:var(--border-lt) !important; margin:1.25rem 0 !important; }
   padding:0 0.85rem !important;
 }
 [data-testid="stExpander"] summary {
-  font-size:0.9rem !important; font-weight:600 !important;
+    font-size:0.82rem !important; font-weight:600 !important;
   letter-spacing:-0.01em !important; color:var(--text-2) !important;
-  padding:0.95rem 0 !important;
+    padding:0.72rem 0 !important;
 }
 
 /* ── CHAT ────────────────────────────────────────────────────────────────── */
@@ -284,13 +664,13 @@ hr { border-color:var(--border-lt) !important; margin:1.25rem 0 !important; }
 [data-testid="stChatInput"] button { background:transparent !important; border:none !important; }
 [data-testid="stChatInput"] textarea,[data-baseweb="textarea"] textarea {
   background:var(--card) !important; color:var(--text) !important;
-  font-size:0.9rem !important; border:none !important; padding:0.6rem 0.75rem !important;
+    font-size:0.82rem !important; border:none !important; padding:0.48rem 0.62rem !important;
 }
 [data-testid="stChatMessageContent"] {
   background:var(--card-alt) !important; border:1px solid var(--border-lt) !important;
-  border-radius:var(--r) !important; font-size:0.875rem !important;
-  line-height:1.7 !important; color:var(--text) !important;
-  padding:0.85rem 1rem !important;
+    border-radius:var(--r) !important; font-size:0.8rem !important;
+    line-height:1.45 !important; color:var(--text) !important;
+    padding:0.58rem 0.75rem !important;
 }
 
 /* ── TABLES ──────────────────────────────────────────────────────────────── */
@@ -312,7 +692,7 @@ hr { border-color:var(--border-lt) !important; margin:1.25rem 0 !important; }
 [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
   background:var(--card) !important; border-radius:var(--r-lg) !important;
   border:1px solid var(--border) !important; box-shadow:var(--s) !important;
-  padding:2rem 2rem 2.25rem !important;
+    padding:1.1rem 1.15rem 1.2rem !important;
 }
 [data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
   background:transparent !important; border:none !important;
@@ -329,7 +709,7 @@ hr { border-color:var(--border-lt) !important; margin:1.25rem 0 !important; }
 .section-lbl {
   font-size:0.65rem; font-weight:600; color:var(--muted);
   letter-spacing:0.1em; text-transform:uppercase;
-  margin:1.25rem 0 0.9rem; display:flex; align-items:center; gap:0.6rem;
+    margin:0.72rem 0 0.46rem; display:flex; align-items:center; gap:0.45rem;
 }
 .section-lbl:first-child { margin-top:0.25rem; }
 .section-lbl::after { content:''; flex:1; height:1px; background:var(--border-lt); }
@@ -340,14 +720,14 @@ hr { border-color:var(--border-lt) !important; margin:1.25rem 0 !important; }
 }
 
 .proj-title {
-  font-size:0.88rem; font-weight:600; color:var(--text);
-  letter-spacing:-0.01em; margin:0 0 0.6rem; line-height:1.3;
+    font-size:0.8rem; font-weight:600; color:var(--text);
+    letter-spacing:-0.01em; margin:0 0 0.36rem; line-height:1.2;
 }
 
 .kv-row {
   display:flex; justify-content:space-between; align-items:center;
-  padding:0.38rem 0; border-bottom:1px solid var(--border-lt);
-  font-size:0.84rem; gap:0.5rem;
+    padding:0.26rem 0; border-bottom:1px solid var(--border-lt);
+    font-size:0.78rem; gap:0.4rem;
 }
 .kv-row:last-child { border-bottom:none; }
 .kv-key { color:var(--muted); }
@@ -355,25 +735,33 @@ hr { border-color:var(--border-lt) !important; margin:1.25rem 0 !important; }
 
 .room-card {
   background:var(--card); border:1px solid var(--border);
-  border-radius:var(--r); padding:1rem 1.15rem; margin-top:0.6rem;
+    border-radius:var(--r); padding:0.72rem 0.82rem; margin-top:0.42rem;
   box-shadow:var(--s-xs);
 }
-.room-card h4 { margin:0 0 0.5rem; font-size:0.95rem; font-weight:600; }
+.room-card h4 { margin:0 0 0.35rem; font-size:0.84rem; font-weight:600; }
 
 @media (max-width:1200px) {
   [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] { border-radius:var(--r) !important; }
 }
 
 /* ── CHART LEGEND OVERLAY ────────────────────────────────────────────────── */
+.chart-legend-wrap {
+  height: 0;
+  overflow: visible;
+  position: relative;
+  z-index: 100;
+}
 .chart-legend-overlay {
-  position:relative; float:right; z-index:100;
-  margin-top:-850px; margin-right:14px;
-  width:172px;
-  background:rgba(255,255,255,0.93);
-  border:1px solid #e0dbd2; border-radius:8px;
-  padding:10px 12px;
-  box-shadow:0 2px 10px rgba(0,0,0,0.10);
-  pointer-events:none;
+  position: absolute;
+  top: -680px;
+  right: 10px;
+  width: 172px;
+  background: rgba(255,255,255,0.93);
+  border: 1px solid #e0dbd2;
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+  pointer-events: none;
 }
 /* let the column and vertical blocks show the overlay */
 [data-testid="stVerticalBlock"],[data-testid="stColumn"] { overflow:visible !important; }
@@ -387,6 +775,7 @@ for _k, _v in {
     "selected_plan_key": None,
     "_uploaded_ids": [],
     "show_plan_comparison": False,
+    "show_cost_breakdown_charts": True,
     "messages": [],
     "selected_room": None,
     "selected_element": None,
@@ -426,102 +815,304 @@ def is_point_in_polygon(x, y, poly):
     return inside
 
 
-def render_3d_heatmap(layout_data, extrusion_mode="skyline"):
+def render_3d_heatmap(layout_data, extrusion_mode="skyline", color_mode="heatmap"):
     """
     Embeds a Three.js interactive 3D heatmap into Streamlit.
     """
-    layout_json_str = json.dumps(layout_data)
+    def _safe_float(v, default=0.0):
+        try:
+            return float(v) if v is not None else default
+        except (TypeError, ValueError):
+            return default
 
-    html_code = f"""
+    def _el_cost(el: dict) -> float:
+        return _safe_float(
+            el.get("total_cost")
+            or el.get("total_cost_usd")
+            or el.get("cost")
+            or el.get("cost_usd")
+            or 0
+        )
+
+    labor_mult = _safe_float(st.session_state.get("labor", 1.0), 1.0)
+    inflation = 1 + (_safe_float(st.session_state.get("inflation", 0.0), 0.0) / 100.0)
+    tax = _safe_float(st.session_state.get("carbon_tax", 0.0), 0.0)
+    cur_factor = _safe_float(st.session_state.get("currency_factor", 1.0), 1.0)
+    cur_code = st.session_state.get("currency_code") or ((layout_data.get("project", {}) or {}).get("currency", "AED"))
+
+    def _adj_room_cost(room: dict) -> float:
+        base = _el_cost(room)
+        gwp = _safe_float(room.get("gwp"), 0.0)
+        return ((base * labor_mult * inflation) + (gwp * tax)) * cur_factor
+
+    def _adj_simple_cost(el: dict) -> float:
+        return _el_cost(el) * cur_factor
+
+    rooms_src = layout_data.get("costs", {}).get("rooms", {}).get("rooms", layout_data.get("rooms", []))
+    if isinstance(rooms_src, dict):
+        rooms_src = list(rooms_src.values())
+
+    room_style_map = {}
+    def _room_kind(room: dict) -> str:
+        return (
+            room.get("type")
+            or room.get("room_type")
+            or room.get("category")
+            or ""
+        ).strip().lower()
+
+    def _norm_t(value: float, vals: list[float]) -> float:
+        if not vals:
+            return 0.0
+        lo, hi = min(vals), max(vals)
+        if hi <= lo:
+            return 0.0
+        return max(0.0, min(1.0, (value - lo) / (hi - lo)))
+
+    gradient_rooms = [r for r in rooms_src if _room_kind(r) not in COMPONENT_COLOR_TYPES]
+    stair_rooms = [r for r in rooms_src if _room_kind(r) in STAIR_TYPES]
+    mep_rooms = [r for r in rooms_src if _room_kind(r) in MEP_TYPES]
+
+    costs = [_adj_room_cost(r) for r in gradient_rooms] if gradient_rooms else [_adj_room_cost(r) for r in rooms_src]
+    mn, mx = (min(costs), max(costs)) if costs else (0.0, 1.0)
+    span = (mx - mn) or 1.0
+
+    stair_costs = [_adj_room_cost(r) for r in stair_rooms]
+    mep_costs = [_adj_room_cost(r) for r in mep_rooms]
+
+    for idx, room in enumerate(rooms_src):
+        room_key = str(room.get("id") or f"idx_{idx}")
+        room_type = _room_kind(room)
+        geom_color = room.get("space_color_hex") or room.get("color_hex") or room.get("color")
+        rgb = room.get("color_rgb")
+        if not geom_color and isinstance(rgb, (list, tuple)) and len(rgb) >= 3:
+            try:
+                geom_color = _rgb_to_hex((int(rgb[0]), int(rgb[1]), int(rgb[2])))
+            except (TypeError, ValueError):
+                geom_color = None
+
+        if color_mode == "space":
+            adj_cost = _adj_room_cost(room)
+            color_hex = geom_color or _get_space_color(room_type, room.get("category", ""))
+        elif room_type in STAIR_TYPES:
+            adj_cost = _adj_room_cost(room)
+            stair_t = _norm_t(adj_cost, stair_costs)
+            color_hex = _interp_hex("#E8CDAA", "#8B4513", stair_t)
+        elif room_type in MEP_TYPES:
+            adj_cost = _adj_room_cost(room)
+            mep_t = _norm_t(adj_cost, mep_costs)
+            color_hex = _interp_hex("#D7D7D7", "#6A6A6A", mep_t)
+        elif room_type in COMPONENT_COLOR_TYPES:
+            adj_cost = _adj_room_cost(room)
+            color_hex = _get_space_color(room_type, room.get("category", ""))
+        elif room_type == "door":
+            adj_cost = _adj_simple_cost(room)
+            color_hex = _cost_color_for_category(layout_data, "doors", adj_cost, _get_space_color("door", room.get("category", "")))
+        elif room_type == "window":
+            adj_cost = _adj_simple_cost(room)
+            color_hex = _cost_color_for_category(layout_data, "windows", adj_cost, _get_space_color("window", room.get("category", "")))
+        elif room_type in {"column", "columns"}:
+            adj_cost = _adj_simple_cost(room)
+            color_hex = _cost_color_for_category(layout_data, "columns", adj_cost, _get_space_color("column", room.get("category", "")))
+        else:
+            adj_cost = _adj_room_cost(room)
+            t = room.get("heat_t", (adj_cost - mn) / span)
+            color_hex = _lerp_color(float(t))
+
+        display_name = _format_space_label(room.get("room_type") or room.get("name") or room.get("id") or "Room")
+        room_style_map[room_key] = {
+            "color_hex": color_hex,
+            "cost": round(adj_cost, 2),
+            "currency": cur_code,
+            "name": display_name,
+            "label_name": _compact_space_label(display_name),
+        }
+
+    layout_json_str = json.dumps(layout_data)
+    room_style_json = json.dumps(room_style_map)
+
+    import hashlib as _hl
+    _cost_hash = _hl.md5(
+        json.dumps({k: v["cost"] for k, v in room_style_map.items()}, sort_keys=True).encode()
+    ).hexdigest()[:8]
+    # Geometry hash — changes only when room polygons change (new file), NOT when costs change.
+    # This controls whether the iframe reloads. Cost updates go through the bridge.
+    _geom_hash = _hl.md5(
+        json.dumps(
+            [(r.get("id"), r.get("polygon")) for r in rooms_src],
+            sort_keys=True
+        ).encode()
+    ).hexdigest()[:12]
+
+    # ── Bridge: publish current costs to window.parent BEFORE the 3D viewer.
+    # The viewer polls this every 600 ms; no iframe reload needed for cost changes.
+    components.html(
+        f"""<script>
+            window.parent.planwise_room_style_map = {room_style_json};
+            window.parent.planwise_cost_version   = '{_cost_hash}';
+            window.parent.planwise_3d_mode        = '{extrusion_mode}';
+        </script>""",
+        height=0,
+    )
+
+    html_code = f"""<!-- geom:{_geom_hash} -->
     <!DOCTYPE html>
     <html>
     <head>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
         <style>
-            body {{ margin: 0; overflow: hidden; font-family: sans-serif; }}
+            body {{ margin: 0; overflow: hidden; font-family: sans-serif; background: #ffffff; color: #111; }}
             #canvas-container {{ width: 100vw; height: 100vh; }}
             .hologram-label {{
                 position: absolute;
-                background: rgba(10, 10, 10, 0.85);
-                color: #00ffcc;
-                padding: 6px 12px;
-                border: 1px solid #00ffcc;
+                background: rgba(255, 255, 255, 0.90);
+                color: #1f2937;
+                padding: 2px 7px;
+                border: 1px solid #cbd5e1;
                 border-radius: 4px;
-                font-size: 12px;
+                font-size: 10px;
                 pointer-events: none;
                 transform: translate(-50%, -50%);
                 text-align: center;
-                box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+                white-space: nowrap;
+                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
             }}
-            .hologram-label span {{ color: #ffffff; font-weight: bold; font-size: 14px; display: block; }}
+            .hologram-label span {{ color: #111827; font-weight: 600; font-size: 10px; display: block; }}
+            .pick-popup {{
+                position: fixed;
+                z-index: 9999;
+                min-width: 200px;
+                background: rgba(255, 255, 255, 0.85);
+                border: 1px solid #9B6FD0;
+                border-radius: 8px;
+                box-shadow: 0 4px 16px rgba(107, 63, 160, 0.15);
+                padding: 10px 14px;
+                color: #1a1a2e;
+                font-size: 13px;
+                font-family: 'Segoe UI', Arial, sans-serif;
+                display: none;
+                pointer-events: none;
+                backdrop-filter: blur(6px);
+            }}
+            .pick-popup .ttl {{
+                font-weight: 700;
+                margin-bottom: 6px;
+                font-size: 13px;
+                color: #1a1a2e;
+            }}
+            .pick-popup .amt {{
+                font-weight: 800;
+                color: #6B3FA0;
+                font-size: 18px;
+                line-height: 1.2;
+                letter-spacing: 0.01em;
+            }}
         </style>
     </head>
     <body>
         <div id="canvas-container"></div>
         <div id="labels-container"></div>
+        <div id="pick-popup" class="pick-popup"></div>
 
         <script>
             const layoutData = {layout_json_str};
+            // Read initial style map from parent bridge (set before this iframe loaded).
+            // On subsequent reruns the bridge updates window.parent values; the polling
+            // loop below picks them up WITHOUT reloading this iframe → camera is preserved.
+            let roomStyleMap = (function() {{
+                try {{ return window.parent.planwise_room_style_map || {{}}; }}
+                catch(e) {{ return {{}}; }}
+            }})();
             const mode = "{extrusion_mode}";
             const rooms = layoutData.costs ? layoutData.costs.rooms.rooms : layoutData.rooms;
 
             const scene = new THREE.Scene();
-            scene.background = new THREE.Color('#1e1e1e');
+            scene.background = new THREE.Color('#ffffff');
             const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
             const renderer = new THREE.WebGLRenderer({{ antialias: true }});
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             document.getElementById('canvas-container').appendChild(renderer.domElement);
 
             const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.zoomSpeed    = 0.5;   // half default (1.0)
+            controls.rotateSpeed  = 0.25;  // half default (0.5)
+            controls.panSpeed     = 0.25;  // half default (0.5)
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.08;
 
-            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
             dirLight.position.set(10, 20, 10);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            dirLight.shadow.camera.near = 0.5;
+            dirLight.shadow.camera.far = 200;
+            dirLight.shadow.bias = -0.0002;
             scene.add(dirLight);
 
+            const fillLight = new THREE.DirectionalLight(0xffffff, 0.35);
+            fillLight.position.set(-14, 14, -10);
+            scene.add(fillLight);
+
             const labelsContainer = document.getElementById('labels-container');
+            const pickPopup = document.getElementById('pick-popup');
             const labelObjects = [];
             const group = new THREE.Group();
             scene.add(group);
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+            let selectedMesh = null;
 
-            // --- 1. CALCULATE MIN & MAX COST FOR DYNAMIC COLOR MAPPING ---
-            let minCost = Infinity;
-            let maxCost = -Infinity;
-            Object.values(rooms).forEach(room => {{
-                const cost = room.total_cost || 0;
-                if (cost > 0 && cost < minCost) minCost = cost;
-                if (cost > maxCost) maxCost = cost;
-            }});
-            if (minCost === Infinity) minCost = 0;
-            if (maxCost === -Infinity) maxCost = 1;
-
-            // --- 2. DYNAMIC COLOR RAMP FUNCTION ---
-            function getHeatColor(cost) {{
-                let t = (maxCost > minCost) ? (cost - minCost) / (maxCost - minCost) : 0;
-                t = Math.max(0, Math.min(1, t)); // clamp between 0 and 1
-
-                // Our architectural cost gradient (Cream to Red)
-                const stops = [
-                    {{ t: 0.00, c: new THREE.Color("#FFF5DC") }}, // Cream (Cheapest)
-                    {{ t: 0.25, c: new THREE.Color("#FED976") }}, // Light Yellow
-                    {{ t: 0.50, c: new THREE.Color("#FEB24C") }}, // Orange
-                    {{ t: 0.75, c: new THREE.Color("#F06913") }}, // Dark Orange
-                    {{ t: 1.00, c: new THREE.Color("#BD0026") }}  // Red (Most Expensive)
-                ];
-
-                // Smoothly blend (interpolate) colors based on cost
-                for (let i = 0; i < stops.length - 1; i++) {{
-                    if (t >= stops[i].t && t <= stops[i+1].t) {{
-                        const localT = (t - stops[i].t) / (stops[i+1].t - stops[i].t);
-                        return stops[i].c.clone().lerp(stops[i+1].c, localT);
-                    }}
-                }}
-                return stops[stops.length-1].c;
+            function pickMeshAtEvent(event) {{
+                const rect = renderer.domElement.getBoundingClientRect();
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+                const hits = raycaster.intersectObjects(group.children, false);
+                return hits.length ? hits[0].object : null;
             }}
 
-            Object.values(rooms).forEach(room => {{
+            function roomKey(room, idx) {{
+                return String(room.id || `idx_${{idx}}`);
+            }}
+
+            function getRoomCost(room) {{
+                return Number(room.total_cost || room.total_cost_usd || room.cost || room.cost_usd || 0);
+            }}
+
+            function hidePopup() {{
+                pickPopup.style.display = 'none';
+            }}
+
+            function showPopup(mesh, event) {{
+                const d = mesh.userData || {{}};
+                const amount = Number(d.cost || 0);
+                const cur = d.currency || '';
+                pickPopup.innerHTML = `
+                    <div class="ttl">${{d.name || 'Space'}}</div>
+                    <div style="font-size:11px;color:#6B6B9B;margin-bottom:4px">Total Cost</div>
+                    <div class="amt">${{amount.toLocaleString()}} ${{cur}}</div>
+                `;
+                const margin = 12;
+                const maxX = window.innerWidth - 220;
+                const maxY = window.innerHeight - 100;
+                const x = Math.max(margin, Math.min((event.clientX || 0) + 14, maxX));
+                const y = Math.max(margin, Math.min((event.clientY || 0) + 14, maxY));
+                pickPopup.style.left = `${{x}}px`;
+                pickPopup.style.top = `${{y}}px`;
+                pickPopup.style.display = 'block';
+            }}
+
+            Object.values(rooms).forEach((room, idx) => {{
                 if (!room.polygon || room.polygon.length < 3) return;
+
+                const rType = String(room.room_type || room.type || room.category || '').toLowerCase();
+                const hideLabelTypes = ['door', 'window', 'column', 'columns'];
+                const shouldLabel = !hideLabelTypes.includes(rType);
 
                 const shape = new THREE.Shape();
                 shape.moveTo(room.polygon[0][0], room.polygon[0][1]);
@@ -529,32 +1120,38 @@ def render_3d_heatmap(layout_data, extrusion_mode="skyline"):
                     shape.lineTo(room.polygon[i][0], room.polygon[i][1]);
                 }}
 
+                const key = roomKey(room, idx);
+                const style = roomStyleMap[key] || {{}};
+                const roomCost = Number(style.cost) || getRoomCost(room);
                 let height = 3;
-                if (mode === "skyline" && room.total_cost) {{
-                    height = Math.max(1, room.total_cost / 10000);
+                if (mode === "skyline" && roomCost) {{
+                    height = Math.max(1, roomCost / 10000);
                 }}
 
                 const extrudeSettings = {{ depth: height, bevelEnabled: false }};
                 const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
 
-                // --- 3. APPLY THE DYNAMIC COLOR ---
-                let finalColor;
-                if (layoutData.heatmap && layoutData.heatmap.rooms && layoutData.heatmap.rooms[room.id] && layoutData.heatmap.rooms[room.id].color_hex) {{
-                    finalColor = new THREE.Color(layoutData.heatmap.rooms[room.id].color_hex);
-                }} else if (room.color_hex) {{
-                    finalColor = new THREE.Color(room.color_hex);
-                }} else {{
-                    finalColor = getHeatColor(room.total_cost || 0);
-                }}
+                const finalColor = new THREE.Color(style.color_hex || room.color_hex || '#cccccc');
 
                 const material = new THREE.MeshLambertMaterial({{
                     color: finalColor,
                     transparent: true,
-                    opacity: 0.9
+                    opacity: 0.9,
+                    emissive: new THREE.Color('#000000'),
+                    emissiveIntensity: 0.25
                 }});
 
                 const mesh = new THREE.Mesh(geometry, material);
                 mesh.rotation.x = -Math.PI / 2;
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                mesh.userData = {{
+                    id: key,
+                    name: style.name || String(room.room_type || room.name || 'Room').replaceAll('_', ' '),
+                    cost: Number(style.cost ?? roomCost ?? 0),
+                    currency: style.currency || '',
+                    originalHeight: height,
+                }};
                 group.add(mesh);
 
                 geometry.computeBoundingBox();
@@ -563,30 +1160,111 @@ def render_3d_heatmap(layout_data, extrusion_mode="skyline"):
 
                 const labelPos = new THREE.Vector3(center.x, height + 0.5, -center.y);
 
-                const labelDiv = document.createElement('div');
-                labelDiv.className = 'hologram-label';
-                labelDiv.innerHTML = `${{room.name}} <br> <span>$${{room.total_cost.toLocaleString()}}</span>`;
-                labelsContainer.appendChild(labelDiv);
+                if (shouldLabel) {{
+                    const labelDiv = document.createElement('div');
+                    labelDiv.className = 'hologram-label';
+                    const cleanName = String(style.label_name || room.room_type || room.name || 'Room').replaceAll('_', ' ');
+                    labelDiv.innerHTML = `<span>${{cleanName}}</span>`;
+                    labelsContainer.appendChild(labelDiv);
 
-                labelObjects.push({{ div: labelDiv, pos: labelPos }});
+                    labelObjects.push({{ div: labelDiv, pos: labelPos, priority: roomCost || 0 }});
+                }}
             }});
 
-            new THREE.Box3().setFromObject(group).getCenter(controls.target);
+            const modelBox = new THREE.Box3().setFromObject(group);
+            const modelSize = modelBox.getSize(new THREE.Vector3());
+            modelBox.getCenter(controls.target);
+
+            const gridSize = Math.max(modelSize.x, modelSize.z) * 1.35;
+            const gridDivisions = Math.max(12, Math.round(gridSize / 2));
+            const grid = new THREE.GridHelper(gridSize, gridDivisions, 0x94a3b8, 0xd1d5db);
+            grid.position.set(controls.target.x, -0.02, controls.target.z);
+            scene.add(grid);
+
+            const groundGeo = new THREE.PlaneGeometry(gridSize * 1.1, gridSize * 1.1);
+            const groundMat = new THREE.ShadowMaterial({{ opacity: 0.22 }});
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.set(controls.target.x, -0.03, controls.target.z);
+            ground.receiveShadow = true;
+            scene.add(ground);
+
             camera.position.set(controls.target.x + 15, 20, controls.target.z + 15);
             controls.update();
 
+            renderer.domElement.addEventListener('pointermove', (event) => {{
+                const mesh = pickMeshAtEvent(event);
+                renderer.domElement.style.cursor = mesh ? 'pointer' : 'default';
+                if (mesh) {{
+                    showPopup(mesh, event);
+                }} else if (!selectedMesh) {{
+                    hidePopup();
+                }}
+            }});
+
+            renderer.domElement.addEventListener('pointerleave', () => {{
+                renderer.domElement.style.cursor = 'default';
+                if (!selectedMesh) {{
+                    hidePopup();
+                }}
+            }});
+
+            renderer.domElement.addEventListener('pointerdown', (event) => {{
+                const mesh = pickMeshAtEvent(event);
+
+                if (!mesh) {{
+                    if (selectedMesh && selectedMesh.material && selectedMesh.material.emissive) {{
+                        selectedMesh.material.emissive.set('#000000');
+                    }}
+                    selectedMesh = null;
+                    hidePopup();
+                    return;
+                }}
+                if (selectedMesh && selectedMesh !== mesh && selectedMesh.material && selectedMesh.material.emissive) {{
+                    selectedMesh.material.emissive.set('#000000');
+                }}
+                selectedMesh = mesh;
+                if (mesh.material && mesh.material.emissive) {{
+                    mesh.material.emissive.set('#213547');
+                }}
+                showPopup(mesh, event);
+            }});
+
             function animate() {{
                 requestAnimationFrame(animate);
+                controls.update();
 
-                labelObjects.forEach(obj => {{
+                // Simple screen-space collision culling to reduce label overlap.
+                const occupied = [];
+                const minDx = 90;
+                const minDy = 24;
+                const sorted = [...labelObjects].sort((a, b) => b.priority - a.priority);
+
+                sorted.forEach(obj => {{
                     const vector = obj.pos.clone();
                     vector.project(camera);
 
                     const x = (vector.x * .5 + .5) * window.innerWidth;
                     const y = (vector.y * -.5 + .5) * window.innerHeight;
 
-                    obj.div.style.left = `${{x}}px`;
-                    obj.div.style.top = `${{y}}px`;
+                    let show = (vector.z < 1 && vector.z > -1);
+                    if (show) {{
+                        for (const p of occupied) {{
+                            if (Math.abs(p.x - x) < minDx && Math.abs(p.y - y) < minDy) {{
+                                show = false;
+                                break;
+                            }}
+                        }}
+                    }}
+
+                    if (show) {{
+                        occupied.push({{ x, y }});
+                        obj.div.style.display = 'block';
+                        obj.div.style.left = `${{x}}px`;
+                        obj.div.style.top = `${{y}}px`;
+                    }} else {{
+                        obj.div.style.display = 'none';
+                    }}
                 }});
 
                 renderer.render(scene, camera);
@@ -597,12 +1275,45 @@ def render_3d_heatmap(layout_data, extrusion_mode="skyline"):
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
+                hidePopup();
             }});
+
+            // ── Live cost update — polls parent for new roomStyleMap ──────────
+            // Updates only building heights and colors; camera is never touched.
+            let _lastCostVersion = null;
+            setInterval(() => {{
+                try {{
+                    const p = window.parent;
+                    const ver = p.planwise_cost_version;
+                    if (!ver || ver === _lastCostVersion) return;
+                    _lastCostVersion = ver;
+                    const newMap = p.planwise_room_style_map;
+                    if (!newMap) return;
+                    group.children.forEach(mesh => {{
+                        const d = mesh.userData || {{}};
+                        if (!d.id || !d.originalHeight) return;
+                        const s = newMap[d.id];
+                        if (!s) return;
+                        const newCost = Number(s.cost) || 0;
+                        const newH = mode === "skyline" && newCost
+                            ? Math.max(1, newCost / 10000)
+                            : d.originalHeight;
+                        // Scale along local Z (which is world Y after rotation.x = -PI/2)
+                        mesh.scale.z = newH / d.originalHeight;
+                        // Update fill color
+                        if (s.color_hex) mesh.material.color.set(s.color_hex);
+                        // Update hover popup data
+                        d.cost = newCost;
+                        d.currency = s.currency || d.currency;
+                        d.name = s.name || d.name;
+                    }});
+                }} catch(e) {{}}
+            }}, 600);
         </script>
     </body>
     </html>
     """
-    components.html(html_code, height=880)
+    components.html(html_code, height=540)
 
 def _merge_gh_colors(base: dict, gh: dict) -> dict:
     """
@@ -614,6 +1325,9 @@ def _merge_gh_colors(base: dict, gh: dict) -> dict:
     gh_by_id   = {r.get("id"): r for r in gh_rooms}
     gh_by_name = {(r.get("name") or "").lower(): r for r in gh_rooms}
     for room in result.get("rooms", []):
+        if not room.get("space_color_hex"):
+            room["space_color_hex"] = room.get("color_hex") or room.get("color")
+
         src = (gh_by_id.get(room.get("id"))
                or gh_by_name.get((room.get("name") or "").lower()))
         if src:
@@ -818,15 +1532,84 @@ def build_floor_plan(
     layout: dict,
     selected_id: str | None = None,
     plot_height: int | None = None,
+    label_mode: str = "all",
+    color_mode: str = "heatmap",
 ) -> go.Figure:
     rooms    = layout.get("rooms", [])
     openings = layout.get("openings", [])
     columns  = layout.get("columns", [])
-    currency = layout.get("project", {}).get("currency", "")
+    proj = layout.get("project", {})
+    # Handle case where project is a string instead of dict
+    if isinstance(proj, str):
+        proj = {}
+    currency = proj.get("currency", "")
 
-    costs = [r.get("total_cost", 0) for r in rooms]
+    def _safe_float(v, default=0.0):
+        try:
+            return float(v) if v is not None else default
+        except (TypeError, ValueError):
+            return default
+
+    labor_mult = _safe_float(st.session_state.get("labor", 1.0), 1.0)
+    inflation = 1 + (_safe_float(st.session_state.get("inflation", 0.0), 0.0) / 100.0)
+    tax = _safe_float(st.session_state.get("carbon_tax", 0.0), 0.0)
+    cur_factor = _safe_float(st.session_state.get("currency_factor", 1.0), 1.0)
+
+    def _room_cost(room: dict) -> float:
+        base_cost = _safe_float(
+            room.get("total_cost")
+            or room.get("total_cost_usd")
+            or room.get("cost")
+            or room.get("cost_usd")
+            or 0
+        )
+        gwp = _safe_float(room.get("gwp"), 0.0)
+        return ((base_cost * labor_mult * inflation) + (gwp * tax)) * cur_factor
+
+    def _room_kind(room: dict) -> str:
+        return (
+            room.get("type")
+            or room.get("room_type")
+            or room.get("category")
+            or ""
+        ).strip().lower()
+
+    def _norm_t(value: float, vals: list[float]) -> float:
+        if not vals:
+            return 0.0
+        lo, hi = min(vals), max(vals)
+        if hi <= lo:
+            return 0.0
+        return max(0.0, min(1.0, (value - lo) / (hi - lo)))
+
+    # Gradient range should reflect room spaces only, not fixed-color components.
+    gradient_rooms = [r for r in rooms if _room_kind(r) not in COMPONENT_COLOR_TYPES]
+    stair_rooms = [r for r in rooms if _room_kind(r) in STAIR_TYPES]
+    mep_rooms = [r for r in rooms if _room_kind(r) in MEP_TYPES]
+    named_component_types = set(STAIR_TYPES) | set(MEP_TYPES) | {"lift", "elevator"}
+    costs = [_room_cost(r) for r in gradient_rooms] if gradient_rooms else [_room_cost(r) for r in rooms]
     mn, mx = (min(costs), max(costs)) if costs else (0, 1)
     span = (mx - mn) or 1
+
+    stair_costs = [_room_cost(r) for r in stair_rooms]
+    mep_costs = [_room_cost(r) for r in mep_rooms]
+
+    room_areas = [
+        _safe_float(r.get("area_m2"), 0.0)
+        for r in rooms
+        if isinstance(r, dict)
+    ]
+    area_lo, area_hi = (min(room_areas), max(room_areas)) if room_areas else (0.0, 1.0)
+    area_span = (area_hi - area_lo) or 1.0
+
+    def _font_for_room(area_m2: float, base_small: int, base_large: int) -> int:
+        rel = (_safe_float(area_m2, 0.0) - area_lo) / area_span
+        rel = max(0.0, min(1.0, rel))
+        return int(round(base_small + (base_large - base_small) * rel))
+
+    # Avoid label collisions on very dense plans unless user forces all labels.
+    dense_plan = len(rooms) > 120
+    medium_plan = 60 < len(rooms) <= 120
 
     fig = go.Figure()
 
@@ -836,8 +1619,34 @@ def build_floor_plan(
             continue
         xs = [p[0] for p in poly] + [poly[0][0]]
         ys = [p[1] for p in poly] + [poly[0][1]]
-        t    = room.get("heat_t", (room.get("total_cost", mn) - mn) / span)
-        fill = room.get("color_hex") or _lerp_color(t)
+        room_cost = _room_cost(room)
+        t    = room.get("heat_t", (room_cost - mn) / span)
+        
+        # Determine color: use space type color for core elements, heat gradient for rooms
+        room_type = _room_kind(room)
+        is_component_room = room_type in COMPONENT_COLOR_TYPES
+        room_geom_color = room.get("space_color_hex") or room.get("color_hex") or room.get("color")
+        room_rgb = room.get("color_rgb")
+        if not room_geom_color and isinstance(room_rgb, (list, tuple)) and len(room_rgb) >= 3:
+            try:
+                room_geom_color = _rgb_to_hex((int(room_rgb[0]), int(room_rgb[1]), int(room_rgb[2])))
+            except (TypeError, ValueError):
+                room_geom_color = None
+        if color_mode == "space":
+            fill = room_geom_color or _get_space_color(room_type, room.get("category", ""))
+        elif room_type in STAIR_TYPES:
+            stair_t = _norm_t(room_cost, stair_costs)
+            fill = _interp_hex("#E8CDAA", "#8B4513", stair_t)
+        elif room_type in MEP_TYPES:
+            mep_t = _norm_t(room_cost, mep_costs)
+            fill = _interp_hex("#D7D7D7", "#6A6A6A", mep_t)
+        elif room_type in FIXED_COMPONENT_TYPES:
+            # Use dedicated colors for infrastructure elements
+            fill = _get_space_color(room_type, room_type)
+        else:
+            # Always use live heat gradient for room costs.
+            fill = _lerp_color(t)
+        
         is_sel = room.get("id") == selected_id
         cx = sum(p[0] for p in poly) / len(poly)
         cy = sum(p[1] for p in poly) / len(poly)
@@ -849,22 +1658,93 @@ def build_floor_plan(
             hoveron="fills+points",
             customdata=[[
                 room.get("id", ""), "room", room.get("name", ""),
-                room.get("total_cost", 0), room.get("area_m2", 0),
+                room_cost, room.get("area_m2", 0),
                 room.get("rate_per_m2", 0), room.get("category", ""),
             ]],
             hovertemplate=(
                 f"<b>{room.get('name', '')}</b><br>"
                 f"Area: {room.get('area_m2', 0):.1f} m²<br>"
                 f"Rate: {room.get('rate_per_m2', 0):,.0f} {currency}/m²<br>"
-                f"<b>Cost: {room.get('total_cost', 0):,.0f} {currency}</b>"
+                f"<b>Cost: {room_cost:,.0f} {currency}</b>"
                 "<extra></extra>"
             ),
         ))
-        fig.add_annotation(
-            x=cx, y=cy,
-            text=f"<b>{room.get('name','')}</b><br>{room.get('total_cost',0)/1000:.0f}k {currency}",
-            showarrow=False, font=dict(size=13, color=_text_on(t)), align="center",
+        # Invisible centroid marker — ensures hover fires anywhere inside the fill,
+        # not just on the border line (Plotly fill hover is unreliable without this).
+        fig.add_trace(go.Scatter(
+            x=[cx], y=[cy],
+            mode="markers",
+            marker=dict(size=1, opacity=0, color=fill),
+            showlegend=False,
+            hovertemplate=(
+                f"<b>{room.get('name', '')}</b><br>"
+                f"Area: {room.get('area_m2', 0):.1f} m²<br>"
+                f"Rate: {room.get('rate_per_m2', 0):,.0f} {currency}/m²<br>"
+                f"<b>Cost: {room_cost:,.0f} {currency}</b>"
+                "<extra></extra>"
+            ),
+            customdata=[[
+                room.get("id", ""), "room", room.get("name", ""),
+                room_cost, room.get("area_m2", 0),
+                room.get("rate_per_m2", 0), room.get("category", ""),
+            ]],
+        ))
+        
+        # Add annotation with smart text sizing and density control.
+        room_name = room.get('name', '')
+        is_multi_apt = "(Apt" in room_name
+        area_m2 = _safe_float(room.get("area_m2"), 0.0)
+        font_size = _font_for_room(area_m2, 7, 12)
+        if is_multi_apt:
+            font_size = max(7, font_size - 1)
+
+        # Labels are shown for rooms and key service components (stairs/lifts/mep).
+        show_label = (not is_component_room) or (room_type in named_component_types)
+        if label_mode == "off":
+            show_label = False
+        elif label_mode == "smart":
+            if room_type in named_component_types:
+                show_label = True
+            elif dense_plan:
+                # Only label high-value spaces in dense plans to keep text readable.
+                show_label = room_cost >= (mn + span * 0.80)
+                font_size = min(font_size, 8)
+            elif medium_plan:
+                # Label only more significant rooms in medium-density plans.
+                show_label = room_cost >= (mn + span * 0.55)
+                font_size = min(font_size, 9)
+        else:
+            # Force show all labels (room names visible for every room).
+            font_size = max(7, min(font_size, 10 if dense_plan else 11))
+        
+        # Display clean room names only (no IDs/costs/codes).
+        room_label = (
+            room.get("room_type")
+            or room.get("type")
+            or room.get("category")
+            or room_name
+            or "Room"
         )
+        room_label = _format_space_label(room_label)
+        if room_type in named_component_types and room_name:
+            room_label = _format_space_label(room_name)
+        if room_label in {"Common", "Room"} and room_name:
+            room_label = _format_space_label(str(room_name).split(" (Apt ")[0])
+
+        if room_type in named_component_types:
+            label_text = f"<b>{room_label}</b>"
+        else:
+            label_text = f"<b>{_compact_space_label(room_label)}</b>"
+        
+        if show_label:
+            fig.add_annotation(
+                x=cx, y=cy,
+                text=label_text,
+                showarrow=False,
+                font=dict(size=font_size, color=_text_on(t)),
+                align="center",
+                bgcolor="rgba(255,255,255,0.18)" if label_mode == "all" else None,
+            )
 
     for op in (openings + columns):
         poly = op.get("polygon", [])
@@ -873,13 +1753,36 @@ def build_floor_plan(
         ox = [p[0] for p in poly] + [poly[0][0]]
         oy = [p[1] for p in poly] + [poly[0][1]]
         op_type = (op.get("type") or op.get("category") or "").lower()
-        fill   = op.get("color_hex") or ("rgba(92,45,0,0.85)" if "door" in op_type else
-                                          "rgba(30,144,255,0.55)" if "window" in op_type else
-                                          "rgba(130,130,130,0.7)")
-        border = op.get("color_hex") or ("#3d1a00" if "door" in op_type else
-                                          "#0050b3" if "window" in op_type else "#444")
+        op_geom_color = op.get("space_color_hex") or op.get("color_hex") or op.get("color")
+        op_rgb = op.get("color_rgb")
+        if not op_geom_color and isinstance(op_rgb, (list, tuple)) and len(op_rgb) >= 3:
+            try:
+                op_geom_color = _rgb_to_hex((int(op_rgb[0]), int(op_rgb[1]), int(op_rgb[2])))
+            except (TypeError, ValueError):
+                op_geom_color = None
+        if color_mode == "space":
+            fill = op_geom_color or _get_space_color(op_type, op_type)
+            border = op_geom_color or "#4a4a4a"
+        elif op_type in STAIR_TYPES:
+            fill = _interp_hex("#E8CDAA", "#8B4513", 0.6)
+            border = "#6B3510"
+        elif op_type in MEP_TYPES:
+            fill = _interp_hex("#D7D7D7", "#6A6A6A", 0.6)
+            border = "#4F4F4F"
+        elif op_type in FIXED_COMPONENT_TYPES:
+            fill = _get_space_color(op_type, op_type)
+            border = "#3d1a00" if "door" in op_type else "#0050b3" if "window" in op_type else "#444"
+        else:
+            fill = op.get("color_hex") or ("rgba(92,45,0,0.85)" if "door" in op_type else
+                                            "rgba(30,144,255,0.55)" if "window" in op_type else
+                                            "rgba(130,130,130,0.7)")
+            border = op.get("color_hex") or ("#3d1a00" if "door" in op_type else
+                                              "#0050b3" if "window" in op_type else "#444")
         _op_subtype = op.get("subtype") or op_type.capitalize()
         _op_cost    = op.get("cost", 0) or 0
+        _op_poly    = op.get("polygon", [])
+        _ocx = sum(p[0] for p in _op_poly) / len(_op_poly) if _op_poly else 0
+        _ocy = sum(p[1] for p in _op_poly) / len(_op_poly) if _op_poly else 0
         fig.add_trace(go.Scatter(
             x=ox, y=oy, fill="toself", fillcolor=fill,
             line=dict(color=border, width=1), mode="lines",
@@ -893,6 +1796,21 @@ def build_floor_plan(
                 f"<b>{op_type.capitalize()}</b> ({_op_subtype})<br>"
                 f"Cost: {_op_cost:,.0f} {currency}<extra></extra>"
             ),
+        ))
+        # Invisible centroid marker for reliable fill hover on openings/columns.
+        fig.add_trace(go.Scatter(
+            x=[_ocx], y=[_ocy],
+            mode="markers",
+            marker=dict(size=1, opacity=0, color=fill),
+            showlegend=False,
+            hovertemplate=(
+                f"<b>{op_type.capitalize()}</b> ({_op_subtype})<br>"
+                f"Cost: {_op_cost:,.0f} {currency}<extra></extra>"
+            ),
+            customdata=[[
+                op.get("id", ""), op_type, _op_subtype,
+                _op_cost, 0, 0, "",
+            ]],
         ))
 
     # Compute tight coordinate bounds to eliminate dead whitespace
@@ -919,6 +1837,14 @@ def build_floor_plan(
                    scaleratio=1, showticklabels=False, range=_xrange),
         yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=_yrange),
         clickmode="event+select", dragmode="select",
+        hovermode="closest",
+        hoverdistance=20,
+        hoverlabel=dict(
+            bgcolor="rgba(255,255,255,0.85)",
+            font=dict(color="#1a1a2e", size=12, family="Segoe UI, Arial, sans-serif"),
+            bordercolor="#9B6FD0",
+            namelength=0,
+        ),
     )
     if plot_height is not None:
         fig.update_layout(height=plot_height)
@@ -930,15 +1856,108 @@ def build_gh_legend(layout: dict) -> str:
     heatmap  = layout.get("heatmap", {})
     ranges   = heatmap.get("ranges", {})
     ramps    = heatmap.get("ramps", {})
-    currency = layout.get("project", {}).get("currency", "")
+    proj = layout.get("project", {})
+    if isinstance(proj, str):
+        proj = {}
+    currency = proj.get("currency", "")
+
+    def _safe_float(v, default=0.0):
+        try:
+            return float(v) if v is not None else default
+        except (TypeError, ValueError):
+            return default
+
+    def _el_cost(el: dict) -> float:
+        return _safe_float(
+            el.get("total_cost")
+            or el.get("total_cost_usd")
+            or el.get("cost")
+            or el.get("cost_usd")
+            or 0
+        )
+
+    labor_mult = _safe_float(st.session_state.get("labor", 1.0), 1.0)
+    inflation = 1 + (_safe_float(st.session_state.get("inflation", 0.0), 0.0) / 100.0)
+    tax = _safe_float(st.session_state.get("carbon_tax", 0.0), 0.0)
+    cur_factor = _safe_float(st.session_state.get("currency_factor", 1.0), 1.0)
+
+    def _adj_room_cost(room: dict) -> float:
+        base = _el_cost(room)
+        gwp = _safe_float(room.get("gwp"), 0.0)
+        return ((base * labor_mult * inflation) + (gwp * tax)) * cur_factor
+
+    def _adj_simple_cost(el: dict) -> float:
+        return _el_cost(el) * cur_factor
+
+    # If ranges are missing/empty (common in normalized plans), infer them from current data.
+    def _is_missing_or_zero(cat: str) -> bool:
+        r = ranges.get(cat, {}) if isinstance(ranges, dict) else {}
+        lo = _safe_float(r.get("min", 0.0), 0.0)
+        hi = _safe_float(r.get("max", 0.0), 0.0)
+        return hi <= lo
+
+    if any(_is_missing_or_zero(cat) for cat in ("rooms", "doors", "windows", "columns")):
+        rooms = layout.get("rooms", [])
+        openings = layout.get("openings", [])
+        columns = layout.get("columns", [])
+
+        room_vals = []
+        stair_vals = []
+        mep_vals = []
+        door_vals = []
+        window_vals = []
+        column_vals = []
+
+        for r in rooms:
+            rtype = (r.get("type") or r.get("room_type") or r.get("category") or "").lower()
+            if rtype == "door":
+                door_vals.append(_adj_simple_cost(r))
+            elif rtype == "window":
+                window_vals.append(_adj_simple_cost(r))
+            elif rtype == "column":
+                column_vals.append(_adj_simple_cost(r))
+            elif rtype in STAIR_TYPES:
+                stair_vals.append(_adj_room_cost(r))
+            elif rtype in MEP_TYPES:
+                mep_vals.append(_adj_room_cost(r))
+            elif rtype in COMPONENT_COLOR_TYPES:
+                # Fixed-color components are not part of heat gradients.
+                continue
+            else:
+                room_vals.append(_adj_room_cost(r))
+
+        for op in openings:
+            otype = (op.get("type") or op.get("category") or "").lower()
+            if "door" in otype:
+                door_vals.append(_adj_simple_cost(op))
+            elif "window" in otype:
+                window_vals.append(_adj_simple_cost(op))
+
+        for c in columns:
+            column_vals.append(_adj_simple_cost(c))
+
+        inferred = {
+            "rooms": {"min": min(room_vals) if room_vals else 0.0, "max": max(room_vals) if room_vals else 0.0},
+            "stairs": {"min": min(stair_vals) if stair_vals else 0.0, "max": max(stair_vals) if stair_vals else 0.0},
+            "mep": {"min": min(mep_vals) if mep_vals else 0.0, "max": max(mep_vals) if mep_vals else 0.0},
+            "doors": {"min": min(door_vals) if door_vals else 0.0, "max": max(door_vals) if door_vals else 0.0},
+            "windows": {"min": min(window_vals) if window_vals else 0.0, "max": max(window_vals) if window_vals else 0.0},
+            "columns": {"min": min(column_vals) if column_vals else 0.0, "max": max(column_vals) if column_vals else 0.0},
+        }
+        if not isinstance(ranges, dict):
+            ranges = {}
+        ranges = {**inferred, **ranges}
+
     _fallback = {
         "rooms":   [("#FFF5DC",0),("#FED976",.25),("#FEB24C",.5),("#F06913",.75),("#BD0026",1)],
+        "stairs":  [("#E8CDAA",0),("#B27A41",.5),("#8B4513",1)],
+        "mep":     [("#D7D7D7",0),("#9E9E9E",.5),("#6A6A6A",1)],
         "doors":   [("#E8CDAA",0),("#B27A41",.5),("#643719",1)],
         "windows": [("#D2E8F0",0),("#5AA0CD",.5),("#194B91",1)],
         "columns": [("#C8C8C8",0),("#828282",.5),("#404040",1)],
     }
     blocks = []
-    for cat in ("rooms", "doors", "windows", "columns"):
+    for cat in ("rooms", "stairs", "mep", "doors", "windows", "columns"):
         r = ranges.get(cat, {})
         lo, hi = r.get("min", 0), r.get("max", 0)
         stops = ramps.get(cat, [])
@@ -956,6 +1975,19 @@ def build_gh_legend(layout: dict) -> str:
     <span>{lo:,.0f}</span><span>{hi:,.0f}</span>
   </div>
 </div>""")
+
+    # Dedicated component colors: show each exactly once.
+    _component_legend = [
+        ("Lifts", _get_space_color("lift")),
+    ]
+    for title, color in _component_legend:
+        blocks.append(f"""
+<div style="margin-bottom:10px">
+    <div style="font-size:0.72rem;color:#8a8784;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">
+        {title}<span style="font-weight:400;letter-spacing:0"> &nbsp;single color</span>
+    </div>
+    <div style="height:10px;border-radius:4px;background:{color};border:1px solid #e0dbd2"></div>
+</div>""")
     return "\n".join(blocks)
 
 
@@ -965,7 +1997,10 @@ def _add_legend_to_figure(fig: go.Figure, layout: dict) -> None:
     heatmap  = layout.get("heatmap", {})
     ranges   = heatmap.get("ranges", {})
     ramps    = heatmap.get("ramps", {})
-    currency = layout.get("project", {}).get("currency", "")
+    proj = layout.get("project", {})
+    if isinstance(proj, str):
+        proj = {}
+    currency = proj.get("currency", "")
 
     _fallback: dict[str, list[tuple[str, float]]] = {
         "rooms":   [("#FFF5DC", 0.00), ("#FED976", 0.25), ("#FEB24C", 0.50), ("#F06913", 0.75), ("#BD0026", 1.00)],
@@ -977,10 +2012,10 @@ def _add_legend_to_figure(fig: go.Figure, layout: dict) -> None:
     N_SEGS = 20
 
     # Legend box in the top-right corner (paper coords: 0=plot-left, 1=plot-right)
-    lx0, lx1 = 0.72, 0.997
-    ly0, ly1 = 0.57, 0.995
+    lx0, lx1 = 0.83, 0.995
+    ly0, ly1 = 0.68, 0.992
     slot_h   = (ly1 - ly0) / len(cats)   # vertical space per category
-    bar_h    = 0.038                      # bar thickness in paper units
+    bar_h    = 0.022                      # bar thickness in paper units
 
     # Semi-transparent white backing
     fig.add_shape(
@@ -1017,7 +2052,7 @@ def _add_legend_to_figure(fig: go.Figure, layout: dict) -> None:
             x=lx0, y=top - 0.004, xref="paper", yref="paper",
             text=f"<b>{cat.upper()}</b>  {lo:,.0f}–{hi:,.0f} {currency}",
             showarrow=False, xanchor="left", yanchor="top",
-            font=dict(size=8, color="#444444"),
+            font=dict(size=7, color="#444444"),
         )
 
         # Gradient bar: N_SEGS thin coloured rectangles
@@ -1045,12 +2080,12 @@ def _add_legend_to_figure(fig: go.Figure, layout: dict) -> None:
         fig.add_annotation(
             x=lx0, y=val_y, xref="paper", yref="paper",
             text=f"{lo:,.0f}", showarrow=False,
-            xanchor="left", yanchor="top", font=dict(size=7, color="#888888"),
+            xanchor="left", yanchor="top", font=dict(size=6, color="#888888"),
         )
         fig.add_annotation(
             x=lx1, y=val_y, xref="paper", yref="paper",
             text=f"{hi:,.0f}", showarrow=False,
-            xanchor="right", yanchor="top", font=dict(size=7, color="#888888"),
+            xanchor="right", yanchor="top", font=dict(size=6, color="#888888"),
         )
 
 
@@ -1065,15 +2100,18 @@ def build_cost_df(layout: dict) -> pd.DataFrame:
     labor_mult = safe_float(st.session_state.get("labor", 1.0))
     inflation = 1 + (safe_float(st.session_state.get("inflation", 0)) / 100)
     tax = safe_float(st.session_state.get("carbon_tax", 0))
-    cur_code = st.session_state.get("currency_code") or layout.get("project", {}).get("currency", "AED")
+    proj = layout.get("project", {})
+    if isinstance(proj, str):
+        proj = {}
+    cur_code = st.session_state.get("currency_code") or proj.get("currency", "AED")
     cur_factor = safe_float(st.session_state.get("currency_factor", 1.0), 1.0)
 
     rooms_list = layout.get("rooms") or layout.get("costs", {}).get("rooms", {}).get("rooms", [])
 
     rows = []
     for r in rooms_list:
-        base_rate = safe_float(r.get("rate_per_m2") or r.get("rate"))
-        base_cost = safe_float(r.get("total_cost") or r.get("cost"))
+        base_rate = safe_float(r.get("rate_per_m2") or r.get("rate_per_m2_usd") or r.get("rate"))
+        base_cost = safe_float(r.get("total_cost") or r.get("total_cost_usd") or r.get("cost_usd") or r.get("cost"))
         area = safe_float(r.get("area_m2") or r.get("area"))
         gwp = safe_float(r.get("gwp"))
 
@@ -1090,6 +2128,363 @@ def build_cost_df(layout: dict) -> pd.DataFrame:
 
     df = pd.DataFrame(rows)
     return df
+
+
+def build_component_price_reference_chart(layout: dict) -> go.Figure | None:
+    """Build a compact reference-style combo chart for component totals and share."""
+    def _safe_float(v, default=0.0):
+        try:
+            return float(v) if v is not None else default
+        except (TypeError, ValueError):
+            return default
+
+    labor_mult = _safe_float(st.session_state.get("labor", 1.0), 1.0)
+    inflation = 1 + (_safe_float(st.session_state.get("inflation", 0.0), 0.0) / 100.0)
+    tax = _safe_float(st.session_state.get("carbon_tax", 0.0), 0.0)
+    cur_factor = _safe_float(st.session_state.get("currency_factor", 1.0), 1.0)
+
+    proj = layout.get("project", {})
+    if isinstance(proj, str):
+        proj = {}
+    currency = st.session_state.get("currency_code") or proj.get("currency", "AED")
+
+    rooms = layout.get("rooms", [])
+    openings = layout.get("openings", [])
+    columns = layout.get("columns", [])
+
+    def _el_cost(el: dict) -> float:
+        return _safe_float(
+            el.get("total_cost")
+            or el.get("total_cost_usd")
+            or el.get("cost")
+            or el.get("cost_usd")
+            or 0
+        )
+
+    def _adj_room_cost(room: dict) -> float:
+        base = _el_cost(room)
+        gwp = _safe_float(room.get("gwp"), 0.0)
+        return ((base * labor_mult * inflation) + (gwp * tax)) * cur_factor
+
+    breakdown: dict[str, float] = {}
+    bucket_colors: dict[str, list[str]] = {}
+
+    def _add(bucket: str, amount: float) -> None:
+        if amount <= 0:
+            return
+        breakdown[bucket] = breakdown.get(bucket, 0.0) + float(amount)
+
+    def _room_geom_color(el: dict) -> str | None:
+        c = el.get("space_color_hex") or el.get("color_hex") or el.get("color")
+        if isinstance(c, str) and c.strip():
+            return c.strip()
+        rgb = el.get("color_rgb")
+        if isinstance(rgb, (list, tuple)) and len(rgb) >= 3:
+            try:
+                return _rgb_to_hex((int(rgb[0]), int(rgb[1]), int(rgb[2])))
+            except (TypeError, ValueError):
+                return None
+        return None
+
+    def _remember_color(bucket: str, color_hex: str | None) -> None:
+        if not color_hex:
+            return
+        bucket_colors.setdefault(bucket, []).append(color_hex)
+
+    def _hex_to_rgb_safe(hex_color: str) -> tuple[int, int, int] | None:
+        try:
+            return _hex_to_rgb(hex_color)
+        except Exception:
+            return None
+
+    def _avg_bucket_color(bucket: str, fallback: str) -> str:
+        vals = bucket_colors.get(bucket, [])
+        if not vals:
+            return fallback
+        rgbs = [_hex_to_rgb_safe(v) for v in vals]
+        rgbs = [x for x in rgbs if x is not None]
+        if not rgbs:
+            return fallback
+        r = int(sum(c[0] for c in rgbs) / len(rgbs))
+        g = int(sum(c[1] for c in rgbs) / len(rgbs))
+        b = int(sum(c[2] for c in rgbs) / len(rgbs))
+        return _rgb_to_hex((r, g, b))
+
+    def _label_from_room_type(room: dict) -> str:
+        raw = (
+            room.get("room_type")
+            or room.get("type")
+            or room.get("category")
+            or room.get("name")
+            or "room"
+        )
+        text = str(raw).replace("_", " ").strip().lower()
+        alias = {
+            "mep": "MEP",
+            "duct": "MEP",
+            "stair": "Staircases",
+            "stairs": "Staircases",
+            "staircase": "Staircases",
+            "door": "Doors",
+            "window": "Windows",
+            "column": "Columns",
+            "columns": "Columns",
+            "lift": "Lifts",
+            "elevator": "Lifts",
+        }
+        if text in alias:
+            return alias[text]
+        return text.title()
+
+    has_explicit_openings = len(openings) > 0
+    has_explicit_columns = len(columns) > 0
+
+    for r in rooms:
+        rtype = (r.get("type") or r.get("room_type") or r.get("category") or "").strip().lower()
+
+        # Avoid double counting when openings/columns are provided in their own arrays.
+        if has_explicit_openings and rtype in {"door", "window"}:
+            continue
+        if has_explicit_columns and rtype in {"column", "columns"}:
+            continue
+
+        if rtype in {"door", "window", "column", "columns"}:
+            amount = _el_cost(r) * cur_factor
+        else:
+            amount = _adj_room_cost(r)
+
+        bucket = _label_from_room_type(r)
+        _add(bucket, amount)
+        _remember_color(bucket, _room_geom_color(r))
+
+    for op in openings:
+        otype = (op.get("type") or op.get("category") or "").strip().lower()
+        if otype == "door":
+            _add("Doors", _safe_float(op.get("cost"), 0.0) * cur_factor)
+            _remember_color("Doors", _room_geom_color(op) or _get_space_color("door", "door"))
+        elif otype == "window":
+            _add("Windows", _safe_float(op.get("cost"), 0.0) * cur_factor)
+            _remember_color("Windows", _room_geom_color(op) or _get_space_color("window", "window"))
+
+    for c in columns:
+        _add("Columns", _safe_float(c.get("cost"), 0.0) * cur_factor)
+        _remember_color("Columns", _room_geom_color(c) or _get_space_color("column", "column"))
+
+    if not breakdown:
+        return None
+
+    sorted_items = sorted(breakdown.items(), key=lambda kv: kv[1], reverse=True)
+    labels = [k for k, _ in sorted_items]
+    values = [v for _, v in sorted_items]
+    total = sum(values)
+    if total <= 0:
+        return None
+
+    pct = [(v / total) * 100.0 for v in values]
+    fallback_map = {
+        "Bedroom": "#1d2f6f",
+        "Living Room": "#2f5597",
+        "Kitchen": "#8b5a2b",
+        "Bathroom": "#2f8dbd",
+        "Dining": "#6f8f2f",
+        "Doors": "#9a5d2f",
+        "Windows": "#1fa0d6",
+        "MEP": "#6c757d",
+        "Staircases": "#7a4f2a",
+        "Columns": "#8a8f98",
+        "Lifts": "#b1523a",
+    }
+    fallback = [
+        "#1d2f6f", "#2f5597", "#7a4f2a", "#2f8dbd", "#6f8f2f", "#9a5d2f",
+        "#1fa0d6", "#6c757d", "#b1523a", "#8a8f98", "#5e60ce", "#4361ee",
+    ]
+    colors = [
+        _avg_bucket_color(lbl, fallback_map.get(lbl, fallback[i % len(fallback)]))
+        for i, lbl in enumerate(labels)
+    ]
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(
+            x=labels,
+            y=values,
+            marker_color=colors,
+            text=[f"{v:,.0f}" for v in values],
+            textposition="outside",
+            name="Total cost",
+            hovertemplate="<b>%{x}</b><br>Total: %{y:,.0f} " + currency + "<extra></extra>",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=labels,
+            y=pct,
+            mode="lines+markers",
+            line=dict(color="#dc3b2a", width=3),
+            marker=dict(size=8, color="#dc3b2a"),
+            name="Share %",
+            yaxis="y2",
+            hovertemplate="<b>%{x}</b><br>Share: %{y:.1f}%<extra></extra>",
+        )
+    )
+    fig.update_layout(
+        height=268,
+        margin=dict(l=14, r=14, t=36, b=16),
+        paper_bgcolor="#ffffff",
+        plot_bgcolor="#f6f6f8",
+        xaxis=dict(showgrid=False, tickfont=dict(size=12, color="#222"), tickangle=-15 if len(labels) > 6 else 0),
+        yaxis=dict(title=f"Cost ({currency})", gridcolor="#d9d9dd", zeroline=False),
+        yaxis2=dict(title="Share %", overlaying="y", side="right", ticksuffix="%", showgrid=False, rangemode="tozero"),
+        legend=dict(orientation="h", x=0.01, xanchor="left", y=0.99, yanchor="top",
+                    bgcolor="rgba(255,255,255,0.75)", bordercolor="#e0dbd2", borderwidth=1),
+    )
+    return fig
+
+
+def build_cost_report_pdf(layout: dict) -> bytes:
+    """Generate a compact PDF report with room cost table and element cost chart."""
+    def _pdf_escape(text: str) -> str:
+        return text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+    def _simple_pdf(lines: list[str]) -> bytes:
+        # Tiny single-page PDF generator (Helvetica font) as a dependency-free fallback.
+        safe_lines = [str(x) for x in lines if x is not None]
+        max_lines = 55
+        safe_lines = safe_lines[:max_lines]
+
+        parts = ["BT", "/F1 10 Tf", "40 800 Td"]
+        for idx, line in enumerate(safe_lines):
+            if idx > 0:
+                parts.append("0 -14 Td")
+            parts.append(f"({_pdf_escape(line)}) Tj")
+        parts.append("ET")
+        content = "\n".join(parts).encode("latin-1", errors="replace")
+
+        objs = []
+        objs.append(b"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n")
+        objs.append(b"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n")
+        objs.append(
+            b"3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] "
+            b"/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >> endobj\n"
+        )
+        objs.append(f"4 0 obj << /Length {len(content)} >> stream\n".encode("ascii") + content + b"\nendstream endobj\n")
+        objs.append(b"5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n")
+
+        out = io.BytesIO()
+        out.write(b"%PDF-1.4\n")
+        offsets = [0]
+        for obj in objs:
+            offsets.append(out.tell())
+            out.write(obj)
+
+        xref_pos = out.tell()
+        out.write(f"xref\n0 {len(objs) + 1}\n".encode("ascii"))
+        out.write(b"0000000000 65535 f \n")
+        for off in offsets[1:]:
+            out.write(f"{off:010d} 00000 n \n".encode("ascii"))
+        out.write(
+            (
+                "trailer\n"
+                f"<< /Size {len(objs) + 1} /Root 1 0 R >>\n"
+                "startxref\n"
+                f"{xref_pos}\n"
+                "%%EOF"
+            ).encode("ascii")
+        )
+        return out.getvalue()
+
+    df = build_cost_df(layout)
+    proj = layout.get("project", {})
+    if isinstance(proj, str):
+        proj = {"name": proj}
+    currency = st.session_state.get("currency_code") or proj.get("currency", "AED")
+
+    openings = layout.get("openings", [])
+    columns = layout.get("columns", [])
+    doors = [o for o in openings if (o.get("type") or "").lower() == "door"]
+    windows = [o for o in openings if (o.get("type") or "").lower() == "window"]
+
+    room_total = float(df[df.columns[-1]].sum()) if not df.empty else 0.0
+    door_total = float(sum((d.get("cost", 0) or 0) for d in doors))
+    window_total = float(sum((w.get("cost", 0) or 0) for w in windows))
+    column_total = float(sum((c.get("cost", 0) or 0) for c in columns))
+
+    labels = ["Rooms", "Doors", "Windows", "Columns"]
+    values = [room_total, door_total, window_total, column_total]
+
+    try:
+        import matplotlib.pyplot as plt
+        from matplotlib.backends.backend_pdf import PdfPages
+
+        buffer = io.BytesIO()
+        with PdfPages(buffer) as pdf:
+            fig1, ax1 = plt.subplots(figsize=(11.69, 8.27))
+            ax1.axis("off")
+            ax1.text(0.01, 0.97, "PlanWise Cost Report", fontsize=18, fontweight="bold", va="top")
+            ax1.text(0.01, 0.92, f"Project: {proj.get('name', 'Unnamed Project')}", fontsize=11, va="top")
+            ax1.text(
+                0.01,
+                0.885,
+                f"Currency: {currency} | Rooms: {len(layout.get('rooms', []))} | Total: {sum(values):,.0f} {currency}",
+                fontsize=11,
+                va="top",
+            )
+
+            if not df.empty:
+                table_df = df.sort_values(by=df.columns[-1], ascending=False).head(28).copy()
+                for col in table_df.columns:
+                    if "Cost" in col or "Rate" in col:
+                        table_df[col] = table_df[col].map(lambda v: f"{float(v):,.0f}")
+                table = ax1.table(
+                    cellText=table_df.values,
+                    colLabels=table_df.columns,
+                    loc="upper left",
+                    bbox=[0.01, 0.06, 0.98, 0.78],
+                )
+                table.auto_set_font_size(False)
+                table.set_fontsize(8)
+                table.scale(1, 1.1)
+            else:
+                ax1.text(0.01, 0.78, "No room cost rows found in layout.", fontsize=11)
+            pdf.savefig(fig1, bbox_inches="tight")
+            plt.close(fig1)
+
+            fig2, ax2 = plt.subplots(figsize=(11.69, 8.27))
+            bars = ax2.bar(labels, values, color=["#f59e0b", "#b27a41", "#5aa0cd", "#828282"])
+            ax2.set_title("Element Cost Breakdown", fontsize=16, pad=16)
+            ax2.set_ylabel(f"Cost ({currency})")
+            ax2.grid(axis="y", alpha=0.25)
+            for bar, val in zip(bars, values):
+                ax2.text(bar.get_x() + bar.get_width() / 2, bar.get_height(), f"{val:,.0f}", ha="center", va="bottom", fontsize=10)
+            pdf.savefig(fig2, bbox_inches="tight")
+            plt.close(fig2)
+
+        buffer.seek(0)
+        return buffer.getvalue()
+    except Exception:
+        lines = [
+            "PlanWise Cost Report",
+            f"Project: {proj.get('name', 'Unnamed Project')}",
+            f"Currency: {currency}",
+            f"Rooms: {len(layout.get('rooms', []))}",
+            f"Total (all elements): {sum(values):,.0f} {currency}",
+            "",
+            "Element totals:",
+            f"- Rooms: {room_total:,.0f} {currency}",
+            f"- Doors: {door_total:,.0f} {currency}",
+            f"- Windows: {window_total:,.0f} {currency}",
+            f"- Columns: {column_total:,.0f} {currency}",
+            "",
+            "Top room costs:",
+        ]
+        if not df.empty:
+            room_col = "Room" if "Room" in df.columns else df.columns[0]
+            cost_col = df.columns[-1]
+            for _, row in df.sort_values(by=cost_col, ascending=False).head(30).iterrows():
+                lines.append(f"- {row.get(room_col, 'Room')}: {float(row.get(cost_col, 0)):,.0f} {currency}")
+        else:
+            lines.append("- No room cost rows found.")
+        return _simple_pdf(lines)
 
   # ── room card ─────────────────────────────────────────────────────────────────
 def render_room_card(room: dict, currency: str) -> None:
@@ -1158,6 +2553,77 @@ def render_chat() -> None:
             st.markdown(msg["content"])
 
 
+def _highlight_intent(user_text: str) -> bool:
+    t = (user_text or "").lower()
+    # tolerate common typos: hilight/highlite, hheat
+    t = t.replace("highlite", "highlight").replace("hilight", "highlight").replace("hheat", "heat")
+    has_highlight = any(k in t for k in ("highlight", "mark", "show", "point"))
+    has_cost = any(k in t for k in ("costly", "expensive", "highest cost", "most cost", "most expensive"))
+    has_target = any(k in t for k in ("heat map", "heatmap", "map", "area", "room", "space"))
+    return has_highlight and has_cost and has_target
+
+
+def _find_most_expensive_room(layout: dict) -> dict | None:
+    rooms = (layout or {}).get("rooms", [])
+    if not rooms:
+        return None
+
+    def _safe_float(v, default=0.0):
+        try:
+            return float(v) if v is not None else default
+        except (TypeError, ValueError):
+            return default
+
+    labor_mult = _safe_float(st.session_state.get("labor", 1.0), 1.0)
+    inflation = 1 + (_safe_float(st.session_state.get("inflation", 0.0), 0.0) / 100.0)
+    tax = _safe_float(st.session_state.get("carbon_tax", 0.0), 0.0)
+    cur_factor = _safe_float(st.session_state.get("currency_factor", 1.0), 1.0)
+
+    best = None
+    best_cost = -1.0
+    for r in rooms:
+        rtype = (r.get("type") or r.get("room_type") or r.get("category") or "").lower()
+        if rtype in {"door", "window", "column", "columns"}:
+            continue
+        base = _safe_float(r.get("total_cost") or r.get("total_cost_usd") or r.get("cost") or r.get("cost_usd") or 0)
+        gwp = _safe_float(r.get("gwp"), 0.0)
+        c = ((base * labor_mult * inflation) + (gwp * tax)) * cur_factor
+        if c > best_cost:
+            best_cost = c
+            best = r
+    return best
+
+
+def _set_selected_room_from_chat(room: dict, layout: dict) -> None:
+    if not room:
+        return
+    poly = room.get("polygon", [])
+    if poly:
+        cx = sum(p[0] for p in poly) / len(poly)
+        cy = sum(p[1] for p in poly) / len(poly)
+    else:
+        cx, cy = 0.0, 0.0
+
+    proj = (layout or {}).get("project", {})
+    if isinstance(proj, str):
+        proj = {}
+    currency = proj.get("currency", "")
+
+    st.session_state.selected_room = room
+    st.session_state.selected_element = {
+        "type": "room",
+        "id": room.get("id", ""),
+        "name": room.get("name") or room.get("room_type") or "Room",
+        "cost": float(room.get("total_cost") or room.get("total_cost_usd") or room.get("cost") or room.get("cost_usd") or 0),
+        "area": room.get("area_m2", 0),
+        "rate": room.get("rate_per_m2", 0),
+        "category": room.get("category", ""),
+        "currency": currency,
+        "cx": cx,
+        "cy": cy,
+    }
+
+
 # ── sustainability tab ────────────────────────────────────────────────────────
 def render_sustainability_tab():
     st.markdown("#### Carbon vs. Cost Efficiency Comparison")
@@ -1224,6 +2690,64 @@ with st.sidebar:
         key="layout_uploader_main"
     )
 
+    # ── 3DM Rhino converter ───────────────────────────────────────────────────
+    st.markdown('<p class="section-lbl">Import from Rhino (.3dm)</p>', unsafe_allow_html=True)
+    _3dm_file = st.file_uploader(
+        "Upload .3dm file",
+        type=["3dm"],
+        accept_multiple_files=False,
+        label_visibility="collapsed",
+        key="rhino_3dm_uploader",
+        help="Reads rooms, doors, windows and columns directly from a Rhino 8 file. No script needed inside Rhino.",
+    )
+    if _3dm_file is not None:
+        _3dm_uid = f"3dm::{_3dm_file.name}"
+        if _3dm_uid not in st.session_state.get("_uploaded_ids", []):
+            with st.spinner(f"Converting {_3dm_file.name} …"):
+                try:
+                    from rhino_converter import convert_3dm_bytes
+                    _3dm_currency = st.session_state.get("currency_code", "AED")
+                    _converted = convert_3dm_bytes(
+                        _3dm_file.read(),
+                        filename=_3dm_file.name,
+                        currency=_3dm_currency,
+                    )
+                    _plan_key = Path(_3dm_file.name).stem
+                    if len(st.session_state.layouts) >= 5:
+                        st.warning("Maximum 5 plans loaded. Remove one before importing.")
+                    else:
+                        _converted = _normalize_layout_schema(_converted)
+                        st.session_state.layouts[_plan_key] = _converted
+                        if st.session_state.layout is None:
+                            st.session_state.layout = _converted
+                        st.session_state._uploaded_ids = list(
+                            st.session_state.get("_uploaded_ids", [])
+                        ) + [_3dm_uid]
+                        n_rooms = len(_converted.get("rooms", []))
+                        grand   = _converted.get("totals", {}).get("grand", 0)
+                        cur     = _converted.get("project", {}).get("currency", "AED")
+                        st.success(
+                            f"✓ **{_plan_key}** imported — "
+                            f"{n_rooms} rooms · {cur} {grand:,.0f} estimated"
+                        )
+                        # offer JSON download so user can save for later
+                        st.download_button(
+                            "⬇ Save as layout JSON",
+                            data=json.dumps(_converted, indent=2),
+                            file_name=f"{_plan_key}_layout.json",
+                            mime="application/json",
+                            key=f"dl_3dm_{_plan_key}",
+                        )
+                except ImportError:
+                    st.error(
+                        "**rhino3dm not installed.** Run once in your terminal:\n\n"
+                        "```\npip install rhino3dm\n```\n\nthen restart Streamlit."
+                    )
+                except ValueError as _ve:
+                    st.error(f"Conversion error: {_ve}")
+                except Exception as _ex:
+                    st.error(f"Unexpected error: {_ex}")
+
     # 1. Global Sensitivity Engine
     st.markdown('<p class="section-lbl">Sensitivity Engine</p>', unsafe_allow_html=True)
     st.slider("Labor Cost Multiplier", 0.8, 1.5, 1.0, 0.05, key="labor")
@@ -1271,6 +2795,158 @@ with st.sidebar:
             try:
                 uploaded.seek(0)
                 loaded_layout = json.load(uploaded)
+                
+                # Handle nested rooms structure (canonical_unit.rooms → flatten to root)
+                if "rooms" not in loaded_layout and "canonical_unit" in loaded_layout:
+                    if "rooms" in loaded_layout["canonical_unit"]:
+                        canonical_rooms = loaded_layout["canonical_unit"]["rooms"]
+                        proj = loaded_layout.get("project", {})
+                        if isinstance(proj, str):
+                            proj = {}
+                        num_apartments = proj.get("units_per_floor", 1)
+                        layout_meta = loaded_layout.get("layout", {})
+                        apartments_info = layout_meta.get("apartments", [])
+                        
+                        canonical_columns = loaded_layout.get("canonical_unit", {}).get("columns", [])
+                        canonical_openings = loaded_layout.get("canonical_unit", {}).get("openings", [])
+                        canonical_core = loaded_layout.get("core", {})
+                        
+                        # Expand rooms, columns, and openings for all apartments with geometric transformation
+                        expanded_rooms = []
+                        expanded_columns = []
+                        expanded_openings = []
+                        
+                        # Define apartment positions for non-overlapping pinwheel layout (in meters)
+                        # Core is at approximately (7, 7.5), units are 14m x 11m
+                        apt_positions = {
+                            "apt_SW": (0, 0, 0, False),           # Southwest: origin, no rotation
+                            "apt_SE": (15, 0, 270, False),        # Southeast: x offset, -90° rotation
+                            "apt_NE": (15, 15, 180, False),       # Northeast: x,y offset, 180° rotation
+                            "apt_NW": (0, 15, 90, False),         # Northwest: y offset, 90° rotation
+                            "apt_N": (7, 26, 0, False),           # North: centered x, far y offset, no rotation
+                        }
+                        
+                        for apt_idx in range(num_apartments):
+                            apt_info = apartments_info[apt_idx] if apt_idx < len(apartments_info) else {}
+                            apt_id = apt_info.get("apt_id", f"apt_{apt_idx}")
+                            
+                            # Get transformation data
+                            if apt_id in apt_positions:
+                                offset_x, offset_y, rotation_deg, mirror = apt_positions[apt_id]
+                            else:
+                                offset_x, offset_y, rotation_deg, mirror = 0, 0, 0, False
+                            
+                            # Transform rooms
+                            for room in canonical_rooms:
+                                room_copy = room.copy()
+                                
+                                # Transform polygon coordinates
+                                if room_copy.get("polygon"):
+                                    room_copy["polygon"] = _transform_polygon(
+                                        room_copy["polygon"],
+                                        rotation_deg,
+                                        mirror,
+                                        offset_x,
+                                        offset_y
+                                    )
+                                
+                                # Create unique ID and name for each apartment's room
+                                room_copy["id"] = f"{room.get('id')}_apt{apt_idx+1}"
+                                room_copy["name"] = f"{room.get('name')} (Apt {apt_idx+1})"
+                                expanded_rooms.append(room_copy)
+                            
+                            # Transform columns
+                            for col in canonical_columns:
+                                col_copy = col.copy()
+                                if col_copy.get("polygon"):
+                                    col_copy["polygon"] = _transform_polygon(
+                                        col_copy["polygon"],
+                                        rotation_deg,
+                                        mirror,
+                                        offset_x,
+                                        offset_y
+                                    )
+                                col_copy["id"] = f"{col.get('id')}_apt{apt_idx+1}"
+                                expanded_columns.append(col_copy)
+                            
+                            # Transform openings (doors, windows)
+                            for opening in canonical_openings:
+                                op_copy = opening.copy()
+                                if op_copy.get("polygon"):
+                                    op_copy["polygon"] = _transform_polygon(
+                                        op_copy["polygon"],
+                                        rotation_deg,
+                                        mirror,
+                                        offset_x,
+                                        offset_y
+                                    )
+                                op_copy["id"] = f"{opening.get('id')}_apt{apt_idx+1}"
+                                expanded_openings.append(op_copy)
+                        
+                        # Add expanded data back to layout
+                        loaded_layout["rooms"] = expanded_rooms
+                        if expanded_columns:
+                            loaded_layout["columns"] = expanded_columns
+                        if expanded_openings:
+                            loaded_layout["openings"] = expanded_openings
+                        
+                        # Add central core (shared, not repeated per apartment)
+                        # Extract individual core components (lifts, stairs, MEP, etc.)
+                        if canonical_core:
+                            core_components = canonical_core.get("components", [])
+                            core_cost_total = canonical_core.get("cost_estimate", 0)
+                            
+                            # Group components by type for cost distribution
+                            component_types = {}
+                            for comp in core_components:
+                                comp_type = comp.get("type", "unknown")
+                                if comp_type not in component_types:
+                                    component_types[comp_type] = []
+                                component_types[comp_type].append(comp)
+                            
+                            # Create rooms for each component or group
+                            core_x_positions = [6.2, 7.8, 6.2, 7.8]  # For 4 corners
+                            core_y_positions = [6.2, 6.2, 8.8, 8.8]
+                            comp_idx = 0
+                            
+                            for comp_type, comps in component_types.items():
+                                for i, comp in enumerate(comps):
+                                    # Estimate cost per component
+                                    comp_cost = core_cost_total / len(core_components) if core_components else 0
+                                    
+                                    # Generate polygon for component
+                                    x_pos = core_x_positions[min(i, len(core_x_positions)-1)]
+                                    y_pos = core_y_positions[min(i, len(core_y_positions)-1)]
+                                    polygon = _generate_component_polygon(comp, x_pos, y_pos)
+                                    
+                                    core_item = {
+                                        "id": f"core_{comp_type}_{i}",
+                                        "name": f"{comp_type.title()} {i+1}" if comp_type != "lift" else f"Lift {i+1}",
+                                        "category": comp_type,
+                                        "type": comp_type,
+                                        "area_m2": comp.get("width_m", 2.0) * comp.get("depth_m", 2.0),
+                                        "polygon": polygon,
+                                        "rate_per_m2": 3500,  # MEP rates
+                                        "total_cost": comp_cost
+                                    }
+                                    expanded_rooms.append(core_item)
+                                    comp_idx += 1
+                            
+                            # If no components listed, add a general core placeholder
+                            if not core_components:
+                                core_room = {
+                                    "id": "core_central",
+                                    "name": "Core (Central)",
+                                    "category": "core",
+                                    "area_m2": canonical_core.get("area_m2", 80),
+                                    "polygon": [[6, 6], [9, 6], [9, 9], [6, 9]],
+                                    "rate_per_m2": 5000,
+                                    "total_cost": canonical_core.get("cost_estimate", 280000)
+                                }
+                                expanded_rooms.append(core_room)
+                
+                loaded_layout = _normalize_layout_schema(loaded_layout)
+
                 if "rooms" not in loaded_layout:
                     uploaded_ids.add(file_uid)
                     continue
@@ -1308,6 +2984,9 @@ with st.sidebar:
         st.session_state.layout = st.session_state.layouts[st.session_state.selected_plan_key]
 
         proj = st.session_state.layout.get("project", {})
+        # Handle case where project is a string instead of dict
+        if isinstance(proj, str):
+            proj = {"name": proj}
         rooms = st.session_state.layout.get("rooms", [])
         totals = st.session_state.layout.get("totals", {})
         room_total = totals.get("rooms", sum(r.get("total_cost", 0) for r in rooms))
@@ -1432,35 +3111,75 @@ st.markdown('<div style="height:0.5rem"></div>', unsafe_allow_html=True)
 # =============================================================================
 # TWO-COLUMN LAYOUT: Main (left) | Vertical Tabs (right)
 # =============================================================================
-col_main, col_panel = st.columns([5, 2], gap="large")
+col_main, col_panel = st.columns([6, 3], gap="large")
 
 # ── LEFT: Heatmap + Chat (top row) | Cost Table (bottom) ─────────────────────
 with col_main:
     st.markdown('<p class="section-lbl">Floor Plan · Cost Analysis</p>', unsafe_allow_html=True)
     if st.session_state.layout:
 
-        # ── TOP ROW: Heatmap (left) and Agent Chat (right) side by side ───────
-        col_heatmap_inner, col_chat_inner = st.columns([4, 2], gap="medium")
-
-        # ── HEATMAP PANEL ─────────────────────────────────────────────────────
-        with col_heatmap_inner:
+        # ── HEATMAP PANEL (full width of main column) ────────────────────────
+        with st.container():
             st.markdown('<p class="section-lbl">Cost Heatmap</p>', unsafe_allow_html=True)
 
-            view_mode = st.radio(
-                "Visualization Mode",
-                ["2D Flat Floorplan", "Interactive 3D Skyline"],
-                horizontal=True,
-                key="view_mode_main",
-            )
+            ctl_view, ctl_color, ctl_labels = st.columns([1.55, 1.45, 1.05], gap="small")
+
+            with ctl_view:
+                view_mode = st.radio(
+                    "Visualization Mode",
+                    ["2D Flat Floorplan", "Interactive 3D Skyline"],
+                    horizontal=True,
+                    key="view_mode_main",
+                )
+
+            with ctl_color:
+                _color_mode_ui = st.radio(
+                    "Color Mode",
+                    ["Heatmap colors", "Space-type colors"],
+                    horizontal=True,
+                    key="color_mode_main",
+                )
+
+            with ctl_labels:
+                if "3D" in view_mode:
+                    st.markdown("<div style='height:0.15rem'></div>", unsafe_allow_html=True)
+                    st.caption("Room labels apply to 2D")
+                    _label_mode = "smart"
+                else:
+                    _label_mode_ui = st.radio(
+                        "Room labels",
+                        options=["All names", "Smart", "Off"],
+                        horizontal=True,
+                        key="room_label_mode_main",
+                    )
+                    _label_mode = (
+                        "all" if _label_mode_ui == "All names" else
+                        "smart" if _label_mode_ui == "Smart" else
+                        "off"
+                    )
+
+            _color_mode = "space" if _color_mode_ui == "Space-type colors" else "heatmap"
 
             if "3D" in view_mode:
                 st.caption("Drag to rotate, scroll to zoom. Z-height represents total room cost.")
-                render_3d_heatmap(st.session_state.layout, "skyline")
+                render_3d_heatmap(st.session_state.layout, "skyline", color_mode=_color_mode)
             else:
-                st.caption("Colors from Grasshopper. Click a room to select it.")
+                st.caption("Colors from Grasshopper. Click a room to select it. Use mouse wheel or modebar to zoom.")
 
                 sel_id = (st.session_state.selected_room or {}).get("id")
-                fig    = build_floor_plan(st.session_state.layout, sel_id, plot_height=880)
+                fig    = build_floor_plan(
+                    st.session_state.layout,
+                    sel_id,
+                    plot_height=560,
+                    label_mode=_label_mode,
+                    color_mode=_color_mode,
+                )
+                floor_plan_config = {
+                    "scrollZoom": True,
+                    "displayModeBar": True,
+                    "displaylogo": False,
+                    "doubleClick": "reset",
+                }
 
                 _sel_el = st.session_state.get("selected_element")
                 if _sel_el and _sel_el.get("cx") is not None:
@@ -1500,7 +3219,7 @@ with col_main:
                 try:
                     event = st.plotly_chart(
                         fig, use_container_width=True,
-                        on_select="rerun", key="floor_plan_chart",
+                        on_select="rerun", key="floor_plan_chart", config=floor_plan_config,
                     )
                     if event:
                         pts = (event.get("selection") or {}).get("points", [])
@@ -1511,7 +3230,10 @@ with col_main:
                                 el_type  = cd[1]
                                 el_name  = cd[2]
                                 el_cost  = float(cd[3] or 0)
-                                currency = (st.session_state.layout or {}).get("project", {}).get("currency", "")
+                                proj = (st.session_state.layout or {}).get("project", {})
+                                if isinstance(proj, str):
+                                    proj = {}
+                                currency = proj.get("currency", "")
 
                                 def _centroid(poly: list) -> tuple:
                                     if not poly:
@@ -1531,7 +3253,7 @@ with col_main:
                                             "type": "room",
                                             "id": el_id,
                                             "name": room.get("name", el_name),
-                                            "cost": room.get("total_cost", el_cost),
+                                            "cost": el_cost,
                                             "area": room.get("area_m2", 0),
                                             "rate": room.get("rate_per_m2", 0),
                                             "category": room.get("category", ""),
@@ -1559,13 +3281,13 @@ with col_main:
                                     }
                                 st.rerun()
                 except TypeError:
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, config=floor_plan_config)
 
                 # HTML legend overlaid in the top-right corner of the chart via CSS negative margin
                 st.markdown(
-                    '<div class="chart-legend-overlay">'
+                    '<div class="chart-legend-wrap"><div class="chart-legend-overlay">'
                     + build_gh_legend(st.session_state.layout)
-                    + "</div>",
+                    + "</div></div>",
                     unsafe_allow_html=True,
                 )
 
@@ -1576,88 +3298,242 @@ with col_main:
             st.markdown('<div style="height:0.75rem"></div>', unsafe_allow_html=True)
             if st.session_state.get("client_applied"):
                 st.info("Client DNA template applied. Rates and costs below reflect the client's spending profile.")
-            with st.expander("Cost Breakdown Table", expanded=True):
-                _cost_df = build_cost_df(st.session_state.layout)
-                if not _cost_df.empty:
-                    st.table(_cost_df)
+            _act_pdf_col, _act_charts_col = st.columns(2)
+            with _act_pdf_col:
+                try:
+                    _pdf_bytes = build_cost_report_pdf(st.session_state.layout)
+                    st.download_button(
+                        "Export Cost Report (PDF)",
+                        data=_pdf_bytes,
+                        file_name="planwise_cost_report.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        key="download_cost_pdf",
+                    )
+                except Exception as _pdf_err:
+                    st.caption(f"PDF export unavailable: {_pdf_err}")
+            with _act_charts_col:
+                _show_text = "Hide Price Chart" if st.session_state.show_cost_breakdown_charts else "Show Price Chart"
+                if st.button(_show_text, use_container_width=True, key="toggle_price_charts"):
+                    st.session_state.show_cost_breakdown_charts = not st.session_state.show_cost_breakdown_charts
+                    st.rerun()
+            st.caption("Use PDF export for full table details. The price chart below shows totals and share by component.")
+
+            if st.session_state.get("show_cost_breakdown_charts", True):
+                _comp_fig = build_component_price_reference_chart(st.session_state.layout)
+                if _comp_fig is not None:
+                    st.plotly_chart(_comp_fig, use_container_width=True, config={"displaylogo": False})
                 else:
-                    st.info("No cost data available in this layout.")
+                    st.info("No component price data available for charting in the current layout.")
 
-        # ── AGENT CHAT PANEL ──────────────────────────────────────────────────
-        with col_chat_inner:
-            st.markdown('<p class="section-lbl">Agent Chat</p>', unsafe_allow_html=True)
-            if st.session_state.selected_plan_key:
-                st.caption(f"Active: {st.session_state.selected_plan_key}")
-
-            # Match left-column height: heatmap (880) + table rows (~60px each) + fixed chrome
-            _n_rooms = len(st.session_state.layout.get("rooms", []))
-            chat_area = st.container(height=max(600, 665 + 60 * _n_rooms))
-            with chat_area:
-                if st.session_state.messages:
-                    render_chat()
-                else:
-                    st.caption("Ask a question or click a room to start.")
-
-            pending = st.session_state.pop("pending_prompt", "") \
-                      if "pending_prompt" in st.session_state else ""
-
-            user_text = st.chat_input(
-                placeholder='e.g. "bedroom 3 floor finish marble" or "total cost?"',
-                key="chat_input",
+        # ── Cost Matching results — always below the floor plan ───────────────
+        _cm_res_blw   = st.session_state.get("cm_result")
+        _active_tab_b = st.session_state.get("active_tab", "")
+        if "Cost Matching" in _active_tab_b and _cm_res_blw:
+            _cur_b   = (st.session_state.layout.get("project") or {}).get("currency", "AED")
+            _sugg_b  = _cm_res_blw.get("suggestions", [])
+            _pct_b   = _cm_res_blw.get("match_pct", 0)
+            _adj_b   = _cm_res_blw.get("adjusted_total", 0)
+            _tgt_b   = _cm_res_blw.get("target", 0)
+            st.divider()
+            st.markdown("### Cost Matching — Results")
+            _mk1, _mk2, _mk3, _mk4 = st.columns(4)
+            _mk1.metric("Target",         f"{_tgt_b:,.0f} {_cur_b}")
+            _mk2.metric("Adjusted total", f"{_adj_b:,.0f} {_cur_b}",
+                        delta=f"{_adj_b - _cm_res_blw.get('current_grand', 0):+,.0f}")
+            _mk3.metric("Gap remaining",  f"{abs(_tgt_b - _adj_b):,.0f} {_cur_b}")
+            _mk4.metric("Similarity",     f"{_pct_b:.1f}%",
+                        delta="On target" if _pct_b >= 99 else "Approx match")
+            _bc_b = "#10b981" if _pct_b >= 90 else "#f59e0b" if _pct_b >= 70 else "#ef4444"
+            st.markdown(
+                f'<div style="background:#e0dbd2;border-radius:6px;height:10px;margin:4px 0 14px">'
+                f'<div style="background:{_bc_b};width:{min(_pct_b,100):.1f}%;height:100%;border-radius:8px"></div></div>',
+                unsafe_allow_html=True,
             )
 
-            if pending and not user_text:
-                user_text = pending
+            # ── Before vs After chart — shown FIRST, above the table ─────────
+            _all_r_b = st.session_state.layout.get("rooms", [])
+            _rn_b    = [r.get("name", "") for r in _all_r_b]
+            _oc_b    = [r.get("total_cost", 0) or 0 for r in _all_r_b]
+            _am_b    = {r.get("name"): r.get("total_cost", 0) or 0 for r in _all_r_b}
+            for _s in (_sugg_b or []):
+                _am_b[_s["room"]] = _s["new_room_total"]
+            _ac_b = [_am_b.get(n, 0) for n in _rn_b]
+            _bf2 = go.Figure()
+            _bf2.add_trace(go.Bar(
+                name="Original cost",
+                x=_rn_b, y=_oc_b,
+                marker_color="#1245A8",
+                opacity=0.9,
+            ))
+            _bf2.add_trace(go.Bar(
+                name="After matching",
+                x=_rn_b, y=_ac_b,
+                marker_color="#C85A00",
+                opacity=0.9,
+            ))
+            _bf2.update_layout(
+                barmode="group",
+                height=340,
+                margin=dict(l=10, r=10, t=10, b=90),
+                paper_bgcolor="#ffffff",
+                plot_bgcolor="#f5f2ed",
+                font=dict(color="#111111"),
+                xaxis=dict(tickangle=-45, tickfont=dict(size=8, color="#555")),
+                yaxis=dict(
+                    title=dict(text=_cur_b, font=dict(color="#111111")),
+                    tickfont=dict(color="#111111"),
+                    gridcolor="#e0dbd2",
+                ),
+                legend=dict(
+                    orientation="h", y=1.06, x=0,
+                    font=dict(size=12, color="#111111"),
+                    bgcolor="rgba(0,0,0,0)",
+                ),
+                bargap=0.15, bargroupgap=0.05,
+            )
+            st.plotly_chart(_bf2, use_container_width=True,
+                            config={"displaylogo": False}, key="cm_ba_grouped")
 
-            if user_text and user_text.strip():
-                st.session_state.messages.append({"role": "user", "content": user_text.strip()})
-                with chat_area:
-                    with st.chat_message("user"):
-                        st.markdown(user_text.strip())
-                    with st.chat_message("assistant"):
-                        placeholder = st.empty()
-                        placeholder.markdown("_Thinking..._")
-                reply = None
-                gh_synced = False
-                try:
-                    reply = st.session_state.agent.process(
-                        user_text.strip(),
-                        layout=st.session_state.layout,
-                        plans=st.session_state.layouts,
-                        active_plan_key=st.session_state.selected_plan_key,
-                        history=st.session_state.messages[:-1],
-                        client_profile=st.session_state.get("client_profile") or None,
+            if not _sugg_b:
+                st.success("Plan is already at your target — no changes needed.")
+            else:
+                st.markdown(
+                    f"#### Suggested finish changes &nbsp;·&nbsp; "
+                    f"<span style='color:#10b981;font-weight:700'>"
+                    f"{len(_sugg_b)} adjustment{'s' if len(_sugg_b)!=1 else ''}</span>",
+                    unsafe_allow_html=True,
+                )
+                _th_b = "".join(
+                    f'<th style="padding:7px 12px;text-align:left;background:#faf9f6;'
+                    f'border-bottom:2px solid #e0dbd2;white-space:nowrap;font-size:0.68rem;'
+                    f'font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#8a8784">{h}</th>'
+                    for h in ["Room","Surface","From",f"Rate ({_cur_b}/m²)","To",
+                              f"Rate ({_cur_b}/m²)","Area m²",f"Delta ({_cur_b})",
+                              f"New room total ({_cur_b})"]
+                )
+                _rows_b = ""
+                for _i, _s in enumerate(_sugg_b):
+                    _bg_b = "#ffffff" if _i % 2 == 0 else "#f9f9f9"
+                    _d_b  = _s["delta_cost"]
+                    _dc_b = "#ef4444" if _d_b > 0 else "#10b981"
+                    def _tdb(v, bold=False, color=None,
+                             _bs="padding:6px 12px;white-space:nowrap;font-size:0.82rem;"):
+                        if color: _bs += f"color:{color};"
+                        if bold:  _bs += "font-weight:600;"
+                        return f'<td style="{_bs}">{v}</td>'
+                    _rows_b += (
+                        f'<tr style="background:{_bg_b}">'
+                        + _tdb(_s["room"], bold=True)
+                        + _tdb(_s["surface"].capitalize())
+                        + _tdb(_s["from_material"])
+                        + _tdb(f"{_s['from_rate']:,.0f}")
+                        + _tdb(f"<b>{_s['to_material']}</b>", bold=True)
+                        + _tdb(f"{_s['to_rate']:,.0f}", bold=True)
+                        + _tdb(f"{_s['area']:.1f}")
+                        + _tdb(f"{_d_b:+,.0f}", bold=True, color=_dc_b)
+                        + _tdb(f"{_s['new_room_total']:,.0f}", bold=True)
+                        + "</tr>"
                     )
-                    updated = st.session_state.agent.get_updated_layout()
-                    if updated is not None and st.session_state.layout is not None:
-                        st.session_state.layout = _merge_gh_colors(
-                            st.session_state.layout, updated
-                        )
-                        if st.session_state.selected_plan_key in st.session_state.layouts:
-                            st.session_state.layouts[st.session_state.selected_plan_key] = st.session_state.layout
-                        st.session_state.selected_room = None
-                        _write_gh_file(st.session_state.layout)
-                        gh_synced = True
-                except Exception as exc:
-                    reply = f"Agent error: {exc}"
-                finally:
-                    if reply is not None:
-                        placeholder.markdown(reply)
-                        st.session_state.messages.append({"role": "assistant", "content": reply})
-                if gh_synced:
-                    st.toast("Heatmap & Grasshopper synced", icon="✅")
-                st.rerun()
+                st.markdown(
+                    f'<div style="overflow-x:auto;border:1px solid #e0dbd2;border-radius:8px">'
+                    f'<table style="width:100%;border-collapse:collapse">'
+                    f'<thead><tr>{_th_b}</tr></thead><tbody>{_rows_b}</tbody></table></div>',
+                    unsafe_allow_html=True,
+                )
+                _tot_b = sum(_s["delta_cost"] for _s in _sugg_b)
+                st.markdown(
+                    f'<p style="margin-top:8px;font-size:12px;color:#555">'
+                    f'Total adjustment: <b style="color:{"#ef4444" if _tot_b > 0 else "#10b981"}">'
+                    f'{_tot_b:+,.0f} {_cur_b}</b> across {len(_sugg_b)} room{"s" if len(_sugg_b)!=1 else ""}.</p>',
+                    unsafe_allow_html=True,
+                )
 
-            if st.button("Clear conversation", use_container_width=True, key="clear_chat_main"):
-                st.session_state.messages = []
-                st.rerun()
 
     else:
         st.info("Upload a layout in the sidebar to see the heatmap.")
 
 
+
 # ── RIGHT: Vertical tab navigation ───────────────────────────────────────────
 with col_panel:
+    st.markdown('<p class="section-lbl">Agent Chat</p>', unsafe_allow_html=True)
+    if st.session_state.selected_plan_key:
+        st.caption(f"Active: {st.session_state.selected_plan_key}")
+
+    chat_area = st.container(height=380)
+    with chat_area:
+        if st.session_state.messages:
+            render_chat()
+        else:
+            st.caption("Ask a question or click a room to start.")
+
+    pending = st.session_state.pop("pending_prompt", "") \
+              if "pending_prompt" in st.session_state else ""
+
+    user_text = st.chat_input(
+        placeholder='e.g. "bedroom 3 floor finish marble" or "total cost?"',
+        key="chat_input",
+    )
+
+    if pending and not user_text:
+        user_text = pending
+
+    if user_text and user_text.strip() and st.session_state.layout is not None:
+        _clean_user_text = user_text.strip()
+        _wants_highlight = _highlight_intent(_clean_user_text)
+        st.session_state.messages.append({"role": "user", "content": _clean_user_text})
+        with chat_area:
+            with st.chat_message("user"):
+                st.markdown(_clean_user_text)
+            with st.chat_message("assistant"):
+                placeholder = st.empty()
+                placeholder.markdown("_Thinking..._")
+        reply = None
+        gh_synced = False
+        try:
+            reply = st.session_state.agent.process(
+                _clean_user_text,
+                layout=st.session_state.layout,
+                plans=st.session_state.layouts,
+                active_plan_key=st.session_state.selected_plan_key,
+                history=st.session_state.messages[:-1],
+                client_profile=st.session_state.get("client_profile") or None,
+            )
+            updated = st.session_state.agent.get_updated_layout()
+            if updated is not None and st.session_state.layout is not None:
+                st.session_state.layout = _merge_gh_colors(
+                    st.session_state.layout, updated
+                )
+                if st.session_state.selected_plan_key in st.session_state.layouts:
+                    st.session_state.layouts[st.session_state.selected_plan_key] = st.session_state.layout
+                st.session_state.selected_room = None
+                _write_gh_file(st.session_state.layout)
+                gh_synced = True
+
+            # Make highlight prompt actionable by selecting the highest-cost room on the map.
+            if _wants_highlight and st.session_state.layout is not None:
+                _target_room = _find_most_expensive_room(st.session_state.layout)
+                if _target_room is not None:
+                    _set_selected_room_from_chat(_target_room, st.session_state.layout)
+                    if reply:
+                        reply += "\n\nHighlighted on heatmap: **" + str(_target_room.get("name") or _target_room.get("id") or "room") + "**."
+        except Exception as exc:
+            reply = f"Agent error: {exc}"
+        finally:
+            if reply is not None:
+                placeholder.markdown(reply)
+                st.session_state.messages.append({"role": "assistant", "content": reply})
+        if gh_synced:
+            st.toast("Heatmap & Grasshopper synced", icon="✅")
+        st.rerun()
+
+    if st.button("Clear conversation", use_container_width=True, key="clear_chat_main"):
+        st.session_state.messages = []
+        st.rerun()
+
+    st.divider()
+
     _NAV_TABS = [
         "Architectural Advice",
         "Sustainability Analysis",
@@ -1951,7 +3827,10 @@ with col_panel:
             st.info("Upload a layout in the sidebar to enable cost matching.")
         else:
             _cm_layout   = st.session_state.layout
-            _cm_currency = _cm_layout.get("project", {}).get("currency", "USD")
+            proj = _cm_layout.get("project", {})
+            if isinstance(proj, str):
+                proj = {}
+            _cm_currency = proj.get("currency", "USD")
             _cm_rooms    = _cm_layout.get("rooms", [])
             _cm_summary  = _cm_layout.get("summary") or _cm_layout.get("totals") or {}
             _cm_room_sum = sum(r.get("total_cost", 0) for r in _cm_rooms)
@@ -2008,115 +3887,13 @@ with col_panel:
                 if not _sugg:
                     st.success("Plan is already at your target — no changes needed.")
                 else:
-                    st.markdown(f"#### Suggested finish changes ({len(_sugg)} adjustment{'s' if len(_sugg)!=1 else ''})")
-
-                    _th = "".join(
-                        f'<th style="padding:6px 10px;text-align:left;background:#faf9f6;'
-                        f'border-bottom:2px solid #e0dbd2;white-space:nowrap;font-size:0.68rem;'
-                        f'font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#8a8784">{h}</th>'
-                        for h in ["Room", "Surface", "From", f"Rate ({_cur}/m²)",
-                                  "To", f"Rate ({_cur}/m²)", "Area m²",
-                                  f"Delta ({_cur})", f"New room total ({_cur})"]
-                    )
-                    _rows_html = ""
-                    for i, s in enumerate(_sugg):
-                        _bg  = "#ffffff" if i % 2 == 0 else "#f9f9f9"
-                        _d   = s["delta_cost"]
-                        _dc  = "#ef4444" if _d > 0 else "#10b981"
-                        def _td(v, bold=False, color=None):
-                            _st = f'padding:5px 10px;white-space:nowrap;'
-                            if color: _st += f'color:{color};'
-                            if bold:  _st += 'font-weight:600;'
-                            return f'<td style="{_st}">{v}</td>'
-                        _rows_html += (
-                            f'<tr style="background:{_bg}">'
-                            + _td(s["room"], bold=True)
-                            + _td(s["surface"].capitalize())
-                            + _td(s["from_material"])
-                            + _td(f"{s['from_rate']:,.0f}")
-                            + _td(f"<b>{s['to_material']}</b>", bold=True)
-                            + _td(f"{s['to_rate']:,.0f}", bold=True)
-                            + _td(f"{s['area']:.1f}")
-                            + _td(f"{_d:+,.0f}", bold=True, color=_dc)
-                            + _td(f"{s['new_room_total']:,.0f}", bold=True)
-                            + "</tr>"
-                        )
-                    st.markdown(
-                        f'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'
-                        f'<thead><tr>{_th}</tr></thead><tbody>{_rows_html}</tbody></table></div>',
-                        unsafe_allow_html=True,
+                    st.info(
+                        f"**{len(_sugg)} adjustment{'s' if len(_sugg)!=1 else ''}** suggested — "
+                        f"see the full table in the main area on the left ↙",
+                        icon="📋",
                     )
 
-                    _total_delta = sum(s["delta_cost"] for s in _sugg)
-                    _dc_total = "#ef4444" if _total_delta > 0 else "#10b981"
-                    st.markdown(
-                        f'<p style="margin-top:10px;font-size:13px;color:#555">'
-                        f'Total adjustment: <b style="color:{_dc_total}">{_total_delta:+,.0f} {_cur}</b> '
-                        f'across {len(_sugg)} room{"s" if len(_sugg)!=1 else ""}. '
-                        f'Non-room costs (doors, windows, columns) are fixed at '
-                        f'<b>{_cm_non_room:,.0f} {_cur}</b>.</p>',
-                        unsafe_allow_html=True,
-                    )
-
-                st.divider()
-                st.markdown("#### Room Cost — Before vs After")
-                st.caption("Each room shows its original cost and the adjusted cost after suggested finish changes.")
-
-                _all_rooms   = _cm_layout.get("rooms", [])
-                _room_names  = [r.get("name", "") for r in _all_rooms]
-                _orig_costs  = [r.get("total_cost", 0) or 0 for r in _all_rooms]
-
-                _adj_map = {r.get("name"): r.get("total_cost", 0) or 0 for r in _all_rooms}
-                if _sugg:
-                    for _s in _sugg:
-                        _adj_map[_s["room"]] = _s["new_room_total"]
-                _adj_costs = [_adj_map.get(n, 0) for n in _room_names]
-
-                _bar_colors = [
-                    "#10b981" if _adj_map.get(n, 0) < (r.get("total_cost", 0) or 0)
-                    else "#ef4444" if _adj_map.get(n, 0) > (r.get("total_cost", 0) or 0)
-                    else "#b8b4ac"
-                    for n, r in zip(_room_names, _all_rooms)
-                ]
-
-                _fig_bar = go.Figure()
-                _fig_bar.add_trace(go.Bar(
-                    name="Current cost",
-                    x=_room_names,
-                    y=_orig_costs,
-                    marker_color="#c8c4bc",
-                    text=[f"{v:,.0f}" for v in _orig_costs],
-                    textposition="outside",
-                    hovertemplate="<b>%{x}</b><br>Current: %{y:,.0f} " + _cur + "<extra></extra>",
-                ))
-                _fig_bar.add_trace(go.Bar(
-                    name="Adjusted cost",
-                    x=_room_names,
-                    y=_adj_costs,
-                    marker_color=_bar_colors,
-                    text=[f"{v:,.0f}" for v in _adj_costs],
-                    textposition="outside",
-                    hovertemplate="<b>%{x}</b><br>Adjusted: %{y:,.0f} " + _cur + "<extra></extra>",
-                ))
-                _fig_bar.add_hline(
-                    y=_tgt / max(len(_room_names), 1),
-                    line_dash="dot", line_color="#f59e0b", line_width=1.5,
-                    annotation_text=f"Target avg/room: {_tgt/max(len(_room_names),1):,.0f}",
-                    annotation_position="top right",
-                )
-                _fig_bar.update_layout(
-                    barmode="group",
-                    paper_bgcolor="#ffffff",
-                    plot_bgcolor="#f5f2ed",
-                    font=dict(color="#171717"),
-                    height=380,
-                    margin=dict(l=10, r=10, t=30, b=10),
-                    legend=dict(orientation="h", yanchor="bottom", y=-0.25,
-                                xanchor="center", x=0.5),
-                    yaxis=dict(title=f"Cost ({_cur})", gridcolor="#e0dbd2"),
-                    xaxis=dict(tickangle=-20),
-                )
-                st.plotly_chart(_fig_bar, use_container_width=True)
+                st.caption("Full table and before/after chart are shown in the main area ↙")
 
     # ── TAB: Client DNA ───────────────────────────────────────────────────────
     elif "Client DNA" in active_tab:
@@ -2187,7 +3964,10 @@ with col_panel:
                 st.divider()
                 st.markdown("#### Proposed Spending Template")
 
-                _currency = st.session_state.layout.get("project", {}).get("currency", "")
+                proj = st.session_state.layout.get("project", {})
+                if isinstance(proj, str):
+                    proj = {}
+                _currency = proj.get("currency", "")
                 _tpl_rows = []
                 for _tid, _t in _dna_template.items():
                     _delta = _t["delta_cost"]
@@ -2257,187 +4037,6 @@ with col_panel:
 
             elif not st.session_state.layout:
                 st.info("Upload a layout in the sidebar to generate a spending template.")
-
-
-# =============================================================================
-# FULL WIDTH: Cost Breakdown Charts
-# =============================================================================
-if st.session_state.layout:
-    _layout   = st.session_state.layout
-    _currency = _layout.get("project", {}).get("currency", "")
-    _rooms    = _layout.get("rooms", [])
-    _openings = _layout.get("openings", [])
-    _cols     = _layout.get("columns", [])
-    _doors    = [o for o in _openings if (o.get("type") or "").lower() == "door"]
-    _windows  = [o for o in _openings if (o.get("type") or "").lower() == "window"]
-
-    st.divider()
-    st.markdown("#### Cost Breakdown")
-
-    pie_r, pie_d, pie_w, pie_c = st.columns(4, gap="large")
-
-    def _pie_legend(labels, colors):
-        items = "".join(
-            f'<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'
-            f'<div style="width:10px;height:10px;border-radius:2px;background:{c};flex-shrink:0"></div>'
-            f'<span style="font-size:11px;color:#444;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{l}</span>'
-            f'</div>'
-            for l, c in zip(labels, colors)
-        )
-        return f'<div style="padding-top:4px">{items}</div>'
-
-    _PIE_LAYOUT = dict(
-        margin=dict(l=5, r=5, t=30, b=5),
-        paper_bgcolor="#ffffff",
-        showlegend=False,
-        height=220,
-    )
-
-    with pie_r:
-        if _rooms:
-            labels = [r.get("name", "") for r in _rooms]
-            values = [r.get("total_cost", 0) or 0 for r in _rooms]
-            room_min = min(values) if values else 0
-            room_max = max(values) if values else 1
-            room_span = (room_max - room_min) or 1
-            colors = [
-                r.get("color_hex")
-                or _lerp_color(((r.get("total_cost", 0) or 0) - room_min) / room_span)
-                for r in _rooms
-            ]
-            fig_r = go.Figure(go.Pie(
-                labels=labels, values=values,
-                marker=dict(colors=colors, line=dict(color="#fff", width=1)),
-                textinfo="percent",
-                hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
-                hole=0.4,
-            ))
-            fig_r.update_layout(title=dict(text="Rooms", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
-            st.plotly_chart(fig_r, use_container_width=True)
-            st.markdown(_pie_legend(labels, colors), unsafe_allow_html=True)
-
-    with pie_d:
-        if _doors:
-            d_labels = [d.get("subtype") or d.get("id") or "Door" for d in _doors]
-            d_values = [d.get("cost", 0) or 0 for d in _doors]
-            d_colors = [
-                d.get("color_hex")
-                or _cost_color_for_category(_layout, "doors", d.get("cost", 0) or 0, "#B27A41")
-                for d in _doors
-            ]
-            fig_d = go.Figure(go.Pie(
-                labels=d_labels, values=d_values,
-                marker=dict(colors=d_colors, line=dict(color="#fff", width=1)),
-                textinfo="percent",
-                hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
-                hole=0.4,
-            ))
-            fig_d.update_layout(title=dict(text="Doors", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
-            st.plotly_chart(fig_d, use_container_width=True)
-            st.markdown(_pie_legend(d_labels, d_colors), unsafe_allow_html=True)
-        else:
-            st.caption("No door data")
-
-    with pie_w:
-        if _windows:
-            w_labels = [w.get("subtype") or w.get("id") or "Window" for w in _windows]
-            w_values = [w.get("cost", 0) or 0 for w in _windows]
-            w_colors = [
-                w.get("color_hex")
-                or _cost_color_for_category(_layout, "windows", w.get("cost", 0) or 0, "#5AA0CD")
-                for w in _windows
-            ]
-            fig_w = go.Figure(go.Pie(
-                labels=w_labels, values=w_values,
-                marker=dict(colors=w_colors, line=dict(color="#fff", width=1)),
-                textinfo="percent",
-                hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
-                hole=0.4,
-            ))
-            fig_w.update_layout(title=dict(text="Windows", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
-            st.plotly_chart(fig_w, use_container_width=True)
-            st.markdown(_pie_legend(w_labels, w_colors), unsafe_allow_html=True)
-        else:
-            st.caption("No window data")
-
-    with pie_c:
-        if _cols:
-            c_labels = [c.get("subtype") or c.get("id") or "Column" for c in _cols]
-            c_values = [c.get("cost", 0) or 0 for c in _cols]
-            c_colors = [
-                c.get("color_hex")
-                or _cost_color_for_category(_layout, "columns", c.get("cost", 0) or 0, "#828282")
-                for c in _cols
-            ]
-            fig_c = go.Figure(go.Pie(
-                labels=c_labels, values=c_values,
-                marker=dict(colors=c_colors, line=dict(color="#fff", width=1)),
-                textinfo="percent",
-                hovertemplate="<b>%{label}</b><br>%{value:,.0f} " + _currency + "<extra></extra>",
-                hole=0.4,
-            ))
-            fig_c.update_layout(title=dict(text="Columns", font=dict(size=13, color="#333"), x=0.5), **_PIE_LAYOUT)
-            st.plotly_chart(fig_c, use_container_width=True)
-            st.markdown(_pie_legend(c_labels, c_colors), unsafe_allow_html=True)
-        else:
-            st.caption("No column data")
-
-    # ── Economic Spatial Distribution ─────────────────────────────────────────
-    st.divider()
-    st.markdown("#### Economic Spatial Distribution")
-
-    ids = ["Total Project"]
-    labels = ["Project Total"]
-    parents = [""]
-    values = [0]
-
-    if _rooms:
-        for r in _rooms:
-            room_id = str(r.get("id"))
-            ids.append(room_id)
-            labels.append(r.get("name", "Room"))
-            parents.append("Total Project")
-            values.append(max(float(r.get("total_cost", 0)), 1))
-
-        def add_elements(elements, type_name):
-            for e in elements:
-                poly = e.get("polygon", [])
-                if not poly: continue
-                cx = sum(p[0] for p in poly) / len(poly)
-                cy = sum(p[1] for p in poly) / len(poly)
-
-                found_parent = "Total Project"
-                for r in _rooms:
-                    if is_point_in_polygon(cx, cy, r.get("polygon", [])):
-                        found_parent = str(r.get("id"))
-                        break
-
-                ids.append(f"{type_name}_{e.get('id', id(e))}")
-                labels.append(e.get("subtype", type_name).capitalize())
-                parents.append(found_parent)
-                values.append(max(float(e.get("cost", 0)), 1))
-
-        add_elements(_doors, "Door")
-        add_elements(_windows, "Window")
-        add_elements(_cols, "Column")
-
-        with st.expander("DEBUG: Check Hierarchy Data"):
-            debug_df = pd.DataFrame({"ID": ids, "Parent": parents, "Value": values})
-            st.write(debug_df)
-
-        fig_tree = go.Figure(go.Treemap(
-            ids=ids,
-            labels=labels,
-            parents=parents,
-            values=values,
-            textinfo="label+value",
-            marker=dict(colorscale="YlOrRd", showscale=False),
-            pathbar=dict(visible=True)
-        ))
-        fig_tree.update_layout(margin=dict(t=30, l=10, r=10, b=10), height=500)
-        st.plotly_chart(fig_tree, use_container_width=True)
-    else:
-        st.info("No room data found for hierarchy.")
 
 
 # =============================================================================

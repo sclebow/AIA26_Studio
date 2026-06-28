@@ -1,0 +1,340 @@
+<svg viewBox="0 0 1380 800" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff;">
+<style>
+  * { font-family:'Segoe UI',Arial,sans-serif; }
+  .zt { font-size:9px; fill:#94a3b8; font-weight:700; }
+  .nt { font-size:11px; font-weight:600; fill:#ffffff; }
+  .ns { font-size:9px; fill:rgba(255,255,255,0.85); }
+  .lt { font-size:10px; font-weight:600; fill:#3b0f8f; }
+  .el   { font-size:10px; fill:#475569; font-weight:700; }
+  .el-r { font-size:10px; fill:#EF5252; font-weight:700; }
+  .el-g { font-size:10px; fill:#2E7D32; font-weight:700; }
+  .el-o { font-size:10px; fill:#C85A00; font-weight:700; }
+  .el-p { font-size:10px; fill:#7B52B8; font-weight:700; }
+  .ttl  { font-size:19px; font-weight:800; fill:#1e293b; }
+  .sub  { font-size:11px; fill:#64748b; }
+</style>
+
+<!-- Title -->
+<text x="690" y="30" text-anchor="middle" class="ttl">TEAM 05 — <tspan fill="#7B52B8">ACTUAL STATE GRAPH</tspan></text>
+<text x="690" y="50" text-anchor="middle" class="sub">langgraph_agent.py · python_copilot.py · streamlit_ui.py · rhino_converter.py</text>
+
+<!-- ZONE: LangGraphAgent -->
+<rect x="155" y="64" width="430" height="350" rx="8" fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6,3"/>
+<text x="163" y="78" class="zt">LangGraphAgent.process()</text>
+
+<!-- ZONE: Python Copilot -->
+<rect x="615" y="64" width="570" height="350" rx="8" fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6,3"/>
+<text x="623" y="78" class="zt">Python Copilot — _route()</text>
+
+<!-- ZONE: Output -->
+<rect x="1205" y="64" width="155" height="350" rx="8" fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6,3"/>
+<text x="1213" y="78" class="zt">Output</text>
+
+<!-- ZONE: Layout Mutation -->
+<rect x="155" y="430" width="1205" height="270" rx="8" fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6,3"/>
+<text x="163" y="444" class="zt">Layout Mutation + Grasshopper Push</text>
+
+<!-- USER INPUT -->
+<rect x="14" y="171" width="70" height="40" rx="5" fill="#014E6E"/>
+<text x="49" y="187" text-anchor="middle" class="nt" font-size="10">User</text>
+<text x="49" y="201" text-anchor="middle" class="nt" font-size="10">Input</text>
+
+<!-- RESOLVE FOLLOWUP -->
+<rect x="165" y="84" width="122" height="36" rx="5" fill="#29B4E8"/>
+<text x="226" y="98" text-anchor="middle" class="nt" font-size="10">_resolve_followup</text>
+<text x="226" y="112" text-anchor="middle" class="ns">_input()</text>
+
+<!-- BUILD CONTEXT -->
+<rect x="165" y="130" width="122" height="36" rx="5" fill="#29B4E8"/>
+<text x="226" y="144" text-anchor="middle" class="nt" font-size="10">_build_context()</text>
+<text x="226" y="158" text-anchor="middle" class="ns">layout·plans·history</text>
+
+<!-- DIAMOND compare plans? cx=355 cy=216 -->
+<polygon points="355,189 382,216 355,243 328,216" fill="#C8A200"/>
+<text x="355" y="212" text-anchor="middle" font-size="9" font-weight="800" fill="#1e293b">compare</text>
+<text x="355" y="224" text-anchor="middle" font-size="9" font-weight="800" fill="#1e293b">plans?</text>
+
+<!-- DIAMOND use copilot? cx=355 cy=296 -->
+<polygon points="355,269 382,296 355,323 328,296" fill="#29B4E8"/>
+<text x="355" y="292" text-anchor="middle" font-size="9" font-weight="800" fill="#1e293b">use</text>
+<text x="355" y="304" text-anchor="middle" font-size="9" font-weight="800" fill="#1e293b">copilot?</text>
+
+<!-- COMPARE PLANS -->
+<rect x="432" y="184" width="110" height="46" rx="5" fill="#7B52B8"/>
+<text x="487" y="204" text-anchor="middle" class="nt" font-size="10">_compare_plans()</text>
+<text x="487" y="220" text-anchor="middle" class="ns">rank cost · maint.</text>
+
+<!-- SWIFTLET -->
+<rect x="432" y="314" width="122" height="34" rx="5" fill="#009688"/>
+<text x="493" y="328" text-anchor="middle" class="nt" font-size="10">process_with</text>
+<text x="493" y="342" text-anchor="middle" class="ns">_swiftlet()</text>
+
+<!-- COPILOT ENTRY -->
+<rect x="625" y="84" width="110" height="34" rx="5" fill="#7B52B8"/>
+<text x="680" y="98" text-anchor="middle" class="nt" font-size="10">process_with</text>
+<text x="680" y="112" text-anchor="middle" class="ns">_copilot()</text>
+
+<!-- DIAMOND layout loaded? cx=763 cy=101 -->
+<polygon points="763,74 790,101 763,128 736,101" fill="#C8A200"/>
+<text x="763" y="97" text-anchor="middle" font-size="9" font-weight="800" fill="#1e293b">layout</text>
+<text x="763" y="109" text-anchor="middle" font-size="9" font-weight="800" fill="#1e293b">loaded?</text>
+
+<!-- ROUTE -->
+<rect x="836" y="84" width="80" height="34" rx="5" fill="#7B52B8"/>
+<text x="876" y="98" text-anchor="middle" class="nt" font-size="10">_route()</text>
+<text x="876" y="112" text-anchor="middle" class="ns">keyword match</text>
+
+<!-- ROUTE BRANCHES -->
+<rect x="940" y="78"  width="122" height="26" rx="5" fill="#E8E0F8" stroke="#C4B0F0" stroke-width="1"/>
+<text x="1001" y="96" text-anchor="middle" class="lt">slab → _recalc_slab</text>
+<rect x="940" y="112" width="122" height="26" rx="5" fill="#E8E0F8" stroke="#C4B0F0" stroke-width="1"/>
+<text x="1001" y="130" text-anchor="middle" class="lt">finish → _recalc_finish</text>
+<rect x="940" y="146" width="122" height="26" rx="5" fill="#E8E0F8" stroke="#C4B0F0" stroke-width="1"/>
+<text x="1001" y="164" text-anchor="middle" class="lt">area → _estimate_area</text>
+<rect x="940" y="180" width="122" height="26" rx="5" fill="#E8E0F8" stroke="#C4B0F0" stroke-width="1"/>
+<text x="1001" y="198" text-anchor="middle" class="lt">window → _win_analysis</text>
+<rect x="940" y="214" width="122" height="26" rx="5" fill="#E8E0F8" stroke="#C4B0F0" stroke-width="1"/>
+<text x="1001" y="232" text-anchor="middle" class="lt">door → _door_analysis</text>
+<rect x="940" y="248" width="122" height="26" rx="5" fill="#E8E0F8" stroke="#C4B0F0" stroke-width="1"/>
+<text x="1001" y="266" text-anchor="middle" class="lt">reduce → _cost_advice</text>
+<rect x="940" y="282" width="122" height="26" rx="5" fill="#E8E0F8" stroke="#C4B0F0" stroke-width="1"/>
+<text x="1001" y="300" text-anchor="middle" class="lt">compare → _rank_rooms</text>
+<rect x="940" y="316" width="122" height="26" rx="5" fill="#E8E0F8" stroke="#C4B0F0" stroke-width="1"/>
+<text x="1001" y="334" text-anchor="middle" class="lt">rate → _rate_comparison</text>
+<rect x="940" y="350" width="122" height="26" rx="5" fill="#E8E0F8" stroke="#C4B0F0" stroke-width="1"/>
+<text x="1001" y="368" text-anchor="middle" class="lt">total / room / fallback</text>
+
+<!-- RESPONSE TEXT -->
+<rect x="1218" y="186" width="92" height="58" rx="5" fill="#1245A8"/>
+<text x="1264" y="210" text-anchor="middle" font-size="13" font-weight="800" fill="#fff">Response</text>
+<text x="1264" y="228" text-anchor="middle" font-size="13" font-weight="800" fill="#fff">Text</text>
+
+<!-- MUTATION NODES -->
+<!-- finish/slab? diamond cx=205 cy=471 -->
+<polygon points="205,444 232,471 205,498 178,471" fill="#C8A200"/>
+<text x="205" y="467" text-anchor="middle" font-size="9" font-weight="800" fill="#1e293b">finish/</text>
+<text x="205" y="479" text-anchor="middle" font-size="9" font-weight="800" fill="#1e293b">slab?</text>
+
+<rect x="258" y="453" width="128" height="36" rx="5" fill="#2E7D32"/>
+<text x="322" y="468" text-anchor="middle" class="nt" font-size="10">apply_finish_to</text>
+<text x="322" y="482" text-anchor="middle" class="ns">_layout() deep copy</text>
+
+<rect x="404" y="453" width="116" height="36" rx="5" fill="#2E7D32"/>
+<text x="462" y="468" text-anchor="middle" class="nt" font-size="10">recalculate costs</text>
+<text x="462" y="482" text-anchor="middle" class="ns">delta_rate × area</text>
+
+<rect x="538" y="453" width="118" height="36" rx="5" fill="#2E7D32"/>
+<text x="597" y="468" text-anchor="middle" class="nt" font-size="10">_recompute</text>
+<text x="597" y="482" text-anchor="middle" class="ns">_totals()</text>
+
+<rect x="674" y="453" width="118" height="36" rx="5" fill="#2E7D32"/>
+<text x="733" y="468" text-anchor="middle" class="nt" font-size="10">_recompute</text>
+<text x="733" y="482" text-anchor="middle" class="ns">_heatmap()</text>
+
+<rect x="810" y="453" width="106" height="36" rx="5" fill="#006B5E"/>
+<text x="863" y="468" text-anchor="middle" class="nt" font-size="10">updated_layout</text>
+<text x="863" y="482" text-anchor="middle" class="ns">new JSON state</text>
+
+<!-- GH push? diamond cx=963 cy=471 -->
+<polygon points="963,444 990,471 963,498 936,471" fill="#29B4E8"/>
+<text x="963" y="467" text-anchor="middle" font-size="9" font-weight="800" fill="#1e293b">GH</text>
+<text x="963" y="479" text-anchor="middle" font-size="9" font-weight="800" fill="#1e293b">push?</text>
+
+<rect x="1012" y="453" width="126" height="36" rx="5" fill="#C85A00"/>
+<text x="1075" y="468" text-anchor="middle" class="nt" font-size="10">push_layout_to</text>
+<text x="1075" y="482" text-anchor="middle" class="ns">_grasshopper()</text>
+
+<!-- GH returned? diamond cx=1183 cy=471 -->
+<polygon points="1183,444 1210,471 1183,498 1156,471" fill="#C8A200"/>
+<text x="1183" y="463" text-anchor="middle" font-size="8" font-weight="800" fill="#1e293b">GH layout</text>
+<text x="1183" y="475" text-anchor="middle" font-size="8" font-weight="800" fill="#1e293b">returned?</text>
+
+<rect x="1230" y="453" width="90" height="36" rx="5" fill="#C85A00"/>
+<text x="1275" y="468" text-anchor="middle" class="nt" font-size="10">adopt GH</text>
+<text x="1275" y="482" text-anchor="middle" class="ns">colors</text>
+
+<!-- Streamlit GUI -->
+<rect x="560" y="573" width="258" height="36" rx="5" fill="#1245A8"/>
+<text x="689" y="588" text-anchor="middle" class="nt" font-size="10">Streamlit GUI — floor plan heatmap</text>
+<text x="689" y="602" text-anchor="middle" class="ns">plotly shapes · cost overlay · chat</text>
+
+<!-- No change -->
+<rect x="258" y="573" width="118" height="34" rx="5" fill="#475569"/>
+<text x="317" y="587" text-anchor="middle" class="nt" font-size="10">no layout change</text>
+<text x="317" y="601" text-anchor="middle" class="ns">(read-only query)</text>
+
+<!-- ══ ARROWS ══ -->
+<defs>
+  <marker id="a"  markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#94a3b8"/></marker>
+  <marker id="ag" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#2E7D32"/></marker>
+  <marker id="ar" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#EF5252"/></marker>
+  <marker id="ap" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#7B52B8"/></marker>
+  <marker id="ao" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#C85A00"/></marker>
+</defs>
+
+<!-- User Input → resolve + build_context -->
+<polyline points="84,178 124,178 124,102 165,102" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+<polyline points="84,188 124,188 124,148 165,148" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+
+<!-- resolve + build → compare_plans? -->
+<polyline points="287,102 310,102 310,216 328,216" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+<polyline points="287,148 310,148 310,216" fill="none" stroke="#94a3b8" stroke-width="1.6"/>
+
+<!-- compare YES → _compare_plans -->
+<line x1="382" y1="216" x2="432" y2="207" fill="none" stroke="#2E7D32" stroke-width="1.6" marker-end="url(#ag)"/>
+<rect x="386" y="199" width="24" height="13" fill="#fff"/>
+<text x="388" y="210" class="el-g">YES</text>
+
+<!-- compare NO → use_copilot? -->
+<line x1="355" y1="243" x2="355" y2="269" fill="none" stroke="#EF5252" stroke-width="1.6" marker-end="url(#ar)"/>
+<rect x="360" y="251" width="20" height="13" fill="#fff"/>
+<text x="362" y="262" class="el-r">NO</text>
+
+<!-- use_copilot YES → process_with_copilot -->
+<polyline points="382,296 560,296 560,101 625,101" fill="none" stroke="#2E7D32" stroke-width="1.6" marker-end="url(#ag)"/>
+<rect x="458" y="282" width="24" height="13" fill="#fff"/>
+<text x="460" y="293" class="el-g">YES</text>
+
+<!-- use_copilot NO → swiftlet -->
+<line x1="382" y1="331" x2="432" y2="331" fill="none" stroke="#EF5252" stroke-width="1.6" marker-end="url(#ar)"/>
+<rect x="386" y="317" width="20" height="13" fill="#fff"/>
+<text x="388" y="328" class="el-r">NO</text>
+
+<!-- compare_plans → Response -->
+<polyline points="542,207 600,207 600,390 1190,390 1190,215 1218,215" fill="none" stroke="#7B52B8" stroke-width="1.6" marker-end="url(#ap)"/>
+
+<!-- swiftlet → Response -->
+<polyline points="554,331 600,331 600,370 1190,370 1190,229 1218,229" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+
+<!-- copilot → layout loaded? -->
+<line x1="735" y1="101" x2="736" y2="101" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+
+<!-- layout NO → error: routes RIGHT along y=68 then down the far right side -->
+<polyline points="790,101 1340,101 1340,215 1218,215" fill="none" stroke="#EF5252" stroke-width="1.6" marker-end="url(#ar)"/>
+<rect x="1290" y="130" width="13" height="76" fill="#fff"/>
+<text x="1349" y="155" text-anchor="middle" transform="rotate(90,1349,155)" class="el-r">NO → error msg</text>
+
+<!-- layout YES → _route -->
+<line x1="790" y1="101" x2="836" y2="101" fill="none" stroke="#2E7D32" stroke-width="1.6" marker-end="url(#ag)"/>
+<rect x="793" y="87" width="24" height="13" fill="#fff"/>
+<text x="795" y="98" class="el-g">YES</text>
+
+<!-- _route → spine + branches -->
+<line x1="916" y1="101" x2="928" y2="101" fill="none" stroke="#94a3b8" stroke-width="1.6"/>
+<line x1="928" y1="91"  x2="928" y2="363" fill="none" stroke="#94a3b8" stroke-width="1.6"/>
+<line x1="928" y1="91"  x2="940" y2="91"  fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="928" y1="125" x2="940" y2="125" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="928" y1="159" x2="940" y2="159" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="928" y1="193" x2="940" y2="193" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="928" y1="227" x2="940" y2="227" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="928" y1="261" x2="940" y2="261" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="928" y1="295" x2="940" y2="295" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="928" y1="329" x2="940" y2="329" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="928" y1="363" x2="940" y2="363" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+
+<!-- branches → spine → Response -->
+<line x1="1062" y1="91"  x2="1180" y2="91"  fill="none" stroke="#94a3b8" stroke-width="1.6"/>
+<line x1="1062" y1="125" x2="1180" y2="125" fill="none" stroke="#94a3b8" stroke-width="1.6"/>
+<line x1="1062" y1="159" x2="1180" y2="159" fill="none" stroke="#94a3b8" stroke-width="1.6"/>
+<line x1="1062" y1="193" x2="1180" y2="193" fill="none" stroke="#94a3b8" stroke-width="1.6"/>
+<line x1="1062" y1="227" x2="1180" y2="227" fill="none" stroke="#94a3b8" stroke-width="1.6"/>
+<line x1="1062" y1="261" x2="1180" y2="261" fill="none" stroke="#94a3b8" stroke-width="1.6"/>
+<line x1="1062" y1="295" x2="1180" y2="295" fill="none" stroke="#94a3b8" stroke-width="1.6"/>
+<line x1="1062" y1="329" x2="1180" y2="329" fill="none" stroke="#94a3b8" stroke-width="1.6"/>
+<line x1="1062" y1="363" x2="1180" y2="363" fill="none" stroke="#94a3b8" stroke-width="1.6"/>
+<line x1="1180" y1="91"  x2="1180" y2="363" fill="none" stroke="#94a3b8" stroke-width="1.6"/>
+<line x1="1180" y1="215" x2="1218" y2="215" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+
+<!-- Layout mutation arrows -->
+<polyline points="49,208 49,471 178,471" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="54" y="398" width="86" height="13" fill="#fff"/>
+<text x="56" y="409" class="el">if layout loaded</text>
+
+<!-- finish/slab YES -->
+<line x1="232" y1="471" x2="258" y2="471" fill="none" stroke="#2E7D32" stroke-width="1.6" marker-end="url(#ag)"/>
+<rect x="236" y="457" width="24" height="13" fill="#fff"/>
+<text x="238" y="468" class="el-g">YES</text>
+
+<!-- finish/slab NO -->
+<line x1="205" y1="498" x2="205" y2="590" fill="none" stroke="#EF5252" stroke-width="1.6" marker-end="url(#ar)"/>
+<polyline points="205,590 258,590" fill="none" stroke="#EF5252" stroke-width="1.6" marker-end="url(#ar)"/>
+<rect x="210" y="530" width="20" height="13" fill="#fff"/>
+<text x="212" y="541" class="el-r">NO</text>
+
+<!-- mutation chain -->
+<line x1="386" y1="471" x2="404" y2="471" fill="none" stroke="#2E7D32" stroke-width="1.6" marker-end="url(#ag)"/>
+<line x1="520" y1="471" x2="538" y2="471" fill="none" stroke="#2E7D32" stroke-width="1.6" marker-end="url(#ag)"/>
+<line x1="656" y1="471" x2="674" y2="471" fill="none" stroke="#2E7D32" stroke-width="1.6" marker-end="url(#ag)"/>
+<line x1="792" y1="471" x2="810" y2="471" fill="none" stroke="#2E7D32" stroke-width="1.6" marker-end="url(#ag)"/>
+<line x1="916" y1="471" x2="936" y2="471" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+
+<!-- GH push YES -->
+<line x1="990" y1="471" x2="1012" y2="471" fill="none" stroke="#2E7D32" stroke-width="1.6" marker-end="url(#ag)"/>
+<rect x="994" y="457" width="24" height="13" fill="#fff"/>
+<text x="996" y="468" class="el-g">YES</text>
+
+<!-- GH push NO → GUI -->
+<polyline points="963,498 963,591 818,591" fill="none" stroke="#EF5252" stroke-width="1.6" marker-end="url(#ar)"/>
+<rect x="968" y="530" width="20" height="13" fill="#fff"/>
+<text x="970" y="541" class="el-r">NO</text>
+
+<!-- push → GH returned? -->
+<line x1="1138" y1="471" x2="1156" y2="471" fill="none" stroke="#C85A00" stroke-width="1.6" marker-end="url(#ao)"/>
+
+<!-- GH returned YES → adopt colors -->
+<line x1="1210" y1="471" x2="1230" y2="471" fill="none" stroke="#2E7D32" stroke-width="1.6" marker-end="url(#ag)"/>
+<rect x="1214" y="457" width="24" height="13" fill="#fff"/>
+<text x="1216" y="468" class="el-g">YES</text>
+
+<!-- GH returned NO → GUI -->
+<polyline points="1183,498 1183,631 689,631 689,609" fill="none" stroke="#EF5252" stroke-width="1.6" marker-end="url(#ar)"/>
+<rect x="1188" y="552" width="20" height="13" fill="#fff"/>
+<text x="1190" y="563" class="el-r">NO</text>
+
+<!-- adopt colors → GUI -->
+<polyline points="1275,489 1275,651 689,651 689,609" fill="none" stroke="#C85A00" stroke-width="1.6" marker-end="url(#ao)"/>
+
+<!-- updated_layout → GUI -->
+<line x1="863" y1="489" x2="863" y2="573" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+<polyline points="863,573 818,573" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#a)"/>
+
+<!-- ══ 3DM IMPORT ZONE ══ -->
+<rect x="14" y="660" width="1205" height="110" rx="8" fill="none" stroke="#C85A00" stroke-width="1.5" stroke-dasharray="6,3"/>
+<text x="22" y="674" class="zt" fill="#C85A00">Rhino 3DM Import — alternative layout source (rhino_converter.py · pip install rhino3dm)</text>
+
+<!-- 3DM nodes -->
+<rect x="24"  y="682" width="106" height="40" rx="5" fill="#C85A00"/>
+<text x="77"  y="698" text-anchor="middle" class="nt" font-size="10">.3dm File</text>
+<text x="77"  y="712" text-anchor="middle" class="ns">Streamlit sidebar upload</text>
+
+<rect x="148" y="682" width="200" height="40" rx="5" fill="#C85A00"/>
+<text x="248" y="697" text-anchor="middle" class="nt" font-size="10">rhino_converter.py</text>
+<text x="248" y="711" text-anchor="middle" class="ns">classify_layer() · parse_name() · bbox→area_m2</text>
+
+<rect x="366" y="682" width="180" height="40" rx="5" fill="#29B4E8"/>
+<text x="456" y="697" text-anchor="middle" class="nt" font-size="10">cost defaults applied</text>
+<text x="456" y="711" text-anchor="middle" class="ns">rate/m² · totals · heatmap ramp</text>
+
+<rect x="564" y="682" width="180" height="40" rx="5" fill="#1245A8"/>
+<text x="654" y="697" text-anchor="middle" class="nt" font-size="10">_normalize_layout_schema()</text>
+<text x="654" y="711" text-anchor="middle" class="ns">same schema as JSON upload</text>
+
+<rect x="762" y="682" width="180" height="40" rx="5" fill="#014E6E"/>
+<text x="852" y="697" text-anchor="middle" class="nt" font-size="10">session_state.layout</text>
+<text x="852" y="711" text-anchor="middle" class="ns">active layout · download JSON</text>
+
+<!-- 3DM chain arrows -->
+<line x1="130" y1="702" x2="148" y2="702" fill="none" stroke="#C85A00" stroke-width="1.6" marker-end="url(#ao)"/>
+<line x1="348" y1="702" x2="366" y2="702" fill="none" stroke="#C85A00" stroke-width="1.6" marker-end="url(#ao)"/>
+<line x1="546" y1="702" x2="564" y2="702" fill="none" stroke="#C85A00" stroke-width="1.6" marker-end="url(#ao)"/>
+<line x1="744" y1="702" x2="762" y2="702" fill="none" stroke="#C85A00" stroke-width="1.6" marker-end="url(#ao)"/>
+
+<!-- session_state.layout feeds back into _build_context() as layout param -->
+<defs>
+  <marker id="ad" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#C85A00"/></marker>
+</defs>
+<polyline points="852,682 852,655 226,655 226,166" fill="none" stroke="#C85A00" stroke-width="1.4" stroke-dasharray="5,3" marker-end="url(#ad)"/>
+<rect x="440" y="641" width="186" height="13" fill="#fff"/>
+<text x="442" y="652" font-size="8" font-weight="700" fill="#C85A00">layout param → _build_context() on next query</text>
+
+</svg>
