@@ -6,8 +6,8 @@ import catWhiteUrl from '../assets/icons/cat-white.svg'
 import dogWhiteUrl from '../assets/icons/dog-white.svg'
 import userWhiteUrl from '../assets/icons/user-white.svg'
 
-const ROOM_ALPHA = 0.35
-const CIRCLE_ALPHA = 0.88
+const ROOM_ALPHA = 0.30
+const CIRCLE_ALPHA = 0.95
 
 const wrapperRef = ref(null)
 const hoveredRoom = ref(null)
@@ -80,7 +80,10 @@ onMounted(async () => {
   ])
   iconImages.value = { person, cat, dog }
 })
-onUnmounted(() => resizeObserver?.disconnect())
+onUnmounted(() => {
+  resizeObserver?.disconnect()
+  stopFlux()
+})
 
 
 
@@ -153,19 +156,20 @@ const outlinePoints = computed(() => {
 const roomRenderData = computed(() => {
   const rooms = props.layout?.rooms || []
   const vm = props.viewMode
-  const hovered = props.hoveredRoomId
   const todHex = vm === 'routine' ? TOD_COLORS[props.activeStep] ?? TOD_COLORS[0] : null
   const occupiedIds = vm === 'routine'
     ? new Set(Object.keys(props.activeRooms || {}).filter(id => props.activeRooms[id]?.length > 0))
     : null
+  const hovered = props.hoveredRoomId
   return rooms.map(room => {
-    const isHovered = room.id === hovered
-    const isOccupied = occupiedIds?.size > 0 && occupiedIds.has(String(room.id))
+    const rid = String(room.id)
+    const isHovered = rid === hovered
+    const isOccupied = occupiedIds?.size > 0 && occupiedIds.has(rid)
     let alpha
     if (vm === 'routine' && occupiedIds) {
-      alpha = occupiedIds.size > 0 ? (isOccupied ? 0.65 : 0.15) : ROOM_ALPHA
-    } else if (hovered) {
-      alpha = isHovered ? 0.65 : 0.15
+      alpha = occupiedIds.size > 0 ? (isOccupied ? ROOM_ALPHA : ROOM_ALPHA * 0.25) : ROOM_ALPHA
+    } else if (hovered && !isHovered) {
+      alpha = ROOM_ALPHA * 0.25
     } else {
       alpha = ROOM_ALPHA
     }
@@ -174,8 +178,8 @@ const roomRenderData = computed(() => {
       id: room.id,
       points: flattenAndScale(room.geometry),
       fill: hexToRgba(baseColor, alpha),
-      stroke: (isHovered || isOccupied) ? '#222' : '#555',
-      strokeWidth: (isHovered || isOccupied) ? 2.5 : 1.5,
+      stroke: isHovered ? '#222' : isOccupied ? '#222' : '#555',
+      strokeWidth: isHovered ? 2.5 : isOccupied ? 2.5 : 1.5,
       labelX: getLabelX(room.geometry),
       labelY: getLabelY(room.geometry),
       nameText: getRoomDisplayName(room),
@@ -185,41 +189,70 @@ const roomRenderData = computed(() => {
   })
 })
 
-// Routine circles — one circle per persona per occupied room, offset when sharing
-const routineCircleData = computed(() => {
-  const rooms = props.layout?.rooms || []
-  const active = props.activeRooms || {}  // { roomId: [color, ...] }
-  if (!Object.keys(active).length) return []
-
-  // Build a map of personaIndex → persona name from the routine prop (passed via activeRooms colors)
-  // We need to correlate colors back to names — build color→name map from layout rooms isn't possible
-  // so we pass persona names alongside colors by extending activeRooms to { roomId: [{color, name}] }
-  // For now activeRooms is { roomId: [color] } — we enrich with room program name
-  const circles = []
-  for (const room of rooms) {
-    const entries = active[String(room.id)]  // array of { color, name } or just colors
-    if (!entries?.length) continue
-    const cx = getLabelX(room.geometry)
-    const cy = getLabelY(room.geometry)
-    const roomName = getRoomDisplayName(room)
+// Per-persona destination positions (centroid + sharing offset when co-located)
+const personaTargets = computed(() => {
+  if (props.viewMode !== 'routine') return {}
+  const active = props.activeRooms || {}
+  const cmap = centroidMap.value
+  const targets = {}
+  for (const [roomId, entries] of Object.entries(active)) {
+    const c = cmap[String(roomId)]
+    if (!c || !entries?.length) continue
     const count = entries.length
     const totalWidth = (count - 1) * CIRCLE_SPACING
     entries.forEach((entry, i) => {
       const color = typeof entry === 'object' ? entry.color : entry
-      const personaName = typeof entry === 'object' ? entry.name : ''
-      const kind = (typeof entry === 'object' && entry.kind) ? entry.kind : inferKind(personaName)
-      circles.push({
-        key: `${room.id}-${i}`,
-        x: cx - totalWidth / 2 + i * CIRCLE_SPACING,
-        y: cy,
-        color: hexToRgba(color, CIRCLE_ALPHA),
-        personaName,
-        roomName,
-        kind,
-      })
+      const name  = typeof entry === 'object' ? entry.name : String(i)
+      const kind  = typeof entry === 'object' && entry.kind ? entry.kind : inferKind(name)
+      targets[name] = { x: c.x - totalWidth / 2 + i * CIRCLE_SPACING, y: c.y, color, kind }
     })
   }
-  return circles
+  return targets
+})
+
+// Animated positions: personas glide along graph edges to their next room
+const personaPositions = ref({})
+let moveAnimFrame = null
+const MOVE_DURATION = 600
+
+function movePersonas(targets) {
+  const starts = {}
+  for (const [name, target] of Object.entries(targets)) {
+    const cur = personaPositions.value[name]
+    starts[name] = cur ? { x: cur.x, y: cur.y } : { x: target.x, y: target.y }
+  }
+  const t0 = performance.now()
+  function frame(now) {
+    const raw = Math.min(1, (now - t0) / MOVE_DURATION)
+    const ease = raw < 0.5 ? 2 * raw * raw : -1 + (4 - 2 * raw) * raw
+    const next = {}
+    for (const [name, target] of Object.entries(targets)) {
+      const s = starts[name]
+      next[name] = { x: s.x + (target.x - s.x) * ease, y: s.y + (target.y - s.y) * ease, color: target.color, kind: target.kind }
+    }
+    personaPositions.value = next
+    if (raw < 1) moveAnimFrame = requestAnimationFrame(frame)
+  }
+  if (moveAnimFrame) cancelAnimationFrame(moveAnimFrame)
+  moveAnimFrame = requestAnimationFrame(frame)
+}
+
+watch(personaTargets, (targets) => {
+  if (!Object.keys(targets).length) { personaPositions.value = {}; return }
+  movePersonas(targets)
+}, { deep: true })
+
+// Routine circles read from animated positions
+const routineCircleData = computed(() => {
+  const positions = personaPositions.value
+  return Object.entries(positions).map(([name, p]) => ({
+    key: name,
+    x: p.x,
+    y: p.y,
+    color: hexToRgba(p.color, CIRCLE_ALPHA),
+    personaName: name,
+    kind: p.kind,
+  }))
 })
 
 function flattenAndScale(geometry) {
@@ -280,6 +313,134 @@ function getTextWidth(text, fontSize) {
   ctx.font = `${fontSize}px Arial`;
   return ctx.measureText(String(text)).width;
 }
+
+// --- Graph overlay (always-visible access edges + centroid nodes) ---
+const centroidMap = computed(() => {
+  const rooms = props.layout?.rooms || []
+  const map = {}
+  for (const room of rooms) {
+    if (!room.geometry?.length) continue
+    const [cx, cy] = getCentroid(room.geometry)
+    map[String(room.id)] = {
+      x: cx * scale.value + offset.value.x,
+      y: cy * scale.value + offset.value.y,
+    }
+  }
+  return map
+})
+
+// Connects rooms that have no door edges to the nearest circulation room,
+// falling back to the nearest living room if no circulation exists.
+function inferMissingEdges(rooms, centroidMapValue, connectedRoomIds, seen) {
+  const edges = []
+  const circulationRooms = rooms.filter(r => r.attributes?.program === 'circulation')
+  const livingRooms = rooms.filter(r => r.attributes?.program === 'living')
+  const fallbackPool = circulationRooms.length ? circulationRooms : livingRooms
+  if (!fallbackPool.length) return edges
+  for (const room of rooms) {
+    const rid = String(room.id)
+    if (connectedRoomIds.has(rid)) continue
+    const s = centroidMapValue[rid]
+    if (!s) continue
+    let bestId = null, bestDist = Infinity
+    for (const fb of fallbackPool) {
+      const fid = String(fb.id)
+      if (fid === rid) continue
+      const t = centroidMapValue[fid]
+      if (!t) continue
+      const d = Math.hypot(t.x - s.x, t.y - s.y)
+      if (d < bestDist) { bestDist = d; bestId = fid }
+    }
+    if (!bestId) continue
+    const key = [rid, bestId].sort().join('|')
+    if (seen.has(key)) continue
+    seen.add(key)
+    const t = centroidMapValue[bestId]
+    edges.push({ key, source: rid, target: bestId, sx: s.x, sy: s.y, tx: t.x, ty: t.y, virtual: true })
+  }
+  return edges
+}
+
+const graphEdges = computed(() => {
+  const doors = props.layout?.doors || []
+  const rooms = props.layout?.rooms || []
+  const edges = []
+  const seen = new Set()
+  const connectedRoomIds = new Set()
+  for (const door of doors) {
+    const connected = (door.attributes?.connectsRooms ?? []).map(String)
+    for (let i = 0; i < connected.length; i++) {
+      connectedRoomIds.add(connected[i])
+      for (let j = i + 1; j < connected.length; j++) {
+        connectedRoomIds.add(connected[j])
+        const key = [connected[i], connected[j]].sort().join('|')
+        if (seen.has(key)) continue
+        seen.add(key)
+        const s = centroidMap.value[connected[i]]
+        const t = centroidMap.value[connected[j]]
+        if (!s || !t) continue
+        edges.push({ key, source: connected[i], target: connected[j], sx: s.x, sy: s.y, tx: t.x, ty: t.y, virtual: false })
+      }
+    }
+  }
+  edges.push(...inferMissingEdges(rooms, centroidMap.value, connectedRoomIds, seen))
+  return edges
+})
+
+const realGraphEdges = computed(() => graphEdges.value.filter(e => !e.virtual))
+const virtualGraphEdges = computed(() => graphEdges.value.filter(e => e.virtual))
+
+// Edges connected to hovered room, direction reversed so flux flows toward it
+const hoveredEdges = computed(() => {
+  const hovered = props.hoveredRoomId
+  if (!hovered) return []
+  return graphEdges.value
+    .filter(e => e.source === hovered || e.target === hovered)
+    .map(e => e.source === hovered ? { ...e, sx: e.tx, sy: e.ty, tx: e.sx, ty: e.sy } : e)
+})
+
+const graphNodes = computed(() => {
+  const rooms = props.layout?.rooms || []
+  const hovered = props.hoveredRoomId
+  return rooms.map(room => {
+    const rid = String(room.id)
+    const c = centroidMap.value[rid]
+    if (!c) return null
+    const isHovered = rid === hovered
+    return {
+      id: rid,
+      x: c.x,
+      y: c.y,
+      radius: isHovered ? 8 : 4,
+      fill: getRoomColor(room, 'layout'),
+      stroke: '#fff',
+      strokeWidth: isHovered ? 2 : 1,
+      opacity: isHovered ? 1.0 : 0.35,
+    }
+  }).filter(Boolean)
+})
+
+const graphDashOffset = ref(0)
+let animFrameId = null
+
+function startFlux() {
+  if (animFrameId) return
+  const tick = () => {
+    graphDashOffset.value -= 0.3
+    animFrameId = requestAnimationFrame(tick)
+  }
+  animFrameId = requestAnimationFrame(tick)
+}
+
+function stopFlux() {
+  if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null }
+  graphDashOffset.value = 0
+}
+
+watch(() => props.hoveredRoomId, id => {
+  if (id) startFlux()
+  else stopFlux()
+})
 </script>
 
 <style scoped>
@@ -323,8 +484,8 @@ function getTextWidth(text, fontSize) {
           v-if="outlinePoints"
           :points="outlinePoints"
           :closed="true"
-          fill="rgba(0,103,181,0.06)"
-          stroke="#0067B5"
+          fill="rgba(0,130,194,0.06)"
+          stroke="#0082c2"
           :strokeWidth="2"
           :dash="[8, 6]"
         />
@@ -387,6 +548,64 @@ function getTextWidth(text, fontSize) {
             closed: curve.closed,
             stroke: '#5BC8F5',
             strokeWidth: 1.2,
+            listening: false,
+          }"
+        />
+      </v-layer>
+      <!-- Graph overlay: layout + evaluate modes only (not routine, not daylight) -->
+      <v-layer v-if="graphEdges.length && props.viewMode !== 'routine' && props.viewMode !== 'daylight'">
+        <!-- Real door edges -->
+        <v-line
+          v-for="edge in realGraphEdges"
+          :key="`g-${edge.key}`"
+          :config="{
+            points: [edge.sx, edge.sy, edge.tx, edge.ty],
+            stroke: '#0082c2',
+            strokeWidth: 1.5,
+            opacity: 0.32,
+            dash: [4, 5],
+            listening: false,
+          }"
+        />
+        <!-- Virtual edges for disconnected rooms (inferred — same visibility, sparser dash) -->
+        <v-line
+          v-for="edge in virtualGraphEdges"
+          :key="`gv-${edge.key}`"
+          :config="{
+            points: [edge.sx, edge.sy, edge.tx, edge.ty],
+            stroke: '#0082c2',
+            strokeWidth: 1.5,
+            opacity: 0.32,
+            dash: [4, 5],
+            listening: false,
+          }"
+        />
+        <!-- Flux edges: animated dashes flowing toward hovered room -->
+        <v-line
+          v-for="edge in hoveredEdges"
+          :key="`flux-${edge.key}`"
+          :config="{
+            points: [edge.sx, edge.sy, edge.tx, edge.ty],
+            stroke: '#0082c2',
+            strokeWidth: 2,
+            opacity: 0.85,
+            dash: [6, 5],
+            dashOffset: graphDashOffset,
+            listening: false,
+          }"
+        />
+        <!-- Centroid nodes: small dots, hovered one enlarges -->
+        <v-circle
+          v-for="node in graphNodes"
+          :key="`gn-${node.id}`"
+          :config="{
+            x: node.x,
+            y: node.y,
+            radius: node.radius,
+            fill: node.fill,
+            stroke: node.stroke,
+            strokeWidth: node.strokeWidth,
+            opacity: node.opacity,
             listening: false,
           }"
         />

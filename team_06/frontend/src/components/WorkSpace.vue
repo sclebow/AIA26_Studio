@@ -6,7 +6,6 @@ import ToolBar from './ToolBar.vue'
 import LayoutCanvas from './LayoutCanvas.vue'
 import LayoutCard from './LayoutCard.vue'
 import EmbeddingMap from './EmbeddingMap.vue'
-import GraphView from './GraphView.vue'
 
 import { watch, ref, computed } from 'vue'
 const props = defineProps({
@@ -79,14 +78,7 @@ function exportLayout() {
               @previewLayout="id => { viewMode = 'layout'; emit('previewLayout', id) }"
               @findInBetween="(a, b) => emit('findInBetween', a, b)"
             />
-            <GraphView
-              v-else-if="viewMode === 'graph'"
-              :layout="props.agentState"
-              :hoveredRoomId="hoveredRoomId"
-              @roomHover="hoveredRoomId = $event"
-              @roomLeave="hoveredRoomId = null"
-            />
-            <LayoutCanvas
+<LayoutCanvas
               v-else
               :layout="props.agentState"
               :viewMode="viewMode"
@@ -112,7 +104,7 @@ function exportLayout() {
       </template>
       <div v-else class="welcome-screen">
         <h1 class="welcome-title">Welcome to inHabit</h1>
-        <p class="welcome-subtitle">AI-powered floor plan generation based on your lifestyle</p>
+        <p class="welcome-subtitle">Describe your day. Find your layout.</p>
       </div>
   </aside>
 </template>
