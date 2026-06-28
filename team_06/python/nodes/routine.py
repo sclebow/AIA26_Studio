@@ -45,7 +45,7 @@ SYSTEM_PROMPT = (
     "  18:00 → relaxing in living room\n"
     "  19:00 → relaxing in living room\n"
     "  20:00 → relaxing in living room\n"
-    "  21:00 → relaxing in living room\n"
+    "  21:00 → showering in bathroom\n"
     "  22:00 → sleeping in bedroom\n\n"
 
     "EXCEPTIONS — only apply when the brief explicitly states it:\n"
@@ -273,6 +273,8 @@ def _fallback_routine(layout_data: dict[str, Any], topology_json: str | None) ->
             if hour <= 6 or hour >= 22:
                 steps.append({"room": bed_id,               "label": "sleeping"}  if bed_id             else None)
             elif hour == 7:
+                steps.append({"room": bath_id or home,      "label": "showering"} if (bath_id or home)  else None)
+            elif hour == 21:
                 steps.append({"room": bath_id or home,      "label": "showering"} if (bath_id or home)  else None)
             else:
                 steps.append({"room": home,                 "label": "relaxing"}  if home               else None)

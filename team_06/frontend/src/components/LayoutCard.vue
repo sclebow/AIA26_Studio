@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onUnmounted } from 'vue'
 import { getDaylightColor, formatDaylight, PROGRAM_COLORS, toNumericValue, getRoomDisplayName } from '../utils/roomAnalysis.js'
 import catIcon from '../assets/icons/cat.svg'
 import dogIcon from '../assets/icons/dog.svg'
@@ -24,9 +24,31 @@ const emit = defineEmits(['activeRoomsChange', 'timeStepChange', 'roomHover', 'r
 const issues = []
 
 const activeStep = ref(0)
+const isPlaying = ref(false)
+let playInterval = null
 
-// Reset slider when routine changes or viewMode switches to routine
-watch(() => [props.routine, props.viewMode], () => { activeStep.value = 0 })
+function togglePlay() {
+  if (isPlaying.value) {
+    clearInterval(playInterval)
+    playInterval = null
+    isPlaying.value = false
+  } else {
+    isPlaying.value = true
+    playInterval = setInterval(() => {
+      activeStep.value = (activeStep.value + 1) % ROUTINE_TIMES.length
+    }, 900)
+  }
+}
+
+onUnmounted(() => clearInterval(playInterval))
+
+// Reset slider and stop playback when routine changes or viewMode switches
+watch(() => [props.routine, props.viewMode], () => {
+  activeStep.value = 0
+  clearInterval(playInterval)
+  playInterval = null
+  isPlaying.value = false
+})
 
 // { roomId: [{ color, name }, ...] } for the current step
 const activeRooms = computed(() => {
@@ -203,14 +225,20 @@ function scoreRingStyle(score) {
       <template v-if="props.viewMode === 'routine'">
         <template v-if="routine">
           <div class="routine-time-label">{{ ROUTINE_TIMES[activeStep] }}</div>
-          <input
-            class="routine-slider"
-            type="range"
-            min="0"
-            :max="ROUTINE_TIMES.length - 1"
-            step="1"
-            v-model.number="activeStep"
-          />
+          <div class="routine-slider-row">
+            <button class="play-btn" @click="togglePlay" :aria-label="isPlaying ? 'Pause' : 'Play'">
+              <span v-if="isPlaying">⏸</span>
+              <span v-else>▶</span>
+            </button>
+            <input
+              class="routine-slider"
+              type="range"
+              min="0"
+              :max="ROUTINE_TIMES.length - 1"
+              step="1"
+              v-model.number="activeStep"
+            />
+          </div>
           <div class="persona-step-list">
             <div v-for="p in personaSteps" :key="p.name" class="persona-step-row">
               <span class="persona-step-dot" :style="{ background: p.color }">
@@ -383,10 +411,28 @@ function scoreRingStyle(score) {
   color: var(--color-blue);
   margin-bottom: 8px;
 }
+.routine-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.play-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--color-blue);
+  padding: 0 2px;
+  line-height: 1;
+}
+.play-btn:hover { opacity: 0.7; }
 .routine-slider {
+  flex: 1;
   width: 100%;
   accent-color: var(--color-blue);
-  margin-bottom: 4px;
+  margin-bottom: 0;
   cursor: pointer;
 }
 .routine-ticks {
