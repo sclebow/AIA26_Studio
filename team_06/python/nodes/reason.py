@@ -41,6 +41,7 @@ SYSTEM_PROMPT = (
     "- graph.compactness is the preferred compactness of the apartment boundary as a number between 0 and 1. A rectangle is 1.0, irregular shapes are lower. Use null if not specified.\n"
     "- household is a flexible structured representation of occupants and person-specific facts.\n"
     "- household is a list of people or household members mentioned by the user. Each item must have exactly this shape: {\"name\":\"\",\"relationship\":\"\",\"info\":\"\"}.\n"
+    "- For relationship: use 'cat' for cats, 'dog' for dogs, 'child' for children, 'partner' for partners/spouses, 'roommate' for roommates. Use the species name directly for pets — never use 'pet', 'animal', or descriptions like 'family cat'.\n"
     "- Use household[].info for all person-level facts: age, role, profession, and schedule or lifestyle details (e.g. 'home from 14:00', 'works from home', 'studies in the afternoon', 'listens to loud music'). Accumulate these details across turns — do not drop facts already in info.\n"
     "- Keep household lightweight. If a field is unknown, return an empty string for that field instead of inventing details.\n"
     "- description is a concise natural-language summary for LAYOUT SEARCH — spatial quality, lifestyle feel, aggregate household context.\n"

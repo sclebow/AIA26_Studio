@@ -155,7 +155,7 @@ def _stable_color_personas(personas: list[dict[str, Any]], topology_json: str | 
         color = PERSONA_COLORS[hi % len(PERSONA_COLORS)]
         member_name = (member.get("name") or "").strip().lower()
         member_rel = (member.get("relationship") or "").strip().lower()
-        kind = "dog" if member_rel in ("dog", "puppy") else "cat" if member_rel in ("cat", "kitty", "feline") else "person"
+        kind = "dog" if any(w in member_rel for w in ("dog", "puppy", "hound")) else "cat" if any(w in member_rel for w in ("cat", "kitty", "feline")) else "person"
         idx = name_to_idx.get(member_name) if member_name else None
         if idx is None:
             idx = name_to_idx.get(member_rel)
@@ -183,9 +183,9 @@ def _stable_color_personas(personas: list[dict[str, Any]], topology_json: str | 
         mrel = (m.get("relationship") or "").strip().lower()
         if not mname:
             continue
-        if mrel in ("dog", "puppy"):
+        if any(w in mrel for w in ("dog", "puppy", "hound")):
             pet_kind_by_name[mname] = "dog"
-        elif mrel in ("cat", "kitty", "feline"):
+        elif any(w in mrel for w in ("cat", "kitty", "feline")):
             pet_kind_by_name[mname] = "cat"
 
     for p in ordered:
