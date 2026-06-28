@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TerraPilot · 3D Robot Avatar</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:#070b18;overflow:hidden}
+  #app{position:fixed;inset:0}
+  .hint{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+    color:#5a6b85;font:500 12px/1 -apple-system,"Segoe UI",system-ui;letter-spacing:.06em;z-index:5}
+  #err{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+    color:#ff8f8f;font:600 16px/1.5 -apple-system,"Segoe UI",system-ui;text-align:center;padding:2rem;z-index:9}
+</style>
+</head>
+<body>
+  <div id="app"></div>
+  <div class="hint">drag to orbit · scroll to zoom</div>
+  <div id="err"></div>
+
+  <!-- LOCAL Three.js (works offline). Falls back to CDN if the local file is missing. -->
+  <script>
+    function loadThree(srcs, done){
+      const s=document.createElement('script');
+      s.src=srcs[0];
+      s.onload=done;
+      s.onerror=()=>{ if(srcs.length>1) loadThree(srcs.slice(1),done);
+        else document.getElementById('err').style.display='flex',
+             document.getElementById('err').textContent='Could not load Three.js (local vendor file + CDN both failed).'; };
+      document.head.appendChild(s);
+    }
+  </script>
+  <script>
+  loadThree(
+    ["vendor/three.min.js","https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"],
+    init
+  );
+
+  function init(){
+   try{
+    const CY=0x34e3d0, CY2=0x7df5e8, PU=0x7c7bff, DARK=0x0e1424;
+    const app=document.getElementById('app');
+    const scene=new THREE.Scene();
+    scene.background=new THREE.Color(0x070b18);
+    scene.fog=new THREE.Fog(0x070b18,9,24);
+
+    const cam=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,0.1,100);
+
+    const r=new THREE.WebGLRenderer({antialias:true,alpha:true});
+    r.setSize(innerWidth,innerHeight); r.setPixelRatio(Math.min(devicePixelRatio,2));
+    r.shadowMap.enabled=true; r.shadowMap.type=THREE.PCFSoftShadowMap;
+    app.appendChild(r.domElement);
+
+    // ---- lights ----
+    scene.add(new THREE.AmbientLight(0x88aaff,.55));
+    const key=new THREE.DirectionalLight(0xffffff,1.1);
+    key.position.set(4,7,6); key.castShadow=true;
+    key.shadow.mapSize.set(1024,1024); scene.add(key);
+    const rimC=new THREE.PointLight(CY,1.4,20); rimC.position.set(-4,2,-3); scene.add(rimC);
+    const rimP=new THREE.PointLight(PU,1.2,20); rimP.position.set(4,1,-4); scene.add(rimP);
+
+    // ---- materials ----
+    const matBody=new THREE.MeshStandardMaterial({color:DARK,metalness:.35,roughness:.45});
+    const matGlow=new THREE.MeshStandardMaterial({color:CY2,emissive:CY,emissiveIntensity:.9,metalness:.2,roughness:.3});
+    const matPurple=new THREE.MeshStandardMaterial({color:PU,emissive:PU,emissiveIntensity:.5,roughness:.4});
+    const edgeMat=new THREE.LineBasicMaterial({color:CY});
+
+    const bot=new THREE.Group();
+    const addEdges=(m)=>m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),edgeMat));
+
+    const head=new THREE.Mesh(new THREE.BoxGeometry(2.4,2.0,1.4,2,2,2),matBody);
+    head.castShadow=true; head.position.y=1.4; addEdges(head); bot.add(head);
+
+    const panel=new THREE.Mesh(new THREE.BoxGeometry(1.7,1.3,.12),
+      new THREE.MeshStandardMaterial({color:0x0a1020,roughness:.3,metalness:.4}));
+    panel.position.set(0,1.45,.72); bot.add(panel);
+
+    const eyeGeo=new THREE.SphereGeometry(.26,24,24);
+    const eyeL=new THREE.Mesh(eyeGeo,matGlow); eyeL.position.set(-.42,1.55,.84); bot.add(eyeL);
+    const eyeR=new THREE.Mesh(eyeGeo,matGlow); eyeR.position.set(.42,1.55,.84); bot.add(eyeR);
+    const hl=new THREE.MeshBasicMaterial({color:0xeafffb});
+    [[-.48,1.62],[.36,1.62]].forEach(([x,y])=>{const d=new THREE.Mesh(new THREE.SphereGeometry(.07,12,12),hl);d.position.set(x,y,1.02);bot.add(d);});
+
+    const smile=new THREE.Mesh(new THREE.TorusGeometry(.42,.05,12,40,Math.PI),
+      new THREE.MeshStandardMaterial({color:CY,emissive:CY,emissiveIntensity:.6}));
+    smile.rotation.z=Math.PI; smile.position.set(0,1.18,.82); bot.add(smile);
+
+    [[-.78,1.2],[.78,1.2]].forEach(([x,y])=>{const c=new THREE.Mesh(new THREE.SphereGeometry(.08,12,12),matPurple);c.position.set(x,y,.78);bot.add(c);});
+
+    const earGeo=new THREE.CylinderGeometry(.34,.34,.4,24);
+    const earL=new THREE.Mesh(earGeo,matBody); earL.rotation.z=Math.PI/2; earL.position.set(-1.34,1.4,0); earL.castShadow=true; bot.add(earL);
+    const earR=earL.clone(); earR.position.x=1.34; bot.add(earR);
+    [[-1.55,1.4],[1.55,1.4]].forEach(([x,y])=>{const c=new THREE.Mesh(new THREE.SphereGeometry(.12,16,16),matPurple);c.position.set(x,y,0);bot.add(c);});
+
+    const ant=new THREE.Mesh(new THREE.CylinderGeometry(.04,.04,.7,12),matGlow);
+    ant.position.set(0,2.7,0); bot.add(ant);
+    const antDot=new THREE.Mesh(new THREE.SphereGeometry(.16,20,20),matPurple);
+    antDot.position.set(0,3.1,0); bot.add(antDot);
+
+    const neck=new THREE.Mesh(new THREE.CylinderGeometry(.75,1.15,.95,4),matBody);
+    neck.rotation.y=Math.PI/4; neck.position.y=.0; neck.castShadow=true; addEdges(neck); bot.add(neck);
+    const tri=new THREE.Mesh(new THREE.ConeGeometry(.34,.5,3),
+      new THREE.MeshStandardMaterial({color:CY2,emissive:CY,emissiveIntensity:.7,side:THREE.DoubleSide}));
+    tri.position.set(0,.05,.78); bot.add(tri);
+
+    bot.position.y=.3; scene.add(bot);
+
+    // ---- moving radar pad ----
+    const disc=new THREE.Mesh(new THREE.CircleGeometry(1.2,48),
+      new THREE.MeshBasicMaterial({color:PU,transparent:true,opacity:.5}));
+    disc.rotation.x=-Math.PI/2; disc.position.y=-1.55; scene.add(disc);
+    const discCy=new THREE.Mesh(new THREE.RingGeometry(1.2,1.7,48),
+      new THREE.MeshBasicMaterial({color:CY,transparent:true,opacity:.35,side:THREE.DoubleSide}));
+    discCy.rotation.x=-Math.PI/2; discCy.position.y=-1.54; scene.add(discCy);
+    const rings=[];
+    for(let i=0;i<3;i++){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(1,1.1,48),
+        new THREE.MeshBasicMaterial({color:CY,transparent:true,opacity:0,side:THREE.DoubleSide}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=-1.52; ring.userData.phase=i/3; scene.add(ring); rings.push(ring);
+    }
+
+    // ---- tiny built-in orbit (no external OrbitControls) ----
+    let yaw=0, pitch=0.15, dist=7.4, dragging=false, autoRot=true, px=0, py=0;
+    const tgt=new THREE.Vector3(0,0.6,0);
+    function place(){
+      cam.position.set(
+        tgt.x + dist*Math.cos(pitch)*Math.sin(yaw),
+        tgt.y + dist*Math.sin(pitch),
+        tgt.z + dist*Math.cos(pitch)*Math.cos(yaw));
+      cam.lookAt(tgt);
+    }
+    r.domElement.addEventListener('pointerdown',e=>{dragging=true;autoRot=false;px=e.clientX;py=e.clientY;});
+    addEventListener('pointerup',()=>dragging=false);
+    addEventListener('pointermove',e=>{
+      if(!dragging)return;
+      yaw-=(e.clientX-px)*0.008; pitch+=(e.clientY-py)*0.006;
+      pitch=Math.max(-0.4,Math.min(0.9,pitch)); px=e.clientX; py=e.clientY;
+    });
+    r.domElement.addEventListener('wheel',e=>{e.preventDefault();dist=Math.max(4.5,Math.min(12,dist+e.deltaY*0.01));},{passive:false});
+
+    // ---- animate ----
+    const clock=new THREE.Clock();
+    (function tick(){
+      const t=clock.getElapsedTime();
+      const lift=Math.sin(t*1.6)*0.22;
+      bot.position.y=.3+lift; bot.rotation.z=Math.sin(t*1.6)*0.03;
+      const s=1-lift*0.6; disc.scale.set(s,s,s); discCy.scale.set(s,s,s);
+      antDot.material.emissiveIntensity=.4+(Math.sin(t*3)*.5+.5)*.8;
+      const blink=(t%4.2>4.0)?.08:1; eyeL.scale.y=blink; eyeR.scale.y=blink;
+      rings.forEach(rg=>{let p=(t*0.33+rg.userData.phase)%1;const sc=1+p*2.4;rg.scale.set(sc,sc,sc);rg.material.opacity=Math.max(0,(1-p))*0.5;});
+      if(autoRot) yaw+=0.0035;
+      place();
+      r.render(scene,cam);
+      requestAnimationFrame(tick);
+    })();
+
+    addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();r.setSize(innerWidth,innerHeight);});
+   }catch(e){
+    const el=document.getElementById('err'); el.style.display='flex';
+    el.textContent='3D failed to start: '+(e.message||e);
+   }
+  }
+  </script>
+</body>
+</html>

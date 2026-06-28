@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TerraPilot</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+  <link rel="stylesheet" href="/static/styles/theme.css" />
+  <link rel="stylesheet" href="/static/styles/splash.css" />
+  <link rel="stylesheet" href="/static/styles/layout.css" />
+  <link rel="stylesheet" href="/static/styles/explorer.css" />
+  <link rel="stylesheet" href="/static/styles/chat.css" />
+  <link rel="stylesheet" href="/static/styles/center.css" />
+  <link rel="stylesheet" href="/static/styles/context.css" />
+</head>
+<body>
+  <!-- Animated landing screen -->
+  <div id="splash">
+    <svg class="splash-mark" viewBox="0 0 120 120" fill="none">
+      <defs>
+        <linearGradient id="tpGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#57f2e6"/>
+          <stop offset="1" stop-color="#7c7bff"/>
+        </linearGradient>
+      </defs>
+      <circle class="ring ring-1" cx="60" cy="60" r="52" stroke="url(#tpGrad)" stroke-width="2" stroke-dasharray="14 10" opacity="0.8"/>
+      <circle class="ring ring-2" cx="60" cy="60" r="42" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="6 8" opacity="0.5"/>
+      <g class="terra">
+        <path d="M60 28 L88 80 L32 80 Z" fill="url(#tpGrad)" opacity="0.95"/>
+        <path d="M60 44 L75 74 L45 74 Z" fill="#070b14"/>
+        <circle cx="60" cy="62" r="5.5" fill="#57f2e6"/>
+      </g>
+    </svg>
+    <div class="splash-title">Terra<span class="accent">Pilot</span></div>
+    <div class="splash-tagline">Spatial Intelligence Platform</div>
+    <div class="splash-progress"><div class="bar"></div></div>
+  </div>
+
+  <!-- Three-panel workspace (revealed after splash) -->
+  <div id="workspace" class="hidden">
+    <div id="titlebar">
+      <svg class="tb-logo" viewBox="0 0 120 120"><defs><linearGradient id="tbGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#57f2e6"/><stop offset="1" stop-color="#7c7bff"/></linearGradient></defs><path d="M60 30 L86 78 L34 78 Z" fill="url(#tbGrad)"/><circle cx="60" cy="62" r="6" fill="#57f2e6"/></svg>
+      <span class="tb-name">Terra<span class="accent">Pilot</span></span>
+      <span class="tb-stage" id="tb-stage"><span class="dot">●</span> SITE</span>
+    </div>
+    <div id="explorer"></div>
+    <div id="center"></div>
+    <div id="copilot"></div>
+    <!-- global workflow dock — spans full width, above the status bar -->
+    <div id="bottom-dock"></div>
+    <div id="statusbar">
+      <span class="sb-item">✦ <span id="sb-status">Ready</span></span>
+      <span class="sb-item" style="margin-left:auto;">TerraPilot · AI-driven</span>
+    </div>
+  </div>
+
+  <div id="part-tooltip" class="hidden"></div>
+
+  <!-- third-party libs (same versions as legacy frontend) -->
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/TransformControls.js"></script>
+
+  <script type="module" src="/static/boot.js"></script>
+</body>
+</html>

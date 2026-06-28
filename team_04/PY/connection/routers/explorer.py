@@ -1,0 +1,270 @@
+"""Explorer tree endpoints — site, buildings, wings, placement options.
+
+Built from the real AgentState (agent/state.py) a session holds:
+  - site_boundary / site_context        -> SiteInfo
+  - placed_buildings[]                   -> BuildingInfo[]
+      each snapshot carries boundary, shape_type, wings, option_catalog
+      (set by agent.graph place_building).
+
+GET /sessions/{id}/explorer
+GET /sessions/{id}/site
+GET /sessions/{id}/buildings
+GET /sessions/{id}/buildings/{b_id}
+GET /sessions/{id}/buildings/{b_id}/options
+GET /sessions/{id}/buildings/{b_id}/view
+"""
+from __future__ import annotations
+
+from typing import Any
+
+from fastapi import APIRouter, HTTPException
+
+from ..schemas import (
+    BuildingInfo,
+    ExplorerTree,
+    PlacementOption,
+    SiteInfo,
+    WingInfo,
+)
+from ..session_store import store
+
+router = APIRouter(prefix="/sessions", tags=["explorer"])
+
+
+@router.get("/{session_id}/explorer", response_model=ExplorerTree)
+async def get_explorer_tree(session_id: str) -> ExplorerTree:
+    state = await store.get_state(session_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return ExplorerTree(
+        session_id=session_id,
+        site=_build_site_info(state),
+        buildings=_build_building_list(state),
+    )
+
+
+@router.get("/{session_id}/site", response_model=SiteInfo)
+async def get_site(session_id: str) -> SiteInfo:
+    state = await store.get_state(session_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    info = _build_site_info(state)
+    if info is None:
+        raise HTTPException(status_code=404, detail="No site in session")
+    return info
+
+
+@router.get("/{session_id}/buildings", response_model=list[BuildingInfo])
+async def get_buildings(session_id: str) -> list[BuildingInfo]:
+    state = await store.get_state(session_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return _build_building_list(state)
+
+
+@router.get("/{session_id}/buildings/{building_id}", response_model=BuildingInfo)
+async def get_building(session_id: str, building_id: str) -> BuildingInfo:
+    state = await store.get_state(session_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    for info in _build_building_list(state):
+        if info.building_id == building_id:
+            return info
+    raise HTTPException(status_code=404, detail="Building not found")
+
+
+@router.get("/{session_id}/buildings/{building_id}/options", response_model=list[PlacementOption])
+async def get_building_options(session_id: str, building_id: str) -> list[PlacementOption]:
+    state = await store.get_state(session_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    bld = next(
+        (b for b in state.get("placed_buildings", []) if _building_id(b) == building_id), None
+    )
+    if bld is None:
+        raise HTTPException(status_code=404, detail="Building not found")
+    raw_options = _raw_options(bld)
+    return [_coerce_option(o, i) for i, o in enumerate(raw_options)]
+
+
+@router.get("/{session_id}/buildings/{building_id}/view")
+async def get_building_view(
+    session_id: str,
+    building_id: str,
+    height: float = 12.0,
+    floor_height: float = 3.0,
+    piece_length: float = 3.0,
+    ray_length: float = 80.0,
+) -> dict:
+    """Run 3D view analysis on demand using the real agent.tools.view_3d."""
+    state = await store.get_state(session_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    buildings = state.get("placed_buildings", [])
+    bld = next((b for b in buildings if _building_id(b) == building_id), None)
+    if bld is None:
+        raise HTTPException(status_code=404, detail="Building not found")
+
+    boundary = bld.get("boundary") or bld.get("building_boundary", [])
+    if not boundary:
+        raise HTTPException(status_code=422, detail="Building has no boundary")
+
+    other_boundaries = [
+        b.get("boundary") or b.get("building_boundary", [])
+        for b in buildings
+        if _building_id(b) != building_id
+    ]
+    obs_with_heights = [
+        {"boundary": ob, "height": float("inf")} for ob in other_boundaries if ob
+    ]
+
+    try:
+        from agent.tools.view_3d import evaluate_building_views_3d
+
+        result = evaluate_building_views_3d(
+            boundary,
+            height,
+            obs_with_heights,
+            piece_length=piece_length,
+            floor_height=floor_height,
+            ray_length=ray_length,
+            return_ray_detail=False,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return result
+
+
+# --------------------------------------------------------------------------- #
+# Internal helpers — read the REAL AgentState shapes, no invented fields.
+# --------------------------------------------------------------------------- #
+
+def _build_site_info(state: dict[str, Any]) -> SiteInfo | None:
+    boundary = state.get("site_boundary", [])
+    if not boundary:
+        return None
+    ctx = state.get("site_context", {}) or {}
+    area = _poly_area(boundary)
+    bz_bnd = ctx.get("buildable_boundary") if isinstance(ctx, dict) else None
+    bz_area = _poly_area(bz_bnd) if bz_bnd else None
+    return SiteInfo(
+        boundary=boundary,
+        area_sqm=round(area, 2),
+        buildable_boundary=bz_bnd,
+        buildable_area_sqm=round(bz_area, 2) if bz_area else None,
+        edge_count=max(0, len(boundary) - 1),
+        site_context=ctx if isinstance(ctx, dict) else {},
+    )
+
+
+def _build_building_list(state: dict[str, Any]) -> list[BuildingInfo]:
+    return [_build_building_info(b, i) for i, b in enumerate(state.get("placed_buildings", []))]
+
+
+def _build_building_info(bld: dict[str, Any], index: int) -> BuildingInfo:
+    boundary = bld.get("boundary") or bld.get("building_boundary", [])
+    area = _poly_area(boundary)
+    cx, cy = _centroid(boundary)
+    # The agent stores shape metadata flat on the snapshot (shape_type, wings,
+    # parameters) — see agent.graph place_building.
+    wings_raw = bld.get("wings") or []
+    bld_height = bld.get("height_m")
+    floor_count = max(1, round(float(bld_height) / 3.0)) if bld_height else None
+    wings = []
+    for i, w in enumerate(wings_raw):
+        if not isinstance(w, dict):
+            continue
+        # The generator emits area_sqm / nominal_length_m / nominal_width_m /
+        # wing_index. Earlier code read the wrong keys (area/index) → 0 m². Read
+        # the real keys, with a polygon-area fallback from the wing boundary.
+        w_area = w.get("area_sqm")
+        if w_area is None:
+            w_area = _poly_area(w.get("boundary") or [])
+        wings.append(
+            WingInfo(
+                wing_index=int(w.get("wing_index", w.get("index", i))),
+                role=str(w.get("role", "wing")),
+                area_sqm=round(float(w_area or 0), 2),
+                centroid=[round(float(c), 4) for c in (w.get("centroid") or [0, 0])[:2]],
+                length_m=_opt_round(w.get("nominal_length_m")),
+                width_m=_opt_round(w.get("nominal_width_m")),
+                height_m=float(bld_height) if bld_height else None,
+                floors=floor_count,
+            )
+        )
+    options = [_coerce_option(o, i) for i, o in enumerate(_raw_options(bld))]
+    params = bld.get("parameters") or {}
+    return BuildingInfo(
+        building_id=_building_id(bld),
+        label=bld.get("label") or f"Building {index + 1}",
+        building_type=bld.get("building_type") or (params.get("building_type") if isinstance(params, dict) else None),
+        area_sqm=round(area, 2),
+        boundary=boundary,
+        holes=bld.get("holes") or [],
+        centroid=[round(cx, 4), round(cy, 4)],
+        height_m=bld.get("height_m"),
+        wings=wings,
+        placement_options=options,
+        view_score=bld.get("view_score"),
+        floor_plates=bld.get("floor_plates") or [],
+    )
+
+
+def _raw_options(bld: dict[str, Any]) -> list[dict[str, Any]]:
+    catalog = bld.get("option_catalog")
+    if isinstance(catalog, dict) and isinstance(catalog.get("options"), list):
+        return catalog["options"]
+    if isinstance(catalog, list):
+        return catalog
+    pareto = bld.get("pareto_solutions")
+    return pareto if isinstance(pareto, list) else []
+
+
+def _coerce_option(raw: dict[str, Any], index: int) -> PlacementOption:
+    raw = raw if isinstance(raw, dict) else {}
+    return PlacementOption(
+        option_id=str(raw.get("option_id") or f"option_{index + 1:02d}"),
+        rank=int(raw.get("rank") or (index + 1)),
+        combined_score=float(raw.get("combined_score", 0.0) or 0.0),
+        unblocked_view_score=float(raw.get("unblocked_view_score", 0.0) or 0.0),
+        attractor_view_score=float(raw.get("attractor_view_score", 0.0) or 0.0),
+        rotation_degrees=raw.get("rotation_degrees", 0) or 0,
+        centroid_xy=list(raw.get("centroid_xy", [0.0, 0.0]) or [0.0, 0.0]),
+        boundary=list(raw.get("boundary", []) or []),
+        outside_area_sqm=float(raw.get("outside_area_sqm", 0.0) or 0.0),
+        fits_within_site=bool(raw.get("fits_within_site", True)),
+    )
+
+
+def _building_id(bld: dict[str, Any]) -> str:
+    return str(bld.get("building_id") or bld.get("geometry_id") or id(bld))
+
+
+def _opt_round(value: Any, ndigits: int = 2) -> float | None:
+    try:
+        return round(float(value), ndigits)
+    except (TypeError, ValueError):
+        return None
+
+
+def _poly_area(boundary: list | None) -> float:
+    if not boundary or len(boundary) < 3:
+        return 0.0
+    pts = [(float(p[0]), float(p[1])) for p in boundary]
+    n = len(pts)
+    area = 0.0
+    for i in range(n):
+        j = (i + 1) % n
+        area += pts[i][0] * pts[j][1]
+        area -= pts[j][0] * pts[i][1]
+    return abs(area) / 2
+
+
+def _centroid(boundary: list | None) -> tuple[float, float]:
+    if not boundary:
+        return 0.0, 0.0
+    xs = [float(p[0]) for p in boundary]
+    ys = [float(p[1]) for p in boundary]
+    return sum(xs) / len(xs), sum(ys) / len(ys)

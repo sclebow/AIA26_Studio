@@ -1,0 +1,202 @@
+/* ===== Urban Context Analysis — 3D digital-twin overlay + Context Explorer ===== */
+
+/* The center context view fills the panel; the canvas is appended by Three.js. */
+#view-context { position: relative; width: 100%; height: 100%; overflow: hidden; }
+#view-context canvas { display: block; }
+
+/* North compass — shows TRUE geographic north on screen so the (geographic) edge
+   direction labels make sense regardless of camera rotation. */
+.ctx-compass {
+  position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+  width: 64px; height: 64px; z-index: 8; pointer-events: none;
+  background: rgba(8, 16, 26, 0.7); border: 1px solid var(--border, #1d2b40);
+  border-radius: 50%; backdrop-filter: blur(4px);
+}
+.ctx-compass-dial { position: absolute; inset: 0; transition: transform 0.08s linear; }
+.ctx-compass-dial span {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  font: 700 11px var(--mono, monospace); color: #7d8aa6;
+}
+.ctx-compass-n { top: 3px; color: #ff5f6d !important; }
+.ctx-compass-s { bottom: 3px; }
+.ctx-compass-e { top: 50%; right: 4px; left: auto !important; transform: translateY(-50%) !important; }
+.ctx-compass-w { top: 50%; left: 4px !important; transform: translateY(-50%) !important; }
+.ctx-compass-needle {
+  position: absolute; left: 50%; top: 8px; width: 2px; height: 24px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #ff5f6d, transparent);
+}
+
+/* Overlay layer above the WebGL canvas (HUD, scores, report). */
+.ctx-overlay {
+  position: absolute; inset: 0; pointer-events: none; z-index: 5;
+  font-family: var(--font);
+}
+.ctx-overlay > * { pointer-events: auto; }
+
+.ctx-panel-title {
+  font-family: var(--display); font-size: 11px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--accent-2);
+  margin-bottom: 10px; opacity: 0.9;
+}
+
+/* ---- KPI score rail (left) ---- */
+/* Capped so it never reaches the Road Network legend docked at the bottom-left.
+   The legend reserves ~150px of vertical space + a 14px gap; scores scroll
+   internally above that line, so the two cards never float over each other. */
+.ctx-scores {
+  position: absolute; top: 14px; left: 14px; width: 190px;
+  max-height: calc(100% - 28px - 150px); overflow-y: auto;
+  padding: 10px; border-radius: var(--radius);
+  background: var(--panel-strong);
+  backdrop-filter: blur(var(--blur)) saturate(140%);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
+  scrollbar-width: thin;
+}
+.ctx-scores::-webkit-scrollbar { width: 6px; }
+.ctx-scores::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.ctx-scores .ctx-panel-title { margin-bottom: 7px; font-size: 10px; }
+.kpi-card {
+  background: rgba(120, 180, 255, 0.04);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--kc, var(--accent));
+  border-radius: var(--radius-sm);
+  padding: 5px 8px; margin-bottom: 5px;
+  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.kpi-card:hover { transform: translateX(2px); box-shadow: 0 0 16px var(--accent-glow); }
+.kpi-top { display: flex; align-items: center; gap: 5px; }
+.kpi-glyph { font-size: 11px; }
+.kpi-label { font-size: 9.5px; color: var(--text-dim); font-weight: 600; letter-spacing: 0.3px; }
+.kpi-value { font-family: var(--mono); font-size: 16px; font-weight: 700; line-height: 1.05; }
+.kpi-bar { height: 3px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; margin-top: 2px; }
+.kpi-bar i { display: block; height: 100%; border-radius: 3px; transition: width 0.6s var(--ease); }
+
+/* ---- AI Context Report (right) ---- */
+.ctx-report {
+  position: absolute; top: 14px; right: 14px; width: 270px;
+  max-height: calc(100% - 28px); overflow-y: auto;
+  padding: 14px; border-radius: var(--radius);
+  background: var(--panel-strong);
+  backdrop-filter: blur(var(--blur)) saturate(140%);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
+  font-size: 12px; line-height: 1.5;
+}
+.ctx-report-body .crh {
+  font-family: var(--display); font-size: 11px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--accent-2);
+  margin: 12px 0 6px; padding-bottom: 3px; border-bottom: 1px solid var(--border);
+}
+.ctx-report-body .crh:first-child { margin-top: 0; }
+.cr-edge { margin-bottom: 8px; }
+.cr-edge-title { font-weight: 700; color: var(--text-bright); font-size: 11.5px; }
+.cr-edge ul, .cr-opps { margin: 3px 0 0; padding-left: 16px; color: var(--text); }
+.cr-edge li, .cr-opps li { margin: 1px 0; }
+.cr-opps li { color: var(--good); }
+.cr-note { margin-top: 10px; font-size: 10.5px; color: var(--warn); opacity: 0.85; }
+
+/* ---- Site Edge Intelligence HUD (follows cursor) ---- */
+.ctx-edge-hud {
+  position: fixed; z-index: 60; width: 210px;
+  padding: 10px 12px; border-radius: var(--radius-sm);
+  background: rgba(7, 11, 20, 0.92);
+  border: 1px solid var(--accent);
+  box-shadow: 0 0 22px var(--accent-glow);
+  font-size: 12px; pointer-events: none;
+}
+.ctx-edge-hud .hud-title {
+  font-family: var(--display); font-weight: 700; color: var(--accent-2);
+  letter-spacing: 1px; margin-bottom: 6px; font-size: 12px;
+}
+.hud-row { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; color: var(--text); }
+.hud-row b { color: var(--text-bright); font-family: var(--mono); }
+
+/* ---- Road network legend (bottom-left) ---- */
+/* Docked at the bottom-left with its own max-height; the scores rail above is
+   capped to stop short of this card, so neither ever overlaps the other. */
+.ctx-legend {
+  position: absolute; bottom: 14px; left: 14px;
+  padding: 9px 11px; border-radius: var(--radius-sm);
+  background: var(--panel-strong);
+  backdrop-filter: blur(var(--blur));
+  border: 1px solid var(--border);
+  font-size: 10.5px; max-width: 180px;
+  max-height: 140px; overflow-y: auto;
+  scrollbar-width: thin;
+}
+.ctx-legend-title {
+  font-family: var(--display); font-size: 10px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px;
+}
+.lg-row { display: flex; align-items: center; gap: 7px; padding: 1px 0; color: var(--text); }
+.lg-row.off { opacity: 0.35; }
+.lg-row b { margin-left: auto; font-family: var(--mono); color: var(--accent-2); }
+.lg-swatch { width: 16px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+
+/* ---- analysing shimmer ---- */
+.ctx-loading {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 16px;
+  background: rgba(5, 8, 15, 0.6); backdrop-filter: blur(2px); z-index: 40;
+}
+/* Scanning lines (not a spinner): a bright line sweeps top→bottom over the view,
+   with a faint grid, matching the app's other "processing" effect. */
+.ctx-scan {
+  position: absolute; inset: 0; overflow: hidden;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 38px, rgba(40, 224, 208, 0.05) 38px 39px),
+    repeating-linear-gradient(90deg, transparent 0 38px, rgba(40, 224, 208, 0.05) 38px 39px);
+}
+.ctx-scan::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), var(--accent-violet), transparent);
+  box-shadow: 0 0 18px var(--accent-glow);
+  animation: ctx-scan-sweep 1.8s var(--ease, ease-in-out) infinite;
+}
+.ctx-scan::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 60px;
+  background: linear-gradient(180deg, rgba(40, 224, 208, 0.18), transparent);
+  animation: ctx-scan-sweep 1.8s var(--ease, ease-in-out) infinite;
+}
+@keyframes ctx-scan-sweep {
+  0% { top: -4%; opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+.ctx-loading-text {
+  font-family: var(--mono); letter-spacing: 2px; font-size: 12px; color: var(--accent-2);
+}
+.ctx-loading-text span { animation: ctx-dot 1.4s infinite; }
+.ctx-loading-text span:nth-child(2) { animation-delay: 0.2s; }
+.ctx-loading-text span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes ctx-dot { 0%, 60%, 100% { opacity: 0.2; } 30% { opacity: 1; } }
+
+/* ===== Context Explorer leaves (left panel tree) ===== */
+.tree-row.ctx-leaf { gap: 6px; }
+.tree-row.ctx-leaf .eye { width: 16px; text-align: center; flex-shrink: 0; font-size: 11px; }
+.tree-row.ctx-leaf.layer-off { opacity: 0.45; }
+.tree-row.ctx-leaf .ctx-count {
+  margin-left: auto; font-family: var(--mono); font-size: 10px;
+  color: var(--accent-2); background: rgba(40, 224, 208, 0.1);
+  border: 1px solid rgba(40, 224, 208, 0.18); padding: 1px 6px; border-radius: 999px;
+}
+.tree-row.ctx-leaf .ctx-dist {
+  font-family: var(--mono); font-size: 9.5px; color: var(--text-dim);
+  min-width: 38px; text-align: right;
+}
+.ctx-children { animation: tree-expand 0.3s var(--ease); }
+
+/* responsive: shrink overlays on narrow center panels so they don't crowd */
+@media (max-width: 1100px) {
+  .ctx-scores { width: 162px; max-height: calc(100% - 28px - 140px); }
+  .ctx-report { width: 220px; }
+  .ctx-legend { max-width: 162px; max-height: 120px; }
+}
+@media (max-height: 720px) {
+  /* Short viewport: give the legend less room and let scores scroll more. */
+  .ctx-scores { max-height: calc(100% - 28px - 120px); }
+  .ctx-legend { max-height: 100px; }
+}
