@@ -1,5 +1,455 @@
 # Team 04 Progress
 
+## 2026-06-22 Phase 5 — Circulation, Access, and Fire Safety
+
+Implements Phase 5 of `BACKEND_PLAN.md`: access placement now explains *why* a building sits where it sits. A new deterministic tool proposes **site entries** (public on the main-road side from Phase 2, optional private/service entry on a secondary side), **routes a drivable corridor network** from the entry to each building and parking zone, **orients each building's entrance** toward the nearest path, and enforces **fire access** as the optimizer's hard constraint `G ≤ 0` (every building must be within 50 m of a ≥ 4 m drivable path). Builds on Phase 2 (road/main-road side) and Phase 4 (parking zones as targets). Circulation corridor polygons are returned as occupied obstacles to join parking for subsequent placement. All under `team_04/`, conflict-free with `main`.
+
+### Completed
+
+- [x] `agent/tools/circulation.py` — pure, LLM-free circulation/access/fire-safety tool (Shapely in / dict out):
+  - `propose_site_entries(site_model)` — public entry at the midpoint of the **main-road side** (Phase 2 `roads.main_road_side_index`), with an inward normal; optional **private/service** entry on the longest side carrying a `secondary`/`path` road. Falls back to the longest side with `ambiguity="no_road_data"` when no road context exists.
+  - `route_internal_circulation(site_model, entries, buildings, parking)` — grows a connected tree of straight/L-shaped corridors (`DEFAULT_PATH_WIDTH_M = 6 m`): each target (building entrance point, then parking zone) connects to the **nearest point on the network so far**, with the L-corner kept inside the site. Returns per-corridor centreline polylines + buffered polygons (clipped to the site), `occupied_polygons` (obstacles for placement), and `total_length_m`.
+  - `building_entrance_orientation(buildings, entries, circulation)` — entrance heuristic: entrance facade faces the nearest circulation path (or nearest public entry when no paths exist); the `private_direction` is the opposite. Returns the entrance point on the boundary + outward unit direction + distance.
+  - `check_fire_access(buildings, circulation, max_distance=50, min_path_width=4)` — only paths ≥ `min_path_width` count as fire access; per building reports `distance_m`, `reachable_perimeter_ratio` (boundary test points within reach, reusing `view_analysis.divide_boundary_into_test_points`), `within_reach`, `pass`, and `constraint_value = distance − max_distance` (**≤ 0 ⇒ feasible**, the optimizer's `G` convention). Top-level `all_pass` / `max_constraint_value` summarise the hard constraint.
+  - Constants centralised: `DEFAULT_PATH_WIDTH_M`, `MIN_PATH_WIDTH_M`, `MAX_FIRE_DISTANCE_M`, `PERIMETER_PIECE_LENGTH_M`, `SECONDARY_HIERARCHY`.
+- [x] `backend/routers/tools.py` — registered `site_entries`, `route_circulation`, `entrance_orientation`, `fire_access` in the direct-tool registry (mirroring the Phase 4 parking endpoints) so the frontend can run access analyses without a chat turn.
+
+### Validation
+
+- [x] `benchmarking/test_circulation.py` — **37 deterministic tests** (no LLM/MCP), 5 classes: entry placement (public on main road, lies on boundary, inward normal points into site, private on secondary side, longest-side fallback + ambiguity, empty boundary); corridor routing (one path per target, paths reach buildings, polygons stay inside site, custom width, raw-zone-list input, occupied polygons); entrance orientation (point on boundary, entrance/private opposite, unit vector, faces circulation vs. public entry); fire access (served buildings pass, no-circulation fails, **constraint sign convention pass/fail**, narrow path disqualified, `max_constraint_value` is worst, ratio bounds, raw-path-list input); and end-to-end pipeline integration. All 37 pass.
+- [x] Notebook `test_notebooks/test_circulation_fire.ipynb` executes top-to-bottom clean (nbconvert, 0 error outputs): (a) entries on main road, (b) routed network + parking with entrance-orientation arrows, (c) fire-access PASS colouring (both buildings green, within 50 m), (d) a deliberately failing big-site layout where the remote building's `G > 0` is rejected (red). Generator kept at `test_notebooks/_build_circulation_nb.py` for reproducibility.
+- [x] Full suite: `python -m unittest discover team_04/benchmarking` → 303/304 pass; the single failure (`test_generate_building_boundary.test_l_shape_is_translated_and_closed`, a centroid boundary-equality assertion) is **pre-existing and unrelated** to Phase 5 (confirmed: it fails with the Phase 5 changes stashed away).
+- [x] `git status` shows only `team_04/` paths.
+
+### Active MVP Status
+
+- [x] Entries, drivable corridors, entrance orientation, and the fire-access hard constraint are available as pure tools and direct backend endpoints.
+- [ ] Optimizer wiring (fire access as a hard `G`, circulation polygons fed back as obstacles into `sample_valid_placements`) lands in Phase 8 integration — the constraint and obstacle outputs are ready to consume.
+- [ ] Routing is intentionally simple (straight/L-shaped tree from one public entry); curved/loop networks and multi-entry meshing are out of scope for Phase 5.
+
+## 2026-06-19 Phase 2b — Urban Context Analysis
+
+Extends Phase 2 with real-world urban intelligence: the agent now understands **what kind of urban site it sits on** — a crossroads corner, a T-junction terminal, a triangular corner, a linear frontage, etc. — and generates **architectural design responses** tailored to each condition. Data can come from a live OpenStreetMap fetch (Overpass API) or from offline-safe synthetic fallbacks; the same analysis pipeline works for both.
+
+### Completed
+
+- [x] `agent/tools/osm_context.py` — OSM fetcher + offline-safe synthetic library:
+  - `OSM_HIGHWAY_MAP` — maps OSM highway tags to `("main"|"secondary"|"path", width_m)`.
+  - `fetch_urban_site(lat, lon, radius_m, timeout)` — `POST https://overpass-api.de/api/interpreter`; converts lat/lon to local metres, detects intersections from OSM node degree, returns roads + intersections in the canonical schema.
+  - `fetch_or_fallback(…, fallback_index)` — wraps fetch with graceful fallback to `SYNTHETIC_SITES[fallback_index]` on any network failure; emits `UserWarning`.
+  - `SYNTHETIC_SITES` — three offline-safe sites with correctly-spaced roads (back roads >22 m away so only street-facing sides get tagged): (0) crossroads corner, (1) T-junction terminal, (2) triangular corner.
+  - `INTERESTING_SITES` — eight famous presets (Eixample Barcelona, Le Marais Paris, Flatiron New York, Bloomsbury London, Jordaan Amsterdam, Beyoglu Istanbul, Melbourne CBD, Shinjuku Tokyo).
+
+- [x] `agent/tools/urban_analysis.py` — LLM-free urban classification and design response:
+  - `detect_intersections_from_roads(roads, snap_dist_m)` — pairwise Shapely intersection + endpoint snap; **arm counting** (pass-through = 2 arms, terminus = 1) gives correct degree so T-junctions don't collapse to "bends".
+  - `find_frontages(site_model, roads_result)` — reads Phase 2 `updated_sides`; `visibility_score` = hierarchy rank 40% + road width 30% + projected frontage 30%.
+  - `classify_site_type(frontages, near_ix, site_model)` — 9-way: `corner`, `crossroads_corner`, `t_junction_terminal`, `y_junction`, `triangular_corner` (<45° between frontage sides), `linear`, `back_parcel`, `cul_de_sac`, `complex`.
+  - `analyze_corner_conditions` — visibility score + `is_gateway` flag (main road involved) per shared corner.
+  - `analyze_access` — vehicle / pedestrian / service access points per frontage.
+  - `generate_urban_response` — 9 architectural response templates per site type.
+  - `full_urban_analysis(site_model, roads, intersections)` — master function; reads `site_model["roads"]` (Phase 2), detects or uses provided intersections, classifies, runs all sub-analyses.
+
+- [x] `backend/routers/tools.py` — registered `urban_analysis`, `detect_intersections`, `fetch_urban_site`, `fetch_or_fallback`.
+
+- [x] Frontend lockstep (all under `team_04/frontend/`, 0 TypeScript errors):
+  - `api/types.ts` — `IntersectionInfo`, `FrontageInfo`, `CornerCondition`, `AccessPoint`, `AccessRecommendation`, `UrbanResponse`, `UrbanAnalysisResult`, `InterestingSite`.
+  - `api/client.ts` — `Team04Api.urbanAnalysis()` and `fetchUrbanSite()`.
+  - `site/UrbanAnalysisOverlay.tsx` — SVG overlay: road centrelines (offset, coloured by hierarchy), site sides heatmapped by visibility (yellow→teal), intersection markers (✕/T/Y/✦), corner dots (size ∝ visibility; red border = gateway), access symbols (▶/♟/⚙), urban response badge, legend.
+  - `frontend/index.ts` barrel updated.
+
+### Validation
+
+- [x] `benchmarking/test_urban_analysis.py` — **49/49 deterministic tests** pass (8 classes: intersection detection, frontage, site type, corner conditions, access, urban response, full analysis e2e, synthetic site schema).
+- [x] Synthetic sites produce correct distinct classifications: `crossroads_corner` / `t_junction_terminal` / `triangular_corner`.
+- [x] Notebook `test_notebooks/test_urban_context_P2b.ipynb` executes 7 sections clean: road network, frontage heatmap, intersections + corners, access, urban response panels, geometric detection, summary table. OSM fetch attempted for Barcelona; falls back to synthetic when offline.
+- [x] `npm run typecheck` (strict) → **0 errors** with the new urban analysis types.
+
+### Active MVP Status
+
+- [x] The agent classifies a site's urban condition from real-world (OSM) or synthetic road data.
+- [x] Each classification drives a distinct architectural design response (massing, entry, facade, corner treatment).
+- [x] Frontend overlay renders all urban analysis layers in SVG.
+- [ ] `full_urban_analysis` is not yet auto-invoked from `read_site` — it is a direct-tool call today.
+- [ ] Overpass API has rate limits; a tile-cache layer (Phase 8) will make repeated fetches free.
+
+## 2026-06-18 Phase 2 — Transportation / Road Context
+
+Implements Phase 2 of `BACKEND_PLAN.md`: the agent now knows its surroundings. Road objects (`{type:"road", centerline, width_m, hierarchy, name}`) supplied via `site_objects` are analysed by a new deterministic tool and used to (a) identify the **main road** (highest hierarchy → widest → most frontage), (b) **tag each site side** with its adjacent road, and (c) **derive `edge_road_widths`** so road-adjacent edges get a proportionally larger setback. Phase 3's `derive_site_grid` now automatically aligns to the main-road side when one is present, falling back to the longest-side default when no roads are provided. No road data → an explicit `ambiguity="no_road_data"` record is stored so the brief system can surface the gap rather than inventing a road. All under `team_04/`, conflict-free with `main`.
+
+### Completed
+
+- [x] `agent/tools/road_context.py` — pure, LLM-free road analysis:
+  - `validate_road(road)` — normalises a raw road dict (unknown hierarchy → `"secondary"`, bad width → `DEFAULT_ROAD_WIDTH_M`; raises on missing centreline).
+  - `analyze_roads(site_model, roads)` — for each road: nearest site side by **Shapely distance + projected-frontage tie-break** (so a parallel road wins over one that merely ends near a corner), `distance_m`, `frontage_m` (overlap projected onto the side direction). Sorts by `(hierarchy_rank, width_m, frontage_m)` → main road. Builds `edge_road_widths` for every side with an adjacent road within `ADJACENCY_MARGIN_M`. Returns `updated_sides` (site sides with `adjacent_road` filled) and `ambiguity="no_road_data"` when no valid roads are found.
+  - Constants centralised: `HIERARCHY_RANK`, `DEFAULT_ROAD_WIDTH_M`, `ADJACENCY_MARGIN_M`.
+- [x] `agent/tools/site_model.py` updated — `build_site_model` now:
+  - Extracts `site_objects` of `type == "road"` from `layout_payload`.
+  - Calls `analyze_roads` and stores the result in `model["roads"]` (was `None` placeholder).
+  - Propagates `updated_sides` back to `model["sides"]` so every side has its `adjacent_road` tag.
+  - Merges road-derived `edge_road_widths` with explicit payload overrides before calling `setback_summary`, so road-adjacent sides automatically get road-proportional setbacks.
+- [x] `agent/tools/site_grid.py` updated — `derive_site_grid` now:
+  - Priority: explicit `alignment_side` > `site_model["roads"]["main_road_side_index"]` (Phase 2) > longest-side fallback.
+  - No change when no roads are present — longest-side fallback still operates.
+- [x] `backend/routers/tools.py` — registered `road_context` (`analyze_roads`) and `validate_road` in the tool registry so the frontend can call `POST /tools/road_context` directly without a chat turn.
+- [x] Frontend lockstep:
+  - `frontend/api/types.ts` — `RoadData`, `RoadAnalysis`, `RoadContextResult` types (mirror `road_context.py`).
+  - `frontend/api/client.ts` — `Team04Api.roadContext(siteModel, roads)` typed wrapper.
+  - `frontend/site/RoadOverlay.tsx` — SVG overlay: road centrelines coloured by hierarchy (main=red, secondary=orange, path=teal), width buffers as semi-transparent strips, site sides painted by adjacent road colour, main-road side bold, ambiguity warning.
+  - `frontend/decision-graph/CONTRACT.md` §9 — road overlay payload contract.
+  - `frontend/index.ts` barrel — `RoadOverlay`, `RoadData`, `RoadAnalysis`, `RoadContextResult` exported.
+
+### Validation
+
+- [x] `benchmarking/test_road_context.py` — 34 deterministic tests (no LLM/MCP): road validation, main-road selection (hierarchy > width > frontage), nearest-side identification for all four cardinal sides, side tagging (main side tagged / unrelated sides null), `edge_road_widths` derivation, road-derived setback is larger than default, ambiguity path (None / empty list / all invalid roads), grid alignment to main-road side, explicit `alignment_side` overrides main road, longest-side fallback without roads, `build_site_model` integration (site_objects flow through, main_road_side_index present, non-road objects ignored, complex splayed site). All 34 pass.
+- [x] Updated `benchmarking/test_design_brief.py` — `SiteModelTests.test_builds_sides_corners_and_setbacks` updated to reflect that `model["roads"]` is now the `analyze_roads` result dict (with `ambiguity="no_road_data"`) rather than `None`. Total suite: **128 tests pass** (`test_road_context` + `test_site_grid` + `test_sun_analysis` + `test_design_brief`).
+- [x] Notebook `test_notebooks/test_road_context.ipynb` smoke-runs clean: site + 3 roads → main-road identification, side tagging per edge, buildable-zone comparison (road setbacks vs uniform 5 m), grid alignment to main-road side vs longest-side fallback, ambiguity path demo, and a summary table. All 6 sections verified.
+- [x] `npm run typecheck` (frontend, strict) → **0 errors** with `RoadOverlay` + `RoadData`/`RoadAnalysis`/`RoadContextResult` types and the `roadContext` client method.
+- [x] `py_compile` clean on `road_context.py`, `site_model.py`, `site_grid.py`, `backend/routers/tools.py`. `git status` shows only `team_04/` paths.
+
+### Active MVP Status
+
+- [x] The agent recognises the largest road near the site, tags each site side, and uses that to orient the placement grid and derive realistic setbacks.
+- [x] When no road data is provided, an explicit ambiguity is recorded — the agent will surface the gap rather than inventing a road.
+- [x] Phase 3 grid alignment now uses the main-road side as the default (Phase 2 ↔ Phase 3 coupling is live).
+- [x] Frontend overlay (`RoadOverlay`) and API contract (§9) are in lockstep with the backend.
+- [ ] `read_site` does not yet auto-populate `site_model["roads"]` from a live Grasshopper context reader — that is Phase 8 (agent integration); today roads flow in via `site_objects` in the layout payload.
+- [ ] The main-road side does not yet drive Phase 4 (parking near-road allocation) or Phase 5 (public entry on the main-road side) — those phases consume `site_model["roads"]` when they land.
+
+## 2026-06-17 Shape library — fixed the Y and X footprints
+
+User: the Y and X building shapes were malformed (the agent struggled to find a side to align), and supplied reference letter shapes. Rebuilt **only** Y and X in `agent/tools/building_shape_graph.py`.
+
+### Completed
+
+- [x] Replaced the hand-written Y/X template vertex lists (which didn't read as letters) with **uniform-width bar unions**: `_letter_y_polygon` = a vertical stem that splits into two diagonal arms forming a V; `_letter_x_polygon` = two diagonal bars crossing at the centre. Both flat-ended (`buffer(cap_style=2, join_style=2)`), unioned, then scaled to the requested area. `O` is unchanged (`_O_TEMPLATE`); I/L/T/U/H (winged) untouched.
+- [x] Verified by rendering: Y is a clean letter Y (stem + V arms, bbox taller than wide so its length axis is the stem), X is a clean letter X (square bbox, symmetric). Both valid polygons, area exact.
+
+### Validation
+
+- [x] Full `team_04/benchmarking` suite still green except the pre-existing unrelated `test_generate_building_boundary` float-boundary failure (150 tests). The all-shapes and grid+sun integration tests build Y/X with the new geometry and pass.
+
+## 2026-06-17 Phase 3 — Straight grid + function-driven orientation (pivot from warping)
+
+User: "It's wrong, not parallel, not following the grid, placed randomly. Just pick a side and draw the grid parallel and perpendicular — do not make it distorted. Place buildings perpendicular on the grid. Ask the user the building's function to decide which wing is perpendicular to the chosen side. Same for all types." Pivoted off the warped/conforming approach to a simple straight grid + rigid, function-oriented placement. (Confirmed via `AskUserQuestion`: rule = **by use**; function supplied as a parameter the agent asks for.)
+
+### Completed
+
+- [x] Added function-driven orientation to `agent/tools/site_grid.py`:
+  - `FUNCTION_FRONTAGE` (+ `frontage_for_function`): **commercial/retail/mixed → "parallel"** (long side along the street, max frontage); **residential/office/... → "perpendicular"** (deeper plan, light + privacy). Editable.
+  - `building_long_axis_deg` — the footprint's dominant axis = longer side of its axis-aligned bounding box (stable 0/90; the longest-edge proxy ties on symmetric shapes and picks a diagonal on X).
+  - `orientation_for_function` / `place_building_by_function` — rotate a footprint to one of the two **grid-aligned** orientations by function (or an explicit `frontage`/`long_axis_deg` override), so its edges end up parallel **and** perpendicular to the chosen side. The agent asks the user the function and passes `function=`.
+- [x] The straight grid (`derive_site_grid`) keyed to a chosen side remains the placement grid; the warped `derive_adaptive_site_grid` / `conform_*` stay in the backend but are **no longer used by the notebooks**.
+
+### Validation
+
+- [x] Diagnostic: the rectilinear winged shapes (I L T U H) place **0.0° off-grid** (every edge parallel/perpendicular), commercial → long side parallel, residential → perpendicular. Diagonal-armed Y/X/O keep their inherent arms (a diagonal cross can't be edge-aligned to one side) and orient by their dominant axis.
+- [x] Added `FunctionOrientationTests` to `benchmarking/test_site_grid.py` (use→frontage mapping; bbox long axis; winged shapes place perfectly grid-aligned; commercial parallel vs residential perpendicular; orientations differ by 90°; `frontage=` override). 41 grid tests pass.
+- [x] Rewrote `test_grid_alignment.ipynb`: §1b places a U by function (commercial vs residential) on the straight grid (`edges 0° off-grid`); §1c places every shape by function; **removed** the warped-grid §1d and the conforming obtuse-corner §3. Updated intro + summary.
+- [x] Rewrote `test_sun_analysis.ipynb` §7: straight grid keyed to the **sun-chosen side**, U placed rigidly by function, sun scored. With no obstacles, exposure depends on orientation, so it compares commercial (0.329) vs residential (0.207) worst-sun — the function/orientation drives the sun result. Updated `benchmarking/test_sun_analysis.py` to `GridFunctionSunIntegrationTests` (23 tests pass). Both notebooks smoke-run clean.
+
+## 2026-06-17 Phase 3 — Gentle, size-preserving conforming (the realistic middle ground)
+
+User: "I was happy with the L conforming … but the Y and X are too distorted; I want shapes exactly like the reference and manipulatable like the L — realistic, flexible, responsive to complex sites." So neither the full rubber-sheet (distorts X/Y) nor pure rigid (no flex) is right. Implemented the middle ground.
+
+### Completed
+
+- [x] Added `conform_building_to_grid(base, grid, site_model, node, *, bend=0.6)` to `agent/tools/site_grid.py`: maps the footprint into a **local `(s, t)` window sized to its real extent** via the grid's local **Jacobian**, then **blends rigid↔conformed by `bend`** ∈ [0,1]. The building gently follows the grid's curvature while keeping its width, recognisable shape, and area — no rubber-sheet blow-up. `bend=0` = rigid; on a rectangle (affine patch) conform == rigid (zero distortion). Falls back to rigid when the grid is not adaptive.
+- [x] Stored per-node `(s, t)` in the adaptive grid (`node_params`) so a footprint can be conformed at the right local window; re-added the `_clamp01` helper.
+
+### Validation (diagnostic)
+
+- [x] Across all 8 shapes: **rectangle area_ratio = 1.000** at every bend (zero distortion on simple sites); **pentagon area 0.94–0.98 at bend 0.6** with vertex counts preserved exactly — vs. the old 4–9× blow-up. Shapes stay recognisable.
+- [x] Added `GentleConformTests` to `benchmarking/test_site_grid.py` (bend=0 equals rigid; rectangle conform has zero distortion at any bend; splayed site preserves vertex count + area 0.8–1.25×; it actually bends a long bar; non-adaptive grid falls back to rigid). 34 grid tests pass.
+- [x] Reworked `benchmarking/test_sun_analysis.py` to `GridConformSunIntegrationTests` (conform keeps verts + area within tolerance, valid varying sun score, all 8 shapes). 23 sun tests pass.
+- [x] Notebooks back to **conforming** (gentle): `test_grid_alignment.ipynb` §1b/1c/1d/3 conform a U / all shapes / an obtuse L (area % shown per panel, shapes recognisable); `test_sun_analysis.ipynb` §7 conforms a U at each node + scores by worst-sun (40 placements, area ~99%). Both smoke-run clean.
+
+### Placement fix — front the chosen side (was "placed randomly")
+
+- [x] User report: in §1c the building floated in the interior, not aligned to any side. Root cause: the demo placed at the nearest *interior* node where the footprint fit, landing it where the warped grid points a different way. Replaced with `place_on_grid(base, grid, s_frac)`, which places the building **near the chosen side** (smallest `t`) at along-side fraction `s_frac`, oriented to the local grid there (parallel to the side). Verified per side: building **inside, 2–9 m off the chosen side, 0.5–10.7° of parallel**. §1b/1c/1d/3 now all front the chosen side (1b slides the U along the frontage; 1c fronts each side; 1d fronts the road for every shape; 3 tucks into the obtuse corner).
+- [x] Added `test_fronting_a_side_places_the_building_near_it` (every side: the near-side placement sits within 18 m of the chosen side). `team_04.benchmarking.test_site_grid` → 35 tests pass.
+
+## 2026-06-17 Phase 3 — Removed footprint conforming; buildings stay rigid (realistic)
+
+User: "the conforming logic for the buildings is wrong — too deformed; X and Y aren't even following the grid, it's not the shape anymore and no realistic building would look like that." Correct. A diagnostic confirmed footprint conforming **blew up area 4–9×** and exploded vertex counts (X→73 verts), while rigid local-grid placement preserves **area_ratio 1.000 and the exact vertex count**.
+
+### Completed
+
+- [x] **Removed** the footprint-conforming functions from `agent/tools/site_grid.py`: `conform_polygon_to_grid`, `conform_world_footprint_to_grid`, `l_region_in_grid_space`, `rect_region_in_grid_space`, `l_region_in_cells`, `rect_region_in_cells`, `grid_world_mapper`, and the now-dead `_clamp01`. They rubber-sheeted the polygon through the Coons patch — unrealistic.
+- [x] Kept the adaptive **warped grid** (`derive_adaptive_site_grid`) as an **orientation field**, and `align_building_to_local_grid` / `local_grid_orientation` as the **realistic placement**: the building is a rigid footprint rotated to the local grid direction — straight walls, exact shape/area — so the layout adapts to the site while every building stays real. An L can still bend a free wing (`corner_wing_rotation`) for an obtuse corner.
+
+### Validation
+
+- [x] Rewrote `benchmarking/test_site_grid.py` (dropped the conforming tests; added `RigidLocalPlacementTests`: rigid placement preserves every shape's area + vertex count exactly; long edge follows the local grid; every shape places rigidly inside the site; the building re-orients per chosen side; the optimizer path stays shape-agnostic). 29 tests pass.
+- [x] Rewrote `benchmarking/test_sun_analysis.py` integration to `GridRigidSunIntegrationTests` (rigid placement asserts identical vertex count + area, gets a valid worst-sun score, and the score varies across placements). 23 tests pass.
+- [x] Rewrote `test_notebooks/test_grid_alignment.ipynb` sections 1b/1c/1d/3 to **rigid** local-grid placement (a U oriented to the local grid; the same U re-orienting per chosen side; all 8 library shapes placed rigidly with area preserved; a rigid obtuse-arm L at the most obtuse corner). Removed the duplicate stale Summary. Smoke-runs clean (shapes preserved, obtuse L inside).
+- [x] Rewrote `test_notebooks/test_sun_analysis.ipynb` §7 to place a **rigid** U at each grid node, oriented to the local grid, scored by worst-sun exposure (40 in-site placements, shape preserved, exposure spans 0.138). Fixed the tangled section-7 header / duplicate-summary ordering.
+
+## 2026-06-17 Phase 1×3 — Sun fitness composed with grid conforming on a complex site
+
+User: "try the sun analysis with the more complex site … use the logic from grid alignment and integrate it." Composed the two capabilities so a building reacts to the *site* (grid conforming) and the *sun* (exposure fitness) at once.
+
+### Completed
+
+- [x] Added section "7. Complex site — conforming buildings react to the sun" to `test_notebooks/test_sun_analysis.ipynb`: builds the **adaptive warped grid** on the splayed pentagon, marks the **worst-sun side**, then **conforms** a U at many grid positions (`conform_world_footprint_to_grid`) and scores each by **worst-sun exposure** (`evaluate_sun_exposure`), keeping the placement that both fits the site and dodges the sun (best vs. worst shown side by side, facades coloured by exposure).
+- [x] No backend change needed — the integration reuses the existing conforming + sun tools. (The sun NSGA optimizer still uses free-rotation candidates; conforming placement is swept explicitly here, the same pattern as the grid notebook.)
+
+### Validation
+
+- [x] Smoke-ran the section: 11×6 grid, worst-sun side W, 12 conforming U placements inside the site, worst-sun exposure spanning ~0.076 across placements (the signal the agent reacts to).
+- [x] Added `GridConformingSunIntegrationTests` to `benchmarking/test_sun_analysis.py` (conforming building gets a valid 0–1 sun score; sun exposure varies across placements; every library shape conforms + scores on the complex site). `python -m unittest team_04.benchmarking.test_sun_analysis` → 23 tests pass.
+
+## 2026-06-17 Phase 3 — Conforming applies to ALL library shapes (I L T U H Y X O)
+
+User check: "is all the logic applicable with all the building shapes, not just the simple L/T/I?" Audited the two logic paths against the full footprint library (winged `I/L/T/U/H` + template `Y/X/O`).
+
+### Findings + Completed
+
+- [x] **Rigid + grid-aligned placement was already shape-agnostic.** `align_building_to_grid`, `sample_valid_placements`, and `optimize_aligned_placement` take any polygon boundary; all 8 shapes produced 75–89 valid grid-aligned candidates. No change needed.
+- [x] **Conforming was the gap:** it only had `l_region_*` / `rect_region_*` (L and rectangle authored in `(s,t)`), so it could not deform U/H/T/I/Y/X/O. Added `conform_world_footprint_to_grid(grid, site_model, world_boundary, …)`: normalises any footprint's bounding box into a grid `(s, t)` sub-rectangle and pushes it through the same Coons map, so **every library shape conforms** to the warped grid and stays inside the site.
+
+### Validation
+
+- [x] Verified all 8 shapes conform fully inside both the splayed pentagon and the rectangle, each warping more on the pentagon (higher turning-sum) than on the affine rectangle where it keeps its base corner angles.
+- [x] Added `AllShapesConformTests` to `benchmarking/test_site_grid.py` (library = 8 shapes; every shape builds, grid-aligns, conforms inside the site, and warps on the splayed site). `python -m unittest team_04.benchmarking.test_site_grid` → 33 tests pass.
+- [x] Added notebook section "1d. Every library shape conforms" — a 2×4 gallery of `I L T U H Y X O` conforming to the warped grid (titles confirm `inside=True`). Notebook smoke-runs end to end.
+
+## 2026-06-17 Phase 3 — Fix: building drifted off the chosen side; cell-snapping
+
+User feedback: the conformed L "is placed randomly on the site … test the grid with different sides to see how the building reacts." Two real issues found and fixed.
+
+### Completed
+
+- [x] **Bug: the grid's bottom edge was not always the chosen side.** `_select_quad_corners` picked the four sharpest corners, so when the chosen side's vertices were not among them (e.g. sides 2 and 3 of the demo pentagon, whose shared apex was the dropped vertex) the Coons patch keyed to *other* corners and a building authored on it landed in an unrelated spot — "random". Rewrote `_select_quad_corners` to **always anchor the bottom (`B`) chain on the chosen side** (`a -> a+1`) and split the opposite arc into ~thirds for the other two corners. Verified `B == chosen side` for all 5 sides.
+- [x] **"Looks random" vs. the grid:** added `l_region_in_cells` / `rect_region_in_cells` so a footprint is authored on **whole grid cells** (`i/nu`, `j/nv`); its edges then land *on* the drawn grid lines, so it visibly snaps to the grid like the sketch instead of floating at an arbitrary fraction.
+
+### Validation
+
+- [x] Added 2 regressions to `benchmarking/test_site_grid.py`: `B` chain equals the chosen side for every side of the pentagon; and the same cell-snapped L, built per-side, sits nearer its own side than the opposite side and relocates across the site as the side changes. `python -m unittest team_04.benchmarking.test_site_grid` → 28 tests pass.
+- [x] `test_notebooks/test_grid_alignment.ipynb`: section 1b now authors the L by cells (snapped + deforming); new section "1c. The building reacts to the chosen side" re-keys the grid to each side and shows the grid + L rotating to follow it (panel titles show `B = side`). Notebook smoke-runs end to end.
+
+### Reworked section 3 (obtuse corner)
+
+- [x] Replaced the old rigid section-3 demo — which dropped a 700 m² L with `align_building_to_grid` and **no fit check**, so it poked ~2% (~15 m²) outside the splayed boundary — with a **conforming** L tucked into the site's most obtuse corner (122° on the demo pentagon). Authored in grid cells and pushed through the Coons map, its knee opens to the corner's interior angle automatically and it is **fully inside the site by construction** (notebook prints `fully inside site: True`). The old rigid `corner_wing_rotation` path remains available as a tool but is no longer the placement story.
+
+## 2026-06-17 Phase 3 — Conforming footprints: the building deforms to follow the grid
+
+Follow-up to the adaptive grid (user feedback: "the building can never rotate and place freely like this … it should be constantly adapting to the site and have flexibility in manipulation like how I sketched"). A rigid footprint dropped at a single local angle still reads as "placed freely". Now a building is **authored in the grid's own `(s, t)` parameter space and pushed through the same Coons map**, so its edges bend along the warped grid lines and it conforms to the site; manipulation happens in `(s, t)` space and the world footprint re-conforms automatically.
+
+### Completed
+
+- [x] Refactored the Coons patch out of `derive_adaptive_site_grid` into reusable `_coons_inputs`/`_coons_eval` (no behaviour change) so the same map serves both the grid and the building.
+- [x] Added to `agent/tools/site_grid.py`: `grid_world_mapper(grid, site_model)` (returns `to_world(s,t)`), `conform_polygon_to_grid(...)` (maps an `(s,t)` footprint into the warped site, densifying edges so straight edges become curves that follow the grid), and `l_region_in_grid_space` / `rect_region_in_grid_space` (author an L or bar in grid space). On a rectangle the map is affine, so edges stay straight — conforming generalises rigid placement.
+
+### Validation
+
+- [x] Added 5 regressions to `benchmarking/test_site_grid.py` (warps on a splayed site but stays straight on a rectangle via a turning-sum metric; conformed footprint stays inside the site; manipulation in `(s,t)` moves the world footprint and every variant stays inside; rect region conforms to a closed quad; a uniform grid has no map and raises). `python -m unittest team_04.benchmarking.test_site_grid` → 26 tests pass.
+- [x] Reworked `test_notebooks/test_grid_alignment.ipynb` section 1b: the navy L now **deforms** to follow the warped grid (the sketch), plus a manipulation row (move along road / stretch long arm / deeper+thinner) each re-conforming inside the site. Notebook smoke-runs end to end.
+
+## 2026-06-17 Phase 3 — Adaptive (warped) grid: angle changes to match site complexity
+
+Extends Phase 3 so the grid's **local axis angle adapts to the site's complexity** instead of using one rigid angle (per user request: "the angle between the grid can change to match the complexity of the site … the L-shape building responding to the site"). Additive — the uniform `derive_site_grid` is untouched.
+
+### Completed
+
+- [x] Added `derive_adaptive_site_grid` to `agent/tools/site_grid.py`: fits a **transfinite (Coons) patch** to the site's four principal edge-chains (sharpest-four corners frame the quad; intermediate vertices fall inside chains where the taper lives). Grid lines bend to follow the boundary; returns `angle_range_deg` (how much the local angle swings), `node_orientations` (per-node local direction), warped `grid_lines`, and `corner_indices`.
+- [x] Added `local_grid_orientation(grid, point)` (nearest-node local direction) and `align_building_to_local_grid(...)` (drops a footprint oriented to the local grid direction, optionally + a `corner_wing_rotation` obtuse bend) so a building **responds to the site** rather than sitting at one global angle.
+- [x] Fixed the orientation-spread metric to measure the smallest covering arc on the circle (a naive max-min folded near 0°/180° and wrongly reported a rectangle as fully warped). A rectangle now correctly reports `angle_range_deg ≈ 0` (degenerates to the uniform grid).
+
+### Validation
+
+- [x] Added 6 regressions to `benchmarking/test_site_grid.py` (rectangle does not warp; splayed pentagon warps `> 8°`; local orientation changes left↔right across the site; nodes stay inside the site; a placed building's long edge follows the local direction within 1°; triangle is unavailable). `python -m unittest team_04.benchmarking.test_site_grid` → 21 tests pass.
+- [x] Updated `test_notebooks/test_grid_alignment.ipynb` with section "1b. Adaptive grid — the angle changes to match the site's complexity": uniform vs. warped grid side by side, the warped green net, and a navy L oriented to the local grid direction at the main-road corner (matches the reference image). Notebook smoke-runs end to end; the pentagon reports a 50.8° local-angle swing vs. 0° uniform.
+- [x] Full `team_04/benchmarking` discovery: only the pre-existing unrelated `test_generate_building_boundary` float-boundary failure remains.
+
+## 2026-06-17 Phase 3 — Site Grid & Side Alignment (no more random-looking placement)
+
+Implements Phase 3 of `BACKEND_PLAN.md` on a **complex non-orthogonal site**. Real buildings are not dropped at arbitrary rotations inside a plot — they sit on a site grid, **parallel to a preferred boundary**. Placement is now restricted to **grid-node positions × aligned orientations** ({parallel, perpendicular} to a chosen side) instead of a free 5 m sweep + 36 free rotations, with a **use-driven** rule (commercial hugs the frontage) and **obtuse footprints** that follow splayed corners. Deterministic tool + exhaustive optimizer + notebook + regressions + lockstep frontend — all under `team_04/`, conflict-free with `main`. (Phase 3 normally follows Phase 2/roads for the alignment side; built now with the documented **longest-side fallback** + an explicit `alignment_side`, so roads refine it later.)
+
+### Completed
+
+- [x] `agent/tools/site_grid.py` — pure, LLM-free grid + alignment:
+  - `derive_site_grid(site_model, spacing, alignment_side=None)` → origin + two axes aligned to a chosen side (default: **longest side**), clipped to the buildable zone; returns `grid_lines` (drawing), `grid_nodes` (seed points), `angle_deg`, and the adjacent sides. Works on arbitrary non-orthogonal polygons.
+  - `aligned_orientations(grid)` → the discrete {parallel, perpendicular} orientation set (± optional offsets) — the **only** angles a building may take.
+  - `snap_to_grid`, `alignment_score` (1.0 = long edge parallel to a grid axis), `align_building_to_grid` (place a centred footprint at a node with an aligned orientation).
+  - `corner_interior_angle` / `corner_wing_rotation` → leaf-wing rotation so an L's free arm follows the *adjacent* site side, spreading the wings to the corner's interior angle (**obtuse on a splayed site**, not a rigid 90°). Reuses the existing `parametric_shape` `end_rot` lever.
+- [x] Optimizer integration (`agent/tools/view_optimizer.py`): grid-aware `sample_valid_placements(grid=...)` (grid nodes × aligned orientations, **hard restriction by default**); new `grid_alignment` + `boundary_proximity` objectives in `OBJECTIVE_REGISTRY`; `optimize_aligned_placement(...)` — **exhaustive** ranking over the (small) aligned candidate set with a **use-driven** default objective mix (commercial/office/retail/mixed → strong `boundary_proximity`; residential → view + sun), structurally guaranteeing every result is grid-aligned; `place_buildings_aligned(...)` — greedy sequential placement of two-or-more buildings, each aligned and clearing the rest by `min_separation`.
+- [x] Frontend lockstep: `backend/routers/tools.py` exposes `site_grid` / `aligned_placement` / `place_buildings_aligned`; `frontend/site/GridOverlay.tsx` draws grid lines + nodes + the chosen side + ranked aligned options; `frontend/api/{types.ts,client.ts}` add `SiteGrid`/`AlignedOption`/`AlignedPlacementResult` + `api.siteGrid/alignedPlacement`; `decision-graph/CONTRACT.md` §8 + `frontend/README.md` roadmap + `frontend/index.ts` barrel updated.
+
+### Validation
+
+- [x] `benchmarking/test_site_grid.py` — 15 deterministic tests (no LLM/MCP): grid aligns to the longest side, explicit `alignment_side` rotates the axis 90°, nodes lie inside the site, parallel+perpendicular orientation set, alignment score high-when-aligned / low-when-skew, snap returns a node, splayed-pentagon corners are obtuse, wing rotation follows the adjacent side, grid-mode sampling is all-aligned, the new objectives are registered, aligned options are all aligned + fit, **commercial hugs the frontage closer than residential**, and two buildings place without overlap at ≥ separation. All pass.
+- [x] Notebook `test_notebooks/test_grid_alignment.ipynb` (to the `test_view_analysis.ipynb` shape): complex splayed pentagon + derived grid, **free (4008 mixed-rotation) vs grid-aligned (98 parallel/perpendicular)** side-by-side, an **obtuse L** (wings spread 113° to follow the site) vs a rigid 90° L, **commercial (11 m from frontage) vs residential (17 m)** use-driven placement, and two buildings placed aligned together. Runs top-to-bottom clean on the py311 kernel (`MPLBACKEND=Agg`); figures not re-saved (no `nbconvert`/`nbclient`).
+- [x] `npm run typecheck` (frontend, strict) → 0 errors with `GridOverlay` + grid types/client. `py_compile` clean on the changed backend modules; `git status` shows only `team_04/` paths.
+
+### Active MVP Status
+
+- [x] Placement reads as **intentional**: buildings sit on the grid, parallel to the chosen side, and never at a random angle — the "it doesn't look random anymore" picture.
+- [x] Use-driven: commercial buildings line the frontage; residential sits back on view + sun. Footprints can go obtuse to match splayed sites.
+- [ ] The alignment side defaults to the longest side / an explicit index; the **main-road side** that should drive it lands with Phase 2 (roads). `derive_site_grid` already accepts `alignment_side` so Phase 2 just feeds it.
+- [ ] `read_site` does not yet build the grid into `site_model["grid"]` and the graph does not yet call `optimize_aligned_placement` — that is Phase 8 (agent integration); today the tool is called directly / via `/tools`.
+
+## 2026-06-17 Phase 1 — Sun Analysis Fitness (avoid the worst sun)
+
+Implements Phase 1 of `BACKEND_PLAN.md`: the agent now reasons about the sun as **one dominant diagonal vector** (the team's "single diagonal view" — e.g. the low west-south-west summer sun as the worst case) and can place / orient buildings to *avoid* that worst sun. Deterministic geometry tool, optimizer objective, visualization notebook, regressions, and the lockstep frontend overlay — all under `team_04/`, conflict-free with `main`. Verified with `C:\Users\tuemi\AppData\Local\Programs\Python\Python311\python.exe` (shapely/pymoo/matplotlib).
+
+### Completed
+
+- [x] `agent/tools/sun_analysis.py` — pure, LLM-free sun fitness (mirrors `view_analysis.py`):
+  - `compute_sun_vectors(...)` / `worst_case_sun_vector(...)` + `WORST_CASE_PRESETS` — the zero-astronomy "one diagonal" mode (default `summer_west`, az 255° / alt 18°), plus an optional real multi-hour mode (`latitude`/`date`/`hours`, daylight-only, irradiance-weighted) from a lightweight solar-position formula.
+  - `evaluate_sun_exposure(boundary, sun_vectors, obstacles)` — reuses `divide_boundary_into_test_points`; per facade point, exposure = Σ `max(0, cos(altitude)·cos(Δ))·weight`, **zeroed when an obstacle (height-projected shadow) blocks the vector**. Returns `sun_exposure_score` (0–1, **lower = better**), `worst_point`, and per-test-point detail. `return_ray_detail=False` fast path for the optimizer inner loop.
+  - `identify_worst_sun_side(site_model, sun_vectors)` — names the worst (and best) site edge + compass sector, driving the "turn the building away from that sun" rule.
+  - **(practical multi-building 3D, added 2026-06-17 per review):** `evaluate_sun_exposure_3d(boundary, height, sun_vectors, obstacles_with_heights)` — height-aware facade-cell grid (reuses `view_3d.build_facade_cells`) with **real per-floor mutual shading**: an obstacle of height `h` only shades a cell at height `z` when `h > z` (shadow reach `(h-z)/tan(altitude)`), so a 24 m tower shades only the lower floors of a 12 m block, not the floors above it — the behaviour a flat 2D projection cannot represent. `visualize_sun_3d(...)` renders the plotly 3D scene (facades coloured by sun exposure via a continuous heatmap, sun vector at true altitude), mirroring `view_3d.visualize_3d`.
+- [x] Optimizer integration (`agent/tools/view_optimizer.py`): new `sun_avoidance` objective in `OBJECTIVE_REGISTRY` (`1 - sun_exposure_score`, so it folds into the higher-is-better combined-score pattern like `attractor_view`). `optimize_view_placement` / `optimize_two_building_placement` take `sun_vectors` + `sun_weight`; single-building runs a true **view-vs-sun** 2-objective Pareto front; two-building combines view + sun **and** gets **mutual shading** for free (each building is already passed as the other's obstacle) → the joint NSGA-II yields a layout optimal for view *and* sun at once. Solutions expose `sun_exposure_score` / `sun_avoidance_score`.
+- [x] Frontend lockstep: `backend/routers/tools.py` exposes `sun_vectors` / `sun_exposure` / `sun_exposure_3d` / `worst_sun_side` for direct invocation; `frontend/site/SunOverlay.tsx` draws the sun arrow + facade-exposure points + worst-side highlight; `frontend/api/{types.ts,client.ts}` add `SunVector`/`SunExposureResult`/`WorstSunSide` + `api.sunVectors/sunExposure/worstSunSide`; `decision-graph/CONTRACT.md` §7 + `frontend/README.md` roadmap + `frontend/index.ts` barrel updated.
+
+### Validation
+
+- [x] `benchmarking/test_sun_analysis.py` — 20 deterministic tests (no LLM/MCP): preset vectors, multi-hour afternoon-is-westerly geometry, south-facade-more-exposed-than-north ordering, full-shadow zeroing, fast-path == detail-path score, worst-side identification (south sun → south worst, west preset → W/SW worst), the optimizer's `sun_avoidance` objective, **and the 3D height-aware path** (uniform exposure without obstacles, a tall neighbour shading only the lower floors, per-cell normalized exposure, fast-path omits cells). All pass.
+- [x] Notebook `test_notebooks/test_sun_analysis.ipynb` (rebuilt to the `test_view_analysis.ipynb` shape, per review): sun arrow + worst-side, single-building view-vs-sun Pareto, **two-building joint view+sun NSGA-II** with mutual shading and 2D facade-exposure site maps, a **3D per-floor mutual-shading** study (tower floors below 12 m graded in shadow 0.06→0.19, floors above at full 0.31), and the **3D plotly facade heatmap** (`visualize_sun_3d`). Code cells smoke-run clean top-to-bottom on the py311 kernel (`MPLBACKEND=Agg`, `pymoo`+`plotly` present); figures not re-saved (no `nbconvert`/`nbclient` in the kernel).
+- [x] `npm run typecheck` (frontend, strict) → 0 errors with `SunOverlay` + sun types/client.
+- [x] `py_compile` clean on `sun_analysis.py`, `view_optimizer.py`, `backend/routers/tools.py`; backend registry import needs `fastapi` (absent in this kernel) but the underlying functions are exercised by the tests. `git status` shows only `team_04/` paths.
+
+### Active MVP Status
+
+- [x] The optimizer can now trade outward view against worst-sun avoidance, weighted by the brief's `sun_weight`; the LLM only sets the weight, the geometry is deterministic.
+- [x] The worst-sun side is identifiable on the canonical `SiteModel`, ready for Phase 3 grid alignment and Phase 6 courtyard orientation.
+- [x] Two-or-more buildings are scored together and shade each other; the 3D path (`evaluate_sun_exposure_3d`) does exact per-floor mutual shading from real building heights and renders in 3D (`visualize_sun_3d`).
+- [ ] `read_site` does not yet populate `site_model["sun"]` and the graph does not yet auto-assemble the sun objective — that is Phase 8 (agent integration); today the optimizer takes `sun_vectors` directly.
+- [ ] The optimizer's NSGA-II inner loop still scores sun in 2D (fast); the 3D height-aware score is a post-hoc evaluation/visualization, same split as `view_analysis` (2D) vs `view_3d`. Per-wing heights (so one wing shades another) arrive in Phase 7.
+
+## 2026-06-16 Interactive Clarification — the agent asks the user back
+
+Closes the Phase 0 loop where the brief populated `ambiguities` but never acted on them. When a prompt is too vague to place accurately, the agent now pauses and returns a **structured question** (shape / preferred side / view-optimisation side / size / use / count) instead of guessing — the brief's no-invention principle made interactive. Policy (chosen with the user): **ask only on critical gaps** (shape, side, view side); minor gaps fall back to documented defaults. Backend ↔ frontend ↔ notebook all wired. All under `team_04/`, conflict-free with `main`.
+
+### Completed
+
+- [x] `agent/clarify.py` — pure, deterministic clarification engine: `ClarificationField`/`ClarificationRequest` dataclasses, `required_clarifications(brief, layout, site_model)` (returns a structured question only when a critical field is missing), `apply_clarification_answers(...)` (merges answers onto the brief + layout: shape/size/use → brief specs, side → `requested_positions` via `side_to_point`, view side → `view_target_sides`, count → `target_building_count`), and `side_options`/`side_to_point` helpers.
+- [x] Graph wiring (`agent/graph.py`): `extract_brief` raises a `clarification_request` when `interactive_clarification` is set and a critical gap remains; new conditional edge `extract_brief → await_human | planner` (`_route_from_brief`). Idempotent resume via `clarification_resolved`. Opt-in flag keeps all existing non-interactive runs unchanged.
+- [x] State (`agent/state.py`): added `clarification_request`/`clarification_answers`/`clarification_resolved`; `build_initial_state` honors a pre-seeded `design_brief` + `clarification_resolved` from the layout so a resumed run uses the answered brief.
+- [x] Backend API: `backend/schemas.py` (`ClarificationFieldSchema`, `ClarificationRequestSchema`, `ClarificationAnswer`); new `backend/routers/clarify.py` (`GET /sessions/{id}/clarification`, `POST /sessions/{id}/clarify`); `decision_graph.make_clarify_node` + `clarify` node type; `chat.py` emits a `clarify` SSE event + node when the agent pauses; router registered in `app.py`.
+- [x] Frontend (lockstep): `clarify/ClarifyPanel.tsx` renders the structured question as chips (multi/single select + custom), disables submit until critical fields are answered, and POSTs answers; `ClarifyNode` for the decision graph (registered in `nodeTypes.ts`); `api/types.ts` + `api/client.ts` (`getClarification`/`submitClarification`); `CONTRACT.md` §3/§3b/§7 + `README.md` updated; barrels updated.
+- [x] Notebook `test_notebooks/end_to_end_api_agent.ipynb`: new "Interactive clarification" section — vague prompt → structured question → simulated chip answers → second run places accurately, exercising the real LLM.
+
+### Validation
+
+- [x] `benchmarking/test_clarify.py` — 7 deterministic tests (no LLM): critical-gap detection, no-clarification when fully specified, answer-merge onto brief+layout, post-answer self-sufficiency, side→point mapping, and the interactive graph pausing at `await_human` with no placement.
+- [x] Full suite: `python -m unittest discover benchmarking` → 85 pass, 1 pre-existing unrelated failure (`test_generate_building_boundary.test_l_shape_is_translated_and_closed`, the known shapely `50.0 not > 50.0` float issue). No regressions from the graph change.
+- [x] **Live LLM** check: vague prompt → Run 1 paused with all 6 fields, 0 placed; answered (L / Main Street / south / ~900 m² / office / 1) → Run 2 placed 1 building using the answered **L** shape and did not re-ask.
+- [x] `npm run typecheck` (frontend) → 0 errors with `ClarifyPanel` + `ClarifyNode` + clarify types/client.
+- [x] `py_compile` clean on all changed backend modules; `git status` shows only `team_04/` paths.
+
+### Active MVP Status
+
+- [x] The agent interacts: it asks the user back for placement-critical details and resumes with the answers, instead of fabricating values.
+- [x] Backend, frontend, and the end-to-end notebook share one clarification contract.
+- [ ] `view_side` is recorded (`view_target_sides`) but not yet fed into the optimizer as an attractor — that lands with Phase 2 (roads/attractors). Side answer drives `requested_positions` today.
+- [ ] Multi-turn resume in the live API currently needs a follow-up `/chat` call after `/clarify`; auto-resume is a future convenience.
+
+## 2026-06-16 Frontend — Agent Overview Dashboard (full decision graph + site plan + explorer)
+
+Builds the "overall view" of the agent on top of the existing backend contracts so the team can see *what the agent has* and *how it reasoned* in one screen — the full decision graph, the 2D site plan (multi-building layouts, footprint families, view-based Pareto placement), and the explorer tree. No backend changes; everything reads the routes that already exist. All under `team_04/frontend/`, so merges with `main` stay conflict-free.
+
+### Completed
+
+- [x] Completed the decision-graph node set: `decision-graph/BasicNodes.tsx` adds `IntentNode`, `ActionNode`, `BranchNode`, `SelectNode`, `StateNode` (compact accented cards) alongside the Phase 0 `BriefNode`; all six registered in `nodeTypes.ts`. Unknown future types still fall through to the React Flow default node.
+- [x] Added a dependency-free `layoutLayered` (depth→row, order→column) to `decision-graph/adapters.ts` so the graph renders without dagre/elkjs.
+- [x] `site/SiteCanvas.tsx` + `site/geometry.ts`: a 2D SVG plan that auto-fits north-up and draws the site boundary, the buildable zone (setbacks), every placed building coloured by footprint family (I/L/T/U/H/Y/X/O) with label + view score, and the focused building's Pareto view-placement options as ghosts (selected option highlighted). This surfaces multi-building workflows, generated boundaries, shape transformations, and view-analysis placement.
+- [x] `explorer/ExplorerPanel.tsx`: collapsible Site → Buildings → (wings, view score, Pareto placement table with rank/score/rotation/fit) from `GET /sessions/{id}/explorer`.
+- [x] `api/types.ts` + `api/client.ts`: TS types mirroring `backend/schemas.py` and a `Team04Api` typed client covering every JSON route (sessions, state, messages, explorer, site, buildings, options, view, decisions, select, tools).
+- [x] `dashboard/AgentDashboard.tsx`: composes decision graph + site plan + explorer into one screen; click-to-focus a building overlays its options; `↻ Refresh` re-fetches. Example wiring for the live SSE `decision` stream documented in `frontend/README.md`.
+- [x] Extended `decision-graph/CONTRACT.md` (new §6: explorer/geometry payloads) and rewrote `frontend/README.md` (dashboard usage, backend-surface→UI table, file tree). Updated the top-level `frontend/index.ts` barrel.
+
+### Validation
+
+- [x] `npm run typecheck` (`tsc --noEmit`, strict + `noUnusedLocals`/`noUnusedParameters`) passes with **0 errors** across the whole `frontend/` (decision graph, site canvas, explorer, dashboard, API client).
+- [x] All wire types cross-checked field-by-field against `backend/schemas.py` (`SiteInfo`, `WingInfo`, `PlacementOption`, `BuildingInfo`, `ExplorerTree`, `SessionInfo`, `ViewAnalysisResult`, `ToolCallResponse`) and the decision-node shape.
+- [x] `node_modules/` git-ignored; `git status` shows only `team_04/` paths.
+
+### Active MVP Status
+
+- [x] One dashboard now shows the agent end-to-end: reasoning DAG, the designed site/buildings, and the explorer hierarchy — all from live backend payloads.
+- [x] Building footprint families, two-/multi-building layouts, and Pareto view-placement are all visualized from the explorer payload.
+- [ ] 3D massing (per-wing heights, `view_3d`) is surfaced only as numbers today; a 3D view is deferred to Phase 7's frontend counterpart.
+- [ ] The dashboard refreshes on demand / per turn; full live SSE node-streaming into the graph is wired in the README example but not yet a built-in dashboard mode.
+
+## 2026-06-16 Phase 0 Frontend Lockstep — Decision-Graph Brief Node + `BriefNode` UI
+
+Surfaces the Phase 0 comprehension step (the typed `DesignBrief`) in the live decision graph and ships its React Flow counterpart, establishing the policy that **frontend is updated in the same commit as the backend phase** (the original "frontend last / Phase 9" rule is superseded). All changes stay inside `team_04/`, so merges with `main` stay conflict-free.
+
+### Completed
+
+- [x] Added a first-class `brief` node type to the decision graph: `make_brief_node` in `backend/decision_graph.py` (carries `payload.design_brief` = `DesignBrief.to_state()`), the node-type list in the module docstring, and the `DecisionNodeSchema` comment in `backend/schemas.py`.
+- [x] Wired the **live** `extract_brief` graph node into the chat SSE stream: `backend/routers/chat.py` detects the node's `on_chain_end` and emits a `decision` event of `type: "brief"`, hung off the `intent` node and before the first `action`. Guarded to fire once per turn and only when a brief is freshly comprehended (the node is idempotent and returns `{}` on pass-through).
+- [x] Fixed a pre-existing blocker that prevented the chat endpoint from ever running: `chat.py` called `build_agent_graph()` with no arguments (it requires `decision_engine`, `tool_client`, `catalog`). Added `backend/agent_runtime.py` — a cached builder mirroring `agent/main.py`'s wiring (settings → LLM engine + local/MCP tools + catalog → compiled app) — and routed `chat.py` through `get_agent_app()`.
+- [x] Added the `frontend/` module (new), kept in lockstep:
+  - `frontend/decision-graph/CONTRACT.md` — backend↔frontend payload contract (transport, per-type payloads, SSE event order, the no-invention guarantee for the brief, and an "add a node type per phase" checklist).
+  - `frontend/decision-graph/BriefNode.tsx` — React Flow custom node rendering the `DesignBrief` (count, shapes, objective-weight bars, courtyard/parking flags, `ambiguities`, `source = llm|fallback`). Self-contained inline styles; tolerant of the payload-less compact SSE node.
+  - `frontend/decision-graph/types.ts` (mirror `agent/models.py` + `backend/schemas.py`), `nodeTypes.ts` (React Flow registry, one component per phase), `adapters.ts` (backend `{nodes,edges,head}` + SSE events → React Flow), `index.ts` barrel.
+  - `frontend/README.md` — the lockstep policy, dependencies, a `DecisionGraphPanel` usage example (POST-SSE via `fetch-event-source`), and the per-phase frontend roadmap.
+- [x] Updated `test_notebooks/test_decision_graph.ipynb` to the Phase 0 reaction flow: each turn now builds a real `brief` node from `extract_brief_fallback` + a `SiteModel` summary, with the DAG viz, selected-path trace, and step-by-step replay all rendering the new `brief` type.
+- [x] Updated `ARCHITECTURE.md` (lockstep policy, new "Decision Graph and Frontend" section, refreshed Active Layout tree).
+
+### Validation
+
+- [x] Verified against the **real** compiled graph (local tools + a no-LLM dummy engine, breaking before any LLM/pymoo node) that `astream_events` emits `on_chain_end` named `extract_brief` whose output carries `design_brief` — confirming the SSE detection signal.
+- [x] Exercised the router's brief-emission logic against the real graph: produces a `brief` decision node with the correct `intent → brief` parent link and label `Brief: 1x [L] (fallback)`.
+- [x] `test_notebooks/test_decision_graph.ipynb` executes top-to-bottom on a fresh kernel (22 nodes; active path `USER → BRIEF → read_site → … → backtrack`).
+- [x] `py_compile` clean on `backend/{routers/chat.py,agent_runtime.py,decision_graph.py,schemas.py}`.
+- [x] `benchmarking/test_design_brief.py` brief/fallback/model tests pass; the 3 errors observed are all the `pymoo`-dependent full-run/placement tests (environment missing `pymoo`), not introduced by this change.
+- [~] Not run here: a full live `POST /chat` round-trip — needs the LLM env + `pymoo` + `fastapi`, none fully available in this kernel. Every isolatable piece (event shape, emission logic, compilation) was verified; the end-to-end SSE should be smoke-tested once the backend runs with credentials configured.
+
+### Active MVP Status
+
+- [x] The agent's comprehension step is now visible end-to-end: prompt → `brief` node (typed `DesignBrief`) → actions, both in the notebook and over the live SSE stream.
+- [x] Frontend lockstep policy established; `BriefNode` + payload contract are the Phase 0 deliverable.
+- [ ] Dedicated React Flow components for `intent/action/branch/select/state` still fall through to the default node — cosmetic, tracked for follow-up.
+- [ ] Phase 1 (sun analysis) remains the next backend target; its frontend counterpart is the sun-vector/facade-exposure overlay (per the roadmap in `frontend/README.md`).
+
+## 2026-06-15 Phase 0 — Reasoning Core (Design Brief + Site Model)
+
+Implements Phase 0 of `BACKEND_PLAN.md`: move comprehension out of long prompt rules and into a typed brief + a structured site model. Tested with `C:\Users\tuemi\AppData\Local\Programs\Python\Python311\python.exe` (has shapely/topologicpy/langgraph/langchain_openai/pymoo).
+
+### Completed
+
+- [x] Added `BuildingSpec` and `DesignBrief` frozen dataclasses to `agent/models.py`, matching the existing `PlanStep` pattern (no Pydantic). `from_payload` validates and clamps junk (weights to [0,1], shapes to the allowed `I/L/T/U/H/Y/X/O/auto` set, count never below the number of explicit specs).
+- [x] Added `agent/brief.py` with a deterministic, LLM-free `extract_brief_fallback` (reuses the existing shape/area/rotation regex helpers, improved building-count detection so "two U-shaped buildings" resolves, not just the literal "two building") and `resolve_brief`, which prefers an engine's LLM extractor and falls back to regex on any failure.
+- [x] Added `BRIEF_PROMPT` + `OpenAIDecisionEngine.extract_brief` to `agent/decision_engine.py` — one short prompt that returns the typed brief and records `ambiguities` instead of inventing values.
+- [x] Added an `extract_brief` graph node at the start of the LangGraph (`START -> extract_brief -> planner`); idempotent, refines `target_building_count`/`building_intents` only when the layout did not set them, and is tolerant of engines without an `extract_brief` method (test stubs fall back to regex).
+- [x] Routed `_repair_generate_shape_decision` to read shape/area/rotation from the active building's brief spec first, falling back to prompt regex so existing direct-call tests are unchanged.
+- [x] Added `agent/tools/site_model.py` (`build_site_model`) — bundles boundary graph (corners/sides), per-side `adjacent_road` slots, and the setback/buildable zone into one structure with `roads`/`grid`/`sun` placeholders for Phases 1-3. Populated in the `read_site` node; surfaced (summarized) in the supervisor/report state snapshot.
+- [x] Prompt diet: shrank `SUPERVISOR_PROMPT` from ~30 rule lines to a short role + active step + design brief + schema (deterministic guards in `_apply_step_guard`/`_repair_generate_shape_decision` already enforce the removed rules).
+- [x] Added `design_brief` and `site_model` keys to `AgentState`.
+
+### Validation
+
+- [x] Added `benchmarking/test_design_brief.py` (16 deterministic tests: dataclass round-trip/clamping, fallback extraction across terse/verbose/vague/contradictory prompts, brief consumption in the repair layer, full-run brief-into-state, and site-model build). All pass.
+- [x] `test_agent_graph` (15) and `test_boundary_tools` (15) remain green — the new brief node does not regress existing flows.
+- [x] Added `test_notebooks/test_intent_extraction.ipynb`: prompt-set table (fallback), no-invention check, optional live-LLM table with `ambiguities`, and a SiteModel visualization (sides/corners/buildable zone). Code cells smoke-run clean.
+- [x] Pre-existing unrelated failure noted: `test_generate_building_boundary.test_l_shape_is_translated_and_closed` fails identically on the clean tree (a shapely floating-point centroid boundary, `50.0 not > 50.0`) — not introduced by Phase 0.
+
+### Active MVP Status
+
+- [x] The agent now comprehends short prompts into a typed brief that drives shape/count/area/rotation, instead of scattered regex on the raw prompt at each step.
+- [x] One canonical `SiteModel` exists with explicit slots for the next phases.
+- [ ] Phase 1 (sun analysis) is the next target; it writes into `site_model["sun"]` and adds a `sun_weight`-driven objective.
+
+## 2026-06-12 Backend Improvement Plan Authored
+
+### Completed
+
+- [x] Wrote `BACKEND_PLAN.md` — the phased checklist for upgrading the agent from view-only placement to a site-intelligent backend: structured design-brief extraction (less prompt, more comprehension), sun analysis fitness via the single-diagonal worst-sun method, road/transportation context, grid and site-side alignment, parking from apartments-per-building, circulation + public/private access + fire-access constraints, courtyard comprehension, per-wing 3D heights, full agent integration, and frontend API connection last.
+- [x] Established the per-phase workflow contract: every capability ships as a deterministic tool in `agent/tools/`, with one visualization notebook in `test_notebooks/`, deterministic regressions in `benchmarking/`, and same-commit `PROGRESS.md` + `ARCHITECTURE.md` updates.
+- [x] Documented dependencies and parallelization (sun and roads can run in parallel after Phase 0; grid needs roads; circulation needs roads + parking; frontend wiring is last).
+
+### Active MVP Status
+
+- [ ] Phase 0 (typed `DesignBrief` extraction node, canonical `SiteModel`, supervisor prompt diet) is the next implementation target.
+- [ ] No sun, road, grid, parking, circulation, courtyard, or per-wing-height tooling exists yet — all tracked in `BACKEND_PLAN.md`.
+
+### Validation
+
+- [x] Confirmed the plan only references paths inside `team_04/` so merges with `main` stay conflict-free.
+
 ## 2026-06-04 Remaining-Area-Driven Second Building Seed
 
 ### Completed

@@ -143,12 +143,73 @@ def _obj_sky_exposure(
                                piece_length=piece_length, ray_length=ray_length)
 
 
+def _obj_sun_avoidance(
+    boundary: list[list[float]],
+    *,
+    obstacles: list[list[list[float]]],
+    piece_length: float,
+    sun_vectors: list[dict[str, float]] | None = None,
+    **_: Any,
+) -> float:
+    """Phase 1: reward facades that *avoid* the worst sun.
+
+    Returns ``1 - sun_exposure_score`` so it slots into the higher-is-better
+    combined-score pattern (the exposure score itself is lower-is-better). Other
+    placed buildings arrive via ``obstacles`` and act as mutual-shading
+    obstacles, exactly like the view-objective obstacle pattern.
+    """
+    if not sun_vectors:
+        return 1.0
+    from .sun_analysis import evaluate_sun_exposure
+    r = evaluate_sun_exposure(boundary, sun_vectors, obstacles,
+                              piece_length=piece_length, return_ray_detail=False)
+    return float(max(0.0, 1.0 - r["sun_exposure_score"]))
+
+
+def _obj_grid_alignment(
+    boundary: list[list[float]],
+    *,
+    grid: dict[str, Any] | None = None,
+    **_: Any,
+) -> float:
+    """Phase 3: 1.0 when the footprint's long edge is parallel to the site grid."""
+    if not grid:
+        return 0.0
+    from .site_grid import alignment_score
+    return alignment_score(boundary, grid)
+
+
+def _obj_boundary_proximity(
+    boundary: list[list[float]],
+    *,
+    site_polygon: Polygon,
+    candidate_polygon: Polygon,
+    reference_line: list[list[float]] | None = None,
+    max_distance: float = 30.0,
+    **_: Any,
+) -> float:
+    """Phase 3: reward *hugging* the frontage — high when the building sits close
+    to the chosen side (or the site boundary). Drives the "commercial buildings
+    line the street" rule via a use-weighted objective.
+    """
+    if reference_line:
+        from shapely.geometry import LineString as _LS
+        ref = _LS([(float(p[0]), float(p[1])) for p in reference_line])
+        dist = ref.distance(candidate_polygon)
+    else:
+        dist = site_polygon.boundary.distance(candidate_polygon)
+    return float(max(0.0, 1.0 - dist / max(max_distance, 1e-6)))
+
+
 OBJECTIVE_REGISTRY: dict[str, Callable[..., float]] = {
     "unblocked_view":         _obj_unblocked_view,
     "attractor_view":         _obj_attractor_view,
     "clearance_from_site":    _obj_clearance_from_site,
     "clearance_from_obstacles": _obj_clearance_from_obstacles,
     "sky_exposure":            _obj_sky_exposure,
+    "sun_avoidance":           _obj_sun_avoidance,
+    "grid_alignment":          _obj_grid_alignment,
+    "boundary_proximity":      _obj_boundary_proximity,
 }
 
 
@@ -218,15 +279,19 @@ def evaluate_combined_score(
 def _default_objective_configs(
     attractors: list[dict[str, Any]] | None,
     attractor_weight: float,
+    sun_vectors: list[dict[str, float]] | None = None,
+    sun_weight: float = 0.0,
 ) -> list[dict[str, Any]]:
+    cfgs: list[dict[str, Any]] = []
     if attractors:
         w_view = max(0.0, 1.0 - attractor_weight)
-        w_attr = float(attractor_weight)
-        return [
-            {"name": "unblocked_view", "weight": w_view},
-            {"name": "attractor_view", "weight": w_attr, "attractors": attractors},
-        ]
-    return [{"name": "unblocked_view", "weight": 1.0}]
+        cfgs.append({"name": "unblocked_view", "weight": w_view})
+        cfgs.append({"name": "attractor_view", "weight": float(attractor_weight), "attractors": attractors})
+    else:
+        cfgs.append({"name": "unblocked_view", "weight": 1.0})
+    if sun_vectors and sun_weight > 0.0:
+        cfgs.append({"name": "sun_avoidance", "weight": float(sun_weight), "sun_vectors": sun_vectors})
+    return cfgs
 
 
 # ---------------------------------------------------------------------------
@@ -240,15 +305,30 @@ def sample_valid_placements(
     rotation_step_degrees: int = 10,
     grid_step: float = 5.0,
     site_setbacks: dict[str, Any] | None = None,
+    grid: dict[str, Any] | None = None,
+    orientation_offsets_deg: tuple[float, ...] = (),
 ) -> list[dict[str, Any]]:
     """
     Return every discrete (centroid, rotation) pair where the building fits
     entirely inside the buildable zone (site minus setbacks).
 
+    Two modes:
+
+    * **Free sweep (default):** an axis-aligned ``grid_step`` lattice × every
+      ``rotation_step_degrees`` rotation — the original behaviour.
+    * **Site-grid aligned (Phase 3):** pass a ``grid`` from
+      ``site_grid.derive_site_grid`` and placement is restricted to the grid's
+      seed nodes × the discrete {parallel, perpendicular} orientations
+      (``site_grid.aligned_orientations``). Buildings no longer rotate freely —
+      they sit on the grid, parallel to the chosen side, like real plots.
+
     Args:
         site_setbacks: Optional dict passed to ``compute_buildable_zone``.
                        Keys: ``default_setback``, ``edge_setbacks``,
                        ``edge_road_widths``, ``road_setback_ratio``, ``min_setback``.
+        grid: Optional site grid; switches to aligned-placement mode.
+        orientation_offsets_deg: Extra ± offsets added to the aligned set when a
+                       brief explicitly permits looser orientation.
     """
     base_polygon = _coerce_polygon_2d(boundary)
     site_polygon = _coerce_polygon_2d(site_boundary)
@@ -258,12 +338,30 @@ def sample_valid_placements(
     else:
         buildable_zone = site_polygon
 
+    candidates: list[dict[str, Any]] = []
+
+    if grid and grid.get("available"):
+        from .site_grid import aligned_orientations, align_building_to_grid
+        orientations = aligned_orientations(grid, offsets_deg=orientation_offsets_deg)
+        for node in grid.get("grid_nodes", []):
+            for ang in orientations:
+                bnd = align_building_to_grid(boundary, grid, node, ang)
+                placed = _coerce_polygon_2d(bnd)
+                if buildable_zone.contains(placed):
+                    candidates.append({
+                        "centroid_xy": [round(placed.centroid.x, 6), round(placed.centroid.y, 6)],
+                        "rotation_degrees": round(ang, 4),
+                        "node_xy": node,
+                        "aligned": True,
+                        "boundary": bnd,
+                    })
+        return candidates
+
     min_x, min_y, max_x, max_y = buildable_zone.bounds
     n_steps = 360 // max(1, rotation_step_degrees)
 
     x_count = max(1, int((max_x - min_x) / grid_step)) + 1
     y_count = max(1, int((max_y - min_y) / grid_step)) + 1
-    candidates: list[dict[str, Any]] = []
 
     for rot_idx in range(n_steps):
         rot = rot_idx * rotation_step_degrees
@@ -280,6 +378,212 @@ def sample_valid_placements(
                         "boundary": _polygon_to_boundary(placed),
                     })
     return candidates
+
+
+# ---------------------------------------------------------------------------
+# Grid-aligned discrete placement (Phase 3) — exhaustive, deterministic
+# ---------------------------------------------------------------------------
+
+def _aligned_default_objectives(
+    use: str,
+    sun_vectors: list[dict[str, float]] | None,
+    sun_weight: float,
+    reference_line: list[list[float]] | None,
+) -> list[dict[str, Any]]:
+    """Use-driven default objective mix for aligned placement.
+
+    Commercial / office / retail / mixed buildings line the street: they get a
+    strong ``boundary_proximity`` weight so they hug the chosen frontage.
+    Residential leans on view + sun.
+    """
+    cfgs: list[dict[str, Any]] = [{"name": "unblocked_view", "weight": 1.0}]
+    if sun_vectors and sun_weight > 0.0:
+        cfgs.append({"name": "sun_avoidance", "weight": float(sun_weight), "sun_vectors": sun_vectors})
+    if use.lower() in ("commercial", "office", "retail", "mixed"):
+        cfgs.append({
+            "name": "boundary_proximity", "weight": 0.9,
+            "reference_line": reference_line, "max_distance": 25.0,
+        })
+    return cfgs
+
+
+def optimize_aligned_placement(
+    *,
+    base_boundary: list[list[float]],
+    site_boundary: list[list[float]],
+    grid: dict[str, Any],
+    obstacles: list[list[list[float]]] | None = None,
+    objective_configs: list[dict[str, Any]] | None = None,
+    use: str = "residential",
+    sun_vectors: list[dict[str, float]] | None = None,
+    sun_weight: float = 0.0,
+    reference_line: list[list[float]] | None = None,
+    orientation_offsets_deg: tuple[float, ...] = (),
+    site_setbacks: dict[str, Any] | None = None,
+    other_buildings: list[list[list[float]]] | None = None,
+    min_separation: float = 0.0,
+    piece_length: float = 2.0,
+    ray_length: float = 100.0,
+    saved_option_count: int = 10,
+) -> dict[str, Any]:
+    """Rank grid-node × aligned-orientation placements by a combined objective.
+
+    This replaces free NSGA-II rotation with an **exhaustive** sweep over the
+    discrete aligned candidate set (grid nodes × {parallel, perpendicular}). The
+    set is small, so brute-force ranking is exact and deterministic — and it
+    structurally guarantees every result is grid-aligned (a building can never
+    land at a random angle). ``use`` drives the default objective mix
+    (commercial hugs the frontage via ``boundary_proximity``).
+
+    ``other_buildings`` are already-placed footprints to avoid (overlap + an
+    optional ``min_separation`` clearance) — pass them to place several buildings
+    in sequence (see ``place_buildings_aligned``).
+    """
+    if not grid or not grid.get("available"):
+        return {"optimized": False, "reason": "grid unavailable", "options": []}
+
+    obstacles = list(obstacles or [])
+    other_buildings = list(other_buildings or [])
+    obj_cfgs = objective_configs or _aligned_default_objectives(
+        use, sun_vectors, sun_weight, reference_line)
+
+    site_polygon = _coerce_polygon_2d(site_boundary)
+    buildable_zone = (compute_buildable_zone(site_boundary, **site_setbacks)
+                      if site_setbacks else site_polygon)
+
+    candidates = sample_valid_placements(
+        base_boundary, site_boundary, site_setbacks=site_setbacks,
+        grid=grid, orientation_offsets_deg=orientation_offsets_deg,
+    )
+
+    other_polys = [_coerce_polygon_2d(b) for b in other_buildings]
+    obstacle_polys_base = [_coerce_polygon_2d(o) for o in obstacles]
+
+    scored: list[dict[str, Any]] = []
+    seen: set[tuple] = set()
+    for cand in candidates:
+        cand_poly = _coerce_polygon_2d(cand["boundary"])
+
+        # Hard constraints: no overlap, honour separation from placed buildings.
+        bad = False
+        for other in other_polys:
+            if cand_poly.intersects(other) and cand_poly.intersection(other).area > 1e-6:
+                bad = True
+                break
+            if min_separation > 0.0 and cand_poly.distance(other) < min_separation:
+                bad = True
+                break
+        if bad:
+            continue
+
+        key = (round(cand["centroid_xy"][0], 2), round(cand["centroid_xy"][1], 2),
+               round(cand["rotation_degrees"], 1))
+        if key in seen:
+            continue
+        seen.add(key)
+
+        run_obstacles = obstacles + other_buildings
+        run_obstacle_polys = obstacle_polys_base + other_polys
+        combined, per_obj = evaluate_combined_score(
+            cand["boundary"], obj_cfgs,
+            obstacles=run_obstacles, site_polygon=site_polygon,
+            candidate_polygon=cand_poly, obstacle_polys=run_obstacle_polys,
+            piece_length=piece_length, ray_length=ray_length,
+        )
+        from .site_grid import alignment_score as _align_score
+        scored.append({
+            "centroid_xy": cand["centroid_xy"],
+            "node_xy": cand.get("node_xy"),
+            "orientation_deg": cand["rotation_degrees"],
+            "rotation_degrees": cand["rotation_degrees"],
+            "combined_score": combined,
+            "unblocked_view_score": per_obj.get("unblocked_view", 0.0),
+            "sun_exposure_score": (round(1.0 - per_obj["sun_avoidance"], 6)
+                                   if "sun_avoidance" in per_obj else None),
+            "boundary_proximity_score": per_obj.get("boundary_proximity"),
+            "alignment_score": round(_align_score(cand["boundary"], grid), 6),
+            "objective_scores": per_obj,
+            "fits_within_site": True,
+            "aligned": True,
+            "boundary": cand["boundary"],
+        })
+
+    scored.sort(key=lambda s: -s["combined_score"])
+    trimmed = scored[:max(saved_option_count, 1)]
+    for rank, sol in enumerate(trimmed, start=1):
+        sol["rank"] = rank
+        sol["option_id"] = f"aligned_option_{rank:02d}"
+
+    return {
+        "optimized": True,
+        "algorithm": "exhaustive_grid_aligned",
+        "use": use,
+        "objective_configs": obj_cfgs,
+        "candidate_count": len(candidates),
+        "feasible_count": len(scored),
+        "alignment_side_index": grid.get("alignment_side_index"),
+        "orientations": _orientations_used(grid, orientation_offsets_deg),
+        "option_count": len(trimmed),
+        "options": trimmed,
+    }
+
+
+def place_buildings_aligned(
+    building_specs: list[dict[str, Any]],
+    site_boundary: list[list[float]],
+    grid: dict[str, Any],
+    *,
+    external_obstacles: list[list[list[float]]] | None = None,
+    sun_vectors: list[dict[str, float]] | None = None,
+    sun_weight: float = 0.0,
+    reference_line: list[list[float]] | None = None,
+    site_setbacks: dict[str, Any] | None = None,
+    min_separation: float = 6.0,
+    piece_length: float = 2.0,
+    ray_length: float = 100.0,
+) -> dict[str, Any]:
+    """Place two or more buildings on the grid, each aligned and clearing the rest.
+
+    Greedy sequential placement: each building takes its best aligned option
+    given the already-placed ones (as obstacles + a ``min_separation`` clearance).
+    Each spec is ``{base_boundary, use?, objective_configs?}``.
+    """
+    external_obstacles = list(external_obstacles or [])
+    placed: list[dict[str, Any]] = []
+    runs: list[dict[str, Any]] = []
+
+    for i, spec in enumerate(building_specs):
+        res = optimize_aligned_placement(
+            base_boundary=spec["base_boundary"],
+            site_boundary=site_boundary, grid=grid,
+            obstacles=external_obstacles,
+            objective_configs=spec.get("objective_configs"),
+            use=spec.get("use", "residential"),
+            sun_vectors=sun_vectors, sun_weight=sun_weight,
+            reference_line=reference_line,
+            site_setbacks=site_setbacks,
+            other_buildings=[p["boundary"] for p in placed],
+            min_separation=min_separation,
+            piece_length=piece_length, ray_length=ray_length,
+            saved_option_count=5,
+        )
+        runs.append(res)
+        if res.get("options"):
+            best = dict(res["options"][0])
+            best["building_index"] = i
+            best["use"] = spec.get("use", "residential")
+            placed.append(best)
+
+    return {
+        "placed_count": len(placed),
+        "buildings": placed,
+        "runs": runs,
+    }
+
+
+def _orientations_used(grid: dict[str, Any], offsets: tuple[float, ...]) -> list[float]:
+    from .site_grid import aligned_orientations
+    return aligned_orientations(grid, offsets_deg=offsets)
 
 
 # ---------------------------------------------------------------------------
@@ -319,6 +623,9 @@ def optimize_view_placement(
     objective_configs: list[dict[str, Any]] | None = None,
     attractors: list[dict[str, Any]] | None = None,
     attractor_weight: float = 0.3,
+    # Phase 1 sun avoidance: pass sun_vectors + a sun_weight to add the objective.
+    sun_vectors: list[dict[str, float]] | None = None,
+    sun_weight: float = 0.0,
     # Wing-parametric shape morphing
     optimize_shape: bool = False,
     building_type: str = "L",
@@ -348,8 +655,11 @@ def optimize_view_placement(
         area is preserved; wing thickness preserved; end arms can bend ±45°.
     """
     _ensure_pymoo_available()
-    _obj_cfgs = objective_configs or _default_objective_configs(attractors, attractor_weight)
+    _obj_cfgs = objective_configs or _default_objective_configs(
+        attractors, attractor_weight, sun_vectors, sun_weight)
     _has_attractor = any(c["name"] == "attractor_view" for c in _obj_cfgs)
+    _sun_cfg = next((c for c in _obj_cfgs if c["name"] == "sun_avoidance"), None)
+    _has_sun = _sun_cfg is not None and not _has_attractor
 
     base_polygon = _coerce_polygon_2d(boundary)
     site_polygon = _coerce_polygon_2d(site_boundary)
@@ -413,6 +723,13 @@ def optimize_view_placement(
                 a = _obj_attractor_view(bnd, obstacles=obstacles, piece_length=piece_length,
                                         attractors=attr_cfg.get("attractors"))
                 out["F"] = [-u, -a]
+            elif _has_sun:
+                # True 2-objective view-vs-sun Pareto front (Phase 1).
+                u = _obj_unblocked_view(bnd, obstacles=obstacles,
+                                        piece_length=piece_length, ray_length=ray_length)
+                s = _obj_sun_avoidance(bnd, obstacles=obstacles, piece_length=piece_length,
+                                       sun_vectors=_sun_cfg.get("sun_vectors"))
+                out["F"] = [-u, -s]
             else:
                 clearance = (site_polygon.boundary.distance(candidate)
                              if outside_area <= 1e-6 else 0.0)
@@ -474,6 +791,10 @@ def optimize_two_building_placement(
     objective_configs: list[dict[str, Any]] | None = None,
     attractors: list[dict[str, Any]] | None = None,
     attractor_weight: float = 0.3,
+    # Phase 1 sun avoidance: each building shades the other (mutual shading) via
+    # the existing other-building-as-obstacle pattern.
+    sun_vectors: list[dict[str, float]] | None = None,
+    sun_weight: float = 0.0,
     # Wing-parametric shape morphing (applied per building independently)
     optimize_shape: bool = False,
     building_type_1: str = "L",
@@ -506,7 +827,8 @@ def optimize_two_building_placement(
         Type can differ per building (building_type_1, building_type_2).
     """
     _ensure_pymoo_available()
-    _obj_cfgs = objective_configs or _default_objective_configs(attractors, attractor_weight)
+    _obj_cfgs = objective_configs or _default_objective_configs(
+        attractors, attractor_weight, sun_vectors, sun_weight)
 
     base_poly1 = _coerce_polygon_2d(boundary_1)
     base_poly2 = _coerce_polygon_2d(boundary_2)
@@ -709,6 +1031,9 @@ def _collect_single_building_solutions(
             "combined_score": combined,
             "unblocked_view_score": per_obj.get("unblocked_view", 0.0),
             "attractor_view_score": per_obj.get("attractor_view", 0.0),
+            "sun_avoidance_score": per_obj.get("sun_avoidance"),
+            "sun_exposure_score": (round(1.0 - per_obj["sun_avoidance"], 6)
+                                   if "sun_avoidance" in per_obj else None),
             "objective_scores": per_obj,
             "outside_area_sqm": round(outside_area, 6),
             "fits_within_site": True,
@@ -804,6 +1129,9 @@ def _collect_two_building_solutions(
                 "combined_score": c1,
                 "unblocked_view_score": per1.get("unblocked_view", 0.0),
                 "attractor_view_score": per1.get("attractor_view", 0.0),
+                "sun_avoidance_score": per1.get("sun_avoidance"),
+                "sun_exposure_score": (round(1.0 - per1["sun_avoidance"], 6)
+                                       if "sun_avoidance" in per1 else None),
                 "objective_scores": per1,
                 "outside_area_sqm": round(oa1, 6),
                 "fits_within_site": True,
@@ -815,6 +1143,9 @@ def _collect_two_building_solutions(
                 "combined_score": c2,
                 "unblocked_view_score": per2.get("unblocked_view", 0.0),
                 "attractor_view_score": per2.get("attractor_view", 0.0),
+                "sun_avoidance_score": per2.get("sun_avoidance"),
+                "sun_exposure_score": (round(1.0 - per2["sun_avoidance"], 6)
+                                       if "sun_avoidance" in per2 else None),
                 "objective_scores": per2,
                 "outside_area_sqm": round(oa2, 6),
                 "fits_within_site": True,

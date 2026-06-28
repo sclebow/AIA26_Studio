@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from ..schemas import (
     BuildingInfo,
     ExplorerTree,
+    ParkingZone,
     PlacementOption,
     SiteInfo,
     ViewAnalysisRequest,
@@ -148,6 +149,22 @@ def _build_site_info(state: dict[str, Any]) -> SiteInfo | None:
     area = _poly_area(boundary)
     bz_bnd = ctx.get("buildable_boundary")
     bz_area = _poly_area(bz_bnd) if bz_bnd else None
+
+    # Phase 4 — parking zones stored in state["parking_zones"]
+    raw_zones = state.get("parking_zones") or []
+    parking_zones = [
+        ParkingZone(
+            zone_id=str(z.get("zone_id", f"parking_zone_{i}")),
+            boundary=z.get("boundary", []),
+            stalls_allocated=int(z.get("stalls_allocated", 0)),
+            area_sqm=float(z.get("area_sqm", 0.0)),
+            side_index=int(z.get("side_index", 0)),
+            is_main_road_side=bool(z.get("is_main_road_side", False)),
+        )
+        for i, z in enumerate(raw_zones)
+        if isinstance(z, dict)
+    ]
+
     return SiteInfo(
         boundary=boundary,
         area_sqm=round(area, 2),
@@ -155,6 +172,7 @@ def _build_site_info(state: dict[str, Any]) -> SiteInfo | None:
         buildable_area_sqm=round(bz_area, 2) if bz_area else None,
         edge_count=max(0, len(boundary) - 1),
         site_context=ctx,
+        parking_zones=parking_zones,
     )
 
 

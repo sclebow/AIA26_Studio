@@ -8,10 +8,12 @@ from typing import Any
 SITE_READ_GROUP = "site_read"
 SHAPE_GROUP = "shape_generation"
 CONSTRAINT_GROUP = "constraint_check"
+VALIDATION_GROUP = "validation"
 MANIPULATION_GROUP = "manipulation"
 EVALUATION_GROUP = "evaluation"
 PLACEMENT_GROUP = "placement"
 POSITION_ANALYSIS_GROUP = "position_analysis"
+MASTERPLAN_GROUP = "masterplan"
 
 
 TOOL_GROUPS: dict[str, tuple[str, ...]] = {
@@ -32,6 +34,9 @@ TOOL_GROUPS: dict[str, tuple[str, ...]] = {
         "area_requirement_checker",
         "adjacency_access_checker",
         "tree_constraint_checker",
+    ),
+    VALIDATION_GROUP: (
+        "validate_design",
     ),
     MANIPULATION_GROUP: (
         "modify_building_boundary",
@@ -57,6 +62,9 @@ TOOL_GROUPS: dict[str, tuple[str, ...]] = {
         "requested_position_checker",
         "measure_boundary_proximity",
     ),
+    MASTERPLAN_GROUP: (
+        "generate_masterplan",
+    ),
 }
 
 
@@ -65,10 +73,12 @@ ACTION_TO_GROUP: dict[str, str] = {
     "generate_shape": SHAPE_GROUP,
     "check_requested_position": POSITION_ANALYSIS_GROUP,
     "check_constraints": CONSTRAINT_GROUP,
+    "validate": VALIDATION_GROUP,
     "optimize": MANIPULATION_GROUP,
     "evaluate": EVALUATION_GROUP,
     "place_building": PLACEMENT_GROUP,
     "analyze_remaining_positions": POSITION_ANALYSIS_GROUP,
+    "generate_masterplan": MASTERPLAN_GROUP,
 }
 
 

@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import sessions, chat, explorer, tools, decisions
+from .routers import sessions, chat, explorer, tools, decisions, clarify
 
 app = FastAPI(
     title="AIA26 Studio — Team 04 API",
@@ -48,6 +48,7 @@ app.include_router(chat.router)
 app.include_router(explorer.router)
 app.include_router(tools.router)
 app.include_router(decisions.router)
+app.include_router(clarify.router)
 
 
 @app.get("/", tags=["health"])

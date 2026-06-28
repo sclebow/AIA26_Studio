@@ -12,43 +12,125 @@ except ModuleNotFoundError:  # pragma: no cover - exercised when LLM deps are ab
     ChatOpenAI = Any  # type: ignore[misc,assignment]
 
 from .llm import resolve_active_llm
-from .models import PlanStep, RoutingDecision
+from .models import DesignBrief, PlanStep, RoutingDecision
 from .models import ToolCall
 from .tools.generate_building_boundary import get_boundary_planning_defaults
 from .tool_catalog import ToolCatalog
 
 
 SUPERVISOR_PROMPT = """
-You are the execution supervisor for one active plan step in a site design LangGraph agent.
+You execute the one active plan step of a site-design agent. Choose tool calls
+that serve the design brief; the runtime fills in missing arguments and enforces
+step/tool policy, so focus on intent, not bookkeeping. Use `await_human` only when
+the step truly cannot proceed without clarification.
 
 Active step:
 {active_step}
 
-Supervisor rules:
-- Only act on the active step.
-- If the active step is `generate_shape`, return `generate_shape` with one or more valid shape-generation tool calls.
-- For `generate_shape`, never return an empty `tool_calls` array.
-- For `generate_shape`, include all required arguments for the selected tool.
-- If you choose `generate_building_boundary`, you must provide `area`.
-- If tool parameter defaults are shown in the catalog, use them for omitted optional arguments rather than inventing new values.
-- If the active step is `optimize`, return `optimize` with one or more valid manipulation tool calls.
-- If the active step is `check_requested_position`, `place_building`, or `analyze_remaining_positions`, do not invent a different phase.
-- Use `await_human` only if the active step cannot proceed without clarification.
-- Do not switch to other workflow phases. Planning is handled elsewhere.
+Design brief (the user's intent — let it guide shape, area, and emphasis):
+{design_brief}
 
-Return JSON only with this shape:
+Self-debug directive (a previous attempt failed validation; if non-empty, follow
+this correction when choosing this step's tool arguments):
+{debug_directive}
+
+Return JSON only:
 {{
-    "action": "generate_shape|optimize|check_requested_position|place_building|analyze_remaining_positions|await_human",
+  "action": "{action}",
   "reasoning": "short explanation",
   "user_question": "only for await_human, else empty string",
   "tool_calls": [{{"name": "tool_name", "arguments": {{}}}}]
 }}
 
-Relevant tool catalog:
+Relevant tools:
 {tool_catalog}
 
 State snapshot:
 {state_snapshot}
+"""
+
+
+BRIEF_PROMPT = """
+You extract a structured design brief from a user's site-design request.
+Return JSON only, matching this schema (use null for anything you cannot infer —
+never invent values):
+{{
+  "building_count": <int, default 1>,
+  "buildings": [
+    {{
+      "shape_preference": "I|L|T|U|H|Y|X|O|auto",
+      "footprint_area_sqm": <number or null>,
+      "storeys": <int or null>,
+      "use": "residential|office|mixed",
+      "intent_text": "<short per-building intent, else empty>"
+    }}
+  ],
+  "courtyard_requested": <bool>,
+  "courtyard_qualities": ["quiet"|"sunny"|"private"|...],
+  "parking_requested": <bool>,
+  "requested_rotation_deg": <number or null>,
+  "view_weight": <0..1>, "sun_weight": <0..1>, "alignment_weight": <0..1>,
+  "ambiguities": ["<anything vague, contradictory, or missing>"]
+}}
+Rules:
+- One entry in "buildings" per building; length should match building_count when known.
+- Raise objective weights for whatever the user emphasizes (e.g. "daylight matters most" -> higher sun_weight). Default each weight to 0.5.
+- Put genuine gaps and contradictions in "ambiguities" instead of guessing.
+
+User request:
+{user_prompt}
+"""
+
+
+JUDGE_PROMPT = """
+You are the design judge in a site-planning agent's self-validation loop. The
+hard geometric checks (valid polygon, fits the site, no overlap, area tolerance)
+already PASSED. Your job is the softer question: does this footprint actually
+satisfy the user's design brief (requested shape family, use, emphasis)?
+
+Be decisive but fair — only fail when there is a clear, nameable mismatch with
+the brief, not for stylistic nitpicks. Return JSON only:
+{{
+  "satisfies_brief": <bool>,
+  "score": <0..1>,
+  "reasons": ["<short, concrete reason>", ...]
+}}
+
+Design brief:
+{design_brief}
+
+Validation metrics (from the deterministic checker):
+{validation_metrics}
+
+Current geometry summary:
+{geometry_summary}
+"""
+
+
+DEBUG_PROMPT = """
+You are the self-debug step of a site-planning agent. The last building footprint
+FAILED validation. Diagnose the most likely cause from the failures and produce a
+single, concrete corrective directive for the next regeneration attempt. Be
+specific about WHAT to change (area, shape family, depth/ratio, location, rotation)
+and in WHICH direction — the generator will read your directive verbatim.
+
+Do not repeat a directive that already failed (see prior attempts). Return JSON only:
+{{
+  "diagnosis": "<one sentence: why it failed>",
+  "directive": "<imperative instruction for the next generate_building_boundary call>"
+}}
+
+Design brief:
+{design_brief}
+
+Validation result (failures + metrics):
+{validation_result}
+
+Prior debug attempts (most recent last):
+{debug_history}
+
+Geometry summary:
+{geometry_summary}
 """
 
 
@@ -79,6 +161,11 @@ class DecisionEngine(Protocol):
 
     def build_report(self, state: dict[str, Any]) -> str:
         ...
+
+    # Optional: engines may expose extract_brief for LLM intent comprehension.
+    # The graph's extract_brief node detects it via getattr and falls back to the
+    # deterministic regex extractor when it is absent, so stub engines used in
+    # tests do not need to implement it.
 
 
 @dataclass(frozen=True)
@@ -127,10 +214,28 @@ class RuleBasedPlanner:
             isinstance(item, dict) and item.get("geometry_id") == geometry_id
             for item in placed_buildings
         )
+
+        # Self-validation + self-debug loop. ``validate`` produces a pass/fail
+        # verdict for the *current* geometry; on failure ``debug`` reasons about
+        # why and clears the geometry so generate_shape runs again — bounded by
+        # ``max_debug_attempts`` so a hopeless candidate still reaches a report.
+        validation_for_current = bool(
+            geometry_id
+            and state.get("validated_geometry_id") == geometry_id
+            and state.get("validation_result")
+        )
+        validation_passed = validation_for_current and bool(state.get("validation_passed"))
+        validation_failed = validation_for_current and not bool(state.get("validation_passed"))
+        debug_attempts = int(state.get("debug_attempts", 0) or 0)
+        max_debug_attempts = int(state.get("max_debug_attempts", 0) or 0)
+        debug_exhausted = debug_attempts >= max_debug_attempts
+        validation_dead_end = validation_failed and debug_exhausted
+
         can_place_current_building = bool(
             geometry_id
             and current_geometry_checked
             and not violations
+            and validation_passed
             and (not active_requested_position or requested_position_checked)
             and not current_geometry_already_placed
         )
@@ -204,6 +309,46 @@ class RuleBasedPlanner:
                 ),
             )
 
+        if workflow_mode == "masterplan":
+            # Whole-site masterplanning: read the site, run the circulation-first
+            # 17-step pipeline once, then report. No per-building generate/validate
+            # loop — the masterplan tool places, scores and optimises the layout.
+            masterplan_done = bool(state.get("masterplan_result"))
+            return (
+                PlanStep(
+                    step_id="read_site",
+                    action="read_site",
+                    goal="Load site boundary, context, and legal constraints.",
+                    status="completed" if state.get("site_context") else "pending",
+                ),
+                PlanStep(
+                    step_id="generate_masterplan",
+                    action="generate_masterplan",
+                    goal="Generate, score and optimise a whole-site masterplan (circulation, fire, parking).",
+                    status=(
+                        "completed"
+                        if masterplan_done
+                        else ("pending" if state.get("site_context") else "skipped")
+                    ),
+                ),
+                PlanStep(
+                    step_id="await_human",
+                    action="await_human",
+                    goal=await_question or "Ask the user for missing clarification.",
+                    status="completed" if await_question and report_complete else ("pending" if await_question else "skipped"),
+                ),
+                PlanStep(
+                    step_id="report",
+                    action="report",
+                    goal="Write the masterplan report for the generated layout.",
+                    status=(
+                        "completed"
+                        if report_complete and not await_question
+                        else ("pending" if masterplan_done or state.get("error") else "skipped")
+                    ),
+                ),
+            )
+
         return (
             PlanStep(
                 step_id="read_site",
@@ -250,13 +395,33 @@ class RuleBasedPlanner:
                 status="pending" if violations and not maxed_out else "skipped",
             ),
             PlanStep(
+                step_id="validate",
+                action="validate",
+                goal=f"Validate {current_building_label}: valid polygon, fits the site, no overlap, area in tolerance, and matches the brief.{intent_suffix}",
+                status=(
+                    "completed"
+                    if validation_for_current
+                    else (
+                        "pending"
+                        if geometry_id and current_geometry_checked and not violations
+                        else "skipped"
+                    )
+                ),
+            ),
+            PlanStep(
+                step_id="debug",
+                action="debug",
+                goal=f"Diagnose why {current_building_label} failed validation and adjust the next attempt.{intent_suffix}",
+                status="pending" if validation_failed and not debug_exhausted else "skipped",
+            ),
+            PlanStep(
                 step_id="evaluate",
                 action="evaluate",
                 goal=f"Evaluate {current_building_label} for design quality and performance.{intent_suffix}",
                 status=(
                     "completed"
                     if state.get("evaluation_results")
-                    else ("pending" if current_geometry_checked and not violations else "skipped")
+                    else ("pending" if validation_passed else "skipped")
                 ),
             ),
             PlanStep(
@@ -294,7 +459,7 @@ class RuleBasedPlanner:
                     if report_complete and not await_question
                     else (
                         "pending"
-                        if report_ready or maxed_out or state.get("error")
+                        if report_ready or maxed_out or validation_dead_end or state.get("error")
                         else "skipped"
                     )
                 ),
@@ -320,6 +485,9 @@ class OpenAIDecisionEngine:
         content = self._invoke_json(
             system_prompt=SUPERVISOR_PROMPT.format(
                 active_step=json.dumps(active_step.to_state(), indent=2),
+                action=active_step.action,
+                design_brief=json.dumps(state.get("design_brief", {}), indent=2),
+                debug_directive=str(state.get("debug_directive") or "").strip() or "(none)",
                 tool_catalog=catalog.render_for_action(active_step.action),
                 state_snapshot=json.dumps(snapshot, indent=2),
             ),
@@ -327,6 +495,70 @@ class OpenAIDecisionEngine:
         )
         decision = RoutingDecision.from_payload(content)
         return _repair_generate_shape_decision(decision, state, catalog, active_step)
+
+    def extract_brief(
+        self,
+        user_prompt: str,
+        layout_payload: dict[str, Any] | None = None,
+    ) -> DesignBrief:
+        """Comprehend the user's request into a typed :class:`DesignBrief`.
+
+        On any LLM/parse failure this raises, and the caller (``resolve_brief``)
+        falls back to the deterministic regex extractor.
+        """
+        del layout_payload  # The LLM reads the prompt directly; layout is a fallback concern.
+        payload = self._invoke_json(
+            system_prompt=BRIEF_PROMPT.format(user_prompt=user_prompt),
+            user_prompt=user_prompt,
+        )
+        if isinstance(payload, dict):
+            payload.setdefault("source", "llm")
+        return DesignBrief.from_payload(payload)
+
+    def judge_design(self, state: dict[str, Any]) -> dict[str, Any]:
+        """LLM judge: does the (geometrically valid) footprint satisfy the brief?
+
+        Only called once the deterministic checks pass. Returns
+        ``{"satisfies_brief": bool, "score": float, "reasons": [...]}``. On any
+        failure it raises and the validate node treats the brief check as a soft
+        pass (the hard checks already guarantee a usable geometry).
+        """
+        payload = self._invoke_json(
+            system_prompt=JUDGE_PROMPT.format(
+                design_brief=json.dumps(state.get("design_brief", {}), indent=2),
+                validation_metrics=json.dumps(
+                    (state.get("validation_result") or {}).get("metrics", {}), indent=2
+                ),
+                geometry_summary=json.dumps(_geometry_summary(state), indent=2),
+            ),
+            user_prompt=state.get("user_prompt", ""),
+        )
+        return {
+            "satisfies_brief": bool(payload.get("satisfies_brief", True)),
+            "score": _clamp_unit(payload.get("score"), 0.5),
+            "reasons": [str(r).strip() for r in payload.get("reasons", []) if str(r).strip()],
+        }
+
+    def propose_debug(self, state: dict[str, Any]) -> dict[str, str]:
+        """LLM self-debug: turn validation failures into a corrective directive.
+
+        Returns ``{"diagnosis": ..., "directive": ...}``. The directive is fed
+        verbatim into the next supervisor call (see SUPERVISOR_PROMPT) so the
+        regeneration changes in a *reasoned* direction rather than blindly.
+        """
+        payload = self._invoke_json(
+            system_prompt=DEBUG_PROMPT.format(
+                design_brief=json.dumps(state.get("design_brief", {}), indent=2),
+                validation_result=json.dumps(state.get("validation_result", {}), indent=2),
+                debug_history=json.dumps(state.get("debug_history", []), indent=2),
+                geometry_summary=json.dumps(_geometry_summary(state), indent=2),
+            ),
+            user_prompt=state.get("user_prompt", ""),
+        )
+        return {
+            "diagnosis": str(payload.get("diagnosis", "")).strip(),
+            "directive": str(payload.get("directive", "")).strip(),
+        }
 
     def build_report(self, state: dict[str, Any]) -> str:
         snapshot = _build_state_snapshot(state)
@@ -357,9 +589,28 @@ class OpenAIDecisionEngine:
         return _parse_json_object(content)
 
 
+def _summarize_site_model(site_model: Any) -> dict[str, Any]:
+    """Compact view of the site model for prompts (full graph is too verbose)."""
+    if not isinstance(site_model, dict) or not site_model.get("available"):
+        return {"available": False}
+    setbacks = site_model.get("setbacks") if isinstance(site_model.get("setbacks"), dict) else {}
+    return {
+        "available": True,
+        "corner_count": len(site_model.get("corners", []) or []),
+        "side_count": len(site_model.get("sides", []) or []),
+        "site_area_sqm": setbacks.get("site_area_sqm"),
+        "buildable_area_sqm": setbacks.get("buildable_area_sqm"),
+        "has_roads": site_model.get("roads") is not None,
+        "has_grid": site_model.get("grid") is not None,
+        "has_sun": site_model.get("sun") is not None,
+    }
+
+
 def _build_state_snapshot(state: dict[str, Any]) -> dict[str, Any]:
     return {
         "plan": state.get("plan", []),
+        "design_brief": state.get("design_brief", {}),
+        "site_model_summary": _summarize_site_model(state.get("site_model", {})),
         "active_step_id": state.get("active_step_id"),
         "current_action": state.get("current_action"),
         "decision_reason": state.get("decision_reason"),
@@ -381,9 +632,38 @@ def _build_state_snapshot(state: dict[str, Any]) -> dict[str, Any]:
         "violations": state.get("violations", []),
         "constraint_results": state.get("constraint_results", {}),
         "evaluation_results": state.get("evaluation_results", {}),
+        "masterplan_result": state.get("masterplan_result", {}),
         "placement_fit_summary": state.get("placement_fit_summary", {}),
         "human_request": state.get("human_request"),
+        "validation_passed": state.get("validation_passed"),
+        "validation_result": state.get("validation_result", {}),
+        "debug_attempts": state.get("debug_attempts"),
+        "max_debug_attempts": state.get("max_debug_attempts"),
+        "debug_directive": state.get("debug_directive"),
         "error": state.get("error"),
+    }
+
+
+def _geometry_summary(state: dict[str, Any]) -> dict[str, Any]:
+    """Compact description of the current footprint for judge/debug prompts."""
+    shape_context = state.get("shape_context", {})
+    payload: dict[str, Any] = {}
+    if isinstance(shape_context, dict):
+        for value in shape_context.values():
+            if isinstance(value, dict):
+                data = value.get("data", value)
+                if isinstance(data, dict) and isinstance(data.get("boundary"), list):
+                    payload = data
+                    break
+    metrics = (state.get("validation_result") or {}).get("metrics", {})
+    boundary = payload.get("boundary") if isinstance(payload, dict) else None
+    return {
+        "geometry_id": state.get("geometry_id"),
+        "shape_type": payload.get("shape_type") if isinstance(payload, dict) else None,
+        "parameters": payload.get("parameters") if isinstance(payload, dict) else None,
+        "boundary_point_count": len(boundary) if isinstance(boundary, list) else 0,
+        "building_area_sqm": metrics.get("building_area_sqm") if isinstance(metrics, dict) else None,
+        "target_area_sqm": metrics.get("target_area_sqm") if isinstance(metrics, dict) else None,
     }
 
 
@@ -442,10 +722,28 @@ def _repair_generate_shape_decision(
     site_area_sqm = _extract_site_area_sqm(state)
     site_boundary = _extract_site_boundary_from_state(state)
     preferred_location = _select_generation_location_hint(state)
-    explicit_building_area_sqm = _extract_explicit_building_area_sqm(user_prompt)
-    inferred_building_type = _infer_requested_building_type(user_prompt)
-    requested_rotation = _extract_requested_rotation(user_prompt)
-    has_explicit_building_area = _mentions_explicit_building_area(user_prompt)
+
+    # Prefer the typed design brief for this building; fall back to prompt regex
+    # so direct unit-test calls (which pass no brief) keep their existing behaviour.
+    active_spec, brief_rotation = _active_brief_signals(state)
+
+    spec_shape = active_spec.get("shape_preference")
+    if isinstance(spec_shape, str) and spec_shape and spec_shape != "auto":
+        inferred_building_type = spec_shape
+    else:
+        inferred_building_type = _infer_requested_building_type(user_prompt)
+
+    spec_area = active_spec.get("footprint_area_sqm")
+    if isinstance(spec_area, (int, float)):
+        explicit_building_area_sqm = float(spec_area)
+        has_explicit_building_area = True
+    else:
+        explicit_building_area_sqm = _extract_explicit_building_area_sqm(user_prompt)
+        has_explicit_building_area = _mentions_explicit_building_area(user_prompt)
+
+    requested_rotation = (
+        brief_rotation if brief_rotation is not None else _extract_requested_rotation(user_prompt)
+    )
     fallback_arguments = {
         "area": explicit_building_area_sqm or _default_boundary_area(site_area_sqm, defaults["default_site_coverage_ratio"]),
         "building_type": inferred_building_type or tool_defaults["building_type"],
@@ -470,6 +768,14 @@ def _repair_generate_shape_decision(
     if requested_rotation is not None:
         fallback_arguments.update(_rotation_arguments_for_requested_angle(requested_rotation))
 
+    # On a self-debug retry, perturb the random seed so the generator actually
+    # explores a different candidate instead of reproducing the rejected one.
+    debug_attempts = int(state.get("debug_attempts", 0) or 0)
+    if debug_attempts > 0:
+        base_seed = fallback_arguments.get("random_seed")
+        base_seed = int(base_seed) if isinstance(base_seed, (int, float)) else 0
+        fallback_arguments["random_seed"] = base_seed + debug_attempts * 1009
+
     patched_calls: list[ToolCall] = []
     for tool_call in decision.tool_calls:
         if tool_call.name not in available_names:
@@ -482,6 +788,8 @@ def _repair_generate_shape_decision(
             arguments["building_type"] = inferred_building_type
         if not has_explicit_building_area:
             arguments["area"] = fallback_arguments["area"]
+        if debug_attempts > 0:
+            arguments["random_seed"] = fallback_arguments["random_seed"]
         if requested_rotation is not None:
             arguments.update(_rotation_arguments_for_requested_angle(requested_rotation))
         if preferred_location is not None and _uses_default_location(arguments.get("location_xy")):
@@ -505,6 +813,28 @@ def _repair_generate_shape_decision(
         tool_calls=(ToolCall(name="generate_building_boundary", arguments=fallback_arguments),),
         user_question=decision.user_question,
     )
+
+
+def _active_brief_signals(state: dict[str, Any]) -> tuple[dict[str, Any], float | None]:
+    """Return (active building spec, brief rotation) for the current building.
+
+    Falls back to an empty spec and ``None`` rotation when no brief is present, so
+    callers transparently revert to prompt-regex parsing.
+    """
+    brief = state.get("design_brief")
+    if not isinstance(brief, dict) or not brief:
+        return {}, None
+
+    placed = state.get("placed_buildings", [])
+    index = len(placed) if isinstance(placed, list) else 0
+    buildings = brief.get("buildings", [])
+    spec: dict[str, Any] = {}
+    if isinstance(buildings, list) and 0 <= index < len(buildings) and isinstance(buildings[index], dict):
+        spec = buildings[index]
+
+    rotation = brief.get("requested_rotation_deg")
+    rotation_value = float(rotation) if isinstance(rotation, (int, float)) else None
+    return spec, rotation_value
 
 
 def _select_generation_location_hint(state: dict[str, Any]) -> list[float] | None:

@@ -1,0 +1,203 @@
+/* Three-panel workspace — floating glass panels over the ambient field.
+   Grid structure unchanged; panels detached with gaps, blur, and glow. */
+#workspace {
+  display: grid;
+  grid-template-rows: 52px 1fr auto 30px;
+  grid-template-columns: 272px 1fr 392px;
+  grid-template-areas:
+    "titlebar titlebar titlebar"
+    "explorer center   copilot"
+    "explorer dock     copilot"
+    "statusbar statusbar statusbar";
+  width: 100vw;
+  height: 100vh;
+  gap: 12px;
+  padding: 12px;
+  animation: ws-in 0.7s var(--ease) both;
+}
+@keyframes ws-in { from { opacity: 0; transform: scale(0.99); } to { opacity: 1; transform: scale(1); } }
+
+/* ---- Title bar ---- */
+#titlebar {
+  grid-area: titlebar;
+  background: var(--panel);
+  backdrop-filter: blur(var(--blur)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(140%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px;
+  font-size: 13px;
+  box-shadow: var(--shadow-soft);
+  -webkit-user-select: none;
+  user-select: none;
+}
+#titlebar .tb-logo { width: 24px; height: 24px; filter: drop-shadow(0 0 6px var(--accent-glow)); }
+#titlebar .tb-name {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.5px;
+  color: var(--text-bright);
+}
+#titlebar .tb-name .accent {
+  background: linear-gradient(120deg, var(--accent-2), var(--accent-violet));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+#titlebar .tb-stage {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.02);
+}
+#titlebar .tb-stage .dot {
+  color: var(--accent-2);
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; text-shadow: 0 0 8px var(--accent-glow); }
+  50% { opacity: 0.4; text-shadow: none; }
+}
+
+/* ---- Panels ---- */
+#explorer, #copilot {
+  background: var(--panel);
+  backdrop-filter: blur(var(--blur)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(140%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+}
+#explorer { grid-area: explorer; overflow-y: auto; }
+#copilot { grid-area: copilot; display: flex; flex-direction: column; min-height: 0; }
+
+#center {
+  grid-area: center;
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft), inset 0 0 80px rgba(0, 0, 0, 0.35);
+  background: var(--bg-solid);
+}
+/* subtle inner edge-glow on the center stage */
+#center::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(120, 200, 255, 0.06);
+}
+
+/* ---- Status bar ---- */
+#statusbar {
+  grid-area: statusbar;
+  background: var(--panel);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1px;
+  gap: 16px;
+}
+#statusbar .sb-item { display: flex; align-items: center; gap: 7px; }
+#statusbar .sb-item:first-child { color: var(--accent-2); }
+
+/* ===== Compact workflow dock — centered under the center canvas, above status bar.
+   Lives in the full-width `dock` grid row but its inner bar is constrained and
+   centered so it visually sits beneath the map panel only. ===== */
+#bottom-dock.dock-glass {
+  grid-area: dock;
+  display: flex;
+  align-items: center;
+  justify-content: center;          /* centers the compact bar in the app width */
+}
+#bottom-dock.dock-glass .dock-rail {
+  display: flex; align-items: center; justify-content: center;
+  gap: 3px;
+  width: max-content;
+  max-width: 720px;
+  height: 48px;
+  padding: 0 8px;
+  background: var(--panel);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-soft);
+  animation: dock-in 0.5s var(--ease) both;
+}
+@keyframes dock-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.dock-step {
+  position: relative;
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  color: var(--text-dim);
+  cursor: default;
+  transition: all 0.25s var(--ease);
+  white-space: nowrap;
+}
+.dock-ico { display: flex; flex-shrink: 0; }
+.dock-ico svg { width: 15px; height: 15px; }
+.dock-label { font-size: 12px; font-weight: 600; letter-spacing: 0.2px; }
+/* connector dot between horizontal steps */
+.dock-connector {
+  position: absolute; right: -3px; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 3px; border-radius: 50%; background: var(--border);
+}
+
+/* completed steps */
+.dock-step.done { color: var(--good); }
+.dock-step.done .dock-ico { filter: drop-shadow(0 0 6px var(--good-glow)); }
+.dock-step.done .dock-connector { background: var(--good); }
+
+/* active step — glowing pill */
+.dock-step.active {
+  color: #03201d;
+  background: linear-gradient(135deg, var(--accent), var(--accent-blue));
+  box-shadow: 0 0 22px var(--accent-glow);
+  animation: dock-pulse 2.2s ease-in-out infinite;
+}
+@keyframes dock-pulse {
+  0%, 100% { box-shadow: 0 0 18px var(--accent-glow); }
+  50% { box-shadow: 0 0 32px var(--accent-glow); }
+}
+.dock-step.pending { opacity: 0.85; }
+
+/* Responsive: collapse labels to icons on narrow widths (active keeps label) */
+@media (max-width: 1100px) {
+  .dock-step .dock-label { display: none; }
+  .dock-step.active .dock-label { display: inline; }
+  .dock-step { padding: 9px 13px; }
+}
+#statusbar .sb-item:first-child::before {
+  content: "";
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}

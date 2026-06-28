@@ -12,6 +12,7 @@ from .tools import ANALYZE_SITE_BOUNDARY_TOOL_DEFINITION
 from .tools import MEASURE_BOUNDARY_PROXIMITY_TOOL_DEFINITION
 from .tools import MODIFY_BUILDING_BOUNDARY_TOOL_DEFINITION
 from .tools import MODIFY_BUILDING_WINGS_TOOL_DEFINITION
+from .tools import VALIDATE_DESIGN_TOOL_DEFINITION
 from .tools import REMAINING_BUILDABLE_POSITIONS_TOOL_DEFINITION
 from .tools import REQUESTED_POSITION_CHECKER_TOOL_DEFINITION
 from .tools import DIRECTION_TO_SITE_CENTROID_TOOL_DEFINITION
@@ -19,7 +20,9 @@ from .tools import TOOL_DEFINITION as GENERATE_BUILDING_BOUNDARY_TOOL_DEFINITION
 from .tools import analyze_site_boundary, measure_boundary_proximity
 from .tools import direction_to_site_centroid
 from .tools import generate_building_boundary
+from .tools import validate_design
 from .tools import mock_check_requested_position, mock_import_building_boundary, mock_remaining_buildable_positions, modify_building_boundary, modify_building_wings
+from .tools.masterplan import MASTERPLAN_TOOL_DEFINITION, run_masterplan_tool
 
 
 class ToolClient(Protocol):
@@ -192,6 +195,10 @@ def build_default_local_tool_client() -> LocalToolClient:
                 MODIFY_BUILDING_WINGS_TOOL_DEFINITION,
                 modify_building_wings,
             ),
+            VALIDATE_DESIGN_TOOL_DEFINITION["name"]: (
+                VALIDATE_DESIGN_TOOL_DEFINITION,
+                validate_design,
+            ),
             DIRECTION_TO_SITE_CENTROID_TOOL_DEFINITION["name"]: (
                 DIRECTION_TO_SITE_CENTROID_TOOL_DEFINITION,
                 direction_to_site_centroid,
@@ -215,6 +222,10 @@ def build_default_local_tool_client() -> LocalToolClient:
             REQUESTED_POSITION_CHECKER_TOOL_DEFINITION["name"]: (
                 REQUESTED_POSITION_CHECKER_TOOL_DEFINITION,
                 mock_check_requested_position,
+            ),
+            MASTERPLAN_TOOL_DEFINITION["name"]: (
+                MASTERPLAN_TOOL_DEFINITION,
+                run_masterplan_tool,
             ),
         }
     )

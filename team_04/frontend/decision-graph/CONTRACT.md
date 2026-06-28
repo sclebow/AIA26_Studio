@@ -1,0 +1,500 @@
+# Decision Graph — Frontend Payload Contract
+
+This is the **living contract** between the Team 04 backend (`backend/decision_graph.py`,
+`backend/routers/chat.py`, `backend/routers/decisions.py`) and the React Flow decision-graph UI.
+Each backend phase that adds a node type adds its row here in the **same commit** (see
+`../README.md` for the lockstep rule).
+
+Source of truth on the backend:
+- Node shape — `DecisionNodeSchema` in `backend/schemas.py`.
+- Node constructors — `make_intent_node`, `make_brief_node`, `make_action_node`,
+  `make_branch_nodes`, `make_state_node` in `backend/decision_graph.py`.
+- Streaming — the `decision` SSE event in `backend/routers/chat.py`.
+
+---
+
+## 1. Transport
+
+### 1a. Full graph — `GET /sessions/{id}/decisions`
+
+Returns the whole DAG, ready for React Flow with **no transformation** of edges:
+
+```jsonc
+{
+  "nodes": [ DecisionNode, ... ],   // full nodes (incl. payload + timestamp)
+  "edges": [ { "id": "<parent>-<child>", "source": "<parent_id>", "target": "<child_id>" } ],
+  "head":  "<node_id>"              // current active leaf
+}
+```
+
+### 1b. Live stream — `POST /sessions/{id}/chat` (SSE)
+
+The `decision` event fires once per node as the agent runs. Its data is the **compact**
+node (no `payload`/`timestamp` — fetch the full node from `/decisions` if the card needs
+the payload, or keep a client-side cache keyed by `node_id`):
+
+```jsonc
+// event: decision
+{ "node_id": "...", "type": "brief", "label": "...", "parent_id": "...", "is_selected": true }
+```
+
+Emission order per user turn:
+`intent → brief → [clarify] → thought → action(s) → validate → [retry → thought → action(s) → validate]* → … → state`.
+The `brief` event arrives **right after `intent`, before the first `thought`** — it is the
+agent's comprehension step (`extract_brief` graph node). A `clarify` event may follow the brief
+when the agent pauses to ask the user back (see §7); when it does, no actions run that turn.
+
+`thought`, `validate`, and `retry` are the **ReAct loop made visible** (added with the
+self-validation/self-debug feature): the supervisor's reasoning, the agent's verdict on its own
+geometry, and a self-debug correction before it regenerates. A failed `validate` is followed by a
+`retry` and another generate→validate cycle, bounded by `max_debug_attempts`.
+
+### 1c. Non-node activity SSE events (live ReAct trace)
+
+Tools here are plain Python calls inside graph nodes (not LangChain `Tool`s), so the chat stream
+drives the trace off each node's `on_chain_end` output. Alongside the `decision` events it emits
+these **non-node** events so the UI can show *what the agent is thinking, which tool it used, how
+many times, and the result* without re-fetching:
+
+```jsonc
+// event: thought      — the supervisor's reasoning for the step
+{ "action": "generate_shape", "reasoning": "..." }
+// event: tool         — a tool finished firing (count = running per-tool tally this turn)
+{ "name": "validate_design", "input_preview": "{...}", "count": 2 }
+// event: tool_result  — that tool's outcome
+{ "name": "validate_design", "ok": true, "summary": "validation passed", "count": 2 }
+// event: validation   — the self-validation verdict
+{ "passed": false, "failures": ["area"], "summary": "...", "metrics": {...}, "judge": {...} | null }
+// event: retry        — a self-debug attempt before regenerating
+{ "attempt": 1, "failures": ["area"], "diagnosis": "...", "directive": "..." }
+```
+
+The chat stream also emits a non-node `clarify` SSE event carrying the raw `ClarificationRequest`
+(so the UI can pop the form without re-fetching): `event: clarify, data: <ClarificationRequest>`.
+
+---
+
+## 2. `DecisionNode` (full, from `/decisions`)
+
+| field         | type                    | notes |
+|---------------|-------------------------|-------|
+| `node_id`     | `string` (uuid)         | React Flow node `id` |
+| `parent_id`   | `string \| null`        | edge source; `null` only for the root |
+| `type`        | `DecisionNodeType`      | `intent \| brief \| clarify \| thought \| action \| validate \| retry \| branch \| select \| state` |
+| `label`       | `string`                | ≤120 chars, human-readable |
+| `timestamp`   | `string` (ISO-8601 UTC) | node creation time |
+| `is_selected` | `boolean`               | on the active path; branch children start `false` |
+| `payload`     | `object`                | type-specific — see below |
+
+`type` is an **open string** on the wire (`DecisionNodeSchema.type: str`). The UI maps known
+types to components and falls back to a generic node for anything unknown, so a new backend
+phase never breaks an older frontend build.
+
+---
+
+## 3. Per-type `payload`
+
+### `intent`
+```ts
+{ user_message: string }
+```
+
+### `brief`  — Phase 0 (BACKEND_PLAN §0)
+The typed `DesignBrief` the agent comprehended from the prompt. This is the payload the
+`BriefNode` renders.
+```ts
+{
+  design_brief: {
+    building_count: number,
+    buildings: Array<{
+      shape_preference: "I"|"L"|"T"|"U"|"H"|"Y"|"X"|"O"|"auto",
+      footprint_area_sqm: number | null,
+      storeys: number | null,
+      use: string,                 // "residential" | "office" | "mixed" | ...
+      intent_text: string
+    }>,
+    courtyard_requested: boolean,
+    courtyard_qualities: string[], // e.g. ["quiet","sunny"]
+    parking_requested: boolean,
+    requested_rotation_deg: number | null,
+    view_weight: number,           // 0..1
+    sun_weight: number,            // 0..1
+    alignment_weight: number,      // 0..1
+    ambiguities: string[],         // things the agent could NOT infer (LLM path only)
+    source: "llm" | "fallback"     // "fallback" = deterministic regex, no LLM
+  }
+}
+```
+Label format: `Brief: {count}x [{shape + shape + …}] ({source})`.
+
+> **No-invention guarantee.** Vague prompts yield `shape_preference: "auto"` and
+> `footprint_area_sqm: null` rather than fabricated values; genuinely unclear requests are
+> listed in `ambiguities` (LLM path). The UI should render `auto`/`null` as "let the agent
+> decide", not as an error, and surface `ambiguities` as a soft warning.
+
+### `clarify`  — interactive clarification (BACKEND_PLAN §0, ask-back loop)
+The agent paused to ask the user back. Payload holds the structured question the
+`ClarifyPanel` renders as chips.
+```ts
+{
+  clarification_request: {
+    summary: string,
+    fields: Array<{
+      key: "shape"|"side"|"view_side"|"size"|"use"|"count",
+      question: string,
+      options: string[],      // suggested chips
+      multi: boolean,         // multi- vs single-select
+      allow_custom: boolean,  // free-text allowed
+      critical: boolean       // placement-critical gap (vs nice-to-have)
+    }>
+  }
+}
+```
+
+### `thought`  — the supervisor's reasoning step (ReAct "Reason")
+```ts
+{ action: string, reasoning: string }   // reasoning ≤400 chars
+```
+Label format: `Reason → {action}`.
+
+### `action`
+```ts
+{ tool_name: string, input_preview: string,    // input_preview ≤200 chars
+  call_count: number,                          // how many times this tool ran this turn
+  result_summary: string, ok: boolean }        // one-line digest of the tool's output
+```
+Label format: `Tool: {tool_name}` (with `×{call_count}` suffix when >1).
+
+### `validate`  — the agent's verdict on its own geometry
+```ts
+{ passed: boolean, failures: string[],         // e.g. ["outside_site","area","brief_mismatch"]
+  summary: string, metrics: object,
+  judge: { satisfies_brief: boolean, score: number, reasons: string[] } | null }
+```
+Label format: `Validate: PASS` / `Validate: FAIL ({failures})`.
+
+### `retry`  — a self-debug attempt (the agent correcting itself)
+```ts
+{ attempt: number, directive: string, diagnosis: string, failures: string[] }
+```
+Label format: `Self-debug #{attempt}`.
+
+### `branch`  — one child `state` node per Pareto option
+```ts
+{ option_count: number }
+```
+
+### `state`  (Pareto option child OR placed building)
+```ts
+// Pareto option child:
+{ option_id: string, combined_score: number, boundary: number[][] | null,
+  rotation_degrees: number | null, centroid_xy: [number, number] | null }
+// Placed building:
+{ building_count: number, building_snapshots: Array<{ label, boundary, area_sqm }> }
+```
+
+### `select`  (user picked an option in the explorer)
+```ts
+{ selected_option_id: string, reason?: string, backtrack?: boolean }
+```
+
+---
+
+## 3b. Answering a clarification (§7 in full)
+
+```
+GET  /sessions/{id}/clarification   → { clarification_request: ClarificationRequest | null }
+POST /sessions/{id}/clarify   { "answers": { "shape": "L", "side": "south",
+                                              "view_side": ["south"], "size": "~900 m²",
+                                              "use": "office", "count": "1" } }
+→ { resolved: true, shapes, requested_positions, view_target_sides, next }
+```
+After POSTing answers, send a normal `/chat` turn to resume — the agent now has the answered
+shape/side/view/size/use/count and will not re-ask. `ClarifyPanel` collects the answers; the
+caller wires `onSubmit → api.submitClarification(id, answers) → api.chat(...)`.
+
+## 4. Selecting a Pareto option
+
+```
+POST /sessions/{id}/decisions/{node_id}/select   { "reason": "..." }
+→ { select_node, graph_head }     // re-fetch /decisions and re-render
+```
+
+---
+
+## 5. Adding a node type in a later phase (checklist)
+
+1. Backend: add a `make_<type>_node` constructor + emit it in `chat.py`; add the row to §3 here.
+2. Frontend: add `<Type>Node.tsx`, register it in `nodeTypes.ts`, extend `types.ts`.
+3. Same commit: tick the phase row in `PROGRESS.md` and update `ARCHITECTURE.md`.
+
+Phase status: **`brief` shipped (Phase 0); sun overlay shipped (Phase 1, see §7);
+grid overlay shipped (Phase 3, see §8); road overlay shipped (Phase 2, see §9);
+urban analysis overlay shipped (Phase 2b, see §10).**
+`intent/action/branch/select/state` predate Phase 0. Future overlays (parking,
+circulation — Phases 4-5) attach to the **site/explorer** or **/tools** payloads, not the
+decision graph, and get their own §7 sub-section.
+
+---
+
+## 6. Explorer & geometry payloads (`SiteCanvas` / `ExplorerPanel`)
+
+These are the "what the agent has" payloads. Full TS types live in `../api/types.ts`; backend
+source is `backend/schemas.py` + `backend/routers/explorer.py`.
+
+`GET /sessions/{id}/explorer` → `ExplorerTree`:
+```ts
+{ session_id, site: SiteInfo | null, buildings: BuildingInfo[] }
+SiteInfo     = { boundary, area_sqm, buildable_boundary, buildable_area_sqm, edge_count, site_context }
+BuildingInfo = { building_id, label, building_type /* I|L|T|U|H|Y|X|O|null */, area_sqm,
+                 boundary, centroid, height_m, wings: WingInfo[],
+                 placement_options: PlacementOption[], view_score }
+WingInfo     = { wing_index, role, area_sqm, centroid }       // per-wing massing (Phase 7 fills height)
+```
+
+`GET /sessions/{id}/buildings/{b}/options` → `PlacementOption[]` (the Pareto front from view analysis):
+```ts
+{ option_id, rank, combined_score, unblocked_view_score, attractor_view_score,
+  rotation_degrees, centroid_xy, boundary, outside_area_sqm, fits_within_site }
+```
+`SiteCanvas` draws each option's `boundary` as a ghost; the selected one is highlighted.
+`fits_within_site=false` options are flagged (red) in `ExplorerPanel`.
+
+`GET /sessions/{id}/buildings/{b}/view` → `ViewAnalysisResult`
+`{ view_score_3d, total_unblocked_rays, total_rays, n_floors, per_floor[] }` (on-demand 3D score).
+
+> Coordinates are world metres `[x, y]` (z sometimes present and ignored in 2D). `SiteCanvas`
+> auto-fits a north-up plan and colours buildings by `building_type` via `site/geometry.ts`.
+
+---
+
+## 7. Sun analysis overlay — Phase 1 (BACKEND_PLAN §1)
+
+Sun analysis attaches to the **direct-tool** endpoints (`POST /tools/{name}`) rather than the
+decision graph, so the UI can run an analysis without a chat turn. Backend source is
+`agent/tools/sun_analysis.py`; TS types live in `../api/types.ts`; `site/SunOverlay.tsx` renders
+the result. The `Team04Api` client wraps each call (`sunVectors`, `sunExposure`, `worstSunSide`).
+
+The sun is **one dominant diagonal vector** (team method): a single azimuth (compass bearing,
+CW from North) + altitude. Lower exposure = better (the objective is to *avoid* the worst sun).
+
+```
+POST /tools/sun_vectors      { worst_case_preset?: "summer_west"|...,           // default mode
+                               latitude?, date?, hours? }   // multi-hour mode (preset=null)
+→ SunVector[]   = { azimuth, altitude, weight, hour? }
+
+POST /tools/sun_exposure     { building_boundary: number[][], sun_vectors: SunVector[],
+                               obstacles?: (number[][] | {boundary,height})[] }
+→ SunExposureResult = { sun_exposure_score /* 0..1, LOWER better */, max_possible_per_point,
+                        test_point_count, sun_vectors, worst_point,
+                        per_test_point: [{ point, outward_normal, normalized_exposure, ... }] }
+
+POST /tools/worst_sun_side   { site_model: SiteModel, sun_vectors: SunVector[] }
+→ WorstSunSide = { available, worst_side, best_side, worst_compass_sector,
+                   per_side: [{ edge_index, compass_sector, sun_exposure_score, midpoint, ... }] }
+
+POST /tools/sun_exposure_3d  { building_boundary, building_height, sun_vectors,
+                               obstacles_with_heights: [{boundary, height}] }   // OTHER buildings + obstacles
+→ { sun_exposure_score_3d /* 0..1, LOWER better */, n_floors,
+    per_floor: [{ floor_number, z_level, sun_exposure_score }],
+    cells: [{ ...facade cell, sun_exposure }] }   // real per-floor mutual shading; cells drive the 3D heatmap
+```
+
+The 3D path mirrors the view tools (`view_analysis` 2D ↔ `view_3d`): an obstacle of height `h`
+only shades a facade cell at height `z` when `h > z`, so a tall building shades just the lower
+floors of a shorter neighbour. The notebook renders it with `visualize_sun_3d` (plotly).
+
+---
+
+## 8. Site grid & side alignment overlay — Phase 3 (BACKEND_PLAN §3)
+
+Like the sun overlay, grid alignment attaches to the **direct-tool** endpoints. Backend source is
+`agent/tools/site_grid.py` + `view_optimizer.optimize_aligned_placement`; TS types in
+`../api/types.ts`; `site/GridOverlay.tsx` renders it; `Team04Api` wraps it (`siteGrid`,
+`alignedPlacement`). The key idea: buildings sit on a grid **parallel to a chosen side** — they
+never rotate freely.
+
+```
+POST /tools/site_grid        { site_model: SiteModel, spacing?, alignment_side?, use_buildable_zone? }
+→ SiteGrid = { available, origin, u_axis, v_axis, angle_deg, spacing,
+               alignment_side_index, alignment_side_label,
+               grid_nodes: number[][], grid_lines: [[x,y],[x,y]][], adjacent_sides, node_count }
+
+POST /tools/aligned_placement { base_boundary, site_boundary, grid, use?,           // use drives objectives
+                                sun_vectors?, sun_weight?, reference_line?, site_setbacks?,
+                                other_buildings?, min_separation? }
+→ AlignedPlacementResult = { optimized, use, objective_configs, candidate_count, feasible_count,
+                             alignment_side_index, orientations: number[],
+                             options: [{ option_id, rank, combined_score, alignment_score /* ~1 */,
+                                         orientation_deg, centroid_xy, node_xy, boundary,
+                                         boundary_proximity_score, ... }] }
+```
+
+`GridOverlay` draws the grid lines + nodes, the chosen side (frontage), and the ranked aligned
+options (best solid). **Use-driven:** commercial/office/retail pick up a `boundary_proximity`
+objective and hug the chosen frontage; residential leans on view + sun. Every option is grid-aligned
+(`alignment_score ≈ 1`). `place_buildings_aligned` sequences several buildings, each clearing the
+rest by `min_separation`.
+
+`SunOverlay` draws: the sun arrow (light direction), each site side tinted/weighted by its
+exposure with the worst side flagged `☀`, and the focused building's facade test points coloured
+yellow (shaded) → red (hit). The same `sun_weight` (from the Phase 0 brief) that the UI shows is
+what the optimizer uses for the `sun_avoidance` objective — the LLM only sets the weight.
+
+---
+
+## 9. Road context overlay — Phase 2 (BACKEND_PLAN §2)
+
+Road context attaches to the **direct-tool** endpoints, like sun and grid. Backend source is
+`agent/tools/road_context.py`; TS types in `../api/types.ts`; `site/RoadOverlay.tsx` renders it;
+`Team04Api.roadContext(siteModel, roads)` wraps the call.  Road data flows in through
+`site_objects` entries of `type: "road"` in the session payload; `build_site_model` runs
+`analyze_roads` automatically and stores the result in `site_model["roads"]`.
+
+```
+POST /tools/road_context   { site_model: SiteModel, roads: RoadData[] }
+→ RoadContextResult = {
+    available: boolean,
+    roads: RoadAnalysis[],             // per-road: nearest_side_index, distance_m, frontage_m
+    main_road: RoadAnalysis | null,    // highest hierarchy → widest → most frontage
+    main_road_side_index: number | null,
+    edge_road_widths: { [side: number]: number },  // → setback tool
+    updated_sides: Array<{ ..., adjacent_road: {...} | null }>,
+    ambiguity: "no_road_data" | "no_valid_roads" | "no_site_boundary" | null,
+    ambiguity_message: string | null
+  }
+
+RoadData = {
+  type: "road",
+  centerline: number[][],   // [[x, y], ...]
+  width_m: number,
+  hierarchy: "main" | "secondary" | "path",
+  name?: string
+}
+```
+
+`RoadOverlay` draws:
+- each road centreline coloured by hierarchy (main=red `#E63946`, secondary=orange `#F4A261`, path=teal `#2A9D8F`),
+- road width as a semi-transparent buffer strip,
+- each site side painted in its adjacent road's colour (grey when none),
+- the main-road side highlighted with a bold stroke.
+- an ambiguity warning when no road data was provided.
+
+**Phase 2 ↔ Phase 3 coupling:** the main-road side from `RoadContextResult.main_road_side_index`
+is fed directly into `derive_site_grid` as the default `alignment_side` — so the grid aligns to
+the real street, not just the longest side.  The frontend can show both overlays simultaneously
+(`RoadOverlay` + `GridOverlay`) to demonstrate this coupling visually.
+
+**Ambiguity path:** when no road objects are provided (or all fail validation), `available=false`
+and `ambiguity="no_road_data"` is returned.  `RoadOverlay` renders a warning; the brief system
+records the ambiguity so the user can be asked to provide road context.
+
+---
+
+## 10. Urban analysis overlay — Phase 2b (BACKEND_PLAN §2b)
+
+Urban analysis attaches to the **direct-tool** endpoints and extends the road overlay with urban
+classification, corner conditions, access recommendations, and an architectural design response.
+Backend source is `agent/tools/urban_analysis.py` + `agent/tools/osm_context.py`; TS types in
+`../api/types.ts`; `site/UrbanAnalysisOverlay.tsx` renders it; `Team04Api.urbanAnalysis()` and
+`fetchUrbanSite()` wrap the calls.  Requires `site_model["roads"]` to be set (Phase 2 must have run
+first, or `build_urban_site` must pipe through `analyze_roads`).
+
+```
+POST /tools/fetch_urban_site   { lat: number, lon: number, radius_m?: number }
+→ {
+    source: "osm",
+    lat, lon, radius_m,
+    site_boundary: number[][],
+    roads: RoadData[],
+    intersections: IntersectionInfo[],
+    road_count: number,
+    intersection_count: number
+  }
+
+POST /tools/urban_analysis   { site_model: SiteModel,
+                               roads?: RoadData[],
+                               intersections?: IntersectionInfo[] }
+→ UrbanAnalysisResult = {
+    available: boolean,
+    site_type: SiteTypeString,           // e.g. "crossroads_corner"
+    site_type_label: string,             // human-readable
+    frontage_count: number,
+    frontages: FrontageInfo[],           // one per frontage side
+    nearby_intersections: IntersectionInfo[],
+    corner_conditions: CornerCondition[],
+    access: AccessRecommendation,
+    urban_response: UrbanResponse | null,
+    ambiguity_message: string | null
+  }
+```
+
+**Key types:**
+
+```ts
+IntersectionInfo = {
+  point: number[],       // [x, y]
+  degree: number,        // arm count (pass-through = 2, terminus = 1)
+  type: "crossroads" | "t_junction" | "y_junction" | "complex_junction" | "dead_end" | "bend",
+  distance_to_site_m?: number
+}
+
+FrontageInfo = {
+  side_index: number,
+  road_name: string | null,
+  road_hierarchy: "main" | "secondary" | "path",
+  road_width_m: number,
+  frontage_m: number,          // projected overlap with the site side
+  visibility_score: number,    // 0..1 (hierarchy 40% + width 30% + frontage 30%)
+  recommended_access: "pedestrian" | "primary_vehicle" | "secondary_vehicle" | "service"
+}
+
+CornerCondition = {
+  corner_index: number,
+  point: number[],             // [x, y] world coords
+  side_indices: number[],      // two frontage sides sharing this corner
+  visibility_score: number,    // mean of the two frontage scores
+  is_gateway: boolean,         // true when any adjacent road is "main" hierarchy
+  recommended_treatment: string
+}
+
+AccessRecommendation = {
+  vehicle:    AccessPoint[],
+  pedestrian: AccessPoint[],
+  service:    AccessPoint[]
+}
+
+AccessPoint = { point: number[], notes: string }
+
+UrbanResponse = {
+  site_type: string,
+  site_type_label: string,
+  building_response: string,
+  massing_strategy: string,
+  entry_strategy: string,
+  facade_strategy: string,
+  corner_treatment: string | null,   // only when ≥1 corner condition exists
+  gateway_corners: string | null
+}
+```
+
+`UrbanAnalysisOverlay` draws:
+- Road centrelines offset outward (coloured by hierarchy: main=red, secondary=orange, path=teal) with width buffers.
+- Site sides heatmapped from yellow (low visibility) to teal (high visibility) by `visibility_score`; stroke weight ∝ score.
+- Intersection markers coloured by type: ✕ crossroads (dark red), T t-junction, Y y-junction, ✦ complex.
+- Corner condition dots: radius proportional to `visibility_score`; red border when `is_gateway`.
+- Access point symbols: ▶ vehicle, ♟ pedestrian, ⚙ service.
+- Urban response badge (bottom-left): site type label + first 60 chars of `building_response` + frontage/junction count.
+- Legend (top-right): hierarchy colours, intersection markers, access symbols.
+- Ambiguity warning (bottom) when `available=false`.
+
+**Phase 2b ↔ Phase 2 dependency:** `full_urban_analysis` reads `site_model["roads"]` (the Phase 2
+`roads_result` dict). If the roads key is absent or `available=false`, the function returns
+`available=false` and skips classification. Always run Phase 2 (`roadContext` or `build_site_model`)
+before calling `urbanAnalysis`.
+
+**OSM / offline fallback:** `fetchUrbanSite` may fail in offline or rate-limited environments.
+Use `fetch_or_fallback` (tool name `fetch_urban_fallback`) with a `fallback_index` (0=crossroads
+corner, 1=T-junction terminal, 2=triangular corner) to ensure the pipeline always gets road data.
+
+Phase status: **§10 urban analysis overlay shipped (Phase 2b).**

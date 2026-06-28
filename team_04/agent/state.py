@@ -4,10 +4,31 @@ import json
 from typing import Any, TypedDict
 
 
+_MASTERPLAN_INTENT_PHRASES: tuple[str, ...] = (
+    "masterplan", "master plan", "master-plan", "site plan", "site layout",
+    "site-wide", "lay out the site", "lay out the whole site", "whole site",
+    "circulation network", "circulation and fire", "fire access plan",
+)
+
+
+def _wants_masterplan(user_prompt: str) -> bool:
+    """Conservative detector: does the prompt ask for a whole-site masterplan?
+
+    Kept narrow so an ordinary single-building request never triggers the
+    masterplan workflow. An explicit ``workflow_mode`` in the layout payload always
+    wins over this heuristic.
+    """
+    prompt = (user_prompt or "").lower()
+    return any(phrase in prompt for phrase in _MASTERPLAN_INTENT_PHRASES)
+
+
 class AgentState(TypedDict, total=False):
     user_prompt: str
     workflow_mode: str
     layout_json: str
+    design_brief: dict[str, Any]
+    masterplan_result: dict[str, Any]
+    site_model: dict[str, Any]
     site_boundary: list[list[float]]
     building_intents: list[str]
     messages: list[str]
@@ -28,11 +49,24 @@ class AgentState(TypedDict, total=False):
     target_building_count: int
     constraint_results: dict[str, Any]
     violations: list[str]
+    # Self-validation + self-debug loop (verify → debug → regenerate).
+    validation_result: dict[str, Any]
+    validation_passed: bool
+    validated_geometry_id: str | None
+    debug_attempts: int
+    max_debug_attempts: int
+    debug_directive: str | None
+    debug_history: list[dict[str, Any]]
+    tool_call_counts: dict[str, int]
     evaluation_results: dict[str, Any]
     placement_fit_summary: dict[str, Any]
     tool_history: list[dict[str, Any]]
     human_request: str | None
+    clarification_request: dict[str, Any] | None
+    clarification_answers: dict[str, Any]
+    clarification_resolved: bool
     final_response: str | None
+    parking_zones: list[dict[str, Any]]
     replan_required: bool
     replan_reason: str | None
     optimization_cycles: int
@@ -47,8 +81,12 @@ def build_initial_state(
 ) -> AgentState:
     layout_payload = layout_payload or {}
     workflow_mode = str(layout_payload.get("workflow_mode", "full") or "full").strip().lower()
-    if workflow_mode not in {"full", "boundary_only"}:
+    if workflow_mode not in {"full", "boundary_only", "masterplan"}:
         workflow_mode = "full"
+    # Reactive masterplan routing: when the user explicitly asks for a whole-site
+    # plan, switch into the masterplan workflow rather than the single-building loop.
+    if workflow_mode == "full" and _wants_masterplan(user_prompt):
+        workflow_mode = "masterplan"
     requested_positions = layout_payload.get("requested_positions", [])
     building_intents = layout_payload.get("building_intents", [])
     site_boundary = layout_payload.get("site_boundary", [])
@@ -75,6 +113,11 @@ def build_initial_state(
         "user_prompt": user_prompt,
         "workflow_mode": workflow_mode,
         "layout_json": json.dumps(layout_payload),
+        # Pre-seed the brief when resuming after clarification (else built fresh
+        # by the extract_brief node). Default {} keeps the normal first-run path.
+        "design_brief": layout_payload.get("design_brief") or {},
+        "masterplan_result": {},
+        "site_model": {},
         "site_boundary": normalized_site_boundary,
         "building_intents": normalized_building_intents,
         "messages": [f"User prompt: {user_prompt}"],
@@ -95,10 +138,22 @@ def build_initial_state(
         "target_building_count": target_building_count,
         "constraint_results": {},
         "violations": [],
+        "validation_result": {},
+        "validation_passed": False,
+        "validated_geometry_id": None,
+        "debug_attempts": 0,
+        "max_debug_attempts": int(layout_payload.get("max_debug_attempts", 3) or 3),
+        "debug_directive": None,
+        "debug_history": [],
+        "tool_call_counts": {},
         "evaluation_results": {},
         "placement_fit_summary": {},
         "tool_history": [],
+        "parking_zones": [],
         "human_request": None,
+        "clarification_request": layout_payload.get("clarification_request"),
+        "clarification_answers": layout_payload.get("clarification_answers", {}) or {},
+        "clarification_resolved": bool(layout_payload.get("clarification_resolved", False)),
         "final_response": None,
         "replan_required": True,
         "replan_reason": "Initial planning required.",

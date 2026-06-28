@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TerraPilot · Logo Set</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#070b18;color:#e8edf7;font-family:-apple-system,"Segoe UI",Inter,system-ui,sans-serif;
+    padding:4vh 5vw;min-height:100vh}
+  h1{font-size:1.1rem;color:#5fd1c3;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.4rem}
+  .sub{color:#8a96b4;font-size:.9rem;margin-bottom:3vh}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:2rem}
+  .card{border:1px solid rgba(120,160,220,.2);border-radius:18px;padding:2rem;background:rgba(20,30,55,.35);
+    display:flex;flex-direction:column;align-items:center;gap:1.2rem;min-height:220px;justify-content:center}
+  .card.light{background:#f4f7fb}
+  .card .tag{position:relative;align-self:flex-start;margin:-1rem 0 0;font-size:.72rem;letter-spacing:.12em;
+    text-transform:uppercase;color:#8a96b4}
+  .card.light .tag{color:#5a6b85}
+  .row{display:flex;align-items:center;gap:1rem}
+  .wm{font-weight:800;letter-spacing:-.01em}
+  .wm .terra{color:#e8edf7}.wm .pilot{color:#34e3d0}
+  .card.light .wm .terra{color:#0e1626}.card.light .wm .pilot{color:#11b3a3}
+  .big{font-size:2.6rem}.med{font-size:1.7rem}
+  svg{display:block}
+  .iconwrap{display:flex;gap:1.6rem;align-items:center;flex-wrap:wrap;justify-content:center}
+  .swatches{display:flex;gap:.6rem;margin-top:.4rem}
+  .sw{width:30px;height:30px;border-radius:7px;border:1px solid rgba(255,255,255,.15)}
+</style>
+</head>
+<body>
+  <h1>TerraPilot · Logo Set</h1>
+  <div class="sub">Stacked floor-plates = your massing model, rising to a navigation point = "pilot". SVG = scales infinitely, export any size. Pick one.</div>
+
+  <div class="grid">
+
+    <!-- 1. PRIMARY — mark + wordmark on dark -->
+    <div class="card">
+      <span class="tag">01 · Primary (dark)</span>
+      <div class="row">
+        <svg width="72" height="72" viewBox="0 0 72 72" aria-label="TerraPilot mark">
+          <defs>
+            <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#7df5e8"/><stop offset="1" stop-color="#1fae9f"/>
+            </linearGradient>
+          </defs>
+          <circle cx="36" cy="36" r="33" fill="none" stroke="#1f6f6a" stroke-width="2" opacity=".7"/>
+          <!-- stacked plates -->
+          <polygon points="36,14 49,22 23,22" fill="url(#g1)"/>
+          <rect x="25" y="26" width="22" height="6" rx="1.5" fill="url(#g1)"/>
+          <rect x="22" y="35" width="28" height="6" rx="1.5" fill="url(#g1)"/>
+          <rect x="19" y="44" width="34" height="6" rx="1.5" fill="url(#g1)"/>
+          <ellipse cx="36" cy="55" rx="20" ry="4" fill="#1fae9f" opacity=".4"/>
+        </svg>
+        <span class="wm big"><span class="terra">Terra</span><span class="pilot">Pilot</span></span>
+      </div>
+    </div>
+
+    <!-- 2. PRIMARY on light -->
+    <div class="card light">
+      <span class="tag">02 · Primary (light)</span>
+      <div class="row">
+        <svg width="72" height="72" viewBox="0 0 72 72">
+          <defs>
+            <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#19c3b3"/><stop offset="1" stop-color="#0a8d80"/>
+            </linearGradient>
+          </defs>
+          <circle cx="36" cy="36" r="33" fill="none" stroke="#9fd6cf" stroke-width="2"/>
+          <polygon points="36,14 49,22 23,22" fill="url(#g2)"/>
+          <rect x="25" y="26" width="22" height="6" rx="1.5" fill="url(#g2)"/>
+          <rect x="22" y="35" width="28" height="6" rx="1.5" fill="url(#g2)"/>
+          <rect x="19" y="44" width="34" height="6" rx="1.5" fill="url(#g2)"/>
+          <ellipse cx="36" cy="55" rx="20" ry="4" fill="#0a8d80" opacity=".25"/>
+        </svg>
+        <span class="wm big"><span class="terra">Terra</span><span class="pilot">Pilot</span></span>
+      </div>
+    </div>
+
+    <!-- 3. ICON ONLY — app/favicon -->
+    <div class="card">
+      <span class="tag">03 · Icon only (app / favicon)</span>
+      <div class="iconwrap">
+        <svg width="96" height="96" viewBox="0 0 96 96">
+          <defs>
+            <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#7df5e8"/><stop offset="1" stop-color="#1fae9f"/>
+            </linearGradient>
+            <radialGradient id="bg3" cx="50%" cy="38%" r="70%">
+              <stop offset="0" stop-color="#0f2533"/><stop offset="1" stop-color="#0a1422"/>
+            </radialGradient>
+          </defs>
+          <rect width="96" height="96" rx="22" fill="url(#bg3)"/>
+          <rect x="2" y="2" width="92" height="92" rx="20" fill="none" stroke="#1f6f6a" stroke-width="1.5" opacity=".6"/>
+          <polygon points="48,20 64,30 32,30" fill="url(#g3)"/>
+          <rect x="34" y="35" width="28" height="7" rx="2" fill="url(#g3)"/>
+          <rect x="30" y="46" width="36" height="7" rx="2" fill="url(#g3)"/>
+          <rect x="26" y="57" width="44" height="7" rx="2" fill="url(#g3)"/>
+          <circle cx="48" cy="24" r="3.4" fill="#0a1422" stroke="#7df5e8" stroke-width="1.6"/>
+        </svg>
+        <svg width="56" height="56" viewBox="0 0 96 96"><use href="#noop"/>
+          <rect width="96" height="96" rx="22" fill="url(#bg3)"/>
+          <polygon points="48,20 64,30 32,30" fill="url(#g3)"/>
+          <rect x="34" y="35" width="28" height="7" rx="2" fill="url(#g3)"/>
+          <rect x="30" y="46" width="36" height="7" rx="2" fill="url(#g3)"/>
+          <rect x="26" y="57" width="44" height="7" rx="2" fill="url(#g3)"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 4. STACKED / VERTICAL -->
+    <div class="card">
+      <span class="tag">04 · Stacked (vertical lockup)</span>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:.7rem">
+        <svg width="64" height="64" viewBox="0 0 72 72">
+          <defs><linearGradient id="g4" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#7df5e8"/><stop offset="1" stop-color="#1fae9f"/></linearGradient></defs>
+          <polygon points="36,14 49,22 23,22" fill="url(#g4)"/>
+          <rect x="25" y="26" width="22" height="6" rx="1.5" fill="url(#g4)"/>
+          <rect x="22" y="35" width="28" height="6" rx="1.5" fill="url(#g4)"/>
+          <rect x="19" y="44" width="34" height="6" rx="1.5" fill="url(#g4)"/>
+        </svg>
+        <span class="wm med"><span class="terra">Terra</span><span class="pilot">Pilot</span></span>
+        <span style="font-size:.62rem;letter-spacing:.32em;color:#8a96b4;text-transform:uppercase">AI Design Co-Pilot</span>
+      </div>
+    </div>
+
+    <!-- 5. MONO (single colour — for print/dark/light) -->
+    <div class="card">
+      <span class="tag">05 · Monochrome (cyan line)</span>
+      <div class="row">
+        <svg width="64" height="64" viewBox="0 0 72 72" fill="none" stroke="#34e3d0" stroke-width="2.4" stroke-linejoin="round">
+          <polygon points="36,14 49,22 23,22"/>
+          <rect x="25" y="26" width="22" height="6" rx="1.5"/>
+          <rect x="22" y="35" width="28" height="6" rx="1.5"/>
+          <rect x="19" y="44" width="34" height="6" rx="1.5"/>
+        </svg>
+        <span class="wm med" style="color:#34e3d0"><span class="terra" style="color:#34e3d0">Terra</span><span class="pilot">Pilot</span></span>
+      </div>
+    </div>
+
+    <!-- 6. palette -->
+    <div class="card">
+      <span class="tag">06 · Brand colours</span>
+      <div class="swatches">
+        <div class="sw" style="background:#7df5e8" title="#7df5e8"></div>
+        <div class="sw" style="background:#34e3d0" title="#34e3d0"></div>
+        <div class="sw" style="background:#1fae9f" title="#1fae9f"></div>
+        <div class="sw" style="background:#0a8d80" title="#0a8d80"></div>
+        <div class="sw" style="background:#0a1422" title="#0a1422 bg"></div>
+      </div>
+      <div style="color:#8a96b4;font-size:.78rem;text-align:center">
+        #7df5e8 · #34e3d0 · #1fae9f · #0a8d80 · #0a1422<br>
+        Cyan→teal gradient on near-black — matches the interface.
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

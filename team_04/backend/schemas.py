@@ -55,6 +55,16 @@ class ChatRequest(BaseModel):
 # Explorer tree
 # ---------------------------------------------------------------------------
 
+class ParkingZone(BaseModel):
+    """One rectangular parking lot placed on the site (Phase 4)."""
+    zone_id: str
+    boundary: list[list[float]]
+    stalls_allocated: int
+    area_sqm: float
+    side_index: int
+    is_main_road_side: bool = False
+
+
 class SiteInfo(BaseModel):
     boundary: list[list[float]]
     area_sqm: float
@@ -62,6 +72,7 @@ class SiteInfo(BaseModel):
     buildable_area_sqm: float | None = None
     edge_count: int
     site_context: dict[str, Any] = Field(default_factory=dict)
+    parking_zones: list[ParkingZone] = Field(default_factory=list)
 
 
 class WingInfo(BaseModel):
@@ -110,7 +121,7 @@ class ExplorerTree(BaseModel):
 class DecisionNodeSchema(BaseModel):
     node_id: str
     parent_id: str | None
-    type: str                        # intent | action | branch | select | state
+    type: str                        # intent | brief | clarify | action | branch | select | state
     label: str
     timestamp: str
     is_selected: bool
@@ -127,6 +138,29 @@ class DecisionGraphResponse(BaseModel):
     nodes: list[DecisionNodeSchema]
     edges: list[DecisionEdge]
     head: str | None                 # current_head node_id
+
+
+# ---------------------------------------------------------------------------
+# Interactive clarification
+# ---------------------------------------------------------------------------
+
+class ClarificationFieldSchema(BaseModel):
+    key: str                          # shape | side | view_side | size | use | count
+    question: str
+    options: list[str] = Field(default_factory=list)
+    multi: bool = False
+    allow_custom: bool = True
+    critical: bool = False
+
+
+class ClarificationRequestSchema(BaseModel):
+    summary: str
+    fields: list[ClarificationFieldSchema] = Field(default_factory=list)
+
+
+class ClarificationAnswer(BaseModel):
+    # field key -> chosen value(s). e.g. {"shape": "L", "view_side": ["south"]}
+    answers: dict[str, Any] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------

@@ -5,11 +5,14 @@ from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 
+from .brief import resolve_brief
+from .clarify import required_clarifications
 from .decision_engine import DecisionEngine, Planner, RuleBasedPlanner
 from .mcp_client import ToolClient
 from .models import PlanStep, RoutingDecision
 from .state import AgentState, build_initial_state
 from .tool_catalog import ToolCatalog
+from .tools.site_model import build_site_model
 
 
 def build_agent_graph(
@@ -21,21 +24,33 @@ def build_agent_graph(
     active_planner = planner or RuleBasedPlanner()
     graph = StateGraph(AgentState)
 
+    graph.add_node("extract_brief", _build_extract_brief_node(decision_engine))
     graph.add_node("planner", _build_planner_node(active_planner, catalog))
     graph.add_node("central_reason", _build_central_reason_node(decision_engine, catalog))
     graph.add_node("read_site", _build_group_executor(tool_client, catalog, "read_site"))
     graph.add_node("generate_shape", _build_group_executor(tool_client, catalog, "generate_shape"))
     graph.add_node("check_requested_position", _build_requested_position_node(tool_client, catalog))
     graph.add_node("check_constraints", _build_constraint_node(tool_client, catalog))
+    graph.add_node("validate", _build_validate_node(tool_client, catalog, decision_engine))
+    graph.add_node("debug", _build_debug_node(decision_engine))
     graph.add_node("optimize", _build_group_executor(tool_client, catalog, "optimize"))
     graph.add_node("evaluate", _build_evaluation_node(tool_client, catalog))
     graph.add_node("place_building", _build_place_building_node(tool_client, catalog))
     graph.add_node("analyze_remaining_positions", _build_remaining_positions_node(tool_client, catalog))
+    graph.add_node("generate_masterplan", _build_masterplan_node(tool_client, catalog))
     graph.add_node("await_human", _build_await_human_node())
     graph.add_node("report", _build_report_node(decision_engine))
     graph.add_node("finish", lambda state: state)
 
-    graph.add_edge(START, "planner")
+    graph.add_edge(START, "extract_brief")
+    graph.add_conditional_edges(
+        "extract_brief",
+        _route_from_brief,
+        {
+            "await_human": "await_human",
+            "planner": "planner",
+        },
+    )
     graph.add_conditional_edges(
         "planner",
         _route_from_planner,
@@ -52,10 +67,13 @@ def build_agent_graph(
             "generate_shape": "generate_shape",
             "check_requested_position": "check_requested_position",
             "check_constraints": "check_constraints",
+            "validate": "validate",
+            "debug": "debug",
             "optimize": "optimize",
             "evaluate": "evaluate",
             "place_building": "place_building",
             "analyze_remaining_positions": "analyze_remaining_positions",
+            "generate_masterplan": "generate_masterplan",
             "await_human": "await_human",
             "report": "report",
             "finish": "finish",
@@ -67,10 +85,13 @@ def build_agent_graph(
         "generate_shape",
         "check_requested_position",
         "check_constraints",
+        "validate",
+        "debug",
         "optimize",
         "evaluate",
         "place_building",
         "analyze_remaining_positions",
+        "generate_masterplan",
     ]:
         graph.add_edge(node_name, "planner")
 
@@ -97,6 +118,76 @@ def run_agent(
         max_optimization_cycles=max_optimization_cycles,
     )
     return app.invoke(initial_state, config={"recursion_limit": recursion_limit})
+
+
+def _build_extract_brief_node(decision_engine: DecisionEngine):
+    """One-shot intent comprehension at graph start.
+
+    Produces a typed DesignBrief (LLM when available, deterministic regex
+    otherwise) and refines count/intents in state so the planner and the
+    shape-generation repair layer never re-parse the raw prompt. Idempotent:
+    if a brief already exists in state it passes through unchanged.
+    """
+
+    def extract_brief_node(state: AgentState) -> AgentState:
+        if state.get("design_brief"):
+            return {}
+
+        user_prompt = state.get("user_prompt", "")
+        try:
+            layout_payload = json.loads(state.get("layout_json", "{}"))
+        except json.JSONDecodeError:
+            layout_payload = {}
+        if not isinstance(layout_payload, dict):
+            layout_payload = {}
+
+        brief = resolve_brief(decision_engine, user_prompt, layout_payload)
+        brief_payload = brief.to_state()
+
+        messages = list(state.get("messages", []))
+        ambiguity_note = (
+            f" Ambiguities: {len(brief.ambiguities)}." if brief.ambiguities else ""
+        )
+        messages.append(
+            f"Design brief ({brief.source}): {brief.building_count} building(s), "
+            f"shapes={[b.shape_preference for b in brief.buildings]}, "
+            f"courtyard={brief.courtyard_requested}, parking={brief.parking_requested}.{ambiguity_note}"
+        )
+
+        update: AgentState = {
+            "design_brief": brief_payload,
+            "messages": messages,
+        }
+
+        # Respect an explicit layout count; otherwise let the brief set it.
+        if "target_building_count" not in layout_payload:
+            update["target_building_count"] = brief.building_count
+
+        # Only seed building_intents from the brief when none were provided.
+        if not state.get("building_intents"):
+            intents = [spec.intent_text for spec in brief.buildings if spec.intent_text]
+            if intents:
+                update["building_intents"] = intents
+
+        # Interactive clarification (opt-in via layout flag). Ask the user back
+        # when a placement-critical field is missing, instead of guessing.
+        if bool(layout_payload.get("interactive_clarification")) and not state.get("clarification_resolved"):
+            request = required_clarifications(brief, layout_payload, state.get("site_model"))
+            if request is not None:
+                update["clarification_request"] = request.to_dict()
+                update["human_request"] = request.question_text()
+                messages.append(f"Clarification needed: {len(request.fields)} field(s).")
+
+        return update
+
+    return extract_brief_node
+
+
+def _route_from_brief(state: AgentState) -> str:
+    """After comprehension, pause for clarification if a critical gap remains."""
+    if state.get("clarification_request") and not state.get("clarification_resolved"):
+        return "await_human"
+    return "planner"
 
 
 def _build_planner_node(planner: Planner, catalog: ToolCatalog):
@@ -145,9 +236,12 @@ def _build_central_reason_node(
             "read_site",
             "check_requested_position",
             "check_constraints",
+            "validate",
+            "debug",
             "evaluate",
             "place_building",
             "analyze_remaining_positions",
+            "generate_masterplan",
             "report",
             "await_human",
             "finish",
@@ -216,6 +310,17 @@ def _build_group_executor(
             if not aggregate:
                 update["error"] = "Site-reading tools returned no context."
                 update["replan_reason"] = "Site-reading tools returned no usable context."
+            # Build the canonical site model once site reading is done.
+            site_boundary_for_model = _extract_site_boundary(state) or _find_site_boundary(aggregate)
+            if site_boundary_for_model:
+                try:
+                    layout_payload = json.loads(state.get("layout_json", "{}"))
+                except json.JSONDecodeError:
+                    layout_payload = {}
+                update["site_model"] = build_site_model(
+                    site_boundary_for_model,
+                    layout_payload if isinstance(layout_payload, dict) else {},
+                )
         elif action == "generate_shape":
             update["shape_context"] = aggregate if _aggregate_contains_boundary(aggregate) else state.get("shape_context", {})
             update["constraint_results"] = {}
@@ -303,6 +408,225 @@ def _build_constraint_node(
         return update
 
     return check_constraints
+
+
+def _build_validate_node(
+    tool_client: ToolClient,
+    catalog: ToolCatalog,
+    decision_engine: DecisionEngine,
+):
+    """Verify the current geometry — the hard half of the self-correction loop.
+
+    Runs the deterministic ``validate_design`` checker (valid polygon, fits site,
+    no overlap, area tolerance). When the hard checks pass it consults the LLM
+    judge (if the engine exposes ``judge_design``) for the softer
+    does-it-match-the-brief question. The combined verdict gates placement; a
+    failure makes the planner schedule the ``debug`` step.
+    """
+
+    def validate(state: AgentState) -> AgentState:
+        geometry_id = state.get("geometry_id")
+        boundary = _extract_current_boundary(state)
+        site_boundary = _extract_site_boundary(state)
+        messages = list(state.get("messages", []))
+        tool_history = list(state.get("tool_history", []))
+
+        if not geometry_id or not boundary or not site_boundary:
+            # Nothing usable to validate — soft-pass so we don't dead-end, but say so.
+            result = {
+                "passed": True,
+                "failures": [],
+                "checks": [],
+                "metrics": {},
+                "summary": "Validation skipped: geometry or site boundary unavailable.",
+            }
+            messages.append("Validation skipped: geometry or site boundary unavailable.")
+            return {
+                "messages": messages,
+                "validation_result": result,
+                "validation_passed": True,
+                "validated_geometry_id": geometry_id,
+                "replan_required": True,
+                "replan_reason": "Validation skipped; continuing without a verdict.",
+            }
+
+        allowed_names = set(catalog.names_for_action("validate"))
+        target_area = _active_target_area(state)
+        if "validate_design" in allowed_names:
+            arguments = {
+                "geometry_id": geometry_id,
+                "building_boundary": boundary,
+                "site_boundary": site_boundary,
+                "placed_buildings": state.get("placed_buildings", []),
+                "target_area_sqm": target_area,
+            }
+            arguments = {key: value for key, value in arguments.items() if value is not None}
+            raw_output = tool_client.call_tool("validate_design", arguments)
+            parsed_output = _parse_tool_output(raw_output)
+            data = parsed_output.get("data", {}) if isinstance(parsed_output, dict) else {}
+            if not isinstance(data, dict):
+                data = {}
+            tool_history.append(
+                {
+                    "tool": "validate_design",
+                    "arguments": {"geometry_id": geometry_id, "target_area_sqm": target_area},
+                    "output": parsed_output,
+                    "message": "Tool validate_design executed.",
+                }
+            )
+            messages.append("Tool validate_design executed.")
+        else:
+            data = {
+                "passed": True,
+                "failures": [],
+                "checks": [],
+                "metrics": {},
+                "summary": "No validation tool available; assuming valid.",
+            }
+
+        hard_passed = bool(data.get("passed", True))
+        failures = list(data.get("failures", []))
+
+        # LLM brief-judge only when the hard checks already pass. Any failure
+        # there is treated as a soft pass — the geometry is at least usable.
+        judge_fn = getattr(decision_engine, "judge_design", None)
+        judge_payload: dict[str, Any] | None = None
+        if hard_passed and callable(judge_fn):
+            try:
+                judge_payload = judge_fn({**state, "validation_result": data})
+            except Exception:
+                judge_payload = None
+
+        if isinstance(judge_payload, dict):
+            data = {**data, "judge": judge_payload}
+            if not judge_payload.get("satisfies_brief", True):
+                failures = list(dict.fromkeys([*failures, "brief_mismatch"]))
+                data["failures"] = failures
+
+        passed = hard_passed and (
+            judge_payload is None or bool(judge_payload.get("satisfies_brief", True))
+        )
+        data["passed"] = passed
+        messages.append(
+            f"Validation {'passed' if passed else 'failed'} for {geometry_id}: {failures or ['none']}."
+        )
+
+        return {
+            "messages": messages,
+            "tool_history": tool_history,
+            "validation_result": data,
+            "validation_passed": passed,
+            "validated_geometry_id": geometry_id,
+            "replan_required": True,
+            "replan_reason": (
+                "Validation passed; proceeding to evaluation."
+                if passed
+                else "Validation failed; self-debug required."
+            ),
+            "error": None,
+        }
+
+    return validate
+
+
+def _build_debug_node(decision_engine: DecisionEngine):
+    """Self-debug — reason about *why* validation failed and correct the retry.
+
+    Asks the engine (``propose_debug``) for a one-line corrective directive that
+    the supervisor will follow on the next ``generate_shape``; falls back to a
+    heuristic mapping from failure tokens when no LLM is available. Increments
+    ``debug_attempts`` and clears the rejected geometry so the planner naturally
+    reschedules generation.
+    """
+
+    def debug(state: AgentState) -> AgentState:
+        attempts = int(state.get("debug_attempts", 0) or 0) + 1
+        validation_result = state.get("validation_result", {})
+        failures = (
+            list(validation_result.get("failures", []))
+            if isinstance(validation_result, dict)
+            else []
+        )
+        messages = list(state.get("messages", []))
+        debug_history = list(state.get("debug_history", []))
+
+        diagnosis = ""
+        directive = ""
+        propose_fn = getattr(decision_engine, "propose_debug", None)
+        if callable(propose_fn):
+            try:
+                proposal = propose_fn(state)
+                diagnosis = str(proposal.get("diagnosis", "")).strip()
+                directive = str(proposal.get("directive", "")).strip()
+            except Exception:
+                directive = ""
+        if not directive:
+            directive = _fallback_debug_directive(failures)
+            diagnosis = diagnosis or "Heuristic fallback directive."
+
+        debug_history.append(
+            {
+                "attempt": attempts,
+                "failures": failures,
+                "diagnosis": diagnosis,
+                "directive": directive,
+            }
+        )
+        messages.append(f"Self-debug attempt {attempts}: {diagnosis} -> {directive}")
+
+        return {
+            "messages": messages,
+            "debug_attempts": attempts,
+            "debug_directive": directive,
+            "debug_history": debug_history,
+            # Drop the rejected candidate so generate_shape runs again.
+            "geometry_id": None,
+            "checked_geometry_id": None,
+            "validated_geometry_id": None,
+            "validation_result": {},
+            "validation_passed": False,
+            "shape_context": {},
+            "constraint_results": {},
+            "violations": [],
+            "evaluation_results": {},
+            "requested_position_assessment": {},
+            "replan_required": True,
+            "replan_reason": f"Self-debug attempt {attempts}; regenerating with corrective directive.",
+            "error": None,
+        }
+
+    return debug
+
+
+def _fallback_debug_directive(failures: list[str]) -> str:
+    """Heuristic failure→fix mapping used when no LLM debugger is available."""
+    if "invalid_polygon" in failures:
+        return "Regenerate a clean, non-self-intersecting footprint."
+    if "area" in failures:
+        return "Adjust the footprint area toward the requested target, then regenerate."
+    if "outside_site" in failures:
+        return "Shrink the footprint and move it toward the site centroid so it fits inside the site."
+    if "overlap" in failures:
+        return "Move the footprint away from already-placed buildings to remove the overlap."
+    if "brief_mismatch" in failures:
+        return "Regenerate to better match the requested shape family and use."
+    return "Regenerate a different candidate footprint."
+
+
+def _active_target_area(state: AgentState) -> float | None:
+    """Requested footprint area for the building currently being designed."""
+    brief = state.get("design_brief")
+    if not isinstance(brief, dict):
+        return None
+    buildings = brief.get("buildings")
+    if not isinstance(buildings, list):
+        return None
+    index = len(state.get("placed_buildings", []) or [])
+    if 0 <= index < len(buildings) and isinstance(buildings[index], dict):
+        area = buildings[index].get("footprint_area_sqm")
+        if isinstance(area, (int, float)) and float(area) > 0:
+            return float(area)
+    return None
 
 
 def _build_evaluation_node(
@@ -775,6 +1099,80 @@ def _build_remaining_positions_node(
     return analyze_remaining_positions
 
 
+def _build_masterplan_node(
+    tool_client: ToolClient,
+    catalog: ToolCatalog,
+):
+    """Run the whole-site masterplan tool once and fold its result into state.
+
+    Calls ``generate_masterplan`` with the site boundary (and the design brief, so
+    the program reflects the user's intent), then stores the trimmed report in
+    ``masterplan_result`` and the laid-out footprints in ``placed_buildings`` so the
+    explorer panel and the final report can read them.
+    """
+
+    def masterplan(state: AgentState) -> AgentState:
+        allowed_names = set(catalog.names_for_action("generate_masterplan"))
+        messages = list(state.get("messages", []))
+        tool_history = list(state.get("tool_history", []))
+        tool_name = "generate_masterplan"
+
+        site_boundary = _extract_site_boundary(state)
+        if tool_name not in allowed_names or not site_boundary:
+            messages.append("Masterplan skipped: tool unavailable or no site boundary.")
+            return {
+                "messages": messages,
+                "replan_required": True,
+                "replan_reason": "Masterplan inputs unavailable; continuing without a site plan.",
+            }
+
+        arguments: dict[str, Any] = {
+            "site_boundary": site_boundary,
+            "design_brief": state.get("design_brief", {}),
+            "target_building_count": state.get("target_building_count", 1),
+        }
+        site_model = state.get("site_model")
+        if isinstance(site_model, dict) and isinstance(site_model.get("roads"), dict):
+            main_side = site_model["roads"].get("main_road_side_index")
+            if isinstance(main_side, int):
+                arguments["main_road_side_index"] = main_side
+
+        raw_output = tool_client.call_tool(tool_name, arguments)
+        parsed_output = _parse_tool_output(raw_output)
+        data = parsed_output.get("data", {}) if isinstance(parsed_output, dict) else {}
+        if not isinstance(data, dict):
+            data = {}
+        placed = data.get("placed_buildings", []) if isinstance(data.get("placed_buildings"), list) else []
+
+        tool_history.append(
+            {
+                "tool": tool_name,
+                "arguments": {"buildings_placed": len(placed)},
+                "output": parsed_output,
+                "message": f"Tool {tool_name} executed.",
+            }
+        )
+        messages.append(f"Masterplan: {data.get('summary', 'generated a site plan')}.")
+
+        update: AgentState = {
+            "messages": messages,
+            "tool_history": tool_history,
+            "masterplan_result": data,
+            "pending_tool_calls": [],
+            "replan_required": True,
+            "replan_reason": "Masterplan generated; reporting can now be planned.",
+            "error": None,
+        }
+        if placed:
+            update["placed_buildings"] = placed
+        zones = data.get("parking_zones")
+        if isinstance(zones, list) and zones:
+            update["parking_zones"] = zones
+        return update
+
+    return masterplan
+
+
 def _build_await_human_node():
     def await_human(state: AgentState) -> AgentState:
         question = state.get("human_request") or "Additional user clarification is required."
@@ -851,9 +1249,12 @@ def _apply_step_guard(
         "read_site",
         "check_requested_position",
         "check_constraints",
+        "validate",
+        "debug",
         "evaluate",
         "place_building",
         "analyze_remaining_positions",
+        "generate_masterplan",
         "report",
         "await_human",
         "finish",

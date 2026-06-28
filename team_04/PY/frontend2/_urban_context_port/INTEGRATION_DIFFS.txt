@@ -1,0 +1,2235 @@
+Diffs of the SHARED files I edited in app1.2's frontend2 (LEFT = new version's current file, RIGHT = app1.2 with the feature).
+Apply the EQUIVALENT wiring to the new version's own files; do not paste verbatim if context differs.
+================================================================
+
+########## core/stages.js ##########
+--- "d:/3rd sem/STUDIO/AIA26_Studio - new version/team_04/PY/frontend2/core/stages.js"	2026-06-18 15:14:04.603425200 +0530
++++ "d:/3rd sem/STUDIO/AIA26_Studio - app version 1.2/team_04/PY/frontend2/core/stages.js"	2026-06-07 17:14:25.036111900 +0530
+@@ -6,12 +6,11 @@
+   SPLASH: "SPLASH",
+   SITE: "SITE",
+   BOUNDARY: "BOUNDARY",
+-  CONTEXT: "CONTEXT",
++  CONTEXT: "CONTEXT", // Urban Context Analysis — runs right after boundary confirm
+   SHAPES: "SHAPES",
+   SHAPE_EDIT: "SHAPE_EDIT",
+   OPTIMIZE: "OPTIMIZE",
+   COMPARE: "COMPARE",
+-  DECISION: "DECISION",
+   EXPORT: "EXPORT",
+   EVOLUTION: "EVOLUTION",
+   END: "END",
+@@ -23,11 +22,10 @@
+   [STAGES.SITE]: "map",
+   [STAGES.BOUNDARY]: "map",
+   [STAGES.CONTEXT]: "context",
+-  [STAGES.SHAPES]: "shapes",
++  [STAGES.SHAPES]: "viewer",
+   [STAGES.SHAPE_EDIT]: "viewer",
+-  [STAGES.OPTIMIZE]: "optimize",
++  [STAGES.OPTIMIZE]: "viewer",
+   [STAGES.COMPARE]: "compare",
+-  [STAGES.DECISION]: "decision",
+   [STAGES.EXPORT]: "viewer",
+   [STAGES.EVOLUTION]: "evolution",
+   [STAGES.END]: "viewer",
+@@ -46,7 +44,7 @@
+ export const STAGE_LABEL = {
+   [STAGES.SITE]: "Site",
+   [STAGES.BOUNDARY]: "Boundary",
+-  [STAGES.CONTEXT]: "Context",
++  [STAGES.CONTEXT]: "Urban Context",
+   [STAGES.SHAPES]: "Shapes",
+   [STAGES.SHAPE_EDIT]: "Editing",
+   [STAGES.OPTIMIZE]: "Optimize",
+
+########## core/store.js ##########
+--- "d:/3rd sem/STUDIO/AIA26_Studio - new version/team_04/PY/frontend2/core/store.js"	2026-06-18 15:14:12.625062400 +0530
++++ "d:/3rd sem/STUDIO/AIA26_Studio - app version 1.2/team_04/PY/frontend2/core/store.js"	2026-06-07 17:15:04.324401700 +0530
+@@ -14,100 +14,46 @@
+   // action buttons currently offered by the copilot
+   actions: [],
+ 
+-  // which center view is shown: 'map' | 'viewer' | 'compare' | 'evolution'
++  // which center view is shown: 'map' | 'viewer' | 'compare' | 'evolution' | 'context'
+   centerView: "map",
+ 
++  // ---- urban context analysis (CONTEXT stage) ----
++  // populated automatically once the boundary is confirmed.
++  context: null, // { center, radius, layers, buildings, edges, scores, report }
++  contextLoading: false,
++  contextError: null,
++  // per-layer visibility, keyed by layer id (e.g. "roads.primary", "education.schools")
++  contextVisible: {},
++  // ids of layer groups the user collapsed in the Context Explorer
++  contextScores: null, // { transit, walkability, ... } 0–100
++
+   // site
+   site: null, // serialized SiteContext from backend
+   location: null, // { name, lat, lng } once a location is set (not yet saved)
+   locationSaved: false,
+   boundary: [], // [[lng,lat], ...] working polygon
+   boundarySaved: false,
+-  // buildable zone + boundary analysis from the real backend (routers/site.py).
+-  // Populated only by api.agent.analyzeBoundary / buildableZone responses.
+-  buildableBoundary: null, // [[x,y,z], ...] inset polygon from setback_summary
+-  siteAnalysis: null, // analyze_site_boundary result (graph + hierarchy)
+-
+-  // urban context (the Context Analysis stage)
+-  urbanContext: null,          // full /context payload (geometry, summary, edges, scores, report, directives)
+-  contextLoading: false,
+-  contextError: null,
+-  // layer key -> bool visibility for the Context Explorer + 3D twin
+-  contextVisibleLayers: null,  // null = all on; otherwise a {layerKey: bool} map
+-  hoveredEdgeIndex: null,      // site edge under the cursor (edge intelligence)
+ 
+   // shapes / designs
+-  // Stage 1 SHAPE LIBRARY: the generated typology options the user picks FROM
+-  // (Rectangle / L / U / H / Courtyard / …). Distinct from `options` (which holds
+-  // OPTIMIZATION results) so shape generation never gets mistaken for optimization.
+-  shapeOptions: [], // generated shape candidates awaiting selection
+-  visibleShapeIds: new Set(), // eye-toggled shapes shown in the viewer
+-  selectedShapeId: null, // the shape the user previewed/highlighted
+-  selectedShapeType: null, // the typology the user committed to (gates OPTIMIZE)
+   options: [], // best_4_options or generated options (GeometryObject[])
+   shapesByType: {}, // { "H Shape": [GeometryObject], ... } for the explorer
+   currentDesign: null,
+   selectedOptionId: null,
+   selectedPart: null, // { part, surface } from viewer pick
+-  selectedPartId: "building", // "building" | "wing_<index>" — manipulation target
+-  selectedPartLabel: "building", // human label for the selected part
+-  pendingTool: null, // armed manipulation tool awaiting a typed amount ('move'|'rotate'|'scale')
+   activeTool: null, // 'move' | 'rotate' | 'scale' | 'push_pull'
+ 
+   // optimization
+   optimizationScore: null,
+-  optimizationResult: null, // full backend optimize response (algorithm, options, site_area)
+   visibleOptionIds: new Set(), // eye-toggled options shown in viewer
+ 
+   // compare
+   compareIds: [],
+   compareRows: [],
+-  compareSelection: [], // option_ids the user ticked for the comparison table
+-  comparisonOptions: [], // options fed into the comparison table (from backend data)
+-
+-  // ---- Backend B (Team-04 Agent API) session-driven state ----
+-  // All fields below populate ONLY from backend B responses; empty until then.
+-  sessionId: null, // active /sessions/{id}
+-  agentAvailable: null, // null=unknown, true/false after a ping
+-  // explorer tree from GET /sessions/{id}/explorer
+-  explorerSite: null, // SiteInfo
+-  buildings: [], // BuildingInfo[] (each has wings[], placement_options[])
+-  selectedBuildingId: null,
+-  // decision graph from GET /sessions/{id}/decisions
+-  decisionGraph: { nodes: [], edges: [], head: null },
+-  // Real project timeline — every workflow action appends here (see recordDecision).
+-  decisionHistory: [],
+-  selectedFinalOption: null, // the option chosen for export
+-  // agent traces (derived live from the SSE stream + final state)
+-  plannerTrace: [], // planner decisions
+-  supervisorTrace: [], // supervisor decisions
+-  toolTrace: [], // tool calls fired this turn
+-  agentState: null, // last AgentState snapshot (placed_buildings, violations, …)
+-  errors: [], // [{ at, message }]
+-  loadingState: {}, // { sessions:bool, chat:bool, decisions:bool, explorer:bool }
+ 
+   // map runtime handles (not serialized)
+   map: null,
+-
+-  // ---- scanning state machine (drives the center scan-line HUD) ----
+-  isCopilotThinking: false,
+-  isLocatingSite: false,
+-  isBoundaryActivating: false,
+-  isAnalyzingBoundary: false,
+-  isOptimizing: false,
+ };
+ 
+-// Combined scan flag — true while any processing phase is active.
+-export function isScanning(s = state) {
+-  return Boolean(
+-    s.isCopilotThinking ||
+-      s.isLocatingSite ||
+-      s.isBoundaryActivating ||
+-      s.isAnalyzingBoundary ||
+-      s.isOptimizing
+-  );
+-}
+-
+ export function getState() {
+   return state;
+ }
+@@ -143,18 +89,3 @@
+   state.status = status;
+   emit();
+ }
+-
+-// ---- Backend B helpers ----------------------------------------------------
+-
+-// Record a backend error without throwing — surfaced in the UI, never swallowed.
+-export function pushError(message) {
+-  state.errors = [...state.errors, { at: Date.now(), message: String(message) }];
+-  emit();
+-}
+-
+-// Toggle a named loading flag (e.g. setLoading("chat", true)).
+-export function setLoading(key, value) {
+-  state.loadingState = { ...state.loadingState, [key]: Boolean(value) };
+-  emit();
+-}
+-
+
+########## panels/stepper.js ##########
+--- "d:/3rd sem/STUDIO/AIA26_Studio - new version/team_04/PY/frontend2/panels/stepper.js"	2026-06-08 10:41:37.199039800 +0530
++++ "d:/3rd sem/STUDIO/AIA26_Studio - app version 1.2/team_04/PY/frontend2/panels/stepper.js"	2026-06-07 17:14:45.102062000 +0530
+@@ -3,48 +3,22 @@
+ // Purely a status display; it does not change workflow logic.
+ 
+ import { getState, subscribe } from "../core/store.js";
+-import { STAGES } from "../core/stages.js";
+-import { canEnter, enterStage, tryAdvance } from "../core/workflow.js";
+-
+-// Map a stepper step key to a workflow stage.
+-const STEP_STAGE = {
+-  SITE: STAGES.SITE,
+-  BOUNDARY: STAGES.BOUNDARY,
+-  SHAPE: STAGES.SHAPES,
+-  OPTIMIZE: STAGES.OPTIMIZE,
+-  COMPARE: STAGES.COMPARE,
+-  EXPORT: STAGES.EXPORT,
+-};
+-
+-// Stepper clicks go through the workflow controller's guards, so a later stage
+-// can't be opened until its prerequisites are met.
+-async function goToStep(stepKey) {
+-  const stage = STEP_STAGE[stepKey];
+-  if (!stage) return;
+-  // Optimization clicked with a building but no options yet → run the optimizer.
+-  if (stage === STAGES.OPTIMIZE && canEnter(STAGES.OPTIMIZE) && !getState().optimizationResult) {
+-    enterStage(STAGES.OPTIMIZE, { announce: false });
+-    const { optimizeBuilding } = await import("../agentClient.js");
+-    await optimizeBuilding();
+-    return;
+-  }
+-  tryAdvance(stage); // guarded: enters only if canEnter, else explains why
+-}
+ 
+ // The six visible workflow steps (Shape == SHAPES/SHAPE_EDIT, etc.)
+ const STEPS = [
+   { key: "SITE", label: "Site", icon: site() },
+   { key: "BOUNDARY", label: "Boundary", icon: boundary() },
++  { key: "CONTEXT", label: "Urban Context", icon: context() },
+   { key: "SHAPE", label: "Shape", icon: shape() },
+   { key: "OPTIMIZE", label: "Optimization", icon: optimize() },
+   { key: "COMPARE", label: "Comparison", icon: compare() },
+   { key: "EXPORT", label: "Export", icon: exportIcon() },
+ ];
+ 
+-// Map any backend stage to one of the six steps + an ordinal for progress.
++// Map any backend stage to one of the steps + an ordinal for progress.
+ const STAGE_TO_STEP = {
+-  SITE: 0, BOUNDARY: 1, SHAPES: 2, SHAPE_EDIT: 2,
+-  OPTIMIZE: 3, COMPARE: 4, EXPORT: 5, EVOLUTION: 5, END: 5,
++  SITE: 0, BOUNDARY: 1, CONTEXT: 2, SHAPES: 3, SHAPE_EDIT: 3,
++  OPTIMIZE: 4, COMPARE: 5, EXPORT: 6, EVOLUTION: 6, END: 6,
+ };
+ 
+ function currentStepIndex() {
+@@ -53,32 +27,27 @@
+ }
+ 
+ function render() {
+-  // Render into the floating bottom dock (horizontal). Falls back to the legacy
+-  // left-panel host id if present, so this is safe regardless of mount point.
+-  const host = document.getElementById("bottom-dock") || document.getElementById("workflow-stepper");
++  const host = document.getElementById("workflow-stepper");
+   if (!host) return;
+   const active = currentStepIndex();
+-  host.className = "dock-glass";
+   host.innerHTML = `
+-    <div class="dock-rail">
++    <div class="ws-title">Workflow</div>
++    <div class="ws-rail">
+       ${STEPS.map((s, i) => {
+         const state = i < active ? "done" : i === active ? "active" : "pending";
+-        // A step is locked (not yet reachable) if its stage's entry guard fails.
+-        const locked = !canEnter(STEP_STAGE[s.key]);
+         return `
+-        <div class="dock-step ${state}${locked ? " locked" : ""}" data-step="${s.key}" data-locked="${locked}" title="${locked ? s.label + " (complete earlier steps first)" : s.label}" role="button" tabindex="0">
+-          <span class="dock-ico">${s.icon}</span>
+-          <span class="dock-label">${s.label}</span>
+-          ${i < STEPS.length - 1 ? '<span class="dock-connector"></span>' : ""}
++        <div class="ws-step ${state}" data-step="${s.key}">
++          <div class="ws-node">
++            <span class="ws-ico">${s.icon}</span>
++            ${i < STEPS.length - 1 ? '<span class="ws-connector"></span>' : ""}
++          </div>
++          <div class="ws-meta">
++            <span class="ws-label">${s.label}</span>
++            <span class="ws-state">${state === "done" ? "Complete" : state === "active" ? "In progress" : "Pending"}</span>
++          </div>
+         </div>`;
+       }).join("")}
+     </div>`;
+-
+-  host.querySelectorAll(".dock-step").forEach((el) => {
+-    el.style.cursor = el.dataset.locked === "true" ? "not-allowed" : "pointer";
+-    el.style.opacity = el.dataset.locked === "true" ? "0.45" : "";
+-    el.addEventListener("click", () => goToStep(el.dataset.step));
+-  });
+ }
+ 
+ export function initStepper() {
+@@ -92,6 +61,7 @@
+ }
+ function site() { return svg('<path d="M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10Z"/><circle cx="12" cy="11" r="2.2"/>'); }
+ function boundary() { return svg('<path d="M4 7l8-3 8 3-8 3-8-3Z"/><path d="M4 7v10l8 3 8-3V7"/>'); }
++function context() { return svg('<rect x="3" y="11" width="4" height="9"/><rect x="10" y="6" width="4" height="14"/><rect x="17" y="9" width="4" height="11"/><path d="M2 20h20"/>'); }
+ function shape() { return svg('<path d="M3 9.5 12 4l9 5.5v5L12 20l-9-5.5v-5Z"/><path d="M12 4v16"/><path d="M3 9.5 12 15l9-5.5"/>'); }
+ function optimize() { return svg('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>'); }
+ function compare() { return svg('<rect x="3" y="5" width="7" height="14" rx="1.5"/><rect x="14" y="5" width="7" height="14" rx="1.5"/>'); }
+
+########## panels/explorer.js ##########
+--- "d:/3rd sem/STUDIO/AIA26_Studio - new version/team_04/PY/frontend2/panels/explorer.js"	2026-06-18 15:30:23.094946800 +0530
++++ "d:/3rd sem/STUDIO/AIA26_Studio - app version 1.2/team_04/PY/frontend2/panels/explorer.js"	2026-06-08 15:55:06.878111900 +0530
+@@ -2,9 +2,49 @@
+ // Optimization / Comparison, each filled from the store as the workflow advances.
+ 
+ import { getState, setState, subscribe } from "../core/store.js";
++import { LAYER_DEFS } from "../core/overpass.js";
+ 
+ const collapsed = new Set(); // folder ids the user has collapsed
+ 
++// Toggle a single urban-context layer's visibility, then nudge the 3D context
++// view to rebuild. Visibility lives in the store (single source of truth).
++async function toggleContextLayer(layerId) {
++  const s = getState();
++  const visible = { ...(s.contextVisible || {}) };
++  visible[layerId] = visible[layerId] === false ? true : false;
++  setState({ contextVisible: visible });
++  try {
++    const view = await import("../views/contextView.js");
++    view.refreshVisibility();
++  } catch (e) {
++    console.error("[explorer] context layer toggle failed", e);
++  }
++}
++
++function fmtDist(m) {
++  if (m == null) return "";
++  return m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${m}m`;
++}
++
++// One Context Explorer leaf: eye toggle + label + count + nearest distance.
++function contextLeaf(kids, layerId, layer) {
++  const s = getState();
++  const off = (s.contextVisible || {})[layerId] === false;
++  const count = layer?.count ?? 0;
++  const dist = fmtDist(layer?.nearest);
++  const el = document.createElement("div");
++  el.className = "tree-row ctx-leaf" + (off ? " layer-off" : "");
++  el.style.paddingLeft = "30px";
++  el.innerHTML = `
++    <span class="eye" title="${off ? "Hidden — click to show" : "Visible — click to hide"}">${off ? "🚫" : "👁️"}</span>
++    <span class="ico" style="filter:none;color:${LAYER_DEFS[layerId]?.style.color || "#fff"}">${LAYER_DEFS[layerId]?.style.glyph || "•"}</span>
++    <span class="label">${layer?.label || LAYER_DEFS[layerId]?.label || layerId}</span>
++    <span class="ctx-count">${count}</span>
++    ${dist ? `<span class="ctx-dist" title="nearest to site">${dist}</span>` : ""}`;
++  el.addEventListener("click", () => toggleContextLayer(layerId));
++  kids.appendChild(el);
++}
++
+ async function toggleOptionVisibility(optionId) {
+   const s = getState();
+   const visible = new Set(s.visibleOptionIds || []);
+@@ -62,40 +102,6 @@
+   kids.appendChild(row({ label, icon, depth: 1, badge: extra }));
+ }
+ 
+-// Toggle one urban-context layer's visibility in the 3D twin.
+-async function toggleContextLayer(key) {
+-  const s = getState();
+-  const cur = s.contextVisibleLayers || {};
+-  const next = { ...cur, [key]: cur[key] === false ? true : false };
+-  setState({ contextVisibleLayers: next });
+-  try {
+-    const cv = await import("../views/contextView.js");
+-    cv.onAction && cv.onAction();
+-  } catch { /* not mounted */ }
+-}
+-
+-function contextLayerOn(key) {
+-  const v = getState().contextVisibleLayers;
+-  return !v || v[key] !== false;
+-}
+-
+-// A context layer row: colored swatch + label + count + nearest distance + eye.
+-function contextLeaf(kids, key, label, color, count, nearestM, depth = 2) {
+-  const on = contextLayerOn(key);
+-  const el = document.createElement("div");
+-  el.className = "tree-row context-layer";
+-  el.style.paddingLeft = `${8 + depth * 14}px`;
+-  const dist = nearestM != null ? `${nearestM}m` : "—";
+-  el.innerHTML = `
+-    <span class="ctx-swatch" style="background:${color}"></span>
+-    <span class="label">${label}</span>
+-    <span class="ctx-count">${count ?? 0}</span>
+-    <span class="ctx-dist" title="nearest">${dist}</span>
+-    <button class="ctx-eye" title="${on ? "Hide" : "Show"}">${on ? "👁️" : "🚫"}</button>`;
+-  el.querySelector(".ctx-eye").addEventListener("click", (e) => { e.stopPropagation(); toggleContextLayer(key); });
+-  kids.appendChild(el);
+-}
+-
+ function emptyHint(kids, text) {
+   const e = document.createElement("div");
+   e.className = "tree-empty";
+@@ -103,11 +109,52 @@
+   kids.appendChild(e);
+ }
+ 
++// Nested sub-group inside the Urban Context folder (e.g. Roads → Primary…).
++function contextSubgroup(parentKids, s, id, label, layerIds) {
++  const ctx = s.context;
++  const subId = `ctx-${id}`;
++  const isCollapsed = collapsed.has(subId);
++  const total = layerIds.reduce((n, lid) => n + (ctx?.layers?.[lid]?.count || 0), 0);
++  const head = row({
++    label, icon: "📁",
++    twisty: isCollapsed ? "▶" : "▼",
++    badge: ctx ? String(total) : "",
++    depth: 1,
++    onClick: () => { isCollapsed ? collapsed.delete(subId) : collapsed.add(subId); render(); },
++  });
++  head.classList.add("tree-folder");
++  parentKids.appendChild(head);
++  const kids = document.createElement("div");
++  kids.className = "tree-children ctx-children" + (isCollapsed ? " collapsed" : "");
++  for (const lid of layerIds) contextLeaf(kids, lid, ctx?.layers?.[lid]);
++  parentKids.appendChild(kids);
++}
++
++// The full "Urban Context" tree: Roads / Education / Transportation / Retail
++// sub-groups, plus Parks and Healthcare as direct leaves.
++function renderContextFolder(tree, s) {
++  const ctx = s.context;
++  const loading = s.contextLoading;
++  const totalCount = ctx
++    ? Object.values(ctx.layers).reduce((n, L) => n + (L.count || 0), 0)
++    : 0;
++  folder(tree, "context", "Urban Context", "🌐", ctx ? totalCount : 0, (kids) => {
++    if (loading) { emptyHint(kids, "analysing 2 km context…"); return; }
++    if (!ctx) { emptyHint(kids, "confirm boundary to analyse context"); return; }
++    contextSubgroup(kids, s, "roads", "Roads", ["roads.primary", "roads.secondary", "roads.tertiary", "roads.local"]);
++    contextSubgroup(kids, s, "education", "Education", ["education.schools", "education.universities"]);
++    contextSubgroup(kids, s, "transport", "Transportation", ["transport.bus", "transport.metro", "transport.train"]);
++    contextSubgroup(kids, s, "retail", "Retail", ["retail.grocery", "retail.shopping"]);
++    contextLeaf(kids, "parks.parks", ctx.layers["parks.parks"]);
++    contextLeaf(kids, "healthcare.hospitals", ctx.layers["healthcare.hospitals"]);
++  });
++}
++
+ function render() {
+   const root = document.getElementById("explorer-tree");
+   if (!root) return;
+   const s = getState();
+-  root.innerHTML = `<div class="explorer-header">Project Explorer · v2 (context)</div>`;
++  root.innerHTML = `<div class="explorer-header">Project Explorer</div>`;
+   const tree = document.createElement("div");
+   tree.className = "tree";
+ 
+@@ -124,107 +171,36 @@
+     if (!s.locationSaved && !s.boundarySaved) emptyHint(kids, "no location saved yet");
+   });
+ 
+-  // --- Urban Context --- (roads + amenities classified into the Context Explorer
+-  // tree, each layer with a visibility toggle, count, and nearest distance).
+-  const ctx = s.urbanContext;
+-  const ctxCount = ctx?.summary
+-    ? Object.values(ctx.summary.amenities || {}).reduce((a, l) => a + (l.count || 0), 0)
+-    : 0;
+-  folder(tree, "context", "Urban Context", "🛰️", ctxCount, (kids) => {
+-    if (s.contextLoading) { emptyHint(kids, "analyzing context…"); return; }
+-    if (s.contextError) { emptyHint(kids, "context unavailable"); return; }
+-    if (!ctx?.summary) { emptyHint(kids, "no context analyzed yet"); return; }
+-    const roads = ctx.summary.roads || {};
+-    const amen = ctx.summary.amenities || {};
+-
+-    // Roads
+-    folder(kids, "ctx-roads", "Roads", "🛣️", Object.values(roads).reduce((a, r) => a + (r.count || 0), 0), (rk) => {
+-      ["primary", "secondary", "tertiary", "residential"].forEach((rc) => {
+-        const r = roads[rc];
+-        if (r) contextLeaf(rk, `road_${rc}`, r.label, r.color, r.count, r.nearest_m, 2);
+-      });
+-    });
+-
+-    // Amenities grouped by category.
+-    const byCat = {};
+-    Object.entries(amen).forEach(([key, l]) => {
+-      (byCat[l.category] = byCat[l.category] || []).push([key, l]);
+-    });
+-    const catIcon = { Education: "🎓", Transportation: "🚇", Retail: "🛍️", Parks: "🌳", Healthcare: "🏥", Public: "🏛️" };
+-    ["Education", "Transportation", "Retail", "Parks", "Healthcare", "Public"].forEach((cat) => {
+-      const items = byCat[cat];
+-      if (!items) return;
+-      const total = items.reduce((a, [, l]) => a + (l.count || 0), 0);
+-      folder(kids, `ctx-${cat}`, cat, catIcon[cat] || "•", total, (ck) => {
+-        items.forEach(([key, l]) => contextLeaf(ck, key, l.label, l.color, l.count, l.nearest_m, 2));
+-      });
+-    });
+-  });
++  // --- Urban Context ---
++  renderContextFolder(tree, s);
+ 
+-  // --- Shapes (placed buildings + shape-type rollups live here together) ---
+-  // The agent's generated/placed buildings belong under Shapes, not a separate
+-  // top-level folder, so the explorer reads top→bottom: Site → Shapes(buildings)
+-  // → Optimization → Comparison → Decisions.
++  // --- Shapes ---
+   const shapeTypes = Object.keys(s.shapesByType || {});
+-  const agentBuildings = s.buildings || [];
+-  const shapeCount = agentBuildings.length || shapeTypes.length;
+-  folder(tree, "shapes", "Shapes", "🏗️", shapeCount, (kids) => {
+-    if (!agentBuildings.length && !shapeTypes.length) {
++  folder(tree, "shapes", "Shapes", "🏗️", shapeTypes.length, (kids) => {
++    if (!shapeTypes.length) {
+       emptyHint(kids, "no shapes generated yet");
+       return;
+     }
+-    // Placed buildings from the agent (each with wings + placement options).
+-    agentBuildings.forEach((b) => {
+-      const area = b.area_sqm ? `${Math.round(b.area_sqm)} m²` : "";
+-      const floors = b.height_m ? `${Math.round(b.height_m / 3)}f` : "";
+-      const r = row({
+-        label: b.label || b.building_id,
+-        icon: "🏢",
+-        depth: 1,
+-        badge: [floors, area].filter(Boolean).join(" · "),
+-        active: s.selectedBuildingId === b.building_id,
+-        onClick: () => setState({ selectedBuildingId: b.building_id }),
+-      });
+-      kids.appendChild(r);
+-      (b.wings || []).forEach((w) => {
+-        const dims = w.length_m && w.width_m ? ` · ${Math.round(w.length_m)}×${Math.round(w.width_m)}m` : "";
+-        leaf(kids, `${w.role} wing`, "📐", `${Math.round(w.area_sqm || 0)} m²${dims}`);
+-      });
+-      const opts = b.placement_options || [];
+-      if (opts.length) leaf(kids, `${opts.length} placement option(s)`, "🎯");
+-    });
+-    // Shape-type rollups (Backend-A style) when present and no agent buildings.
+-    if (!agentBuildings.length) {
+-      for (const t of shapeTypes) {
+-        const arr = s.shapesByType[t] || [];
+-        leaf(kids, t, "📐", String(arr.length));
+-      }
++    for (const t of shapeTypes) {
++      const arr = s.shapesByType[t] || [];
++      leaf(kids, t, "📐", String(arr.length));
+     }
+   });
+ 
+-  // --- Optimization --- (only shows REAL scored options from the /optimize run,
+-  // never the generation placement candidates which have no view scores)
+-  const optimized = s.optimizationResult ? (s.options || []) : [];
+-  folder(tree, "optimization", "Optimization", "⚙️", optimized.length, (kids) => {
+-    if (!optimized.length) {
++  // --- Optimization ---
++  folder(tree, "optimization", "Optimization", "⚙️", s.options.length, (kids) => {
++    if (!s.options.length) {
+       emptyHint(kids, "run optimization to populate");
+       return;
+     }
+-    // "Open optimization view" affordance.
+-    const openRow = row({
+-      label: "Open optimization view", icon: "🗂️", depth: 1,
+-      onClick: () => setState({ centerView: "optimize" }),
+-    });
+-    kids.appendChild(openRow);
+-    optimized.forEach((opt, i) => {
++    s.options.forEach((opt, i) => {
+       const score = Number.isFinite(Number(opt.score)) ? Number(opt.score).toFixed(2) : "-";
+       const visible = s.visibleOptionIds?.has(opt.option_id);
+-      const far = opt.constraint_report?.metrics?.far;
+       const r = row({
+         label: `Option ${i + 1}`,
+         icon: visible ? "👁️" : "🚫",
+         depth: 1,
+-        badge: far != null ? `${score} · FAR ${Number(far).toFixed(2)}` : score,
++        badge: score,
+         active: s.selectedOptionId === opt.option_id,
+         onClick: () => toggleOptionVisibility(opt.option_id),
+       });
+@@ -233,76 +209,22 @@
+     });
+   });
+ 
+-  // --- Comparison --- (multi-select REAL optimized options, then open the table)
+-  folder(tree, "comparison", "Comparison", "📊", (s.compareSelection || []).length, (kids) => {
+-    const optimizedOpts = s.optimizationResult ? (s.options || []) : [];
+-    if (!optimizedOpts.length) {
+-      emptyHint(kids, "optimize first, then select options to compare");
+-      return;
+-    }
+-    const sel = new Set(s.compareSelection || []);
+-    optimizedOpts.forEach((opt, i) => {
+-      const checked = sel.has(opt.option_id);
+-      const r = row({
+-        label: `Option ${i + 1}`,
+-        icon: checked ? "☑️" : "⬜",
+-        depth: 1,
+-        badge: Number.isFinite(Number(opt.score)) ? Number(opt.score).toFixed(2) : "",
+-        onClick: () => {
+-          const next = new Set(getState().compareSelection || []);
+-          if (next.has(opt.option_id)) next.delete(opt.option_id);
+-          else next.add(opt.option_id);
+-          setState({ compareSelection: [...next] });
+-        },
+-      });
+-      r.title = checked ? "Selected — click to remove from comparison" : "Click to add to comparison";
+-      kids.appendChild(r);
+-    });
+-    if (sel.size >= 2) {
+-      const go = row({
+-        label: `Compare ${sel.size} options`, icon: "📋", depth: 1,
+-        onClick: async () => {
+-          const ids = [...sel];
+-          setState({ centerView: "compare", comparisonOptions: getState().options.filter((o) => ids.includes(o.option_id)) });
+-          const { dispatchView } = await import("./center.js");
+-          await dispatchView({ type: "compare", payload: { action: "compare", option_ids: ids } });
+-        },
+-      });
+-      go.style.color = "var(--accent)";
+-      kids.appendChild(go);
+-    } else {
+-      emptyHint(kids, "select at least 2 options to compare");
+-    }
++  // --- Comparison ---
++  folder(tree, "comparison", "Comparison", "📊", s.compareRows.length ? 1 : 0, (kids) => {
++    if (!s.compareRows.length) emptyHint(kids, "no comparison yet");
++    else leaf(kids, "Comparison Table", "📋", `${s.compareIds.length} options`);
+   });
+ 
+-  // --- Decisions (real project timeline → Design Evolution replay) ---
+-  if (s.sessionId || (s.buildings && s.buildings.length)) {
+-    const histCount = (s.decisionHistory || []).length;
+-    folder(tree, "decisions", "Decisions", "🌳", histCount, (kids) => {
+-      if (!histCount) {
+-        emptyHint(kids, "your design actions will appear here");
+-        return;
+-      }
+-      const r = row({
+-        label: "Design Evolution (replay)",
+-        icon: "🎬",
+-        depth: 1,
+-        badge: `${histCount} steps`,
+-        onClick: () => setState({ centerView: "decision" }),
+-      });
+-      kids.appendChild(r);
+-    });
+-  }
+-
+   root.appendChild(tree);
+ }
+ 
+ export function initExplorer() {
+-  // Left panel hosts only the project/site/KPI explorer. The workflow dock is a
+-  // global, full-width bar in the app grid (see index.html #bottom-dock).
++  // Host the workflow stepper above the project tree within the left panel.
+   const panel = document.getElementById("explorer");
+   if (panel && !document.getElementById("explorer-tree")) {
+-    panel.innerHTML = `<div id="explorer-tree"></div>`;
++    panel.innerHTML = `
++      <div id="workflow-stepper"></div>
++      <div id="explorer-tree"></div>`;
+   }
+   render();
+   subscribe(render);
+
+########## panels/center.js ##########
+--- "d:/3rd sem/STUDIO/AIA26_Studio - new version/team_04/PY/frontend2/panels/center.js"	2026-06-18 15:19:11.639966600 +0530
++++ "d:/3rd sem/STUDIO/AIA26_Studio - app version 1.2/team_04/PY/frontend2/panels/center.js"	2026-06-08 15:51:16.407865600 +0530
+@@ -4,7 +4,7 @@
+ 
+ import { getState, subscribe } from "../core/store.js";
+ 
+-const VIEWS = ["map", "viewer", "context", "shapes", "optimize", "compare", "evolution", "decision"];
++const VIEWS = ["map", "context", "viewer", "compare", "evolution"];
+ let mounted = false;
+ let lastView = null;
+ let currentView = null; // the view currently shown (drives morph direction)
+@@ -15,13 +15,10 @@
+   if (viewModules[name]) return viewModules[name];
+   let mod;
+   if (name === "map") mod = await import("../views/mapView.js");
++  else if (name === "context") mod = await import("../views/contextView.js");
+   else if (name === "viewer") mod = await import("../views/viewerView.js");
+-  else if (name === "context") { mod = await import("../views/contextView.js"); mod.ensureSub && mod.ensureSub(); }
+-  else if (name === "shapes") mod = await import("../views/shapesView.js");
+-  else if (name === "optimize") mod = await import("../views/optimizeView.js");
+   else if (name === "compare") mod = await import("../views/compareView.js");
+   else if (name === "evolution") mod = await import("../views/evolutionView.js");
+-  else if (name === "decision") mod = await import("../views/decisionGraphView.js");
+   viewModules[name] = mod;
+   return mod;
+ }
+@@ -31,13 +28,10 @@
+   const root = document.getElementById("center");
+   root.innerHTML = `
+     <div id="view-map" class="center-view hidden"></div>
+-    <div id="view-viewer" class="center-view hidden"></div>
+     <div id="view-context" class="center-view hidden"></div>
+-    <div id="view-shapes" class="center-view hidden"><div class="view-scroll" id="shapes-scroll"></div></div>
+-    <div id="view-optimize" class="center-view hidden"><div class="view-scroll" id="optimize-scroll"></div></div>
++    <div id="view-viewer" class="center-view hidden"></div>
+     <div id="view-compare" class="center-view hidden"><div class="view-scroll" id="compare-scroll"></div></div>
+     <div id="view-evolution" class="center-view hidden"><div class="view-scroll" id="evolution-scroll"></div></div>
+-    <div id="view-decision" class="center-view hidden"><div class="view-scroll" id="decision-scroll"></div></div>
+     <div id="center-processing" class="hidden">
+       <div class="proc-scanner"></div>
+       <div class="proc-label">PROCESSING<span>·</span><span>·</span><span>·</span></div>
+@@ -46,69 +40,8 @@
+       <div class="morph-sweep"></div>
+       <div class="morph-grid"></div>
+       <div class="morph-particles">${Array.from({ length: 14 }).map(() => "<i></i>").join("")}</div>
+-    </div>
+-    <div id="kpi-cards" class="hidden"></div>`;
++    </div>`;
+   mounted = true;
+-  subscribe(renderKpis);
+-  renderKpis();
+-}
+-
+-// Floating glass KPI cards over the stage — live metrics that appear as the
+-// workflow produces data. Read-only display; no workflow change.
+-function renderKpis() {
+-  const host = document.getElementById("kpi-cards");
+-  if (!host) return;
+-  const s = getState();
+-  const view = s.centerView;
+-  const cards = [];
+-
+-  const area = s.site?.site_area || (s.boundarySaved ? null : null);
+-  if (area) cards.push({ label: "Site Area", value: `${Math.round(area).toLocaleString()}`, unit: "m²", icon: "▦" });
+-
+-  // Context score KPIs — shown over the digital twin. Color-coded 0-100.
+-  if (view === "context" && s.urbanContext?.scores) {
+-    const labels = s.urbanContext.score_labels || {};
+-    const order = ["transit", "walkability", "accessibility", "green_space", "retail",
+-                   "education", "healthcare", "connectivity", "amenity", "urban_vitality"];
+-    const scoreColor = (v) => (v >= 80 ? "#3fd6a4" : v >= 60 ? "#ffe04a" : v >= 40 ? "#ffae42" : "#ff6f6f");
+-    order.forEach((k) => {
+-      if (s.urbanContext.scores[k] == null) return;
+-      const v = Math.round(s.urbanContext.scores[k]);
+-      cards.push({ label: labels[k] || k, value: String(v), unit: "", icon: "◉", color: scoreColor(v) });
+-    });
+-    host.classList.remove("hidden");
+-    host.innerHTML = cards.map((c, i) => `
+-      <div class="kpi-card${c.color ? " score" : ""}" style="animation-delay:${i * 40}ms${c.color ? `;--kpi-accent:${c.color}` : ""}">
+-        <span class="kpi-ico">${c.icon}</span>
+-        <div class="kpi-body">
+-          <span class="kpi-value" ${c.color ? `style="color:${c.color}"` : ""}>${c.value}<small>${c.unit}</small></span>
+-          <span class="kpi-label">${c.label}</span>
+-        </div>
+-      </div>`).join("");
+-    return;
+-  }
+-
+-  if ((view === "viewer" || view === "compare") && s.options?.length) {
+-    cards.push({ label: "Options", value: String(s.options.length), unit: "", icon: "◈" });
+-    const top = Math.max(...s.options.map((o) => Number(o.score) || 0));
+-    if (Number.isFinite(top) && top > 0) cards.push({ label: "Top Score", value: top.toFixed(2), unit: "", icon: "★", glow: true });
+-    const sel = s.options.find((o) => o.option_id === s.selectedOptionId) || s.options[0];
+-    const far = sel?.constraint_report?.metrics?.far;
+-    if (Number.isFinite(Number(far))) cards.push({ label: "FAR", value: Number(far).toFixed(2), unit: "", icon: "⬚" });
+-  }
+-
+-  // only show KPIs on the spatial stages (map/viewer), not tables
+-  const show = cards.length && (view === "map" || view === "viewer");
+-  host.classList.toggle("hidden", !show);
+-  if (!show) return;
+-  host.innerHTML = cards.map((c, i) => `
+-    <div class="kpi-card${c.glow ? " glow" : ""}" style="animation-delay:${i * 70}ms">
+-      <span class="kpi-ico">${c.icon}</span>
+-      <div class="kpi-body">
+-        <span class="kpi-value">${c.value}<small>${c.unit}</small></span>
+-        <span class="kpi-label">${c.label}</span>
+-      </div>
+-    </div>`).join("");
+ }
+ 
+ // Apply the active-view toggle. When the view actually changes, play a futuristic
+
+########## views/mapView.js ##########
+--- "d:/3rd sem/STUDIO/AIA26_Studio - new version/team_04/PY/frontend2/views/mapView.js"	2026-06-07 22:04:15.734685300 +0530
++++ "d:/3rd sem/STUDIO/AIA26_Studio - app version 1.2/team_04/PY/frontend2/views/mapView.js"	2026-06-08 15:52:52.532261200 +0530
+@@ -4,7 +4,7 @@
+ // Patterns (OSM raster style, geojson sources/layers, vertex markers) are adapted
+ // from the legacy frontend/app.js.
+ 
+-import { getState, setState, subscribe, isScanning } from "../core/store.js";
++import { getState, setState } from "../core/store.js";
+ 
+ let map = null;
+ let ready = false;
+@@ -14,30 +14,11 @@
+ let draft = []; // [[lng,lat], ...] open ring while drawing
+ let vertexMarkers = [];
+ 
+-// Toggle the center scan HUD purely from the combined isScanning() store flag.
+-function syncScan() {
+-  const hud = document.getElementById("map-hud");
+-  if (hud) hud.classList.toggle("scanning", isScanning());
+-}
+-let scanSubscribed = false;
+-
+-// Satellite base map (Esri World Imagery — free raster, no API key) with a
+-// translucent OSM label overlay so streets/place names stay readable. Source
+-// and base-layer ids are kept as `osm` so the rest of the map code is unchanged.
+ const TILE_STYLE = {
+   version: 8,
+   sources: {
+     osm: {
+       type: "raster",
+-      tiles: [
+-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+-      ],
+-      tileSize: 256,
+-      maxzoom: 19,
+-      attribution: "Imagery © Esri, Maxar, Earthstar Geographics",
+-    },
+-    "osm-labels": {
+-      type: "raster",
+       tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+       tileSize: 256,
+       maxzoom: 19,
+@@ -45,10 +26,8 @@
+     },
+   },
+   layers: [
+-    { id: "background", type: "background", paint: { "background-color": "#0a1422" } },
++    { id: "background", type: "background", paint: { "background-color": "#aadaff" } },
+     { id: "osm", type: "raster", source: "osm", paint: { "raster-opacity": 1, "raster-fade-duration": 0 } },
+-    // faint label overlay — keeps roads/names legible without hiding imagery
+-    { id: "osm-labels", type: "raster", source: "osm-labels", paint: { "raster-opacity": 0.32, "raster-fade-duration": 0 } },
+   ],
+ };
+ 
+@@ -79,25 +58,6 @@
+     ensureSources();
+     bindDrawHandlers();
+   });
+-  // Futuristic HUD overlay above the map canvas: radar grid + scanning line.
+-  // pointer-events:none so all map interaction (pan/zoom/draw) is unaffected.
+-  // The scan only animates when the `.scanning` class is set (see syncScan()).
+-  const hud = document.createElement("div");
+-  hud.id = "map-hud";
+-  hud.innerHTML = `
+-    <div class="map-grid"></div>
+-    <div class="map-radar"></div>
+-    <div class="map-scan">
+-      <div class="scan-glow"></div>
+-      <div class="scan-sub s3"></div>
+-      <div class="scan-sub s2"></div>
+-      <div class="scan-sub s1"></div>
+-      <div class="scan-line"></div>
+-    </div>
+-    <div class="map-vignette"></div>`;
+-  el.appendChild(hud);
+-  if (!scanSubscribed) { subscribe(syncScan); scanSubscribed = true; }
+-  syncScan();
+   return map;
+ }
+ 
+@@ -216,6 +176,17 @@
+   clearVertexMarkers();
+ }
+ 
++// Fire the client-side Urban Context Analysis once. Lazy-imported so mapView
++// stays free of the context/Three.js dependency graph until it's needed.
++let contextTriggered = false;
++function triggerContextAnalysis() {
++  if (contextTriggered) return;
++  contextTriggered = true;
++  import("../core/contextController.js")
++    .then((m) => m.runContextAnalysis())
++    .catch((e) => console.error("[map] context analysis failed to start", e));
++}
++
+ // ---------------------------------------------------------------------------
+ export function activate() {
+   ensureMap();
+@@ -233,8 +204,7 @@
+       if (Number.isFinite(lng) && Number.isFinite(lat) && (lng || lat)) {
+         map.easeTo({ center: [lng, lat], zoom: 16, duration: 800 });
+         placePin(lng, lat, true);
+-        // location detected & map is flying -> stop the "locating" scan phase
+-        setState({ location: { name: payload.site?.location_name || "", lng, lat }, locationSaved: false, isLocatingSite: false });
++        setState({ location: { name: payload.site?.location_name || "", lng, lat }, locationSaved: false });
+       }
+     } else if (action === "show_boundary") {
+       const site = payload.site || {};
+@@ -250,8 +220,6 @@
+       if (!geo) startDrawing(true);
+     } else if (action === "enable_draw") {
+       startDrawing(true);
+-      // boundary drawing tool is now active -> stop the "activating" scan phase
+-      setState({ isBoundaryActivating: false });
+     } else if (action === "boundary_saved") {
+       stopDrawing();
+       const geo = payload.site?.confirmed_site_boundary || (draft.length >= 3 ? { type: "Polygon", coordinates: [closeRing(draft)] } : null);
+@@ -259,6 +227,8 @@
+       setSource("draft-boundary", null);
+       setSource("draw-preview", null);
+       setState({ boundarySaved: true, site: payload.site || getState().site });
++      // Boundary confirmed → automatically kick off Urban Context Analysis.
++      triggerContextAnalysis();
+     }
+   };
+   if (ready) run();
+
+########## copilotClient.js ##########
+--- "d:/3rd sem/STUDIO/AIA26_Studio - new version/team_04/PY/frontend2/copilotClient.js"	2026-06-18 15:42:46.526759300 +0530
++++ "d:/3rd sem/STUDIO/AIA26_Studio - app version 1.2/team_04/PY/frontend2/copilotClient.js"	2026-06-08 15:53:21.820130900 +0530
+@@ -1,1139 +1,156 @@
+-// Conversation driver. Routes each user/action message to the part of the system
+-// that actually owns it:
++// Drives the conversation: sends user/action messages to /copilot, applies the
++// returned reply, actions, view, and stage to the store.
+ //
+-//   * SITE / BOUNDARY stages  → handled locally by the map view + the real
+-//     site/boundary routes (api.agent.geocode / analyzeBoundary /
+-//     saveSessionBoundary). The core agent has no map workflow, so this stage is
+-//     frontend-driven with backend boundary analysis.
+-//   * SHAPES onward (generation, manipulation, optimization, decisions) → the
+-//     REAL agent backend via agentClient.streamChat (SSE /sessions/{id}/chat).
+-//
+-// There is no "/copilot" orchestrator backend in this repo, so nothing here
+-// calls one. The agent backend is the single source of truth for the design
+-// conversation; the site/boundary stage is the documented frontend-fallback.
++// Until the backend orchestrator exists (Slice 2) this degrades gracefully to a
++// local stub so the shell is interactive on its own.
+ 
+ import { api } from "./core/api.js";
+-import {
+-  getState,
+-  setState,
+-  pushMessage,
+-  setStatus,
+-  pushError,
+-} from "./core/store.js";
+-import { STAGES, STAGE_VIEW } from "./core/stages.js";
++import { getState, setState, pushMessage, setStatus } from "./core/store.js";
++import { STAGE_VIEW } from "./core/stages.js";
+ import { setBusy } from "./panels/copilot.js";
+ import { dispatchView } from "./panels/center.js";
+-import { recordDecision } from "./core/decisions.js";
+-
+-// Parse a free-form manipulation amount typed by the user, scoped to the armed
+-// pendingTool. Returns a transform payload {dx,dy} | {rotation} | {scale} or null.
+-const _DIRS = {
+-  north: [0, 1], n: [0, 1], up: [0, 1], south: [0, -1], s: [0, -1], down: [0, -1],
+-  east: [1, 0], e: [1, 0], right: [1, 0], west: [-1, 0], w: [-1, 0], left: [-1, 0],
+-  northeast: [0.707, 0.707], ne: [0.707, 0.707], northwest: [-0.707, 0.707], nw: [-0.707, 0.707],
+-  southeast: [0.707, -0.707], se: [0.707, -0.707], southwest: [-0.707, -0.707], sw: [-0.707, -0.707],
+-};
+-function _parseManip(tool, text) {
+-  const low = (text || "").toLowerCase();
+-  if (tool === "move") {
+-    const d = low.match(/(\d+(?:\.\d+)?)/);
+-    const dist = d ? parseFloat(d[1]) : null;
+-    let dir = null;
+-    // Match the longest direction word first (so "northeast" wins over "north").
+-    // NOTE: build the word-boundary regex from a RegExp LITERAL fragment — a
+-    // string like "\\b" becomes a backspace char inside new RegExp(), which
+-    // silently never matches (this was the Move bug).
+-    const words = Object.keys(_DIRS).sort((a, b) => b.length - a.length);
+-    for (const w of words) {
+-      const re = new RegExp("(?:^|[^a-z])" + w + "(?![a-z])");
+-      if (re.test(low)) { dir = _DIRS[w]; break; }
+-    }
+-    if (dist == null || !dir) return null;
+-    return { dx: +(dir[0] * dist).toFixed(3), dy: +(dir[1] * dist).toFixed(3) };
+-  }
+-  if (tool === "rotate") {
+-    const m = low.match(/(-?\d+(?:\.\d+)?)/);
+-    if (!m) return null;
+-    let a = parseFloat(m[1]);
+-    if (/clockwise/.test(low) && !/counter|anti/.test(low)) a = -Math.abs(a);
+-    else if (/counter|anti/.test(low)) a = Math.abs(a);
+-    return { rotation: +a.toFixed(3) };
+-  }
+-  if (tool === "scale" || tool === "pushpull") {
+-    const pct = low.match(/(\d+(?:\.\d+)?)\s*%/);
+-    if (pct) {
+-      const f = parseFloat(pct[1]) / 100;
+-      const shrink = /(shrink|reduce|smaller|down|pull)/.test(low);
+-      return { scale: +(shrink ? 1 - f : 1 + f).toFixed(3) };
+-    }
+-    const x = low.match(/(\d+(?:\.\d+)?)\s*x/) || low.match(/(\d+(?:\.\d+)?)/);
+-    if (x) return { scale: +parseFloat(x[1]).toFixed(3) };
+-  }
+-  return null;
+-}
+-
+-// Detect a full manipulation command from free text (kind + target part), e.g.
+-// "move left wing 3m east", "rotate building 15 degrees", "scale 1.2".
+-function _parseFreeManip(text) {
+-  const low = (text || "").toLowerCase();
+-  let kind = null;
+-  if (/\b(move|shift|nudge|translate)\b/.test(low)) kind = "move";
+-  else if (/\b(rotate|turn|spin)\b/.test(low)) kind = "rotate";
+-  else if (/\b(scale|resize|grow|shrink|enlarge)\b/.test(low)) kind = "scale";
+-  if (!kind) return null;
+-  const transform = _parseManip(kind, low);
+-  if (!transform) return null;
+-  // Target part: "left wing" / "right wing" / "base" → wing; else whole building.
+-  let partId = "building", partLabel = "building";
+-  const wingMatch = low.match(/\b(base|left|right|main|front|back|north|south|east|west)\s+(?:wing|arm)\b/);
+-  if (wingMatch || /\bwing\b/.test(low)) {
+-    const role = wingMatch ? wingMatch[1] : null;
+-    const wings = (getState().buildings?.[0]?.wings) || [];
+-    const match = role ? wings.find((w) => (w.role || "").toLowerCase().includes(role)) : wings[0];
+-    if (match) {
+-      const idx = match.wing_index ?? match.index ?? 0;
+-      partId = `wing_${idx}`; partLabel = `${match.role || "wing"} wing`;
+-    }
+-  }
+-  return { kind, transform, partId, partLabel };
+-}
+-
+-async function _applyFreeManip(message, cmd) {
+-  pushMessage("user", message);
+-  setState({ selectedPartId: cmd.partId, selectedPartLabel: cmd.partLabel });
+-  const { transformSelectedBuilding } = await import("./agentClient.js");
+-  const res = await transformSelectedBuilding(cmd.transform);
+-  _recordManip(cmd.kind, cmd.transform, res);
+-  if (res && res.rejected) {
+-    pushMessage("assistant", `🚫 ${res.reason || "Rejected."}${res.suggestion ? `\n💡 ${res.suggestion}` : ""}`, _manipChips());
+-  } else if (res) {
+-    pushMessage("assistant", `✅ ${cmd.kind} applied to the ${cmd.partLabel}. Keep adjusting:`, _manipChips());
+-    setState({ centerView: "viewer" });
+-  } else {
+-    pushMessage("assistant", "Couldn't apply that — make sure a building is generated.");
+-  }
+-}
+-
+-async function _applyTypedManipulation(message) {
+-  const tool = getState().pendingTool;
+-  const transform = _parseManip(tool, message);
+-  if (!transform) {
+-    pushMessage("user", message);
+-    pushMessage(
+-      "assistant",
+-      tool === "rotate"
+-        ? "Tell me an angle, e.g. *“30 degrees clockwise”* or *“rotate 45”*."
+-        : tool === "move"
+-        ? "Tell me a distance and direction, e.g. *“10m east”* or *“5 meters north”*."
+-        : "Tell me a factor or percent, e.g. *“scale 1.2”* or *“20% bigger”*."
+-    );
+-    return true; // handled (kept armed)
+-  }
+-  pushMessage("user", message);
+-  const { transformSelectedBuilding } = await import("./agentClient.js");
+-  const res = await transformSelectedBuilding(transform);
+-  _recordManip(tool, transform, res);
+-  setState({ pendingTool: null });
+-  if (res && res.rejected) {
+-    pushMessage("assistant", `🚫 ${res.reason || "Rejected."}${res.suggestion ? `\n💡 ${res.suggestion}` : ""}`, _manipChips());
+-  } else if (res) {
+-    pushMessage("assistant", "✅ Applied — the building stays inside the site. Keep adjusting:", _manipChips());
+-    setState({ centerView: "viewer" });
+-  }
+-  return true;
+-}
+-
+-// ---------------------------------------------------------------------------
+-// Architectural-feedback mode — natural-language design intent. Detect critique-
+-// style phrasing (NOT an explicit move/rotate/scale amount) so we can route it to
+-// the AI reasoning layer instead of the literal command parser.
+-// ---------------------------------------------------------------------------
+-const _FEEDBACK_PATTERNS = [
+-  /\bdaylight|sunlight|more (light|sun)|brighter\b/,
+-  /\b(too )?(compact|cramped|dense|crowded|tight|bulky|heavy|massive)\b/,
+-  /\b(taller|make it tall|more floors|more capacity|keep this option)\b/,
+-  /\bcourtyard|atrium|void\b/,
+-  /\b(open space|more open|spacious|breathing room|airy|lighter)\b/,
+-  /\bstreet presence|overshadow|shadow on|privacy|views? (toward|to)\b/,
+-  /\bfeels?\b.*\b(too|more|less)\b/,
+-  /\bi want\b/,
+-];
+-
+-function _looksLikeFeedback(text) {
+-  const low = (text || "").toLowerCase();
+-  // An explicit amount ("5m", "30 degrees", "1.2x", "scale", "rotate") is a manual
+-  // command — let the literal parser handle it, not the reasoning layer.
+-  if (/\b(move|rotate|scale|stretch|push|pull)\b/.test(low) && /\d/.test(low)) return false;
+-  return _FEEDBACK_PATTERNS.some((re) => re.test(low));
+-}
+-
+-async function _applyArchitecturalFeedback(message) {
+-  pushMessage("user", message);
+-  setBusy(true);
+-  setStatus("Reasoning about the design…");
+-  try {
+-    const { applyArchitecturalFeedback } = await import("./agentClient.js");
+-    const res = await applyArchitecturalFeedback(message);
+-    if (!res) {
+-      pushMessage("assistant", "Couldn't interpret that — make sure a building is generated first.", _manipChips());
+-      return;
+-    }
+-    // Build the "✓ reasoning / ✓ actions" trace the user asked for.
+-    const obs = (res.observations || []).map((o) => `&nbsp;&nbsp;✓ ${o}`).join("\n");
+-    const acts = (res.actions || [])
+-      .map((a) => (a.accepted ? `&nbsp;&nbsp;✅ ${a.text}` : `&nbsp;&nbsp;🚫 ${a.text} — ${a.reason || "skipped"}`))
+-      .join("\n");
+-    const header = `**${res.reason || "Architectural feedback"}**` +
+-      (res.reasoning_source === "heuristic" ? " _(rule-based — no LLM configured)_" : "");
+-    const body = [
+-      header,
+-      obs ? `\n**Reasoning:**\n${obs}` : "",
+-      acts ? `\n**Actions generated:**\n${acts}` : "",
+-      res.applied ? "\n_Applied through the move/rotate/scale engine — the building stays inside the site._"
+-                  : "\n_No geometric change was applied (all actions left the site or were vertical-only)._",
+-    ].filter(Boolean).join("\n");
+-
+-    recordDecision("editing", "architectural_feedback", {
+-      input: message,
+-      result: res.reason || "Architectural feedback applied",
+-      data: {
+-        reason: res.reason,
+-        source: res.reasoning_source,
+-        actions: (res.actions || []).map((a) => ({ text: a.text, op: a.op, accepted: a.accepted })),
+-        floors: res.floors, height_m: res.height_m,
+-      },
+-    });
+-
+-    pushMessage("assistant", body, _manipChips());
+-    if (res.applied) setState({ centerView: "viewer" });
+-  } finally {
+-    setBusy(false);
+-    setStatus("Ready");
+-  }
+-}
+-
+-// Record a manipulation into the decision timeline (accepted or rejected, with
+-// the part it targeted and the amount).
+-function _recordManip(tool, transform, res) {
+-  const part = getState().selectedPartLabel || "building";
+-  if (res && res.rejected) {
+-    recordDecision("editing", `${tool}_rejected`, {
+-      input: JSON.stringify(transform), result: res.reason || "Rejected (boundary violation)",
+-      data: { part, rejected: true, suggestion: res.suggestion },
+-    });
+-  } else if (res) {
+-    recordDecision("editing", `${tool}_applied`, {
+-      input: JSON.stringify(transform), result: `${tool} applied to ${part}`,
+-      data: { part, transform },
+-    });
+-  }
+-}
+-
+-// Quick-reply chips: the full manipulation toolset + optimize/compare.
+-function _manipChips() {
+-  return [
+-    { label: "Move", message: "Move the selected building", intent: "move" },
+-    { label: "Rotate", message: "Rotate the selected building", intent: "rotate" },
+-    { label: "Scale", message: "Scale the selected building", intent: "scale" },
+-    { label: "Push/Pull", message: "Push or pull the building", intent: "pushpull" },
+-    { label: "AI Feedback", message: "Give architectural feedback", intent: "feedback" },
+-    { label: "Optimize", message: "Optimize the building placement", intent: "optimize" },
+-    { label: "Compare", message: "compare", intent: "compare" },
+-  ];
+-}
+ 
+ function closeRing(points) {
+   const ring = points.map((p) => [Number(p[0]), Number(p[1])]);
+-  if (
+-    ring.length &&
+-    (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1])
+-  ) {
++  if (ring.length && (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1])) {
+     ring.push([ring[0][0], ring[0][1]]);
+   }
+   return ring;
+ }
+ 
+-// The map draws the boundary in geographic degrees ([lng, lat]), but the agent's
+-// geometry engine works entirely in METERS (building footprints, setbacks of "3.0",
+-// site-fit checks). Sending raw degrees makes the site span ~0.0006° which the agent
+-// reads as ~0 m² — so nothing fits and no building is generated. Project the ring to
+-// a local metric frame (equirectangular about its centroid; sub-meter accurate at
+-// site scale) before it goes to the backend. The origin is returned so the result
+-// could be unprojected back to lng/lat if ever needed.
+-function projectRingToMeters(ring) {
+-  if (!ring || ring.length < 3) return { ring, origin: null };
+-  const lngs = ring.map((p) => Number(p[0]));
+-  const lats = ring.map((p) => Number(p[1]));
+-  const lng0 = lngs.reduce((a, b) => a + b, 0) / lngs.length;
+-  const lat0 = lats.reduce((a, b) => a + b, 0) / lats.length;
+-  const R = 6378137; // WGS84 equatorial radius (m)
+-  const cosLat = Math.cos((lat0 * Math.PI) / 180);
+-  const projected = ring.map((p) => [
+-    ((Number(p[0]) - lng0) * Math.PI) / 180 * R * cosLat,
+-    ((Number(p[1]) - lat0) * Math.PI) / 180 * R,
+-  ]);
+-  return { ring: projected, origin: { lng: lng0, lat: lat0 } };
+-}
+-
+-// ---------------------------------------------------------------------------
+-// Coordinate / location parsing for the SITE stage (frontend-owned).
+-// ---------------------------------------------------------------------------
+-function parseCoords(text) {
+-  const m = /(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)/.exec(text || "");
+-  if (!m) return null;
+-  const lat = Number(m[1]);
+-  const lng = Number(m[2]);
+-  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+-  return { lat, lng };
+-}
+-
+-// Resolve a free-text location to coordinates using the REAL backend geocoder,
+-// falling back to the browser's geocoder shim only if the backend is unreachable.
+-async function resolveLocation(text) {
+-  const coords = parseCoords(text);
+-  if (coords) return { name: text, ...coords };
+-  try {
+-    const { results } = await api.agent.geocode(text, 1);
+-    if (results && results.length) {
+-      const r = results[0];
+-      return { name: r.name || text, lat: r.lat, lng: r.lng };
++function shapeTypeLabel(shapeType) {
++  const s = String(shapeType || "rectangle").toLowerCase();
++  const map = { h_shape: "H Shape", u_shape: "U Shape", l_shape: "L Shape",
++    rectangle: "Rectangle", courtyard: "Courtyard", tower_podium: "Tower + Podium",
++    i_shape: "I Shape" };
++  return map[s] || s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
++}
++
++function syncOptionsFromView(view) {
++  if (!view || !view.payload) return;
++  const result = view.payload.result;
++  if (!result) return;
++  const options = result.best_4_options || result.options || null;
++  if (options && options.length) {
++    const shapesByType = { ...getState().shapesByType };
++    for (const o of options) {
++      const t = shapeTypeLabel(o.shape_type);
++      shapesByType[t] = shapesByType[t] || [];
++      if (!shapesByType[t].some((x) => x.option_id === o.option_id)) shapesByType[t].push(o);
+     }
+-  } catch (err) {
+-    // Backend geocoder down — surface it but let the caller fall back.
+-    pushError(`Backend geocoder unavailable: ${err.message}`);
+-  }
+-  return null;
+-}
+-
+-// ---------------------------------------------------------------------------
+-// SITE stage handler — fly the map, drop a pin, advance to BOUNDARY.
+-// ---------------------------------------------------------------------------
+-async function handleSite(message) {
+-  setStatus("Locating site…");
+-  setState({ isLocatingSite: true });
+-  const loc = await resolveLocation(message);
+-  if (!loc) {
+-    setState({ isLocatingSite: false });
+-    pushMessage(
+-      "assistant",
+-      "I couldn't find that place. Try a place name (e.g. *Bangalore*), an " +
+-        "address, or coordinates like *12.9716, 77.5946*."
+-    );
+-    setStatus("Ready · Site");
+-    return;
+-  }
+-  await dispatchView({
+-    type: "map",
+-    payload: { action: "fly_to", site: { center: loc, location_name: loc.name } },
+-  });
+-  setState({
+-    stage: STAGES.BOUNDARY,
+-    centerView: "map",
+-    location: loc,
+-    locationSaved: true,
+-  });
+-  recordDecision("site", "location_selected", {
+-    input: loc.name, result: "Location confirmed",
+-    data: { lat: loc.lat, lng: loc.lng },
+-  });
+-  pushMessage(
+-    "assistant",
+-    `Located **${loc.name}**. Now outline the **site boundary** on the map — click ` +
+-      "to drop points, drag vertices to adjust, right-click a vertex to remove it. " +
+-      "When the polygon is closed, choose **Save Boundary**.",
+-    [
+-      { label: "Draw Boundary", message: "draw boundary", intent: "draw_boundary" },
+-    ]
+-  );
+-  setStatus("Ready · Boundary");
+-}
+-
+-// ---------------------------------------------------------------------------
+-// BOUNDARY stage handler — analyze + persist the drawn boundary, then hand the
+-// design conversation to the agent backend.
+-// ---------------------------------------------------------------------------
+-async function handleBoundary(message, action) {
+-  const s = getState();
+-  const intent = action?.intent;
+-
+-  if (intent === "draw_boundary" || /draw|edit/.test(message.toLowerCase())) {
+-    await dispatchView({ type: "map", payload: { action: "enable_draw" } });
+-    setState({ isBoundaryActivating: true });
+-    pushMessage("assistant", "Drawing enabled. Click on the map to outline the site.");
+-    return;
+-  }
+-
+-  if (intent === "reset_boundary") {
+-    setState({ boundary: [], boundarySaved: false });
+-    await dispatchView({ type: "map", payload: { action: "enable_draw" } });
+-    pushMessage("assistant", "Boundary cleared. Outline a new one.");
+-    return;
+-  }
+-
+-  // Save / confirm path.
+-  const drawn = s.boundary || [];
+-  if (drawn.length < 3) {
+-    pushMessage("assistant", "Outline at least three points before saving the boundary.");
+-    return;
+-  }
+-
+-  setStatus("Analyzing boundary…");
+-  setState({ isAnalyzingBoundary: true });
+-
+-  const geoRing = closeRing(drawn);
+-  // Project to a local metric frame so the agent (which works in meters) sees a
+-  // real-sized site instead of a ~0 m² patch of degrees. All backend calls below
+-  // use the metric ring so analysis, buildable zone and placement stay consistent.
+-  const { ring, origin } = projectRingToMeters(geoRing);
+-
+-  // Persist the confirmed site as the shared single source of truth via the
+-  // runtime route (connection/notebook_logic/site_state). The agent, geometry,
+-  // optimization, and decision-graph runtimes all read this same confirmed site.
+-  try {
+-    await api.runtime.confirmSite(geoRing, {
+-      project: true,
+-      location_name: s.location?.name,
+-    });
+-  } catch (err) {
+-    pushError(`Could not save confirmed site: ${err.message}`);
+-  }
+-
+-  let areaSqm = null;
+-  let buildable = null;
+-  try {
+-    // Real backend boundary analysis + buildable zone (agent tools).
+-    const analysis = await api.agent.analyzeBoundary(ring);
+-    areaSqm = analysis?.area_sqm ?? null;
+-    setState({ siteAnalysis: analysis?.analysis || null });
+-    const bz = await api.agent.buildableZone(ring, 3);
+-    buildable = bz?.buildable_boundary || null;
+-    setState({ buildableBoundary: buildable });
+-  } catch (err) {
+-    // Analysis is best-effort; a boundary can still be saved without it.
+-    pushError(`Boundary analysis unavailable: ${err.message}`);
+-  }
+-
+-  // Create the agent session seeded with the confirmed site boundary so every
+-  // later agent turn already knows the site. (build_initial_state reads
+-  // layout_payload.site_boundary.)
+-  let sessionId = s.sessionId;
+-  try {
+-    const { ensureAgentAvailable, ensureSession } = await import("./agentClient.js");
+-    const ok = await ensureAgentAvailable();
+-    if (ok) {
+-      sessionId = await ensureSession({
+-        user_prompt: "",
+-        site_boundary: ring,
+-        workflow_mode: "full",
+-      });
+-      // Persist the confirmed boundary onto the session state as well. Record the
+-      // projection origin (lng/lat the metric frame is centered on) so the metric
+-      // geometry can be mapped back to the globe for export.
+-      await api.agent.saveSessionBoundary(sessionId, ring, {
+-        center: origin || (s.location ? { lat: s.location.lat, lng: s.location.lng } : undefined),
+-        location_name: s.location?.name,
+-      });
+-    }
+-  } catch (err) {
+-    pushError(`Could not start an agent session: ${err.message}`);
++    setState({
++      options,
++      shapesByType,
++      optimizationScore: result.optimization_score ?? getState().optimizationScore,
++      visibleOptionIds: new Set(options.map((o) => o.option_id)),
++    });
++  } else if (result.updated_geometry) {
++    setState({ currentDesign: result.updated_geometry });
+   }
+-
+-  await dispatchView({
+-    type: "map",
+-    payload: {
+-      action: "boundary_saved",
+-      site: {
+-        confirmed_site_boundary: { type: "Polygon", coordinates: [ring] },
+-        site_area: areaSqm,
+-      },
+-    },
+-  });
+-
+-  // Persist boundary state, then let the workflow controller advance to SHAPES
+-  // (sets centerView + emits the "describe what to generate" guiding prompt).
+-  setState({
+-    boundary: drawn,
+-    boundarySaved: true,
+-    isAnalyzingBoundary: false,
+-    // The 3D viewer draws s.site.boundary in the agent's METRIC coordinate space,
+-    // so feed it the projected ring (not the raw lng/lat).
+-    site: {
+-      ...(s.site || {}),
+-      boundary: ring.map((p) => [Number(p[0]), Number(p[1])]),
+-      site_area: areaSqm,
+-      buildable_boundary: buildable,
+-    },
+-  });
+-
+-  const areaText = areaSqm ? ` (~${Math.round(areaSqm).toLocaleString()} m²)` : "";
+-  pushMessage("assistant", `✅ Site boundary saved${areaText}.`);
+-  recordDecision("boundary", "boundary_drawn", {
+-    input: `${drawn.length} points`, result: `Site boundary saved (${Math.round(areaSqm || 0)} m²)`,
+-    data: { area_sqm: areaSqm },
+-  });
+-  // NEW: Urban Context Analysis runs automatically after the boundary is confirmed,
+-  // BEFORE shape generation. It fetches the surrounding city, scores the context,
+-  // posts a report, then asks the context-aware building question.
+-  const { enterStage } = await import("./core/workflow.js");
+-  enterStage(STAGES.CONTEXT); // shows the "Analyzing urban context…" message
+-  setStatus("Analyzing context…");
+-  await runContextAnalysis();
+ }
+ 
+-// ---------------------------------------------------------------------------
+-// Urban Context Analysis — fetch the 2 km city context, render the digital twin,
+-// post the AI context report + score KPIs, then advance to SHAPES with the
+-// context-aware building question.
+-// ---------------------------------------------------------------------------
+-async function runContextAnalysis({ refresh = false } = {}) {
+-  const sid = getState().sessionId;
+-  if (!sid) {
+-    // No agent session (backend down) — skip context, go straight to shapes.
+-    const { enterStage } = await import("./core/workflow.js");
+-    enterStage(STAGES.SHAPES);
++function applyResponse(resp) {
++  if (!resp) return;
++
++  // Insert the Urban Context Analysis stage between Boundary and Shapes. When the
++  // backend signals the boundary was just confirmed, intercept its stage advance:
++  // the client-side context controller takes over the conversation (it advances to
++  // CONTEXT, runs analysis, posts the report, then re-offers shape generation). We
++  // suppress the backend's "now generate shapes" reply/actions to avoid a double
++  // prompt — but still apply any other side-effects below.
++  const boundaryJustConfirmed =
++    resp.view?.type === "map" && resp.view?.payload?.action === "boundary_saved";
++  if (boundaryJustConfirmed) {
++    if (resp.status) setStatus(resp.status);
++    // forward the map view action so the saved boundary is drawn (this also fires
++    // triggerContextAnalysis inside mapView.onAction).
++    dispatchView(resp.view).catch((e) => console.error("[copilot] view dispatch", e));
+     return;
+   }
+-  setState({ contextLoading: true, contextError: null, centerView: "context" });
+-  setBusy(true);
+-  pushMessage("assistant", "🛰️ Pulling the surrounding city from OpenStreetMap and scoring the context — this takes a few seconds…");
+-  try {
+-    const center = getState().location ? { lat: getState().location.lat, lng: getState().location.lng } : undefined;
+-    const ctx = await api.agent.analyzeContext(sid, { radius_m: 2000, refresh, center });
+-    setState({ urbanContext: ctx, contextLoading: false, contextVisibleLayers: null });
+-    recordDecision("context", "context_analyzed", {
+-      result: "Urban context analyzed",
+-      data: { scores: ctx.scores, buildings: ctx.summary?.buildings },
+-    });
+-    // Render the 3D twin through the center dispatcher so its DOM (#view-context)
+-    // is guaranteed mounted + visible BEFORE the view builds (direct activate() can
+-    // run before the panel mounts the container, leaving the center blank).
+-    try {
+-      const { dispatchView } = await import("./panels/center.js");
+-      await dispatchView({ type: "context", payload: { action: "render" } });
+-    } catch (e) { console.error("[context] twin render failed", e); }
+-    _postContextReport(ctx);
+-  } catch (err) {
+-    setState({ contextLoading: false, contextError: err.message || "Context unavailable" });
+-    pushMessage(
+-      "assistant",
+-      `⚠️ I couldn't load the urban context (${err.message || "OpenStreetMap unavailable"}). ` +
+-        "You can retry, or continue to shape generation without it.",
+-      [
+-        { label: "Retry context", intent: "retry_context" },
+-        { label: "Continue to shapes", intent: "skip_context" },
+-      ]
+-    );
+-  } finally {
+-    setBusy(false);
+-    setStatus("Ready");
+-  }
+-}
+-
+-// Render the context report: narrative, per-edge notes, opportunities, and the ten
+-// score KPIs — then ask the context-aware building question and advance to SHAPES.
+-function _postContextReport(ctx) {
+-  const r = ctx.report || {};
+-  const labels = ctx.score_labels || {};
+-  const scoreLine = Object.entries(ctx.scores || {})
+-    .map(([k, v]) => `${labels[k] || k}: **${Math.round(v)}**`)
+-    .join(" · ");
+-  const edgeLines = (r.edges || [])
+-    .filter((e) => (e.notes || []).length)
+-    .map((e) => `**${e.edge}**\n${e.notes.map((n) => `&nbsp;&nbsp;• ${n}`).join("\n")}`)
+-    .join("\n");
+-  const opp = (r.opportunities || []).map((o) => `&nbsp;&nbsp;✓ ${o}`).join("\n");
+-
+-  pushMessage(
+-    "assistant",
+-    [
+-      "## Urban Context Summary",
+-      r.narrative || "",
+-      edgeLines ? `\n${edgeLines}` : "",
+-      opp ? `\n**Opportunities:**\n${opp}` : "",
+-      `\n**Context Scores** — ${scoreLine}`,
+-    ].filter(Boolean).join("\n")
+-  );
+ 
+-  // STAY on the Context stage so the user can explore the 3D digital twin and the
+-  // report. We do NOT auto-advance to SHAPES (that was hiding the twin instantly).
+-  // The context-aware building question is asked here; answering it (typing or a
+-  // chip) is what advances to SHAPES — see sendMessage's generation routing, which
+-  // fires once the user describes a building.
+-  setState({ centerView: "context" });
+-  setStatus("Ready · Context");
+-  pushMessage(
+-    "assistant",
+-    "I've analyzed the surrounding urban context. Based on the site's accessibility, " +
+-      "amenities, transportation network, and context scores, **what type of building " +
+-      "would you like me to generate?** _(Explore the digital twin in the center — hover a " +
+-      "site edge to see nearest metro, park, road, etc.)_",
+-    [
+-      { label: "A commercial building", message: "I want to build a commercial building" },
+-      { label: "A residential block", message: "I'd like a residential building of about 5 floors" },
+-      { label: "Mixed-use development", message: "I want a mixed-use building" },
+-    ]
+-  );
+-}
+-
+-// ---------------------------------------------------------------------------
+-// Route a message to the agent backend (used after a shape is selected; the
+-// SHAPES stage routes generation prompts to the Shape Library instead).
+-// ---------------------------------------------------------------------------
+-
+-async function handleAgent(message) {
+-  try {
+-    const { ensureAgentAvailable, streamChat } = await import("./agentClient.js");
+-    const ok = await ensureAgentAvailable();
+-    if (!ok) {
+-      pushMessage(
+-        "assistant",
+-        `⚠️ The agent backend isn't reachable at \`${api.agentBase || "same origin"}\`. ` +
+-          "Start it with `uvicorn connection.app:app --port 8001` (from team_04/PY) " +
+-          "and reload."
+-      );
+-      return;
+-    }
+-
+-    // STAGE 1 enforcement: in the SHAPES stage, ANY design/generation prompt
+-    // produces the Shape Library (multiple typologies to choose from) — even when
+-    // a specific shape is named. Shape generation + selection must always happen
+-    // before optimization, so we never let a prompt place a single building and
+-    // skip ahead. Once a shape is selected (SHAPE_EDIT onward), chat flows to the
+-    // agent normally. This also fires from the CONTEXT stage: after the urban-
+-    // context analysis we keep the user on the Context twin and ask the building
+-    // question there, so answering it (here) is what generates shapes + advances.
+-    const stg = getState().stage;
+-    if ((stg === STAGES.SHAPES || stg === STAGES.CONTEXT) && getState().boundarySaved) {
+-      await _generateMultiTypology(message);
+-      return;
+-    }
+-
+-    recordDecision("shape", "shape_prompt_submitted", { input: message, result: "Prompt sent to agent" });
+-    const beforeCount = (getState().buildings || []).length;
+-    await streamChat(message);
+-    // After the turn settles, switch the center to the viewer if buildings exist.
+-    const after = getState().buildings || [];
+-    if (after.length) {
+-      if (after.length > beforeCount) {
+-        const b = after[after.length - 1];
+-        recordDecision("shape", "shape_generated", {
+-          result: `${b.building_type || "building"} generated inside the site`,
+-          data: { building_type: b.building_type, height_m: b.height_m, wings: (b.wings || []).length },
+-        });
+-      }
+-      setState({ centerView: STAGE_VIEW[getState().stage] || "viewer" });
+-    }
+-  } catch (err) {
+-    pushError(err.message || "Agent chat failed.");
+-    pushMessage("assistant", `⚠️ ${err.message || "Agent chat failed."}`);
++  if (resp.stage) {
++    const view = resp.view?.type || STAGE_VIEW[resp.stage] || getState().centerView;
++    setState({ stage: resp.stage, centerView: view });
++  } else if (resp.view?.type) {
++    setState({ centerView: resp.view.type });
++  }
++  if (resp.status) setStatus(resp.status);
++  if (resp.reply) {
++    pushMessage("assistant", resp.reply, resp.actions || []);
++  } else if (resp.actions) {
++    setState({ actions: resp.actions });
++  }
++  // Pull generated/optimized options into the store so the explorer + viewer
++  // stay in sync with the latest result.
++  syncOptionsFromView(resp.view);
++
++  // Track active tool when the orchestrator sets one.
++  if (resp.tool) setState({ activeTool: resp.tool });
++
++  // Forward any view payload to the active center view module.
++  if (resp.view && resp.view.type) {
++    dispatchView(resp.view).catch((e) => console.error("[copilot] view dispatch", e));
++  }
++  // Client-side download requests (export stage).
++  if (resp.download) {
++    const url = resp.download === "rhino" ? api.exportRhinoUrl() : api.exportIfcUrl();
++    window.open(url, "_blank");
+   }
+-}
+-
+-// STAGE 1 — Shape generation. Generate multiple massing typologies and present
+-// them in the SHAPE LIBRARY for the user to pick from. NO optimization runs here:
+-// the options land in the `shapeOptions` bucket and the stage stays on SHAPES.
+-// Optimization only runs later, on the ONE shape the user selects.
+-const _SHAPE_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+-
+-async function _generateMultiTypology(message) {
+-  const sid = getState().sessionId;
+-  if (!sid) { pushMessage("assistant", "Start a session by saving a boundary first."); return; }
+-  recordDecision("shape", "shape_options_requested", { input: message, result: "Generating shape options" });
+-  setBusy(true);
+-  setStatus("Generating shape options…");
+-  try {
+-    // Context-aware generation: a high transit/density context nudges coverage up
+-    // so the shape options reflect the urban context (more density where the city
+-    // supports it). The directives come from the Context Analysis stage.
+-    const directives = getState().urbanContext?.directives || {};
+-    const genOpts = {};
+-    if (directives.density_bias) genOpts.coverage_ratio = Math.min(0.9, 0.35 + directives.density_bias);
+-    const res = await api.agent.generateOptions(sid, message, genOpts);
+-    const opts = res.options || [];
+-    if (!opts.length) {
+-      pushMessage("assistant", "I couldn't fit any shapes on this site — try a larger boundary, or tell me a specific shape.");
+-      return;
+-    }
+-    // Keep the raw shape options (footprint/type/fit) for the Shape Library — NOT
+-    // mapped into the optimization `options` bucket. All shapes visible at once.
+-    const shapeOptions = opts.map((o) => ({
+-      option_id: o.option_id, shape_type: o.shape_type, footprint: o.footprint,
+-      boundary: o.footprint, height_m: o.height_m, floors: o.floors,
+-      rotation_degrees: o.rotation_degrees, score: o.score, rank: o.rank,
+-      far: o.far, site_coverage: o.site_coverage, footprint_area: o.footprint_area,
+-      validation_report: o.validation_report || {},
+-    }));
+-    setState({
+-      shapeOptions,
+-      shapesByType: res.shapes_by_type || {},
+-      visibleShapeIds: new Set(shapeOptions.map((o) => o.option_id)),
+-      selectedShapeId: shapeOptions[0]?.option_id || null,
+-      selectedShapeType: null, // not yet committed — gates OPTIMIZE
+-      stage: STAGES.SHAPES, centerView: "shapes",
+-    });
+-    const program = res.program || {};
+-    recordDecision("shape", "shape_options_generated", {
+-      result: `${opts.length} shape options generated`,
+-      data: { typologies: res.typologies, count: opts.length },
+-    });
+-    const useTxt = program.building_use ? `${program.building_use} ` : "";
+-    const flrTxt = program.floors ? `${program.floors}-floor ` : "";
+-    const labelList = shapeOptions
+-      .map((o, i) => `**Shape ${_SHAPE_LETTERS[i] || i + 1}** (${o.shape_type})`)
+-      .join(", ");
+-    const directiveNotes = (getState().urbanContext?.directives?.notes || []);
+-    const ctxNote = directiveNotes.length
+-      ? `\n\n_Context-aware:_ ${directiveNotes.join("; ")}.`
+-      : "";
+-    pushMessage(
+-      "assistant",
+-      `Here are **${opts.length} ${flrTxt}${useTxt}massing options** to explore — ${labelList}. ` +
+-        "They're all shown in the **Shape Library** and the 3D viewport, scaled to fit your site. " +
+-        "Toggle 👁 to preview each one, then **select** the shape you'd like to take forward. " +
+-        "_(Optimization runs after you choose.)_" + ctxNote,
+-      shapeOptions.slice(0, 4).map((o, i) => ({
+-        label: `Select Shape ${_SHAPE_LETTERS[i] || i + 1}`,
+-        intent: "select_shape", optionId: o.option_id,
+-      }))
+-    );
+-    // Pre-warm the 3D preview so the shapes are already drawn on the context twin
+-    // (in the surrounding city) the moment the user toggles a shape's eye. If no
+-    // context, pre-warm the plain viewer instead.
+-    try {
+-      if (getState().urbanContext?.geometry) {
+-        const cv = await import("./views/contextView.js");
+-        cv.renderShapePreview(shapeOptions);
+-      } else {
+-        const viewer = await import("./views/viewerView.js");
+-        viewer.renderShapePreview(shapeOptions);
+-      }
+-    } catch { /* views mount on view switch */ }
+-  } catch (err) {
+-    pushError(`Shape generation failed: ${err.message}`);
+-  } finally {
+-    setBusy(false);
+-    setStatus("Ready");
++  if (resp.go_home) {
++    window.dispatchEvent(new CustomEvent("terrapilot:go-home"));
+   }
+ }
+ 
+-// STAGE 2 — Shape selection. Commit to ONE shape: promote it to the session's
+-// placed building (backend), record the decision, and advance to SHAPE_EDIT.
+-// This is the ONLY path that unlocks optimization.
+-export async function confirmShapeSelection(opt) {
+-  const sid = getState().sessionId;
+-  if (!sid || !opt) { pushMessage("assistant", "Generate shapes first, then pick one."); return; }
+-  const i = (getState().shapeOptions || []).findIndex((o) => o.option_id === opt.option_id);
+-  const label = `Shape ${_SHAPE_LETTERS[i] || (i + 1)}`;
+-  setBusy(true);
+-  setStatus("Selecting shape…");
+-  try {
+-    const res = await api.agent.selectShape(sid, opt.option_id);
+-    // Mark the committed shape and place it as the single building, then pull the
+-    // explorer so buildings[] reflects the selection for transform/optimize/feedback.
+-    setState({
+-      selectedShapeType: res.shape_type || opt.shape_type,
+-      selectedBuildingId: res.building_id,
+-      selectedOptionId: null,
+-    });
+-    const { refreshExplorer } = await import("./agentClient.js");
+-    await refreshExplorer();
+-    recordDecision("shape", "shape_selected", {
+-      input: label, result: `${res.shape_type || opt.shape_type} selected`,
+-      data: { option_id: opt.option_id, shape_type: res.shape_type },
+-    });
+-    pushMessage("user", `Select ${label}`);
+-    const { enterStage } = await import("./core/workflow.js");
+-    enterStage(STAGES.SHAPE_EDIT, { announce: false });
+-    setState({ centerView: "viewer" });
+-    pushMessage(
+-      "assistant",
+-      `Great — going with the **${res.shape_type || opt.shape_type}** (${label}). ` +
+-        "You can fine-tune it now (Move / Rotate / Scale / Push-Pull, wing editing, or just tell me how it " +
+-        "should feel — *“more daylight”*, *“a larger courtyard”*), or run **optimization** to generate " +
+-        "ranked design alternatives.",
+-      [
+-        { label: "Optimize this shape", message: "Optimize the building placement", intent: "optimize", primary: true },
+-        { label: "Move", message: "Move the selected building", intent: "move" },
+-        { label: "Rotate", message: "Rotate the selected building", intent: "rotate" },
+-        { label: "AI Feedback", message: "Give architectural feedback", intent: "feedback" },
+-      ]
+-    );
+-  } catch (err) {
+-    pushError(`Could not select that shape: ${err.message}`);
+-  } finally {
+-    setBusy(false);
+-    setStatus("Ready");
+-  }
++// Local fallback used only when /copilot is unavailable.
++function localStub(message) {
++  return {
++    reply:
++      "I'm online, but the workflow orchestrator isn't wired up yet. " +
++      `You said: *${message}*.`,
++    actions: [],
++    stage: getState().stage,
++    status: "Copilot offline (stub)",
++  };
+ }
+ 
+-// ---------------------------------------------------------------------------
+-// Public entry — called by the copilot panel for every send.
+-// ---------------------------------------------------------------------------
+ export async function sendMessage(message, action = null) {
+-  // Client-only actions (e.g. trigger a download) run their handler and stop.
+   if (action?.local && typeof action.handler === "function") {
++    // Some actions are handled entirely client-side (e.g. open a download).
+     await action.handler();
+     return;
+   }
+-
+-  // "AI Feedback" mode is armed (chip clicked) — the next typed message is design
+-  // intent for the reasoning layer, not a literal command. Disarm after handling.
+-  if (!action && getState().pendingFeedback) {
+-    setState({ pendingFeedback: false });
+-    await _applyArchitecturalFeedback(message);
+-    return;
+-  }
+-
+-  // Urban Context — retry the OSM fetch, or skip context and go to shapes.
+-  if (action?.intent === "retry_context") {
+-    pushMessage("user", "Retry context");
+-    await runContextAnalysis({ refresh: true });
+-    return;
+-  }
+-  if (action?.intent === "skip_context") {
+-    pushMessage("user", "Continue to shapes");
+-    const { enterStage } = await import("./core/workflow.js");
+-    enterStage(STAGES.SHAPES);
+-    return;
+-  }
+-
+-  // Shape selection (Stage 2) — a "Select Shape X" chip from the Shape Library.
+-  if (action?.intent === "select_shape") {
+-    const opt = (getState().shapeOptions || []).find((o) => o.option_id === action.optionId);
+-    if (!opt) { pushMessage("assistant", "That shape is no longer available — generate shapes again."); return; }
+-    await confirmShapeSelection(opt);
+-    return;
+-  }
+-
+-  // "AI Feedback" chip — arm feedback mode and prompt for the design intent.
+-  if (action?.intent === "feedback") {
+-    if (!(getState().buildings || []).length) {
+-      pushMessage("assistant", "Generate a building first, then tell me how it should feel.");
+-      return;
+-    }
+-    setState({ pendingFeedback: true });
+-    pushMessage("user", "Give architectural feedback");
+-    pushMessage(
+-      "assistant",
+-      "**Architectural feedback** — tell me how the design should *feel* and I'll work out the moves. " +
+-        "Try *“I want more daylight”*, *“it feels too compact”*, or *“keep this option but make it taller”*.",
+-      [
+-        { label: "More daylight", message: "I want more daylight" },
+-        { label: "Feels too compact", message: "It feels too compact" },
+-        { label: "Make it taller", message: "Keep this option but make it taller" },
+-      ]
+-    );
+-    return;
+-  }
+-
+-  // A manipulation tool is armed (Move/Rotate/Scale clicked) and the user typed a
+-  // free-form amount like "10m east" / "30 degrees clockwise" / "scale 1.2". Parse
+-  // it and apply via the backend, then disarm. This makes the tools work from typed
+-  // commands exactly like the preset chips.
+-  if (!action && getState().pendingTool) {
+-    const handled = await _applyTypedManipulation(message);
+-    if (handled) return;
+-    // not parseable → fall through, but keep the tool armed for another try
+-  }
+-
+-  // Part selection — choose whole building or a wing/arm as the manipulation
+-  // target. Subsequent Move/Rotate/Scale act on this part.
+-  if (action?.intent === "select_part") {
+-    setState({ selectedPartId: action.partId || "building", selectedPartLabel: action.partLabel || "building" });
+-    recordDecision("editing", "part_selected", { input: action.partLabel, result: `Selected ${action.partLabel}` });
+-    pushMessage("user", `Select ${action.partLabel || "building"}`);
+-    pushMessage("assistant", `Editing **${action.partLabel || "the building"}**. Pick a tool:`, _manipChips());
+-    return;
+-  }
+-
+-  // Manipulation tools (Move / Rotate / Scale / Push-Pull) — direct geometry
+-  // transforms on the placed building via the BACKEND geometry runtime
+-  // (modify_building_boundary / modify_building_wings), never frontend-only. Each
+-  // tool button opens a palette of chips; each chip carries a transform payload.
+-  if (["move", "rotate", "scale", "pushpull"].includes(action?.intent)) {
+-    const { transformSelectedBuilding } = await import("./agentClient.js");
+-    // A chip with an explicit transform payload performs the modification.
+-    if (action.transform) {
+-      pushMessage("user", action.label || "Modify building");
+-      const res = await transformSelectedBuilding(action.transform);
+-      _recordManip(action.intent, action.transform, res);
+-      if (res && res.rejected) {
+-        // Constraint rejection: explain why + suggest a valid alternative, and keep
+-        // the previous valid geometry (the backend already restored it).
+-        pushMessage(
+-          "assistant",
+-          `🚫 ${res.reason || "Modification rejected."}${res.suggestion ? `\n💡 ${res.suggestion}` : ""}`,
+-          _manipChips()
+-        );
+-      } else if (res) {
+-        // A wing MOVE moves the whole building (wings can't translate independently).
+-        const note =
+-          action.intent === "move" && (getState().selectedPartId || "building") !== "building" && action.transform.dx !== undefined
+-            ? " (a wing can't slide on its own, so I moved the whole building)"
+-            : "";
+-        pushMessage("assistant", `✅ Applied${note}. The building stays inside the site. Keep adjusting:`, _manipChips());
+-        setState({ centerView: "viewer" });
+-      } else {
+-        // res === null → the request errored (network / backend). Don't fail silently.
+-        pushMessage("assistant", "⚠️ Couldn't apply that change — please try again or pick a smaller amount.", _manipChips());
+-      }
+-      return;
+-    }
+-    // No payload yet → ask the user HOW MUCH / WHICH WAY, and arm pendingTool so
+-    // their next typed message is parsed as the transform amount. Quick presets
+-    // remain available as chips.
+-    const partLabel = getState().selectedPartLabel || "building";
+-    setState({ pendingTool: action.intent });
+-    if (action.intent === "move") {
+-      pushMessage("user", "Move");
+-      pushMessage(
+-        "assistant",
+-        `**Move** the ${partLabel} — tell me **how far and which direction**, e.g. *“10m east”* or *“move 5 meters north”*. Or pick a quick nudge:`,
+-        [
+-          { label: "5m North", intent: "move", transform: { dy: 5 } },
+-          { label: "5m South", intent: "move", transform: { dy: -5 } },
+-          { label: "5m East", intent: "move", transform: { dx: 5 } },
+-          { label: "5m West", intent: "move", transform: { dx: -5 } },
+-        ]
+-      );
+-    } else if (action.intent === "rotate") {
+-      pushMessage("user", "Rotate");
+-      pushMessage(
+-        "assistant",
+-        `**Rotate** the ${partLabel} — tell me **what angle and direction**, e.g. *“30 degrees clockwise”* or *“rotate 45”*. Or pick a preset:`,
+-        [
+-          { label: "↺ 15°", intent: "rotate", transform: { rotation: 15 } },
+-          { label: "↻ 15° CW", intent: "rotate", transform: { rotation: -15 } },
+-          { label: "↺ 45°", intent: "rotate", transform: { rotation: 45 } },
+-          { label: "↻ 90° CW", intent: "rotate", transform: { rotation: -90 } },
+-        ]
+-      );
+-    } else if (action.intent === "scale") {
+-      pushMessage("user", "Scale");
+-      pushMessage(
+-        "assistant",
+-        `**Scale** the ${partLabel} — tell me a **factor or percentage**, e.g. *“scale 1.2”* or *“20% bigger”*. Or pick a preset:`,
+-        [
+-          { label: "0.8×", intent: "scale", transform: { scale: 0.8 } },
+-          { label: "0.9×", intent: "scale", transform: { scale: 0.9 } },
+-          { label: "1.1×", intent: "scale", transform: { scale: 1.1 } },
+-          { label: "1.25×", intent: "scale", transform: { scale: 1.25 } },
+-        ]
+-      );
+-    } else {
+-      pushMessage("user", "Push / Pull");
+-      pushMessage("assistant", "**Push/Pull** the footprint — push out or pull in:", [
+-        { label: "⬅➡ Pull in", intent: "pushpull", transform: { scale: 0.92 } },
+-        { label: "➡⬅ Push out", intent: "pushpull", transform: { scale: 1.08 } },
+-      ]);
+-    }
+-    return;
+-  }
+-
+-  // Optimization — run the REAL backend NSGA-II view-optimizer on the building and
+-  // show the top-ranked options (NOT an LLM round-trip, NOT random variations).
+-  if (action?.intent === "optimize" || /^optimize/i.test(message || "")) {
+-    const { canEnter, enterStage } = await import("./core/workflow.js");
+-    if (!canEnter(STAGES.OPTIMIZE)) {
+-      pushMessage("user", "Optimize the building placement");
+-      pushMessage(
+-        "assistant",
+-        getState().selectedShapeType
+-          ? "Generate a building first — describe what you'd like me to create."
+-          : "Let's pick a shape first. Tell me what you'd like to build and select one from the Shape Library — then I'll optimize it."
+-      );
+-      return;
+-    }
+-    pushMessage("user", "Optimize the building placement");
+-    enterStage(STAGES.OPTIMIZE, { announce: true }); // shows "Running view optimization…"
+-    setBusy(true);
+-    setStatus("Optimizing…");
+-    try {
+-      const { optimizeBuilding } = await import("./agentClient.js");
+-      recordDecision("optimization", "optimization_run", { input: "view optimizer", result: "NSGA-II started" });
+-      const res = await optimizeBuilding(action?.optimizeShape ? { optimize_shape: true } : {});
+-      if (res && (res.options || []).length) {
+-        const top = res.options[0];
+-        recordDecision("optimization", "options_generated", {
+-          result: `${res.options.length} ranked options generated`,
+-          data: {
+-            count: res.options.length,
+-            options: res.options.map((o) => ({ option_id: o.option_id, rank: o.rank, score: o.score })),
+-          },
+-        });
+-        pushMessage(
+-          "assistant",
+-          `Ran ${res.algorithm || "NSGA-II"} view optimization — **${res.options.length} ranked options**. ` +
+-            `Top: score ${Number(top.score).toFixed(2)}, view ${Number(top.view_score).toFixed(2)}, FAR ${top.far}. ` +
+-            "Toggle options in the Optimization panel, then compare:",
+-          [
+-            { label: "Compare options", message: "compare", intent: "compare" },
+-            { label: "Re-optimize (shape morph)", message: "optimize shape", intent: "optimize", optimizeShape: true },
+-          ]
+-        );
+-      } else {
+-        pushMessage("assistant", "Optimization returned no valid options for this building/site. Try a smaller building or a larger site.");
+-      }
+-    } finally {
+-      setBusy(false);
+-      setStatus("Ready");
+-    }
+-    return;
+-  }
+-
+-  // Compare / Export are view/download actions over the REAL backend data we
+-  // already hold — no agent round-trip needed.
+-  if (action?.intent === "compare") {
+-    pushMessage("user", "Compare the current options");
+-    const { canEnter, enterStage } = await import("./core/workflow.js");
+-    if (!canEnter(STAGES.COMPARE)) {
+-      pushMessage("assistant", "Run optimization first so there are ranked options to compare.");
+-      return;
+-    }
+-    const opts = getState().comparisonOptions?.length
+-      ? getState().comparisonOptions
+-      : getState().options;
+-    enterStage(STAGES.COMPARE, { announce: false, extraState: { comparisonOptions: opts } });
+-    recordDecision("comparison", "comparison_opened", {
+-      result: `Comparing ${opts?.length || 0} options`,
+-      data: { option_ids: (opts || []).map((o) => o.option_id) },
+-    });
+-    const { dispatchView: dv } = await import("./panels/center.js");
+-    await dv({ type: "compare", payload: { action: "compare" } });
+-    // Offer to pick the final option (for export) — one chip per option.
+-    const finalChips = (opts || []).slice(0, 4).map((o, i) => ({
+-      label: `Select Option ${i + 1} as final`,
+-      message: `select option ${i + 1} as final`,
+-      intent: "select_final",
+-      optionId: o.option_id,
+-    }));
+-    pushMessage(
+-      "assistant",
+-      `Comparing ${opts?.length || 0} option(s) on score, view, FAR, coverage, setback and ` +
+-        "constraints. **Pick the final option** to carry to export:",
+-      finalChips
+-    );
+-    return;
+-  }
+-
+-  // Final option selection — marks the chosen option for export + decision graph.
+-  if (action?.intent === "select_final") {
+-    const opts = getState().options || [];
+-    const opt = opts.find((o) => o.option_id === action.optionId) || opts[0];
+-    if (!opt) {
+-      pushMessage("assistant", "No option to select — run optimization first.");
+-      return;
+-    }
+-    pushMessage("user", `Select ${opt.option_id} as final`);
+-    // Build the final-option payload the export route expects (metric building).
+-    const m = opt.constraint_report?.metrics || {};
+-    const finalPayload = {
+-      option_id: opt.option_id, boundary: opt.footprint, score: opt.score,
+-      height_m: opt.height, floors: opt.floors, footprint_area: m.footprint_area,
+-      far: m.far, building_use: m.building_use,
+-    };
+-    setState({ selectedFinalOption: finalPayload, selectedOptionId: opt.option_id });
+-    try {
+-      if (getState().sessionId) await api.agent.selectFinalOption(getState().sessionId, opt.option_id, finalPayload);
+-    } catch (e) { /* sync best-effort */ }
+-    recordDecision("comparison", "final_option_selected", {
+-      input: opt.option_id, result: "Final option chosen", data: { score: opt.score },
+-    });
+-    const { enterStage } = await import("./core/workflow.js");
+-    enterStage(STAGES.EXPORT, { announce: false });
+-    pushMessage(
+-      "assistant",
+-      `✅ **${opt.option_id}** selected as the final design (score ${Number(opt.score).toFixed(2)}, ` +
+-        `${opt.floors || "?"} floors). Export it:`,
+-      [
+-        { label: "Export Rhino (.3dm)", message: "export rhino", intent: "export_rhino" },
+-        { label: "Export Revit-compatible IFC (.ifc)", message: "export ifc", intent: "export_ifc" },
+-        { label: "Decision tree", message: "decision tree", intent: "decision" },
+-      ]
+-    );
+-    return;
+-  }
+-  // Decision tree — design-evolution graph. Gated so it can't open before there
+-  // is any design history.
+-  if (action?.intent === "decision") {
+-    pushMessage("user", "Show the decision tree");
+-    const { canEnter, enterStage } = await import("./core/workflow.js");
+-    if (!canEnter(STAGES.DECISION)) {
+-      pushMessage("assistant", "There's no design history yet — generate a building first.");
+-      return;
+-    }
+-    enterStage(STAGES.DECISION, { announce: false });
+-    const { dispatchView: dv } = await import("./panels/center.js");
+-    await dv({ type: "decision", payload: { action: "decision" } });
+-    pushMessage("assistant", "Here's the decision graph of how the design evolved. Ready to export when you are.", [
+-      { label: "Export", message: "export", intent: "export" },
+-    ]);
+-    return;
+-  }
+-  // Real exports of the FINAL selected option (or first building as fallback).
+-  if (action?.intent === "export_rhino" || action?.intent === "export_ifc") {
+-    const sid = getState().sessionId;
+-    if (!sid) { pushMessage("assistant", "Generate and select a building first."); return; }
+-    const isRhino = action.intent === "export_rhino";
+-    const fmt = isRhino ? "Rhino (.3dm)" : "Revit-compatible IFC (.ifc)";
+-    pushMessage("user", `Export ${fmt}`);
+-    const url = isRhino ? api.agent.exportSelectedRhinoUrl(sid) : api.agent.exportSelectedIfcUrl(sid);
+-    window.open(url, "_blank");
+-    recordDecision("export", isRhino ? "export_rhino" : "export_ifc", {
+-      result: `Exported final option as ${fmt}`,
+-      data: { option_id: getState().selectedFinalOption?.option_id },
+-    });
+-    pushMessage(
+-      "assistant",
+-      `📦 Exported the final selected option as **${fmt}** — includes the confirmed site boundary, ` +
+-        "the selected building (extruded to its height with per-floor storeys), and metadata " +
+-        "(option id, score, floors, FAR). " +
+-        (isRhino ? "Open it in Rhino." : "Import it into Revit (File → Import → IFC).") +
+-        " Want to review the decision tree?",
+-      [{ label: "Decision tree", message: "decision tree", intent: "decision" }]
+-    );
+-    return;
+-  }
+-  // Legacy generic export (GeoJSON) — kept as a fallback.
+-  if (action?.intent === "export") {
+-    pushMessage("user", "Export the design");
+-    pushMessage("assistant", "Pick an export format for the final design:", [
+-      { label: "Rhino (.3dm)", message: "export rhino", intent: "export_rhino" },
+-      { label: "Revit-compatible IFC (.ifc)", message: "export ifc", intent: "export_ifc" },
+-    ]);
+-    return;
+-  }
+-
+-  // Free-text manipulation command (no armed tool, no chip): "move building 5m
+-  // north", "rotate right wing 10 degrees", "scale 1.2". Detect intent + target
+-  // part from the text and apply directly via the backend.
+-  if (!action && (getState().buildings || []).length) {
+-    const cmd = _parseFreeManip(message);
+-    if (cmd) {
+-      await _applyFreeManip(message, cmd);
+-      return;
+-    }
+-    // No explicit command, but the text reads like architectural critique
+-    // ("I want more daylight", "it feels too compact") — route it to the AI
+-    // reasoning layer, which translates intent into move/rotate/scale actions.
+-    if (_looksLikeFeedback(message)) {
+-      await _applyArchitecturalFeedback(message);
+-      return;
+-    }
+-  }
+-
+   pushMessage("user", message);
+   setBusy(true);
+-  setStatus("Working…");
++  setStatus("Thinking…");
+   try {
+-    const stage = getState().stage;
+-    if (stage === STAGES.SITE) {
+-      await handleSite(message);
+-    } else if (stage === STAGES.BOUNDARY) {
+-      await handleBoundary(message, action);
+-    } else {
+-      await handleAgent(message);
++    const s = getState();
++    const boundaryGeojson =
++      s.boundary && s.boundary.length >= 3
++        ? { type: "Polygon", coordinates: [closeRing(s.boundary)] }
++        : null;
++    let resp;
++    try {
++      // Carry urban-context scores + edge intelligence so shape generation and
++      // optimization can respond to the surrounding city, not just the site.
++      let urbanContext = null;
++      try {
++        const cc = await import("./core/contextController.js");
++        urbanContext = cc.contextPayload();
++      } catch { /* context not analysed yet */ }
++      resp = await api.copilot(action?.message || message, s.stage, {
++        action: action?.intent || null,
++        args: action?.args || null,
++        boundary_geojson: boundaryGeojson,
++        selected_option_id: s.selectedOptionId || null,
++        selected_part: s.selectedPart || null,
++        active_tool: s.activeTool || null,
++        urban_context: urbanContext,
++      });
++    } catch (err) {
++      if (err.status === 404) resp = localStub(message);
++      else throw err;
+     }
++    applyResponse(resp);
+   } catch (err) {
+     console.error("[copilot] send failed", err);
+     pushMessage("assistant", `⚠️ ${err.message || "Something went wrong."}`);
+@@ -1143,20 +160,32 @@
+   }
+ }
+ 
+-// First-load greeting. A fresh page begins a new project at the SITE stage.
++// Kick off the conversation when the workspace mounts. A fresh page load always
++// begins a new project at the Site stage, so any state left over from a previous
++// session is cleared first.
+ export async function greet() {
+-  setState({ stage: STAGES.SITE, centerView: "map" });
+-  pushMessage(
+-    "assistant",
+-    "Welcome to **TerraPilot**. Enter a site location to begin — a place name " +
+-      "(e.g. *Bangalore*), an address, or coordinates like *12.9716, 77.5946*."
+-  );
+-  setStatus("Ready · Site");
+-  // Probe the agent backend in the background so later stages know availability.
+   try {
+-    const { ensureAgentAvailable } = await import("./agentClient.js");
+-    ensureAgentAvailable();
+-  } catch {
+-    /* non-fatal */
++    await api.resetDesign("fresh_session").catch(() => {});
++    const resp = await api.copilot("", getState().stage, { greeting: true }).catch((err) => {
++      if (err.status === 404) {
++        return {
++          reply:
++            "Welcome to **TerraPilot**. Please enter a site location — a place " +
++            "name (e.g. *Bangalore*), an address, or coordinates like " +
++            "*12.9716, 77.5946*.",
++          actions: [],
++          stage: getState().stage,
++          status: "Ready · Site",
++        };
++      }
++      throw err;
++    });
++    applyResponse(resp);
++  } catch (err) {
++    console.error("[copilot] greet failed", err);
++    pushMessage(
++      "assistant",
++      "Welcome to **TerraPilot**. Please enter a site location to begin."
++    );
+   }
+ }
+
+########## boot.js ##########
+--- "d:/3rd sem/STUDIO/AIA26_Studio - new version/team_04/PY/frontend2/boot.js"	2026-06-07 14:14:19.387871000 +0530
++++ "d:/3rd sem/STUDIO/AIA26_Studio - app version 1.2/team_04/PY/frontend2/boot.js"	2026-06-08 15:53:58.668026700 +0530
+@@ -6,6 +6,7 @@
+ import { initCenter } from "./panels/center.js";
+ import { sendMessage, greet } from "./copilotClient.js";
+ import { getState } from "./core/store.js";
++import { watchBoundary } from "./core/contextController.js";
+ 
+ // expose for debugging / automated verification
+ window.__store = getState;
+@@ -17,6 +18,7 @@
+   initStepper();
+   initCenter();
+   initCopilot(sendMessage);
++  watchBoundary(); // auto-run Urban Context Analysis once the boundary is confirmed
+   greet();
+ }
+ 
+
+########## index.html ##########
+--- "d:/3rd sem/STUDIO/AIA26_Studio - new version/team_04/PY/frontend2/index.html"	2026-06-07 18:19:57.359288700 +0530
++++ "d:/3rd sem/STUDIO/AIA26_Studio - app version 1.2/team_04/PY/frontend2/index.html"	2026-06-08 15:54:52.597098300 +0530
+@@ -12,6 +12,7 @@
+   <link rel="stylesheet" href="/static/styles/explorer.css" />
+   <link rel="stylesheet" href="/static/styles/chat.css" />
+   <link rel="stylesheet" href="/static/styles/center.css" />
++  <link rel="stylesheet" href="/static/styles/context.css" />
+ </head>
+ <body>
+   <!-- Animated landing screen -->
+@@ -46,8 +47,6 @@
+     <div id="explorer"></div>
+     <div id="center"></div>
+     <div id="copilot"></div>
+-    <!-- global workflow dock — spans full width, above the status bar -->
+-    <div id="bottom-dock"></div>
+     <div id="statusbar">
+       <span class="sb-item">✦ <span id="sb-status">Ready</span></span>
+       <span class="sb-item" style="margin-left:auto;">TerraPilot · AI-driven</span>
