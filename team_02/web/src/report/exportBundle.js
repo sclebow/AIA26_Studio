@@ -5,13 +5,25 @@ import * as api from "../api/client.js";
 // Pure client; layout comes from /api/layout, the analysis comes off the turn.
 function parse(s) { try { return s ? JSON.parse(s) : null; } catch { return null; } }
 
-export async function exportBundle({ turn, rooms = [], layoutId }) {
+export async function exportBundle({ turn, rooms = [], layoutId, persona = null, moodboardUrls = [] }) {
   let layout = null;
   try { const d = await api.getLayout(); layout = d?.layout || null; } catch { /* best effort */ }
 
+  const p = persona || {};
   const bundle = {
     layoutId: layoutId || null,
     exportedAt: new Date().toISOString(),
+    // Who the dwelling was shaped for + the aesthetic they curated — so the exported
+    // artifact carries the input that produced the output, not just the rooms.
+    persona: persona ? {
+      name: p.name,
+      role: p.role,
+      lifestyle: p.lifestyle,
+      sensory_priorities: p.sensory_priorities,
+      comfort_weights: p.comfort_weights,
+      aesthetic_preferences: p.aesthetic_preferences,
+    } : null,
+    moodboard_urls: moodboardUrls || [],
     layout,
     scores: parse(turn?.scores_json),
     conflicts: parse(turn?.conflicts_json),

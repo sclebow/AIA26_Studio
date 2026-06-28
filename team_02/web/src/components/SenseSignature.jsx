@@ -32,6 +32,10 @@ export default function SenseSignature({
   x,            // optional: position when nested inside another <svg> (parent units)
   y,
   calm = false, // plan variant: quieter fill, thinner strokes, no reference ring
+  baselineDot = false, // draw a bright dot per spoke at the baseline radius (persona reveal)
+  baselineTop = false, // draw the average as a dashed outline ON TOP of the fill — legible
+                       //   regardless of over/under (persona reveal; opt-in, off by default)
+  reveal = false,      // staggered petal draw-in from the centre (persona reveal moment)
 }) {
   const cx = size / 2;
   const cy = size / 2;
@@ -92,12 +96,13 @@ export default function SenseSignature({
         return (
           <g
             key={s}
-            className={"ss-petal" + (interactive ? " ss-clickable" : "") + (activeSense === s ? " ss-active" : "")}
+            className={"ss-petal" + (interactive ? " ss-clickable" : "") + (activeSense === s ? " ss-active" : "") + (reveal ? " ss-reveal" : "")}
+            style={reveal ? { animationDelay: `${i * 0.09}s`, transformBox: "view-box", transformOrigin: `${cx}px ${cy}px` } : undefined}
             onClick={interactive ? (e) => { e.stopPropagation(); onSelectSense(s); } : undefined}
             onMouseEnter={onHoverSense ? () => onHoverSense(s) : undefined}
             onMouseLeave={onHoverSense ? () => onHoverSense(null) : undefined}
           >
-            {showGhost && (
+            {showGhost && !baselineTop && (
               <path
                 d={petal(rBase, angle)}
                 fill="none"
@@ -115,6 +120,21 @@ export default function SenseSignature({
               strokeOpacity={dim ? 0.2 : (calm ? 0.45 : 0.7)}
               strokeWidth={calm ? 0.5 : 1}
             />
+            {/* average drawn ON TOP — a dashed outline that the fill can never occlude */}
+            {baselineTop && rBase != null && (
+              <path
+                d={petal(rBase, angle)}
+                fill="none"
+                stroke="#FFF4E6"
+                strokeOpacity={dim ? 0.3 : 0.8}
+                strokeWidth="1.1"
+                strokeDasharray="2.5 2"
+              />
+            )}
+            {baselineDot && rBase != null && (
+              <circle cx={polar(rBase, angle)[0]} cy={polar(rBase, angle)[1]}
+                r={Math.max(1.6, size * 0.016)} fill="#FFF4E6" fillOpacity={dim ? 0.35 : 0.82} />
+            )}
             {showGlyphs && (
               <text
                 x={gx} y={gy}

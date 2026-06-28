@@ -1,9 +1,14 @@
 import { useState } from "react";
 import { scoreColor } from "../lib/constants.js";
+import CheckpointGraph from "./CheckpointGraph.jsx";
 
 // Checkpoints strip (Task 3) — the renamed timeline. Shows only COMMITTED milestones
 // (not every turn). Checkpoint 0 is the initial layout; click a chip to view it, then
 // restore to roll the working draft back to that milestone.
+//
+// Session 8: the slim chip strip is the compact index; the "⤢ graph" control expands a
+// GitHub-style sense-line graph (CheckpointGraph) as a popover above it — both share the
+// same view/restore handlers, so focusing in one reflects in the other.
 
 function MiniRing({ score, conflicts }) {
   if (score == null) return <span className="tl-mini-ring" style={{ opacity: 0.5 }}>—</span>;
@@ -30,8 +35,9 @@ function CheckpointChip({ cp, active, onSelect }) {
   );
 }
 
-export default function CheckpointsStrip({ checkpoints = [], onRestore, onView, viewedId = null }) {
+export default function CheckpointsStrip({ checkpoints = [], liveHead = null, onRestore, onView, viewedId = null }) {
   const [open, setOpen] = useState(true);
+  const [graphOpen, setGraphOpen] = useState(false);
   if (!checkpoints.length) return null;
 
   // Single source of truth = the parent's viewed checkpoint. Click a chip to review
@@ -40,6 +46,12 @@ export default function CheckpointsStrip({ checkpoints = [], onRestore, onView, 
 
   return (
     <div className={"timeline-strip" + (open ? " open" : " collapsed")}>
+      {graphOpen && (
+        <div className="cg-popover">
+          <CheckpointGraph checkpoints={checkpoints} liveHead={liveHead} viewedId={viewedId}
+            onView={onView} onRestore={onRestore} onClose={() => setGraphOpen(false)} />
+        </div>
+      )}
       <button className="tl-toggle" onClick={() => setOpen((o) => !o)} title={open ? "hide checkpoints" : "show checkpoints"}>
         {open ? "▾" : "▴"} checkpoints
       </button>
@@ -65,6 +77,10 @@ export default function CheckpointsStrip({ checkpoints = [], onRestore, onView, 
           {checkpoints.length} {checkpoints.length === 1 ? "checkpoint" : "checkpoints"}
         </span>
       )}
+      <button className={"tl-graph-toggle" + (graphOpen ? " active" : "")} onClick={() => setGraphOpen((g) => !g)}
+        title={graphOpen ? "hide the sense graph" : "see the senses rise and fall across checkpoints"}>
+        {graphOpen ? "✕ graph" : "⤢ graph"}
+      </button>
     </div>
   );
 }

@@ -77,6 +77,7 @@ from langgraph.graph import END, START, StateGraph
 # the LLM token counter (_runtime/llm) before/after, so we get latency + tokens + the
 # tier each node ran on. No-op (zero overhead) when BENCH_NODES is unset.
 _BENCH = os.environ.get("BENCH_NODES") == "1"
+_QUAL = os.environ.get("BENCH_QUALITY") == "1"   # quality-comparison capture (see bench_quality.py)
 NODE_TIMINGS: list[dict] = []
 _NODE_TIER = {
     "greet": "fast", "quiz": "fast", "action_classifier": "fast", "chitchat": "fast",
@@ -88,11 +89,14 @@ _NODE_TIER = {
 
 
 def _bench_wrap(name: str, fn):
-    if not _BENCH:
+    if not _BENCH and not _QUAL:
         return fn
     from _runtime import llm as _llm
 
     def wrapped(state):
+        _llm.set_current_node(name)            # quality capture attributes prompts to this node
+        if not _BENCH:                         # quality-only run: no timing overhead
+            return fn(state)
         u0 = _llm.usage_snapshot(); t0 = time.perf_counter()
         out = fn(state)
         dt = time.perf_counter() - t0; u1 = _llm.usage_snapshot()
@@ -148,6 +152,10 @@ from nodes.insights.persona_comparison import build_persona_comparison_node
 
 # ── Post-graph ────────────────────────────────────────────────────────────────
 from nodes._shared.output_writer import write_analysis_to_layout
+from _runtime.llm import (
+    set_token_sink, reset_token_sink,
+    set_message_start_sink, reset_message_start_sink,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -183,6 +191,7 @@ class AgentState(TypedDict, total=False):
     action:           str   # unified action: analyze|detect|full|overview|follow_up|
                             #   chitchat|inspire|edit|preview|topologic|biophilic|compare
     edit_ops:         list  # validated ops from edit_planner: [{op, room, ...params}, ...]
+    planner_note:     str   # 'planner_llm_error' when the planner fell back to keywords
     target_room_hint: str   # LLM-extracted room name from prompt
     material_hint:    str   # LLM-extracted material name from prompt
 
@@ -209,6 +218,10 @@ class AgentState(TypedDict, total=False):
     layout_diff:                  dict   # most-recent single edit (used by /api/report featured room + respond)
     layout_diffs:                 list   # ALL edits applied this turn (multi-edit) — one dict per change
     layout_updated:               bool   # True when layout JSON was mutated this turn
+    rejected_edits:               list   # ops the soundness gate / resolver dropped: [{op, reason, phrase}]
+    edit_notes:                   list   # surfaced assumptions (count cap, glazing default, material snap)
+    applied_suggestions:          list   # {roomName, sense} the user has fulfilled — crossed off the list
+    suggestions_sticky:           str    # last non-empty suggestions_json, carried across an edit re-score
     # Predictive preview ("what if") — scored on a CLONE, never committed.
     preview_scores_json:          str    # hypothetical scores; NOT the canonical cache
     preview_diff:                 dict   # the hypothetical edit's diff (last, back-compat)
@@ -278,6 +291,11 @@ def _route_after_load_layout(state: AgentState) -> str:
 
     # Requested layout doesn't exist — load_layout already wrote the message.
     if state.get("layout_not_found"):
+        return END
+
+    # Silent LOAD — just render the plan, never score on load. load_layout wrote a
+    # one-line acknowledgment; end the turn here (no analyze, no room list).
+    if action == "load":
         return END
 
     if action == "overview":
@@ -529,13 +547,34 @@ def build_graph(ctx: Any) -> Any:
 
 
 # ---------------------------------------------------------------------------
+# Compiled-graph cache — build once per ctx, not once per turn.
+#
+# build_graph() registers ~25 nodes and compiles the StateGraph; that work is
+# identical for every turn on the same ctx (ctx is built once at startup by
+# bootstrap()). Memoizing keyed by id(ctx) removes a full recompile from the
+# critical path of every /api/message. Tests that build a fresh ctx get a fresh
+# graph automatically.
+# ---------------------------------------------------------------------------
+
+_GRAPH_CACHE: dict[int, Any] = {}
+
+
+def _get_compiled_graph(ctx: Any) -> Any:
+    key = id(ctx)
+    app = _GRAPH_CACHE.get(key)
+    if app is None:
+        app = build_graph(ctx)
+        _GRAPH_CACHE[key] = app
+    return app
+
+
+# ---------------------------------------------------------------------------
 # run_agent
 # ---------------------------------------------------------------------------
 
-def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, dict]:
-    if session is None:
-        session = {}
-
+def _build_initial_state(prompt: str, session: dict) -> "AgentState":
+    """Build the per-turn initial graph state from the persisted session.
+    Shared by run_agent (invoke) and run_agent_stream (stream)."""
     initial_state: AgentState = {
         "raw_prompt": prompt,
         "has_image":  False,
@@ -571,6 +610,10 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
         "score_interpretation":  session.get("score_interpretation", ""),
         "conflict_reasoning":    session.get("conflict_reasoning", ""),
         "suggestion_critique":   session.get("suggestion_critique", ""),
+        # Suggestion lifecycle (persist across turns so apply_edits can cross off fulfilled
+        # suggestions even after an edit re-score cleared last_suggestions_json).
+        "applied_suggestions":   session.get("applied_suggestions", []),
+        "suggestions_sticky":    session.get("suggestions_sticky", ""),
 
         # Per-turn fields (reset each turn)
         "action":                 "",
@@ -601,10 +644,30 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
         "evaluator_loops":        0,
         "final_response":         None,
     }
+    return initial_state
 
-    app = build_graph(ctx)
-    final_state = app.invoke(initial_state)
 
+# Actions that (re)compute comfort scores this turn, invalidating everything
+# derived from the previous scores. detect/full repopulate the derived caches;
+# analyze/edit/biophilic clear them (the edited layout's old conflicts are stale).
+_RESCORED = {"analyze", "detect", "full", "edit", "biophilic"}
+_DERIVED_KEYS = ("last_conflicts_json", "last_suggestions_json",
+                 "conflict_reasoning", "suggestion_critique")
+
+
+def _carry_derived(final_state: "AgentState", session: dict, rescored_actions: set) -> dict:
+    """Persist the score-derived caches. On a re-scoring turn take final_state
+    verbatim (so cleared values stay cleared); otherwise fall back to the prior
+    session so the cache survives turns that don't touch scores."""
+    rescored = final_state.get("action", "") in rescored_actions
+    if rescored:
+        return {k: final_state.get(k, "") for k in _DERIVED_KEYS}
+    return {k: (final_state.get(k) or session.get(k, "")) for k in _DERIVED_KEYS}
+
+
+def _finalize(final_state: "AgentState", session: dict, ctx: Any) -> tuple[str, dict]:
+    """Post-graph: write output JSON and assemble the persisted session.
+    Shared by run_agent (invoke) and run_agent_stream (stream)."""
     response    = final_state.get("final_response") or ""
     action      = final_state.get("action", "")
     scores_ready = bool(final_state.get("last_scores_json"))
@@ -645,11 +708,14 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
         "layout_json_string":  final_state.get("layout_json_string")  or session.get("layout_json_string", ""),
         "layout_id":           final_state.get("layout_id")           or session.get("layout_id"),
         "last_scores_json":      final_state.get("last_scores_json")      or session.get("last_scores_json", ""),
-        "last_conflicts_json":   final_state.get("last_conflicts_json")   or session.get("last_conflicts_json", ""),
-        "last_suggestions_json": final_state.get("last_suggestions_json") or session.get("last_suggestions_json", ""),
+        # Conflicts/suggestions + their write-ups are DERIVED from the scores. When
+        # this turn re-scored (analyze/edit/biophilic clear them; detect/full set them
+        # fresh), take final_state VERBATIM — the `or session` fallback used elsewhere
+        # would resurrect stale pre-edit data and make a post-edit follow-up answer
+        # from conflicts computed on the old layout. For non-rescoring turns
+        # (follow_up/chitchat/…) keep the fallback so the cache survives the round-trip.
+        **(_carry_derived(final_state, session, _RESCORED)),
         "score_interpretation":  final_state.get("score_interpretation")  or session.get("score_interpretation", ""),
-        "conflict_reasoning":    final_state.get("conflict_reasoning")    or session.get("conflict_reasoning", ""),
-        "suggestion_critique":   final_state.get("suggestion_critique")   or session.get("suggestion_critique", ""),
         "has_analysis_results":  bool(final_state.get("last_scores_json")) or session.get("has_analysis_results", False),
         # Per-turn fields (cleared next turn — used by server to build response payload)
         "layout_updated":         final_state.get("layout_updated", False),
@@ -659,6 +725,18 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
         "preview_diff":           final_state.get("preview_diff", {}),
         "preview_diffs":          final_state.get("preview_diffs", []),
         "preview_summary":        final_state.get("preview_summary", ""),
+        # Edit feedback (per-turn): what the soundness gate dropped + surfaced assumptions.
+        "rejected_edits":         final_state.get("rejected_edits", []),
+        "edit_notes":             final_state.get("edit_notes", []),
+        # Suggestion lifecycle (PERSISTS across turns): fulfilled suggestions accumulate,
+        # and the last non-empty suggestions list is kept sticky so it survives an edit
+        # re-score (which clears last_suggestions_json) and can still be crossed off.
+        # Take final_state VERBATIM (it's seeded from the session in _build_initial_state and
+        # carried through every node) so a deliberate reset to [] on a fresh layout load —
+        # load_layout / select / upload / restore — actually sticks instead of being
+        # resurrected by an `or session` fallback.
+        "applied_suggestions":    final_state.get("applied_suggestions", session.get("applied_suggestions", [])),
+        "suggestions_sticky":     final_state.get("last_suggestions_json") or session.get("suggestions_sticky", ""),
         "graph_data":             final_state.get("graph_data", {}),
         "biophilic_data":         final_state.get("biophilic_data", {}),
         "persona_comparison_data": final_state.get("persona_comparison_data", {}),
@@ -666,3 +744,64 @@ def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, 
     }
 
     return response, updated_session
+
+
+def run_agent(prompt: str, ctx: Any, session: dict | None = None) -> tuple[str, dict]:
+    """Run one agent turn to completion and return (response, updated_session)."""
+    if session is None:
+        session = {}
+    initial_state = _build_initial_state(prompt, session)
+    app = _get_compiled_graph(ctx)
+    final_state = app.invoke(initial_state)
+    return _finalize(final_state, session, ctx)
+
+
+def run_agent_stream(
+    prompt: str,
+    ctx: Any,
+    session: dict | None = None,
+    *,
+    on_node=None,
+    on_token=None,
+    on_message_start=None,
+) -> tuple[str, dict]:
+    """Streaming sibling of run_agent. Drives the SAME compiled graph but reports
+    progress as it runs:
+
+      - on_node(node_name) fires once per node as the graph advances (for SSE
+        progress labels).
+      - on_token(text), when provided, is installed as the final-answer token sink
+        so the terminal text nodes (respond/detail_respond/chitchat) stream their
+        output token-by-token.
+      - on_message_start(), when provided, fires at the START of each terminal text
+        node (before its tokens) so the client can reset its buffer cleanly — this
+        is what makes the evaluator REVISE loop (respond runs twice) render right.
+
+    Returns (response, updated_session) IDENTICAL to run_agent — the SSE result
+    event carries the same payload as /api/message, so the contract is unchanged.
+    """
+    if session is None:
+        session = {}
+    initial_state = _build_initial_state(prompt, session)
+    app = _get_compiled_graph(ctx)
+
+    sink_token  = set_token_sink(on_token) if on_token is not None else None
+    start_token = set_message_start_sink(on_message_start) if on_message_start is not None else None
+    final_state: AgentState = initial_state
+    try:
+        # Dual mode: "updates" tells us which node just ran (progress labels);
+        # "values" carries the full accumulated state (last one = final state).
+        for mode, chunk in app.stream(initial_state, stream_mode=["updates", "values"]):
+            if mode == "updates":
+                if on_node:
+                    for node_name in chunk.keys():
+                        on_node(node_name)
+            elif mode == "values":
+                final_state = chunk
+    finally:
+        if sink_token is not None:
+            reset_token_sink(sink_token)
+        if start_token is not None:
+            reset_message_start_sink(start_token)
+
+    return _finalize(final_state, session, ctx)

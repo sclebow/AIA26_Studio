@@ -1,0 +1,54 @@
+{
+  "text_models": {
+    "old": "gemini-2.5-flash",
+    "new": "gemini-3.5-flash"
+  },
+  "image_models": {
+    "old": "gemini-2.5-flash-image",
+    "new": "gemini-3.1-flash-image"
+  },
+  "text_reveal": [
+    {
+      "node": "score_interpreter",
+      "A": "NEW",
+      "B": "OLD"
+    },
+    {
+      "node": "conflict_reasoner",
+      "A": "OLD",
+      "B": "NEW"
+    },
+    {
+      "node": "suggestion_critic",
+      "A": "OLD",
+      "B": "NEW"
+    },
+    {
+      "node": "respond",
+      "A": "NEW",
+      "B": "OLD"
+    },
+    {
+      "node": "detail_respond",
+      "A": "NEW",
+      "B": "OLD"
+    }
+  ],
+  "image_reveal": [
+    {
+      "case": "living-room-poor",
+      "A": "OLD",
+      "B": "NEW"
+    },
+    {
+      "case": "bedroom-cosy",
+      "A": "NEW",
+      "B": "OLD"
+    },
+    {
+      "case": "kitchen-mixed",
+      "A": "NEW",
+      "B": "OLD"
+    }
+  ]
+}

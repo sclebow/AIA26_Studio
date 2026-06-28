@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from _runtime.llm import call_llm_simple
 from nodes._shared.utils import grounded_facts
+from nodes._shared.persona_context import format_persona_for_prompt
 
 
 _SYSTEM_PROMPT = """\
@@ -64,34 +65,6 @@ def _format_scores(scores_json: str) -> str:
         return scores_json
 
 
-def _format_persona(persona_profile: dict) -> str:
-    """Summarise the flat persona_compiler v2 profile for the interpreter prompt."""
-    if not persona_profile:
-        return "neutral adult, no specific sensory sensitivities"
-    try:
-        parts = []
-        name = persona_profile.get("name", "")
-        role = persona_profile.get("role", "")
-        desc = persona_profile.get("description", "")
-        if desc:
-            parts.append(desc)
-        elif name and role:
-            parts.append(f"{name}, {role}")
-        if persona_profile.get("age_group"):
-            parts.append(f"age group: {persona_profile['age_group']}")
-        if persona_profile.get("household_type"):
-            parts.append(f"household: {persona_profile['household_type']}")
-        if persona_profile.get("sensory_priorities"):
-            parts.append(f"sensory priorities: {', '.join(persona_profile['sensory_priorities'])}")
-        if persona_profile.get("sensory_sensitivities"):
-            parts.append(f"sensitivities: {', '.join(persona_profile['sensory_sensitivities'])}")
-        if persona_profile.get("key_requirements"):
-            parts.append(f"non-negotiables: {'; '.join(persona_profile['key_requirements'])}")
-        return "; ".join(parts) if parts else "no profile"
-    except Exception:
-        return str(persona_profile)
-
-
 def build_score_interpreter_node(llm):
     """Return the score_interpreter node function, capturing the LLM instance."""
 
@@ -102,7 +75,7 @@ def build_score_interpreter_node(llm):
         print("[score_interpreter] Interpreting scores for persona...")
 
         scores_summary  = _format_scores(scores_json)
-        persona_summary = _format_persona(persona_profile)
+        persona_summary = format_persona_for_prompt(persona_profile)
         grounded        = grounded_facts(scores_json) or "GROUNDED FACTS: (none available)"
 
         system = _SYSTEM_PROMPT.format(

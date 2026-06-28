@@ -118,30 +118,42 @@ body {
 .sense-plan text { pointer-events: none; }
 .sense-plan .sense-signature { pointer-events: none; }          /* clicks pass to the room */
 
-/* walls */
-.spln-wall-ext { stroke: rgba(var(--fg-rgb), 0.9);  stroke-width: 2.4; }
-.spln-wall-in  { stroke: rgba(var(--fg-rgb), 0.4);  stroke-width: 1.2; }
+/* walls — luminous bands: a wide low-opacity mass (model-unit width, set in JSX) under a
+   crisp non-scaling centerline. NB the *-mass width comes from JSX so it scales = thickness. */
+.spln-wall-ext-mass { stroke: rgba(var(--fg-rgb), 0.10); fill: none; }
+.spln-wall-in-mass  { stroke: rgba(var(--fg-rgb), 0.06); fill: none; }
+.spln-wall-ext { stroke: rgba(var(--fg-rgb), 0.92); stroke-width: 1.8; fill: none; }
+.spln-wall-in  { stroke: rgba(var(--fg-rgb), 0.55); stroke-width: 1.1; fill: none; }
 
-/* rooms — hover is CSS-only (no React re-render → no glitch); click pins focus */
+/* rooms — hover is CSS-only (no React re-render → no glitch); click pins focus. The box
+   outline is gone (walls carry the edges); focus shows a soft luminous inner glow. */
 .spln-room { cursor: pointer; }
 .spln-room-fill { transition: fill-opacity var(--dur-base) var(--ease-out); }
-.spln-room-wall {
-  stroke: rgba(var(--fg-rgb), 0.32); stroke-width: 1.1;
-  transition: stroke var(--dur-fast) var(--ease-out), stroke-width var(--dur-fast) var(--ease-out);
-}
-.spln-room:hover .spln-room-wall { stroke: rgba(var(--fg-rgb), 0.7); stroke-width: 1.8; }
-.spln-room.is-focus .spln-room-wall { stroke: rgba(var(--fg-rgb), 0.9); stroke-width: 2.4; }
-.spln-room-label  { fill: rgba(var(--fg-rgb), 0.5); font-family: var(--font-sans); }
+.spln-room-glow { opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
+.spln-room:hover .spln-room-glow    { opacity: 0.16; }
+.spln-room.is-focus .spln-room-glow { opacity: 0.26; }
+/* paint-order + a thin bg halo lifts the label off the linework. vector-effect keeps the
+   halo a few SCREEN px — without it, stroke-width is read in model units (metres) and the
+   halo blankets the surrounding walls. */
+.spln-room-label  { fill: rgba(var(--fg-rgb), 0.5); font-family: var(--font-sans); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 
-/* doors: bg-colored gap masks the wall, then the swing arc */
-.spln-door-gap   { stroke: var(--bg); stroke-width: 5; }
+/* doors: bg-colored gap masks the wall band (width set in JSX, model units), then swing */
+.spln-door-gap   { stroke: var(--bg); }
 .spln-door-swing { stroke: rgba(var(--fg-rgb), 0.4); stroke-width: 1; }
 
-/* windows */
-.spln-window { stroke: #4696dc; stroke-width: 3; }
+/* windows — break in the wall band + glowing-blue glass symbol */
+.spln-window-gap   { stroke: var(--bg); }
+.spln-window-glow  { stroke: #4696dc; stroke-width: 7;   stroke-opacity: 0.18; stroke-linecap: round; }
+.spln-window-glass { stroke: #4696dc; stroke-width: 2.2; }
+.spln-window-pane  { stroke: #4696dc; stroke-width: 1;   stroke-opacity: 0.5; }
+.spln-window-jamb  { stroke: #4696dc; stroke-width: 1.6; stroke-opacity: 0.85; }
 
-/* furniture */
-.spln-furn-fill  { fill: rgba(var(--fg-rgb), 0.05); stroke: rgba(var(--fg-rgb), 0.4); stroke-width: 1; }
+/* furniture — faint footprint (also the hover hit area) + thin luminous plan symbol */
+.spln-furn-fill  { fill: rgba(var(--fg-rgb), 0.04); stroke: rgba(var(--fg-rgb), 0.18); stroke-width: 1; }
+.spln-furn-sym        { stroke: rgba(var(--fg-rgb), 0.45); stroke-width: 1;   fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.spln-furn-sym-faint  { stroke: rgba(var(--fg-rgb), 0.30); stroke-width: 0.8; fill: none; }
+.spln-furn-plant      { stroke: #8BB88A; stroke-width: 1.1; fill: rgba(139, 184, 138, 0.10); }
+.spln-furn-plant-leaf { stroke: #8BB88A; stroke-width: 1;   stroke-opacity: 0.75; }
 .spln-furn-label { fill: rgba(var(--fg-rgb), 0.45); font-family: var(--font-mono); }
 
 /* relationship edges — marching dash conveys direction / liveness */
@@ -235,6 +247,39 @@ body {
 .gx-tip { color: rgba(var(--fg-rgb), 0.7); line-height: 1.5; }
 .gx-tip b { color: rgba(var(--fg-rgb), 0.95); }
 
+/* ── The Narrator — educational / exploration band (bottom-centre) ─────────── */
+/* additive teaching layer: orientation tour + live plain-language readout.
+   The wrapper ignores pointer events so the 3D scene stays draggable. */
+.galaxy-guide { position: absolute; left: 0; right: 0; bottom: var(--space-5); z-index: 3;
+  display: flex; justify-content: center; padding: 0 var(--space-4); pointer-events: none; }
+.galaxy-guide-card { pointer-events: auto; max-width: 540px; text-align: center;
+  padding: 12px 18px 13px; border-radius: var(--r-lg);
+  background: rgba(13, 13, 13, 0.62); border: 1px solid rgba(var(--fg-rgb), var(--o-hairline));
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.galaxy-guide-card.is-idle { background: rgba(13, 13, 13, 0.32); border-color: transparent; backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+.galaxy-guide-tag { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase;
+  color: rgba(var(--fg-rgb), 0.4); margin-bottom: 5px; }
+.galaxy-guide-title { font-family: var(--font-sans); font-size: 14px; font-weight: 500; letter-spacing: .01em;
+  color: rgba(var(--fg-rgb), 0.96); margin-bottom: 3px; }
+.galaxy-guide-body { font-family: var(--font-sans); font-size: 12.5px; line-height: 1.55; color: rgba(var(--fg-rgb), 0.7); }
+.galaxy-guide-card.is-idle .galaxy-guide-body { font-size: 11px; color: rgba(var(--fg-rgb), 0.45); }
+.galaxy-guide-controls { display: flex; align-items: center; justify-content: center; gap: var(--space-3); margin-top: 10px; }
+.galaxy-guide-btn { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+  background: none; border: none; padding: 4px 9px; cursor: pointer; color: rgba(var(--fg-rgb), 0.5); transition: color var(--dur-fast) var(--ease-out); }
+.galaxy-guide-btn:hover { color: rgba(var(--fg-rgb), 1); }
+.galaxy-guide-btn:disabled { opacity: 0.25; cursor: default; }
+.galaxy-guide-btn.is-primary { color: rgba(var(--fg-rgb), 0.92); }
+.galaxy-guide-dots { display: flex; gap: 6px; }
+.galaxy-guide-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(var(--fg-rgb), 0.18); transition: background var(--dur-base) var(--ease-out); }
+.galaxy-guide-dot.on { background: rgba(var(--fg-rgb), 0.85); }
+.galaxy-guide-hide { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase;
+  background: none; border: none; cursor: pointer; color: rgba(var(--fg-rgb), 0.32); margin-top: 9px; padding: 0; transition: color var(--dur-fast) var(--ease-out); }
+.galaxy-guide-hide:hover { color: rgba(var(--fg-rgb), 0.75); }
+@media (max-width: 720px) {
+  .galaxy-guide { bottom: calc(var(--space-4) + 60px); }
+  .galaxy-guide-card { max-width: none; }
+}
+
 /* lever-bridge "fix it" chips in the focus card */
 .fc-fix { font-family: var(--font-mono); font-size: 11px; letter-spacing: .04em;
   padding: 3px 9px; border: 1px solid; border-radius: var(--r-pill);
@@ -264,6 +309,36 @@ body {
 .fc-sense { width: 62px; flex: none; color: rgba(var(--fg-rgb), 0.6); text-transform: lowercase; }
 .fc-track { position: relative; flex: 1; height: 6px; border-radius: 999px; background: rgba(var(--fg-rgb), 0.08); }
 .fc-fill  { position: absolute; left: 0; top: 0; height: 100%; border-radius: 999px; transition: width var(--dur-base) var(--ease-out); }
+
+/* ── Biophilic green lens ──────────────────────────────────────────────────── */
+.bio-fill { transition: fill-opacity .4s ease; }
+.bio-room, .bio-invite { cursor: pointer; }
+.bio-card {
+  position: absolute; top: var(--space-3); right: var(--space-3); z-index: 51;
+  width: 320px; max-height: calc(100% - var(--space-6)); overflow-y: auto;
+  padding: var(--space-4);
+  background: rgba(18, 21, 15, 0.97);
+  border: 1px solid rgba(124,179,66,.30);
+  border-radius: var(--r-lg);
+  font-family: var(--font-mono);
+  color: rgba(var(--fg-rgb), 0.85);
+}
+.bio-card-hdr { display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px; }
+.bio-card-name  { flex: 1; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: rgba(var(--fg-rgb), .95); }
+.bio-card-score { font-size: 12px; }
+.bio-card-close { background: none; border: none; color: rgba(var(--fg-rgb), .5); font-size: 18px; cursor: pointer; line-height: 1; }
+.bio-card-close:hover { color: rgba(var(--fg-rgb), .9); }
+.bio-leaves { display: flex; flex-direction: column; gap: 10px; }
+.bio-leaf-row { display: grid; grid-template-columns: 20px 1fr auto; column-gap: 8px; row-gap: 1px; align-items: baseline; font-size: 11px; }
+.bio-leaf-mark { grid-column: 1; grid-row: 1 / span 2; align-self: center; letter-spacing: 1px; color: rgba(var(--fg-rgb),.3); }
+.bio-leaf-name { grid-column: 2; grid-row: 1; color: rgba(var(--fg-rgb), .78); }
+.bio-leaf-val  { grid-column: 3; grid-row: 1; text-align: right; color: rgba(var(--fg-rgb), .5); }
+.bio-leaf-benefit { grid-column: 2 / span 2; grid-row: 2; font-size: 10px; color: rgba(124,179,66,.62); }
+.bio-leaf-row.is-off .bio-leaf-name { opacity: .5; }
+.bio-leaf-row.is-off .bio-leaf-benefit { opacity: .4; }
+.bio-card-narr { margin-top: 14px; padding-top: 11px; border-top: 1px solid rgba(var(--fg-rgb),.08); font-size: 11px; color: rgba(var(--fg-rgb),.6); line-height: 1.55; }
+.bio-card-green { margin-top: 12px; width: 100%; padding: 7px; background: rgba(124,179,66,.12); border: 1px solid rgba(124,179,66,.42); border-radius: var(--r-md); color: rgba(174,224,106,.95); font-family: var(--font-mono); font-size: 11px; cursor: pointer; transition: background .14s; }
+.bio-card-green:hover { background: rgba(124,179,66,.2); }
 .fc-thresh{ position: absolute; top: -2px; width: 1px; height: 10px; background: rgba(var(--fg-rgb), 0.65); }
 .fc-val   { width: 30px; text-align: right; flex: none; }
 .fc-delta { font-size: 10px; color: rgba(var(--fg-rgb), 0.5); display: inline-flex; gap: 3px; align-items: center; white-space: nowrap; }
@@ -271,6 +346,9 @@ body {
 .fc-flag  { font-size: 10px; padding: 2px 8px; border: 1px solid; border-radius: 999px; background: rgba(var(--fg-rgb), 0.04); text-transform: lowercase; }
 .fc-sugg  { display: flex; gap: 6px; font-size: 11px; align-items: flex-start; }
 .fc-sugg-text { color: rgba(var(--fg-rgb), 0.7); line-height: 1.4; }
+/* a suggestion the user has fulfilled this session — crossed off, not removed */
+.fc-sugg-applied .fc-sugg-text { text-decoration: line-through; opacity: 0.5; }
+.fc-sugg-applied .fc-glyph { color: var(--good, #6fcf8f) !important; }
 .fc-why-toggle { font-size: 11px; color: rgba(var(--fg-rgb), 0.6); background: none; border: none; cursor: pointer; margin-top: 12px; padding: 0; }
 .fc-why-body   { font-size: 11px; color: rgba(var(--fg-rgb), 0.6); line-height: 1.5; margin-top: 6px; }
 .fc-why-list   { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
@@ -780,7 +858,7 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
 
 /* ── MOODBOARD STRIP ── */
 .moodboard-strip { display:flex; width:100%; margin-top:14px; }
-.moodboard-strip img { flex:1; height:58px; object-fit:cover; border-radius:var(--r-sm); opacity:.70; }
+.moodboard-strip img { flex:1; min-width:0; height:58px; object-fit:cover; border-radius:var(--r-sm); opacity:.70; }
 .moodboard-strip img:not(:last-child) { margin-right: 5px; }
 
 /* ── FILE UPLOAD AREA ── */
@@ -834,10 +912,24 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
 }
 
 /* ── persona profile sections ── */
+/* The shared persona surface (reveal + drawer). The reveal rises gently in so the
+   compiled persona feels earned, not dumped; the drawer variant doesn't re-animate. */
+.persona-card { animation: persona-rise .55s var(--ease-out, cubic-bezier(.22,.61,.36,1)) both; }
+.persona-card-compact { animation: none; }
+@keyframes persona-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
 .persona-identity { padding-bottom: 4px; }
 .persona-name { font-family: var(--font-sans); font-size: 20px; font-weight: 300; color: rgba(var(--fg-rgb), .90); }
 .persona-role { font-family: var(--font-mono); font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: rgba(var(--fg-rgb), .30); margin-top: 5px; }
+/* Captured household (people + pets) — shown so the user sees Sensi registered it. */
+.persona-household { font-family: var(--font-mono); font-size: 11px; letter-spacing: .04em; color: rgba(139,184,138,.72); margin-top: 7px; }
 .persona-desc { font-family: var(--font-sans); font-weight: 300; font-size: 12px; line-height: 1.65; color: rgba(var(--fg-rgb), .45); margin-top: 10px; }
+
+/* Drawer variant: tighten for the 320px slide-in panel. */
+.persona-card-compact .persona-name { font-size: 17px; }
+.persona-card-compact .formula-eq-row { flex-direction: column; }
+.persona-card-compact .formula-eq-lhs { width: auto; }
+.persona-card-compact .formula-eq-note { margin-left: 0; margin-top: 2px; }
 
 .persona-section-label {
   font-family: var(--font-mono); font-size: 11px; letter-spacing: .24em; text-transform: uppercase;
@@ -863,6 +955,213 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
 .gap-item-note  { font-family:var(--font-sans); font-weight: 300; font-size: 11px; line-height: 1.6; color: rgba(var(--fg-rgb), .55); }
 
 .aesthetic-note { font-family:var(--font-sans); font-weight: 300; font-size: 11px; line-height: 1.65; color: rgba(var(--fg-rgb), .38); margin-top: 8px; font-style: italic; }
+
+/* ── Profile reveal — responsive card grid that rises in (PersonaCard) ───────── */
+.persona-reveal {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  max-width: 720px;
+  margin: 18px auto 8px;
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas:
+    "identity   fingerprint"
+    "priorities priorities"
+    "aesthetic  aesthetic"
+    "scoring    scoring";
+}
+/* the in-layout drawer (compact) + narrow viewports stack to one column */
+.persona-reveal-compact {
+  grid-template-columns: 1fr;
+  grid-template-areas: "identity" "fingerprint" "priorities" "aesthetic" "scoring";
+  max-width: none; margin: 4px 0;
+}
+@media (max-width: 620px) {
+  .persona-reveal {
+    grid-template-columns: 1fr;
+    grid-template-areas: "identity" "fingerprint" "priorities" "aesthetic" "scoring";
+    max-width: none;
+  }
+}
+.preveal-card {
+  border: 1px solid rgba(var(--fg-rgb), .06);
+  border-radius: var(--r-md, 12px);
+  background: rgba(var(--fg-rgb), .015);
+  padding: 16px 18px;
+  animation: persona-rise .5s var(--ease-out, cubic-bezier(.22,.61,.36,1)) both;
+  animation-delay: var(--rd, 0ms);
+}
+.persona-reveal-compact .preveal-card { animation: none; padding: 14px; }
+@media (prefers-reduced-motion: reduce) { .preveal-card { animation: none !important; } }
+
+/* sense fingerprint (rose) card */
+.preveal-rose { display: flex; justify-content: center; padding: 6px 0 2px; }
+.preveal-rose-legend { display: flex; gap: 16px; justify-content: center; margin-top: 6px; }
+.preveal-rose-legend span { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; color: rgba(var(--fg-rgb), .40); display: flex; align-items: center; gap: 5px; }
+.prl-bar   { width: 14px; height: 8px; border-radius: 3px; background: rgba(var(--fg-rgb), .50); display: inline-block; }
+.prl-ghost { width: 14px; height: 8px; border-radius: 3px; border: 1px dashed rgba(var(--fg-rgb), .42); display: inline-block; }
+.preveal-rose-note { font-family: var(--font-sans); font-weight: 300; font-size: 12px; line-height: 1.6; text-align: center; color: rgba(var(--fg-rgb), .42); margin: 10px 0 0; min-height: 3.2em; transition: color .2s; }
+.preveal-rose-note.is-on { color: rgba(var(--fg-rgb), .64); }
+
+/* distilled "how scoring works" */
+.preveal-scoring { margin-top: 2px; }
+.psc-point { display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-start; }
+.psc-mark  { font-size: 11px; line-height: 1.55; color: rgba(var(--fg-rgb), .45); flex: 0 0 14px; }
+.psc-point p { font-family: var(--font-sans); font-weight: 300; font-size: 12.5px; line-height: 1.6; color: rgba(var(--fg-rgb), .60); margin: 0; }
+.psc-point strong { font-weight: 500; color: rgba(var(--fg-rgb), .82); }
+.psc-prov { font-family: var(--font-sans); font-weight: 300; font-style: italic; font-size: 11px; line-height: 1.6; color: rgba(var(--fg-rgb), .40); margin: 12px 0 0; }
+.psc-formula-toggle { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: rgba(var(--fg-rgb), .34); cursor: pointer; margin-top: 14px; transition: color .2s; }
+.psc-formula-toggle:hover { color: rgba(var(--fg-rgb), .50); }
+.psc-formula { border-left: 1px solid rgba(var(--fg-rgb), .08); padding-left: 12px; margin-top: 8px; }
+.psc-formula-line { font-family: var(--font-mono); font-size: 12px; line-height: 1.6; color: rgba(var(--fg-rgb), .70); margin: 0; }
+.psc-dim { color: rgba(var(--fg-rgb), .42); }
+.psc-formula-note { font-family: var(--font-sans); font-weight: 300; font-size: 11px; line-height: 1.6; color: rgba(var(--fg-rgb), .40); margin: 6px 0 0; }
+
+/* staggered petal draw-in for the persona reveal rose (opt-in via SenseSignature reveal prop) */
+.ss-reveal { animation: ss-petal-in .5s var(--ease-out, cubic-bezier(.22,.61,.36,1)) both; }
+@keyframes ss-petal-in { from { opacity: 0; transform: scale(.35); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .ss-reveal { animation: none; } }
+
+/* The reveal's own stage — a wide, single-screen container that replaces the narrow chat
+   thread on the profile-reveal screen. flex:1 + overflow:hidden keeps the whole reveal inside
+   one viewport (no page scroll) between the top bar and the CTA. */
+.preveal-stage {
+  flex: 1 1 auto; min-height: 0; width: 100%; max-width: 1180px;
+  margin: 0 auto; padding: 6px 28px 14px;
+  display: flex; flex-direction: column; gap: 12px; overflow: hidden;
+}
+.preveal-msg { flex: 0 0 auto; margin-bottom: 0; }
+
+/* ── Profile reveal v2 — single-screen landscape: hero rose (left) + evidence (right) ──
+   Composition A. The reveal lives in .preveal-stage (a wide, non-scrolling container that
+   breaks OUT of the chat reading column — see below). Here we lay out the card: a glowing
+   rose hero on the left, three evidence cards on the right that are COMPACT at rest and
+   LIFT / overlay on hover to reveal detail WITHOUT reflowing their siblings (each card is
+   absolutely positioned inside a fixed slot), so the page never grows past one screen. The
+   drawer (.is-compact) keeps the old stacked, always-expanded reading. */
+.persona-reveal2 { width: 100%; }
+.persona-reveal2:not(.is-compact) {
+  flex: 1 1 auto; min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 26px; align-items: stretch;
+}
+
+/* hero / left column */
+.preveal-hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 9px; padding: 8px 0 20px; }
+.persona-reveal2:not(.is-compact) .preveal-hero { justify-content: center; min-height: 0; padding: 0; }
+.preveal-hero-id { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 12px; }
+.preveal-hero-name { font-family: var(--font-sans); font-size: 26px; font-weight: 300; color: rgba(var(--fg-rgb), .92); }
+.preveal-hero-role { font-family: var(--font-mono); font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: rgba(var(--fg-rgb), .40); }
+.preveal-hero-house { font-family: var(--font-mono); font-size: 11px; letter-spacing: .04em; color: rgba(139,184,138,.78); }
+.preveal-readout { font-family: var(--font-sans); font-weight: 300; font-size: 13px; line-height: 1.6; color: rgba(var(--fg-rgb), .44); max-width: 460px; min-height: 2.6em; margin: 2px 0 0; transition: color .2s; }
+.preveal-readout.is-on { color: rgba(var(--fg-rgb), .72); }
+.preveal-bio { font-family: var(--font-sans); font-weight: 300; font-size: 12px; line-height: 1.65; color: rgba(var(--fg-rgb), .38); max-width: 420px; margin: 0; }
+
+/* evidence / right column — an ACCORDION in a fixed area. Each card is an equal panel; on
+   hover/focus it grows (revealing its detail) while the others shrink back to just their
+   summary. The total height is fixed (the column), so cards never overlap and the page never
+   shifts — the growth is driven by the detail's height, and min-content keeps every summary
+   legible even when a card is collapsed. No transform lift (that read as "unclean"). */
+.preveal-evidence { display: flex; flex-direction: column; gap: 14px; }
+.persona-reveal2:not(.is-compact) .preveal-evidence { height: 100%; min-height: 0; }
+.preveal-card2 {
+  border: 1px solid rgba(var(--fg-rgb), var(--o-hairline));
+  border-radius: var(--r-md); background: rgba(var(--fg-rgb), .015);
+  padding: 14px 16px; display: flex; flex-direction: column;
+}
+.persona-reveal2:not(.is-compact) .preveal-card2 {
+  flex: 1 1 0; overflow: hidden;   /* equal panels at rest; overflow:hidden keeps the collapsed
+                                      detail out of the flex min-size so heights stay controlled */
+  min-height: 96px;                /* never shrink below a summary when collapsed */
+  transition: flex-grow var(--dur-base) var(--ease-out),
+              border-color var(--dur-base) var(--ease-out),
+              background var(--dur-base) var(--ease-out);
+}
+/* per-card floors so each summary stays legible when collapsed: priorities (first) has 3 rows,
+   "how it's scored" (last) has 3 leads; aesthetic uses the base 96px */
+.persona-reveal2:not(.is-compact) .preveal-evidence > .preveal-card2:first-child { min-height: 154px; }
+.persona-reveal2:not(.is-compact) .preveal-evidence > .preveal-card2:last-child { min-height: 132px; }
+.persona-reveal2:not(.is-compact) .preveal-card2:hover,
+.persona-reveal2:not(.is-compact) .preveal-card2:focus-within {
+  flex-grow: 8;   /* the hovered panel takes most of the area; the others fall back to summary */
+  border-color: rgba(var(--fg-rgb), var(--o-faint));
+  background: rgba(var(--fg-rgb), .03);
+  outline: none;
+}
+
+/* detail revealed on hover/focus — collapsed at rest. Its height drives the accordion. */
+.preveal-detail {
+  max-height: 0; opacity: 0; overflow: hidden;
+  transition: max-height var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out);
+}
+.persona-reveal2:not(.is-compact) .preveal-card2:hover .preveal-detail,
+.persona-reveal2:not(.is-compact) .preveal-card2:focus-within .preveal-detail {
+  max-height: 260px; opacity: 1;
+}
+
+/* tighter section label inside the compact reveal cards (the 24px top margin is for the
+   long-form report, not these fixed-height slots) */
+.preveal-card2 .persona-section-label { margin: 0 0 8px; }
+.preveal-pri-row { display: flex; flex-direction: column; padding: 7px 10px; border: 1px solid; border-radius: var(--r-sm); margin-bottom: 6px; transition: background .15s; }
+.preveal-pri-row:last-child { margin-bottom: 0; }
+.preveal-pri-head { display: flex; align-items: center; gap: 7px; }
+.preveal-pri-glyph { font-size: 13px; line-height: 1; }
+.preveal-pri-name { font-family: var(--font-mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; }
+/* note margin is 0 by default so the COLLAPSED note adds no height to the priorities summary
+   (margin isn't clipped by max-height); the gap is restored only when it's actually shown */
+.preveal-pri-note { display: block; font-family: var(--font-sans); font-weight: 300; font-size: 11px; line-height: 1.5; color: rgba(var(--fg-rgb), .48); margin-top: 0; }
+.persona-reveal2.is-compact .preveal-pri-note,
+.persona-reveal2:not(.is-compact) .preveal-card2:hover .preveal-pri-note,
+.persona-reveal2:not(.is-compact) .preveal-card2:focus-within .preveal-pri-note { margin-top: 5px; }
+.preveal-board { display: flex; gap: 5px; flex-wrap: wrap; }
+.preveal-board img { height: 42px; flex: 1 0 auto; border-radius: var(--r-sm); object-fit: cover; min-width: 0; }
+.psc-body { display: flex; flex-direction: column; }
+.psc-rest { display: block; }
+
+/* drawer (compact) + narrow / short viewport: stack, always-expanded, scrollable */
+.persona-reveal2.is-compact { max-width: none; margin: 2px 0; }
+.persona-reveal2.is-compact .preveal-evidence { display: flex; flex-direction: column; gap: 12px; }
+.persona-reveal2.is-compact .preveal-hero { padding: 4px 0 14px; }
+.persona-reveal2.is-compact .preveal-hero-name { font-size: 20px; }
+.persona-reveal2.is-compact .preveal-detail { max-height: none; opacity: 1; overflow: visible; }
+
+@media (max-width: 900px), (max-height: 700px) {
+  .preveal-stage { overflow-y: auto; }
+  .persona-reveal2:not(.is-compact) { grid-template-columns: 1fr; grid-template-rows: none; }
+  .persona-reveal2:not(.is-compact) .preveal-card2 { flex: 0 0 auto; }
+  .persona-reveal2:not(.is-compact) .preveal-detail { max-height: none; opacity: 1; overflow: visible; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .persona-reveal2 .preveal-card2 { transition: none; }
+  .preveal-detail { transition: none; }
+}
+
+/* ── Report persona header — the opening frame: who this dwelling is for + the aesthetic
+   they curated. Slim, glowing, no boxed callout — a preamble above the dwelling story. */
+.rp-header { position: relative; padding: 4px 2px 22px; margin-bottom: 22px;
+  border-bottom: 1px solid rgba(var(--fg-rgb), .07); }
+.rp-header::before { content: ''; position: absolute; top: -10px; left: -8%; width: 60%; height: 120px;
+  background: radial-gradient(60% 80% at 20% 30%, rgba(var(--fg-rgb), .05), transparent 70%);
+  pointer-events: none; }
+.rp-eyebrow { font-family: var(--font-mono); font-size: 10px; letter-spacing: .30em; text-transform: uppercase;
+  color: rgba(var(--fg-rgb), .28); }
+.rp-frame { font-family: var(--font-sans); font-weight: 200; font-size: 26px; line-height: 1.2;
+  color: rgba(var(--fg-rgb), .60); margin: 8px 0 0; }
+.rp-frame .rp-name { font-weight: 300; color: rgba(var(--fg-rgb), .92); }
+.rp-role { font-family: var(--font-mono); font-size: 11px; letter-spacing: .20em; text-transform: uppercase;
+  color: rgba(var(--fg-rgb), .30); margin-top: 7px; }
+
+.rp-leads { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 16px; }
+.rp-leads-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  color: rgba(var(--fg-rgb), .30); margin-right: 2px; }
+.rp-lead-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid;
+  border-radius: var(--r-pill); font-family: var(--font-mono); font-size: 11px; letter-spacing: .10em;
+  text-transform: uppercase; background: rgba(var(--fg-rgb), .02); cursor: default; }
+.rp-lead-icon { font-size: 12px; line-height: 1; }
+
+.rp-aesthetic { margin-top: 22px; }
 
 .formula-toggle { font-family: var(--font-mono); font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: rgba(var(--fg-rgb), 0.40); cursor: pointer; margin-top: 22px; margin-bottom: 4px; transition: color .2s; }
 .formula-toggle:hover { color: rgba(var(--fg-rgb), .50); }
@@ -891,9 +1190,17 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
 .panel-header > *:not(.panel-close) { margin-right: 8px; }
 .panel-close { background: transparent; border: none; color: rgba(var(--fg-rgb), .30); font-size: 18px; cursor: pointer; padding: 0 4px; line-height: 1; margin-left: auto; transition: color .2s; }
 .panel-close:hover { color: var(--fg); }
-.btn-panel-full { background: transparent; border: 1px solid rgba(var(--fg-rgb),.10); color: rgba(var(--fg-rgb), .30); font-family: var(--font-mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; padding: 5px 10px; cursor: pointer; border-radius: var(--r-pill); transition: all .2s; }
-.btn-panel-full:hover { border-color: rgba(var(--fg-rgb), .35); color: var(--fg); }
 .panel-scroll { flex: 1; overflow-y: auto; padding: 16px 20px 32px; }
+
+/* ── refine the persona by talking to Sensi ── */
+.panel-refine { margin-top: 26px; padding-top: 20px; border-top: 1px solid rgba(var(--fg-rgb),.07); }
+.panel-refine-hint { font-family: var(--font-sans); font-weight: 300; font-size: 11px; line-height: 1.5; color: rgba(var(--fg-rgb), .40); margin: 0 0 10px; }
+.panel-refine .sensi-input { min-height: 52px; }
+.panel-refine-msg { font-family: var(--font-sans); font-weight: 300; font-size: 11px; line-height: 1.55; color: rgba(139,184,138,.82); margin: 10px 2px 0; }
+.panel-redo { display: block; width: 100%; margin-top: 18px; background: transparent; border: none; cursor: pointer;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+  color: rgba(var(--fg-rgb), .32); transition: color .2s; text-align: center; padding: 6px; }
+.panel-redo:hover { color: rgba(var(--fg-rgb), .60); }
 
 .btn-profile { background: transparent; border: none; color: rgba(var(--fg-rgb), 0.40); cursor: pointer; padding: 4px; display: flex; align-items: center; transition: color .2s; }
 .btn-profile:hover { color: rgba(var(--fg-rgb), .65); }
@@ -933,6 +1240,13 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
   flex-shrink: 0;
 }
 .top-bar-user-avatar:hover { background: rgba(155,143,212,.20); border-color: rgba(155,143,212,.50); }
+
+/* Labeled profile recall — the avatar carries a "profile" label so the persona is a
+   discoverable companion in layout mode, not a mystery initial. */
+.top-bar-profile-btn { display: flex; align-items: center; gap: 8px; background: transparent; border: none; padding: 0 0 0 4px; cursor: pointer; }
+.top-bar-profile-btn:hover .top-bar-user-avatar { background: rgba(155,143,212,.20); border-color: rgba(155,143,212,.50); }
+.top-bar-profile-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: rgba(155,143,212,.62); transition: color .2s; }
+.top-bar-profile-btn:hover .top-bar-profile-label { color: rgba(155,143,212,.92); }
 
 .top-bar-status-group {
   display: none;
@@ -1323,14 +1637,13 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
   background:#171717;
   border:1px solid rgba(var(--fg-rgb),.10);
   border-radius:var(--r-lg);
-  width:480px; max-width:calc(100vw - 32px);
-  max-height:68vh;
+  width:540px; max-width:calc(100vw - 32px);
+  /* fixed height so toggling by action / by sense doesn't resize the panel */
+  height:min(74vh, 560px);
   display:flex;
   flex-direction:column;
   overflow:hidden;
   box-shadow:0 24px 60px rgba(0,0,0,.70);
-  transform:scale(1.2);
-  transform-origin:center center;
 }
 .cap-hdr {
   flex-shrink:0;
@@ -1397,32 +1710,51 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
 .arow-title { font-family:var(--font-mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:rgba(var(--fg-rgb), .35); margin-bottom:6px; }
 .arow-pills { display:flex; flex-wrap:wrap; }
 .arow-pills > * { margin-bottom:4px; margin-right:5px; }
+/* Capability chips — quiet neutral by default; a launchable chip lights up on hover
+   (it drops its phrase into the chat). A leading mark + shape encodes the TYPE
+   (◆ agentic = shape · ◇ analytic = study · · general = talk); a trailing dot = status. */
 .cpill {
   display:inline-flex;
-  align-items:center;
+  align-items:center; gap:5px;
   font-family:var(--font-mono);
-  font-size:11px; letter-spacing:.07em;
+  font-size:11px; letter-spacing:.06em;
   border-radius:var(--r-pill); padding:3px 9px;
-  border:1px solid transparent; white-space:nowrap;
+  border:1px solid rgba(var(--fg-rgb),.14);
+  background:rgba(var(--fg-rgb),.03);
+  color:rgba(var(--fg-rgb),.62);
+  white-space:nowrap; cursor:default; transition:border-color .14s, background .14s, color .14s;
 }
-.slive  { background:rgba(100,200,120,.10); border-color:rgba(100,200,120,.30); color:rgba(100,200,120,.95); }
-.soon   { background:rgba(212,185,106,.10); border-color:rgba(212,185,106,.32); color:rgba(212,185,106,.95); }
-.road   { background:rgba(210,85,85,.10);   border-color:rgba(210,85,85,.30);   color:rgba(210,85,85,.90);  }
-.crefine{ background:rgba(80,195,210,.10);  border-color:rgba(80,195,210,.28);  color:rgba(80,195,210,.90); }
+.cpill-type { font-size:10px; opacity:.6; }                  /* the ◆ / ◇ / · type mark */
+.cpill-dot  { width:6px; height:6px; border-radius:50%; flex-shrink:0; margin-left:1px; }  /* status */
+/* TYPE geometry — reinforces the leading mark */
+.cpill.type-analytic { border-radius:5px; }                  /* squared = a lens / panel */
+.cpill.type-general  { border-style:dashed; background:transparent; }
+.cpill.is-launch { cursor:pointer; }
+.cpill.is-launch:hover {
+  border-color:rgba(var(--fg-rgb),.42);
+  background:rgba(var(--fg-rgb),.07);
+  color:rgba(var(--fg-rgb),.95);
+}
+.cpill.is-launch:hover .cpill-type { opacity:.95; }
+.cpill.tier-soon { opacity:.5; }
+/* in the by-sense lever map a chip borrows its row's sense hue on hover */
+.srow .cpill.is-launch:hover { border-color:var(--sc); color:var(--sc); background:rgba(var(--fg-rgb),.04); }
+.srow-note { font-family:var(--font-mono); font-size:11px; color:rgba(var(--fg-rgb),.32); font-style:italic; }
+.cap-hint { flex-shrink:0; padding:9px 16px 0; font-family:var(--font-mono); font-size:11px; letter-spacing:.05em; color:rgba(var(--fg-rgb),.40); }
+.cap-sub { font-family:var(--font-mono); font-size:11px; letter-spacing:.06em; color:rgba(var(--fg-rgb),.38); margin:0 0 10px 2px; }
 .cap-legend {
   flex-shrink:0;
-  display:flex;
-  flex-wrap:wrap;
+  display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px;
   padding:10px 16px; border-top:1px solid rgba(var(--fg-rgb),.07);
 }
-.cap-legend > * { margin-right:14px; margin-bottom:2px; }
 .leg-item {
-  display:inline-flex;
-  align-items:center;
+  display:inline-flex; align-items:center; gap:5px;
   font-family:var(--font-mono);
-  font-size:11px; letter-spacing:.10em; color:rgba(var(--fg-rgb), .35);
+  font-size:11px; letter-spacing:.08em; color:rgba(var(--fg-rgb), .38);
 }
-.leg-dot { width:7px; height:7px; border-radius:50%; margin-right:5px; flex-shrink:0; }
+.leg-mk  { opacity:.7; }
+.leg-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.leg-sep { width:1px; height:12px; background:rgba(var(--fg-rgb),.12); }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    SENSI WORKSPACE — Layout Mode Screen (Phase 6)
@@ -1622,6 +1954,7 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
    TIMELINE STRIP
    ═══════════════════════════════════════════════════════════════════════════ */
 .timeline-strip {
+  position: relative;            /* anchor for the .cg-popover graph panel */
   flex-shrink: 0;
   display: flex; align-items: center; gap: 10px;
   border-top: 1px solid rgba(var(--fg-rgb),.06);
@@ -1719,21 +2052,117 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
   line-height: 1;
 }
 
-.tl-expand-btn {
-  background: transparent; border: none;
-  color: rgba(var(--fg-rgb), 0.40);
-  font-size: 11px; cursor: pointer; padding: 2px 2px;
-  line-height: 1; transition: color .15s; flex-shrink: 0;
+/* ── Checkpoint sense-line graph (Session 8) ──────────────────────────────────
+   The "⤢ graph" control on the strip expands this luminous line graph as a popover
+   above it: X = checkpoints, Y = sense score, six faint hue lines + a bold headline. */
+.tl-graph-toggle {
+  margin-left: auto;             /* float right in both open and collapsed strip states */
+  flex-shrink: 0;
+  background: none; border: none; cursor: pointer; padding: 2px 4px;
+  font-family: var(--font-mono);
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: rgba(var(--fg-rgb), 0.42); transition: color .15s;
 }
-.tl-expand-btn:hover { color: rgba(var(--fg-rgb), .55); }
+.tl-graph-toggle:hover { color: rgba(var(--fg-rgb), 0.82); }
+.tl-graph-toggle.active { color: rgba(190,180,235,.85); }
 
-.tl-graph-expand {
-  margin-top: 5px;
-  height: 220px;
-  border: 1px solid rgba(var(--fg-rgb),.07);
-  border-radius: var(--r-pill);
-  overflow: hidden;
-  animation: fadeIn .18s ease;
+.cg-popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 8px; right: 8px;
+  z-index: 24;
+  animation: cgRise .2s var(--ease-out, ease);
+}
+@keyframes cgRise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.cg-panel {
+  /* NB: no backdrop-filter — it creates a containing block that would break the
+     position:fixed hover tooltip. The bg is near-opaque, so the blur isn't missed. */
+  background: rgba(11,11,12,.97);
+  border: 1px solid rgba(var(--fg-rgb), .10);
+  border-radius: var(--r-lg);
+  box-shadow: 0 12px 40px rgba(0,0,0,.5);
+  padding: 10px 12px 6px;
+}
+
+.cg-head { display: flex; align-items: center; gap: 12px; margin-bottom: 2px; }
+.cg-title {
+  font-family: var(--font-mono);
+  font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+  color: rgba(var(--fg-rgb), .55); white-space: nowrap; flex-shrink: 0;
+}
+.cg-legend { display: flex; flex-wrap: wrap; gap: 4px 8px; flex: 1; min-width: 0; }
+.cg-legend-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: none; border: none; cursor: pointer; padding: 1px 2px;
+  font-family: var(--font-mono);
+  font-size: 10px; letter-spacing: .06em; text-transform: lowercase;
+  opacity: .5; transition: opacity .15s;
+}
+.cg-legend-chip:hover { opacity: .9; }
+.cg-legend-chip.active { opacity: 1; }
+.cg-legend-glyph { font-size: 11px; }
+.cg-legend-head { color: rgba(var(--fg-rgb), .9); }
+.cg-legend-rule { width: 13px; height: 2px; border-radius: 1px; background: rgba(var(--fg-rgb), .9); display: inline-block; }
+.cg-close {
+  background: none; border: none; cursor: pointer; flex-shrink: 0;
+  color: rgba(var(--fg-rgb), .4); font-size: 12px; padding: 2px 4px; transition: color .15s;
+}
+.cg-close:hover { color: rgba(var(--fg-rgb), .8); }
+
+.cg-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.cg-scroll::-webkit-scrollbar { height: 3px; }
+.cg-scroll::-webkit-scrollbar-thumb { background: rgba(var(--fg-rgb),.1); }
+.cg-svg { display: block; }
+
+.cg-threshold { stroke: rgba(var(--fg-rgb), .07); stroke-width: 1; stroke-dasharray: 2 5; }
+.cg-threshold.pass { stroke: rgba(63,185,122,.16); stroke-dasharray: none; }   /* comfort line (0.65) */
+.cg-axis-label { font-family: var(--font-mono); font-size: 9px; fill: rgba(var(--fg-rgb), .3); }
+.cg-guide { stroke: rgba(190,180,235,.28); stroke-width: 1; }
+.cg-braid-glyph { font-family: var(--font-mono); font-size: 10px; }
+.cg-end-glyph { font-family: var(--font-mono); font-size: 11px; }
+.cg-caption {
+  font-family: var(--font-mono); font-size: 9.5px; line-height: 1.5;
+  color: rgba(var(--fg-rgb), .42); padding: 2px 12px 5px;
+}
+.cg-caption b { color: rgba(var(--fg-rgb), .68); font-weight: 500; }
+
+.cg-glow { fill: none; stroke-width: 5; stroke-opacity: .16; stroke-linecap: round; stroke-linejoin: round; }
+.cg-glow-head { stroke: rgba(var(--fg-rgb), .9); }
+.cg-headline {
+  fill: none; stroke: rgba(var(--fg-rgb), .88);
+  stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
+}
+
+.cg-node { stroke: rgba(11,11,12,.9); stroke-width: 1.5; cursor: pointer; }
+.cg-node-halo { fill: none; stroke: rgba(190,180,235,.5); stroke-width: 1.5; }
+.cg-node-live { fill: rgba(11,11,12,.6); stroke: rgba(var(--fg-rgb), .6); stroke-width: 1.5; stroke-dasharray: 2 2; }
+.cg-hit { fill: transparent; }
+
+.cg-x-label {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: .04em;
+  fill: rgba(var(--fg-rgb), .38); text-transform: lowercase;
+}
+.cg-x-label.focused { fill: rgba(190,180,235,.85); }
+.cg-x-label.live { fill: rgba(var(--fg-rgb), .5); font-style: italic; }
+
+.cg-tooltip { min-width: 150px; }
+.cg-tip-val.up { color: var(--status-pass); }
+.cg-tip-val.down { color: var(--status-fail); }
+
+.cg-restore-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 2px 2px; margin-top: 4px;
+  border-top: 1px solid rgba(var(--fg-rgb), .06);
+}
+.cg-restore-label {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em;
+  color: rgba(190,180,235,.7); margin-right: auto;
+}
+
+@media (max-width: 640px) {
+  .cg-popover { left: 4px; right: 4px; }
+  .cg-title { display: none; }   /* hand the legend the width on narrow screens */
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -2121,6 +2550,17 @@ textarea.sensi-input { resize: none; line-height: 1.7; height: 80px; border-radi
   background: linear-gradient(100deg, rgba(var(--fg-rgb),0.04) 30%, rgba(var(--fg-rgb),0.12) 50%, rgba(var(--fg-rgb),0.04) 70%);
   background-size: 200% 100%; animation: rr-shimmer 1.4s ease-in-out infinite; }
 @keyframes rr-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* progressive reveal: the wait reads as "working" (each phrase fades in), the render
+   fades up when it lands. */
+.rr-render-note--cycle { animation: rr-note-fade 2.6s ease-in-out; }
+.rr-render-eta { color: rgba(var(--fg-rgb), 0.32); margin-left: 4px; }
+@keyframes rr-note-fade { 0% { opacity: 0; } 12% { opacity: .85; } 88% { opacity: .85; } 100% { opacity: .35; } }
+.rr-render-img--in { animation: rr-img-in .65s ease-out; }
+@keyframes rr-img-in { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .rr-render-note--cycle, .rr-render-img--in { animation: none; }
+}
 
 .rr-notes { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 10px;
   border-top: 1px solid rgba(var(--fg-rgb), var(--o-faint)); margin-top: 2px; padding-top: 12px; }

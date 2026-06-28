@@ -1,5 +1,5 @@
 import { SC, scoreColor, scoreOpacity } from "../lib/constants.js";
-import { polyPoints, centroid, dims } from "../lib/geometry.js";
+import { polyPoints, dims, ringAnchor } from "../lib/geometry.js";
 
 // Rooms. Split across the two tiers:
 //   plan    → wall outline + label + an invisible hit area (click / hover)
@@ -18,15 +18,25 @@ export default function RoomsLayer({ rooms = [], scoredByName, plan, comfort, ac
     const isFocus = name === (focusRoom ?? activeRoom);
     const pts = polyPoints(geo, fy);
     const { w, h, top, cx } = dims(geo);
-    const [, cy] = centroid(geo);
 
     const lensScore = !r ? null : (focusSense ? (r.comfortScores?.[focusSense] ?? null) : (r.overallScore ?? null));
     const fillOp = lensScore == null ? 0.02 : scoreOpacity(lensScore) * 0.4;
     const score = comfort ? lensScore : null;
     const arcColor = focusSense ? SC[focusSense] : scoreColor(score ?? 0);
     const ringR = Math.max(u * 1.5, Math.min(w, h) * 0.13) * (isFocus ? 1.12 : 1);
-    const rx = cx + w / 2 - ringR - u * 0.5;            // top-right corner inset
-    const ry = fy(top) + ringR + u * 0.5;
+    // Ideal top-right corner inset — correct for rectangular rooms. For concave
+    // (L-shaped) rooms this bbox corner can land in a neighbour's cell, so snap it
+    // back inside the actual polygon (ringAnchor; screen space = x, fy(y)).
+    const screenPts = geo.map(([x, y]) => [x, fy(y)]);
+    const [rx, ry] = ringAnchor(
+      screenPts,
+      [cx + w / 2 - ringR - u * 0.5, fy(top) + ringR + u * 0.5],
+      ringR,
+    );
+    // Label: keep the top-center inset, but snap it INSIDE the room so a concave
+    // (L-shaped) room's label can't land in the bbox notch — i.e. a neighbour's cell
+    // (that's what made "Open Living-Dining" overlap "Bathroom" on layout 203).
+    const [lx, ly] = ringAnchor(screenPts, [cx, fy(top) + u * 1.4], u * 1.2);
 
     const hoverPayload = (e) => onHover && onHover({
       x: e.clientX, y: e.clientY, kind: "room", title: name,
@@ -39,12 +49,15 @@ export default function RoomsLayer({ rooms = [], scoredByName, plan, comfort, ac
         onMouseEnter={() => setHoverRoom && setHoverRoom(name)}
         onMouseMove={hoverPayload}
         onMouseLeave={() => { onHover && onHover(null); setHoverRoom && setHoverRoom(null); }}>
-        {/* hit area + comfort tint */}
-        {comfort
-          ? <polygon className="spln-room-fill" points={pts} fill={focusSense ? SC[focusSense] : "rgb(var(--fg-rgb))"} fillOpacity={fillOp} />
-          : plan ? <polygon points={pts} fill="transparent" /> : null}
-        {plan && <polygon className="spln-room-wall" points={pts} fill="none" vectorEffect="non-scaling-stroke" />}
-        {plan && <text className="spln-room-label" x={cx} y={fy(top) + u * 1.4} textAnchor="middle" fontSize={u * 1.1}>{name}</text>}
+        {/* always-on transparent hit target (click/hover) — the room outline used to be
+            this, but the wall band now carries the edges, so the hit area is its own poly */}
+        {plan && <polygon className="spln-room-hit" points={pts} fill="transparent" />}
+        {/* comfort tint — edge-less fill (no stroke); walls define the room boundary */}
+        {comfort && <polygon className="spln-room-fill" points={pts} fill={focusSense ? SC[focusSense] : "rgb(var(--fg-rgb))"} fillOpacity={fillOp} />}
+        {/* focus/hover emphasis — a soft luminous inner glow instead of a hard box outline.
+            Rendered always (opacity 0); CSS lights it on :hover / .is-focus (no re-render). */}
+        {plan && <polygon className="spln-room-glow" points={pts} fill="none" stroke="rgb(var(--fg-rgb))" strokeWidth={u * 1.6} strokeLinejoin="round" pointerEvents="none" />}
+        {plan && <text className="spln-room-label" x={lx} y={ly} textAnchor="middle" fontSize={u * 1.1}>{name}</text>}
 
         {/* score-changed pulse — a brief expanding ring so an edit's effect is felt.
             Keyed by pulseKey so it remounts (replays) on each new edit turn. */}

@@ -26,7 +26,13 @@ def build_load_layout_node(layout_input_dir: Path):
                 loaded_data = json.loads(state["layout_json_string"])
                 if _norm_id(loaded_data.get("layoutId")) == requested_norm:
                     print(f"[load_layout] Layout {requested_norm} already loaded — skipping.")
-                    return {**state, "layout_id": requested_norm}
+                    skipped = {**state, "layout_id": requested_norm}
+                    if state.get("action") == "load":
+                        skipped["final_response"] = (
+                            f"Layout {requested_norm} is already loaded. "
+                            "Ask me to analyse it whenever you're ready."
+                        )
+                    return skipped
             except (json.JSONDecodeError, TypeError):
                 pass
 
@@ -74,11 +80,25 @@ def build_load_layout_node(layout_input_dir: Path):
         display_id = str(layout_data.get("layoutId", confirmed_norm or "?"))
         print(f"[load_layout] Loaded {display_id} from {selected.name} (id={confirmed_norm})")
 
-        return {
+        out = {
             **state,
             "layout_json_string": json.dumps(layout_data),
             "layout_id":          confirmed_norm,
             "layout_not_found":   False,
+            # A genuinely fresh layout load resets the suggestion-lifecycle accumulator:
+            # a suggestion is crossed off only after a real edit applies it WITHIN the
+            # current editing session, so loading a new layout (or this one at its initial
+            # state) starts every suggestion un-crossed. The "already loaded — skipping"
+            # path above returns early and preserves it, so edits within a session persist.
+            "applied_suggestions": [],
         }
+        # Silent LOAD intent: render the plan only and wait — no scoring. The graph ends
+        # the turn here (see _route_after_load_layout), so set the spoken acknowledgment.
+        if state.get("action") == "load":
+            out["final_response"] = (
+                f"Loaded {display_id}. The plan's on the canvas — "
+                "ask me to analyse it whenever you're ready."
+            )
+        return out
 
     return load_layout_node

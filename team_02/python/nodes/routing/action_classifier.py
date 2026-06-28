@@ -156,6 +156,18 @@ def build_action_classifier_node(llm):
         has_prior_analysis = bool(state.get("last_scores_json", "").strip())
         layout_id = state.get("layout_id")
 
+        # Deterministic LOAD intent — the layout picker sends "load layout N", and loading
+        # must NOT score (just render the plan and wait). Resolve it here, BEFORE the LLM,
+        # so it can never be misrouted to analyze. Kept literal ("load / open / switch to …
+        # layout") so it can't overlap the edit bucket ("add a plant", "place a …").
+        pl = raw_prompt.strip().lower()
+        if re.match(r"^(load|open|switch\s+to)\b", pl) and "layout" in pl:
+            m = re.search(r"\blayout[-_ ]?(\d+)\b", pl) or re.search(r"\b(\d{3,})\b", pl)
+            load_id = m.group(1) if m else layout_id
+            print(f"[action_classifier] deterministic load intent -> action=load, layout_id={load_id}")
+            return {**state, "action": "load", "layout_id": load_id,
+                    "target_room_hint": None, "material_hint": None}
+
         print(f"[action_classifier] Classifying (has_prior_analysis={has_prior_analysis})...")
 
         action = "chitchat"
@@ -226,6 +238,28 @@ def build_action_classifier_node(llm):
             if is_question and names_specific:
                 print(f"[action_classifier] upgraded {action} -> follow_up (specific room/sense question w/ prior analysis)")
                 action = "follow_up"
+
+        # Edit-cache consistency: an edit re-scores the layout and invalidates the
+        # old conflicts/suggestions (analyze clears them — correct, they're stale).
+        # A follow_up that asks ABOUT conflicts/suggestions would then find nothing
+        # cached and answer from emptiness. Upgrade it to a fresh detect/full so the
+        # answer is computed on the CURRENT layout instead of silently coming back
+        # blank. (No extra cost on the normal path — only fires when the relevant
+        # cache is missing.)
+        if action == "follow_up":
+            pl = raw_prompt.lower()
+            has_conflicts   = bool(state.get("last_conflicts_json", "").strip())
+            has_suggestions = bool(state.get("last_suggestions_json", "").strip())
+            wants_suggest = any(w in pl for w in (
+                "suggest", "improve", "fix", "recommend", "make better", "enhance", "how do i"))
+            wants_conflict = any(w in pl for w in (
+                "conflict", "problem", "issue", "wrong", "clash", "fail"))
+            if wants_suggest and not has_suggestions:
+                print("[action_classifier] follow_up wants suggestions but none cached -> upgrading to full")
+                action = "full"
+            elif wants_conflict and not has_conflicts:
+                print("[action_classifier] follow_up wants conflicts but none cached -> upgrading to detect")
+                action = "detect"
 
         return {
             **state,

@@ -4,6 +4,7 @@ import * as api from "../api/client.js";
 import { SC, SI } from "../lib/constants.js";
 
 const ORDER = ["thermal", "visual", "acoustic", "spatial", "olfactory", "tactile"];
+const MAX_PICKS = 3; // contract: each round, pick a minimum of 1 and a maximum of 3
 
 function hexToRgb(hex) {
   return `${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)}`;
@@ -26,6 +27,8 @@ export default function InspireScreen({ question, setOverlay, onPersonaReady }) 
   const [text, setText] = useState("");
   const [b64s, setB64s] = useState([]);
   const [round, setRound] = useState(1);
+  const [degraded, setDegraded] = useState(false);
+  const [refineText, setRefineText] = useState("");   // optional "say more" between rounds
 
   const urlsRef = useRef([[], [], []]);
   const sensesRef = useRef([[], [], []]);
@@ -37,23 +40,37 @@ export default function InspireScreen({ question, setOverlay, onPersonaReady }) 
   const curSenses = sensesRef.current[round - 1] || [];
   const curSel = selected[round - 1] || {};
   const selCount = Object.keys(curSel).length;
+  const atMax = selCount >= MAX_PICKS;
 
   const renderRound = (data) => {
     const r = data.round;
     urlsRef.current[r - 1] = data.urls || [];
     sensesRef.current[r - 1] = data.senses || [];
     setSelected((prev) => { const n = [...prev]; n[r - 1] = {}; return n; });
+    setDegraded(!!data.degraded);
+    setRefineText("");
     setRound(r);
     setStage("grid");
     setOverlay(null);
   };
 
+  // Re-run the current round (used by the "retry" affordance when the image
+  // service returned a degraded/fallback set).
+  const retryRound = () => {
+    setOverlay("finding more images...");
+    const cbs = { onProgress: (m) => setOverlay(m), onResult: renderRound };
+    const req = round === 1
+      ? api.prepareInspire(text, b64s, 1, cbs)
+      : api.refineInspire("", round, cbs);
+    req.catch(() => setOverlay(null));
+  };
+
+  // Round 1 needs no typed description — the board is seeded from the quiz. Any text the
+  // user adds is optional flavour on top.
   const submitQuestion = () => {
-    const t = text.trim();
-    if (!t) return;
     setRound(1);
     setOverlay("reading your aesthetic...");
-    api.prepareInspire(t, b64s, 1, {
+    api.prepareInspire(text.trim(), b64s, 1, {
       onProgress: (m) => setOverlay(m),
       onResult: (data) => {
         if (!data.urls || data.urls.length === 0) { buildMoodboard(); return; }
@@ -62,11 +79,26 @@ export default function InspireScreen({ question, setOverlay, onPersonaReady }) 
     }).catch(() => setOverlay(null));
   };
 
+  // What the user leaned toward this round — the senses of the images they picked — so the
+  // next round evolves toward them (alongside any optional "say more" text).
+  const pickedSenseLean = () => {
+    const tally = {};
+    Object.keys(curSel).forEach((i) => {
+      (curSenses[parseInt(i)] || []).forEach((s) => { tally[s] = (tally[s] || 0) + 1; });
+    });
+    const top = Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([s]) => s);
+    return top.length ? `lean toward ${top.join(" and ")} spaces` : "";
+  };
+
   const toggleCell = (i) => {
     setSelected((prev) => {
       const n = prev.map((o) => ({ ...o }));
       const cell = n[round - 1];
-      if (cell[i]) delete cell[i]; else cell[i] = true;
+      if (cell[i]) {
+        delete cell[i];                                   // always allow deselect
+      } else if (Object.keys(cell).length < MAX_PICKS) {
+        cell[i] = true;                                   // cap selections at MAX_PICKS
+      }
       return n;
     });
   };
@@ -75,8 +107,10 @@ export default function InspireScreen({ question, setOverlay, onPersonaReady }) 
     const picks = Object.keys(curSel).map((i) => curUrls[parseInt(i)]).filter(Boolean);
     api.saveInspirePicks(round, picks).catch(() => {});
     if (round < 3) {
+      // Evolve the next round from what they picked + any optional "say more" text.
+      const refine = [pickedSenseLean(), refineText.trim()].filter(Boolean).join(". ");
       setOverlay("finding more images...");
-      api.refineInspire("", round + 1, {
+      api.refineInspire(refine, round + 1, {
         onProgress: (m) => setOverlay(m),
         onResult: renderRound,
       }).catch(() => setOverlay(null));
@@ -160,10 +194,13 @@ export default function InspireScreen({ question, setOverlay, onPersonaReady }) 
                 <SensiAvatar size={28} />
                 <p className="bubble-s" style={{ marginBottom: 0 }}>{question}</p>
               </div>
+              <p className="label" style={{ marginTop: 8 }}>
+                I'll start from your quiz — add anything you'd like, or just go.
+              </p>
             </div>
           </div>
           <div className="input-area" style={{ maxWidth: 560, margin: "0 auto", width: "100%" }}>
-            <textarea className="sensi-input" placeholder="describe your ideal sensory world…"
+            <textarea className="sensi-input" placeholder="anything to add about your ideal space? (optional)"
               value={text} onChange={(e) => setText(e.target.value)} style={{ height: 90 }} />
             <div className="upload-row">
               <button className="btn-upload" onClick={() => fileRef.current && fileRef.current.click()}>+ add reference images</button>
@@ -173,7 +210,7 @@ export default function InspireScreen({ question, setOverlay, onPersonaReady }) 
             <div className="upload-preview">
               {b64s.map((b, i) => <img key={i} src={`data:image/jpeg;base64,${b}`} alt="" />)}
             </div>
-            <button className="btn-action" onClick={submitQuestion}>build my moodboard →</button>
+            <button className="btn-action" onClick={submitQuestion}>show me my moodboard →</button>
           </div>
         </div>
       )}
@@ -186,7 +223,17 @@ export default function InspireScreen({ question, setOverlay, onPersonaReady }) 
                 <SensiAvatar size={28} />
                 <p className="bubble-s" style={{ marginBottom: 0 }}>which of these feel like you?</p>
               </div>
-              <p className="label" style={{ marginTop: 4 }}>click to select · pick what resonates</p>
+              <p className="label" style={{ marginTop: 4 }}>click to select · pick 1–3 that resonate</p>
+              {degraded && (
+                <p className="label" style={{ marginTop: 4, color: "var(--sense-thermal, #E8836A)", opacity: 0.85 }}>
+                  couldn't reach the image service for a full set (it may be rate-limited) — showing fallbacks ·{" "}
+                  <button
+                    onClick={retryRound}
+                    style={{ background: "none", border: "none", color: "inherit", textDecoration: "underline", cursor: "pointer", padding: 0, font: "inherit" }}>
+                    retry
+                  </button>
+                </p>
+              )}
               <div className="sense-legend">
                 {ORDER.map((s) => (
                   <span className="sl-item" key={s}>
@@ -203,7 +250,9 @@ export default function InspireScreen({ question, setOverlay, onPersonaReady }) 
                   return (
                     <div key={i}
                       className={"img-cell" + (sel ? " selected sg-anim" : "")}
-                      style={sel ? { background: makeGradient(cs) } : undefined}
+                      style={sel
+                        ? { background: makeGradient(cs) }
+                        : (atMax ? { opacity: 0.4, cursor: "default" } : undefined)}
                       onClick={() => toggleCell(i)}>
                       <img src={url} loading="lazy" alt="" />
                       <div className="sense-badge">
@@ -214,10 +263,17 @@ export default function InspireScreen({ question, setOverlay, onPersonaReady }) 
                   );
                 })}
               </div>
-              <p className="label" style={{ marginTop: 8 }}>{selCount} selected</p>
+              <p className="label" style={{ marginTop: 8 }}>
+                {selCount}/{MAX_PICKS} selected{atMax ? " · max reached" : (selCount === 0 ? " · pick at least 1" : "")}
+              </p>
             </div>
           </div>
           <div className="input-area" style={{ maxWidth: 560, margin: "0 auto", width: "100%" }}>
+            {round < 3 && (
+              <input className="sensi-input" value={refineText} onChange={(e) => setRefineText(e.target.value)}
+                placeholder="say more about what you want next (optional)…"
+                style={{ height: 40, marginBottom: 8 }} />
+            )}
             <button className="btn-action" onClick={advance} disabled={selCount === 0}>continue →</button>
           </div>
         </div>

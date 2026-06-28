@@ -120,8 +120,9 @@ export default function FocusCard({ turn, persona, onClose, onFix }) {
           <div className="fc-section-label">suggestions</div>
           <div className="flex flex-col gap-1.5">
             {roomSugg.map((sg, i) => (
-              <div key={i} className="fc-sugg">
-                <span className="fc-glyph" style={{ color: SC[sg.sense] }}>{SI[sg.sense] || ""}</span>
+              <div key={i} className={"fc-sugg" + (sg.applied ? " fc-sugg-applied" : "")}
+                title={sg.applied ? "done — you applied this" : undefined}>
+                <span className="fc-glyph" style={{ color: SC[sg.sense] }}>{sg.applied ? "✓" : (SI[sg.sense] || "")}</span>
                 <span className="fc-sugg-text">{sg.suggestion}</span>
               </div>
             ))}

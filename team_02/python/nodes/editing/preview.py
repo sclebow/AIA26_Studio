@@ -12,26 +12,12 @@ from __future__ import annotations
 import json
 
 from nodes.editing import _edits
-from nodes._shared.utils import unwrap_mcp_result, persona_display_label
+from nodes.editing.edit_planner import _heuristic_ops
+from nodes.editing.apply_edits import _apply_one
+from nodes._shared.utils import unwrap_mcp_result
+from nodes._shared.persona_context import persona_scoring_args
 
 SENSES = ["thermal", "visual", "acoustic", "spatial", "olfactory", "tactile"]
-
-
-def _decompose_ops(prompt: str) -> list:
-    """Which edits does this 'what if' refer to? Detects EVERY category present so
-    "what if I add a plant AND change the floor" previews both. Keyword-only (no LLM)
-    — the preview is hypothetical, so a wrong guess is cheap (nothing is committed)."""
-    p = (prompt or "").lower()
-    ops = []
-    if any(k in p for k in ("plant", "rug", "sofa", "couch", "armchair", "cushion",
-                            "furniture", "shelf", "bookshelf", "desk", "table", "cabinet")):
-        ops.append("add_furniture")
-    if any(k in p for k in ("window", "glazing", "skylight", "daylight", "more light")):
-        ops.append("modify_glazing")
-    if any(k in p for k in ("floor", "wall", "material", "carpet", "wood", "concrete",
-                            "tile", "fabric", "cork", "stone")):
-        ops.append("change_material")
-    return ops or ["change_material"]  # default fallback
 
 
 def _layout_score(scores_json: str):
@@ -98,45 +84,28 @@ def build_preview_node(mcp_client):
         # Clone so the canonical layout is NEVER mutated. Apply ALL hypothetical ops
         # to the one clone, then score it ONCE (matches the committed multi-edit path).
         clone = json.loads(_edits.dump(layout))
-        room  = _edits.find_target_room(clone, raw_prompt, current_scores, room_hint)
+        # Reuse the SAME decomposition + dispatch as the committed path, so a "what if"
+        # never drifts from what an apply would actually do. No audit/revert here — the
+        # preview is hypothetical and scored on a throwaway clone, so a wrong guess is cheap.
+        ops = _heuristic_ops(raw_prompt) or [
+            {"op": "change_material", "room": None, "surface": None, "material": None}]
         diffs = []
-        for edit in _decompose_ops(raw_prompt):
-            if room is None:
-                break
-            if edit == "add_furniture":
-                ftype = _edits.detect_furniture_type(raw_prompt)
-                mat   = _edits.furniture_material_for(ftype)
-                d = _edits.apply_add_furniture(clone, room, ftype, mat)
-            elif edit == "modify_glazing":
-                gtype, wants_more = _edits.resolve_glazing(raw_prompt)
-                d = _edits.apply_modify_glazing(clone, room, gtype, wants_more)
-            else:
-                material = _edits.detect_material(raw_prompt, material_hint) or "wood"
-                surface  = _edits.detect_surface_target(raw_prompt)
-                d = _edits.apply_change_material(clone, room, surface, material)
+        room = None
+        for op in ops:
+            hint = op.get("room") or ""
+            r = _edits.find_target_room(clone, hint or raw_prompt, current_scores, hint or room_hint)
+            if r is None:
+                continue
+            room = r
+            d, _note = _apply_one(op.get("op"), op, clone, r, raw_prompt)
             if d:
                 diffs.append(d)
         diff = diffs[-1] if diffs else {}
 
-        # Score the hypothetical clone — same args as the analyze node.
-        persona_label    = persona_display_label(persona_profile)
-        weights_override = persona_profile.get("comfort_weights")
-        pers = persona_profile.get("personality", 0)
-        if isinstance(pers, str):
-            pers = {"introvert": -1.0, "extrovert": 1.0}.get(pers.strip().lower(), 0.0)
-        try:
-            personality = float(pers or 0)
-        except (TypeError, ValueError):
-            personality = 0.0
-
-        args = {
-            "layout_json": _edits.dump(clone),
-            "persona":     persona_label,
-            "room_ids":    "all",
-            "personality": personality,
-        }
-        if weights_override:
-            args["weights_override"] = json.dumps(weights_override)
+        # Score the hypothetical clone — same persona args as the analyze node
+        # (weights + personality + household context), so a "what if" matches a real edit.
+        args = {"layout_json": _edits.dump(clone), "room_ids": "all",
+                **persona_scoring_args(persona_profile)}
 
         raw = mcp_client.call_tool("compute_comfort_scores", args)
         preview_scores = unwrap_mcp_result(raw)

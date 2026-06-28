@@ -20,6 +20,7 @@
   /* radius scale - round = clickable, soft = content */
   --r-pill: 999px;
   --r-lg:   14px;
+  --r-md:   12px;
   --r-sm:   6px;
 
   /* ambient overlay rungs (borders, fills, hovers) keyed off --fg-rgb */

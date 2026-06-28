@@ -25,7 +25,7 @@ def build_biophilic_audit_node():
 
         rooms_data = []
         biophilic_plants_needed = False
-        lines = ["BIOPHILIC RICHNESS AUDIT:"]
+        lines = ["BIOPHILIC LENS — how alive each room feels (green = nature in the space):"]
 
         for room in layout.get("rooms", []):
             rid        = room.get("id", "")
@@ -60,11 +60,21 @@ def build_biophilic_audit_node():
             if not has_plants:
                 biophilic_plants_needed = True
 
-            status = "rich" if richness >= 0.70 else "moderate" if richness >= 0.40 else "low"
-            lines.append(
-                f"  {name}: richness={richness:.2f} ({status}) | "
-                f"glazing={glazing:.0%}, ventilation={vent}, plants={plant_count}"
-            )
+            status = "thriving" if richness >= 0.66 else "moderate" if richness >= 0.40 else "thirsty"
+            # Warm, data-grounded narrator: which "leaves" (Terrapin patterns) are present.
+            present, missing = [], []
+            (present if has_plants else missing).append("greenery")
+            (present if glazing >= 0.15 else missing).append("daylight")
+            (present if vent in ("natural", "mixed") else missing).append("fresh air")
+            (present if has_natural_mat else missing).append("natural materials")
+            if status == "thriving":
+                note = "thriving — " + ", ".join(present[:3]) + "."
+            elif status == "moderate":
+                note = ("coming along — has " + (", ".join(present) or "little")
+                        + "; could use " + (" & ".join(missing[:2]) or "more") + ".")
+            else:
+                note = "a bit thirsty — no " + ", ".join(missing[:3]) + "."
+            lines.append(f"  {name}: {note} (richness {richness:.2f})")
             rooms_data.append({
                 "id":            rid,
                 "name":          name,
@@ -77,6 +87,9 @@ def build_biophilic_audit_node():
                 "floor_material": floor_mat,
             })
 
+        without = [r["name"] for r in rooms_data if not r["has_plants"]]
+        if without:
+            lines.append(f"  -> I can tuck some green into {without[0]} if you'd like.")
         biophilic_summary = "\n".join(lines)
         biophilic_data = {
             "rooms":                rooms_data,

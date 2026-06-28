@@ -18,6 +18,52 @@ export function dims(geo) {
   return { w: x1 - x0, h: y1 - y0, top: y1, cx: (x0 + x1) / 2 };
 }
 
+// Ray-casting point-in-polygon. `pts` is [[x,y],…] and (px,py) must be in the SAME
+// space (so test screen-space points against a screen-space polygon).
+export function pointInPoly(px, py, pts) {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i], [xj, yj] = pts[j];
+    if (((yi > py) !== (yj > py)) &&
+        (px < ((xj - xi) * (py - yi)) / ((yj - yi) || 1e-12) + xi)) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+// Place the comfort ring near a room's top-right corner but GUARANTEED inside the
+// room polygon. The ideal corner (from the bbox) is fine for rectangular rooms, but
+// for concave / L-shaped rooms it can fall in the bbox notch — i.e. inside a
+// neighbouring room — so the ring would render on the wrong cell. When that happens
+// we snap to the nearest grid point where the whole ring fits inside (falling back to
+// the nearest interior point, then the corner). `screenPts` and `desired` are screen
+// space (y already flipped); returns [x, y].
+export function ringAnchor(screenPts, desired, ringR) {
+  const [dx, dy] = desired;
+  // ring "fits" when its centre + 4 cardinal extents all lie inside the polygon.
+  const fits = (x, y, pad) =>
+    pointInPoly(x, y, screenPts) &&
+    pointInPoly(x + pad, y, screenPts) && pointInPoly(x - pad, y, screenPts) &&
+    pointInPoly(x, y + pad, screenPts) && pointInPoly(x, y - pad, screenPts);
+  if (fits(dx, dy, ringR)) return desired;   // rectangular rooms: unchanged
+
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [x, y] of screenPts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  const N = 16;
+  const search = (pad) => {
+    let best = null, bestD = Infinity;
+    for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) {
+      const x = x0 + ((x1 - x0) * i) / N, y = y0 + ((y1 - y0) * j) / N;
+      if (pad > 0 ? !fits(x, y, pad) : !pointInPoly(x, y, screenPts)) continue;
+      const d = (x - dx) ** 2 + (y - dy) ** 2;   // nearest to the ideal corner
+      if (d < bestD) { bestD = d; best = [x, y]; }
+    }
+    return best;
+  };
+  return search(ringR * 0.85) || search(0) || desired;
+}
+
 export function swingPath(A, B, fy) {
   const r = Math.hypot(B[0] - A[0], B[1] - A[1]);
   const t0 = Math.atan2(B[1] - A[1], B[0] - A[0]);

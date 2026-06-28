@@ -1,16 +1,14 @@
 # Team 02 — Docs
 
-Map of this folder. **Frozen deliverables** are grouped by week; **evergreen reference** docs and the
-**deck tooling** live at the root because they are week-independent.
+Map of this folder. **Frozen deliverables** are grouped by week; **evergreen reference** docs live in
+`reference/` because they are week-independent.
 
 ```
 docs/
 ├── reference/        evergreen concept & research (not tied to a week)
 ├── week07/           frozen week-7 deliverables
-├── week08/           current week — CLI + benchmarking
-├── build_deck.py     deck generator (reads shots/, writes Sensi-Presentation.pdf)
-├── render_mermaid.py renders ../python/sensi_graph.mermaid → shots/03-graph.png
-└── shots/            working screenshots used by the deck tooling
+├── week08/           CLI + benchmarking
+└── week09/           final review: deck, scripts, PDF (in deliverables/)
 ```
 
 ## reference/ — evergreen
@@ -23,7 +21,7 @@ docs/
 - [Sensi-Presentation-week07.pdf](week07/Sensi-Presentation-week07.pdf) — the week-7 deck.
 - [presentation-script-week07.md](week07/presentation-script-week07.md) — the week-7 talk script.
 
-## week08/ — current week
+## week08/
 - [cli-changes.md](week08/cli-changes.md) — CLI for the orchestrator (faculty notes).
 - [benchmarking-findings.md](week08/benchmarking-findings.md) — per-node model tiering (Gemini FAST/SMART) + rationale.
 - [image-generation-research.md](week08/image-generation-research.md) — deep-research findings (consistency, score-conditioning, edit legibility).
@@ -34,11 +32,10 @@ docs/
 - [edit-checkpoints-interactive.md](week08/edit-checkpoints-interactive.md) — multi-edit (edit_planner→apply_edits), Checkpoints (working draft → commit/restore, Vision = committed), and interactive answers (linkify + bidirectional cross-highlighting).
 - [reference/report-vision-pipeline.md](reference/report-vision-pipeline.md) — current consolidated overview of the Report/Vision (model, prompts, scoring, before/after, exports).
 
-## Tooling (root)
-- `build_deck.py` — regenerates the deck PDF from `shots/`. Run from this folder.
-- `render_mermaid.py` — regenerates the architecture diagram into `shots/`.
-- `shots/` — input/output assets for the two scripts above (regenerable, not a deliverable).
+## week09/ — final review (current)
+- [deliverables/](week09/deliverables/) — the live deck (`deck/index.html`), its PDF export (`Sensi-FinalReview-week09.pdf`, rebuilt with `deck/make-pdf.py`), and the spoken scripts (`presentation-script-week09.md`, `demo-scripts-week09.md`).
+- [models-and-benchmarks.md](week09/models-and-benchmarks.md) — current Gemini 3.x models + refreshed benchmarks; samples in `week09/benchmark/`.
+- `demo-runbook-week09.md`, `narrative-notes.md`, `flow-audit.md` — recording runbook and session working notes.
 
 > Convention going forward: each week's **frozen outputs** (decks, scripts, findings) go in a
-> `weekNN/` folder. Reusable tooling and evergreen reference material stay at the root or in
-> `reference/`.
+> `weekNN/` folder. Evergreen reference material stays in `reference/`.

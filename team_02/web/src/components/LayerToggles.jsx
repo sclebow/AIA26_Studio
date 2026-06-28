@@ -9,7 +9,6 @@
 const LAYERS = [
   ["plan",     "plan"],
   ["comfort",  "comfort"],
-  ["material", "material"],
   ["graph",    "graph"],
 ];
 

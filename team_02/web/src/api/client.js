@@ -35,9 +35,9 @@ async function post(path, body = {}) {
 export const init             = ()             => post("/api/init");
 export const sendMessage      = (text)         => post("/api/message", { text });
 export const resetPersona     = ()             => post("/api/reset-persona");
+export const refinePersona    = (text)         => post("/api/refine-persona", { text });
 export const saveInspirePicks = (round, urls)  => post("/api/inspire/picks", { round, urls });
 export const buildMoodboard   = (senseCounts)  => post("/api/inspire/moodboard", { sense_counts: senseCounts });
-export const profileChat      = (text)         => post("/api/profile-chat", { text });
 export const getLayout        = ()             => post("/api/layout");
 export const renderRoom       = (roomName, force = false) => post("/api/render-room", { room_name: roomName, force });
 export const getReport        = ()             => post("/api/report");
@@ -51,13 +51,15 @@ export const restore          = (checkpointId) => post("/api/restore", { checkpo
 // View a checkpoint's scored state for review (non-destructive).
 export const viewCheckpoint   = (checkpointId) => post("/api/checkpoint", { checkpoint_id: checkpointId });
 
-// ── SSE: inspire rounds stream progress, then a final result ──────────────
-// callbacks: { onSession(id), onProgress(msg), onResult(data) }
-async function inspireStream(path, body, { onSession, onProgress, onResult }) {
+// ── SSE: shared frame reader ──────────────────────────────────────────────
+// POSTs body, reads the text/event-stream response, and dispatches each frame to
+// handlers[event](payload). `signal` (optional) lets the caller abort mid-stream.
+async function streamSSE(path, body, handlers, signal) {
   const res = await fetch(`${BASE}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ session_id: getSessionId(), ...body }),
+    signal,
   });
   if (!res.ok || !res.body) throw new Error(`${path} failed: ${res.status}`);
 
@@ -81,17 +83,22 @@ async function inspireStream(path, body, { onSession, onProgress, onResult }) {
         else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
       }
       if (!dataStr) continue;
-      const payload = JSON.parse(dataStr);
-      if (event === "session" && payload.session_id) {
-        setSessionId(payload.session_id);
-        onSession && onSession(payload.session_id);
-      } else if (event === "progress") {
-        onProgress && onProgress(payload.message);
-      } else if (event === "result") {
-        onResult && onResult(payload);
-      }
+      let payload;
+      try { payload = JSON.parse(dataStr); } catch { continue; }
+      const fn = handlers[event];
+      if (fn) fn(payload);
     }
   }
+}
+
+// inspire rounds: stream progress, then a final result.
+// callbacks: { onSession(id), onProgress(msg), onResult(data) }
+function inspireStream(path, body, { onSession, onProgress, onResult }) {
+  return streamSSE(path, body, {
+    session: (p) => { if (p.session_id) { setSessionId(p.session_id); onSession && onSession(p.session_id); } },
+    progress: (p) => onProgress && onProgress(p.message),
+    result: (p) => onResult && onResult(p),
+  });
 }
 
 export const prepareInspire = (text, b64s, round, cbs) =>
@@ -99,6 +106,26 @@ export const prepareInspire = (text, b64s, round, cbs) =>
 
 export const refineInspire = (refineDesc, round, cbs) =>
   inspireStream("/api/inspire/refine", { refine_desc: refineDesc, round }, cbs);
+
+// ── SSE: streaming agent turn (progress labels + token-by-token answer) ─────
+// Mirrors sendMessage but streams. callbacks (all optional):
+//   onProgress({node, message})  a step finished — human label for the UI
+//   onMessageStart()             begin/replace the streamed answer buffer
+//   onToken(text)                a chunk of the final answer
+//   onResult(data)               same payload shape as sendMessage
+//   onError(message)             the turn failed gracefully (server-reported)
+// Pass an AbortController.signal to cancel mid-turn.
+export function sendMessageStream(text, cbs = {}, signal) {
+  const { onSession, onProgress, onMessageStart, onToken, onResult, onError } = cbs;
+  return streamSSE("/api/message/stream", { text }, {
+    session: (p) => { if (p.session_id) { setSessionId(p.session_id); onSession && onSession(p.session_id); } },
+    progress: (p) => onProgress && onProgress(p),
+    message_start: () => onMessageStart && onMessageStart(),
+    token: (p) => onToken && onToken(p.text),
+    result: (p) => { if (p.session_id) setSessionId(p.session_id); onResult && onResult(p); },
+    error: (p) => onError && onError(p.message),
+  }, signal);
+}
 
 // Layout management
 export const selectLayout = (layout_id) => post("/api/layout/select", { layout_id });

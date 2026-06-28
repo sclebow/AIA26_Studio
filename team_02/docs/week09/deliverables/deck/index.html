@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sensi / Final review</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/css/print/pdf.min.css" media="print">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Caveat:wght@600&display=swap">
+<style>
+:root{
+  --bg:#0D0D0D; --fg:#F0EDE8; --mut:#9a978f; --dim:#7c7a73;
+  --therm:#E8836A; --vis:#D4B96A; --ac:#9B8FD4; --sp:#6AB8C8; --olf:#8BB88A; --tac:#C4A882;
+  --pass:#3FB97A; --warn:#E0A92E; --fail:#E0524A; --red:#FF5247;
+  --panel:#15161a; --panel2:#1a1c21; --bd:#2A2A2A;
+}
+html,body{background:var(--bg);}
+html.reveal-full-page,.reveal-viewport{background:#0D0D0D;}
+.reveal{font-family:'Inter',system-ui,sans-serif;color:var(--fg);font-weight:400;}
+.reveal .slides{text-align:left;}
+.reveal .slides>section{width:1280px;height:720px;padding:0;overflow:hidden;}
+.reveal h1,.reveal h2{color:var(--fg);font-weight:600;margin:0;text-transform:none;letter-spacing:-.012em;line-height:1.1;}
+.reveal p{margin:0;}
+.reveal section img{margin:0;border:0;box-shadow:none;background:none;}
+.reveal .controls{color:var(--mut);} .reveal .progress{color:var(--ac);}
+
+.frame{position:absolute;inset:0;padding:62px 76px;display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;}
+.kick{position:absolute;top:50px;left:76px;font:500 15px 'JetBrains Mono',monospace;letter-spacing:.12em;display:flex;align-items:center;gap:11px;z-index:3;}
+.kbar{width:30px;height:5px;border-radius:2px;display:inline-block;}
+.foot{position:absolute;left:76px;right:76px;bottom:68px;font:400 15px 'Inter';color:var(--mut);z-index:3;}
+.counter{position:fixed;right:34px;bottom:28px;font:500 15px 'JetBrains Mono',monospace;color:var(--dim);z-index:60;}
+.brandfoot{position:fixed;left:34px;bottom:28px;font:500 13px 'JetBrains Mono',monospace;color:var(--dim);z-index:60;letter-spacing:.04em;}
+.glyphkey{position:fixed;left:0;right:0;bottom:28px;text-align:center;font:500 13px 'JetBrains Mono',monospace;color:var(--mut);z-index:60;letter-spacing:.02em;pointer-events:none;}
+.counter.demo{color:var(--therm);letter-spacing:.14em;}
+
+.h1{font-size:50px;font-weight:600;}
+.h1.sm{font-size:40px;}
+.lead{font-size:25px;line-height:1.5;color:#d7d3ca;}
+.mono{font-family:'JetBrains Mono',monospace;}
+.mut{color:var(--mut);} .note{font-size:16px;color:var(--mut);}
+.tag{font:500 12px 'JetBrains Mono',monospace;color:var(--mut);letter-spacing:.06em;}
+.cite{font:500 12px 'JetBrains Mono',monospace;color:var(--dim);letter-spacing:.03em;}
+.cite b{color:var(--mut);font-weight:500;}
+
+.eq{display:inline-block;background:var(--panel);border:1px solid var(--bd);border-radius:14px;padding:18px 22px;}
+.eq .m{font-family:'JetBrains Mono',monospace;font-size:24px;color:var(--fg);}
+.foot-eq{font:400 13px 'JetBrains Mono',monospace;color:var(--dim);}
+.foot-eq b{color:var(--mut);font-weight:500;}
+
+.row{display:flex;gap:54px;align-items:center;}
+.col{min-width:0;}
+.cards{display:flex;gap:24px;}
+.card{flex:1;background:var(--panel);border:1px solid var(--bd);border-radius:16px;padding:26px 26px;}
+.card .ct{font:500 15px 'JetBrains Mono',monospace;letter-spacing:.08em;display:flex;align-items:center;gap:11px;}
+.card .ct i{font-size:24px;} .card .cb{font-size:19px;line-height:1.5;color:#d7d3ca;margin-top:16px;}
+
+/* three quiet decisions */
+.dec{display:flex;gap:14px;align-items:flex-start;}
+.dec .dg{font:500 20px 'JetBrains Mono',monospace;flex:0 0 auto;line-height:1.2;width:22px;text-align:center;}
+.dec .dk{font:600 15px 'Inter';color:var(--fg);}
+.dec .db{font-size:15px;line-height:1.4;color:var(--mut);margin-top:2px;}
+
+img.shot{border:1px solid var(--bd);border-radius:12px;object-fit:cover;}
+.svgph{background:var(--panel);border:1px solid var(--bd);border-radius:14px;position:relative;overflow:hidden;}
+.svgph .rep{position:absolute;left:12px;bottom:10px;font:400 12px 'JetBrains Mono',monospace;color:var(--dim);}
+
+.glyphrow{font:500 17px 'JetBrains Mono',monospace;color:var(--dim);display:flex;gap:22px;}
+
+/* cover / close */
+.galaxy{position:absolute;inset:0;width:100%;height:100%;opacity:.5;z-index:0;}
+.brand{display:flex;align-items:center;gap:20px;}
+.wm{font-size:70px;font-weight:500;letter-spacing:-1.5px;}
+
+/* visual-dominant */
+.tmin{font-size:27px;font-weight:600;letter-spacing:-.01em;line-height:1.15;}
+.sub{font-size:16px;color:var(--mut);margin-top:7px;line-height:1.45;}
+.stage{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;}
+.anno{font:400 14px 'Inter';color:var(--mut);line-height:1.45;}
+.anno b{color:#d7d3ca;font-weight:500;}
+.annoK{font:600 11px 'JetBrains Mono',monospace;letter-spacing:.07em;color:var(--mut);text-transform:uppercase;}
+.cap{font:400 13px 'JetBrains Mono',monospace;color:var(--dim);}
+
+/* recurring conversation map (agent flow, lit per act) */
+.conv{display:flex;gap:14px;align-items:stretch;width:100%;}
+.convcol{flex:1;border:1px solid var(--bd);border-radius:13px;padding:13px 14px 11px;display:flex;flex-direction:column;gap:9px;transition:opacity .45s ease;min-width:0;}
+.convcol .ch{font:600 12px 'JetBrains Mono',monospace;letter-spacing:.07em;}
+.you{align-self:flex-end;max-width:94%;background:rgba(212,185,106,.10);border:1px solid rgba(212,185,106,.35);border-radius:12px 12px 3px 12px;padding:6px 10px;font:500 13px 'Inter';color:#e9e2d2;}
+.nodes{align-self:center;font:500 11px 'JetBrains Mono',monospace;color:var(--mut);text-align:center;}
+.nodes i{font-size:11px;color:#6f6f6f;}
+.sensi{align-self:flex-start;max-width:94%;background:rgba(139,184,138,.10);border:1px solid rgba(139,184,138,.32);border-radius:12px 12px 12px 3px;padding:6px 10px;font:500 13px 'Inter';color:#e9e2d2;}
+.turn{display:flex;flex-direction:column;gap:5px;}
+.convcol .cc{margin-top:auto;font:400 11px 'JetBrains Mono',monospace;color:var(--dim);padding-top:4px;line-height:1.4;}
+.conv.lit-onboard .convcol:not([data-act=onboard]),
+.conv.lit-shape .convcol:not([data-act=shape]),
+.conv.lit-report .convcol:not([data-act=report]){opacity:.14;}
+
+/* directed graph (the follow-one-prompt spine, reused on report) */
+.lg{display:flex;flex-direction:column;align-items:center;gap:5px;}
+.lgn{background:var(--panel);border:1px solid var(--bd);border-radius:10px;padding:8px 16px;font:500 15px 'Inter';color:var(--fg);text-align:center;min-width:168px;}
+.lgn small{display:block;font:400 11px 'JetBrains Mono',monospace;color:var(--mut);margin-top:1px;}
+.lgn.io{border-color:rgba(212,185,106,.5);background:rgba(212,185,106,.07);border-radius:20px;color:#e9e2d2;}
+.lgn.ans{border-color:rgba(139,184,138,.55);background:rgba(139,184,138,.08);border-radius:20px;color:#e9e2d2;}
+.lgar{color:#7c7a73;font-size:15px;line-height:.7;}
+
+/* tables */
+.tbl{width:100%;border-collapse:collapse;font-size:16px;}
+.tbl th{font:500 12px 'JetBrains Mono',monospace;color:var(--mut);text-align:left;padding:8px 12px;letter-spacing:.06em;font-weight:500;}
+.tbl td{padding:11px 12px;border-top:1px solid var(--bd);}
+.tbl td.m{font-family:'JetBrains Mono',monospace;}
+
+/* clip pages */
+section.clip .frame{padding:0;}
+.clip-stage{position:absolute;inset:0 0 64px 0;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;}
+.clip-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;}
+.clip-ph{position:relative;z-index:2;text-align:center;}
+.clip.playing .clip-ph{display:none;}
+.play{width:0;height:0;border-style:solid;border-width:24px 0 24px 40px;border-color:transparent transparent transparent var(--therm);margin:0 auto 24px;opacity:.92;}
+.clip-ph .ct{font:500 24px 'JetBrains Mono',monospace;color:var(--therm);letter-spacing:.1em;}
+.clip-ph .cs{font:400 15px 'JetBrains Mono',monospace;color:var(--mut);margin-top:11px;}
+.clip-ph .cd{font:400 14px Inter;color:var(--dim);margin-top:20px;max-width:620px;margin-left:auto;margin-right:auto;}
+.demolabel{position:absolute;left:76px;top:54px;z-index:5;font:600 15px 'JetBrains Mono',monospace;color:var(--therm);letter-spacing:.12em;text-shadow:0 1px 10px rgba(0,0,0,.9);}
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<!-- 1 · COVER -->
+<section class="cover">
+  <svg class="galaxy" viewBox="0 0 680 382" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <g opacity=".7" fill="#F0EDE8">
+      <circle cx="120" cy="60" r="1.2"/><circle cx="300" cy="80" r="1.4"/><circle cx="620" cy="70" r="1.3"/>
+      <circle cx="650" cy="150" r="1"/><circle cx="560" cy="270" r="1.2"/><circle cx="470" cy="305" r="1"/>
+      <circle cx="330" cy="300" r="1.2"/><circle cx="610" cy="310" r="1"/><circle cx="250" cy="330" r="1.1"/>
+      <circle cx="410" cy="120" r="1"/><circle cx="660" cy="225" r="1.2"/><circle cx="210" cy="40" r="1"/>
+    </g>
+    <g fill="none" stroke-width="1" opacity=".5">
+      <path d="M455 130 Q495 100 530 95" stroke="#D4B96A"/><path d="M530 95 Q575 120 595 160" stroke="#9B8FD4"/>
+      <path d="M595 160 Q545 175 505 185" stroke="#6AB8C8"/><path d="M440 210 Q500 230 560 235" stroke="#8BB88A"/>
+    </g>
+    <g>
+      <circle cx="455" cy="130" r="18" fill="#E8836A" opacity=".10"/><circle cx="455" cy="130" r="6" fill="#E8836A" opacity=".8"/>
+      <circle cx="530" cy="95" r="15" fill="#D4B96A" opacity=".10"/><circle cx="530" cy="95" r="5" fill="#D4B96A" opacity=".8"/>
+      <circle cx="595" cy="160" r="20" fill="#9B8FD4" opacity=".10"/><circle cx="595" cy="160" r="6.5" fill="#9B8FD4" opacity=".8"/>
+      <circle cx="505" cy="185" r="15" fill="#6AB8C8" opacity=".10"/><circle cx="505" cy="185" r="5" fill="#6AB8C8" opacity=".8"/>
+      <circle cx="440" cy="210" r="15" fill="#8BB88A" opacity=".10"/><circle cx="440" cy="210" r="5" fill="#8BB88A" opacity=".8"/>
+      <circle cx="560" cy="235" r="15" fill="#C4A882" opacity=".10"/><circle cx="560" cy="235" r="5" fill="#C4A882" opacity=".8"/>
+    </g>
+  </svg>
+  <div class="frame" style="z-index:2">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" width="74" height="74" aria-label="Sensi mark">
+        <circle cx="16" cy="16" r="14.5" fill="none" stroke="#E8836A" stroke-width="1" opacity=".55"/>
+        <circle cx="16" cy="16" r="12" fill="none" stroke="#D4B96A" stroke-width="1" opacity=".55"/>
+        <circle cx="16" cy="16" r="9.5" fill="none" stroke="#9B8FD4" stroke-width="1" opacity=".6"/>
+        <circle cx="16" cy="16" r="7" fill="none" stroke="#6AB8C8" stroke-width="1" opacity=".6"/>
+        <circle cx="16" cy="16" r="4.5" fill="none" stroke="#8BB88A" stroke-width="1" opacity=".65"/>
+        <circle cx="16" cy="16" r="2" fill="none" stroke="#C4A882" stroke-width="1" opacity=".7"/>
+        <circle cx="16" cy="16" r="1.2" fill="#F0EDE8" opacity=".85"/>
+      </svg>
+      <span class="wm">sensi</span>
+    </div>
+    <div style="font:500 19px 'JetBrains Mono',monospace;color:var(--olf);margin-top:18px;letter-spacing:.1em">FINAL REVIEW</div>
+    <div class="lead" style="margin-top:20px;color:var(--mut);max-width:660px;font-size:27px;line-height:1.46">Sensi reads a floor plan and tells you <span style="color:var(--fg)">how each room will feel</span>, across six senses, for one&nbsp;person.</div>
+    <div style="font:400 14px 'JetBrains Mono',monospace;color:var(--dim);margin-top:28px">Charles Abi Chahine&nbsp;&nbsp;·&nbsp;&nbsp;Emilie El Chidiac&nbsp;&nbsp;·&nbsp;&nbsp;Lakzhmy Zaro&nbsp;&nbsp;·&nbsp;&nbsp;María Sánchez Domínguez</div>
+  </div>
+  <aside class="notes">[Maria · ~5s] Hi, we're Team 02, and this is Sensi, a comfort copilot.</aside>
+</section>
+
+<!-- 2 · WHAT IS SENSI -->
+<section>
+  <div class="kick"><span class="kbar" style="background:var(--vis)"></span><span style="color:var(--vis)">WHAT IS SENSI</span></div>
+  <div class="frame" style="justify-content:flex-start;padding-top:80px">
+    <p class="tmin">A design copilot that adds the sensory layer.</p>
+    <p class="sub">how each room will feel, across six senses, while it is still a plan.</p>
+    <div class="row" style="margin-top:14px;align-items:center;gap:50px">
+      <div class="col" style="flex:0 0 520px">
+        <svg width="520" height="390" viewBox="0 0 520 390" aria-label="an exploded axonometric of a plan: the analytical layers we already model (structure, cost, energy) in grey, and a new sensory layer glowing on top with six coupled senses">
+          <g stroke="#2a2823" stroke-width="1" stroke-dasharray="3 4"><line x1="38" y1="92" x2="38" y2="332"/><line x1="222" y1="92" x2="222" y2="332"/></g>
+          <!-- the plan -->
+          <polygon points="130,299 222,332 130,365 38,332" fill="#121210" stroke="#7a756a" stroke-width="1.3"/>
+          <line x1="130" y1="299" x2="130" y2="365" stroke="#6a665c" stroke-width="1"/>
+          <line x1="84" y1="315.5" x2="130" y2="332" stroke="#6a665c" stroke-width="1"/>
+          <!-- structure -->
+          <polygon points="130,239 222,272 130,305 38,272" fill="#100f0e" stroke="#45433e" stroke-width="1.1"/>
+          <circle cx="108" cy="272" r="2" fill="#45433e"/><circle cx="130" cy="282" r="2" fill="#45433e"/><circle cx="152" cy="272" r="2" fill="#45433e"/><circle cx="130" cy="262" r="2" fill="#45433e"/>
+          <!-- cost -->
+          <polygon points="130,179 222,212 130,245 38,212" fill="#100f0e" stroke="#45433e" stroke-width="1.1"/>
+          <!-- energy -->
+          <polygon points="130,119 222,152 130,185 38,152" fill="#100f0e" stroke="#45433e" stroke-width="1.1"/>
+          <!-- the senses (glowing, coupled) -->
+          <ellipse cx="130" cy="92" rx="80" ry="39" fill="#D4B96A" opacity="0.08"/>
+          <g fill="none" stroke-width="1.3" opacity="0.5"><path d="M162 98 Q182 92 162 86" stroke="#E0524A"/><path d="M130 76 Q102 86 98 98" stroke="#E0A92E"/><path d="M98 86 Q130 95 162 98" stroke="#3FB97A"/><path d="M130 76 Q152 84 162 98" stroke="#9B8FD4"/></g>
+          <polygon points="130,59 222,92 130,125 38,92" fill="#15140f" stroke="#D4B96A" stroke-width="1.6"/>
+          <circle cx="130" cy="76" r="4" fill="#E8836A"/><circle cx="162" cy="86" r="4" fill="#D4B96A"/><circle cx="162" cy="98" r="4" fill="#9B8FD4"/><circle cx="130" cy="108" r="4" fill="#6AB8C8"/><circle cx="98" cy="98" r="4" fill="#8BB88A"/><circle cx="98" cy="86" r="4" fill="#C4A882"/>
+          <!-- labels -->
+          <g font-family="'JetBrains Mono',monospace" font-size="13">
+            <line x1="222" y1="92" x2="232" y2="92" stroke="#3a3833" stroke-width="1"/>
+            <text x="238" y="88" fill="#F0EDE8" font-weight="600">THE SENSES</text>
+            <rect x="346" y="77" width="50" height="17" rx="8.5" fill="none" stroke="#D4B96A"/><text x="354" y="89" fill="#D4B96A" font-size="10">+ new</text>
+            <text x="238" y="107" fill="#9a978f" font-size="11">six senses, personal, coupled</text>
+            <line x1="222" y1="152" x2="232" y2="152" stroke="#2a2823" stroke-width="1"/><text x="238" y="156" fill="#7c7a73">energy</text>
+            <line x1="222" y1="212" x2="232" y2="212" stroke="#2a2823" stroke-width="1"/><text x="238" y="216" fill="#7c7a73">cost</text>
+            <line x1="222" y1="272" x2="232" y2="272" stroke="#2a2823" stroke-width="1"/><text x="238" y="276" fill="#7c7a73">structure</text>
+            <line x1="222" y1="332" x2="232" y2="332" stroke="#2a2823" stroke-width="1"/><text x="238" y="336" fill="#9a978f">the floor plan</text>
+          </g>
+        </svg>
+      </div>
+      <div class="col" style="flex:1">
+        <div class="annoK" style="margin-bottom:16px;color:var(--mut)">the sensory layer is</div>
+        <div class="dec" style="margin-bottom:18px"><span class="dg" style="color:var(--vis)">○</span><div><div class="dk">personal</div><div class="db">scored for one person, never an average</div></div></div>
+        <div class="dec" style="margin-bottom:18px"><span class="dg" style="color:var(--fail)">△</span><div><div class="dk">honest</div><div class="db">no averaging; the worst sense carries the weight</div></div></div>
+        <div class="dec"><span class="dg" style="color:var(--ac)">∿</span><div><div class="dk">coupled</div><div class="db">the senses pull on each other</div></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span class="cap">structure, cost, energy, code, and now: how a space feels.</span></div>
+  <aside class="notes">[Maria · ~40s] So, what is Sensi? In building, we already model a plan in layers, structure, cost, energy, and code. The way a space will actually feel was never an accountable layer. Sensi adds the sensory layer. It reads the plan and scores how each room feels across six senses, for the one person who'll live in it. While designing it we kept the following in mind: it's personal, scored for you, it prioritizes the worst sense to carry the weight; and the senses are coupled, they pull on each other.</aside>
+</section>
+
+<!-- 3 · THE GAP IN THE AEC -->
+<section>
+  <div class="kick"><span class="kbar" style="background:var(--therm)"></span><span style="color:var(--therm)">THE GAP IN THE AEC</span></div>
+  <div class="frame" style="justify-content:flex-start;padding-top:80px">
+    <p class="tmin">Can we measure how a building will feel?</p>
+    <p class="sub">we measure energy, cost, code, but not how a room <b style="color:#e9e3d6;font-weight:600">feels</b>.</p>
+    <div class="row" style="justify-content:center;gap:30px;align-items:flex-start;width:100%;margin-top:36px">
+      <div class="col" style="flex:0 0 348px;text-align:center">
+        <div class="annoK" style="margin-bottom:14px">TODAY · MEASURED IN ISOLATION</div>
+        <div style="height:304px;display:flex;align-items:center;justify-content:center">
+        <svg width="320" viewBox="0 0 320 252" aria-label="six senses measured in isolation, six separate gauges">
+          <g opacity="0.6" font-family="JetBrains Mono" font-size="16" text-anchor="middle">
+            <g><circle cx="55" cy="62" r="20" fill="none" stroke="#E8836A" stroke-width="1.6"/><text x="55" y="68" fill="#E8836A">△</text><rect x="31" y="92" width="48" height="6" rx="3" fill="#1a1c21"/><rect x="31" y="92" width="28" height="6" rx="3" fill="#E8836A" opacity=".5"/></g>
+            <g><circle cx="160" cy="62" r="20" fill="none" stroke="#D4B96A" stroke-width="1.6"/><text x="160" y="68" fill="#D4B96A">○</text><rect x="136" y="92" width="48" height="6" rx="3" fill="#1a1c21"/><rect x="136" y="92" width="36" height="6" rx="3" fill="#D4B96A" opacity=".5"/></g>
+            <g><circle cx="265" cy="62" r="20" fill="none" stroke="#9B8FD4" stroke-width="1.6"/><text x="265" y="68" fill="#9B8FD4">∿</text><rect x="241" y="92" width="48" height="6" rx="3" fill="#1a1c21"/><rect x="241" y="92" width="18" height="6" rx="3" fill="#9B8FD4" opacity=".5"/></g>
+            <g><circle cx="55" cy="172" r="20" fill="none" stroke="#6AB8C8" stroke-width="1.6"/><text x="55" y="178" fill="#6AB8C8">□</text><rect x="31" y="202" width="48" height="6" rx="3" fill="#1a1c21"/><rect x="31" y="202" width="44" height="6" rx="3" fill="#6AB8C8" opacity=".5"/></g>
+            <g><circle cx="160" cy="172" r="20" fill="none" stroke="#8BB88A" stroke-width="1.6"/><text x="160" y="178" fill="#8BB88A">≈</text><rect x="136" y="202" width="48" height="6" rx="3" fill="#1a1c21"/><rect x="136" y="202" width="15" height="6" rx="3" fill="#8BB88A" opacity=".5"/></g>
+            <g><circle cx="265" cy="172" r="20" fill="none" stroke="#C4A882" stroke-width="1.6"/><text x="265" y="178" fill="#C4A882">∶</text><rect x="241" y="202" width="48" height="6" rx="3" fill="#1a1c21"/><rect x="241" y="202" width="32" height="6" rx="3" fill="#C4A882" opacity=".5"/></g>
+          </g>
+        </svg>
+        </div>
+        <div class="cap" style="margin-top:4px">six separate gauges, one domain at a time</div>
+      </div>
+      <div class="col" style="flex:0 0 74px;text-align:center;padding-top:158px">
+        <div class="cap" style="color:var(--mut);line-height:1.3;margin-bottom:8px">what's<br>missing</div>
+        <i class="ti ti-arrow-right" style="font-size:26px;color:var(--mut)"></i>
+      </div>
+      <div class="col" style="flex:0 0 416px;text-align:center">
+        <div class="annoK" style="margin-bottom:14px">SENSI · ONE COUPLED SYSTEM</div>
+        <div style="height:304px;display:flex;align-items:center;justify-content:center">
+        <svg width="410" viewBox="0 0 410 300" aria-label="six senses coupled, with one one-way link, noise dims light">
+          <defs><marker id="g2ow" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#E0524A"/></marker></defs>
+          <g transform="translate(6,0)">
+            <path d="M180 46 L270 202" fill="none" stroke="#E0A92E" stroke-width="1.6"/>
+            <path d="M180 46 L90 202" fill="none" stroke="#3FB97A" stroke-width="1.6"/>
+            <path d="M180 254 L270 202" fill="none" stroke="#E0524A" stroke-width="1.3" stroke-dasharray="5 4"/>
+            <path d="M90 98 L180 46" fill="none" stroke="#E0A92E" stroke-width="1.3" stroke-dasharray="5 4"/>
+            <path d="M90 98 L270 202" fill="none" stroke="#3FB97A" stroke-width="1.1" stroke-dasharray="5 4" opacity=".4"/>
+            <path d="M270 182 L270 120" fill="none" stroke="#E0524A" stroke-width="2.2" marker-end="url(#g2ow)"/>
+            <text x="286" y="148" font-family="Inter" font-size="12" fill="#E0524A">one way</text>
+            <text x="286" y="164" font-family="Inter" font-size="11" fill="#9a978f">noise dims light</text>
+            <g font-family="JetBrains Mono" font-size="16" text-anchor="middle">
+              <circle cx="180" cy="46" r="20" fill="#0D0D0D" stroke="#E8836A" stroke-width="2"/><text x="180" y="52" fill="#E8836A">△</text>
+              <circle cx="270" cy="98" r="20" fill="#0D0D0D" stroke="#D4B96A" stroke-width="2"/><text x="270" y="104" fill="#D4B96A">○</text>
+              <circle cx="270" cy="202" r="20" fill="#0D0D0D" stroke="#9B8FD4" stroke-width="2"/><text x="270" y="208" fill="#9B8FD4">∿</text>
+              <circle cx="180" cy="254" r="20" fill="#0D0D0D" stroke="#6AB8C8" stroke-width="2"/><text x="180" y="260" fill="#6AB8C8">□</text>
+              <circle cx="90" cy="202" r="20" fill="#0D0D0D" stroke="#8BB88A" stroke-width="2"/><text x="90" y="208" fill="#8BB88A">≈</text>
+              <circle cx="90" cy="98" r="20" fill="#0D0D0D" stroke="#C4A882" stroke-width="2"/><text x="90" y="104" fill="#C4A882">∶</text>
+            </g>
+          </g>
+        </svg>
+        </div>
+        <div class="cap" style="margin-top:4px">change one, the others move; some links run one way</div>
+      </div>
+    </div>
+  </div>
+  <div class="foot" style="display:flex;gap:34px;align-items:flex-start;font-size:12.5px">
+    <div style="flex:1;line-height:1.46"><b style="font-family:'JetBrains Mono',monospace;color:#9a978f">R1 · in isolation</b><br><b style="color:#cfcbc2;font-weight:600">Al-Harasis, Jabi &amp; Sharmin, 2025</b><br><span style="color:var(--mut)">a taxonomy for sensory design in autism: senses can be designed for</span></div>
+    <div style="flex:1;line-height:1.46"><b style="font-family:'JetBrains Mono',monospace;color:var(--vis)">R2 · the bridge</b><br><b style="color:#cfcbc2;font-weight:600">Spence et al., 2020</b><br><span style="color:var(--mut)">senses of place, the multisensory mind: you take a room in all at once</span></div>
+    <div style="flex:1;line-height:1.46"><b style="font-family:'JetBrains Mono',monospace;color:#E0524A">R3 · coupled</b><br><b style="color:#cfcbc2;font-weight:600">Multi-sensory thermal comfort review, 2025</b><br><span style="color:var(--mut)">cross-modal: one sense moderates another</span></div>
+  </div>
+  <aside class="notes">[Maria · ~28s] Comfort itself is usually studied one sense at a time, in isolation. The research says otherwise. Spence and colleagues, in 2020, the multisensory mind, you take a room in through all your senses at once. And a 2025 cross-modal review, the senses are coupled, one moderates another. So we leaned on the coupled system, where changing one sense moves the others as a network.</aside>
+</section>
+
+<!-- 4 · THE RIPPLE -->
+<section>
+  <div class="kick"><span class="kbar" style="background:var(--ac)"></span><span style="color:var(--ac)">THE RIPPLE</span></div>
+  <div class="frame" style="justify-content:flex-start;padding-top:80px">
+    <p class="tmin">One move ripples through every sense.</p>
+    <p class="sub" style="max-width:90%">Each standard scores a sense in its own silo, so the second cost, and the way it feeds back on the first, stays invisible until someone lives with it. <b style="color:var(--ac);font-weight:600">Could a designer catch this while it is still a plan?</b></p>
+    <div class="stage" style="flex:none;margin-top:44px">
+      <svg width="1010" height="312" viewBox="0 0 1010 312" aria-label="a bigger window adds daylight but lowers acoustic and thermal comfort, and the added noise dims the daylight gain">
+        <defs>
+          <marker id="r4g" markerWidth="10" markerHeight="10" refX="7" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#3FB97A"/></marker>
+          <marker id="r4r" markerWidth="10" markerHeight="10" refX="7" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#E0524A"/></marker>
+        </defs>
+        <!-- the move -->
+        <rect x="38" y="94" width="214" height="150" rx="4" fill="none" stroke="#5a5852" stroke-width="1.6"/>
+        <rect x="90" y="87" width="110" height="14" rx="2" fill="#0D0D0D" stroke="#6AB8C8" stroke-width="2.4"/>
+        <line x1="90" y1="94" x2="200" y2="94" stroke="#6AB8C8" stroke-width="1"/>
+        <text x="145" y="166" text-anchor="middle" font-family="JetBrains Mono" font-size="13" fill="#9a978f">a bigger</text>
+        <text x="145" y="184" text-anchor="middle" font-family="JetBrains Mono" font-size="13" fill="#9a978f">window</text>
+        <!-- forward effects -->
+        <path d="M258 134 Q358 102 430 80" fill="none" stroke="#3FB97A" stroke-width="1.7" marker-end="url(#r4g)" opacity=".85"/>
+        <path d="M258 166 L430 164" fill="none" stroke="#E0524A" stroke-width="1.7" marker-end="url(#r4r)" opacity=".85"/>
+        <path d="M258 198 Q358 232 430 248" fill="none" stroke="#E0524A" stroke-width="1.7" marker-end="url(#r4r)" opacity=".85"/>
+        <!-- second-order: the noise dims the daylight it let in -->
+        <path d="M450 146 C 414 130, 414 114, 450 102" fill="none" stroke="#E0524A" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#r4r)" opacity=".9"/>
+        <text x="406" y="118" text-anchor="end" font-family="Inter" font-size="12.5" fill="#e0857f">noise dims</text>
+        <text x="406" y="134" text-anchor="end" font-family="Inter" font-size="12.5" fill="#e0857f">the light</text>
+        <!-- visual: the gain -->
+        <text x="946" y="58" text-anchor="end" font-family="Inter" font-size="11.5" fill="#6f9f7e">the upgrade you see</text>
+        <circle cx="452" cy="80" r="20" fill="#0D0D0D" stroke="#D4B96A" stroke-width="2"/><text x="452" y="86" text-anchor="middle" font-family="JetBrains Mono" font-size="18" fill="#D4B96A">○</text>
+        <text x="492" y="76" font-family="Inter" font-size="17" fill="#e9e3d6">visual</text>
+        <text x="492" y="95" font-family="Inter" font-size="13" fill="#9a978f">more glass, more daylight</text>
+        <text x="946" y="88" text-anchor="end" font-family="JetBrains Mono" font-size="20" fill="#3FB97A">+0.15 ↑</text>
+        <!-- acoustic + thermal: the hidden costs -->
+        <text x="946" y="138" text-anchor="end" font-family="Inter" font-size="11.5" fill="#b06a64">the costs you don't</text>
+        <circle cx="452" cy="164" r="20" fill="#0D0D0D" stroke="#9B8FD4" stroke-width="2"/><text x="452" y="170" text-anchor="middle" font-family="JetBrains Mono" font-size="18" fill="#9B8FD4">∿</text>
+        <text x="492" y="160" font-family="Inter" font-size="17" fill="#e9e3d6">acoustic</text>
+        <text x="492" y="179" font-family="Inter" font-size="13" fill="#9a978f">a thinner sound barrier, noise in</text>
+        <text x="946" y="172" text-anchor="end" font-family="JetBrains Mono" font-size="20" fill="#E0524A">−0.10 ↓</text>
+        <circle cx="452" cy="248" r="20" fill="#0D0D0D" stroke="#E8836A" stroke-width="2"/><text x="452" y="254" text-anchor="middle" font-family="JetBrains Mono" font-size="18" fill="#E8836A">△</text>
+        <text x="492" y="244" font-family="Inter" font-size="17" fill="#e9e3d6">thermal</text>
+        <text x="492" y="263" font-family="Inter" font-size="13" fill="#9a978f">glass leaks heat, colder in winter</text>
+        <text x="946" y="256" text-anchor="end" font-family="JetBrains Mono" font-size="20" fill="#E0524A">−0.08 ↓</text>
+      </svg>
+    </div>
+  </div>
+  <div class="foot" style="font-size:12.5px"><span style="line-height:1.46"><b style="font-family:'JetBrains Mono',monospace;color:#E0524A">R3 · coupled</b> &nbsp;&nbsp; <b style="color:#cfcbc2;font-weight:600">Multi-sensory thermal comfort review, 2025</b> &nbsp;&nbsp; <span style="color:var(--mut)">cross-modal: one sense moderates another, additive, synergistic, or compensatory</span></span></div>
+  <aside class="notes">[Maria · ~32s] Let's take the following as an example. A bigger window affects the daylight positively, that's the upgrade you see. But the same glass is a thinner sound barrier, so noise gets in, and it leaks heat, so the room's colder in winter. Those are the costs you don't see. That is what we call the ripple: the noise it let in even dims the daylight you gained, one sense moderating another.</aside>
+</section>
+
+<!-- 5 · THE SAME PLAN, TWO PEOPLE (NEW placeholder) -->
+<section>
+  <div class="kick"><span class="kbar" style="background:var(--vis)"></span><span style="color:var(--vis)">THE SAME PLAN, TWO PEOPLE</span></div>
+  <div class="frame" style="justify-content:flex-start;padding-top:80px">
+    <p class="tmin">The same plan feels different to different people.</p>
+    <p class="sub">comfort is personal: one plan, two lenses, and a different room lights up for each.</p>
+    <div class="stage" style="flex:none;margin-top:18px;align-self:center">
+      <svg width="820" viewBox="0 0 760 322" aria-label="one floor plan with a vertical wipe between two people: the child's lens lights the noisy living room, the grandmother's lens lights the cold bedroom">
+        <!-- lens labels -->
+        <text x="260" y="28" text-anchor="middle" font-family="Inter" font-size="14.5" fill="#e9e3d6">a child's lens</text>
+        <text x="260" y="47" text-anchor="middle" font-family="JetBrains Mono" font-size="11.5" fill="#9a978f">minds <tspan fill="#9B8FD4">noise</tspan></text>
+        <text x="500" y="28" text-anchor="middle" font-family="Inter" font-size="14.5" fill="#e9e3d6">a grandmother's lens</text>
+        <text x="500" y="47" text-anchor="middle" font-family="JetBrains Mono" font-size="11.5" fill="#9a978f">minds <tspan fill="#E8836A">warmth</tspan></text>
+        <defs><radialGradient id="lit5" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#E0524A" stop-opacity="0.32"/><stop offset="55%" stop-color="#E0524A" stop-opacity="0.12"/><stop offset="100%" stop-color="#E0524A" stop-opacity="0"/></radialGradient></defs>
+        <!-- the lit room glows for the lens that minds it -->
+        <ellipse cx="259" cy="121" rx="120" ry="55" fill="url(#lit5)"/>
+        <ellipse cx="501" cy="228" rx="120" ry="51" fill="url(#lit5)"/>
+        <!-- walls -->
+        <rect x="140" y="66" width="480" height="214" fill="none" stroke="#7a756a" stroke-width="1.6"/>
+        <line x1="140" y1="177" x2="620" y2="177" stroke="#5a564e" stroke-width="1.2"/>
+        <!-- windows -->
+        <line x1="210" y1="66" x2="270" y2="66" stroke="#6AB8C8" stroke-width="2.6"/>
+        <line x1="490" y1="66" x2="550" y2="66" stroke="#6AB8C8" stroke-width="2.6"/>
+        <line x1="300" y1="280" x2="360" y2="280" stroke="#6AB8C8" stroke-width="2.6"/>
+        <!-- door in the mid wall -->
+        <line x1="430" y1="177" x2="486" y2="177" stroke="#0D0D0D" stroke-width="3.4"/>
+        <path d="M430 177 A56 56 0 0 1 486 177" fill="none" stroke="#46433d" stroke-width="1"/>
+        <!-- furniture hints -->
+        <rect x="446" y="96" width="92" height="26" rx="4" fill="none" stroke="#403d37" stroke-width="1"/>
+        <rect x="185" y="206" width="66" height="52" rx="3" fill="none" stroke="#403d37" stroke-width="1"/><line x1="185" y1="218" x2="251" y2="218" stroke="#403d37" stroke-width="1"/>
+        <!-- room labels + the flagged sense per lens -->
+        <text x="300" y="104" text-anchor="middle" font-family="JetBrains Mono" font-size="12" fill="#8c8880">living</text>
+        <text x="259" y="140" text-anchor="middle" font-family="JetBrains Mono" font-size="20" fill="#9B8FD4">&#8767;</text>
+        <text x="259" y="158" text-anchor="middle" font-family="Inter" font-size="11.5" fill="#b7a6d8">too loud</text>
+        <text x="300" y="232" text-anchor="middle" font-family="JetBrains Mono" font-size="12" fill="#8c8880">bedroom</text>
+        <text x="501" y="224" text-anchor="middle" font-family="JetBrains Mono" font-size="20" fill="#E8836A">&#9651;</text>
+        <text x="501" y="242" text-anchor="middle" font-family="Inter" font-size="11.5" fill="#e6a596">too cold</text>
+        <!-- the lens-wipe -->
+        <line x1="380" y1="58" x2="380" y2="288" stroke="#F0EDE8" stroke-width="1.4" stroke-dasharray="4 4" opacity="0.85"/>
+        <circle cx="380" cy="150" r="15" fill="#0D0D0D" stroke="#F0EDE8" stroke-width="1.4"/>
+        <text x="380" y="155" text-anchor="middle" font-family="JetBrains Mono" font-size="14" fill="#F0EDE8">&#8596;</text>
+        <!-- caption -->
+        <text x="380" y="312" text-anchor="middle" font-family="Inter" font-size="13" fill="#9a978f">the same rooms, lit by who is standing in them</text>
+      </svg>
+    </div>
+  </div>
+  <div class="foot" style="display:flex;gap:46px;align-items:flex-start;font-size:12.5px">
+    <div style="line-height:1.46"><b style="font-family:'JetBrains Mono',monospace;color:var(--vis)">S4 · weights</b> &nbsp; <b style="color:#cfcbc2;font-weight:600">Frontiers Built Env., 2026</b> &nbsp; <span style="color:var(--mut)">comfort weights are context-dependent, not constants</span></div>
+    <div style="line-height:1.46"><b style="font-family:'JetBrains Mono',monospace;color:var(--vis)">R1 · sensitivity</b> &nbsp; <b style="color:#cfcbc2;font-weight:600">Al-Harasis et al., 2025</b> &nbsp; <span style="color:var(--mut)">sensory sensitivity is individual</span></div>
+  </div>
+  <aside class="notes">[Maria · ~26s] It all starts with getting to know the user. One plan, read differently for two people. Slide the lens to a child, who minds noise, and the loud living room lights up as the problem. Slide it to a grandmother, who minds the cold, and the cold bedroom does instead. That's why Sensi opens by learning who you are.</aside>
+</section>
+
+<!-- 6 · THE THREE ACTS -->
+<section>
+  <div class="kick"><span class="kbar" style="background:var(--ac)"></span><span style="color:var(--ac)">THE THREE ACTS</span></div>
+  <div class="frame" style="justify-content:flex-start;padding-top:80px">
+    <p class="tmin">The whole thing is a conversation, in three acts.</p>
+    <p class="sub">you talk, Sensi answers, and the output of each act carries into the next.</p>
+    <div class="stage" style="flex:1;display:flex;flex-direction:column;justify-content:center;margin-top:8px">
+      <svg width="100%" viewBox="0 0 1160 282" aria-label="the three acts: Onboard, Shape, Report; you talk and Sensi answers, the output of each carries into the next">
+        <defs><marker id="t3g" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8a8780"/></marker>
+          <marker id="t3p" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#D4B96A"/></marker></defs>
+        <text x="312" y="20" text-anchor="middle" font-family="JetBrains Mono" font-size="11" fill="#7c7a73">you say</text>
+        <text x="621" y="20" text-anchor="middle" font-family="JetBrains Mono" font-size="11" fill="#7c7a73">the agent works</text>
+        <text x="982" y="20" text-anchor="middle" font-family="JetBrains Mono" font-size="11" fill="#7c7a73">Sensi answers</text>
+        <g fill="none" stroke="#8a8780" stroke-width="1.4">
+          <path d="M412 50 C 560 50, 690 50, 830 50" marker-end="url(#t3g)"/>
+          <path d="M412 140 C 560 140, 690 140, 830 140" marker-end="url(#t3g)"/>
+          <path d="M412 230 C 560 230, 690 230, 830 230" marker-end="url(#t3g)"/>
+        </g>
+        <g fill="none" stroke="#D4B96A" stroke-width="1.4" stroke-dasharray="5 4">
+          <path d="M982 66 L982 114" marker-end="url(#t3p)"/>
+          <path d="M982 156 L982 204" marker-end="url(#t3p)"/>
+        </g>
+        <text x="998" y="95" font-family="Inter" font-size="11" fill="#D4B96A">the persona</text>
+        <text x="998" y="185" font-family="Inter" font-size="11" fill="#D4B96A">the scores</text>
+        <rect x="20" y="36" width="180" height="28" rx="9" fill="rgba(212,185,106,.08)" stroke="#D4B96A"/><text x="110" y="54" text-anchor="middle" font-family="JetBrains Mono" font-size="12" fill="#D4B96A">ACT 1 · ONBOARD</text>
+        <rect x="214" y="36" width="198" height="28" rx="14" fill="#e9e3d6" stroke="#e9e3d6"/><text x="225" y="55" font-family="tabler-icons" font-size="11.5" fill="#6a665c">&#xefbe;</text><text x="316" y="54" text-anchor="middle" font-family="Inter" font-size="11.5" fill="#26241f">I love quiet, and plants</text>
+        <text x="621" y="44" text-anchor="middle" font-family="Inter" font-size="12" fill="#9a978f">a few questions, then learns your eye</text>
+        <rect x="830" y="36" width="304" height="28" rx="14" fill="#121a14" stroke="#3FB97A"/><text x="846" y="55" font-family="tabler-icons" font-size="12" fill="#3FB97A">&#xef68;</text><text x="988" y="54" text-anchor="middle" font-family="Inter" font-size="11.5" fill="#cfe6d4">your sensory persona</text>
+        <rect x="20" y="126" width="180" height="28" rx="9" fill="rgba(155,143,212,.10)" stroke="#9B8FD4"/><text x="110" y="144" text-anchor="middle" font-family="JetBrains Mono" font-size="12" fill="#9B8FD4">ACT 2 · SHAPE</text>
+        <rect x="214" y="126" width="198" height="28" rx="14" fill="#e9e3d6" stroke="#e9e3d6"/><text x="225" y="145" font-family="tabler-icons" font-size="11.5" fill="#6a665c">&#xefbe;</text><text x="316" y="144" text-anchor="middle" font-family="Inter" font-size="11.5" fill="#26241f">change the walls to cork</text>
+        <text x="621" y="134" text-anchor="middle" font-family="Inter" font-size="12" fill="#9a978f">scores it, edits it, shows the ripple</text>
+        <rect x="830" y="126" width="304" height="28" rx="14" fill="#121a14" stroke="#3FB97A"/><text x="846" y="145" font-family="tabler-icons" font-size="12" fill="#3FB97A">&#xed77;</text><text x="988" y="144" text-anchor="middle" font-family="Inter" font-size="11.5" fill="#cfe6d4">scores, the ripple, the galaxy</text>
+        <rect x="20" y="216" width="180" height="28" rx="9" fill="rgba(232,131,106,.10)" stroke="#E8836A"/><text x="110" y="234" text-anchor="middle" font-family="JetBrains Mono" font-size="12" fill="#E8836A">ACT 3 · REPORT</text>
+        <rect x="214" y="216" width="198" height="28" rx="14" fill="#e9e3d6" stroke="#e9e3d6"/><text x="225" y="235" font-family="tabler-icons" font-size="11.5" fill="#6a665c">&#xefbe;</text><text x="316" y="234" text-anchor="middle" font-family="Inter" font-size="11.5" fill="#26241f">show me the vision</text>
+        <text x="621" y="224" text-anchor="middle" font-family="Inter" font-size="12" fill="#9a978f">builds a prompt, renders each room</text>
+        <rect x="830" y="216" width="304" height="28" rx="14" fill="#121a14" stroke="#3FB97A"/><text x="846" y="235" font-family="tabler-icons" font-size="12" fill="#3FB97A">&#xeb0a;</text><text x="988" y="234" text-anchor="middle" font-family="Inter" font-size="11.5" fill="#cfe6d4">a first-person render</text>
+      </svg>
+    </div>
+  </div>
+  <aside class="notes">[Maria · ~32s] So Sensi is a conversation in three acts. First, Onboard, where it gets to know you, that's the main input. Then Shape, the heart of it, a back-and-forth between you and the agent to edit the plan and watch it respond. And finally Report, which carries the outputs forward, the renders and the edited JSON. You talk, it answers, and the output of each act becomes the input to the next.</aside>
+</section>
+
+<!-- 7 · ACT 1 / ONBOARD -->
+<section class="act">
+  <div class="kick"><span class="kbar" style="background:var(--vis)"></span><span style="color:var(--vis)">ACT 1 / ONBOARD</span></div>
+  <div class="frame" style="justify-content:flex-start;padding-top:80px">
+    <p class="tmin">Act one: Sensi gets to know you.</p>
+    <p class="sub">you answer a few questions and curate a moodboard; it compiles your sensory persona.</p>
+    <div class="stage" style="flex:none;margin-top:10px">
+      <svg width="100%" viewBox="0 0 1160 432" aria-label="accordion, Act 1 (Onboard) expanded into you-say, the-agent-works, Sensi-answers; Shape and Report collapsed">
+        <defs>
+          <marker id="o1g" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7c7a73"/></marker>
+          <marker id="o1p" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#D4B96A"/></marker>
+        </defs>
+        <text x="156" y="30" text-anchor="middle" font-family="JetBrains Mono" font-size="11" fill="#7c7a73">you say</text>
+        <text x="486" y="30" text-anchor="middle" font-family="JetBrains Mono" font-size="11" fill="#7c7a73">the agent works</text>
+        <text x="982" y="30" text-anchor="middle" font-family="JetBrains Mono" font-size="11" fill="#7c7a73">Sensi answers</text>
+        <g fill="none" stroke="#8a8780" stroke-width="1.4">
+          <path d="M290 70 L314 70" marker-end="url(#o1g)"/>
+          <path d="M520 70 C 640 70, 720 70, 820 70" marker-end="url(#o1g)"/>
+          <path d="M290 144 L314 144" marker-end="url(#o1g)"/>
+          <path d="M520 144 C 640 144, 720 144, 820 144" marker-end="url(#o1g)"/>
+          <path d="M520 218 C 640 218, 720 218, 820 218" marker-end="url(#o1g)"/>
+        </g>
+        <path d="M982 234 L982 286" fill="none" stroke="#D4B96A" stroke-width="1.4" marker-end="url(#o1p)"/>
+        <text x="990" y="268" font-family="Inter" font-size="11" fill="#D4B96A">the lens</text>
+        <g>
+          <rect x="24" y="55" width="266" height="30" rx="14" fill="#e9e3d6" stroke="#e9e3d6"/><text x="36" y="75" font-family="tabler-icons" font-size="13" fill="#6a665c">&#xefbe;</text><text x="55" y="74" font-family="Inter" font-size="12" fill="#26241f">I love quiet, and plants</text>
+          <rect x="316" y="55" width="200" height="30" rx="9" fill="#15161a" stroke="#D4B96A"/><text x="327" y="75" font-family="tabler-icons" font-size="15" fill="#D4B96A">&#xf91d;</text><text x="348" y="74" font-family="Inter" font-size="12.5" fill="#d7d3ca">a few questions</text>
+          <rect x="822" y="54" width="320" height="32" rx="15" fill="#121a14" stroke="#3FB97A"/><text x="836" y="74" font-family="tabler-icons" font-size="14" fill="#3FB97A">&#xea51;</text><text x="857" y="74" font-family="Inter" font-size="11.5" fill="#cfe6d4">Quiet and green matter most to you, noted.</text>
+          <rect x="24" y="129" width="266" height="30" rx="14" fill="#e9e3d6" stroke="#e9e3d6"/><text x="36" y="149" font-family="tabler-icons" font-size="13" fill="#6a665c">&#xefbe;</text><text x="55" y="148" font-family="Inter" font-size="12" fill="#26241f">warm wood, soft light, plants</text>
+          <rect x="316" y="129" width="200" height="30" rx="9" fill="#15161a" stroke="#D4B96A"/><text x="327" y="149" font-family="tabler-icons" font-size="15" fill="#D4B96A">&#xedba;</text><text x="348" y="148" font-family="Inter" font-size="12.5" fill="#d7d3ca">learn your eye</text>
+          <rect x="822" y="128" width="320" height="32" rx="15" fill="#121a14" stroke="#3FB97A"/><text x="836" y="148" font-family="tabler-icons" font-size="14" fill="#3FB97A">&#xea51;</text><text x="857" y="148" font-family="Inter" font-size="11.5" fill="#cfe6d4">Three rounds of images, your moodboard.</text>
+          <rect x="316" y="203" width="200" height="30" rx="9" fill="#15161a" stroke="#D4B96A"/><text x="327" y="223" font-family="tabler-icons" font-size="15" fill="#D4B96A">&#xef68;</text><text x="348" y="222" font-family="Inter" font-size="12.5" fill="#d7d3ca">compile your persona</text>
+          <rect x="822" y="202" width="320" height="32" rx="15" fill="#121a14" stroke="#3FB97A"/><text x="836" y="222" font-family="tabler-icons" font-size="14" fill="#3FB97A">&#xea51;</text><text x="857" y="222" font-family="Inter" font-size="11.5" fill="#cfe6d4">Here is your sensory persona, your weights.</text>
+        </g>
+        <rect x="14" y="286" width="1132" height="58" rx="11" fill="#10131a" stroke="#262a32"/>
+        <text x="32" y="310" font-family="JetBrains Mono" font-size="12" fill="#9B8FD4">ACT 2 · SHAPE</text>
+        <text x="188" y="310" font-family="Inter" font-size="12.5" fill="#7c7a73">you talk to the plan; it scores each room, finds conflicts, edits, and shows the ripple</text>
+        <text x="32" y="332" font-family="Inter" font-size="11.5" fill="#5f5d57">understand &#183; edit &#183; see it a new way, each answered in plain words</text>
+        <rect x="14" y="358" width="1132" height="56" rx="11" fill="#131210" stroke="#2e2a24"/>
+        <text x="32" y="382" font-family="JetBrains Mono" font-size="12" fill="#8a8780">ACT 3 · REPORT</text>
+        <text x="188" y="382" font-family="Inter" font-size="12.5" fill="#7c7a73">your scores become a prompt, then a first-person render of each room</text>
+      </svg>
+    </div>
+  </div>
+  <div class="foot" style="color:var(--vis)">the persona you build here is the lens for everything that follows.</div>
+  <aside class="notes">[Maria · ~39s · then hand to Clip 1] Let's zoom into the first act. Onboarding is where it learns who you are. You answer a few questions, then you build a moodboard, and behind the scenes Sensi reads both: your words become sense weights, and each image you keep nudges those weights toward the senses you're drawn to. It compiles all of it into your persona, your personal weighting of the six senses, and that carries into act two as the lens for every score. Easier to watch than to describe, so let's see it.</aside>
+</section>
+
+<!-- 8 · CLIP 1 / ONBOARD -->
+<section class="clip" data-clip="Onboard">
+  <div class="frame"><div class="clip-stage">
+    <video class="clip-vid" playsinline preload="auto"><source src="assets/clips/onboard.mp4" type="video/mp4"></video>
+  </div></div>
+  <aside class="notes">[DEMO VO · Emilie · live over the clip · ~1:15] Alright, so let's see it in action. This is Sensi, let me walk you through onboarding. I start by typing who I am and what I do, a space I really remember, the senses that matter most to me, my age, who I live with, and the things I won't compromise on. Then I get to the moodboard, where I build my aesthetic. I give it a few keywords, pick from what it shows me, and each picture quietly tells it which sense I'm leaning toward. Once my selection's done, I get my moodboard, and then my profile reveal, where I can see the average I landed on versus someone like me. Then, in the shape phase, I can always refine my persona: say I don't care much for tactile or thermal, and I just got a new dog, and you'll see the petal rose update based on that. And that's onboarding.</aside>
+</section>
+
+<!-- 9 · IT'S PERSONAL -->
+<section>
+  <div class="kick"><span class="kbar" style="background:var(--vis)"></span><span style="color:var(--vis)">IT'S PERSONAL</span></div>
+  <div class="frame" style="justify-content:flex-start;padding-top:80px">
+    <p class="tmin">Three inputs compile into your persona</p>
+    <p class="sub">nothing you do is wasted: your words, your eye, and your household all become numbers, one weight per sense.</p>
+    <div class="row" style="margin-top:10px;align-items:center;gap:30px">
+      <div class="col" style="flex:0 0 196px;text-align:center">
+        <div class="svgph" style="height:432px;display:flex;align-items:center;justify-content:center;background:#0D0D0D">
+          <img class="shot" src="assets/shots/comfort%20profile.png" alt="the compiled persona card" style="max-height:100%;max-width:100%;border:0;display:none" onload="this.style.display='block';var p=this.parentNode,ic=p.querySelector('i'),r=p.querySelector('.rep');if(ic)ic.style.display='none';if(r)r.style.display='none'" onerror="this.remove()">
+          <i class="ti ti-user-circle" style="font-size:30px;color:var(--dim)"></i>
+          <span class="rep">[ persona card ]</span>
+        </div>
+        <div class="cap" style="margin-top:4px">the persona, compiled</div>
+      </div>
+      <div class="col" style="flex:1">
+        <div class="annoK" style="margin-bottom:8px">HOW IT COMPILES</div>
+        <svg width="100%" viewBox="0 0 1010 320" style="height:auto" aria-label="quiz, moodboard and household compile into per-sense weights">
+        <defs><marker id="p8a" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8a8780"/></marker></defs>
+        <!-- three input cards -->
+        <g font-family="Inter">
+          <rect x="20" y="34" width="300" height="74" rx="10" fill="#15161a" stroke="#2A2A2A"/>
+          <text x="38" y="60" font-family="JetBrains Mono" font-size="11" letter-spacing="1" fill="#D4B96A">THE QUIZ · your words</text>
+          <text x="38" y="84" font-size="15" fill="#d7d3ca">"noise really bothers me"</text>
+          <text x="38" y="100" font-size="12" fill="#7c7a73">a sense you name climbs</text>
+
+          <rect x="20" y="124" width="300" height="74" rx="10" fill="#15161a" stroke="#2A2A2A"/>
+          <text x="38" y="150" font-family="JetBrains Mono" font-size="11" letter-spacing="1" fill="#8BB88A">THE MOODBOARD · your eye</text>
+          <text x="38" y="174" font-size="15" fill="#d7d3ca">warm wood, soft light, plants</text>
+          <text x="38" y="190" font-size="12" fill="#7c7a73">picks tilt tactile, smell, thermal</text>
+
+          <rect x="20" y="214" width="300" height="74" rx="10" fill="#15161a" stroke="#2A2A2A"/>
+          <text x="38" y="240" font-family="JetBrains Mono" font-size="11" letter-spacing="1" fill="#E8836A">THE HOUSEHOLD · who else</text>
+          <text x="38" y="264" font-size="15" fill="#d7d3ca">a child, a grandmother, a cat</text>
+          <text x="38" y="280" font-size="12" fill="#7c7a73">leans to whoever feels it most</text>
+        </g>
+        <!-- arrows to compiler -->
+        <path d="M324 71 Q380 110 432 150" fill="none" stroke="#8a8780" stroke-width="1.4" marker-end="url(#p8a)" opacity=".7"/>
+        <path d="M324 161 L432 161" fill="none" stroke="#8a8780" stroke-width="1.4" marker-end="url(#p8a)" opacity=".7"/>
+        <path d="M324 251 Q380 210 432 172" fill="none" stroke="#8a8780" stroke-width="1.4" marker-end="url(#p8a)" opacity=".7"/>
+        <!-- compiler -->
+        <rect x="438" y="130" width="120" height="62" rx="11" fill="rgba(155,143,212,.10)" stroke="#9B8FD4" stroke-width="1.4"/>
+        <text x="498" y="156" text-anchor="middle" font-family="JetBrains Mono" font-size="13" fill="#9B8FD4">persona</text>
+        <text x="498" y="174" text-anchor="middle" font-family="JetBrains Mono" font-size="13" fill="#9B8FD4">compiler</text>
+        <path d="M560 161 L612 161" fill="none" stroke="#8a8780" stroke-width="1.4" marker-end="url(#p8a)" opacity=".7"/>
+        <!-- weights output (per-sense bars) -->
+        <text x="628" y="40" font-family="JetBrains Mono" font-size="11" letter-spacing="1" fill="#9a978f">YOUR WEIGHTS</text>
+        <g font-family="JetBrains Mono" font-size="14">
+          <text x="628" y="74" fill="#E8836A">△</text><rect x="650" y="64" width="300" height="11" rx="5" fill="#1a1c21"/><rect x="650" y="64" width="240" height="11" rx="5" fill="#E8836A" opacity=".55"/><text x="958" y="74" text-anchor="end" fill="#9a978f">.80</text>
+          <text x="628" y="106" fill="#D4B96A">○</text><rect x="650" y="96" width="300" height="11" rx="5" fill="#1a1c21"/><rect x="650" y="96" width="165" height="11" rx="5" fill="#D4B96A" opacity=".55"/><text x="958" y="106" text-anchor="end" fill="#9a978f">.55</text>
+          <text x="628" y="138" fill="#9B8FD4">∿</text><rect x="650" y="128" width="300" height="11" rx="5" fill="#1a1c21"/><rect x="650" y="128" width="270" height="11" rx="5" fill="#9B8FD4" opacity=".55"/><text x="958" y="138" text-anchor="end" fill="#9a978f">.90</text>
+          <text x="628" y="170" fill="#6AB8C8">□</text><rect x="650" y="160" width="300" height="11" rx="5" fill="#1a1c21"/><rect x="650" y="160" width="150" height="11" rx="5" fill="#6AB8C8" opacity=".55"/><text x="958" y="170" text-anchor="end" fill="#9a978f">.50</text>
+          <text x="628" y="202" fill="#8BB88A">≈</text><rect x="650" y="192" width="300" height="11" rx="5" fill="#1a1c21"/><rect x="650" y="192" width="255" height="11" rx="5" fill="#8BB88A" opacity=".55"/><text x="958" y="202" text-anchor="end" fill="#9a978f">.85</text>
+          <text x="628" y="234" fill="#C4A882">∶</text><rect x="650" y="224" width="300" height="11" rx="5" fill="#1a1c21"/><rect x="650" y="224" width="195" height="11" rx="5" fill="#C4A882" opacity=".55"/><text x="958" y="234" text-anchor="end" fill="#9a978f">.65</text>
+        </g>
+        <text x="628" y="268" font-family="Inter" font-size="13" fill="#7c7a73">a higher weight raises that sense's alert bar, so Sensi flags it sooner for you.</text>
+        <text x="628" y="290" font-family="JetBrains Mono" font-size="11" fill="#5f5d57">under the hood: bar = clamp( 0.35 + 0.40 · weight , 0.35 , 0.75 )</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>the card on the left is what these inputs produce.</span> <span class="mut">persona compiled, now we shape a plan: Act 2.</span></div>
+  <aside class="notes">[Charles · ~9s] So that's your persona, compiled from your answers, your eye, and your situation. This becomes the lens for everything that follows.</aside>
+</section>
+
+<!-- 10 · BRIDGE · THE DESIGN LEVERS -->
+<section>
+  <div class="kick"><span class="kbar" style="background:var(--olf)"></span><span style="color:var(--olf)">THE DESIGN LEVERS</span></div>
+  <div class="frame" style="justify-content:flex-start;padding-top:80px">
+    <p class="tmin">Six design moves shape every sense.</p>
+    <p class="sub">orientation, glazing, ventilation, volume, materials, what's next door, each pulls on one or more senses.</p>
+    <div class="stage" style="flex:1;display:flex;flex-direction:column;justify-content:center">
+      <svg width="100%" viewBox="0 0 1120 300" aria-label="six design levers in a top row connected to the six senses in a bottom row, edges coloured by whether the move helps, harms, or trades off">
+        <!-- edges: lever (top) -> sense (bottom), valence coloured; dashed = room physics -->
+        <g fill="none" stroke-width="1.4">
+          <path d="M127 72 C127 140, 300 158, 300 226" stroke="#3FB97A" opacity=".6"/>
+          <path d="M127 72 C127 140, 473 158, 473 226" stroke="#E0524A" opacity=".6"/>
+          <path d="M127 72 C127 140, 127 158, 127 226" stroke="#E0A92E" opacity=".55" stroke-dasharray="5 4"/>
+          <path d="M300 72 C300 140, 127 158, 127 226" stroke="#E0A92E" opacity=".5" stroke-dasharray="5 4"/>
+          <path d="M300 72 C300 140, 300 158, 300 226" stroke="#3FB97A" opacity=".6"/>
+          <path d="M473 72 C473 140, 820 158, 820 226" stroke="#3FB97A" opacity=".6"/>
+          <path d="M473 72 C473 140, 473 158, 473 226" stroke="#E0524A" opacity=".6"/>
+          <path d="M647 72 C647 140, 647 158, 647 226" stroke="#3FB97A" opacity=".6"/>
+          <path d="M647 72 C647 140, 473 158, 473 226" stroke="#E0A92E" opacity=".5" stroke-dasharray="5 4"/>
+          <path d="M820 72 C820 140, 993 158, 993 226" stroke="#3FB97A" opacity=".6"/>
+          <path d="M820 72 C820 140, 127 158, 127 226" stroke="#E0A92E" opacity=".45" stroke-dasharray="5 4"/>
+          <path d="M993 72 C993 140, 473 158, 473 226" stroke="#E0524A" opacity=".6"/>
+          <path d="M993 72 C993 140, 820 158, 820 226" stroke="#E0524A" opacity=".55"/>
+        </g>
+        <!-- lever nodes (top row) -->
+        <g font-family="Inter" font-size="13.5" fill="#d7d3ca" text-anchor="middle">
+          <rect x="73" y="45" width="108" height="26" rx="13" fill="#15161a" stroke="#8a8780" stroke-width="1.3"/><text x="127" y="62">glazing</text>
+          <rect x="246" y="45" width="108" height="26" rx="13" fill="#15161a" stroke="#8a8780" stroke-width="1.3"/><text x="300" y="62">orientation</text>
+          <rect x="419" y="45" width="108" height="26" rx="13" fill="#15161a" stroke="#8a8780" stroke-width="1.3"/><text x="473" y="62">ventilation</text>
+          <rect x="593" y="45" width="108" height="26" rx="13" fill="#15161a" stroke="#8a8780" stroke-width="1.3"/><text x="647" y="62">volume</text>
+          <rect x="766" y="45" width="108" height="26" rx="13" fill="#15161a" stroke="#8a8780" stroke-width="1.3"/><text x="820" y="62">materials</text>
+          <rect x="939" y="45" width="108" height="26" rx="13" fill="#15161a" stroke="#8a8780" stroke-width="1.3"/><text x="993" y="62">adjacency</text>
+        </g>
+        <!-- sense nodes (bottom row) -->
+        <g font-family="JetBrains Mono" font-size="17" text-anchor="middle">
+          <circle cx="127" cy="246" r="19" fill="#0D0D0D" stroke="#E8836A" stroke-width="2"/><text x="127" y="252" fill="#E8836A">△</text><text x="127" y="285" font-family="Inter" font-size="12.5" fill="#9a978f">thermal</text>
+          <circle cx="300" cy="246" r="19" fill="#0D0D0D" stroke="#D4B96A" stroke-width="2"/><text x="300" y="252" fill="#D4B96A">○</text><text x="300" y="285" font-family="Inter" font-size="12.5" fill="#9a978f">visual</text>
+          <circle cx="473" cy="246" r="19" fill="#0D0D0D" stroke="#9B8FD4" stroke-width="2"/><text x="473" y="252" fill="#9B8FD4">∿</text><text x="473" y="285" font-family="Inter" font-size="12.5" fill="#9a978f">acoustic</text>
+          <circle cx="647" cy="246" r="19" fill="#0D0D0D" stroke="#6AB8C8" stroke-width="2"/><text x="647" y="252" fill="#6AB8C8">□</text><text x="647" y="285" font-family="Inter" font-size="12.5" fill="#9a978f">spatial</text>
+          <circle cx="820" cy="246" r="19" fill="#0D0D0D" stroke="#8BB88A" stroke-width="2"/><text x="820" y="252" fill="#8BB88A">≈</text><text x="820" y="285" font-family="Inter" font-size="12.5" fill="#9a978f">olfactory</text>
+          <circle cx="993" cy="246" r="19" fill="#0D0D0D" stroke="#C4A882" stroke-width="2"/><text x="993" y="252" fill="#C4A882">∶</text><text x="993" y="285" font-family="Inter" font-size="12.5" fill="#9a978f">tactile</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+  <div class="foot" style="display:flex;gap:40px;align-items:flex-start;font-size:12px"><span style="color:var(--mut);line-height:1.5"><b style="color:var(--pass)">＋ helps</b> &nbsp; <b style="color:var(--fail)">− harms</b> &nbsp; <b style="color:#E0A92E">± trade-off</b><br>solid = research-verified &nbsp; dashed = room physics</span><span style="color:var(--mut);line-height:1.5;margin-left:auto"><b style="font-family:'JetBrains Mono',monospace;color:var(--olf)">S5-S7 · standards</b> &nbsp; BS 8233, ASHRAE 62.2, daylight metrics<br><b style="font-family:'JetBrains Mono',monospace;color:var(--olf)">R6 · materials</b> &nbsp; Velt et al., 2012, tactile warmth from the surface</span></div>
+  <aside class="notes">[Charles · ~29s] Comfort comes from a handful of design moves, which way it faces, how much glass, whether it breathes, how big it is, the surfaces, and what's next door. Each lever pulls on one or more senses, and the colour says which way: green helps, red harms, orange is a trade-off. Glazing helps the visual, but hurts the acoustic, and it cuts both ways on thermal.</aside>
+</section>
+
+<!-- 11 · BRIDGE · COUPLING + THE VETO -->
+<section>
+  <div class="kick"><span class="kbar" style="background:var(--fail)"></span><span style="color:var(--fail)">THE RELATIONSHIP BETWEEN SENSES</span></div>
+  <div class="frame" style="justify-content:flex-start;padding-top:80px">
+    <p class="tmin">Each sense moves the others.</p>
+    <p class="sub">each link is research-verified or physics-based, and 18 of 25 survived a 3-vote check; then the worst sense vetoes the average.</p>
+    <div class="stage" style="flex:1;display:flex;flex-direction:column;justify-content:flex-start;align-items:center;gap:8px;margin-top:14px">
+      <svg width="920" viewBox="0 0 920 378" aria-label="the coupling matrix: how each sense moves the others, coloured by valence, solid for research-verified and dashed for room physics; the one-way acoustic to visual link highlighted">
+        <text x="460" y="42" text-anchor="middle" font-family="JetBrains Mono" font-size="12" fill="#9a978f">to &#8595;</text>
+        <text x="288" y="216" transform="rotate(-90 288 216)" text-anchor="middle" font-family="JetBrains Mono" font-size="12" fill="#9a978f">from &#8595;</text>
+        <g stroke="#272727" stroke-width="1">
+          <line x1="310" y1="66" x2="310" y2="366"/><line x1="360" y1="66" x2="360" y2="366"/><line x1="410" y1="66" x2="410" y2="366"/><line x1="460" y1="66" x2="460" y2="366"/><line x1="510" y1="66" x2="510" y2="366"/><line x1="560" y1="66" x2="560" y2="366"/><line x1="610" y1="66" x2="610" y2="366"/>
+          <line x1="310" y1="66" x2="610" y2="66"/><line x1="310" y1="116" x2="610" y2="116"/><line x1="310" y1="166" x2="610" y2="166"/><line x1="310" y1="216" x2="610" y2="216"/><line x1="310" y1="266" x2="610" y2="266"/><line x1="310" y1="316" x2="610" y2="316"/><line x1="310" y1="366" x2="610" y2="366"/>
+        </g>
+        <g font-family="JetBrains Mono" font-size="14" text-anchor="middle">
+          <text x="335" y="58" fill="#E8836A">&#9651;</text><text x="385" y="58" fill="#D4B96A">&#9675;</text><text x="435" y="58" fill="#9B8FD4">&#8767;</text><text x="485" y="58" fill="#6AB8C8">&#9633;</text><text x="535" y="58" fill="#8BB88A">&#8776;</text><text x="585" y="58" fill="#C4A882">&#8758;</text>
+          <text x="294" y="96" fill="#E8836A">&#9651;</text><text x="294" y="146" fill="#D4B96A">&#9675;</text><text x="294" y="196" fill="#9B8FD4">&#8767;</text><text x="294" y="246" fill="#6AB8C8">&#9633;</text><text x="294" y="296" fill="#8BB88A">&#8776;</text><text x="294" y="346" fill="#C4A882">&#8758;</text>
+        </g>
+        <g font-family="JetBrains Mono" font-size="17" text-anchor="middle">
+          <rect x="365" y="171" width="40" height="40" rx="4" fill="#E0524A" opacity=".5"/><text x="385" y="197" fill="#0D0D0D">&#8722;</text>
+          <rect x="415" y="121" width="40" height="40" rx="4" fill="none" stroke="#5a5a5a" stroke-width="1.2"/><text x="435" y="147" fill="#7c7a73" font-size="15">&#183;</text>
+          <rect x="315" y="171" width="40" height="40" rx="4" fill="#E0A92E" opacity=".5"/><text x="335" y="197" fill="#0D0D0D">&#177;</text>
+          <rect x="415" y="71" width="40" height="40" rx="4" fill="#E0A92E" opacity=".5"/><text x="435" y="97" fill="#0D0D0D">&#177;</text>
+          <rect x="515" y="71" width="40" height="40" rx="4" fill="#3FB97A" opacity=".5"/><text x="535" y="97" fill="#0D0D0D">+</text>
+          <rect x="315" y="271" width="40" height="40" rx="4" fill="#3FB97A" opacity=".5"/><text x="335" y="297" fill="#0D0D0D">+</text>
+          <rect x="415" y="221" width="40" height="40" rx="4" fill="none" stroke="#E0524A" stroke-width="1.3" stroke-dasharray="3 2"/><text x="435" y="247" fill="#E0524A">&#8722;</text>
+          <rect x="465" y="171" width="40" height="40" rx="4" fill="none" stroke="#E0524A" stroke-width="1.3" stroke-dasharray="3 2"/><text x="485" y="197" fill="#E0524A">&#8722;</text>
+          <rect x="415" y="321" width="40" height="40" rx="4" fill="none" stroke="#3FB97A" stroke-width="1.3" stroke-dasharray="3 2"/><text x="435" y="347" fill="#3FB97A">+</text>
+          <rect x="565" y="171" width="40" height="40" rx="4" fill="none" stroke="#3FB97A" stroke-width="1.3" stroke-dasharray="3 2"/><text x="585" y="197" fill="#3FB97A">+</text>
+          <rect x="315" y="321" width="40" height="40" rx="4" fill="none" stroke="#E0A92E" stroke-width="1.3" stroke-dasharray="3 2"/><text x="335" y="347" fill="#E0A92E">&#177;</text>
+          <rect x="565" y="71" width="40" height="40" rx="4" fill="none" stroke="#E0A92E" stroke-width="1.3" stroke-dasharray="3 2"/><text x="585" y="97" fill="#E0A92E">&#177;</text>
+        </g>
+        <rect x="362" y="168" width="46" height="46" rx="5" fill="none" stroke="#F0EDE8" stroke-width="1.2" opacity=".6"/>
+        <rect x="412" y="118" width="46" height="46" rx="5" fill="none" stroke="#F0EDE8" stroke-width="1.2" opacity=".6"/>
+        <text x="672" y="182" font-family="JetBrains Mono" font-size="10.5" letter-spacing=".5" fill="#7c7a73">the one-way link</text>
+        <text x="672" y="206" font-family="Inter" font-size="12.5"><tspan fill="#9B8FD4">&#8767;</tspan> <tspan fill="#6a665c">&#8594;</tspan> <tspan fill="#D4B96A">&#9675;</tspan>&#160;&#160;<tspan fill="#cf8f88">noise dims light</tspan></text>
+        <text x="672" y="228" font-family="Inter" font-size="12.5"><tspan fill="#D4B96A">&#9675;</tspan> <tspan fill="#6a665c">&#8594;</tspan> <tspan fill="#9B8FD4">&#8767;</tspan>&#160;&#160;<tspan fill="#8c8880">does nothing back</tspan></text>
+      </svg>
+      <div style="display:flex;align-items:center;gap:15px;border-top:1px solid #232020;padding-top:13px;margin-top:2px">
+        <span class="annoK" style="color:var(--fail)">THEN THE VETO</span>
+        <span style="font:400 13px 'Inter';color:var(--mut)">no averaging, the worst sense floors the score:</span>
+        <span class="mono" style="font-size:16px;color:#d7d3ca">&#189; mean + &#189; worst</span>
+        <span style="color:var(--dim);font-size:15px">&#8594;</span>
+        <span style="font:400 13px 'Inter';color:var(--mut)">a kitchen fine except for smell <b style="color:var(--fail);font-weight:600">0.20</b> lands at <b style="color:var(--fg);font-weight:600">0.34</b>, not 0.49</span>
+      </div>
+    </div>
+  </div>
+  <div class="foot" style="display:flex;gap:40px;align-items:flex-start;font-size:12px"><span style="color:var(--mut);line-height:1.5"><b style="color:var(--pass)">+ helps</b> &#160; <b style="color:var(--fail)">&#8722; harms</b> &#160; <b style="color:#E0A92E">&#177; trade-off</b> &#160; <b style="color:var(--mut)">&#183; none</b><br>solid = research-verified &#160; dashed = room physics</span><span style="color:var(--mut);line-height:1.5;margin-left:auto"><b style="font-family:'JetBrains Mono',monospace;color:var(--pass)">18 / 25</b> couplings survived a 3-vote adversarial check<br><b style="font-family:'JetBrains Mono',monospace;color:#cfcbc2">Yang &amp; Moon, 2019</b> the acoustic-thermal link and the one-way acoustic-visual asymmetry</span></div>
+  <aside class="notes">[Charles · ~16s · the core] As mentioned before, the ripple is what matters, so we studied the couplings as a matrix, based on researched connections and physics. And the worst sense carries the room, because that's the one you'd actually feel.</aside>
+</section>
+
+<!-- 12 · ACT 2 / SHAPE -->
+<section class="act">
+  <div class="kick"><span class="kbar" style="background:var(--ac)"></span><span style="color:var(--ac)">ACT 2 / SHAPE · THE AGENT</span></div>
+  <div class="frame" style="justify-content:flex-start;padding-top:80px">
+    <p class="tmin">Now you shape the plan, just by asking.</p>
+    <p class="sub">the agent at work: you change the plan in plain language, and one read routes each turn to the right capability.</p>
+    <div class="stage" style="flex:none;margin-top:6px">
+      <svg width="100%" viewBox="0 0 1160 468" aria-label="master agent graph, accordion: Act 2 (Shape) expanded into you-say, the-agent-works, Sensi-answers; Onboard and Report collapsed">
+        <defs>
+          <marker id="mg" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7c7a73"/></marker>
+          <marker id="mp" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#D4B96A"/></marker>
+          <marker id="mc" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#9B8FD4"/></marker>
+          <marker id="ms" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#3FB97A"/></marker>
+        </defs>
+        <rect x="14" y="26" width="1132" height="38" rx="11" fill="#131210" stroke="#2e2a24"/>
+        <text x="32" y="50" font-family="JetBrains Mono" font-size="12" fill="#8a8780">ACT 1 · ONBOARD</text>
+        <text x="188" y="50" font-family="Inter" font-size="12.5" fill="#7c7a73">a few questions and a moodboard compile your sensory persona</text>
+        <rect x="900" y="33" width="232" height="24" rx="12" fill="#121a14" stroke="#3FB97A"/><text x="913" y="49" font-family="tabler-icons" font-size="12" fill="#3FB97A">&#xef68;</text><text x="932" y="49" font-family="Inter" font-size="11.5" fill="#cfe6d4">your sensory persona</text>
+        <text x="156" y="88" text-anchor="middle" font-family="JetBrains Mono" font-size="11" fill="#7c7a73">you say</text>
+        <text x="552" y="88" text-anchor="middle" font-family="JetBrains Mono" font-size="11" fill="#7c7a73">the agent works</text>
+        <text x="982" y="88" text-anchor="middle" font-family="JetBrains Mono" font-size="11" fill="#7c7a73">Sensi answers</text>
+        <g fill="none" stroke="#8a8780" stroke-width="1.4">
+          <path d="M290 130 L313 130" marker-end="url(#mg)"/>
+          <path d="M466 130 L477 130" marker-end="url(#mg)"/>
+          <path d="M636 130 C 712 130, 760 130, 820 130" marker-end="url(#mg)"/>
+          <path d="M290 244 L314 244" marker-end="url(#mg)"/>
+          <path d="M426 244 L435 244" marker-end="url(#mg)"/>
+          <path d="M578 244 L587 244" marker-end="url(#mg)"/>
+          <path d="M720 244 L729 244" marker-end="url(#mg)"/>
+          <path d="M796 244 L820 244" marker-end="url(#mg)"/>
+          <path d="M290 360 L313 360" marker-end="url(#mg)"/>
+          <path d="M474 360 L483 360" marker-end="url(#mg)"/>
+          <path d="M654 360 C 720 360, 766 360, 820 360" marker-end="url(#mg)"/>
+          <path d="M764 229 C 764 203, 372 203, 372 229" stroke-width="1.1" stroke-dasharray="4 3" marker-end="url(#mg)"/>
+        </g>
+        <text x="568" y="198" text-anchor="middle" font-family="Inter" font-size="11" fill="#7c7a73">edit again</text>
+        <g fill="none">
+          <path d="M910 57 C 884 90, 620 110, 400 114" stroke="#D4B96A" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#mp)"/>
+          <path d="M982 377 L982 413" stroke="#D4B96A" stroke-width="1.4" marker-end="url(#mp)"/>
+          <path d="M806 392 C 806 410, 170 410, 170 392" stroke="#8a8780" stroke-width="1.1" stroke-dasharray="4 4" marker-end="url(#mg)"/>
+        </g>
+        <text x="664" y="88" font-family="Inter" font-size="11" fill="#D4B96A">the lens</text>
+        <text x="1000" y="398" font-family="Inter" font-size="11" fill="#D4B96A">the scored plan</text>
+        <text x="158" y="406" text-anchor="end" font-family="Inter" font-size="11" fill="#7c7a73">ask again</text>
+        <g>
+          <rect x="24" y="115" width="266" height="30" rx="14" fill="#e9e3d6" stroke="#e9e3d6"/><text x="36" y="135" font-family="tabler-icons" font-size="13" fill="#6a665c">&#xefbe;</text><text x="55" y="134" font-family="Inter" font-size="12" fill="#26241f">how does this kitchen feel?</text>
+          <rect x="316" y="115" width="150" height="30" rx="9" fill="#15161a" stroke="#D4B96A"/><text x="327" y="135" font-family="tabler-icons" font-size="15" fill="#D4B96A">&#xed77;</text><text x="348" y="134" font-family="Inter" font-size="12.5" fill="#d7d3ca">score the room</text>
+          <rect x="480" y="115" width="160" height="30" rx="9" fill="#15161a" stroke="#D4B96A"/><text x="491" y="135" font-family="tabler-icons" font-size="15" fill="#D4B96A">&#xea06;</text><text x="512" y="134" font-family="Inter" font-size="12.5" fill="#d7d3ca">find the conflicts</text>
+          <rect x="822" y="114" width="320" height="32" rx="15" fill="#121a14" stroke="#3FB97A"/><text x="836" y="134" font-family="tabler-icons" font-size="14" fill="#3FB97A">&#xea51;</text><text x="857" y="134" font-family="Inter" font-size="11.5" fill="#cfe6d4">It's at 0.41. Sound and smell are dragging it down.</text>
+          <rect x="24" y="229" width="266" height="30" rx="14" fill="#e9e3d6" stroke="#e9e3d6"/><text x="36" y="249" font-family="tabler-icons" font-size="13" fill="#6a665c">&#xefbe;</text><text x="55" y="248" font-family="Inter" font-size="12" fill="#26241f">change the walls to cork</text>
+          <rect x="316" y="229" width="110" height="30" rx="9" fill="#15161a" stroke="#9B8FD4"/><text x="327" y="249" font-family="tabler-icons" font-size="14" fill="#9B8FD4">&#xeb04;</text><text x="347" y="248" font-family="Inter" font-size="11.5" fill="#d7d3ca">plan the edit</text>
+          <rect x="436" y="229" width="142" height="30" rx="9" fill="#15161a" stroke="#9B8FD4"/><text x="447" y="249" font-family="tabler-icons" font-size="14" fill="#9B8FD4">&#xeb22;</text><text x="467" y="248" font-family="Inter" font-size="11.5" fill="#d7d3ca">apply, keep sound</text>
+          <rect x="588" y="229" width="132" height="30" rx="9" fill="#15161a" stroke="#9B8FD4"/><text x="599" y="249" font-family="tabler-icons" font-size="14" fill="#9B8FD4">&#xecd4;</text><text x="619" y="248" font-family="Inter" font-size="11.5" fill="#d7d3ca">re-score: ripple</text>
+          <rect x="730" y="229" width="66" height="30" rx="9" fill="#15161a" stroke="#9B8FD4"/><text x="763" y="248" text-anchor="middle" font-family="Inter" font-size="11.5" fill="#d7d3ca">compare</text>
+          <text x="556" y="278" text-anchor="middle" font-family="JetBrains Mono" font-size="10" fill="#7c7a73">edit tools · add window · change wall · curtains · ventilation · material</text>
+          <rect x="822" y="228" width="320" height="32" rx="15" fill="#121a14" stroke="#3FB97A"/><text x="836" y="248" font-family="tabler-icons" font-size="14" fill="#3FB97A">&#xea51;</text><text x="857" y="248" font-family="Inter" font-size="11.5" fill="#cfe6d4">Done. Acoustic climbed; the ripple lifted touch.</text>
+          <rect x="24" y="345" width="266" height="30" rx="14" fill="#e9e3d6" stroke="#e9e3d6"/><text x="36" y="365" font-family="tabler-icons" font-size="13" fill="#6a665c">&#xefbe;</text><text x="55" y="364" font-family="Inter" font-size="12" fill="#26241f">show me the relationships</text>
+          <rect x="316" y="345" width="158" height="30" rx="9" fill="#15161a" stroke="#6AB8C8"/><text x="327" y="365" font-family="tabler-icons" font-size="15" fill="#6AB8C8">&#xedff;</text><text x="348" y="364" font-family="Inter" font-size="12.5" fill="#d7d3ca">draw the galaxy</text>
+          <rect x="484" y="345" width="170" height="30" rx="9" fill="#15161a" stroke="#6AB8C8"/><text x="495" y="365" font-family="tabler-icons" font-size="15" fill="#6AB8C8">&#xebf2;</text><text x="516" y="364" font-family="Inter" font-size="12.5" fill="#d7d3ca">compare personas</text>
+          <rect x="822" y="344" width="320" height="32" rx="15" fill="#121a14" stroke="#3FB97A"/><text x="836" y="364" font-family="tabler-icons" font-size="14" fill="#3FB97A">&#xea51;</text><text x="857" y="364" font-family="Inter" font-size="11.5" fill="#cfe6d4">Here's the galaxy. Loud rooms cluster apart.</text>
+        </g>
+        <rect x="14" y="416" width="1132" height="38" rx="11" fill="#131210" stroke="#2e2a24"/>
+        <text x="32" y="440" font-family="JetBrains Mono" font-size="12" fill="#8a8780">ACT 3 · REPORT</text>
+        <text x="188" y="440" font-family="Inter" font-size="12.5" fill="#7c7a73">your scores become a prompt, then a first-person render of each room</text>
+        <rect x="936" y="423" width="196" height="24" rx="12" fill="#e9e3d6" stroke="#e9e3d6"/><text x="949" y="439" font-family="tabler-icons" font-size="11" fill="#6a665c">&#xefbe;</text><text x="966" y="439" font-family="Inter" font-size="11" fill="#26241f">show me the vision</text>
+      </svg>
+    </div>
+  </div>
+  <div class="foot" style="display:flex;gap:34px;align-items:center"><span><span class="mut">three kinds of work</span> &nbsp; <span style="color:var(--vis)">&#9679; understand</span> &nbsp; <span style="color:var(--ac)">&#9679; edit, the ripple</span> &nbsp; <span style="color:var(--sp)">&#9679; see it anew</span></span><span class="cite"><span style="color:#e9e3d6">&#9679; you</span> &nbsp; <span style="color:var(--pass)">&#9679; Sensi</span> &nbsp; <span style="color:var(--vis)">&middot;&middot;&middot; persona carries forward</span></span></div>
+  <aside class="notes">[Charles · ~52s · then hand to Clip 2] So, act two, Shape, this is where the agentic power lives, and it's the heart of the system. When you ask for something, a fast model first routes your intent, are you asking to score, to edit, or to see it a new way, in one quick step. If it's an edit, the agent plans it, places it soundly so the plan stays valid, applies it, and re-scores. If it's a question, a heavier model reads the whole room, all six scores, their couplings, and your persona, and answers in plain words. It all funnels through one agent, so you can edit materials, furniture, plants, windows and more, and watch the layout and the relationships respond.</aside>
+</section>
+
+<!-- 13 · CLIP 2 / SHAPE -->
+<section class="clip" data-clip="Shape">
+  <div class="frame"><div class="clip-stage">
+    <video class="clip-vid" playsinline preload="auto"><source src="assets/clips/shape.mp4" type="video/mp4"></video>
+  </div></div>
+  <aside class="notes">[DEMO VO · Emilie · live over the clip · ~2:00] So we're in the design space. Let's pick a layout, that one doesn't really match my grandma and me, so let's go with the city apartment. I run a full analysis, take a look at the capabilities while it works, and then I can read the model's actual answer and find it in the plan itself. It gives me suggestions, so let's try one: I'll add a large window in the kitchen and the living room, and you can see the focus pull land right on those, hover, and you get more detail. We can keep editing to make the space better, adding a rug and curtains, and you'll see the suggestions cross themselves off automatically. Let's commit those changes. Now let's add plans to all the rooms, where the biggest changes show, and we can see them all at a glance. We can also map the topology of the space, and look at the commits so far and how each one moves each sense. In the graph, you can see that ripple we keep talking about, one per sense, hover any one to see how it pulls on the others. We also have the galaxy view, meant for exploration: we see the rooms, the senses, and the design levers behind them. Expand a room to see its senses, they connect to each other too, and on hover you get the ripple, between a lever and the senses, and between the senses themselves.</aside>
+</section>
+
+<!-- 14 · UNDER THAT SCORE -->
+<section>
+  <div class="kick"><span class="kbar" style="background:var(--ac)"></span><span style="color:var(--ac)">SCORING ENGINE</span></div>
+  <div class="frame" style="justify-content:flex-start;padding-top:80px">
+    <p class="tmin">How a room&#8217;s six senses become one number.</p>
+    <p class="sub">layout 202: the same map, now lit on one room. every number traces back to the plan, no black box.</p>
+    <div class="stage" style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px">
+      <svg width="940" viewBox="0 0 1000 296" aria-label="layout 202 drawn as a galaxy with the kitchen lit; its weak senses annotated to their plan causes, summed to 0.41">
+        <g stroke="#1d1d1d" stroke-width="2.2" stroke-dasharray="2 6" stroke-linecap="round" fill="none">
+          <path d="M164 92 L356 138"/><path d="M160 212 L358 168"/><path d="M130 112 L130 190"/>
+        </g>
+        <g opacity="0.55">
+          <circle cx="130" cy="74" r="40" fill="none" stroke="#242424"/><text x="130" y="78" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="#46443f">living</text>
+          <circle cx="130" cy="226" r="40" fill="none" stroke="#242424"/><text x="130" y="230" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="#46443f">bedroom</text>
+        </g>
+        <circle cx="440" cy="150" r="96" fill="rgba(155,143,212,0.045)" stroke="#9B8FD4" stroke-width="1.2"/>
+        <g font-family="JetBrains Mono" font-size="16" text-anchor="middle">
+          <text x="440" y="95" fill="#E8836A">&#9651;</text>
+          <text x="383" y="123" fill="#D4B96A">&#9675;</text>
+          <circle cx="497" cy="118" r="15" fill="none" stroke="#E0524A" stroke-width="1.4"/><text x="497" y="123" fill="#9B8FD4">&#8767;</text>
+          <text x="440" y="216" fill="#6AB8C8">&#9633;</text>
+          <circle cx="497" cy="182" r="15" fill="none" stroke="#E0524A" stroke-width="1.4"/><text x="497" y="187" fill="#8BB88A">&#8776;</text>
+          <text x="383" y="187" fill="#C4A882">&#8758;</text>
+        </g>
+        <g font-family="Inter" font-size="10" text-anchor="middle" fill="#7c7a73">
+          <text x="440" y="80">.50</text><text x="360" y="120">.69</text><text x="440" y="236" fill="#7fae8f">.94</text><text x="360" y="190">.42</text>
+        </g>
+        <circle cx="440" cy="150" r="19" fill="#1a1110" stroke="#E0524A" stroke-width="1.5"/><text x="440" y="156" text-anchor="middle" font-family="JetBrains Mono" font-size="15" fill="#F0EDE8">0.41</text>
+        <text x="440" y="268" text-anchor="middle" font-family="Inter" font-size="12" fill="#9a978f">kitchen / 202</text>
+        <path d="M513 116 L606 106" stroke="#46443d" stroke-width="1" fill="none"/>
+        <text x="614" y="102" font-family="Inter" font-size="13"><tspan fill="#9B8FD4">&#8767; sound</tspan> <tspan fill="#cf8f88" font-weight="600">0.28</tspan></text>
+        <text x="614" y="120" font-family="Inter" font-size="11.5" fill="#9a978f">hard, boxy, noisy next door <tspan fill="#6a665c">S5</tspan></text>
+        <path d="M513 184 L606 194" stroke="#46443d" stroke-width="1" fill="none"/>
+        <text x="614" y="190" font-family="Inter" font-size="13"><tspan fill="#8BB88A">&#8776; smell</tspan> <tspan fill="#cf8f88" font-weight="600">0.33</tspan></text>
+        <text x="614" y="208" font-family="Inter" font-size="11.5" fill="#9a978f">mechanical vent, low glazing <tspan fill="#6a665c">S6</tspan></text>
+      </svg>
+      <div style="display:flex;align-items:center;gap:10px;border-top:1px solid #211f1c;padding-top:13px;flex-wrap:wrap;justify-content:center">
+        <span class="annoK" style="color:var(--ac)">THE ENGINE</span>
+        <span style="font:400 12.5px 'Inter';color:var(--mut)">deterministic, no LLM:</span>
+        <span style="font:400 12px Inter;color:#cfcbc2;border:1px solid #45433e;border-radius:7px;padding:3px 9px">baseline</span> <span style="color:var(--dim)">&#8594;</span> <span style="font:400 12px Inter;color:#cfcbc2;border:1px solid #45433e;border-radius:7px;padding:3px 9px">rules</span> <span style="color:var(--dim)">&#8594;</span> <span style="font:400 12px Inter;color:#cfcbc2;border:1px solid #45433e;border-radius:7px;padding:3px 9px">couple</span> <span style="color:var(--dim)">&#8594;</span> <span style="font:400 12px Inter;color:#cfcbc2;border:1px solid #45433e;border-radius:7px;padding:3px 9px">veto</span>
+        <span style="color:var(--dim)">&#8594;</span>
+        <span class="mono" style="font-size:18px;color:var(--fail)">0.41</span>
+        <span style="font:400 11.5px 'Inter';color:var(--dim)">a plain average would say 0.53</span>
+      </div>
+    </div>
+  </div>
+  <div class="foot" style="display:flex;gap:40px;align-items:flex-start;font-size:12px"><span style="color:var(--mut);line-height:1.5"><b style="font-family:'JetBrains Mono',monospace;color:var(--olf)">S5-S7 &middot; standards</b> &nbsp; BS 8233 acoustic, ASHRAE 62.2 ventilation, residential daylight</span><span style="color:var(--mut);line-height:1.5;margin-left:auto"><b style="font-family:'JetBrains Mono',monospace;color:var(--olf)">S2 &middot; the veto</b> &nbsp; Yang &amp; Moon, 2019, non-additive aggregation &nbsp; <b style="font-family:'JetBrains Mono',monospace;color:var(--olf)">R6</b> material physics</span></div>
+  <aside class="notes">[Charles · ~11s · after Clip 2] So everything you just saw, every score is built from those levers and their couplings, with fixed rules underneath, deterministic scoring, not LLM reasoning.</aside>
+</section>
+
+<!-- 15 · SEE IT A NEW WAY: GALAXY (moved into Act 2) -->
+<section>
+  <div class="kick"><span class="kbar" style="background:var(--ac)"></span><span style="color:var(--ac)">ROOM TO ROOM</span></div>
+  <div class="frame" style="justify-content:flex-start;padding-top:80px">
+    <p class="tmin">Rooms are wired together by their senses.</p>
+    <p class="sub">the kitchen&#8217;s noise and smell reach the bedroom, the busiest room, and that is what zoning fixes.</p>
+    <div class="stage" style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:14px">
+      <svg width="920" viewBox="0 0 1000 272" aria-label="layout 202 as a 5-room graph: bedroom is the most-connected hub, study is the bridge to the bathroom, edges tagged with the senses that bleed across them">
+        <g stroke="#9B8FD4" stroke-width="2.6" stroke-dasharray="2 6" stroke-linecap="round" opacity=".9" fill="none">
+          <path d="M165 105 L165 195"/>
+          <path d="M190 90 L394 140"/>
+          <path d="M190 210 L394 162"/>
+          <path d="M458 151 L622 151"/>
+          <path d="M681 151 L821 151"/>
+        </g>
+        <g font-family="Inter" font-size="11" fill="#b7a6d8">
+          <text x="300" y="155" text-anchor="middle">sound &middot; smell</text>
+          <text x="751" y="136" text-anchor="middle">smell</text>
+        </g>
+        <g opacity="0.34" text-anchor="middle" font-family="JetBrains Mono"><text x="165" y="54" font-size="9" fill="#E8836A">&#9651;</text><text x="187" y="67" font-size="9" fill="#D4B96A">&#9675;</text><text x="187" y="92" font-size="9" fill="#9B8FD4">&#8767;</text><text x="165" y="104" font-size="9" fill="#6AB8C8">&#9633;</text><text x="143" y="92" font-size="9" fill="#8BB88A">&#8776;</text><text x="143" y="67" font-size="9" fill="#C4A882">&#8758;</text><text x="165" y="202" font-size="9" fill="#E8836A">&#9651;</text><text x="187" y="215" font-size="9" fill="#D4B96A">&#9675;</text><text x="187" y="240" font-size="9" fill="#9B8FD4">&#8767;</text><text x="165" y="252" font-size="9" fill="#6AB8C8">&#9633;</text><text x="143" y="240" font-size="9" fill="#8BB88A">&#8776;</text><text x="143" y="215" font-size="9" fill="#C4A882">&#8758;</text><text x="425" y="124" font-size="10" fill="#E8836A">&#9651;</text><text x="451" y="140" font-size="10" fill="#D4B96A">&#9675;</text><text x="451" y="170" font-size="10" fill="#9B8FD4">&#8767;</text><text x="425" y="184" font-size="10" fill="#6AB8C8">&#9633;</text><text x="399" y="170" font-size="10" fill="#8BB88A">&#8776;</text><text x="399" y="140" font-size="10" fill="#C4A882">&#8758;</text><text x="650" y="128" font-size="9" fill="#E8836A">&#9651;</text><text x="673" y="141" font-size="9" fill="#D4B96A">&#9675;</text><text x="673" y="167" font-size="9" fill="#9B8FD4">&#8767;</text><text x="650" y="180" font-size="9" fill="#6AB8C8">&#9633;</text><text x="627" y="167" font-size="9" fill="#8BB88A">&#8776;</text><text x="627" y="141" font-size="9" fill="#C4A882">&#8758;</text><text x="845" y="133" font-size="8" fill="#E8836A">&#9651;</text><text x="863" y="143" font-size="8" fill="#D4B96A">&#9675;</text><text x="863" y="164" font-size="8" fill="#9B8FD4">&#8767;</text><text x="845" y="175" font-size="8" fill="#6AB8C8">&#9633;</text><text x="827" y="164" font-size="8" fill="#8BB88A">&#8776;</text><text x="827" y="143" font-size="8" fill="#C4A882">&#8758;</text></g>
+        <g fill="none">
+          <circle cx="165" cy="76" r="29" stroke="#2a2a2a"/><circle cx="165" cy="76" r="5" fill="#2c2c2c"/>
+          <circle cx="165" cy="224" r="29" stroke="#2a2a2a"/><circle cx="165" cy="224" r="5" fill="#2c2c2c"/>
+          <circle cx="425" cy="151" r="33" stroke="#9B8FD4" stroke-width="1.4"/><circle cx="425" cy="151" r="5" fill="#9B8FD4"/>
+          <circle cx="650" cy="151" r="29" stroke="#E0A92E" stroke-dasharray="3 3"/><circle cx="650" cy="151" r="5" fill="#2c2c2c"/>
+          <circle cx="845" cy="151" r="23" stroke="#2a2a2a"/><circle cx="845" cy="151" r="5" fill="#2c2c2c"/>
+        </g>
+        <g font-family="Inter" font-size="12.5" fill="#9a978f" text-anchor="middle">
+          <text x="165" y="34">living</text><text x="165" y="266">kitchen</text>
+          <text x="425" y="200">bedroom</text><text x="650" y="200">study</text><text x="845" y="194">bathroom</text>
+        </g>
+        <text x="425" y="98" text-anchor="middle" font-family="Inter" font-size="12.5" fill="#9B8FD4">hub &middot; most connected</text>
+        <text x="650" y="92" text-anchor="middle" font-family="Inter" font-size="12.5" fill="#E0A92E">bridge</text>
+        <text x="650" y="107" text-anchor="middle" font-family="Inter" font-size="10.5" fill="#9a978f">the only door to the bath</text>
+      </svg>
+      <div style="display:flex;align-items:center;gap:11px;border-top:1px solid #211f1c;padding-top:13px;justify-content:center;flex-wrap:wrap">
+        <span class="annoK" style="color:var(--ac)">THE ROOM GRAPH</span>
+        <span style="font:400 12.5px Inter;color:var(--mut)">a real graph in NetworkX:</span>
+        <span style="font:400 12px Inter;color:#cfcbc2;border:1px solid #45433e;border-radius:7px;padding:3px 9px">rooms = nodes</span> <span style="font:400 12px Inter;color:#cfcbc2;border:1px solid #45433e;border-radius:7px;padding:3px 9px">doors = edges</span>
+        <span style="color:var(--dim)">&#8594;</span>
+        <span style="font:400 12.5px Inter;color:var(--mut)">finds hubs, bridges, isolated zones</span>
+      </div>
+    </div>
+  </div>
+  <div class="foot" style="font-size:12px"><span style="color:var(--mut);line-height:1.5"><b style="font-family:'JetBrains Mono',monospace;color:var(--olf)">R1 &middot; sensory zoning</b> &nbsp; Al-Harasis et al., 2025, a taxonomy for sensory design in autism</span></div>
+  <aside class="notes">[Charles · ~32s] As we saw in the demo, the relationship graph between the rooms matters too: rooms as nodes, doors as edges, finding the hubs and the bridges, carrying the senses that bleed between rooms, the kitchen's noise and smell reaching the bedroom. So comfort becomes a zoning problem you can see, straight from the autism sensory-design research. And that's the vision we had for the galaxy, the whole project as one living map.</aside>
+</section>
+
+<!-- 16 · EVERY EDIT, TRACKED -->
+<section>
+  <div class="kick"><span class="kbar" style="background:var(--ac)"></span><span style="color:var(--ac)">EVERY EDIT, TRACKED</span></div>
+  <div class="frame" style="justify-content:flex-start;padding-top:80px">
+    <p class="tmin">Only the edits you commit reach the Report.</p>
+    <p class="sub">each line is a sense, rising as you edit; a layout-wide move ripples through everything, a single room far less.</p>
+    <div class="stage" style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:16px;margin-top:4px">
+      <svg width="100%" viewBox="0 0 1000 244" aria-label="six glowing sense-lines rising across four committed checkpoints; small ripples on the room edits and a strong bundled weave on the layout-wide edit; a dashed uncommitted trial that does not carry forward">
+        <defs><filter id="g16" x="-15%" y="-25%" width="130%" height="150%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+        <g font-family="JetBrains Mono" font-size="12">
+          <text x="40" y="22" fill="#E8836A">&#9651;</text><text x="56" y="22" fill="#9a978f">thermal</text>
+          <text x="200" y="22" fill="#D4B96A">&#9675;</text><text x="216" y="22" fill="#9a978f">visual</text>
+          <text x="340" y="22" fill="#9B8FD4">&#8767;</text><text x="356" y="22" fill="#9a978f">acoustic</text>
+          <text x="500" y="22" fill="#6AB8C8">&#9633;</text><text x="516" y="22" fill="#9a978f">spatial</text>
+          <text x="640" y="22" fill="#8BB88A">&#8776;</text><text x="656" y="22" fill="#9a978f">olfactory</text>
+          <text x="810" y="22" fill="#C4A882">&#8758;</text><text x="826" y="22" fill="#9a978f">tactile</text>
+        </g>
+        <g stroke="#1c1c1c" stroke-width="1"><line x1="110" y1="40" x2="110" y2="210"/><line x1="360" y1="40" x2="360" y2="210"/><line x1="610" y1="40" x2="610" y2="210"/><line x1="860" y1="40" x2="860" y2="210"/></g>
+        <g fill="none" stroke-width="2.5" filter="url(#g16)" stroke-linecap="round">
+          <path d="M110 70 C235 70 235 69 360 69 C485 69 485 64 610 64 C735 64 735 62 860 62" stroke="#6AB8C8"/>
+          <path d="M110 121 C235 121 235 120 360 120 C485 120 485 119 610 119 C735 119 735 110 860 110" stroke="#D4B96A"/>
+          <path d="M110 154 C235 154 235 153 360 153 C485 153 485 145 610 145 C735 145 735 139 860 139" stroke="#E8836A"/>
+          <path d="M110 171 C235 171 235 135 360 135 C485 135 485 131 610 131 C735 131 735 129 860 129" stroke="#C4A882"/>
+          <path d="M110 200 C235 200 235 175 360 175 C485 175 485 156 610 156 C735 156 735 154 860 154" stroke="#9B8FD4"/>
+          <path d="M110 190 C235 190 235 188 360 188 C485 188 485 140 610 140 C735 140 735 137 860 137" stroke="#8BB88A"/>
+        </g>
+        <g fill="none" stroke="#3FB97A" stroke-width="3.4" opacity=".38" filter="url(#g16)"><path d="M610 64 C580 102 580 122 610 156"/></g>
+        <g fill="none" stroke="#3FB97A" stroke-width="1.6" opacity=".9">
+          <path d="M360 135 Q337 155 360 175"/>
+          <path d="M610 64 Q584 110 610 156"/><path d="M610 140 Q596 143 610 145"/>
+          <path d="M860 110 Q840 124 860 139"/>
+        </g>
+        <text x="332" y="150" font-family="JetBrains Mono" font-size="12" fill="#3FB97A">+</text>
+        <text x="566" y="114" font-family="JetBrains Mono" font-size="13" fill="#3FB97A">+</text>
+        <text x="836" y="128" font-family="JetBrains Mono" font-size="12" fill="#3FB97A">+</text>
+        <text x="610" y="50" text-anchor="middle" font-family="Inter" font-size="11.5" fill="#7fae8f">4 senses move together</text>
+        <path d="M866 154 C892 156 898 172 905 186" fill="none" stroke="#9B8FD4" stroke-width="2" stroke-dasharray="3 5" opacity=".85"/>
+        <text x="892" y="202" font-family="Inter" font-size="10.5" fill="#7c7a73">trial, not saved</text>
+      </svg>
+      <div style="display:flex;align-items:center;gap:9px;justify-content:center;flex-wrap:nowrap">
+        <span style="font:600 10.5px 'JetBrains Mono',monospace;letter-spacing:.14em;color:#7c7a73;text-transform:uppercase;margin-right:3px">checkpoints</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;border:1px solid #232020;border-radius:20px;padding:5px 10px;background:#0a0a0a"><span style="font:400 10px 'JetBrains Mono',monospace;color:#3FB97A">&#9673;</span><span style="font:600 10px 'JetBrains Mono',monospace;letter-spacing:.04em;color:#cfcbc2;text-transform:uppercase">initial</span><span style="font:600 10px 'JetBrains Mono',monospace;color:#E0524A;border:1px solid #4a2422;border-radius:10px;padding:1px 6px">0.36</span></span><span style="display:inline-flex;align-items:center;gap:6px;border:1px solid #232020;border-radius:20px;padding:5px 10px;background:#0a0a0a"><span style="font:400 10px 'JetBrains Mono',monospace;color:#3FB97A">&#10003;</span><span style="font:600 10px 'JetBrains Mono',monospace;letter-spacing:.04em;color:#cfcbc2;text-transform:uppercase">+ cork</span><span style="font:400 9px 'JetBrains Mono',monospace;color:#7c7a73">room</span><span style="font:600 10px 'JetBrains Mono',monospace;color:#E0524A;border:1px solid #4a2422;border-radius:10px;padding:1px 6px">0.40</span></span><span style="display:inline-flex;align-items:center;gap:6px;border:1px solid #232020;border-radius:20px;padding:5px 10px;background:#0a0a0a"><span style="font:400 10px 'JetBrains Mono',monospace;color:#3FB97A">&#10003;</span><span style="font:600 10px 'JetBrains Mono',monospace;letter-spacing:.04em;color:#cfcbc2;text-transform:uppercase">+ open the plan</span><span style="font:400 9px 'JetBrains Mono',monospace;color:#7c7a73">layout</span><span style="font:600 10px 'JetBrains Mono',monospace;color:#E0524A;border:1px solid #4a2422;border-radius:10px;padding:1px 6px">0.44</span></span><span style="display:inline-flex;align-items:center;gap:6px;border:1px solid #232020;border-radius:20px;padding:5px 10px;background:#0a0a0a"><span style="font:400 10px 'JetBrains Mono',monospace;color:#3FB97A">&#10003;</span><span style="font:600 10px 'JetBrains Mono',monospace;letter-spacing:.04em;color:#cfcbc2;text-transform:uppercase">+ window</span><span style="font:400 9px 'JetBrains Mono',monospace;color:#7c7a73">room</span><span style="font:600 10px 'JetBrains Mono',monospace;color:#E0524A;border:1px solid #4a2422;border-radius:10px;padding:1px 6px">0.46</span></span><span style="display:inline-flex;align-items:center;gap:6px;border:1px dashed #3a3833;border-radius:20px;padding:5px 10px;background:#0a0a0a;opacity:.82"><span style="font:400 10px 'JetBrains Mono',monospace;color:#7c7a73">&#9711;</span><span style="font:600 10px 'JetBrains Mono',monospace;letter-spacing:.04em;color:#cfcbc2;text-transform:uppercase">+ skylight</span><span style="font:400 9px 'JetBrains Mono',monospace;color:#7c7a73">trying</span></span>
+        <span style="border-left:1px dashed #3a3833;padding-left:12px;margin-left:4px;font:600 11.5px 'Inter';color:#9B8FD4">&#8594; Act 3</span>
+      </div>
+    </div>
+  </div>
+  <div class="foot" style="display:flex;gap:26px;align-items:flex-start;font-size:12px"><span style="color:#9a978f;line-height:1.5"><b style="color:#8BB88A">scope shows in the weave:</b> a room edit moves a sense or two, a layout edit ripples through everything. the coupling, not noise.</span><span style="color:#9a978f;line-height:1.5;margin-left:auto"><b style="color:#9B8FD4">only committed checkpoints carry forward:</b> the dashed trial stays here, the Report renders the committed plan.</span></div>
+  <aside class="notes">[Charles · ~28s] Every edit is kept as a checkpoint, so you watch the plan improve honestly, each line is a sense, rising as it gets better. A single-room change nudges a sense or two; a layout-wide change ripples through everything, and that strong weave is the coupling working. And only what you commit carries forward, so the Report shows the plan you actually kept.</aside>
+</section>
+
+<!-- 17 · ACT 3 / REPORT -->
+<section class="act">
+  <div class="kick"><span class="kbar" style="background:var(--therm)"></span><span style="color:var(--therm)">ACT 3 / REPORT</span></div>
+  <div class="frame" style="justify-content:flex-start;padding-top:80px">
+    <p class="tmin">Act three: the output answers the input.</p>
+    <p class="sub">the loop closes: your persona and aesthetic return, and the scores become a first-person image.</p>
+    <div class="stage" style="flex:none;margin-top:10px">
+      <svg width="100%" viewBox="0 0 1160 372" aria-label="accordion, Act 3 (Report) expanded into you-say, the-agent-works, Sensi-answers; Onboard and Shape collapsed">
+        <defs>
+          <marker id="o3g" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7c7a73"/></marker>
+          <marker id="o3p" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#D4B96A"/></marker>
+        </defs>
+        <rect x="14" y="8" width="1132" height="46" rx="11" fill="#131210" stroke="#2e2a24"/>
+        <text x="32" y="36" font-family="JetBrains Mono" font-size="12" fill="#8a8780">ACT 1 · ONBOARD</text>
+        <text x="188" y="36" font-family="Inter" font-size="12.5" fill="#7c7a73">a few questions and a moodboard compile your sensory persona</text>
+        <rect x="900" y="19" width="232" height="24" rx="12" fill="#121a14" stroke="#3FB97A"/><text x="913" y="35" font-family="tabler-icons" font-size="12" fill="#3FB97A">&#xef68;</text><text x="932" y="35" font-family="Inter" font-size="11.5" fill="#cfe6d4">your sensory persona</text>
+        <rect x="14" y="62" width="1132" height="46" rx="11" fill="#131013" stroke="#2c2630"/>
+        <text x="32" y="90" font-family="JetBrains Mono" font-size="12" fill="#9B8FD4">ACT 2 · SHAPE</text>
+        <text x="188" y="90" font-family="Inter" font-size="12.5" fill="#7c7a73">you shape the plan; it scores each room, edits, and shows the ripple</text>
+        <rect x="918" y="73" width="214" height="24" rx="12" fill="#15161a" stroke="#8a8780"/><text x="931" y="89" font-family="tabler-icons" font-size="12" fill="#8a8780">&#xed77;</text><text x="950" y="89" font-family="Inter" font-size="11.5" fill="#d7d3ca">the scored plan</text>
+        <text x="156" y="138" text-anchor="middle" font-family="JetBrains Mono" font-size="11" fill="#7c7a73">you say</text>
+        <text x="486" y="138" text-anchor="middle" font-family="JetBrains Mono" font-size="11" fill="#7c7a73">the agent works</text>
+        <text x="982" y="138" text-anchor="middle" font-family="JetBrains Mono" font-size="11" fill="#7c7a73">Sensi answers</text>
+        <g fill="none" stroke="#8a8780" stroke-width="1.4">
+          <path d="M290 168 L314 168" marker-end="url(#o3g)"/>
+          <path d="M520 168 C 640 168, 720 168, 820 168" marker-end="url(#o3g)"/>
+          <path d="M290 240 L314 240" marker-end="url(#o3g)"/>
+          <path d="M520 240 C 640 240, 720 240, 820 240" marker-end="url(#o3g)"/>
+          <path d="M520 312 C 640 312, 720 312, 820 312" marker-end="url(#o3g)"/>
+        </g>
+        <path d="M918 98 C 882 128, 640 150, 420 154" fill="none" stroke="#D4B96A" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#o3p)"/>
+        <text x="700" y="120" text-anchor="middle" font-family="Inter" font-size="11" fill="#D4B96A">the scores carry in</text>
+        <g>
+          <rect x="24" y="153" width="266" height="30" rx="14" fill="#e9e3d6" stroke="#e9e3d6"/><text x="36" y="173" font-family="tabler-icons" font-size="13" fill="#6a665c">&#xefbe;</text><text x="55" y="172" font-family="Inter" font-size="12" fill="#26241f">show me the vision</text>
+          <rect x="316" y="153" width="200" height="30" rx="9" fill="#15161a" stroke="#E8836A"/><text x="327" y="173" font-family="tabler-icons" font-size="15" fill="#E8836A">&#xea88;</text><text x="348" y="172" font-family="Inter" font-size="12.5" fill="#d7d3ca">recall the scores</text>
+          <rect x="822" y="152" width="320" height="32" rx="15" fill="#121a14" stroke="#3FB97A"/><text x="836" y="172" font-family="tabler-icons" font-size="14" fill="#3FB97A">&#xea51;</text><text x="857" y="172" font-family="Inter" font-size="11.5" fill="#cfe6d4">Your persona and moodboard greet you first.</text>
+          <rect x="24" y="225" width="266" height="30" rx="14" fill="#e9e3d6" stroke="#e9e3d6"/><text x="36" y="245" font-family="tabler-icons" font-size="13" fill="#6a665c">&#xefbe;</text><text x="55" y="244" font-family="Inter" font-size="12" fill="#26241f">open the kitchen</text>
+          <rect x="316" y="225" width="200" height="30" rx="9" fill="#15161a" stroke="#E8836A"/><text x="327" y="245" font-family="tabler-icons" font-size="15" fill="#E8836A">&#xeaa2;</text><text x="348" y="244" font-family="Inter" font-size="12.5" fill="#d7d3ca">build the prompt</text>
+          <rect x="822" y="224" width="320" height="32" rx="15" fill="#121a14" stroke="#3FB97A"/><text x="836" y="244" font-family="tabler-icons" font-size="14" fill="#3FB97A">&#xea51;</text><text x="857" y="244" font-family="Inter" font-size="11.5" fill="#cfe6d4">Only the extreme senses write the scene.</text>
+          <rect x="316" y="297" width="200" height="30" rx="9" fill="#15161a" stroke="#E8836A"/><text x="327" y="317" font-family="tabler-icons" font-size="15" fill="#E8836A">&#xeb0a;</text><text x="348" y="316" font-family="Inter" font-size="12.5" fill="#d7d3ca">render the image</text>
+          <rect x="822" y="296" width="320" height="32" rx="15" fill="#121a14" stroke="#3FB97A"/><text x="836" y="316" font-family="tabler-icons" font-size="14" fill="#3FB97A">&#xea51;</text><text x="857" y="316" font-family="Inter" font-size="11.5" fill="#cfe6d4">A first-person photo, before and after.</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+  <div class="foot" style="color:var(--therm)">the output answers the input: the loop closes.</div>
+  <aside class="notes">[Lakzhmy · ~17s · then hand to Clip 3] Last act, the Report, is where the loop closes. You get the outputs, the final edited layout, and a vision model that brings your changes to life, so you can compare it back to your moodboard and your needs.</aside>
+</section>
+
+<!-- 18 · CLIP 3 / REPORT -->
+<section class="clip" data-clip="Report">
+  <div class="frame"><div class="clip-stage">
+    <video class="clip-vid" playsinline preload="auto"><source src="assets/clips/report.mp4" type="video/mp4"></video>
+  </div></div>
+  <aside class="notes">[DEMO VO · Emilie · live over the clip · ~0:45] Okay, now we jump into the report. I've got uncommitted changes, so let me commit them first so they show up here. Then we see the moodboard we chose at the start, we can explore the senses coupling, and the before-and-after Sensi generated for the most changed room. We also get a render per room. You can dig into the scores and the prompt behind them, hover any sense to see how it was read into words, and download it as an image, or the plan as JSON. And that's the report.</aside>
+</section>
+
+<!-- 19 · SCORES -> PROMPT -> IMAGE -->
+<section>
+  <div class="kick"><span class="kbar" style="background:var(--therm)"></span><span style="color:var(--therm)">SCORES &rarr; PROMPT &rarr; IMAGE</span></div>
+  <div class="frame" style="justify-content:flex-start;padding-top:80px">
+    <p class="tmin">A score becomes a room you can stand in.</p>
+    <p class="sub">only the extreme senses speak, and the same room, edited, before and after.</p>
+    <div class="row" style="margin-top:14px;align-items:center;gap:24px">
+      <div class="col" style="flex:0 0 442px">
+        <div class="annoK" style="margin-bottom:6px">HOW THE PICTURE IS WRITTEN</div>
+        <svg width="442" height="300" viewBox="0 0 442 300" aria-label="kitchen scores write a prompt in which only the extreme senses speak, in sense colour">
+          <text x="4" y="16" font-family="JetBrains Mono" font-size="12" fill="#9a978f">the scores</text>
+          <g font-family="JetBrains Mono" font-size="13">
+            <text x="6" y="50" fill="#E8836A">△</text><rect x="82" y="42" width="58" height="8" rx="4" fill="#1a1c21"/><rect x="82" y="42" width="29" height="8" rx="4" fill="#E8836A" opacity=".6"/><text x="148" y="50" text-anchor="end" fill="#9a978f">.50</text>
+            <text x="6" y="78" fill="#D4B96A">○</text><rect x="82" y="70" width="58" height="8" rx="4" fill="#1a1c21"/><rect x="82" y="70" width="40" height="8" rx="4" fill="#D4B96A" opacity=".6"/><text x="148" y="78" text-anchor="end" fill="#9a978f">.69</text>
+            <text x="6" y="106" fill="#9B8FD4">∿</text><rect x="82" y="98" width="58" height="8" rx="4" fill="#1a1c21"/><rect x="82" y="98" width="16" height="8" rx="4" fill="#9B8FD4" opacity=".6"/><text x="148" y="106" text-anchor="end" fill="#E0524A">.28</text>
+            <text x="6" y="134" fill="#6AB8C8">□</text><rect x="82" y="126" width="58" height="8" rx="4" fill="#1a1c21"/><rect x="82" y="126" width="55" height="8" rx="4" fill="#6AB8C8" opacity=".6"/><text x="148" y="134" text-anchor="end" fill="#6AB8C8">.94</text>
+            <text x="6" y="162" fill="#8BB88A">≈</text><rect x="82" y="154" width="58" height="8" rx="4" fill="#1a1c21"/><rect x="82" y="154" width="19" height="8" rx="4" fill="#8BB88A" opacity=".6"/><text x="148" y="162" text-anchor="end" fill="#E0524A">.33</text>
+            <text x="6" y="190" fill="#C4A882">∶</text><rect x="82" y="182" width="58" height="8" rx="4" fill="#1a1c21"/><rect x="82" y="182" width="24" height="8" rx="4" fill="#C4A882" opacity=".6"/><text x="148" y="190" text-anchor="end" fill="#9a978f">.42</text>
+          </g>
+          <text x="170" y="16" font-family="JetBrains Mono" font-size="12" fill="#9a978f">becomes a prompt</text>
+          <rect x="168" y="28" width="270" height="248" rx="8" fill="#15161a" stroke="#2A2A2A"/>
+          <text x="180" y="52" font-family="Inter" font-size="13" fill="#cdc8bf">First-person photo of a kitchen.</text>
+          <rect x="178" y="62" width="162" height="19" rx="3" fill="#9B8FD4" opacity=".18"/><text x="184" y="76" font-family="Inter" font-size="13" fill="#b9aee6">hard, echoing surfaces,</text>
+          <rect x="178" y="86" width="176" height="19" rx="3" fill="#6AB8C8" opacity=".18"/><text x="184" y="100" font-family="Inter" font-size="13" fill="#9fd2dd">open, generous in volume,</text>
+          <rect x="178" y="110" width="116" height="19" rx="3" fill="#8BB88A" opacity=".18"/><text x="184" y="124" font-family="Inter" font-size="13" fill="#aacba9">stale, stuffy air,</text>
+          <rect x="178" y="134" width="150" height="19" rx="3" fill="#C4A882" opacity=".18"/><text x="184" y="148" font-family="Inter" font-size="13" fill="#d8c39c">cold, hard materials.</text>
+          <text x="180" y="174" font-family="Inter" font-size="13" fill="#86847d">Even, neutral light.</text>
+          <text x="184" y="208" font-family="JetBrains Mono" font-size="11" fill="#9B8FD4">acoustic ↓</text><text x="262" y="208" font-family="JetBrains Mono" font-size="11" fill="#6AB8C8">spatial ↑</text>
+          <text x="184" y="228" font-family="JetBrains Mono" font-size="11" fill="#8BB88A">olfactory ↓</text><text x="262" y="228" font-family="JetBrains Mono" font-size="11" fill="#C4A882">tactile ↓</text>
+          <text x="180" y="258" font-family="Inter" font-size="11" fill="#5f5d57">thermal and visual stay silent</text>
+        </svg>
+      </div>
+      <div class="col" style="flex:0 0 56px;text-align:center">
+        <svg width="56" height="90" viewBox="0 0 56 90" aria-hidden="true">
+          <defs><marker id="r14a" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#E8836A"/></marker></defs>
+          <path d="M4 45 L46 45" fill="none" stroke="#E8836A" stroke-width="1.6" marker-end="url(#r14a)"/>
+          <text x="26" y="32" text-anchor="middle" font-family="JetBrains Mono" font-size="11" fill="#E8836A">render</text>
+        </svg>
+      </div>
+      <div class="col" style="flex:1">
+        <div class="annoK" style="margin-bottom:6px">THE SAME ROOM, BEFORE AND AFTER</div>
+        <div style="display:flex;gap:10px;align-items:stretch">
+          <div class="svgph" style="flex:1;height:300px;display:flex;align-items:center;justify-content:center;background:#0D0D0D">
+            <img class="shot" src="assets/shots/report-before.png" alt="the kitchen before the edit" style="width:100%;height:100%;object-fit:cover;border:0;display:none" onload="this.style.display='block';var p=this.parentNode,ic=p.querySelector('i'),r=p.querySelector('.rep');if(ic)ic.style.display='none';if(r)r.style.display='none'" onerror="this.remove()">
+            <i class="ti ti-photo" style="font-size:28px;color:var(--dim)"></i>
+            <span class="rep">[ before ]</span>
+            <span style="position:absolute;left:10px;top:8px;font:500 12px 'JetBrains Mono',monospace;color:#9a978f;background:rgba(13,13,13,.72);padding:2px 8px;border-radius:6px">BEFORE</span>
+          </div>
+          <div class="svgph" style="flex:1;height:300px;display:flex;align-items:center;justify-content:center;background:#0D0D0D">
+            <img class="shot" src="assets/shots/report-after.png" alt="the kitchen after the edit" style="width:100%;height:100%;object-fit:cover;border:0;display:none" onload="this.style.display='block';var p=this.parentNode,ic=p.querySelector('i'),r=p.querySelector('.rep');if(ic)ic.style.display='none';if(r)r.style.display='none'" onerror="this.remove()">
+            <i class="ti ti-photo" style="font-size:28px;color:var(--dim)"></i>
+            <span class="rep">[ after ]</span>
+            <span style="position:absolute;left:10px;top:8px;font:500 12px 'JetBrains Mono',monospace;color:var(--therm);background:rgba(13,13,13,.72);padding:2px 8px;border-radius:6px">AFTER</span>
+          </div>
+        </div>
+        <p class="cap" style="margin-top:6px;text-align:center">wipe between them: same room, same angle, only the change moves.</p>
+      </div>
+    </div>
+  </div>
+  <div class="foot">the look you curated at minute one returns here. input and output meet.</div>
+  <aside class="notes">[Lakzhmy · ~23s · after Clip 3] On the left, the room's scores write the prompt, and the honest rule holds: only the extreme senses speak, a clearly good or bad sense writes a phrase in its colour, and the comfortable middle stays quiet. On the right, the same room before and after, same angle, only the change moving.</aside>
+</section>
+
+<!-- 20 · WHAT WE LEARNED + OPENS -->
+<section>
+  <div class="kick"><span class="kbar" style="background:var(--olf)"></span><span style="color:var(--olf)">WHAT WE LEARNED</span></div>
+  <div class="frame" style="justify-content:flex-start;padding-top:80px">
+    <p class="tmin">The wins, and the questions they raise.</p>
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:34px">
+      <div style="display:grid;grid-template-columns:1.1fr 1px 1.05fr;column-gap:46px;row-gap:22px;align-items:start">
+        <div style="grid-column:2;grid-row:1 / -1;width:1px;background:#211f1c;align-self:stretch"></div>
+        <div class="annoK" style="grid-column:1;grid-row:1;color:var(--pass)"><i class="ti ti-check" style="vertical-align:-2px"></i> WHAT HOLDS</div>
+        <div class="annoK" style="grid-column:3;grid-row:1;color:#E8836A"><i class="ti ti-flask" style="vertical-align:-2px"></i> WHAT STAYS OPEN</div>
+        <div style="grid-column:1;grid-row:2;display:flex;gap:13px;align-items:flex-start"><i class="ti ti-wave-sine" style="font-size:21px;color:var(--pass);flex:0 0 auto;margin-top:1px"></i><div><div style="font-size:15.5px;color:#e9e2d2;font-weight:500">ripple and veto reprioritised the rooms</div><div class="cap">we worried about different rooms than the headline number</div></div></div>
+        <div style="grid-column:3;grid-row:2;display:flex;gap:13px;align-items:flex-start"><i class="ti ti-microscope" style="font-size:21px;color:#E8836A;flex:0 0 auto;margin-top:1px"></i><div><div style="font-size:15.5px;color:#e9e2d2;font-weight:500">Could we ever prove it?</div><div class="cap">no ground-truth data to check it against; <span class="mono" style="color:#E8836A">18 of 25</span> couplings survived a model vote: agreement, not truth</div></div></div>
+        <div style="grid-column:1;grid-row:3;display:flex;gap:13px;align-items:flex-start"><i class="ti ti-bolt" style="font-size:21px;color:var(--pass);flex:0 0 auto;margin-top:1px"></i><div><div style="font-size:15.5px;color:#e9e2d2;font-weight:500">routing <b class="mono" style="color:#fff">~0.6s</b>, the felt read <b class="mono" style="color:#fff">~24s</b></div><div class="cap">routing only labels the turn; the felt read reasons over all six scores, their couplings, and your persona</div></div></div>
+        <div style="grid-column:3;grid-row:3;display:flex;gap:13px;align-items:flex-start"><i class="ti ti-accessible" style="font-size:21px;color:#E8836A;flex:0 0 auto;margin-top:1px"></i><div><div style="font-size:15.5px;color:#e9e2d2;font-weight:500">What if a sense doesn&rsquo;t apply?</div><div class="cap">for a blind or Deaf occupant, could Sensi drop that channel and rebalance its weight onto the senses they live by, so the space works harder through those?</div></div></div>
+        <div style="grid-column:1;grid-row:4;display:flex;gap:13px;align-items:flex-start"><i class="ti ti-photo" style="font-size:21px;color:var(--pass);flex:0 0 auto;margin-top:1px"></i><div><div style="font-size:15.5px;color:#e9e2d2;font-weight:500">renders <b class="mono" style="color:#fff">2.75x</b> faster than OpenAI</div><div class="cap"><span class="mono">$0.039</span> vs <span class="mono">$0.042</span> a room; about 4x cheaper than OpenAI&rsquo;s premium tier</div></div></div>
+        <div style="grid-column:3;grid-row:4;display:flex;gap:13px;align-items:flex-start"><i class="ti ti-scale" style="font-size:21px;color:#E8836A;flex:0 0 auto;margin-top:1px"></i><div><div style="font-size:15.5px;color:#e9e2d2;font-weight:500">Help, or decide for you?</div><div class="cap">a confident score is easy to just follow; does Sensi help a designer decide, or quietly decide for them?</div></div></div>
+      </div>
+      <div style="border-top:1px solid #211f1c;padding-top:24px;text-align:center">
+        <i class="ti ti-stack-2" style="font-size:23px;color:var(--ac);vertical-align:-4px"></i>
+        <span style="font-size:23px;color:#F0EDE8;font-weight:500;margin-left:9px">We made the layer of the senses legible. <span style="color:var(--ac)">What else can we make legible?</span></span>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">[Lakzhmy · ~38s] We want to end with what we learned. We got the ripple to become legible, and we benchmarked different nodes to understand where to put the weight and which models perform better. But the real learning is in the questions it raised. Could we ever prove it? What about a sense that doesn't apply, could Sensi lean its weight onto the senses a blind or Deaf person lives by? Which brings us back to: we made the senses legible, what else can we make legible?</aside>
+</section>
+
+<!-- 21 · THANKS -->
+<section class="close">
+  <div class="frame" style="align-items:center;text-align:center">
+    <svg viewBox="0 0 32 32" width="58" height="58" aria-label="Sensi mark" style="margin:0 auto">
+      <circle cx="16" cy="16" r="14.5" fill="none" stroke="#E8836A" stroke-width="1" opacity=".55"/><circle cx="16" cy="16" r="12" fill="none" stroke="#D4B96A" stroke-width="1" opacity=".55"/><circle cx="16" cy="16" r="9.5" fill="none" stroke="#9B8FD4" stroke-width="1" opacity=".6"/><circle cx="16" cy="16" r="7" fill="none" stroke="#6AB8C8" stroke-width="1" opacity=".6"/><circle cx="16" cy="16" r="4.5" fill="none" stroke="#8BB88A" stroke-width="1" opacity=".65"/><circle cx="16" cy="16" r="2" fill="none" stroke="#C4A882" stroke-width="1" opacity=".7"/><circle cx="16" cy="16" r="1.2" fill="#F0EDE8" opacity=".85"/>
+    </svg>
+    <h1 class="h1" style="margin-top:24px">thank you</h1>
+    <p class="lead" style="margin-top:14px;color:var(--ac)">comfort, made legible while a building is still a plan</p>
+    <div class="glyphrow" style="margin-top:30px;justify-content:center"><span style="color:var(--therm)">△</span><span style="color:var(--vis)">○</span><span style="color:var(--ac)">∿</span><span style="color:var(--sp)">□</span><span style="color:var(--olf)">≈</span><span style="color:var(--tac)">∶</span></div>
+    <div style="font:400 14px 'JetBrains Mono',monospace;color:var(--dim);margin-top:40px;line-height:1.7">Charles Abi Chahine&nbsp;&nbsp;·&nbsp;&nbsp;Emilie El Chidiac&nbsp;&nbsp;·&nbsp;&nbsp;Lakzhmy Zaro&nbsp;&nbsp;·&nbsp;&nbsp;María Sánchez Domínguez</div>
+  </div>
+  <aside class="notes">[Lakzhmy · ~3s] That's Sensi. Thank you for listening.</aside>
+</section>
+
+</div></div>
+<div class="counter" id="counter"></div>
+<div class="brandfoot" id="brandfoot">AIA Studio &middot; Team 02 &middot; Sensi</div>
+<div class="glyphkey" id="glyphkey"><span style="color:var(--therm)">△</span> thermal &nbsp;&nbsp; <span style="color:var(--vis)">○</span> visual &nbsp;&nbsp; <span style="color:var(--ac)">∿</span> acoustic &nbsp;&nbsp; <span style="color:var(--sp)">□</span> spatial &nbsp;&nbsp; <span style="color:var(--olf)">≈</span> olfactory &nbsp;&nbsp; <span style="color:var(--tac)">∶</span> tactile</div>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/plugin/notes/notes.min.js"></script>
+<script>
+  // render the app's wedge-petal rose into rose-slots
+  var ROSE = [['thermal','#E8836A','△'],['visual','#D4B96A','○'],['acoustic','#9B8FD4','∿'],['spatial','#6AB8C8','□'],['olfactory','#8BB88A','≈'],['tactile','#C4A882','∶']];
+  function rOpacity(s){ return s<0.4?0.10:s<0.5?0.24:s<0.65?0.42:s<0.8?0.66:0.92; }
+  function buildRose(opt){
+    var size=opt.size||220, cx=size/2, cy=size/2;
+    var pad = opt.glyphs ? size*0.17 : size*0.08;
+    var rMax=size/2-pad, rMin=rMax*0.12, half=24;
+    function polar(r,deg){ var a=deg*Math.PI/180; return [cx+r*Math.sin(a), cy-r*Math.cos(a)]; }
+    function petal(r,ang){ var s=polar(r,ang-half), e=polar(r,ang+half);
+      return 'M'+cx+','+cy+' L'+s[0].toFixed(1)+','+s[1].toFixed(1)+' A'+r.toFixed(1)+','+r.toFixed(1)+' 0 0 1 '+e[0].toFixed(1)+','+e[1].toFixed(1)+' Z'; }
+    var out='<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'">';
+    out+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(rMin+0.65*(rMax-rMin)).toFixed(1)+'" fill="none" stroke="rgba(240,237,232,0.10)" stroke-width="1" stroke-dasharray="2 3"/>';
+    var mark = opt.mark||[];
+    ROSE.forEach(function(d,i){
+      var key=d[0], hue=d[1], ang=i*60;
+      var sc=(opt.scores&&opt.scores[key]!=null)?opt.scores[key]:0.5;
+      var r=rMin+sc*(rMax-rMin);
+      if(opt.ghost&&opt.ghost[key]!=null){ var rb=rMin+opt.ghost[key]*(rMax-rMin);
+        out+='<path d="'+petal(rb,ang)+'" fill="none" stroke="#FFF4E6" stroke-opacity="0.55" stroke-width="1" stroke-dasharray="2.5 2"/>'; }
+      var isMark = mark.indexOf(key)>=0;
+      out+='<path d="'+petal(r,ang)+'" fill="'+hue+'" fill-opacity="'+rOpacity(sc).toFixed(2)+'" stroke="'+(isMark?'#E0524A':hue)+'" stroke-opacity="'+(isMark?0.95:0.7)+'" stroke-width="'+(isMark?1.6:1)+'"'+(isMark?' stroke-dasharray="3 2"':'')+'/>';
+      if(opt.glyphs){ var g=polar(rMax+size*0.10,ang);
+        out+='<text x="'+g[0].toFixed(1)+'" y="'+g[1].toFixed(1)+'" fill="'+hue+'" fill-opacity="0.85" font-size="'+(size*0.11).toFixed(0)+'" font-family="JetBrains Mono" text-anchor="middle" dominant-baseline="central">'+d[2]+'</text>'; }
+    });
+    out+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(size*0.014).toFixed(1)+'" fill="#F0EDE8"/></svg>';
+    return out;
+  }
+  function jp(s){ try{ return s?JSON.parse(s):null; }catch(e){ return null; } }
+  document.querySelectorAll('.rose-slot').forEach(function(el){
+    el.innerHTML = buildRose({
+      size:+el.dataset.size||220,
+      glyphs:el.dataset.glyphs!=='0',
+      scores:jp(el.dataset.scores)||{},
+      ghost:el.dataset.ghost==='1' ? (jp(el.dataset.ghostscores)||{thermal:.5,visual:.5,acoustic:.5,spatial:.5,olfactory:.5,tactile:.5}) : null,
+      mark:jp(el.dataset.mark)||[]
+    });
+  });
+  Reveal.initialize({
+    width:1280, height:720, margin:0.04, center:false,
+    hash:true, controls:false, progress:false, slideNumber:false,
+    transition:'fade', backgroundTransition:'fade',
+    autoPlayMedia:false,
+    plugins:[ RevealNotes ]
+  });
+  var counter = document.getElementById('counter');
+  function updateCounter(){
+    var secs = Array.prototype.slice.call(document.querySelectorAll('.reveal .slides>section'));
+    var cur = Reveal.getCurrentSlide(); if(!cur) return;
+    var bf = document.getElementById('brandfoot');
+    var gk = document.getElementById('glyphkey');
+    var idx = secs.indexOf(cur);
+    if (bf) bf.style.display='block';
+    if (gk) gk.style.display = (idx===secs.length-1) ? 'none' : 'block';
+    counter.classList.remove('demo');
+    counter.textContent = (idx+1) + ' / ' + secs.length;
+  }
+  document.querySelectorAll('.clip').forEach(function(clip){
+    var v = clip.querySelector('video'); if(!v) return;
+    var stage = clip.querySelector('.clip-stage');
+    function toggle(){ if(v.paused){ try{v.play();}catch(_){} } else { v.pause(); } }
+    if(stage) stage.addEventListener('click', toggle);
+    v.addEventListener('play',  function(){ clip.classList.add('playing'); });
+    v.addEventListener('pause', function(){ clip.classList.remove('playing'); });
+    v.addEventListener('ended', function(){ clip.classList.remove('playing'); });
+  });
+  Reveal.on('ready', updateCounter);
+  Reveal.on('slidechanged', function(e){
+    document.querySelectorAll('.clip video').forEach(function(v){ try{v.pause();v.currentTime=0;}catch(_){} });
+    updateCounter();
+  });
+</script>
+</body>
+</html>

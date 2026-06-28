@@ -1,9 +1,6 @@
-// Material legibility for the floor plan (Phase 0, deterministic — no AI).
-//
-// Materials are shown as small floating ORBS (one per room) in Sensi's galaxy/orb
-// language — NOT wall-to-wall fills. Each material maps to a colour; MaterialDefs
-// emits a radial gradient per material (highlight → base → shadow) so the orb reads
-// as a soft 3D sphere. materialOrbFill() returns url(#mat-orb-<key>).
+// Material → colour lookup for the floor plan. Each material maps to a colour, used to
+// tint walls (WallsLayer) and to glow the room in its new finish when a material change
+// lands (EditFocusLayer) — in Sensi's soft glowing idiom, never a wall-to-wall fill.
 
 const PALETTE = {
   wood:      "#b07a47",
@@ -44,38 +41,4 @@ export function materialColor(material) {
 export function materialLabel(material) {
   if (!material || material === "unset") return "—";
   return String(material);
-}
-
-// SVG fill ref for an orb, e.g. url(#mat-orb-wood).
-export function materialOrbFill(material) {
-  return `url(#mat-orb-${materialKey(material)})`;
-}
-
-// ── colour helpers (lerp toward white / black for the orb's highlight + shadow) ──
-function hexToRgb(hex) {
-  const h = hex.replace("#", "");
-  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
-}
-function clampByte(n) { return Math.max(0, Math.min(255, Math.round(n))); }
-function toHex(r, g, b) { return "#" + [r, g, b].map((v) => clampByte(v).toString(16).padStart(2, "0")).join(""); }
-function shade(hex, amt) {            // amt>0 → lighter, amt<0 → darker
-  const [r, g, b] = hexToRgb(hex);
-  const t = Math.abs(amt), tgt = amt > 0 ? 255 : 0;
-  return toHex(r + (tgt - r) * t, g + (tgt - g) * t, b + (tgt - b) * t);
-}
-
-// One radial gradient per material, giving each orb a soft spherical shading.
-// Drop <MaterialDefs/> once inside the plan SVG.
-export function MaterialDefs() {
-  return (
-    <defs>
-      {Object.entries(PALETTE).map(([key, color]) => (
-        <radialGradient key={key} id={`mat-orb-${key}`} cx="36%" cy="30%" r="72%">
-          <stop offset="0%" stopColor={shade(color, 0.55)} />
-          <stop offset="52%" stopColor={color} />
-          <stop offset="100%" stopColor={shade(color, -0.45)} />
-        </radialGradient>
-      ))}
-    </defs>
-  );
 }

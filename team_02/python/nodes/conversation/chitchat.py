@@ -7,8 +7,9 @@ them to ask for it plainly (the action_classifier routes that on the next turn).
 """
 
 from __future__ import annotations
-from _runtime.llm import call_llm_simple
+from _runtime.llm import respond_text
 from nodes._shared.register import register_label, register_tone, CAPABILITIES
+from nodes._shared.persona_context import format_persona_for_prompt
 
 
 _SYSTEM_PROMPT_TEMPLATE = """\
@@ -26,6 +27,11 @@ helpfully:
   - Vague ("make it better") -> say what you'd need (a layout, or which room/sense) and
     offer a concrete next step ("want me to analyse a layout, or change something?").
 
+You ALREADY KNOW this person's comfort profile — use it, and NEVER ask them to repeat
+who they live with or what they care about. If they ask what to prioritise, answer from
+their profile (e.g. an elderly resident or a pet raises specific comfort needs).
+PERSONA: {persona}
+
 {capabilities}
 
 Keep it to a short paragraph or two. Plain text. Do not invent scores or claim an
@@ -39,15 +45,17 @@ def build_chitchat_node(llm):
     def chitchat_node(state: dict) -> dict:
         raw_prompt: str = state.get("raw_prompt", "")
         user_type: str = state.get("user_type", "client")
+        persona_profile: dict = state.get("persona_profile") or {}
 
         system = _SYSTEM_PROMPT_TEMPLATE.format(
             user_type_label=register_label(user_type),
             register_tone=register_tone(user_type),
             capabilities=CAPABILITIES,
+            persona=format_persona_for_prompt(persona_profile),
         )
 
         print(f"[chitchat] Generating response for {user_type}...")
-        response = call_llm_simple(llm, system, raw_prompt)
+        response = respond_text(llm, system, raw_prompt)
 
         return {
             **state,

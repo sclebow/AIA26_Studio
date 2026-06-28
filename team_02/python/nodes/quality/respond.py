@@ -6,9 +6,10 @@ Incorporates specialist interpretations and any evaluator revision feedback.
 
 from __future__ import annotations
 import json as _json
-from _runtime.llm import call_llm_simple
+from _runtime.llm import respond_text
 from nodes._shared.utils import grounded_facts, grounded_extremes
 from nodes._shared.register import register_tone
+from nodes._shared.persona_context import format_persona_for_prompt
 
 # The unified edit action (one OR MORE edits applied in a single turn).
 _EDIT_ACTIONS = ("edit",)
@@ -165,6 +166,9 @@ _FORMAT_EDIT = (
     "     listed, and NEVER invent, round, or alter a number (no values above 1.00). If a\n"
     "     room shows 'no change', say the change had no meaningful effect - do not invent one.\n"
     "  3. One short next step (e.g. detect conflicts, or try another change).\n\n"
+    "If COULD NOT APPLY is present, add ONE short plain sentence naming what was skipped and\n"
+    "why (e.g. it would block a door, or the room had no clear wall) - don't dwell on it.\n"
+    "If NOTES are present and relevant, you may mention the assumption in a few words.\n"
     "Lead with the change(s) and their impact - do NOT write a generic full-layout analysis.\n"
     "No score lists. No markdown. Plain sentences only.\n"
 )
@@ -251,24 +255,17 @@ def build_respond_node(llm):
         user_name_state  = state.get("user_name", "")
 
         if persona_profile:
-            # Flat persona_compiler v2 schema (always has name/role).
+            # One formatter (persona_context) so household/pets/age/non-negotiables all
+            # reach the model. It leads with "Name (role)" — which the system prompt's
+            # required first line copies. The numeric comfort weights are appended because
+            # the STATED-PREFERENCES-vs-RESEARCH note below reasons about them directly.
             p_name = persona_profile.get("name") or user_name_state or "User"
             p_role = persona_profile.get("role", "client")
-            p_desc = persona_profile.get("description", "")
-            p_prio = persona_profile.get("sensory_priorities", [])
-            p_sens = persona_profile.get("sensory_sensitivities", [])
+            persona = format_persona_for_prompt(persona_profile)
             p_wts  = persona_profile.get("comfort_weights", {})
-            parts  = [f"{p_name} ({p_role})"]
-            if p_desc:
-                parts.append(p_desc)
-            if p_prio:
-                parts.append(f"sensory priorities: {', '.join(p_prio)}")
-            if p_sens:
-                parts.append(f"sensitivities: {', '.join(p_sens)}")
             if p_wts:
                 wt_str = " | ".join(f"{k}={v:.2f}" for k, v in p_wts.items())
-                parts.append(f"comfort weights: {wt_str}")
-            persona = "; ".join(parts)
+                persona += f"; comfort weights: {wt_str}"
         else:
             persona  = "Neutral"
             p_name   = user_name_state or "User"
@@ -340,6 +337,15 @@ def build_respond_node(llm):
             change_line = _format_changes(layout_diffs)
             sections += ["", "--- WHAT CHANGED (lead with this; may be several edits) ---",
                          change_line or "(an edit was applied to the layout)"]
+            rejected = [r for r in (state.get("rejected_edits") or []) if r]
+            if rejected:
+                lines = [f"- {r.get('phrase', 'an edit')}: {r.get('reason', 'could not apply')}" for r in rejected]
+                sections += ["", "--- COULD NOT APPLY (mention briefly + plainly, don't dwell) ---",
+                             "\n".join(lines)]
+            notes = [n for n in (state.get("edit_notes") or []) if n]
+            if notes:
+                sections += ["", "--- NOTES (surfaced assumptions to mention if relevant) ---",
+                             "; ".join(notes)]
         if compare_versions:
             sections += ["", "--- VERSION COMPARISON (use for the before-to-after delta) ---", compare_versions]
         if biophilic_summary:
@@ -352,7 +358,9 @@ def build_respond_node(llm):
         user_message = "\n".join(sections)
 
         print("[respond] Generating natural language report...")
-        response = call_llm_simple(llm, _SYSTEM_PROMPT, user_message)
+        # respond_text streams token-by-token when run_agent_stream installed a sink,
+        # otherwise behaves exactly as call_llm_simple (non-streaming /api/message).
+        response = respond_text(llm, _SYSTEM_PROMPT, user_message)
 
         # Resilience: the reasoning model occasionally returns an empty answer
         # (only a <think> block) — both on first pass and during the REVISE loop.

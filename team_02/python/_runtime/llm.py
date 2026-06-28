@@ -1,10 +1,58 @@
 from __future__ import annotations
+import contextvars
 from copy import deepcopy
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Optional
 from langchain_openai import ChatOpenAI
+
+
+# ---------------------------------------------------------------------------
+# Token streaming sink (SSE)
+#
+# A ContextVar carrying an optional callback that receives final-answer token
+# chunks as they are generated. run_agent_stream() sets this in the worker thread
+# before driving the graph; the respond node reads it and streams its LLM output
+# token-by-token to the SSE layer. Default None → all nodes behave exactly as the
+# non-streaming path (call_llm_simple), so this is invisible to /api/message.
+# ---------------------------------------------------------------------------
+
+_TOKEN_SINK: "contextvars.ContextVar[Optional[Callable[[str], None]]]" = (
+    contextvars.ContextVar("sensi_token_sink", default=None)
+)
+
+# A no-arg callback a terminal text node calls at the START of generation (before
+# any tokens) to mark a fresh message. Lets the SSE layer reset the client buffer
+# cleanly when respond runs twice (evaluator REVISE loop) — no node-order guessing.
+_MSG_START_SINK: "contextvars.ContextVar[Optional[Callable[[], None]]]" = (
+    contextvars.ContextVar("sensi_msg_start_sink", default=None)
+)
+
+
+def set_token_sink(fn: Optional[Callable[[str], None]]):
+    """Install a token sink for the current context; returns a reset token."""
+    return _TOKEN_SINK.set(fn)
+
+
+def reset_token_sink(token) -> None:
+    _TOKEN_SINK.reset(token)
+
+
+def get_token_sink() -> Optional[Callable[[str], None]]:
+    return _TOKEN_SINK.get()
+
+
+def set_message_start_sink(fn: Optional[Callable[[], None]]):
+    return _MSG_START_SINK.set(fn)
+
+
+def reset_message_start_sink(token) -> None:
+    _MSG_START_SINK.reset(token)
+
+
+def get_message_start_sink() -> Optional[Callable[[], None]]:
+    return _MSG_START_SINK.get()
 
 
 # ---------------------------------------------------------------------------
@@ -35,6 +83,31 @@ def usage_snapshot() -> dict:
 
 def usage_reset() -> None:
     _USAGE.update(calls=0, input=0, output=0)
+
+
+# ---------------------------------------------------------------------------
+# Quality-comparison capture (gated on BENCH_QUALITY=1; see bench_quality.py)
+#
+# When enabled, every call_llm_simple() records (node, system, user, output) so the
+# quality harness can replay the *real* prompt each node sent across old/new models.
+# graph.py's per-node wrapper sets CURRENT_NODE; capture can be switched off at runtime
+# (set_quality_capture(False)) so the replay calls themselves are not re-captured.
+# Off by default → zero overhead.
+# ---------------------------------------------------------------------------
+
+_QUALITY_ON: bool = os.environ.get("BENCH_QUALITY") == "1"
+CURRENT_NODE: Optional[str] = None
+QUALITY_CAPTURE: list[dict[str, Any]] = []
+
+
+def set_current_node(name: Optional[str]) -> None:
+    global CURRENT_NODE
+    CURRENT_NODE = name
+
+
+def set_quality_capture(on: bool) -> None:
+    global _QUALITY_ON
+    _QUALITY_ON = on
 
 
 # ---------------------------------------------------------------------------
@@ -389,7 +462,86 @@ def call_llm_simple(
         _record_usage(result)
         content = result.content if isinstance(result.content, str) else ""
         stripped = _strip_think_tags(content)
+    if _QUALITY_ON:
+        QUALITY_CAPTURE.append({"node": CURRENT_NODE, "system": system_prompt,
+                                "user": user_message, "output": stripped})
     return stripped
+
+
+def call_llm_simple_streaming(
+    llm: Any,
+    system_prompt: str,
+    user_message: str,
+    on_token: Callable[[str], None],
+    provider: str | None = None,
+    model: str | None = None,
+) -> str:
+    """Like call_llm_simple, but streams the response token-by-token to on_token
+    as it is generated, and returns the full assembled string.
+
+    Same contract as call_llm_simple (think-tag strip + usage accounting + returns
+    a plain string). Used by the respond node when a token sink is active so the
+    final user-facing answer flows to the SSE stream incrementally. Falls back to a
+    non-streaming call if the stream yields nothing usable.
+
+    NOTE: tokens are emitted as the model produces them, so for reasoning models
+    that wrap output in <think>…</think> those tokens would stream visibly. The
+    configured provider (Google Gemini) does not emit think tags, so this is safe
+    here; if a reasoning model is ever configured, prefer call_llm_simple.
+    """
+    llm = _apply_overrides(llm, provider, model)
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_message},
+    ]
+
+    full = ""
+    aggregate = None
+    try:
+        for chunk in llm.stream(messages):
+            aggregate = chunk if aggregate is None else aggregate + chunk
+            piece = chunk.content if isinstance(chunk.content, str) else ""
+            if piece:
+                full += piece
+                try:
+                    on_token(piece)
+                except Exception:
+                    pass  # a failing sink must never break generation
+    except Exception as exc:
+        print(f"[llm] Streaming failed ({exc}) — falling back to non-streaming call.")
+        return call_llm_simple(llm, system_prompt, user_message)
+
+    # usage_metadata rides on the final aggregated chunk when the provider includes
+    # it; record best-effort so benchmarking still attributes streamed tokens.
+    if aggregate is not None:
+        _record_usage(aggregate)
+
+    stripped = _strip_think_tags(full)
+    if not stripped.strip():
+        print("[llm] Empty streamed answer — retrying once (non-streaming).")
+        return call_llm_simple(llm, system_prompt, user_message)
+    return stripped
+
+
+def respond_text(llm: Any, system_prompt: str, user_message: str) -> str:
+    """Generate a terminal, user-facing message.
+
+    When a token sink is installed (run_agent_stream), signal a fresh message and
+    stream the answer token-by-token; otherwise behave EXACTLY as call_llm_simple.
+    Use this only for nodes whose output IS the user-facing answer (respond,
+    detail_respond, chitchat) — never for internal nodes (score_interpreter,
+    evaluator, what_next, …) so only the answer streams, not the scaffolding.
+    """
+    sink = get_token_sink()
+    if sink is None:
+        return call_llm_simple(llm, system_prompt, user_message)
+    start = get_message_start_sink()
+    if start is not None:
+        try:
+            start()
+        except Exception:
+            pass
+    return call_llm_simple_streaming(llm, system_prompt, user_message, sink)
 
 
 # ---------------------------------------------------------------------------

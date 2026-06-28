@@ -129,6 +129,7 @@ def summaries(session: dict) -> list:
             "id":             cp["id"],
             "label":          cp["label"],
             "avg_score":      _avg_score(cp.get("scores_json", "")),
+            "sense_means":    _sense_means(cp.get("scores_json", "")),
             "conflict_count": _conflict_count(cp.get("conflicts_json", "")),
             "created_at":     cp.get("created_at"),
             "is_initial":     cp["id"] == 0,
@@ -148,6 +149,16 @@ def uncommitted_delta(session: dict) -> dict:
         if s in before and s in after and abs(after[s] - before[s]) > 0.005:
             out[s] = {"before": round(before[s], 3), "after": round(after[s], 3)}
     return out
+
+
+def live_head(session: dict) -> dict | None:
+    """The uncommitted working draft as a plottable point for the checkpoint graph —
+    full per-sense means + the whole-home headline. None when working == committed head
+    (no dashed 'now' node to draw)."""
+    if not has_uncommitted(session):
+        return None
+    sj = session.get("last_scores_json", "")
+    return {"sense_means": _sense_means(sj), "avg_score": _avg_score(sj)}
 
 
 # ── mutations ──────────────────────────────────────────────────────────────────

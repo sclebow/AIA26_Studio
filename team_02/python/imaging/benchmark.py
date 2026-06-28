@@ -28,9 +28,11 @@ load_dotenv(_REPO / ".env")
 from imaging import build_room_prompt  # noqa: E402
 from imaging.client import generate_image  # noqa: E402
 
-# Published per-image cost (USD, 1024², June 2026): Nano Banana flat; gpt-image-1 @ medium.
-COST = {"google": 0.039, "openai": 0.042}
-PROVIDERS = ["google", "openai"]
+# Published per-image cost (USD, 1024², checked 2026-06-20): Nano Banana 2
+# (gemini-3.1-flash-image) @1K; gpt-image-1 @ medium.
+COST = {"google": 0.067, "openai": 0.042}
+# Providers to benchmark; override with BENCH_IMAGE_PROVIDERS=google to skip OpenAI.
+PROVIDERS = [p.strip() for p in os.environ.get("BENCH_IMAGE_PROVIDERS", "google,openai").split(",") if p.strip()]
 
 PERSONA = {"role": "architect"}
 CASES = [
@@ -44,7 +46,7 @@ CASES = [
 
 
 def main() -> None:
-    outdir = _TEAM_DIR / "docs" / "week08" / "benchmark"
+    outdir = _TEAM_DIR / "docs" / "week09" / "benchmark"
     outdir.mkdir(parents=True, exist_ok=True)
     results = []
 

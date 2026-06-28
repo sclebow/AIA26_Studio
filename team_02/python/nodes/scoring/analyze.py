@@ -7,8 +7,8 @@ the output, so we pass the user's real name/role rather than a hardcoded bucket.
 """
 
 from __future__ import annotations
-import json
-from nodes._shared.utils import unwrap_mcp_result, persona_display_label
+from nodes._shared.utils import unwrap_mcp_result
+from nodes._shared.persona_context import persona_scoring_args, derive_context
 
 
 def build_analyze_node(mcp_client):
@@ -23,30 +23,15 @@ def build_analyze_node(mcp_client):
             raise RuntimeError("[analyze] No layout loaded — cannot compute comfort scores.")
 
         room_ids = target_room_id if target_room_id else "all"
-        persona_label = persona_display_label(persona_profile)
 
-        # Pass custom comfort weights from onboarding if available
-        weights_override = persona_profile.get("comfort_weights")
+        # All persona-derived scoring args (label, weights, personality, household
+        # context) come from one place so onboarding facts reach the engine intact.
+        args = {"layout_json": layout_json, "room_ids": room_ids,
+                **persona_scoring_args(persona_profile)}
 
-        # Personality / arousal axis (introvert −1 … extrovert +1); neutral until onboarding captures it.
-        pers = persona_profile.get("personality", 0)
-        if isinstance(pers, str):
-            pers = {"introvert": -1.0, "extrovert": 1.0}.get(pers.strip().lower(), 0.0)
-        try:
-            personality = float(pers or 0)
-        except (TypeError, ValueError):
-            personality = 0.0
-
-        print(f"[analyze] compute_comfort_scores (persona={persona_label}, room_ids={room_ids}, custom_weights={bool(weights_override)}, personality={personality})")
-
-        args = {
-            "layout_json": layout_json,
-            "persona":     persona_label,
-            "room_ids":    room_ids,
-            "personality": personality,
-        }
-        if weights_override:
-            args["weights_override"] = json.dumps(weights_override)
+        print(f"[analyze] compute_comfort_scores (persona={args['persona']}, room_ids={room_ids}, "
+              f"custom_weights={'weights_override' in args}, personality={args['personality']}, "
+              f"context={derive_context(persona_profile) or 'none'})")
 
         raw_output = mcp_client.call_tool("compute_comfort_scores", args)
         scores_json = unwrap_mcp_result(raw_output)
@@ -55,9 +40,15 @@ def build_analyze_node(mcp_client):
         return {
             **state,
             "last_scores_json": scores_json,
-            # Clear stale conflict/suggestion data when re-scoring
+            # Re-scoring invalidates everything derived from the OLD scores: the
+            # conflicts/suggestions and their specialist write-ups. Clear them all so
+            # a later follow-up can't answer from stale data (a conflict question
+            # after an edit re-detects on the CURRENT layout instead). _finalize must
+            # honour these empties for re-scoring actions (no `or`-fallback resurrect).
             "last_conflicts_json":   "",
             "last_suggestions_json": "",
+            "conflict_reasoning":    "",
+            "suggestion_critique":   "",
         }
 
     return analyze_node

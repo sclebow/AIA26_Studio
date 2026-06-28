@@ -5,7 +5,6 @@ import QuizScreen from "./screens/QuizScreen.jsx";
 import LayoutModeScreen from "./screens/LayoutModeScreen.jsx";
 import InspireScreen from "./screens/InspireScreen.jsx";
 import PersonaScreen from "./screens/PersonaScreen.jsx";
-import ProfileChatScreen from "./screens/ProfileChatScreen.jsx";
 import ReportScreen from "./report/ReportScreen.jsx";
 import { SelectionProvider } from "./lib/selection.jsx";
 import { layoutScore } from "./lib/turn.js";
@@ -56,6 +55,7 @@ export default function App() {
   const [checkpoints, setCheckpoints]         = useState([]);
   const [hasUncommitted, setHasUncommitted]   = useState(false);
   const [uncommittedDelta, setUncommittedDelta] = useState({});
+  const [liveHead, setLiveHead]               = useState(null); // uncommitted draft as a graph point
   const [viewedTurn, setViewedTurn]           = useState(null); // a checkpoint being reviewed
 
   // Inspire / persona
@@ -64,8 +64,12 @@ export default function App() {
   const [moodboardUrls, setMoodboardUrls]     = useState([]);
 
   const started = useRef(false);
+  const [streaming, setStreaming] = useState(false); // a chat turn is streaming
+  const abortRef = useRef(null);                     // AbortController for the live turn
 
-  const routeResponse = useCallback((data) => {
+  // existingId: when a streaming turn already created a live assistant bubble, finalize
+  // THAT message instead of pushing a duplicate. Non-streaming callers omit it.
+  const routeResponse = useCallback((data, existingId = null) => {
     setThinking(false);
     setOverlay(null);
 
@@ -86,13 +90,20 @@ export default function App() {
       if (data.layout_updated) setLayoutVersion((v) => v + 1);
       setScreen("chat");
 
-      // Always push to flat chat thread
-      setChatMessages((m) => [...m, { id: nextId(), role: "s", text: data.message, data }]);
+      // Push to the flat chat thread — or finalize the live streaming bubble in place.
+      if (existingId != null) {
+        setChatMessages((m) => m.map((msg) => msg.id === existingId
+          ? { ...msg, text: data.message, data, streaming: false, tokensStarted: true }
+          : msg));
+      } else {
+        setChatMessages((m) => [...m, { id: nextId(), role: "s", text: data.message, data }]);
+      }
 
       // Checkpoint state rides along on every turn
       if (data.checkpoints) setCheckpoints(data.checkpoints);
       setHasUncommitted(!!data.has_uncommitted);
       setUncommittedDelta(data.uncommitted_delta || {});
+      setLiveHead(data.live_head ?? null);
 
       // Normalize edit diffs to an array once, so every downstream consumer can
       // trust turn.layout_diffs is always an array (single-edit → 1-element array).
@@ -168,16 +179,47 @@ export default function App() {
 
   const sendChat = useCallback(async (text) => {
     setViewedTurn(null); // a new message returns the panel to the live working draft
-    setChatMessages((m) => [...m, { id: nextId(), role: "u", text }]);
-    setThinking(true);
+    const msgId = nextId();
+    setChatMessages((m) => [...m,
+      { id: nextId(), role: "u", text },
+      { id: msgId, role: "s", text: "Thinking", streaming: true, tokensStarted: false },
+    ]);
+
+    const setMsg = (fn) => setChatMessages((m) => m.map((x) => (x.id === msgId ? fn(x) : x)));
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setStreaming(true);
+
     try {
-      const data = await api.sendMessage(text);
-      routeResponse(data);
+      await api.sendMessageStream(text, {
+        // Progress labels show in the bubble ONLY until the answer starts streaming.
+        onProgress: (p) => setMsg((x) => (x.tokensStarted ? x : { ...x, text: p.message })),
+        // Fresh answer (also fires on the evaluator REVISE re-run) — reset the buffer.
+        onMessageStart: () => setMsg((x) => ({ ...x, text: "", tokensStarted: true })),
+        onToken: (t) => setMsg((x) => ({ ...x, text: x.text + t, tokensStarted: true })),
+        // result carries the full payload — finalize panel/turns/checkpoints exactly
+        // as the non-streaming path, updating this bubble in place.
+        onResult: (data) => routeResponse(data, msgId),
+        onError: (msg) => setMsg((x) => ({
+          ...x, streaming: false, tokensStarted: true,
+          text: "Something went wrong — " + (msg || "try again") +
+                ". Your message is above; rephrase or resend.",
+        })),
+      }, ctrl.signal);
     } catch (err) {
-      setThinking(false);
-      setChatMessages((m) => [...m, { id: nextId(), role: "s", text: "Something went wrong — try again." }]);
+      const aborted = ctrl.signal.aborted;
+      setMsg((x) => ({
+        ...x, streaming: false, tokensStarted: true,
+        text: aborted ? (x.text && x.text !== "Thinking" ? x.text + "\n\n(stopped)" : "Stopped.")
+                      : "Something went wrong — try again.",
+      }));
+    } finally {
+      setStreaming(false);
+      abortRef.current = null;
     }
   }, [routeResponse]);
+
+  const stopChat = useCallback(() => { abortRef.current?.abort(); }, []);
 
   const commitCheckpoint = useCallback(async (label) => {
     try {
@@ -186,6 +228,7 @@ export default function App() {
         if (d.checkpoints) setCheckpoints(d.checkpoints);
         setHasUncommitted(!!d.has_uncommitted);
         setUncommittedDelta({});
+        setLiveHead(d.live_head ?? null);
       }
     } catch { /* leave uncommitted state as-is on failure */ }
   }, []);
@@ -210,6 +253,7 @@ export default function App() {
       if (d.checkpoints) setCheckpoints(d.checkpoints);
       setHasUncommitted(!!d.has_uncommitted);
       setUncommittedDelta({});
+      setLiveHead(d.live_head ?? null);
       setViewedTurn(null);
       setLayoutVersion((v) => v + 1); // working draft changed → re-fetch the canvas
       setChatMessages((m) => [...m, { id: nextId(), role: "s",
@@ -228,6 +272,30 @@ export default function App() {
 
   const confirmPersona = useCallback(() => setScreen("chat"), []);
   const goReport = useCallback(() => setScreen("report"), []);
+
+  // Refine the persona from a free-text statement ("I got a dog, noise bothers me more").
+  // The backend patches + persists it; we update local state so the drawer card and all
+  // subsequent scoring/answers use the new persona. Returns the confirmation line.
+  const refinePersona = useCallback(async (text) => {
+    const data = await api.refinePersona(text);
+    if (data.persona) setPersona(data.persona);
+    return data.message || "Updated your comfort profile.";
+  }, []);
+
+  // Start onboarding over: clear the persona + working state and return to the quiz.
+  const redoOnboarding = useCallback(async () => {
+    const data = await api.resetPersona();
+    setPersona(null);
+    setChatMessages([]);
+    setTurns([]);
+    setCheckpoints([]);
+    setHasUncommitted(false);
+    setUncommittedDelta({});
+    setLiveHead(null);
+    setQuizMessages([{ id: nextId(), role: "s", text: data.message }]);
+    setQuizStep(data.quiz_step || 0);
+    setScreen("quiz");
+  }, []);
 
   return (
     <>
@@ -251,11 +319,8 @@ export default function App() {
       {screen === "persona" && (
         <PersonaScreen
           persona={persona} message={personaMessage} moodboardUrls={moodboardUrls}
-          onConfirm={confirmPersona} onTweak={() => setScreen("profile-chat")}
+          onConfirm={confirmPersona}
         />
-      )}
-      {screen === "profile-chat" && (
-        <ProfileChatScreen persona={persona} onConfirm={confirmPersona} />
       )}
       {screen === "chat" && (
         <SelectionProvider>
@@ -264,13 +329,19 @@ export default function App() {
             turns={turns}
             thinking={thinking}
             persona={persona}
+            moodboardUrls={moodboardUrls}
+            onRefinePersona={refinePersona}
+            onRedoOnboarding={redoOnboarding}
             layoutId={layoutId}
             layoutVersion={layoutVersion}
             onSend={sendChat}
+            streaming={streaming}
+            onStop={stopChat}
             onReport={goReport}
             checkpoints={checkpoints}
             hasUncommitted={hasUncommitted}
             uncommittedDelta={uncommittedDelta}
+            liveHead={liveHead}
             onCommit={commitCheckpoint}
             onRestore={restoreCheckpoint}
             viewedTurn={viewedTurn}

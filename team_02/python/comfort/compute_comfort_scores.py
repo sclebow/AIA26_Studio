@@ -7,17 +7,28 @@ import json
 
 # Canonical coupling model is the single source of truth for aggregation + couplings.
 try:
-    from comfort.sense_model import aggregate_comfort, apply_cross_modal, apply_personality
+    from comfort.sense_model import aggregate_comfort, apply_cross_modal, apply_personality, apply_context
 except ImportError:  # when loaded as a same-dir module rather than the comfort package
-    from sense_model import aggregate_comfort, apply_cross_modal, apply_personality
+    from sense_model import aggregate_comfort, apply_cross_modal, apply_personality, apply_context
 
 
-def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_override=None, personality=0.0):
+def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_override=None,
+                           personality=0.0, context=None):
     layout = None
     try:
         layout = json.loads(layout_json)
     except Exception:
         return json.dumps({"error": "Invalid layout_json"})
+
+    # Household-context flags (elderly / children / pets) — who actually lives here.
+    # Parsed once; apply_context() is a no-op when empty, so a neutral persona is
+    # scored exactly as before.
+    ctx = {}
+    if context:
+        try:
+            ctx = json.loads(context) if isinstance(context, str) else dict(context)
+        except Exception:
+            ctx = {}
 
     rooms = layout.get("rooms", [])
     persona_str   = str(persona).strip() if persona else "Neutral"
@@ -86,6 +97,10 @@ def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_ove
     # Furniture map (top-level furniture[], keyed by roomId)
     SOFT_FURNITURE = {"sofa", "bed", "armchair", "rug", "cushion", "couch"}
     HARD_FURNITURE = {"table", "island", "desk", "shelf", "counter", "cabinet", "storage", "dresser"}
+    # Soft, sound-absorbing furnishings: the acoustic-absorption credit behind the
+    # "add rugs and curtains to absorb sound" suggestion (curtains/blinds are new tools).
+    SOFT_ABSORBERS = {"rug", "carpet", "curtain", "curtains", "blind", "blinds",
+                      "drape", "drapes", "shade", "cushion", "sofa", "couch", "armchair"}
     furniture_by_room = {}
     for f in layout.get("furniture", []):
         frid = f.get("attributes", {}).get("roomId")
@@ -111,6 +126,11 @@ def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_ove
         glaz_ratio  = float(room.get("attributes", {}).get("glazingRatio", 0.10))
         vent_type   = room.get("attributes", {}).get("ventilationType", "natural")
         floor_mat   = room.get("attributes", {}).get("floorMaterial", "")
+        wall_mat    = room.get("attributes", {}).get("wallMaterial", "")
+        # Room-SCOPED wall finish (falls back to the global structure average). This is
+        # what makes "change the bedroom walls to cork" actually move that room's score —
+        # the old code only ever read one global wall-material average for every room.
+        wall_mat_score = MATERIAL_SCORE.get(wall_mat.lower(), avg_wall_mat) if wall_mat else avg_wall_mat
 
         sc = BASELINES.get(rt, BASELINES["living"]).copy()
 
@@ -126,9 +146,20 @@ def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_ove
         # raises RT60 (Sabine: RT60 = 0.161·V/A). Couples spatial(volume)+tactile(material)→acoustic.
         vol = area * height
         reverb_risk = max(0.0, (vol / VOLUME_NORMS.get(rt, 40.5)) - 1.0)
-        absorption  = MATERIAL_SCORE.get(floor_mat.lower(), 0.5) if floor_mat else 0.5
+        soft_items = sum(1 for f in furniture_by_room.get(rid, [])
+                         if f.get("type", "").lower() in SOFT_ABSORBERS)
+        # Effective absorption blends FLOOR (base, as before) + WALL finish + soft
+        # furnishings, so harder/softer walls and added rugs/curtains change reverb.
+        # With a default floor + plaster wall + no soft items this equals the old value.
+        floor_abs  = MATERIAL_SCORE.get(floor_mat.lower(), 0.5) if floor_mat else 0.5
+        absorption = floor_abs + 0.15 * (wall_mat_score - 0.55) + min(0.20, 0.06 * soft_items)
+        absorption = max(0.05, min(0.95, absorption))
         if reverb_risk > 0:
             sc["acoustic"] = round(max(0.1, sc["acoustic"] - 0.12 * reverb_risk * (1.0 - absorption)), 2)
+        # Soft furnishings also damp sound directly (not only in large rooms) — this is
+        # the mechanism the "add rugs and curtains to absorb sound" suggestion promises.
+        if soft_items:
+            sc["acoustic"] = round(min(1.0, sc["acoustic"] + min(0.10, 0.04 * soft_items)), 2)
 
         # THERMAL: orientation + glazing type
         thermal_delta = ORIENTATION_BONUS.get(orientation, 0)
@@ -138,6 +169,9 @@ def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_ove
                 thermal_delta -= 0.08
             elif gt == "triple":
                 thermal_delta += 0.05
+            # Each window's own facing nudges thermal (a south window warms, a north one
+            # cools) — so "move the window to the south wall" actually improves thermal.
+            thermal_delta += 0.5 * ORIENTATION_BONUS.get(win.get("orientation"), 0)
         sc["thermal"] = round(max(0.0, min(1.0, sc["thermal"] + thermal_delta)), 2)
         # THERMAL: glazing ratio also drives thermal (solar gain / winter heat loss).
         # Larger glazing → bigger thermal swing. Mirrors glazing→visual so the lever
@@ -185,20 +219,22 @@ def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_ove
         # Floor material (room-level attribute) contributes to tactile
         floor_score = MATERIAL_SCORE.get(floor_mat.lower(), None) if floor_mat else None
 
+        # Wall contribution to tactile uses the ROOM's own wall finish (wall_mat_score),
+        # not the global average — so a room-scoped wall edit moves this room's tactile.
         if mat_scores:
             avg_furn_mat = sum(mat_scores) / len(mat_scores)
             if floor_score is not None:
                 # 40% baseline, 25% furniture, 20% floor, 15% wall
                 sc["tactile"] = round(min(1.0,
-                    sc["tactile"]*0.40 + avg_furn_mat*0.25 + floor_score*0.20 + avg_wall_mat*0.15), 2)
+                    sc["tactile"]*0.40 + avg_furn_mat*0.25 + floor_score*0.20 + wall_mat_score*0.15), 2)
             else:
                 sc["tactile"] = round(min(1.0,
-                    sc["tactile"]*0.50 + avg_furn_mat*0.30 + avg_wall_mat*0.20), 2)
+                    sc["tactile"]*0.50 + avg_furn_mat*0.30 + wall_mat_score*0.20), 2)
         else:
             if floor_score is not None:
-                sc["tactile"] = round(min(1.0, sc["tactile"]*0.60 + floor_score*0.25 + avg_wall_mat*0.15), 2)
+                sc["tactile"] = round(min(1.0, sc["tactile"]*0.60 + floor_score*0.25 + wall_mat_score*0.15), 2)
             else:
-                sc["tactile"] = round(min(1.0, sc["tactile"]*0.80 + avg_wall_mat*0.20), 2)
+                sc["tactile"] = round(min(1.0, sc["tactile"]*0.80 + wall_mat_score*0.20), 2)
 
         # Per-sense scores stay OBJECTIVE (no persona inflation). Persona/preference
         # weights apply at aggregation instead — and overall comfort is NON-ADDITIVE
@@ -210,7 +246,10 @@ def compute_comfort_scores(layout_json, persona=None, room_ids=None, weights_ove
         # baseScores keep the design-only values; adjustments explain every delta.
         eff, cm_adj = apply_cross_modal(base)
         eff, p_adj  = apply_personality(eff, personality)
-        adjustments = cm_adj + p_adj
+        # Household-context sensitivity (elderly / children / pets) — amplifies deficits
+        # for vulnerable occupants. No-op when ctx is empty. Labelled like the others.
+        eff, ctx_adj = apply_context(eff, ctx)
+        adjustments = cm_adj + p_adj + ctx_adj
         overall = aggregate_comfort(eff, weights)
         low     = [s for s, v in eff.items() if v < 0.5]
         narrative = (

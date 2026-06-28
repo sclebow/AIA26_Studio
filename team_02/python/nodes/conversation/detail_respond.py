@@ -7,9 +7,10 @@ No length restriction — answers as thoroughly as the question requires.
 
 from __future__ import annotations
 import json
-from _runtime.llm import call_llm_simple
+from _runtime.llm import respond_text
 from nodes._shared.utils import grounded_facts
 from nodes._shared.register import register_tone
+from nodes._shared.persona_context import format_persona_for_prompt
 
 
 _SYSTEM_PROMPT = """\
@@ -50,27 +51,6 @@ def _safe_format(json_str: str, label: str) -> str:
         return json_str
 
 
-def _format_persona(persona_profile: dict) -> str:
-    if not persona_profile:
-        return "no profile"
-    # Flat persona_compiler v2 schema.
-    parts = []
-    desc = persona_profile.get("description", "")
-    name = persona_profile.get("name", "")
-    role = persona_profile.get("role", "")
-    if desc:
-        parts.append(desc)
-    elif name and role:
-        parts.append(f"{name}, {role}")
-    prio = persona_profile.get("sensory_priorities", [])
-    sens = persona_profile.get("sensory_sensitivities", [])
-    if prio:
-        parts.append(f"priorities: {', '.join(prio)}")
-    if sens:
-        parts.append(f"sensitivities: {', '.join(sens)}")
-    return "; ".join(parts) if parts else "no profile"
-
-
 def build_detail_respond_node(llm):
     """Return the detail_respond node function, capturing the LLM instance."""
 
@@ -80,7 +60,7 @@ def build_detail_respond_node(llm):
         layout_id            = state.get("layout_id") or "?"
         persona_profile: dict = state.get("persona_profile") or {}
 
-        persona_summary = _format_persona(persona_profile)
+        persona_summary = format_persona_for_prompt(persona_profile)
 
         system = _SYSTEM_PROMPT.format(
             user_type=user_type,
@@ -126,7 +106,7 @@ def build_detail_respond_node(llm):
         user_message = "\n".join(sections)
 
         print("[detail_respond] Answering specific follow-up question...")
-        response = call_llm_simple(llm, system, user_message)
+        response = respond_text(llm, system, user_message)
         print(f"[detail_respond] Response: {response[:80]}...")
 
         return {**state, "final_response": response}

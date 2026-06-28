@@ -39,10 +39,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import hashlib
 
 from _runtime.bootstrap import bootstrap
-from graph import run_agent
-from inspire import run_inspire_round, profile_chat_reply
+from graph import run_agent, run_agent_stream
+from inspire import run_inspire_round
 from imaging import generate_image, build_room_prompt, build_change_clause, active_provider
 from nodes._shared.utils import unwrap_mcp_result, persona_display_label, layout_digits
+from nodes.onboarding.persona_compiler import refine_persona
 from api import contracts
 from api import checkpoints
 
@@ -87,7 +88,22 @@ def _startup() -> None:
 
 def _fresh_inspire() -> dict:
     return {"analysis": "", "text": "", "b64s": [],
-            "r1_picks": [], "r2_picks": [], "final_picks": []}
+            "r1_picks": [], "r2_picks": [], "final_picks": [],
+            "shown_urls": []}   # every URL surfaced this session → next rounds stay unique
+
+
+def _quiz_seed(sess: dict) -> str:
+    """A short seed for the moodboard, distilled from the quiz so round 1 can build a
+    relevant board with no typed description (q2 space story, q3 sensitivities, q5 non-neg)."""
+    qa = sess.get("quiz_answers") or {}
+    parts = []
+    if qa.get("q2"):
+        parts.append(f"a space they described as: {qa['q2']}")
+    if qa.get("q3"):
+        parts.append(f"senses that pull them out of comfort: {qa['q3']}")
+    if qa.get("q5"):
+        parts.append(f"their non-negotiable: {qa['q5']}")
+    return "; ".join(parts)
 
 
 # session_id -> {"session": dict, "inspire": dict}
@@ -111,6 +127,18 @@ def _read_persona() -> Optional[dict]:
         except Exception:
             pass
     return None
+
+
+def _write_persona(persona: dict) -> None:
+    """Persist the persona to the same file _read_persona loads. Best-effort: used to
+    stamp late-arriving fields (e.g. the moodboard) onto an already-compiled persona so
+    they survive a restart / returning-user reload."""
+    try:
+        _PERSONA_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _PERSONA_PATH.write_text(
+            json.dumps(persona, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -139,7 +167,7 @@ class PicksReq(SessionReq):
 class MoodboardReq(SessionReq):
     sense_counts: dict[str, int] = {}
 
-class ProfileChatReq(SessionReq):
+class RefinePersonaReq(SessionReq):
     text: str
 
 class LayoutSelectReq(BaseModel):
@@ -203,6 +231,108 @@ def message(req: MessageReq) -> dict:
     return {"session_id": sid, **contracts.agent_response_payload(msg, new_session, new_session)}
 
 
+# ── Streaming turn: per-node progress + token-by-token final answer (SSE) ─────────
+# Same agent turn as /api/message, but driven with run_agent_stream so the UI sees
+# live progress and the answer streams in. The terminal `result` event carries the
+# EXACT payload /api/message returns, so the contract is unchanged. /api/message
+# stays as a non-streaming fallback.
+
+_NODE_LABELS: dict[str, str] = {
+    "action_classifier": "Reading your request",
+    "load_layout":       "Loading the layout",
+    "analyze":           "Scoring the rooms",
+    "score_interpreter": "Interpreting the scores",
+    "detect":            "Detecting conflicts",
+    "conflict_reasoner": "Reasoning about conflicts",
+    "suggest":           "Generating suggestions",
+    "suggestion_critic": "Refining the suggestions",
+    "edit_planner":      "Planning the change",
+    "apply_edits":       "Applying the change",
+    "compare_versions":  "Comparing before and after",
+    "evaluator":         "Reviewing the answer",
+    "what_next":         "Thinking about next steps",
+    "topologic_analysis": "Analysing connectivity",
+    "biophilic_audit":   "Auditing greenery",
+    "persona_comparison": "Comparing personas",
+    "overview_respond":  "Listing the rooms",
+    "preview":           "Simulating the change",
+    "greet":             "Saying hello",
+    "quiz":              "Noting your answer",
+    "inspire":           "Dreaming up atmosphere",
+    "persona_compiler":  "Building your profile",
+}
+# Terminal text nodes stream their answer directly (tokens + message_start cover
+# them), so we don't also emit a trailing progress label for these.
+_TEXT_NODES = {"respond", "detail_respond", "chitchat"}
+
+
+def _sse(event: str, data: Any) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+@app.post("/api/message/stream")
+def message_stream(req: MessageReq) -> StreamingResponse:
+    """Run one agent turn, streaming progress + the answer as Server-Sent Events.
+
+    Events:
+      session       {session_id}
+      progress      {node, message}     — a step finished; human label for the UI
+      message_start {}                  — begin/replace the streamed answer buffer
+      token         {text}              — a chunk of the final answer
+      result        <agent_response_payload>  — same shape as /api/message
+      error         {message}           — the turn failed; UI shows it, keeps input
+    """
+    sid, slot = _slot(req.session_id)
+    q: "queue.Queue[tuple[str, Any]]" = queue.Queue()
+
+    def worker() -> None:
+        try:
+            msg, new_session = run_agent_stream(
+                req.text, _CTX, slot["session"],
+                on_node=lambda name: q.put(("progress", name)),
+                on_token=lambda text: q.put(("token", text)),
+                on_message_start=lambda: q.put(("message_start", None)),
+            )
+            # Maintain the checkpoint layer exactly as /api/message does.
+            _orig = _original_layout(new_session)
+            checkpoints.sync(new_session,
+                             json.dumps(_orig) if _orig else "",
+                             bool(new_session.get("layout_updated")))
+            slot["session"] = new_session
+            payload = {"session_id": sid,
+                       **contracts.agent_response_payload(msg, new_session, new_session)}
+            q.put(("result", payload))
+        except Exception as exc:  # a node raised — report, don't hang the client
+            import traceback
+            traceback.print_exc()
+            q.put(("error", str(exc)))
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    def gen():
+        yield _sse("session", {"session_id": sid})
+        while True:
+            kind, payload = q.get()
+            if kind == "progress":
+                node = payload
+                if node in _TEXT_NODES:
+                    continue  # the token stream itself is the progress signal
+                yield _sse("progress", {"node": node,
+                                        "message": _NODE_LABELS.get(node, "Working")})
+            elif kind == "message_start":
+                yield _sse("message_start", {})
+            elif kind == "token":
+                yield _sse("token", {"text": payload})
+            elif kind == "result":
+                yield _sse("result", payload)
+                break
+            elif kind == "error":
+                yield _sse("error", {"message": payload})
+                break
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+
 @app.post("/api/commit")
 def commit_checkpoint(req: CommitReq) -> dict:
     """Commit the working draft as a new checkpoint (cumulative since the last one)."""
@@ -215,6 +345,7 @@ def commit_checkpoint(req: CommitReq) -> dict:
         "session_id": sid, "ok": True,
         "checkpoints": checkpoints.summaries(sess),
         "has_uncommitted": checkpoints.has_uncommitted(sess),
+        "live_head": checkpoints.live_head(sess),
         "committed_id": cp["id"],
     }
 
@@ -237,11 +368,15 @@ def restore_checkpoint(req: RestoreReq) -> dict:
     cp = checkpoints.restore(sess, req.checkpoint_id)
     if cp is None:
         return {"session_id": sid, "ok": False, "error": "Checkpoint not found."}
+    # A rollback resets the editing baseline, so suggestions un-cross — they re-apply
+    # only when a real edit fulfils them again from this restored point onward.
+    sess["applied_suggestions"] = []
     return {
         "session_id": sid, "ok": True,
         "layout_id": sess.get("layout_id"),
         "checkpoints": checkpoints.summaries(sess),
         "has_uncommitted": checkpoints.has_uncommitted(sess),
+        "live_head": checkpoints.live_head(sess),
         "restored_label": cp["label"],
         "scores_json": sess.get("last_scores_json", ""),
         "conflicts_json": sess.get("last_conflicts_json", ""),
@@ -270,6 +405,8 @@ def _inspire_stream(slot: dict, sid: str, *, text: str, b64s: list,
         insp["text"] = text
         insp["b64s"] = b64s
     llm = _CTX.llm_simple
+    exclude_urls = list(insp.get("shown_urls", []))      # unique-per-round
+    seed_context = _quiz_seed(slot["session"])           # quiz-seeded board (no typing needed)
     q: "queue.Queue[tuple[str, Any]]" = queue.Queue()
 
     def worker() -> None:
@@ -281,9 +418,14 @@ def _inspire_stream(slot: dict, sid: str, *, text: str, b64s: list,
             round_num,
             refine_desc=refine_desc,
             progress=lambda m: q.put(("progress", m)),
+            exclude_urls=exclude_urls,
+            seed_context=seed_context,
         )
         if res.get("ok"):
             insp["analysis"] = res.get("analysis", insp["analysis"])
+            # Remember what we surfaced so later rounds never repeat it.
+            insp["shown_urls"] = list(dict.fromkeys(
+                insp.get("shown_urls", []) + (res.get("urls") or [])))
         q.put(("result", res))
 
     threading.Thread(target=worker, daemon=True).start()
@@ -345,10 +487,22 @@ def inspire_moodboard(req: MoodboardReq) -> dict:
     slot["session"] = new_session
     persona = contracts.patch_persona(new_session)
 
+    # Give the curated board an afterlife. Stamp it onto the persona (session + on-disk)
+    # so the Report can replay the aesthetic signature even after a server restart or for
+    # a returning user — not just within this live session.
+    board = all_picks[:6]
+    if board:
+        prof = new_session.get("persona_profile")
+        if isinstance(prof, dict):
+            prof["moodboard_urls"] = board
+            _write_persona(prof)
+        if isinstance(persona, dict):
+            persona["moodboard_urls"] = board
+
     return {
         "session_id":     sid,
         "persona":        persona,
-        "moodboard_urls": all_picks[:6],
+        "moodboard_urls": board,
         "message":        message,
     }
 
@@ -380,6 +534,7 @@ def layout_select(req: LayoutSelectReq) -> dict:
     slot["session"]["last_conflicts_json"] = ""
     slot["session"]["last_suggestions_json"] = ""
     slot["session"]["layout_json_string"] = ""
+    slot["session"]["applied_suggestions"] = []   # fresh layout → suggestions un-crossed
     checkpoints.reset(slot["session"])
     return {"session_id": sid, "ok": True, "layout_id": req.layout_id}
 
@@ -410,6 +565,7 @@ def layout_upload(req: LayoutUploadReq) -> dict:
     slot["session"]["last_conflicts_json"] = ""
     slot["session"]["last_suggestions_json"] = ""
     slot["session"]["layout_json_string"] = ""
+    slot["session"]["applied_suggestions"] = []   # fresh layout → suggestions un-crossed
     checkpoints.reset(slot["session"])
 
     return {"session_id": sid, "ok": True, "layout_id": layout_id, "name": data.get("name", layout_id)}
@@ -587,6 +743,11 @@ def report(req: ReportReq) -> dict:
         "layout_id": sess.get("layout_id", ""),
         "rooms": out_rooms,
         "featured": featured,
+        # The curated aesthetic signature from onboarding's inspire phase — replayed in
+        # the Report so the aesthetic the user chose comes back in the output. Sourced
+        # from the live session, with the persona.json copy as a returning-user fallback.
+        "moodboard_urls": (sess.get("inspire_moodboard_urls")
+                           or persona.get("moodboard_urls") or [])[:6],
         # True when the working draft has edits not yet in this (committed) report.
         "has_uncommitted": checkpoints.has_uncommitted(sess),
     }
@@ -637,6 +798,17 @@ def _furniture_counts(layout: dict) -> dict:
         rid = (f.get("attributes", {}) or {}).get("roomId")
         c[rid] = c.get(rid, 0) + 1
     return c
+
+
+def _furniture_sig(layout: dict) -> dict:
+    """Per-room furniture fingerprint — sorted (type:material) tuples — so the report's
+    change detection catches a material/type swap (e.g. sofa → leather), not just a count
+    change. roomId → sorted list of 'type:material'."""
+    sig: dict = {}
+    for f in layout.get("furniture", []):
+        a = f.get("attributes", {}) or {}
+        sig.setdefault(a.get("roomId"), []).append(f"{a.get('type')}:{a.get('material')}")
+    return {rid: sorted(v) for rid, v in sig.items()}
 
 
 def _room_furniture(layout: dict, room: dict) -> list[dict]:
@@ -691,16 +863,28 @@ def _select_compare_room(sess: dict, persona: dict):
 
     orig_rooms = {r.get("name"): r for r in original.get("rooms", [])}
     fc_cur, fc_orig = _furniture_counts(current), _furniture_counts(original)
+    fs_cur, fs_orig = _furniture_sig(current), _furniture_sig(original)
 
     def _changed_keys(rc: dict, ro: dict) -> list[str]:
         ac, ao = rc.get("attributes", {}) or {}, ro.get("attributes", {}) or {}
         ks = [k for k in (set(ac) | set(ao)) if ac.get(k) != ao.get(k)]
-        if fc_cur.get(rc.get("id"), 0) != fc_orig.get(ro.get("id"), 0):
+        # furniture changed if its count OR its type/material fingerprint changed
+        if (fc_cur.get(rc.get("id"), 0) != fc_orig.get(ro.get("id"), 0)
+                or fs_cur.get(rc.get("id"), []) != fs_orig.get(ro.get("id"), [])):
             ks.append("furniture")
         return ks
 
-    glow = None          # (room_after, room_before, changed, delta)
-    most_changed = None  # (room_after, room_before, changed)
+    # Three-tier pick (DECIDED): (1) biggest glow-up — largest POSITIVE overall gain;
+    # (2) else the most-changed room by score — largest |delta|, even a regression, so the
+    # report honestly shows "what your changes did"; (3) else (no scored delta) the most-
+    # edited room by changed-key count. Deterministic name tie-break throughout.
+    glow = None       # (rc, ro, changed, delta) — max positive delta
+    best_abs = None   # (rc, ro, changed, delta) — max |delta|
+    most_changed = None  # (rc, ro, changed) — max changed-key count
+
+    def _name(t):
+        return (t[0].get("name") or "") if t else "￿"
+
     for rc in current.get("rooms", []):
         ro = orig_rooms.get(rc.get("name"))
         if not ro:
@@ -708,20 +892,24 @@ def _select_compare_room(sess: dict, persona: dict):
         changed = _changed_keys(rc, ro)
         if not changed:
             continue
-        if most_changed is None or len(changed) > len(most_changed[2]):
+        if (most_changed is None or len(changed) > len(most_changed[2])
+                or (len(changed) == len(most_changed[2])
+                    and (rc.get("name") or "") < _name(most_changed))):
             most_changed = (rc, ro, changed)
         oa, ob = _room_overall(after_full, rc), _room_overall(before_full, ro)
         if oa is not None and ob is not None:
             delta = oa - ob
-            if delta > 0 and (glow is None or delta > glow[3]):
+            if delta > 0 and (glow is None or delta > glow[3]
+                              or (delta == glow[3] and (rc.get("name") or "") < _name(glow))):
                 glow = (rc, ro, changed, delta)
+            if (best_abs is None or abs(delta) > abs(best_abs[3])
+                    or (abs(delta) == abs(best_abs[3]) and (rc.get("name") or "") < _name(best_abs))):
+                best_abs = (rc, ro, changed, delta)
 
-    if glow is not None:
-        room_after, room_before, changed = glow[0], glow[1], glow[2]
-    elif most_changed is not None:
-        room_after, room_before, changed = most_changed
-    else:
+    pick = glow or best_abs or (most_changed + (None,) if most_changed else None)
+    if pick is None:
         return None
+    room_after, room_before, changed = pick[0], pick[1], pick[2]
 
     return {
         "current": current, "original": original,
@@ -804,13 +992,17 @@ def compare_initial(req: RenderRoomReq) -> dict:
     return {"session_id": sid, "ok": True, "cached": False, **out}
 
 
-@app.post("/api/profile-chat")
-def profile_chat(req: ProfileChatReq) -> dict:
-    """Profile-review chat (direct LLM, no graph). Mirrors SensiBridge.profileChat."""
+@app.post("/api/refine-persona")
+def refine_persona_endpoint(req: RefinePersonaReq) -> dict:
+    """Refine the saved persona from a free-text statement ("I got a dog, and noise
+    bothers me more"). Patches the persona, persists it to disk, and updates the
+    session — so the change flows into scoring and every response via the persona
+    context. Returns the updated persona + a short confirmation."""
     sid, slot = _slot(req.session_id)
-    profile = slot["session"].get("persona_profile") or {}
-    result = profile_chat_reply(_CTX.llm_simple, profile, req.text)
-    return {"session_id": sid, **result}
+    current = slot["session"].get("persona_profile") or _read_persona() or {}
+    updated, message = refine_persona(_CTX.llm_smart, current, req.text, str(_PERSONA_PATH))
+    slot["session"]["persona_profile"] = updated
+    return {"session_id": sid, "ok": True, "persona": updated, "message": message}
 
 
 # ── SPA static file mount — MUST come after all @app.post / @app.get routes ──
