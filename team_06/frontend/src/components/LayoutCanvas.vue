@@ -144,6 +144,18 @@ function recalcGeometry() {
 
 watch([() => props.layout, stageConfig], recalcGeometry, { immediate: true, deep: true })
 
+// Returns true if segments p1-p2 and p3-p4 are collinear and share a non-zero overlap
+function _segmentsCollinearAndOverlap(p1, p2, p3, p4, tol = 0.05) {
+  const dx = p2[0] - p1[0], dy = p2[1] - p1[1]
+  const len = Math.hypot(dx, dy)
+  if (len < tol) return false
+  if (Math.abs((p3[0] - p1[0]) * dy - (p3[1] - p1[1]) * dx) > tol * len) return false
+  if (Math.abs((p4[0] - p1[0]) * dy - (p4[1] - p1[1]) * dx) > tol * len) return false
+  const t3 = ((p3[0] - p1[0]) * dx + (p3[1] - p1[1]) * dy) / (len * len)
+  const t4 = ((p4[0] - p1[0]) * dx + (p4[1] - p1[1]) * dy) / (len * len)
+  return (Math.min(1, Math.max(t3, t4)) - Math.max(0, Math.min(t3, t4))) * len > tol
+}
+
 // Returns true if `pt` lies on any segment in `facadeList`
 function _pointOnFacadeSegments(pt, facadeList) {
   const tol = 0.05
@@ -539,11 +551,50 @@ const graphEdges = computed(() => {
 const realGraphEdges = computed(() => graphEdges.value.filter(e => !e.virtual))
 const virtualGraphEdges = computed(() => graphEdges.value.filter(e => e.virtual))
 
+// Adjacency edges: room pairs sharing a wall but without a door between them
+const adjacencyEdges = computed(() => {
+  const rooms = props.layout?.rooms || []
+  const cmap = centroidMap.value
+  const realPairs = new Set(realGraphEdges.value.map(e => e.key))
+  const edges = []
+  const seen = new Set()
+  for (let i = 0; i < rooms.length; i++) {
+    for (let j = i + 1; j < rooms.length; j++) {
+      const gi = rooms[i].geometry || [], gj = rooms[j].geometry || []
+      let adjacent = false
+      outer: for (let a = 0; a < gi.length; a++) {
+        for (let b = 0; b < gj.length; b++) {
+          if (_segmentsCollinearAndOverlap(gi[a], gi[(a + 1) % gi.length], gj[b], gj[(b + 1) % gj.length])) {
+            adjacent = true; break outer
+          }
+        }
+      }
+      if (!adjacent) continue
+      const riId = String(rooms[i].id), rjId = String(rooms[j].id)
+      const key = [riId, rjId].sort().join('|')
+      if (seen.has(key) || realPairs.has(key)) continue
+      seen.add(key)
+      const s = cmap[riId], t = cmap[rjId]
+      if (!s || !t) continue
+      edges.push({ key, source: riId, target: rjId, sx: s.x, sy: s.y, tx: t.x, ty: t.y })
+    }
+  }
+  return edges
+})
+
 // Edges connected to hovered room, direction reversed so flux flows toward it
 const hoveredEdges = computed(() => {
   const hovered = props.hoveredRoomId
   if (!hovered) return []
   return graphEdges.value
+    .filter(e => e.source === hovered || e.target === hovered)
+    .map(e => e.source === hovered ? { ...e, sx: e.tx, sy: e.ty, tx: e.sx, ty: e.sy } : e)
+})
+
+const hoveredAdjEdges = computed(() => {
+  const hovered = props.hoveredRoomId
+  if (!hovered) return []
+  return adjacencyEdges.value
     .filter(e => e.source === hovered || e.target === hovered)
     .map(e => e.source === hovered ? { ...e, sx: e.tx, sy: e.ty, tx: e.sx, ty: e.sy } : e)
 })
@@ -580,12 +631,14 @@ const roomConnectivityMap = computed(() => {
 })
 
 const graphDashOffset = ref(0)
+const adjDashOffset = ref(0)
 let animFrameId = null
 
 function startFlux() {
   if (animFrameId) return
   const tick = () => {
     graphDashOffset.value -= 0.3
+    adjDashOffset.value -= 0.1
     animFrameId = requestAnimationFrame(tick)
   }
   animFrameId = requestAnimationFrame(tick)
@@ -594,6 +647,7 @@ function startFlux() {
 function stopFlux() {
   if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null }
   graphDashOffset.value = 0
+  adjDashOffset.value = 0
 }
 
 watch(() => props.hoveredRoomId, id => {
@@ -816,7 +870,34 @@ watch(() => props.hoveredRoomId, id => {
         />
       </v-layer>
       <!-- Graph overlay: layout + evaluate modes only (not routine, not daylight) -->
-      <v-layer v-if="graphEdges.length && props.viewMode !== 'routine' && props.viewMode !== 'daylight'">
+      <v-layer v-if="(graphEdges.length || adjacencyEdges.length) && props.viewMode !== 'routine' && props.viewMode !== 'daylight'">
+        <!-- Adjacency edges: shared wall, no door -->
+        <v-line
+          v-for="edge in adjacencyEdges"
+          :key="`adj-${edge.key}`"
+          :config="{
+            points: [edge.sx, edge.sy, edge.tx, edge.ty],
+            stroke: '#0082c2',
+            strokeWidth: 1,
+            opacity: 0.2,
+            dash: [2, 6],
+            listening: false,
+          }"
+        />
+        <!-- Adjacency flux: slow animated dots toward hovered room -->
+        <v-line
+          v-for="edge in hoveredAdjEdges"
+          :key="`adj-flux-${edge.key}`"
+          :config="{
+            points: [edge.sx, edge.sy, edge.tx, edge.ty],
+            stroke: '#0082c2',
+            strokeWidth: 1.5,
+            opacity: 0.65,
+            dash: [2, 6],
+            dashOffset: adjDashOffset,
+            listening: false,
+          }"
+        />
         <!-- Real door edges -->
         <v-line
           v-for="edge in realGraphEdges"
