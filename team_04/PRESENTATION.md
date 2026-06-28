@@ -217,23 +217,37 @@ flowchart LR
 
 ![Worked trace](presentation_images/worked_trace.png)
 
-This is a **real run** (validation forced to fail once to show self-correction):
+An **open-ended, qualitative prompt** is the best showcase of how the agent
+*reacts*: the geometry can be perfectly valid and still not be a *good* answer —
+exactly what the LLM brief-judge is there to catch.
 
 ```
-intent → brief → reason → generate_building_boundary → validate_design
-       → VALIDATE: FAIL (area)   [1452 m² vs 1200]
-       → SELF-DEBUG #1: shrink footprint toward 1200
+intent → brief (shape=L, area=auto, daylight-first)
+       → reason → generate_building_boundary → validate_design
+       → VALIDATE: hard checks PASS → LLM brief-judge: FAIL (brief_mismatch)
+       → SELF-DEBUG #1: regenerate to better match the L family + daylight
        → reason → generate_building_boundary ×2 → validate_design ×2
-       → VALIDATE: PASS   [1180 m², fits, no overlap]
-       → reason → import_building_boundary → 1 building placed
+       → VALIDATE: PASS  (valid, fits, no overlap; judge: satisfies brief)
+       → reason → import_building_boundary → 1 building placed + report
 ```
 
-And the **bounded-termination proof** (validate hard-wired to always fail):
-`generate ×3, validate ×3, debug_attempts = 2 (the cap), placed = 0, still emits
-a report`. One slide that demonstrates reactivity *and* graceful termination.
+**Two failure modes drive the self-correction loop:**
+- **Hard-check failure** — deterministic `validate_design`: `invalid_polygon` /
+  `outside_site` / `overlap` / `area`.
+- **Soft brief failure** — the LLM judge: geometry is valid but doesn't satisfy the
+  brief → `brief_mismatch` (the mode shown above, and the right one for a
+  subjective prompt). *The judge needs a configured LLM; without one the agent
+  still runs every hard check.*
 
-> You can run this live: [`test_notebooks/test_decision_graph.ipynb`](test_notebooks/test_decision_graph.ipynb)
-> renders this exact loop (and has a step-by-step replay animation).
+**Bounded-termination proof — verified.** Running
+[`test_notebooks/_smoke_validate.py`](test_notebooks/_smoke_validate.py) with
+`validate` forced to always fail produces `generate ×3, validate ×3,
+debug_attempts = 2 (the cap), placed = 0 — and it still emits a report`. The happy
+path in the same run places **1 building with debug_attempts = 0**. Reactivity
+*and* graceful termination, demonstrated deterministically (no LLM required).
+
+> Run the loop live: [`test_notebooks/test_decision_graph.ipynb`](test_notebooks/test_decision_graph.ipynb)
+> renders it with a step-by-step replay animation.
 
 ---
 
