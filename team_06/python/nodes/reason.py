@@ -23,6 +23,7 @@ SYSTEM_PROMPT = (
     "- If the user asks for a toilet, WC, or half-bath, translate that to wc. Use bath only for a full bathroom with a shower or tub.\n"
     "- If the user asks for a walk-in closet or dressing room, translate that to walkincloset.\n"
     "- If the user asks for a study, office, or workspace, represent it as an additional bed in graph.programs, because the dataset does not have a separate study category.\n"
+    "- If the user asks for a studio apartment, do not add any bed to graph.programs. A studio is an open-plan space with no separate bedroom; record this in description.\n"
     "- If the user asks for a double bedroom, keep the room category as bed and record in description that this bedroom should be large.\n"
     "- If the user asks for a single bedroom, keep the room category as bed and record in description that this bedroom should be medium or small.\n"
     "- Use description to preserve size intent or functional reinterpretation when the dataset category is approximate.\n"

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { Stage, Layer, Group, Line, Text } from 'vue-konva'
-import { getRoomColor, getRoomSecondaryLabel, TOD_COLORS, getRoomDisplayName, hexToRgba } from '../utils/roomAnalysis.js'
+import { getRoomColor, getRoomSecondaryLabel, TOD_COLORS, getRoomDisplayName, hexToRgba, toNumericValue } from '../utils/roomAnalysis.js'
 import catWhiteUrl from '../assets/icons/cat-white.svg'
 import dogWhiteUrl from '../assets/icons/dog-white.svg'
 import userWhiteUrl from '../assets/icons/user-white.svg'
@@ -249,6 +249,7 @@ const roomRenderData = computed(() => {
       nameText: getRoomDisplayName(room),
       nameOffsetX: getTextWidth(getRoomDisplayName(room), 13) / 2,
       secondaryText: getRoomSecondaryLabel(room, vm),
+      sizeLabel: roomSizeLabel(toNumericValue(room.attributes?.area)),
     }
   })
 })
@@ -446,6 +447,13 @@ const entryDoorMarker = computed(() => {
   }
 })
 
+function roomSizeLabel(area) {
+  if (area == null) return ''
+  if (area < 10) return 'small'
+  if (area < 20) return 'medium'
+  return 'large'
+}
+
 function getTextWidth(text, fontSize) {
   if (!text) return 0;
   // Use a canvas context for more accurate measurement
@@ -559,6 +567,16 @@ const graphNodes = computed(() => {
       opacity: isHovered ? 1.0 : 0.35,
     }
   }).filter(Boolean)
+})
+
+const roomConnectivityMap = computed(() => {
+  const degree = {}
+  for (const edge of graphEdges.value) {
+    degree[edge.source] = (degree[edge.source] ?? 0) + 1
+    degree[edge.target] = (degree[edge.target] ?? 0) + 1
+  }
+  const label = (d) => d >= 3 ? 'central' : d === 2 ? 'connected' : 'peripheral'
+  return Object.fromEntries(Object.entries(degree).map(([k, d]) => [k, label(d)]))
 })
 
 const graphDashOffset = ref(0)
@@ -891,8 +909,10 @@ watch(() => props.hoveredRoomId, id => {
       class="room-tooltip"
       :style="{ left: tooltipX + 'px', top: tooltipY + 'px' }"
     >
-      <span class="room-tooltip-name">{{ hoveredRoom.nameText }}</span>
-      <span class="room-tooltip-detail">{{ hoveredRoom.secondaryText }}</span>
+      <span class="room-tooltip-name">{{ hoveredRoom.nameText }}</span> 
+    <span v-if="hoveredRoom.secondaryText" class="room-tooltip-detail">{{ hoveredRoom.secondaryText }}</span>
+      <span v-if="hoveredRoom.sizeLabel" class="room-tooltip-detail">{{ hoveredRoom.sizeLabel }}</span>
+      <span v-if="roomConnectivityMap[String(hoveredRoom.id)]" class="room-tooltip-detail">{{ roomConnectivityMap[String(hoveredRoom.id)] }}</span>
     </div>
   </div>
 </template>
