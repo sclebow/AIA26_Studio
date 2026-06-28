@@ -100,7 +100,10 @@ def process_with_copilot(context: dict) -> str:
 def _route(user_input: str, layout: dict) -> str:
     lower = user_input.lower()
     rooms = layout.get("rooms", [])
-    currency = layout.get("project", {}).get("currency", "")
+    proj = layout.get("project", {})
+    if isinstance(proj, str):
+        proj = {}
+    currency = proj.get("currency", "")
 
     if not rooms:
         return "The layout contains no rooms."
@@ -113,11 +116,15 @@ def _route(user_input: str, layout: dict) -> str:
     if _mentions_finish(lower):
         return _recalculate_with_finish(user_input, lower, rooms, currency)
 
-    # 1c. window-cost analysis must be checked before generic "lower/save" routing.
+    # 1c. area-change estimation (e.g. "increase living room area by 10%")
+    if _mentions_area_change(lower):
+        return _estimate_area_change(user_input, lower, rooms, currency)
+
+    # 1d. window-cost analysis must be checked before generic "lower/save" routing.
     if _mentions_window_query(lower):
         return _window_cost_analysis(user_input, lower, layout, currency)
 
-    # 1d. door-cost analysis must be checked before generic "lower/save" routing.
+    # 1e. door-cost analysis must be checked before generic "lower/save" routing.
     if _mentions_door_query(lower):
         return _door_cost_analysis(user_input, lower, layout, currency)
 
@@ -186,22 +193,134 @@ def _mentions_finish(lower: str) -> bool:
 
 
 def _find_room(lower: str, rooms: list) -> dict | None:
+    query = (lower or "").lower()
+    query_norm = _normalise(query)
+    query_compact = re.sub(r"[\s_\-]+", "", query)
+
+    def _room_targets(room: dict) -> list[str]:
+        vals = [
+            str(room.get("name", "") or "").lower(),
+            str(room.get("id", "") or "").lower(),
+            str(room.get("room_type", "") or "").lower(),
+            str(room.get("category", "") or "").lower(),
+            str(room.get("type", "") or "").lower(),
+        ]
+        return [v.strip() for v in vals if v and v.strip()]
+
+    def _token_hit(target: str) -> bool:
+        # Ignore numbering/floor prefixes and match meaningful words from room strings.
+        tokens = [
+            t for t in re.split(r"[_\s\-]+", target)
+            if t and not t.isdigit() and not re.fullmatch(r"f\d+", t)
+        ]
+        tokens = [t for t in tokens if len(t) > 2]
+        if not tokens:
+            return False
+        hit = sum(1 for t in tokens if t in query_norm)
+        # Require at least two matching tokens for long identifiers, else one token.
+        need = 2 if len(tokens) >= 3 else 1
+        return hit >= need
+
+    # 1) Strong matching by explicit name/id tokens.
     for r in rooms:
-        name = r.get("name", "").lower()
-        rid = r.get("id", "").lower()
-        if name in lower or rid.replace("_", " ") in lower or rid in lower:
-            return r
-        # normalised token match: "bed room 3" -> "bed_room_3"; "bedroom_3" -> "bedroom_3"
-        name_norm = _normalise(name)
-        query_norm = _normalise(lower)
-        if name_norm in query_norm:
-            return r
-        # space-stripped match: handles "bed room 3" vs "bedroom 3"
-        name_nospace = re.sub(r"\s+", "", name)
-        query_nospace = re.sub(r"\s+", "", lower)
-        if name_nospace and name_nospace in query_nospace:
-            return r
+        for target in _room_targets(r):
+            if target and target in query:
+                return r
+            target_norm = _normalise(target)
+            if target_norm and (target_norm in query_norm or target_norm.replace("_", " ") in query):
+                return r
+            target_compact = re.sub(r"[\s_\-]+", "", target)
+            if target_compact and target_compact in query_compact:
+                return r
+            if _token_hit(target):
+                return r
+
+    # 2) Fallback matching by room_type/category words (e.g. "living room").
+    stop_tokens = {"room", "rooms", "space", "spaces", "area", "cost", "total"}
+    for r in rooms:
+        for raw in (r.get("room_type", ""), r.get("category", ""), r.get("type", "")):
+            text = str(raw or "").strip().lower()
+            if not text:
+                continue
+            norm = _normalise(text)
+            if not norm or norm in stop_tokens:
+                continue
+            if norm in query_norm or norm.replace("_", " ") in query:
+                return r
     return None
+
+
+def _room_key_variants(room: dict) -> set[str]:
+    """Build normalized key variants for room matching by id/name/type/category."""
+    variants: set[str] = set()
+    for raw in (
+        room.get("id", ""),
+        room.get("name", ""),
+        room.get("room_type", ""),
+        room.get("type", ""),
+        room.get("category", ""),
+    ):
+        text = str(raw or "").strip().lower()
+        if not text:
+            continue
+        norm = _normalise(text)
+        variants.add(norm)
+        variants.add(norm.replace("_", " "))
+    return variants
+
+
+def _find_room_group(lower: str, rooms: list) -> list[dict]:
+    """
+    Resolve bulk room targets like:
+      - all living_room spaces
+      - every bedroom room
+      - all rooms / all spaces
+    Returns matching rooms, or [] when the query is not a bulk target.
+    """
+    query = str(lower or "").strip().lower()
+    query_norm = _normalise(query)
+    if not query_norm:
+        return []
+
+    has_bulk_token = any(
+        t in query_norm
+        for t in ("all", "every", "all_rooms", "all_spaces", "all_room", "all_space")
+    )
+    if not has_bulk_token:
+        return []
+
+    # Explicit broad scope: apply to every room.
+    if any(t in query_norm for t in ("all_rooms", "all_room", "all_spaces", "all_space", "every_room", "every_space")):
+        return list(rooms)
+
+    matches: list[dict] = []
+    target_phrase = ""
+    m = re.search(r"\b(?:all|every)\b\s+(.+)$", query)
+    if m:
+        target_phrase = _normalise(m.group(1))
+        target_phrase = re.sub(r"\b(room|rooms|space|spaces|area|cost|total|for|of)\b", "", target_phrase)
+        target_phrase = re.sub(r"__+", "_", target_phrase).strip("_")
+
+    for room in rooms:
+        variants = _room_key_variants(room)
+        # Keep matching strict to room descriptors, ignore fully-specific IDs to avoid overreach.
+        for key in variants:
+            if not key or key.startswith("f") and "_" in key and any(ch.isdigit() for ch in key):
+                continue
+            if key in query_norm:
+                matches.append(room)
+                break
+            if target_phrase and (target_phrase in key or key in target_phrase):
+                matches.append(room)
+                break
+
+    if matches:
+        return matches
+
+    # Last fallback for plain "all" with no subtype in sentence.
+    if query_norm == "all":
+        return list(rooms)
+    return []
 
 
 def _detect_material(lower: str) -> tuple[str, str] | tuple[None, None]:
@@ -209,6 +328,122 @@ def _detect_material(lower: str) -> tuple[str, str] | tuple[None, None]:
     surface = next((s for s in _FINISH_SURFACES if s in lower), None)
     material = next((m for m in _FINISH_MATERIALS if m in lower), None)
     return surface, material
+
+
+def _mentions_area_change(lower: str) -> bool:
+    has_area = any(k in lower for k in ("area", "m2", "m²", "sqm", "sq m"))
+    has_change = any(k in lower for k in (
+        "increase", "decrease", "reduce", "shrink", "expand", "bigger", "smaller", "larger"
+    ))
+    return has_area and has_change
+
+
+def _parse_area_change(lower: str) -> tuple[str, float, int] | None:
+    """
+    Returns (mode, value, sign)
+      mode: 'percent' or 'absolute'
+      value: magnitude
+      sign: +1 increase, -1 decrease
+    """
+    sign = -1 if any(k in lower for k in ("decrease", "reduce", "shrink", "smaller")) else 1
+
+    m_pct = re.search(r"(\d+(?:\.\d+)?)\s*%", lower)
+    if m_pct:
+        return ("percent", float(m_pct.group(1)), sign)
+
+    m_abs = re.search(r"(\d+(?:\.\d+)?)\s*(m2|m²|sqm|sq\s*m)", lower)
+    if m_abs:
+        return ("absolute", float(m_abs.group(1)), sign)
+
+    return None
+
+
+def _estimate_area_change(user_input: str, lower: str, rooms: list, currency: str) -> str:
+    targets = _find_room_group(lower, rooms)
+    if not targets:
+        room = _find_room(lower, rooms)
+        targets = [room] if room else []
+
+    if not targets:
+        return (
+            "I can estimate area impact, but I need the room target. "
+            "Try: 'increase living room area by 10%' or 'decrease F04_401_bedroom_2 area by 2 m2'."
+        )
+
+    parsed = _parse_area_change(lower)
+    if parsed is None:
+        return (
+            "I recognized an area-change request, but not the amount. "
+            "Please include a value like 'by 10%' or 'by 2 m2'."
+        )
+
+    mode, value, sign = parsed
+    cur = currency or "AED"
+
+    rows = []
+    sum_old = 0.0
+    sum_new = 0.0
+    sum_delta = 0.0
+
+    for r in targets:
+        area = float(r.get("area_m2", 0) or 0)
+        old_total = float(
+            r.get("total_cost")
+            or r.get("total_cost_usd")
+            or r.get("cost")
+            or r.get("cost_usd")
+            or 0
+        )
+
+        # Prefer explicit rate; fallback to derived rate from room total and area.
+        rate = float(r.get("rate_per_m2") or r.get("rate_per_m2_usd") or r.get("rate") or 0)
+        if rate <= 0 and area > 0:
+            rate = old_total / area
+
+        if area <= 0 or rate <= 0:
+            continue
+
+        if mode == "percent":
+            factor = 1.0 + sign * (value / 100.0)
+            new_area = area * factor
+        else:
+            new_area = area + (sign * value)
+
+        if new_area <= 0:
+            continue
+
+        new_total = rate * new_area
+        delta_cost = new_total - old_total
+        rows.append((r.get("name", "Room"), area, new_area, old_total, new_total, delta_cost))
+
+        sum_old += old_total
+        sum_new += new_total
+        sum_delta += delta_cost
+
+    if not rows:
+        return "Could not estimate area impact from the current values (missing area/rate or resulting area <= 0)."
+
+    lines = [
+        f"**Area-change estimate for {len(rows)} room(s):**",
+        "",
+        f"| Room | Old area (m2) | New area (m2) | Old cost ({cur}) | New cost ({cur}) | Delta ({cur}) |",
+        "|---|---:|---:|---:|---:|---:|",
+    ]
+    for name, a0, a1, c0, c1, d in rows[:20]:
+        lines.append(f"| {name} | {a0:,.1f} | {a1:,.1f} | {c0:,.0f} | {c1:,.0f} | {d:+,.0f} |")
+    if len(rows) > 20:
+        lines.append(f"| ... | ... | ... | ... | ... | ... ({len(rows) - 20} more) |")
+
+    pct = (sum_delta / sum_old * 100.0) if sum_old > 0 else 0.0
+    lines += [
+        "",
+        f"**Total old cost:** {sum_old:,.0f} {cur}",
+        f"**Total new cost:** {sum_new:,.0f} {cur}",
+        f"**Total delta:** {sum_delta:+,.0f} {cur} ({pct:+.1f}%)",
+        "",
+        "_Note: this estimate scales room cost proportionally with area using rate per m2._",
+    ]
+    return "\n".join(lines)
 
 
 def _mentions_slab_change(lower: str) -> bool:
@@ -294,65 +529,107 @@ def _recalculate_with_slab(user_input: str, lower: str, rooms: list, currency: s
 # ── finish-change recalculation ───────────────────────────────────────────────
 
 def _recalculate_with_finish(user_input: str, lower: str, rooms: list, currency: str) -> str:
-    room = _find_room(lower, rooms)
-    if not room:
-        return (
-            "I could see you want to change a finish, but I couldn't identify which room. "
-            "Please mention the room name, e.g. 'bedroom 3 floor finish marble'."
-        )
-
     surface, material = _detect_material(lower)
     if not material:
-        return f"I recognised the room **{room.get('name')}** but couldn't identify the finish material."
+        return "I recognised a finish-change request but couldn't identify the finish material."
     if not surface:
         return f"I recognised **{material}** but couldn't tell which surface (floor/wall/ceiling)."
 
-    area = room.get("area_m2", 0)
-    old_total = room.get("total_cost", 0) or 0
-    breakdown = room.get("_rate_breakdown", {})
-    name = room.get("name", "")
-    cur = currency or "AED"
+    room = _find_room(lower, rooms)
+    room_group = _find_room_group(lower, rooms) if room is None else []
 
-    if surface == "floor":
-        old_rate_surface = breakdown.get("floor", _floor_rate("default"))
-        new_rate_surface  = _floor_rate(material)
-    elif surface == "wall":
-        old_rate_surface = breakdown.get("wall", _wall_rate("default"))
-        new_rate_surface  = _wall_rate(material)
-    elif surface == "ceiling":
-        old_rate_surface = breakdown.get("ceiling", _ceiling_rate("default"))
-        new_rate_surface  = _ceiling_rate(material)
-    else:
-        return "Slab-material recalculation is not yet supported. Ask about floor/wall/ceiling."
-
-    delta_rate = new_rate_surface - old_rate_surface
-    delta_cost = delta_rate * area
-    new_total  = old_total + delta_cost
-
-    sign = "+" if delta_cost >= 0 else ""
-    direction = "increase" if delta_cost >= 0 else "saving"
-
-    lines = [
-        f"**{name} - recalculated with {material} {surface}:**",
-        "",
-        f"| | Rate ({cur}/m2) | Room cost ({cur}) |",
-        f"|---|---|---|",
-        f"| Current ({room.get(surface + '-finish', 'existing')}) "
-        f"| {old_rate_surface:,.0f} | {old_total:,.0f} |",
-        f"| **{material.capitalize()} {surface}** "
-        f"| **{new_rate_surface:,.0f}** | **{new_total:,.0f}** |",
-        "",
-        f"**{direction.capitalize()}: {sign}{delta_cost:,.0f} {cur}** "
-        f"({sign}{delta_rate:,.0f} {cur}/m2 x {area:.1f} m2)",
-    ]
-
-    if old_total > 0:
-        pct = delta_cost / old_total * 100
-        lines.append(
-            f"\nThis is a {abs(pct):.1f}% {'increase' if delta_cost >= 0 else 'decrease'} "
-            f"in the cost of this room."
+    if room is None and not room_group:
+        return (
+            "I could see you want to change a finish, but I couldn't identify which room. "
+            "Please mention the room name (or a bulk target), e.g. "
+            "'bedroom 3 floor finish marble' or 'all living_room spaces floor finish ceramic'."
         )
 
+    targets = room_group or [room]
+
+    cur = currency or "AED"
+
+    def _surface_rates(_breakdown: dict) -> tuple[float, float]:
+        if surface == "floor":
+            return _breakdown.get("floor", _floor_rate("default")), _floor_rate(material)
+        if surface == "wall":
+            return _breakdown.get("wall", _wall_rate("default")), _wall_rate(material)
+        if surface == "ceiling":
+            return _breakdown.get("ceiling", _ceiling_rate("default")), _ceiling_rate(material)
+        return 0.0, 0.0
+
+    rows = []
+    sum_old = 0.0
+    sum_new = 0.0
+    sum_delta = 0.0
+    sum_area = 0.0
+    for t in targets:
+        area = float(t.get("area_m2", 0) or 0)
+        old_total = float(t.get("total_cost", 0) or 0)
+        old_rate_surface, new_rate_surface = _surface_rates(t.get("_rate_breakdown", {}))
+        delta_rate = new_rate_surface - old_rate_surface
+        delta_cost = delta_rate * area
+        new_total = old_total + delta_cost
+        sum_old += old_total
+        sum_new += new_total
+        sum_delta += delta_cost
+        sum_area += area
+        rows.append({
+            "name": t.get("name", ""),
+            "old_total": old_total,
+            "new_total": new_total,
+            "delta": delta_cost,
+            "area": area,
+            "old_rate": old_rate_surface,
+            "new_rate": new_rate_surface,
+        })
+
+    sign = "+" if sum_delta >= 0 else ""
+    direction = "increase" if sum_delta >= 0 else "saving"
+
+    if len(rows) == 1:
+        only = rows[0]
+        lines = [
+            f"**{only['name']} - recalculated with {material} {surface}:**",
+            "",
+            f"| | Rate ({cur}/m2) | Room cost ({cur}) |",
+            f"|---|---|---|",
+            f"| Current (existing) | {only['old_rate']:,.0f} | {only['old_total']:,.0f} |",
+            f"| **{material.capitalize()} {surface}** | **{only['new_rate']:,.0f}** | **{only['new_total']:,.0f}** |",
+            "",
+            f"**{direction.capitalize()}: {sign}{only['delta']:,.0f} {cur}** "
+            f"({sign}{(only['new_rate'] - only['old_rate']):,.0f} {cur}/m2 x {only['area']:.1f} m2)",
+        ]
+        if only["old_total"] > 0:
+            pct = (only["delta"] / only["old_total"]) * 100
+            lines.append(
+                f"\nThis is a {abs(pct):.1f}% {'increase' if only['delta'] >= 0 else 'decrease'} in the cost of this room."
+            )
+        return "\n".join(lines)
+
+    lines = [
+        f"**Bulk finish update: {material} {surface} across {len(rows)} rooms**",
+        "",
+        f"| Room | Old cost ({cur}) | New cost ({cur}) | Delta ({cur}) |",
+        "|---|---|---|---|",
+    ]
+    for r in rows[:20]:
+        d_sign = "+" if r["delta"] >= 0 else ""
+        lines.append(
+            f"| {r['name']} | {r['old_total']:,.0f} | {r['new_total']:,.0f} | {d_sign}{r['delta']:,.0f} |"
+        )
+    if len(rows) > 20:
+        lines.append(f"| ... | ... | ... | ... ({len(rows) - 20} more rooms) |")
+    lines += [
+        "",
+        f"**Total old cost:** {sum_old:,.0f} {cur}",
+        f"**Total new cost:** {sum_new:,.0f} {cur}",
+        f"**Total {direction}:** {sign}{sum_delta:,.0f} {cur}",
+        f"(applied to {sum_area:,.1f} m2 total area)",
+    ]
+    if sum_old > 0:
+        pct = (sum_delta / sum_old) * 100
+        lines.append(f"Overall change: {abs(pct):.1f}% {'increase' if sum_delta >= 0 else 'decrease'}.")
     return "\n".join(lines)
 
 
@@ -732,39 +1009,95 @@ def _best_value_recommendation(rooms: list, currency: str) -> str:
 
 def _cost_reduction_advice(user_input: str, rooms: list, currency: str) -> str:
     lower = user_input.lower()
-    target = _find_room(lower, rooms) or max(rooms, key=lambda x: x.get("total_cost", 0))
-    name = target.get("name", "this room")
-    cost = target.get("total_cost", 0)
-    cat  = target.get("category", "")
+    # Collapse spaces so "bed room" matches "bedroom", "bath room" matches "bathroom" etc.
+    lower_compact = re.sub(r"\s+", "", lower)
 
-    advice = [f"**Cost reduction options for {name}** ({cost:,.0f} {currency}):"]
-    if cat == "wet":
-        advice += [
-            "  • Mid-range sanitary ware instead of premium (saves ~15–20%)",
-            "  • Reduce tile area with feature panels rather than full-coverage",
-            "  • Group wet rooms back-to-back to share plumbing runs",
+    # Detect requested reduction percentage (e.g. "to 50%", "by 30%")
+    pct_match = re.search(r"(?:to|by)\s*(\d+(?:\.\d+)?)\s*%", lower)
+    reduction_pct = float(pct_match.group(1)) / 100.0 if pct_match else 0.10
+    # "to X%" means keep X%, so reduction = (1 - X%). "by X%" means cut X%.
+    if pct_match and "to" in pct_match.group(0):
+        reduction_pct = 1.0 - reduction_pct
+
+    # Space-type keywords to detect from collapsed input
+    _TYPE_KEYWORDS = [
+        "bedroom", "bathroom", "kitchen", "livingroom", "corridor",
+        "balcony", "maidroom", "staircase", "lift", "lobby", "mep",
+        "dining", "storage", "laundry", "toilet", "wc",
+    ]
+    detected_type = next((k for k in _TYPE_KEYWORDS if k in lower_compact), None)
+
+    # Try to find a group of rooms matching the type keyword
+    group: list[dict] = []
+    if detected_type:
+        for r in rooms:
+            r_type = re.sub(r"[\s_\-]+", "", (
+                r.get("room_type") or r.get("category") or r.get("type") or r.get("name") or ""
+            ).lower())
+            if detected_type in r_type or r_type in detected_type:
+                group.append(r)
+
+    # Fall back to single-room match or most expensive room
+    if not group:
+        single = _find_room(lower, rooms) or max(rooms, key=lambda x: x.get("total_cost", 0))
+        group = [single]
+
+    total_cost = sum(r.get("total_cost", 0) for r in group)
+    savings    = round(total_cost * reduction_pct, 0)
+    label      = detected_type.replace("room", " room").title() if detected_type else group[0].get("name", "Room")
+    count      = len(group)
+    count_str  = f"{count} spaces" if count > 1 else group[0].get("name", "this room")
+
+    lines = [
+        f"**Cost reduction for {label}** ({count_str}) — "
+        f"current total: **{total_cost:,.0f} {currency}**",
+        f"Requested reduction: **{reduction_pct*100:.0f}%** → target savings: **{savings:,.0f} {currency}**",
+        "",
+    ]
+
+    # Category-specific advice
+    cat = (group[0].get("category") or group[0].get("room_type") or "").lower()
+    if "bedroom" in (detected_type or cat):
+        lines += [
+            "  • Switch floor finish: solid timber → engineered wood (saves ~10–15%)",
+            "  • Lower ceiling height to 2.7 m to reduce formwork & MEP cost",
+            "  • Simplify built-in joinery or replace with flat-pack wardrobes",
+            "  • Use mid-range paint finish on walls instead of wallpaper or panels",
         ]
-    elif cat == "bedroom":
-        advice += [
-            "  • Engineered wood flooring instead of solid timber (saves ~10%)",
-            "  • Reduce ceiling height to 2.7 m (saves formwork cost)",
-            "  • Simplify built-in joinery or use flat-pack alternatives",
+    elif "bathroom" in (detected_type or cat) or cat == "wet":
+        lines += [
+            "  • Specify mid-range sanitary ware instead of premium brand (saves 15–20%)",
+            "  • Reduce full-tile coverage — use feature panels with painted plaster fill",
+            "  • Group wet rooms back-to-back to share plumbing stacks",
         ]
-    elif cat in ("common", ""):
-        advice += [
-            "  • Open-plan merge with adjacent space to reduce partition costs",
-            "  • Polished concrete floor as a cost-effective finish",
-            "  • Improve insulation to reduce air-conditioning zone size",
+    elif "kitchen" in (detected_type or cat):
+        lines += [
+            "  • Use semi-custom cabinetry instead of bespoke joinery",
+            "  • Specify composite stone worktop instead of natural granite or marble",
+            "  • Reduce splashback tile area with painted moisture-resistant board",
+        ]
+    elif "living" in (detected_type or cat):
+        lines += [
+            "  • Polished concrete or engineered wood instead of marble flooring",
+            "  • Reduce ceiling feature zones (coffered / dropped) to painted flat",
+            "  • Open-plan merge with dining area reduces partition & finishing cost",
+        ]
+    elif "corridor" in (detected_type or cat):
+        lines += [
+            "  • Polished concrete or vinyl tile — high durability, low cost",
+            "  • Reduce corridor width by 100 mm where code allows",
+            "  • Use painted plaster walls instead of wall cladding",
         ]
     else:
-        advice += [
-            f"  • Reduce finish specification (current rate: {target.get('rate_per_m2', 0):,.0f} {currency}/m²)",
-            f"  • Reduce area by ~10% → saves ~{cost * 0.1:,.0f} {currency}",
+        lines += [
+            f"  • Reduce finish specification (rate: {group[0].get('rate_per_m2', 0):,.0f} {currency}/m²)",
+            f"  • Reduce area by ~10% → saves ~{total_cost * 0.10:,.0f} {currency}",
         ]
-    advice.append(
-        f"\n  A 10% rate reduction → saves **{cost * 0.10:,.0f} {currency}**."
+
+    lines.append(
+        f"\n  A **{reduction_pct*100:.0f}% rate reduction** across {count_str} → saves **{savings:,.0f} {currency}**."
     )
-    return "\n".join(advice)
+    return "\n".join(lines)
 
 
 # =============================================================================
@@ -952,47 +1285,56 @@ def apply_finish_to_layout(user_input: str, layout: dict) -> dict | None:
         return None
 
     rooms = layout.get("rooms", [])
-    room = _find_room(lower, rooms)
-    if not room:
-        return None
-
     surface, material = _detect_material(lower)
     if not surface or not material:
         return None
 
-    area = room.get("area_m2", 0)
-    breakdown = room.get("_rate_breakdown", {})
-
-    if surface == "floor":
-        old_rate = breakdown.get("floor", _floor_rate("default"))
-        new_rate = _floor_rate(material)
-    elif surface == "wall":
-        old_rate = breakdown.get("wall", _wall_rate("default"))
-        new_rate = _wall_rate(material)
-    elif surface == "ceiling":
-        old_rate = breakdown.get("ceiling", _ceiling_rate("default"))
-        new_rate = _ceiling_rate(material)
-    else:
+    room = _find_room(lower, rooms)
+    room_group = _find_room_group(lower, rooms) if room is None else []
+    targets = room_group or ([room] if room else [])
+    if not targets:
         return None
 
-    delta_cost = (new_rate - old_rate) * area
-    if delta_cost == 0:
+    if surface == "floor":
+        new_rate = _floor_rate(material)
+    elif surface == "wall":
+        new_rate = _wall_rate(material)
+    elif surface == "ceiling":
+        new_rate = _ceiling_rate(material)
+    else:
         return None
 
     # deep copy so we never mutate the original
     updated = copy.deepcopy(layout)
     updated_rooms = updated.get("rooms", [])
 
+    target_ids = {t.get("id") for t in targets if t.get("id") is not None}
+    changed = False
     for r in updated_rooms:
-        if r.get("id") == room.get("id"):
-            r["total_cost"] = round(r.get("total_cost", 0) + delta_cost, 2)
-            r["rate_per_m2"] = round(r.get("rate_per_m2", 0) + (new_rate - old_rate), 2)
-            # update breakdown if present
-            if "_rate_breakdown" in r and surface in r["_rate_breakdown"]:
-                r["_rate_breakdown"][surface] = new_rate
-            # record what finish was applied
-            r[f"{surface}-finish"] = material
-            break
+        if r.get("id") not in target_ids:
+            continue
+        breakdown = r.get("_rate_breakdown", {})
+        if surface == "floor":
+            old_rate = breakdown.get("floor", _floor_rate("default"))
+        elif surface == "wall":
+            old_rate = breakdown.get("wall", _wall_rate("default"))
+        else:
+            old_rate = breakdown.get("ceiling", _ceiling_rate("default"))
+        area = float(r.get("area_m2", 0) or 0)
+        delta_cost = (new_rate - old_rate) * area
+        if abs(delta_cost) < 1e-9:
+            continue
+        r["total_cost"] = round(float(r.get("total_cost", 0) or 0) + delta_cost, 2)
+        r["rate_per_m2"] = round(float(r.get("rate_per_m2", 0) or 0) + (new_rate - old_rate), 2)
+        # update breakdown if present
+        if "_rate_breakdown" in r and surface in r["_rate_breakdown"]:
+            r["_rate_breakdown"][surface] = new_rate
+        # record what finish was applied
+        r[f"{surface}-finish"] = material
+        changed = True
+
+    if not changed:
+        return None
 
     # recompute totals
     _recompute_totals(updated)

@@ -1,0 +1,205 @@
+<svg viewBox="0 0 1620 880" xmlns="http://www.w3.org/2000/svg" style="background:#fff;">
+<style>
+text { font-family:'Segoe UI',Arial,sans-serif; }
+.ht { font-size:13px; font-weight:700; fill:#fff; }
+.hs { font-size:9px;  fill:rgba(255,255,255,0.85); }
+.lt { font-size:11px; font-weight:700; fill:#1e293b; }
+.ls { font-size:9px;  fill:#475569; }
+.ann{ font-size:8px;  fill:#94a3b8; }
+.ct { font-size:23px; font-weight:800; fill:#fff; }
+.cs { font-size:10px; fill:rgba(255,255,255,0.7); }
+</style>
+
+<!-- SPINES center→hubs -->
+<line x1="736" y1="348" x2="736" y2="292" stroke="#29B4E8" stroke-width="2"/>
+<line x1="614" y1="427" x2="476" y2="427" stroke="#1245A8" stroke-width="2"/>
+<line x1="858" y1="427" x2="902" y2="427" stroke="#2E7D32" stroke-width="2"/>
+<line x1="736" y1="506" x2="736" y2="606" stroke="#009688" stroke-width="2"/>
+
+<!-- TOP junction + curves -->
+<circle cx="736" cy="216" r="5" fill="#29B4E8"/>
+<path d="M736,216 C736,158 490,158 490,98"  fill="none" stroke="#29B4E8" stroke-width="1.4" stroke-dasharray="5,3"/>
+<path d="M736,216 C736,158 706,158 706,98"  fill="none" stroke="#29B4E8" stroke-width="1.4" stroke-dasharray="5,3"/>
+<path d="M736,216 C736,158 922,158 922,98"  fill="none" stroke="#29B4E8" stroke-width="1.4" stroke-dasharray="5,3"/>
+<circle cx="490" cy="98" r="3.5" fill="#29B4E8"/>
+<circle cx="706" cy="98" r="3.5" fill="#29B4E8"/>
+<circle cx="922" cy="98" r="3.5" fill="#29B4E8"/>
+
+<!-- LEFT junction + curves -->
+<circle cx="308" cy="427" r="5" fill="#1245A8"/>
+<path d="M308,427 C272,427 272,280 202,280" fill="none" stroke="#1245A8" stroke-width="1.4" stroke-dasharray="5,3"/>
+<path d="M308,427 C272,427 272,342 202,342" fill="none" stroke="#1245A8" stroke-width="1.4" stroke-dasharray="5,3"/>
+<path d="M308,427 C272,427 272,404 202,404" fill="none" stroke="#1245A8" stroke-width="1.4" stroke-dasharray="5,3"/>
+<path d="M308,427 C272,427 272,464 202,464" fill="none" stroke="#1245A8" stroke-width="1.4" stroke-dasharray="5,3"/>
+<path d="M308,427 C272,427 272,524 202,524" fill="none" stroke="#1245A8" stroke-width="1.4" stroke-dasharray="5,3"/>
+<circle cx="202" cy="280" r="3.5" fill="#1245A8"/>
+<circle cx="202" cy="342" r="3.5" fill="#1245A8"/>
+<circle cx="202" cy="404" r="3.5" fill="#1245A8"/>
+<circle cx="202" cy="464" r="3.5" fill="#1245A8"/>
+<circle cx="202" cy="524" r="3.5" fill="#1245A8"/>
+
+<!-- RIGHT junction + curves -->
+<circle cx="1062" cy="427" r="5" fill="#2E7D32"/>
+<path d="M1062,427 C1076,427 1076,300 1090,300" fill="none" stroke="#2E7D32" stroke-width="1.4" stroke-dasharray="5,3"/>
+<path d="M1062,427 C1076,427 1076,376 1090,376" fill="none" stroke="#2E7D32" stroke-width="1.4" stroke-dasharray="5,3"/>
+<path d="M1062,427 C1076,427 1076,452 1090,452" fill="none" stroke="#2E7D32" stroke-width="1.4" stroke-dasharray="5,3"/>
+<path d="M1062,427 C1076,427 1076,528 1090,528" fill="none" stroke="#2E7D32" stroke-width="1.4" stroke-dasharray="5,3"/>
+<circle cx="1090" cy="300" r="3.5" fill="#2E7D32"/>
+<circle cx="1090" cy="376" r="3.5" fill="#2E7D32"/>
+<circle cx="1090" cy="452" r="3.5" fill="#2E7D32"/>
+<circle cx="1090" cy="528" r="3.5" fill="#2E7D32"/>
+
+<!-- BOTTOM junction + curves -->
+<circle cx="736" cy="682" r="5" fill="#009688"/>
+<path d="M736,682 C736,704 496,704 496,720" fill="none" stroke="#009688" stroke-width="1.4" stroke-dasharray="5,3"/>
+<path d="M736,682 C736,704 716,704 716,720" fill="none" stroke="#009688" stroke-width="1.4" stroke-dasharray="5,3"/>
+<path d="M736,682 C736,704 936,704 936,720" fill="none" stroke="#009688" stroke-width="1.4" stroke-dasharray="5,3"/>
+<circle cx="496" cy="720" r="3.5" fill="#009688"/>
+<circle cx="716" cy="720" r="3.5" fill="#009688"/>
+<circle cx="936" cy="720" r="3.5" fill="#009688"/>
+
+<!-- CENTER Purple 70 -->
+<rect x="614" y="348" width="244" height="158" rx="14" fill="#7B52B8"/>
+<text x="736" y="412" text-anchor="middle" class="ct">LangGraph</text>
+<text x="736" y="442" text-anchor="middle" class="ct">Agent</text>
+<text x="736" y="466" text-anchor="middle" class="cs">Team 05 — Orchestrator</text>
+
+<!-- TOP HUB Cyan 50 -->
+<rect x="672" y="216" width="156" height="76" rx="10" fill="#29B4E8"/>
+<text x="750" y="246" text-anchor="middle" class="ht">Context</text>
+<text x="750" y="263" text-anchor="middle" class="hs">_build_context()</text>
+<text x="750" y="278" text-anchor="middle" class="hs">_resolve_followup()</text>
+
+<!-- TOP LEAVES y=36 h=62 -->
+<rect x="398" y="36" width="184" height="62" rx="7" fill="#fff" stroke="#29B4E8" stroke-width="1.8"/>
+<rect x="398" y="36" width="6"   height="62" rx="3" fill="#29B4E8"/>
+<text x="494" y="60"  text-anchor="middle" class="lt">Layout JSON</text>
+<text x="494" y="77"  text-anchor="middle" class="ls">uploaded layout · rooms</text>
+<text x="494" y="91"  text-anchor="middle" class="ls">totals · heatmap ramp</text>
+<text x="390" y="52"  text-anchor="end" class="ann">follow-up: "all","ok","yes"</text>
+<text x="390" y="64"  text-anchor="end" class="ann">resolves to last finish cmd</text>
+
+<rect x="614" y="36" width="184" height="62" rx="7" fill="#fff" stroke="#29B4E8" stroke-width="1.8"/>
+<rect x="614" y="36" width="6"   height="62" rx="3" fill="#29B4E8"/>
+<text x="710" y="60"  text-anchor="middle" class="lt">Plans · History</text>
+<text x="710" y="77"  text-anchor="middle" class="ls">multi-plan store</text>
+<text x="710" y="91"  text-anchor="middle" class="ls">last 10 chat messages</text>
+
+<rect x="830" y="36" width="184" height="62" rx="7" fill="#fff" stroke="#29B4E8" stroke-width="1.8"/>
+<rect x="830" y="36" width="6"   height="62" rx="3" fill="#29B4E8"/>
+<text x="926" y="60"  text-anchor="middle" class="lt">Client Profile</text>
+<text x="926" y="77"  text-anchor="middle" class="ls">generate_summary()</text>
+<text x="926" y="91"  text-anchor="middle" class="ls">preferences · priorities</text>
+<text x="1022" y="52" text-anchor="start" class="ann">layout · plans · history</text>
+<text x="1022" y="64" text-anchor="start" class="ann">assembled per call</text>
+
+<!-- LEFT HUB Blue 80 -->
+<rect x="308" y="392" width="168" height="72" rx="10" fill="#1245A8"/>
+<text x="392" y="420" text-anchor="middle" class="ht">Router</text>
+<text x="392" y="438" text-anchor="middle" class="hs">_should_use_copilot()</text>
+<text x="392" y="453" text-anchor="middle" class="hs">_should_compare_plans()</text>
+
+<!-- LEFT LEAVES x=10 w=192 -->
+<rect x="10" y="256" width="192" height="48" rx="7" fill="#fff" stroke="#1245A8" stroke-width="1.8"/>
+<rect x="196" y="256" width="6"  height="48" rx="3" fill="#1245A8"/>
+<text x="105" y="276" text-anchor="middle" class="lt">Compare Plans</text>
+<text x="105" y="294" text-anchor="middle" class="ls">_compare_plans() rank by cost</text>
+
+<rect x="10" y="318" width="192" height="48" rx="7" fill="#fff" stroke="#1245A8" stroke-width="1.8"/>
+<rect x="196" y="318" width="6"  height="48" rx="3" fill="#1245A8"/>
+<text x="105" y="338" text-anchor="middle" class="lt">Copilot Route</text>
+<text x="105" y="356" text-anchor="middle" class="ls">process_with_copilot()</text>
+
+<rect x="10" y="380" width="192" height="48" rx="7" fill="#fff" stroke="#1245A8" stroke-width="1.8"/>
+<rect x="196" y="380" width="6"  height="48" rx="3" fill="#1245A8"/>
+<text x="105" y="400" text-anchor="middle" class="lt">Swiftlet Route</text>
+<text x="105" y="418" text-anchor="middle" class="ls">process_with_swiftlet()</text>
+
+<rect x="10" y="440" width="192" height="48" rx="7" fill="#fff" stroke="#1245A8" stroke-width="1.8"/>
+<rect x="196" y="440" width="6"  height="48" rx="3" fill="#1245A8"/>
+<text x="105" y="460" text-anchor="middle" class="lt">Follow-up Resolve</text>
+<text x="105" y="478" text-anchor="middle" class="ls">_resolve_followup_input()</text>
+
+<rect x="10" y="500" width="192" height="48" rx="7" fill="#fff" stroke="#1245A8" stroke-width="1.8"/>
+<rect x="196" y="500" width="6"  height="48" rx="3" fill="#1245A8"/>
+<text x="105" y="520" text-anchor="middle" class="lt">Summarise Layout</text>
+<text x="105" y="538" text-anchor="middle" class="ls">_summarise_layout() → LLM ctx</text>
+
+<!-- RIGHT HUB Green 60 -->
+<rect x="902" y="392" width="160" height="72" rx="10" fill="#2E7D32"/>
+<text x="982" y="420" text-anchor="middle" class="ht">Copilot</text>
+<text x="982" y="438" text-anchor="middle" class="hs">_route() — keyword match</text>
+<text x="982" y="453" text-anchor="middle" class="hs">most-specific first</text>
+
+<!-- RIGHT LEAVES x=1090 w=196 (28px clear of hub right=1062) -->
+<rect x="1090" y="276" width="196" height="48" rx="7" fill="#fff" stroke="#2E7D32" stroke-width="1.8"/>
+<rect x="1090" y="276" width="6"   height="48" rx="3" fill="#2E7D32"/>
+<text x="1190" y="296" text-anchor="middle" class="lt">Finish / Slab</text>
+<text x="1190" y="314" text-anchor="middle" class="ls">_recalc_finish() · _recalc_slab()</text>
+<text x="1294" y="290" text-anchor="start" class="ann">floor/wall/ceiling material</text>
+<text x="1294" y="302" text-anchor="start" class="ann">delta_rate × area_m²</text>
+
+<rect x="1090" y="352" width="196" height="48" rx="7" fill="#fff" stroke="#2E7D32" stroke-width="1.8"/>
+<rect x="1090" y="352" width="6"   height="48" rx="3" fill="#2E7D32"/>
+<text x="1190" y="372" text-anchor="middle" class="lt">Area Change</text>
+<text x="1190" y="390" text-anchor="middle" class="ls">_estimate_area_change()</text>
+<text x="1294" y="366" text-anchor="start" class="ann">increase/decrease by %</text>
+<text x="1294" y="378" text-anchor="start" class="ann">or m² proportionally</text>
+
+<rect x="1090" y="428" width="196" height="48" rx="7" fill="#fff" stroke="#2E7D32" stroke-width="1.8"/>
+<rect x="1090" y="428" width="6"   height="48" rx="3" fill="#2E7D32"/>
+<text x="1190" y="448" text-anchor="middle" class="lt">Windows / Doors</text>
+<text x="1190" y="466" text-anchor="middle" class="ls">_window / _door analysis()</text>
+<text x="1294" y="442" text-anchor="start" class="ann">breakdown + alternatives</text>
+<text x="1294" y="454" text-anchor="start" class="ann">option A / B / C</text>
+
+<rect x="1090" y="504" width="196" height="48" rx="7" fill="#fff" stroke="#2E7D32" stroke-width="1.8"/>
+<rect x="1090" y="504" width="6"   height="48" rx="3" fill="#2E7D32"/>
+<text x="1190" y="524" text-anchor="middle" class="lt">Rank · Rate · Total</text>
+<text x="1190" y="542" text-anchor="middle" class="ls">_rank_rooms() · _total_cost()</text>
+<text x="1294" y="518" text-anchor="start" class="ann">rooms by cost · maint. est.</text>
+<text x="1294" y="530" text-anchor="start" class="ann">best-value scoring</text>
+
+<!-- BOTTOM HUB Teal 50 -->
+<rect x="672" y="606" width="156" height="76" rx="10" fill="#009688"/>
+<text x="750" y="636" text-anchor="middle" class="ht">Mutation</text>
+<text x="750" y="654" text-anchor="middle" class="hs">apply_finish_to_layout()</text>
+<text x="750" y="669" text-anchor="middle" class="hs">deep copy → recompute → push</text>
+
+<!-- BOTTOM LEAVES y=720 h=64 (38px gap below hub-bottom 682) -->
+<rect x="398" y="720" width="196" height="64" rx="7" fill="#fff" stroke="#009688" stroke-width="1.8"/>
+<rect x="398" y="720" width="6"   height="64" rx="3" fill="#009688"/>
+<text x="498" y="742" text-anchor="middle" class="lt">Recompute Totals</text>
+<text x="498" y="759" text-anchor="middle" class="ls">_recompute_totals()</text>
+<text x="498" y="774" text-anchor="middle" class="ls">rooms+doors+windows+cols</text>
+<text x="390" y="744" text-anchor="end" class="ann">triggers only when</text>
+<text x="390" y="756" text-anchor="end" class="ann">finish/slab change detected</text>
+
+<rect x="618" y="720" width="196" height="64" rx="7" fill="#fff" stroke="#009688" stroke-width="1.8"/>
+<rect x="618" y="720" width="6"   height="64" rx="3" fill="#009688"/>
+<text x="718" y="742" text-anchor="middle" class="lt">Recompute Heatmap</text>
+<text x="718" y="759" text-anchor="middle" class="ls">_recompute_heatmap()</text>
+<text x="718" y="774" text-anchor="middle" class="ls">heat_t · color_hex · ramp</text>
+
+<rect x="838" y="720" width="196" height="64" rx="7" fill="#fff" stroke="#009688" stroke-width="1.8"/>
+<rect x="838" y="720" width="6"   height="64" rx="3" fill="#009688"/>
+<text x="938" y="742" text-anchor="middle" class="lt">Push to GH</text>
+<text x="938" y="759" text-anchor="middle" class="ls">push_layout_to_grasshopper()</text>
+<text x="938" y="774" text-anchor="middle" class="ls">adopt GH colors if returned</text>
+
+<!-- ══ 3DM IMPORT SUB-NODE (feeds Layout JSON leaf) ══ -->
+<defs>
+  <marker id="ao-mm" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
+    <path d="M0,0 L0,6 L7,3z" fill="#C85A00"/>
+  </marker>
+</defs>
+<rect x="148" y="112" width="222" height="62" rx="7" fill="#fff" stroke="#C85A00" stroke-width="1.8"/>
+<rect x="148" y="112" width="6"   height="62" rx="3" fill="#C85A00"/>
+<text x="270" y="134" text-anchor="middle" class="lt">Rhino 3DM Import</text>
+<text x="270" y="151" text-anchor="middle" class="ls">rhino_converter.py  (pip install rhino3dm)</text>
+<text x="270" y="164" text-anchor="middle" class="ls">.3dm → classify_layer() → area_m² → layout JSON</text>
+<!-- curved orange dashed arrow from 3DM node right edge to Layout JSON left edge -->
+<path d="M370,143 C392,143 392,67 398,67" fill="none" stroke="#C85A00" stroke-width="1.4" stroke-dasharray="5,3" marker-end="url(#ao-mm)"/>
+<text x="397" y="102" text-anchor="middle" font-size="7.5" font-weight="700" fill="#C85A00" transform="rotate(-52,397,102)">alt input</text>
+
+</svg>
