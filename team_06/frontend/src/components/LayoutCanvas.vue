@@ -144,11 +144,75 @@ function recalcGeometry() {
 
 watch([() => props.layout, stageConfig], recalcGeometry, { immediate: true, deep: true })
 
-// Outline points for boundary-only mode (no rooms)
-const outlinePoints = computed(() => {
+// Returns true if `pt` lies on any segment in `facadeList`
+function _pointOnFacadeSegments(pt, facadeList) {
+  const tol = 0.05
+  for (const f of facadeList) {
+    const geom = f.geometry || []
+    for (let i = 0; i < geom.length - 1; i++) {
+      const [ax, ay] = geom[i], [bx, by] = geom[i + 1]
+      const dx = bx - ax, dy = by - ay
+      const len = Math.hypot(dx, dy)
+      if (len < tol) continue
+      const cross = Math.abs((pt[0] - ax) * dy - (pt[1] - ay) * dx)
+      if (cross > tol * len) continue
+      const dot = (pt[0] - ax) * dx + (pt[1] - ay) * dy
+      if (dot >= -tol * len && dot <= len * len + tol * len) return true
+    }
+  }
+  return false
+}
+
+// Boundary rendering data: fill polygon + per-edge solid/dashed lines
+const boundaryData = computed(() => {
   const outline = props.layout?.outline
   if (!outline || (props.layout?.rooms?.length ?? 0) > 0) return null
-  return flattenAndScale(outline)
+  const isClosed = outline.length > 2 &&
+    outline[0][0] === outline[outline.length - 1][0] &&
+    outline[0][1] === outline[outline.length - 1][1]
+  const pts = isClosed ? outline.slice(0, -1) : outline
+  const facades = props.layout?.facades || []
+  const solidEdges = [], dashedEdges = []
+  for (let i = 0; i < pts.length; i++) {
+    const p1 = pts[i], p2 = pts[(i + 1) % pts.length]
+    const mid = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2]
+    const edge = { key: `edge-${i}`, points: flattenAndScale([p1, p2]) }
+    if (_pointOnFacadeSegments(mid, facades)) dashedEdges.push(edge)
+    else solidEdges.push(edge)
+  }
+  return { fillPoints: flattenAndScale(pts), solidEdges, dashedEdges }
+})
+
+const boundaryCirculationData = computed(() => {
+  if ((props.layout?.rooms?.length ?? 0) > 0) return []
+  const outline = props.layout?.outline || []
+  const circs = props.layout?.circulation || []
+  if (!circs.length) return []
+  const raw = outline.length > 2 &&
+    outline[0][0] === outline[outline.length - 1][0] &&
+    outline[0][1] === outline[outline.length - 1][1]
+    ? outline.slice(0, -1) : outline
+  const cx = raw.reduce((s, p) => s + p[0], 0) / (raw.length || 1)
+  const cy = raw.reduce((s, p) => s + p[1], 0) / (raw.length || 1)
+  return circs.map((c, i) => {
+    const geom = c.geometry
+    if (!geom || geom.length < 2) return null
+    const [p1, p2] = geom
+    const mx = (p1[0] + p2[0]) / 2
+    const my = (p1[1] + p2[1]) / 2
+    const dx = p2[0] - p1[0], dy = p2[1] - p1[1]
+    const len = Math.hypot(dx, dy)
+    if (len === 0) return null
+    const candA = [-dy, dx]
+    const inward = (candA[0] * (cx - mx) + candA[1] * (cy - my) > 0) ? candA : [dy, -dx]
+    const rotation = Math.atan2(inward[1], inward[0]) * 180 / Math.PI + 90
+    return {
+      key: `circ-${i}`,
+      x: mx * scale.value + offset.value.x,
+      y: my * scale.value + offset.value.y,
+      rotation,
+    }
+  }).filter(Boolean)
 })
 
 // Computed room render data — explicitly tracks props.viewMode so Vue re-evaluates
@@ -285,26 +349,6 @@ function getLabelY(geometry) {
   const [cx, cy] = getCentroid(geometry);
   return cy * scale.value + offset.value.y;
 }
-function buildPolygonRenderData(polygons, prefix) {
-  return (polygons || []).map((poly, i) => {
-    if (!Array.isArray(poly) || poly.length < 2) return null
-    const isClosed = poly.length > 2 &&
-      poly[0][0] === poly[poly.length - 1][0] &&
-      poly[0][1] === poly[poly.length - 1][1]
-    const pts = isClosed ? poly.slice(0, -1) : poly
-    // Centerline for 4-point rectangles: connect midpoints of the two short sides
-    let centerPoints = null
-    if (pts.length === 4) {
-      const [p0, p1, p2, p3] = pts
-      const d01 = Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
-      const d12 = Math.hypot(p2[0] - p1[0], p2[1] - p1[1])
-      centerPoints = d01 <= d12
-        ? flattenAndScale([[(p0[0]+p1[0])/2, (p0[1]+p1[1])/2], [(p2[0]+p3[0])/2, (p2[1]+p3[1])/2]])
-        : flattenAndScale([[(p1[0]+p2[0])/2, (p1[1]+p2[1])/2], [(p3[0]+p0[0])/2, (p3[1]+p0[1])/2]])
-    }
-    return { key: `${prefix}-${i}`, points: flattenAndScale(pts), centerPoints }
-  }).filter(Boolean)
-}
 
 function buildCurveRenderData(items) {
   return items.flatMap(item =>
@@ -324,7 +368,41 @@ function buildCurveRenderData(items) {
 
 const furnitureRenderData = computed(() => buildCurveRenderData(props.layout?.furniture || []))
 const doorsRenderData = computed(() => buildCurveRenderData(props.layout?.doors || []))
-const glassRenderData = computed(() => buildPolygonRenderData(props.layout?.glass, 'glass'))
+const windowsRenderData = computed(() => {
+  const rooms = props.layout?.rooms || []
+  const facades = props.layout?.facades || []
+  if (!facades.length || !rooms.length) return []
+  const result = []
+  let idx = 0
+  for (const room of rooms) {
+    const geom = room.geometry || []
+    if (geom.length < 3) continue
+    for (let i = 0; i < geom.length; i++) {
+      const p1 = geom[i], p2 = geom[(i + 1) % geom.length]
+      const mid = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2]
+      if (!_pointOnFacadeSegments(mid, facades)) continue
+      const dx = p2[0] - p1[0], dy = p2[1] - p1[1]
+      const len = Math.hypot(dx, dy)
+      if (len === 0) continue
+      const ax = dx / len, ay = dy / len      // along edge (unit)
+      const px = -ay * 0.07, py = ax * 0.07  // perpendicular half-thickness
+      const hw = len * 0.25                   // half-window = 25% of edge = 50% total
+      const [mx, my] = mid
+      const rect = [
+        [mx + ax * hw + px, my + ay * hw + py],
+        [mx + ax * hw - px, my + ay * hw - py],
+        [mx - ax * hw - px, my - ay * hw - py],
+        [mx - ax * hw + px, my - ay * hw + py],
+      ]
+      result.push({
+        key: `win-${idx++}`,
+        points: flattenAndScale(rect),
+        centerPoints: flattenAndScale([[mx - ax * hw, my - ay * hw], [mx + ax * hw, my + ay * hw]]),
+      })
+    }
+  }
+  return result
+})
 // 2-point straight lines in each door = the aperture crossing the wall
 const doorAperturesData = computed(() =>
   doorsRenderData.value.filter(c => !c.closed && c.points.length === 4)
@@ -542,15 +620,49 @@ watch(() => props.hoveredRoomId, id => {
   <div ref="wrapperRef" class="canvas-wrapper">
     <v-stage :config="stageConfig">
       <v-layer :key="`rooms-${props.viewMode}-${props.activeStep}`">
-        <!-- Boundary outline (shown when no rooms yet) -->
+        <!-- Boundary fill (no stroke — edges drawn separately to avoid overlap) -->
         <v-line
-          v-if="outlinePoints"
-          :points="outlinePoints"
+          v-if="boundaryData"
+          :points="boundaryData.fillPoints"
           :closed="true"
           fill="rgba(0,130,194,0.06)"
+          :strokeWidth="0"
+          :listening="false"
+        />
+        <!-- Non-facade edges: solid -->
+        <v-line
+          v-for="e in boundaryData?.solidEdges"
+          :key="e.key"
+          :points="e.points"
+          stroke="#0082c2"
+          :strokeWidth="2"
+          :listening="false"
+        />
+        <!-- Facade edges: dashed -->
+        <v-line
+          v-for="e in boundaryData?.dashedEdges"
+          :key="e.key"
+          :points="e.points"
           stroke="#0082c2"
           :strokeWidth="2"
           :dash="[8, 6]"
+          :listening="false"
+        />
+        <!-- Circulation side: inward-pointing triangle at midpoint -->
+        <v-regular-polygon
+          v-for="c in boundaryCirculationData"
+          :key="c.key"
+          :config="{
+            x: c.x,
+            y: c.y,
+            sides: 3,
+            radius: 8,
+            fill: '#0082c2',
+            stroke: 'white',
+            strokeWidth: 1.5,
+            rotation: c.rotation,
+            listening: false,
+          }"
         />
         <v-group
           v-for="room in roomRenderData"
@@ -659,15 +771,26 @@ watch(() => props.hoveredRoomId, id => {
           }"
         />
       </v-layer>
-      <!-- Windows layer (glass polygons from JSON) -->
-      <v-layer v-if="glassRenderData.length">
+      <!-- Windows layer (room edges on facade) -->
+      <v-layer v-if="windowsRenderData.length">
         <v-line
-          v-for="gl in glassRenderData"
-          :key="`gl-rect-${gl.key}`"
+          v-for="win in windowsRenderData"
+          :key="`win-rect-${win.key}`"
           :config="{
-            points: gl.points,
+            points: win.points,
             closed: true,
             fill: '#ffffff',
+            stroke: '#0082c2',
+            strokeWidth: 1.0,
+            listening: false,
+          }"
+        />
+        <v-line
+          v-for="win in windowsRenderData"
+          :key="`win-cl-${win.key}`"
+          :config="{
+            points: win.centerPoints,
+            closed: false,
             stroke: '#0082c2',
             strokeWidth: 1.0,
             listening: false,
