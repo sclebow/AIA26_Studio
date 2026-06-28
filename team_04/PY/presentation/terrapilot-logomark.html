@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>TerraPilot — Logo Marks</title>
+<!-- Four catchy logo-mark concepts, all on the interface theme (navy + cyan/violet).
+     Pick one. Each is a self-contained SVG you can export/crop. -->
+<style>
+  :root{--bg:#070b14;--cyan:#28e0d0;--cyan2:#57f2e6;--violet:#7c7bff;--ink:#eaf2ff;--muted:#8b97ad;}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{min-height:100vh;background:
+      radial-gradient(900px 600px at 50% 30%,rgba(40,224,208,0.08),transparent 60%),
+      radial-gradient(800px 600px at 80% 85%,rgba(124,123,255,0.10),transparent 60%),var(--bg);
+    font-family:"Segoe UI",system-ui,sans-serif;color:var(--ink);padding:48px;}
+  h1{font-size:22px;letter-spacing:.18em;color:var(--cyan2);font-weight:700;margin-bottom:6px;text-align:center}
+  .sub{color:var(--muted);text-align:center;margin-bottom:40px;font-size:14px}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:38px;max-width:920px;margin:0 auto;}
+  .card{background:rgba(13,20,36,0.55);border:1px solid rgba(120,160,220,0.16);border-radius:20px;
+    padding:34px 28px;display:flex;flex-direction:column;align-items:center;gap:18px;
+    backdrop-filter:blur(8px);transition:transform .3s,border-color .3s;}
+  .card:hover{transform:translateY(-4px);border-color:rgba(40,224,208,0.4)}
+  .name{font-size:16px;font-weight:700}.name b{color:var(--cyan2)}
+  .desc{font-size:12.5px;color:var(--muted);text-align:center;line-height:1.5}
+  svg{display:block;overflow:visible}
+  /* a soft idle pulse so the marks feel alive */
+  .pulse{animation:pulse 3s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+  @keyframes pulse{0%,100%{filter:drop-shadow(0 0 4px rgba(40,224,208,.4))}50%{filter:drop-shadow(0 0 14px rgba(87,242,230,.9))}}
+  .spin{animation:spin 9s linear infinite;transform-box:fill-box;transform-origin:center}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<h1>TERRAPILOT — LOGO MARKS</h1>
+<div class="sub">four catchy concepts on the interface theme · pick one</div>
+
+<div class="grid">
+
+  <!-- ====== 1. PIN-TOWER : a location pin whose point is a building ====== -->
+  <div class="card">
+    <svg width="150" height="150" viewBox="0 0 150 150">
+      <defs>
+        <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#57f2e6"/><stop offset="1" stop-color="#7c7bff"/></linearGradient>
+      </defs>
+      <!-- map pin silhouette -->
+      <path class="pulse" d="M75 18 C100 18 118 38 118 62 C118 92 75 132 75 132 C75 132 32 92 32 62 C32 38 50 18 75 18 Z"
+            fill="none" stroke="url(#g1)" stroke-width="4"/>
+      <!-- building inside the pin (3 stepped floors = the stack) -->
+      <g fill="#28e0d0">
+        <rect x="58" y="74" width="34" height="14" rx="2"/>
+        <rect x="62" y="60" width="26" height="12" rx="2" opacity=".9"/>
+        <rect x="66" y="48" width="18" height="10" rx="2" opacity=".8"/>
+      </g>
+      <!-- pilot tip -->
+      <polygon points="75,34 84,48 66,48" fill="#57f2e6"/>
+    </svg>
+    <div class="name">1 · <b>Pin-Tower</b></div>
+    <div class="desc">A location pin whose core is a rising building. Reads instantly as "architecture, on a real site."</div>
+  </div>
+
+  <!-- ====== 2. NAV-STACK : a pilot/navigation chevron over floor plates ====== -->
+  <div class="card">
+    <svg width="150" height="150" viewBox="0 0 150 150">
+      <defs>
+        <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#57f2e6"/><stop offset="1" stop-color="#28e0d0"/></linearGradient>
+      </defs>
+      <!-- orbit ring (context) -->
+      <circle class="spin" cx="75" cy="75" r="60" fill="none" stroke="rgba(124,123,255,.4)" stroke-width="2" stroke-dasharray="4 8"/>
+      <!-- floor plates -->
+      <g fill="url(#g2)">
+        <rect x="45" y="92" width="60" height="13" rx="3"/>
+        <rect x="52" y="76" width="46" height="13" rx="3" opacity=".92"/>
+        <rect x="59" y="60" width="32" height="13" rx="3" opacity=".85"/>
+      </g>
+      <!-- double pilot chevron (navigation / "go up") -->
+      <g class="pulse" fill="none" stroke="#57f2e6" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="58,52 75,34 92,52"/>
+        <polyline points="63,42 75,28 87,42" opacity=".6"/>
+      </g>
+    </svg>
+    <div class="name">2 · <b>Nav-Stack</b></div>
+    <div class="desc">A pilot's navigation chevron lifting a floor-plate stack, ringed by the site. Dynamic + techy.</div>
+  </div>
+
+  <!-- ====== 3. TERRA-T : a bold monogram T built from a building + triangle ====== -->
+  <div class="card">
+    <svg width="150" height="150" viewBox="0 0 150 150">
+      <defs>
+        <linearGradient id="g3" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#57f2e6"/><stop offset="1" stop-color="#7c7bff"/></linearGradient>
+      </defs>
+      <rect x="22" y="22" width="106" height="106" rx="26" fill="none" stroke="url(#g3)" stroke-width="3" opacity=".55"/>
+      <!-- the 'T' : top bar = horizon/site, stem = tower -->
+      <rect x="42" y="44" width="66" height="13" rx="3" fill="#57f2e6" class="pulse"/>
+      <rect x="68" y="44" width="14" height="64" rx="3" fill="#28e0d0"/>
+      <!-- pilot triangle capping the stem -->
+      <polygon points="75,30 88,46 62,46" fill="#7c7bff"/>
+      <!-- ground/site dot -->
+      <circle cx="75" cy="116" r="6" fill="#57f2e6"/>
+    </svg>
+    <div class="name">3 · <b>Terra-T</b></div>
+    <div class="desc">A clean monogram: the "T" as a tower on a horizon, topped by the pilot triangle. App-icon ready.</div>
+  </div>
+
+  <!-- ====== 4. COMPASS-PLATE : a courtyard plate as a compass (the signature feature) ====== -->
+  <div class="card">
+    <svg width="150" height="150" viewBox="0 0 150 150">
+      <defs>
+        <linearGradient id="g4" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#57f2e6"/><stop offset="1" stop-color="#28e0d0"/></linearGradient>
+      </defs>
+      <!-- rotating compass ring -->
+      <circle class="spin" cx="75" cy="75" r="58" fill="none" stroke="rgba(124,123,255,.45)" stroke-width="2" stroke-dasharray="3 9"/>
+      <!-- floor plate (square) with a courtyard hole -> reads as architecture -->
+      <path class="pulse" fill="url(#g4)" fill-rule="evenodd"
+            d="M42 42 H108 V108 H42 Z  M63 63 H87 V87 H63 Z"/>
+      <!-- N pilot needle -->
+      <polygon points="75,20 83,40 67,40" fill="#7c7bff"/>
+      <polygon points="75,130 83,110 67,110" fill="rgba(124,123,255,.5)"/>
+    </svg>
+    <div class="name">4 · <b>Courtyard-Compass</b></div>
+    <div class="desc">A floor plate with a real courtyard cutout, set in a compass — your signature feature + site-orientation.</div>
+  </div>
+
+</div>
+</body>
+</html>

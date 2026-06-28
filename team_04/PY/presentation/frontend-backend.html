@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TerraPilot · Frontend &amp; Backend</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:#070b18;color:#e8edf7;
+    font-family:-apple-system,"Segoe UI",Inter,Roboto,system-ui,sans-serif;
+    display:flex;align-items:center;justify-content:center;min-height:100vh;overflow:hidden;
+  }
+  .bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(90,140,210,.06) 1px,transparent 1px),
+                     linear-gradient(90deg,rgba(90,140,210,.06) 1px,transparent 1px);
+    background-size:46px 46px;animation:drift 18s linear infinite;}
+  @keyframes drift{to{background-position:46px 46px,46px 46px}}
+  .bg-glow{position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:radial-gradient(900px 600px at 72% 18%,rgba(60,160,255,.10),transparent 60%),
+               radial-gradient(800px 600px at 18% 95%,rgba(124,123,255,.10),transparent 60%);}
+  #stars{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+  .slide{position:relative;z-index:2;width:min(1240px,94vw);padding:3.5vh 4vw;}
+  .kicker{font-size:.8rem;letter-spacing:.22em;text-transform:uppercase;color:#5fd1c3;font-weight:700;margin-bottom:.7rem}
+  h2{font-size:clamp(1.5rem,3.4vw,2.5rem);font-weight:800;line-height:1.12;margin-bottom:.4rem;
+     border:1px solid rgba(90,140,210,.25);border-radius:12px;padding:.7rem 1.1rem;}
+  .hl{color:#57f2e6}
+
+  .cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.4rem;margin-top:2.6vh;align-items:start}
+  .col{border:1px solid rgba(120,160,220,.22);border-radius:16px;padding:1.1rem;background:rgba(20,30,55,.35);
+       opacity:0;transform:translateY(14px);animation:in .55s cubic-bezier(.22,.61,.36,1) forwards}
+  .col:nth-child(2){animation-delay:.14s}.col:nth-child(3){animation-delay:.28s}
+  @keyframes in{to{opacity:1;transform:none}}
+  .head{font-weight:800;font-size:1.02rem;border-radius:8px;padding:.5rem .8rem;margin-bottom:.9rem;color:#06121f}
+  .head.fe{background:#57f2e6}.head.be{background:#5bf0a0}.head.ag{background:#9b8bff}
+  .item{border:1px solid rgba(120,160,220,.22);border-radius:10px;padding:.62rem .8rem;margin:.5rem 0;
+        font-size:.92rem;line-height:1.25}
+  .item b{color:#dfe7f6}
+  .item small{display:block;color:#8a96b4;font-size:.78rem;margin-top:.15rem}
+  .col.fe .item{border-color:rgba(87,242,230,.28)}
+  .col.be .item{border-color:rgba(91,240,160,.26)}
+  .col.ag .item{border-color:rgba(155,139,255,.30)}
+  .note{margin-top:2vh;color:#8a96b4;font-size:.82rem}
+  .note b{color:#7fe6da}
+</style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="bg-grid"></div>
+  <canvas id="stars"></canvas>
+
+  <section class="slide">
+    <div class="kicker">Under Hood</div>
+    <h2>How the <span class="hl">Frontend</span> &amp; <span class="hl">Backend</span> work together</h2>
+
+    <div class="cols">
+      <!-- FRONTEND -->
+      <div class="col fe">
+        <div class="head fe">FRONTEND &middot; Vanilla JS</div>
+        <div class="item"><b>Decision Graph</b> &middot; custom SVG/JS<small>decisionGraphView.js &mdash; reasoning steps, live</small></div>
+        <div class="item"><b>Site Plan</b> &middot; 3D canvas with setbacks<small>viewerView.js &mdash; floor-plate massing + buildable zone</small></div>
+        <div class="item"><b>Explorer tree</b><small>Site &rarr; building wings &rarr; saved &amp; optimized options</small></div>
+        <div class="item"><b>Copilot chat + clarify</b><small>copilotClient.js routes intent &middot; copilotQA answers questions</small></div>
+        <div class="item"><b>Single store</b> &middot; UI reacts to state<small>core/store.js &mdash; one source of truth</small></div>
+      </div>
+
+      <!-- BACKEND -->
+      <div class="col be">
+        <div class="head be">BACKEND &middot; FastAPI</div>
+        <div class="item"><b>/sessions</b> &middot; CRUD state</div>
+        <div class="item"><b>/chat</b> &middot; SSE stream<small>StreamingResponse &rarr; EventSource</small></div>
+        <div class="item"><b>/decisions + /select</b></div>
+        <div class="item"><b>/feedback</b> &middot; manipulation + self-debug</div>
+        <div class="item"><b>/tools/&#123;name&#125;</b> &middot; direct invoke</div>
+        <div class="item"><b>Session store</b> &middot; in-memory</div>
+        <div class="item"><b>Agent runtime</b></div>
+      </div>
+
+      <!-- AGENT -->
+      <div class="col ag">
+        <div class="head ag">AGENT &middot; LangGraph</div>
+        <div class="item"><b>astream events</b> &middot; reactive ReAct loop<small>agent/graph.py &mdash; StateGraph</small></div>
+        <div class="item"><b>Decision engine</b> &middot; LLM<small>Gemini 2.5 Flash &rarr; Cloudflare Qwen3 fallback (OpenAI-compatible API)</small></div>
+        <div class="item"><b>Local Python tools</b><small>boundary gen, setbacks, optimize, validate</small></div>
+      </div>
+    </div>
+
+    <div class="note">Frontend reacts to <b>state</b> &middot; backend streams <b>decisions</b> over SSE &middot; the LangGraph agent reasons, calls Python tools, and writes results back to shared state.</div>
+  </section>
+
+<script>
+  const c=document.getElementById('stars'),x=c.getContext('2d');
+  function size(){c.width=innerWidth;c.height=innerHeight;}
+  size();addEventListener('resize',size);
+  const stars=Array.from({length:90},()=>({x:Math.random(),y:Math.random(),
+    r:Math.random()*1.4+.3,a:Math.random()*.5+.2}));
+  (function loop(t){
+    x.clearRect(0,0,c.width,c.height);
+    for(const st of stars){
+      const tw=st.a+Math.sin(t/700+st.x*12)*.2;
+      x.beginPath();x.arc(st.x*c.width,st.y*c.height,st.r,0,7);
+      x.fillStyle=`rgba(150,190,255,${Math.max(0,tw)})`;x.fill();
+    }
+    requestAnimationFrame(loop);
+  })(0);
+</script>
+</body>
+</html>

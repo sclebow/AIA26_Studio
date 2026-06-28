@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TerraPilot · Under the Hood</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:#070b18;color:#e8edf7;
+    font-family:-apple-system,"Segoe UI",Inter,Roboto,system-ui,sans-serif;overflow:hidden;
+  }
+  .bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(90,140,210,.06) 1px,transparent 1px),
+                     linear-gradient(90deg,rgba(90,140,210,.06) 1px,transparent 1px);
+    background-size:46px 46px;animation:drift 18s linear infinite;}
+  @keyframes drift{to{background-position:46px 46px,46px 46px}}
+  .bg-glow{position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:radial-gradient(900px 600px at 72% 18%,rgba(60,160,255,.10),transparent 60%),
+               radial-gradient(800px 600px at 18% 95%,rgba(124,123,255,.10),transparent 60%);}
+  #stars{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+  /* deck slides */
+  .slide{position:absolute;inset:0;z-index:2;display:none;flex-direction:column;
+         align-items:center;justify-content:center;padding:3vh 4vw;}
+  .slide.active{display:flex;animation:sin .5s cubic-bezier(.22,.61,.36,1) both}
+  @keyframes sin{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+  .inner{width:min(1280px,95vw)}
+
+  .kicker{font-size:.8rem;letter-spacing:.22em;text-transform:uppercase;color:#5fd1c3;font-weight:700;margin-bottom:.7rem}
+  h2{font-size:clamp(1.4rem,3.2vw,2.4rem);font-weight:800;line-height:1.12;margin-bottom:.3rem}
+  .hl{color:#57f2e6}
+  .sub{color:#8a96b4;font-size:.92rem;margin-bottom:2vh}
+
+  /* slide 1 — architecture */
+  .cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.4rem;margin-top:2.4vh;align-items:start}
+  .col{border:1px solid rgba(120,160,220,.22);border-radius:16px;padding:1.1rem;background:rgba(20,30,55,.35)}
+  .head{font-weight:800;font-size:1.02rem;border-radius:8px;padding:.5rem .8rem;margin-bottom:.9rem;color:#06121f}
+  .head.fe{background:#57f2e6}.head.be{background:#5bf0a0}.head.ag{background:#9b8bff}
+  .item{border:1px solid rgba(120,160,220,.22);border-radius:10px;padding:.6rem .8rem;margin:.5rem 0;font-size:.9rem;line-height:1.25}
+  .item b{color:#dfe7f6}.item small{display:block;color:#8a96b4;font-size:.76rem;margin-top:.15rem}
+  .col.fe .item{border-color:rgba(87,242,230,.28)}
+  .col.be .item{border-color:rgba(91,240,160,.26)}
+  .col.ag .item{border-color:rgba(155,139,255,.30)}
+  .note{margin-top:2vh;color:#8a96b4;font-size:.82rem}.note b{color:#7fe6da}
+
+  /* slide 2 — backend output */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin-top:1.6vh}
+  figure{border:1px solid rgba(120,160,220,.22);border-radius:14px;overflow:hidden;
+         background:rgba(20,30,55,.35);display:flex;flex-direction:column}
+  figure.wide{grid-column:1 / -1}
+  .imgwrap{background:#0c1322;display:flex;align-items:center;justify-content:center;padding:.45rem}
+  img{max-width:100%;max-height:260px;display:block;object-fit:contain}
+  figure.wide img{max-height:220px}
+  figcaption{padding:.55rem .85rem;border-top:1px solid rgba(120,160,220,.16)}
+  figcaption b{color:#dfe7f6;font-size:.9rem}
+  figcaption small{display:block;color:#8a96b4;font-size:.74rem;margin-top:.12rem}
+  .used{margin-top:.4rem;display:flex;flex-wrap:wrap;gap:.32rem}
+  .used .t{font-size:.66rem;font-weight:700;color:#9fe8dd;border:1px solid rgba(87,242,230,.32);
+    background:rgba(40,224,208,.07);border-radius:6px;padding:.1rem .42rem}
+  .used .lbl{font-size:.66rem;color:#6f7c98;align-self:center}
+
+  /* nav */
+  .nav{position:fixed;bottom:2vh;right:3vw;z-index:6;display:flex;gap:.6rem;align-items:center;
+       color:#8a96b4;font-size:.82rem}
+  .nav button{background:rgba(40,224,208,.1);border:1px solid rgba(87,242,230,.4);color:#9fe8dd;
+       border-radius:8px;padding:.35rem .7rem;cursor:pointer;font-weight:700}
+  .dots{position:fixed;bottom:2.4vh;left:50%;transform:translateX(-50%);z-index:6;display:flex;gap:.5rem}
+  .dots i{width:8px;height:8px;border-radius:50%;background:rgba(150,180,230,.3)}
+  .dots i.on{background:#57f2e6}
+</style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="bg-grid"></div>
+  <canvas id="stars"></canvas>
+
+  <!-- SLIDE 1 — Architecture -->
+  <section class="slide active">
+    <div class="inner">
+      <div class="kicker">Under Hood &middot; 1 / 2</div>
+      <h2>How the <span class="hl">Frontend</span> &amp; <span class="hl">Backend</span> work together</h2>
+      <div class="cols">
+        <div class="col fe">
+          <div class="head fe">FRONTEND &middot; Vanilla JS</div>
+          <div class="item"><b>Decision Graph</b> &middot; custom SVG/JS<small>decisionGraphView.js</small></div>
+          <div class="item"><b>Site Plan</b> &middot; 3D canvas + setbacks<small>viewerView.js</small></div>
+          <div class="item"><b>Explorer tree</b><small>site &rarr; wings &rarr; saved/optimized</small></div>
+          <div class="item"><b>Copilot chat + clarify</b><small>copilotClient.js &middot; copilotQA</small></div>
+          <div class="item"><b>Single store</b><small>core/store.js &mdash; UI reacts to state</small></div>
+        </div>
+        <div class="col be">
+          <div class="head be">BACKEND &middot; FastAPI</div>
+          <div class="item"><b>/sessions</b> &middot; CRUD state</div>
+          <div class="item"><b>/chat</b> &middot; SSE stream</div>
+          <div class="item"><b>/decisions + /select</b></div>
+          <div class="item"><b>/feedback</b> &middot; manipulation + self-debug</div>
+          <div class="item"><b>/tools/&#123;name&#125;</b> &middot; direct invoke</div>
+          <div class="item"><b>Session store</b> &middot; in-memory</div>
+        </div>
+        <div class="col ag">
+          <div class="head ag">AGENT &middot; LangGraph</div>
+          <div class="item"><b>astream events</b> &middot; reactive ReAct<small>agent/graph.py &mdash; StateGraph</small></div>
+          <div class="item"><b>Decision engine</b> &middot; LLM<small>Gemini 2.5 Flash &rarr; Cloudflare Qwen3 fallback</small></div>
+          <div class="item"><b>Local Python tools</b><small>boundary, setbacks, optimize, validate</small></div>
+        </div>
+      </div>
+      <div class="note">Frontend reacts to <b>state</b> &middot; backend streams <b>decisions</b> over SSE &middot; the LangGraph agent reasons, calls Python tools, and writes results back to shared state.</div>
+    </div>
+  </section>
+
+  <!-- SLIDE 2 — Real backend output -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Under Hood &middot; 2 / 2 &middot; Proof</div>
+      <h2>Real <span class="hl">backend output</span> &mdash; not mockups</h2>
+      <div class="sub">Every chart is generated by the same Python tools the live interface calls.</div>
+      <div class="grid">
+        <figure>
+          <div class="imgwrap"><img src="notebook_07_site_setbacks_buildable_zone.png" alt="Site setbacks"></div>
+          <figcaption><b>Site setbacks &rarr; buildable zone</b><small>The dashed setback line in the 3D viewer.</small>
+            <div class="used"><span class="lbl">used:</span><span class="t">Shapely</span><span class="t">site_setback</span><span class="t">compute_buildable_zone</span></div></figcaption>
+        </figure>
+        <figure>
+          <div class="imgwrap"><img src="notebook_03_pareto_free_shape_placements.png" alt="Placement sweep"></div>
+          <figcaption><b>Placement sweep + Pareto front</b><small>NSGA-II searches valid placements.</small>
+            <div class="used"><span class="lbl">used:</span><span class="t">pymoo NSGA-II</span><span class="t">sample_valid_placements</span><span class="t">matplotlib</span></div></figcaption>
+        </figure>
+        <figure class="wide">
+          <div class="imgwrap"><img src="notebook_05_per_objective_b1_vs_b2.png" alt="Per-objective scores"></div>
+          <figcaption><b>Per-objective scoring</b><small>Drives the ranking &amp; the comparison table.</small>
+            <div class="used"><span class="lbl">used:</span><span class="t">view_optimizer</span><span class="t">multi-objective scorers</span><span class="t">matplotlib</span></div></figcaption>
+        </figure>
+        <figure class="wide">
+          <div class="imgwrap"><img src="notebook_08_pareto_with_setbacks_clearance.png" alt="Pareto with setbacks"></div>
+          <figcaption><b>Top Pareto solutions &mdash; setbacks + 6 m clearance</b><small>Two-building optimization respecting clearance.</small>
+            <div class="used"><span class="lbl">used:</span><span class="t">pymoo NSGA-II</span><span class="t">optimize_two_building_placement</span><span class="t">Shapely</span></div></figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <div class="dots"><i class="on"></i><i></i></div>
+  <div class="nav"><button id="prev">←</button><span id="counter">1 / 2</span><button id="next">→</button></div>
+
+<script>
+  // starfield
+  const c=document.getElementById('stars'),x=c.getContext('2d');
+  function size(){c.width=innerWidth;c.height=innerHeight;}
+  size();addEventListener('resize',size);
+  const stars=Array.from({length:90},()=>({x:Math.random(),y:Math.random(),r:Math.random()*1.4+.3,a:Math.random()*.5+.2}));
+  (function loop(t){x.clearRect(0,0,c.width,c.height);
+    for(const st of stars){const tw=st.a+Math.sin(t/700+st.x*12)*.2;
+      x.beginPath();x.arc(st.x*c.width,st.y*c.height,st.r,0,7);
+      x.fillStyle=`rgba(150,190,255,${Math.max(0,tw)})`;x.fill();}
+    requestAnimationFrame(loop);})(0);
+
+  // deck nav
+  const slides=[...document.querySelectorAll('.slide')];
+  const dots=[...document.querySelectorAll('.dots i')];
+  let i=0;
+  function go(n){i=Math.max(0,Math.min(slides.length-1,n));
+    slides.forEach((s,k)=>s.classList.toggle('active',k===i));
+    dots.forEach((d,k)=>d.classList.toggle('on',k===i));
+    document.getElementById('counter').textContent=`${i+1} / ${slides.length}`;}
+  document.getElementById('next').onclick=()=>go(i+1);
+  document.getElementById('prev').onclick=()=>go(i-1);
+  addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key===' ')go(i+1);
+    if(e.key==='ArrowLeft')go(i-1);
+    if(e.key.toLowerCase()==='f')document.documentElement.requestFullscreen?.();});
+  addEventListener('click',e=>{ if(e.target.closest('.nav')||e.target.closest('a'))return;
+    if(e.clientX>innerWidth*0.6)go(i+1); else if(e.clientX<innerWidth*0.4)go(i-1);});
+</script>
+</body>
+</html>

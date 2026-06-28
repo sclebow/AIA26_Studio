@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TerraPilot — Agent State Graph</title>
+<!--
+  DETAILED + ACCURATE diagram of the agent's real LangGraph workflow.
+  Drawn STRICTLY from team_04/agent/graph.py — every node/edge exists in that file:
+    START -> planner -> {central_reason | finish}
+    central_reason fans out to 11 real branches (the add_conditional_edges map)
+    8 action branches loop back to planner; await_human & report -> finish -> END
+  The friendly sub-labels + descriptions are derived from each node's real builder
+  function (_build_constraint_node, _build_evaluation_node, etc). No invented nodes.
+  Standalone — not part of the interface or the presentation.
+-->
+<style>
+  :root{
+    --bg:#0e1117; --bg2:#141925; --grid:rgba(120,150,200,0.05);
+    --ink:#e6edf7; --muted:#8b97ad;
+    --cyan:#28e0d0; --cyan2:#57f2e6; --violet:#8b8bff; --violet2:#a9a9ff;
+    --red:#ff5d5d; --amber:#ffb454; --green:#57e08a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{min-height:100%;background:
+      radial-gradient(1100px 700px at 50% 8%, rgba(40,224,208,0.06), transparent 60%),
+      radial-gradient(900px 600px at 80% 90%, rgba(139,139,255,0.07), transparent 60%),
+      var(--bg);
+    font-family:"Segoe UI",system-ui,sans-serif;color:var(--ink);}
+  .grid{position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),
+      linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:40px 40px;
+    mask-image:radial-gradient(circle at 50% 40%, black, transparent 92%);}
+  .wrap{position:relative;z-index:1;padding:26px 30px 60px;}
+  .head{text-align:center;margin-bottom:8px;}
+  h1{font-size:2.3rem;font-weight:800;letter-spacing:.18em;
+     background:linear-gradient(110deg,#fff,var(--cyan2) 55%,var(--violet2));
+     -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  .sub{color:var(--muted);font-size:.92rem;margin-top:4px;}
+  .sub code{background:rgba(120,150,200,0.12);padding:2px 7px;border-radius:5px;color:var(--cyan2);}
+  svg{width:100%;height:auto;display:block;}
+  .legend{display:flex;gap:1.5rem;justify-content:center;flex-wrap:wrap;
+     margin-top:18px;font-size:.84rem;color:var(--muted);}
+  .legend span{display:inline-flex;align-items:center;gap:.45rem;}
+  .dot{width:13px;height:13px;border-radius:4px;display:inline-block;}
+  .dot.terminal{background:#5a6577}
+  .dot.control{background:rgba(255,93,93,0.35);border:1px solid var(--red)}
+  .dot.hub{background:var(--red)}
+  .dot.action{background:rgba(139,139,255,0.30);border:1px solid var(--violet)}
+  .dot.exit{background:rgba(87,224,138,0.30);border:1px solid var(--green)}
+  .dot.loop{background:transparent;border:1px dashed var(--violet2);border-radius:2px}
+  .phase-tag{font-size:.72rem;letter-spacing:.22em;font-weight:700;text-transform:uppercase;}
+  /* dashed loop-back lines visibly flow toward the planner */
+  .loopflow{animation:loopdash 1.1s linear infinite;}
+  @keyframes loopdash{to{stroke-dashoffset:-20;}}
+  /* the central hub breathes */
+  #hubrect{animation:hubpulse 2.4s ease-in-out infinite;transform-box:fill-box;transform-origin:center;}
+  @keyframes hubpulse{0%,100%{filter:drop-shadow(0 0 6px rgba(255,93,93,0.45));}
+    50%{filter:drop-shadow(0 0 16px rgba(255,93,93,0.85));}}
+  @media (prefers-reduced-motion: reduce){
+    .loopflow,#hubrect{animation:none;} circle animateMotion{display:none;}
+  }
+</style>
+</head>
+<body>
+<div class="grid"></div>
+<div class="wrap">
+  <div class="head">
+    <h1>STATE GRAPH</h1>
+    <div class="sub">how every prompt flows through the TerraPilot agent — drawn from <code>agent/graph.py</code></div>
+  </div>
+  <svg id="svg" viewBox="0 0 1900 1140" preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="legend">
+    <span><i class="dot terminal"></i> START / END</span>
+    <span><i class="dot control"></i> Control · planner</span>
+    <span><i class="dot hub"></i> Central reasoning hub</span>
+    <span><i class="dot action"></i> Action node</span>
+    <span><i class="dot loop"></i> Loops back to planner</span>
+    <span><i class="dot exit"></i> Exit path</span>
+  </div>
+</div>
+<script>
+const NS="http://www.w3.org/2000/svg";
+
+// === Every node is REAL (agent/graph.py). icon + desc derived from its builder fn. ===
+const NODES=[
+  {id:"START", label:"START", x:950, y:60, kind:"terminal", icon:"▶", desc:"a user prompt arrives"},
+  {id:"planner", label:"planner", x:950, y:175, kind:"control", icon:"🗒",
+     desc:"builds / refreshes the task plan"},
+  {id:"central_reason", label:"central_reason", x:950, y:310, kind:"hub", icon:"🧠",
+     desc:"supervisor — picks the next action"},
+  // 11 real branches from central_reason's conditional edges.
+  // Top action row (5). `writes` = the real state field this node updates (the result
+  // that travels back through planner to the next step — that's how nodes "connect").
+  {id:"read_site", label:"read_site", x:230, y:560, kind:"action", icon:"📍",
+     desc:"reads the site context", writes:"site_context  ↑ planner"},
+  {id:"generate_shape", label:"generate_shape", x:570, y:560, kind:"action", icon:"◈",
+     desc:"creates a building footprint", writes:"shape_context · geometry_id  ↑ planner"},
+  {id:"check_requested_position", label:"check_requested_position", x:950, y:560, kind:"action", icon:"🎯",
+     desc:"checks the asked-for position", writes:"requested_position_assessment  ↑ planner"},
+  {id:"check_constraints", label:"check_constraints", x:1340, y:560, kind:"action", icon:"🛡",
+     desc:"runs constraint tools, collects violations", writes:"violations  ↑ planner"},
+  {id:"optimize", label:"optimize", x:1690, y:560, kind:"action", icon:"⚙",
+     desc:"runs the optimizer on the geometry", writes:"shape_context · geometry_id  ↑ planner"},
+  // Second action row (5):
+  {id:"evaluate", label:"evaluate", x:230, y:710, kind:"action", icon:"📊",
+     desc:"scores the current design", writes:"evaluation_results  ↑ planner"},
+  {id:"place_building", label:"place_building", x:570, y:710, kind:"action", icon:"🏗",
+     desc:"fits + imports the building onto the site", writes:"placed_buildings  ↑ planner"},
+  {id:"analyze_remaining_positions", label:"analyze_remaining_positions", x:980, y:710, kind:"action", icon:"🔎",
+     desc:"finds the next building spot", writes:"remaining_candidate_positions  ↑ planner"},
+  {id:"await_human", label:"await_human", x:1380, y:710, kind:"action", icon:"👤",
+     desc:"pauses to ask the user a question", writes:"human_request → finish"},
+  {id:"report", label:"report", x:1690, y:710, kind:"action", icon:"📝",
+     desc:"writes the final design report", writes:"final_response → finish"},
+  {id:"finish", label:"finish", x:950, y:920, kind:"control", icon:"✓",
+     desc:"workflow complete"},
+  {id:"END", label:"END", x:950, y:1040, kind:"terminal", icon:"■", desc:"response returned"},
+];
+
+// === Every edge is REAL (agent/graph.py) ===
+const EDGES=[
+  ["START","planner"],
+  ["planner","central_reason"],
+  ["planner","finish","finish"],
+  ["central_reason","read_site"],["central_reason","generate_shape"],
+  ["central_reason","check_requested_position"],["central_reason","check_constraints"],
+  ["central_reason","optimize"],["central_reason","evaluate"],
+  ["central_reason","place_building"],["central_reason","analyze_remaining_positions"],
+  ["central_reason","await_human"],["central_reason","report"],
+  ["central_reason","finish","finish"],
+  ["read_site","planner","loop"],["generate_shape","planner","loop"],
+  ["check_requested_position","planner","loop"],["check_constraints","planner","loop"],
+  ["optimize","planner","loop"],["evaluate","planner","loop"],
+  ["place_building","planner","loop"],["analyze_remaining_positions","planner","loop"],
+  ["await_human","finish"],["report","finish"],["finish","END"],
+];
+
+// Per-branch colour: each action node gets ONE colour shared by its hub→node edge,
+// its node→planner loop-back edge, and its flowing dot — so a single path can be
+// traced by colour even where lines cross. Keyed by the action node id.
+const BRANCH_COLOR={
+  read_site:"#28e0d0", generate_shape:"#7c7bff", check_requested_position:"#ffb454",
+  check_constraints:"#ff8fa3", optimize:"#57e08a", evaluate:"#57f2e6",
+  place_building:"#c08bff", analyze_remaining_positions:"#ffd166",
+  await_human:"#5ec8ff", report:"#ff9e6b",
+};
+// for an edge, return the branch colour if either end is an action node, else null
+function branchColor(f,t){
+  return BRANCH_COLOR[t] || BRANCH_COLOR[f] || null;
+}
+function hexA(hex,a){ // hex -> rgba string
+  const n=parseInt(hex.slice(1),16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+}
+
+// phase bands (visual grouping only — does not change the real graph)
+const PHASES=[
+  {label:"PERCEIVE & PLAN", y0:30,  y1:245,  color:"rgba(40,224,208,0.05)", tcol:"#2ec8bb"},
+  {label:"REASON",          y0:255, y1:420,  color:"rgba(255,93,93,0.05)",  tcol:"#ff7d7d"},
+  {label:"ACT — tools the supervisor can call", y0:430, y1:790, color:"rgba(139,139,255,0.05)", tcol:"#9b9bff"},
+  {label:"FINISH",          y0:880, y1:1080, color:"rgba(87,224,138,0.05)", tcol:"#57e08a"},
+];
+
+const FILL={
+  terminal:["rgba(90,101,119,0.25)","#7e8aa3","#c8d3e6"],
+  control: ["rgba(255,93,93,0.14)","rgba(255,93,93,0.55)","#ffc4c4"],
+  hub:     ["#ff5d5d","#ff8d8d","#fff"],
+  action:  ["rgba(139,139,255,0.12)","rgba(139,139,255,0.55)","#cfd2ff"],
+};
+const svg=document.getElementById("svg");
+const by=id=>NODES.find(n=>n.id===id);
+// per-node height: a node with a `writes` line is taller to fit the 3rd row.
+function nodeH(n){ return n.writes ? 70 : 54; }
+// width must fit the WIDEST of label / description / writes line, plus the icon gutter.
+function nodeW(n){
+  if(n.kind==="terminal") return 120;
+  const nameW  = (n.label||"").length * (n.kind==="hub"?9.6:8.0);
+  const descW  = (n.desc||"").length * 6.0;
+  const writeW = (n.writes? ("writes "+n.writes).length*5.8 : 0);
+  return Math.max(180, 42 + Math.max(nameW, descW, writeW) + 24);
+}
+
+function mk(tag,at,parent){const e=document.createElementNS(NS,tag);
+  for(const k in at)e.setAttribute(k,at[k]);(parent||svg).appendChild(e);return e;}
+
+function edgePath(a,b,kind){
+  const aw=nodeW(a),bw=nodeW(b);
+  if(kind==="loop"||b.y<a.y){              // upward → side route back to planner
+    const a2=a.x-aw/2, b2=b.x-bw/2, off=70+Math.abs(a.x-b.x)*0.10;
+    return `M${a2},${a.y} C${a2-off},${a.y} ${b2-off},${b.y} ${b2},${b.y}`;
+  }
+  const ay=a.y+nodeH(a)/2, byy=b.y-nodeH(b)/2, my=(ay+byy)/2;
+  return `M${a.x},${ay} C${a.x},${my} ${b.x},${my} ${b.x},${byy}`;
+}
+
+// defs: arrowhead + soft glow
+const defs=mk("defs",{});
+defs.innerHTML=`
+  <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#7b86a0"/></marker>
+  <marker id="arrloop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#9b9bff"/></marker>
+  <marker id="arrexit" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#57e08a"/></marker>
+  <filter id="glow"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <filter id="dotglow" x="-300%" y="-300%" width="700%" height="700%">
+    <feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
+
+// phase bands
+for(const p of PHASES){
+  mk("rect",{x:30,y:p.y0,width:1840,height:p.y1-p.y0,rx:14,fill:p.color,
+    stroke:"rgba(120,150,200,0.10)","stroke-width":1});
+  mk("text",{x:48,y:p.y0+22,fill:p.tcol,"font-size":13,"font-weight":700,
+    "letter-spacing":"0.18em"}).textContent=p.label;
+  // clarify the FINISH rule right on its band
+  if(p.label==="FINISH"){
+    mk("text",{x:48,y:p.y0+42,fill:"#7e8aa3","font-size":12,"font-style":"italic"})
+      .textContent="reached ONLY via report or await_human (green). every other action loops back to planner first.";
+  }
+}
+
+// edges — each carries a glowing dot that FLOWS along it (data moving through the graph)
+let edgeIdx=0;
+for(const [f,t,label] of EDGES){
+  const a=by(f),b=by(t); if(!a||!b) continue;
+  const loop=label==="loop";
+  // the ONLY two paths that actually reach finish from an action node — make them
+  // bold + green so it's obvious finish is reached only via report or await_human.
+  const isExit = (t==="finish") && (f==="report" || f==="await_human");
+  const d=edgePath(a,b,label);
+  const bc=branchColor(f,t);
+  const stroke = isExit ? "rgba(87,224,138,0.9)"
+    : bc ? hexA(bc, loop?0.78:0.62) : (loop?"rgba(139,139,255,0.45)":"rgba(123,134,160,0.55)");
+  const path=mk("path",{d,fill:"none",
+    stroke,
+    "stroke-width": isExit?3.2 : (loop?1.8:2.0),
+    ...(loop?{"stroke-dasharray":"6 4","class":"loopflow"}:{}),
+    "marker-end": isExit?"url(#arrexit)" : (loop?"url(#arrloop)":"url(#arr)")});
+  // a packet that travels along this exact path — coloured to match its branch
+  const dot=mk("circle",{r: isExit?4 : (loop?2.4:3.4),
+    fill: isExit?"#57e08a" : (bc || (loop?"#a9a9ff":"#57f2e6")),
+    opacity:0.95,
+    filter:"url(#dotglow)"});
+  const dur = (3.0 + (edgeIdx%5)*0.5).toFixed(2);     // stagger so they don't march in lockstep
+  const begin = (-(edgeIdx%7)*0.4).toFixed(2);
+  const am=document.createElementNS(NS,"animateMotion");
+  am.setAttribute("dur", dur+"s");
+  am.setAttribute("begin", begin+"s");
+  am.setAttribute("repeatCount","indefinite");
+  am.setAttribute("path", d);
+  am.setAttribute("rotate","auto");
+  // ease so the dot accelerates out of a node and slows into the next
+  am.setAttribute("keyPoints","0;1");
+  am.setAttribute("keyTimes","0;1");
+  am.setAttribute("calcMode","spline");
+  am.setAttribute("keySplines","0.45 0 0.55 1");
+  dot.appendChild(am);
+  edgeIdx++;
+}
+
+// nodes (rounded card)
+for(const n of NODES){
+  let [bg,st,fg]=FILL[n.kind]||FILL.action;
+  const bc=BRANCH_COLOR[n.id];
+  if(bc && n.kind==="action"){ st=hexA(bc,0.65); bg=hexA(bc,0.08); }
+  const h=nodeH(n), w=nodeW(n), x=n.x-w/2, y=n.y-h/2;
+  const g=mk("g",{});
+  const rect=mk("rect",{x,y,width:w,height:h,rx:n.kind==="hub"?10:12,
+    fill:bg,stroke:st,"stroke-width":n.kind==="hub"?2.2:1.5},g);
+  if(n.kind==="hub") rect.setAttribute("id","hubrect");
+
+  if(n.kind==="terminal"){
+    mk("text",{x:n.x,y:n.y+5,"text-anchor":"middle","font-family":"Consolas,monospace",
+      "font-size":13,"font-weight":700,fill:fg},g).textContent=n.label;
+    continue;
+  }
+  // vertical positions: name on top, desc middle, writes bottom (within the box)
+  const hasW=!!n.writes;
+  const nameY = hasW ? y+22 : (n.desc? n.y-4 : n.y+5);
+  const descY = hasW ? y+39 : n.y+15;
+  // icon (vertically centred to the name row)
+  mk("text",{x:x+22,y:nameY+1,"text-anchor":"middle",
+    "font-size":n.kind==="hub"?22:18,fill:n.kind==="hub"?"#fff":st},g).textContent=n.icon;
+  // name (monospace)
+  mk("text",{x:x+42,y:nameY,"font-family":"Consolas,monospace",
+    "font-size":n.kind==="hub"?16:13.5,"font-weight":n.kind==="hub"?700:600,
+    fill:fg},g).textContent=n.label;
+  // description
+  if(n.desc) mk("text",{x:x+42,y:descY,"font-size":11.5,
+    fill:n.kind==="hub"?"rgba(255,255,255,0.85)":"#8b97ad"},g).textContent=n.desc;
+  // writes → state field (in the branch colour, with a small arrow)
+  if(hasW) mk("text",{x:x+42,y:y+56,"font-size":11,"font-family":"Consolas,monospace",
+    fill:hexA(bc||"#8b97ad",0.95)},g).textContent="↳ writes  "+n.writes;
+}
+
+// caption: the ReAct loop + the shared-state insight (answers "where does the result go?")
+mk("text",{x:950,y:1105,"text-anchor":"middle",fill:"#9fb0c8","font-size":13.5,
+  "font-weight":600}).textContent=
+  "Nodes don't hand off to each other — each WRITES its result to shared state, then returns to planner, which reads it and plans the next step.";
+mk("text",{x:950,y:1128,"text-anchor":"middle",fill:"#6f7b91","font-size":12,
+  "font-style":"italic"}).textContent=
+  "e.g. evaluate → writes evaluation_results → planner → report;   place_building → writes placed_buildings → planner → (more buildings? or finish).";
+
+svg.style.height="1160px";
+</script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TerraPilot — Workflow Animation</title>
+<!--
+  Animated 7-stage workflow pipeline, themed to the interface.
+  Self-contained: open in a browser to play (loops), or screen-record for the deck.
+  Stages light up in sequence with a travelling pulse along the connectors.
+-->
+<style>
+  :root{--bg:#070b14;--cyan:#28e0d0;--cyan2:#57f2e6;--violet:#7c7bff;
+    --ink:#eaf2ff;--muted:#8b97ad;--amber:#ffb454;}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{height:100%;background:var(--bg)}
+  body{min-height:100vh;display:grid;place-items:center;overflow:hidden;
+    font-family:"Segoe UI",system-ui,sans-serif;color:var(--ink);background:var(--bg);}
+  .bg-glow{position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:radial-gradient(900px 680px at 16% 18%,rgba(40,224,208,.13),transparent 62%),
+      radial-gradient(900px 700px at 84% 82%,rgba(124,123,255,.15),transparent 62%);}
+  .bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(rgba(40,224,208,.05) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(124,123,255,.05) 1px,transparent 1px);
+    background-size:58px 58px;
+    -webkit-mask-image:radial-gradient(circle at 50% 45%,#000,transparent 92%);
+            mask-image:radial-gradient(circle at 50% 45%,#000,transparent 92%);}
+
+  .wrap{position:relative;z-index:1;text-align:center;padding:40px;}
+  .kicker{font-size:13px;letter-spacing:.34em;color:var(--cyan);font-weight:700;margin-bottom:8px;}
+  h1{font-size:34px;font-weight:800;margin-bottom:46px;}
+  h1 .hl{background:linear-gradient(110deg,var(--cyan2),var(--violet));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+
+  .pipe{display:flex;align-items:flex-start;justify-content:center;gap:0;}
+  .stage{display:flex;flex-direction:column;align-items:center;gap:12px;width:120px;}
+  .node{width:78px;height:78px;border-radius:20px;display:grid;place-items:center;
+    font-size:30px;background:rgba(13,20,36,.7);border:1.5px solid rgba(120,160,220,.18);
+    color:var(--muted);position:relative;transition:none;}
+  /* each node lights up in turn (staggered), then settles lit */
+  .node.lit{animation:light 9.1s ease infinite;}
+  @keyframes light{
+    0%,100%{}
+  }
+  .s0 .node{animation:lite 9.1s ease 0.0s infinite}
+  .s1 .node{animation:lite 9.1s ease 1.2s infinite}
+  .s2 .node{animation:lite 9.1s ease 2.4s infinite}
+  .s3 .node{animation:lite 9.1s ease 3.6s infinite}
+  .s4 .node{animation:lite 9.1s ease 4.8s infinite}
+  .s5 .node{animation:lite 9.1s ease 6.0s infinite}
+  .s6 .node{animation:lite 9.1s ease 7.2s infinite}
+  @keyframes lite{
+    0%,100%{transform:scale(1);border-color:rgba(120,160,220,.18);color:var(--muted);
+      box-shadow:none;background:rgba(13,20,36,.7);}
+    /* light window ~9% of the cycle */
+    3%{transform:scale(1.12);border-color:var(--cyan2);color:var(--cyan2);
+      background:rgba(40,224,208,.12);box-shadow:0 0 26px rgba(40,224,208,.55);}
+    9%{transform:scale(1.02);border-color:var(--cyan);color:var(--cyan2);
+      background:rgba(40,224,208,.06);box-shadow:0 0 12px rgba(40,224,208,.35);}
+    85%{transform:scale(1.02);border-color:var(--cyan);color:var(--cyan2);
+      background:rgba(40,224,208,.06);box-shadow:0 0 12px rgba(40,224,208,.30);}
+  }
+  .num{font-size:11px;letter-spacing:.18em;color:var(--cyan);font-weight:700;}
+  .label{font-size:14px;font-weight:700;}
+  .desc{font-size:11px;color:var(--muted);max-width:108px;line-height:1.4;}
+
+  /* connector between stages */
+  .conn{width:54px;height:78px;display:flex;align-items:center;position:relative;}
+  .conn .line{width:100%;height:2px;background:rgba(120,160,220,.18);position:relative;overflow:hidden;border-radius:2px;}
+  .conn .line::after{content:"";position:absolute;top:0;left:-40%;width:40%;height:100%;
+    background:linear-gradient(90deg,transparent,var(--cyan2),transparent);
+    animation:flow 9.1s linear infinite;}
+  .c0 .line::after{animation-delay:0.4s}
+  .c1 .line::after{animation-delay:1.6s}
+  .c2 .line::after{animation-delay:2.8s}
+  .c3 .line::after{animation-delay:4.0s}
+  .c4 .line::after{animation-delay:5.2s}
+  .c5 .line::after{animation-delay:6.4s}
+  @keyframes flow{0%{left:-40%}8%{left:120%}9%,100%{left:120%}}
+
+  .foot{margin-top:44px;font-size:13px;color:var(--violet);font-style:italic;}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important}.node{border-color:var(--cyan)!important;color:var(--cyan2)!important}}
+</style>
+</head>
+<body>
+<div class="bg-glow"></div>
+<div class="bg-grid"></div>
+
+<div class="wrap">
+  <div class="kicker">AI-DRIVEN WORKFLOW</div>
+  <h1>One guided <span class="hl">workflow</span>, seven stages</h1>
+
+  <div class="pipe" id="pipe"></div>
+
+  <div class="foot">From a plain prompt to a site-aware, optimized, exportable building.</div>
+</div>
+
+<script>
+  const STAGES = [
+    {ic:"📍", n:"01", label:"Site",        desc:"Locate the plot"},
+    {ic:"⬡",  n:"02", label:"Boundary",    desc:"Auto setbacks"},
+    {ic:"🛰", n:"03", label:"Context",     desc:"2km OSM twin"},
+    {ic:"◈",  n:"04", label:"Shape",       desc:"Generate & edit"},
+    {ic:"⚙",  n:"05", label:"Optimize",    desc:"Multi-objective"},
+    {ic:"▦",  n:"06", label:"Compare",     desc:"Side by side"},
+    {ic:"⬇",  n:"07", label:"Export",      desc:"Rhino / Revit"},
+  ];
+  const pipe = document.getElementById("pipe");
+  STAGES.forEach((s,i)=>{
+    if(i>0){
+      const c=document.createElement("div");
+      c.className="conn c"+(i-1);
+      c.innerHTML='<div class="line"></div>';
+      pipe.appendChild(c);
+    }
+    const el=document.createElement("div");
+    el.className="stage s"+i;
+    el.innerHTML=
+      '<div class="node lit">'+s.ic+'</div>'+
+      '<div class="num">'+s.n+'</div>'+
+      '<div class="label">'+s.label+'</div>'+
+      '<div class="desc">'+s.desc+'</div>';
+    pipe.appendChild(el);
+  });
+</script>
+</body>
+</html>

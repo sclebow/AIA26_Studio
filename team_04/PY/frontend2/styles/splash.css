@@ -1,0 +1,101 @@
+/* Animated splash / landing screen. */
+#splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(45% 45% at 50% 38%, rgba(40, 224, 208, 0.18), transparent 60%),
+    radial-gradient(40% 40% at 70% 70%, rgba(124, 123, 255, 0.16), transparent 60%),
+    radial-gradient(circle at 50% 45%, #0a1424 0%, #070b14 60%, #03050a 100%);
+  transition: opacity 0.8s ease;
+}
+#splash.fade-out { opacity: 0; pointer-events: none; }
+/* holographic grid sweep behind the mark */
+#splash::after {
+  content: "";
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(120, 200, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 200, 255, 0.05) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: radial-gradient(circle at 50% 42%, black, transparent 70%);
+  animation: grid-pan 14s linear infinite;
+}
+@keyframes grid-pan { to { background-position: 52px 52px; } }
+
+.splash-mark {
+  width: 120px;
+  height: 120px;
+  margin-bottom: 28px;
+  animation: mark-rise 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.splash-mark .ring {
+  transform-origin: 60px 60px;
+  animation: ring-spin 6s linear infinite;
+}
+.splash-mark .ring-2 { animation-duration: 9s; animation-direction: reverse; }
+.splash-mark .terra { animation: terra-pulse 2.6s ease-in-out infinite; transform-origin: 60px 60px; }
+
+.splash-title {
+  position: relative;
+  font-family: var(--display);
+  font-size: 54px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-bright);
+  text-shadow: 0 0 40px rgba(40, 224, 208, 0.3);
+  opacity: 0;
+  animation: title-in 0.9s ease 0.35s forwards;
+}
+.splash-title .accent {
+  background: linear-gradient(120deg, var(--accent-2), var(--accent-violet));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.splash-tagline {
+  margin-top: 14px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text-dim);
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  opacity: 0;
+  animation: title-in 0.9s ease 0.7s forwards;
+}
+
+.splash-progress {
+  margin-top: 50px;
+  width: 240px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.splash-progress .bar {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--accent), var(--accent-violet));
+  box-shadow: 0 0 12px var(--accent-glow);
+  animation: load-bar 2.1s ease forwards 0.4s;
+}
+
+@keyframes mark-rise {
+  from { transform: translateY(28px) scale(0.85); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes ring-spin { to { transform: rotate(360deg); } }
+@keyframes terra-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.92; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+@keyframes title-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes load-bar { to { width: 100%; } }
