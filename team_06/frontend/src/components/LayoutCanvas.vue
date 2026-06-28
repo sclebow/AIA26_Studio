@@ -285,6 +285,27 @@ function getLabelY(geometry) {
   const [cx, cy] = getCentroid(geometry);
   return cy * scale.value + offset.value.y;
 }
+function buildPolygonRenderData(polygons, prefix) {
+  return (polygons || []).map((poly, i) => {
+    if (!Array.isArray(poly) || poly.length < 2) return null
+    const isClosed = poly.length > 2 &&
+      poly[0][0] === poly[poly.length - 1][0] &&
+      poly[0][1] === poly[poly.length - 1][1]
+    const pts = isClosed ? poly.slice(0, -1) : poly
+    // Centerline for 4-point rectangles: connect midpoints of the two short sides
+    let centerPoints = null
+    if (pts.length === 4) {
+      const [p0, p1, p2, p3] = pts
+      const d01 = Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
+      const d12 = Math.hypot(p2[0] - p1[0], p2[1] - p1[1])
+      centerPoints = d01 <= d12
+        ? flattenAndScale([[(p0[0]+p1[0])/2, (p0[1]+p1[1])/2], [(p2[0]+p3[0])/2, (p2[1]+p3[1])/2]])
+        : flattenAndScale([[(p1[0]+p2[0])/2, (p1[1]+p2[1])/2], [(p3[0]+p0[0])/2, (p3[1]+p0[1])/2]])
+    }
+    return { key: `${prefix}-${i}`, points: flattenAndScale(pts), centerPoints }
+  }).filter(Boolean)
+}
+
 function buildCurveRenderData(items) {
   return items.flatMap(item =>
     (item.all_curves || []).map((curve, i) => {
@@ -303,7 +324,49 @@ function buildCurveRenderData(items) {
 
 const furnitureRenderData = computed(() => buildCurveRenderData(props.layout?.furniture || []))
 const doorsRenderData = computed(() => buildCurveRenderData(props.layout?.doors || []))
-const windowsRenderData = computed(() => buildCurveRenderData(props.layout?.windows || []))
+const glassRenderData = computed(() => buildPolygonRenderData(props.layout?.glass, 'glass'))
+// 2-point straight lines in each door = the aperture crossing the wall
+const doorAperturesData = computed(() =>
+  doorsRenderData.value.filter(c => !c.closed && c.points.length === 4)
+)
+const entryDoorRenderData = computed(() => {
+  const curves = props.layout?.entry_door_curves
+  if (!curves?.length) return []
+  return buildCurveRenderData([{ id: 'entry-door', all_curves: curves }])
+})
+const entryDoorMarker = computed(() => {
+  const pt = props.layout?.door_point
+  if (!pt) return null
+
+  // Derive entry direction from the 2-pt leaf line in entry_door_curves
+  const rawCurves = props.layout?.entry_door_curves || []
+  const leaf = rawCurves.find(c => Array.isArray(c) && c.length === 2)
+  let rotation = -30  // fallback
+  if (leaf) {
+    const [p1, p2] = leaf
+    const dx = p2[0] - p1[0]
+    const dy = p2[1] - p1[1]
+    // Two candidate perpendiculars
+    const candA = [-dy, dx]
+    const candB = [dy, -dx]
+    // Pick the one pointing toward the building interior (avg room centroid)
+    const rooms = props.layout?.rooms || []
+    let cx = 0, cy = 0, n = 0
+    for (const r of rooms) {
+      for (const [x, y] of (r.geometry || [])) { cx += x; cy += y; n++ }
+    }
+    const inward = n > 0 && (candA[0] * (cx / n - pt[0]) + candA[1] * (cy / n - pt[1]) > 0)
+      ? candA : candB
+    // atan2 in world space (y-down = canvas), +90 to convert to Konva's up-is-0 convention
+    rotation = Math.atan2(inward[1], inward[0]) * 180 / Math.PI + 90
+  }
+
+  return {
+    x: pt[0] * scale.value + offset.value.x,
+    y: pt[1] * scale.value + offset.value.y,
+    rotation,
+  }
+})
 
 function getTextWidth(text, fontSize) {
   if (!text) return 0;
@@ -524,6 +587,21 @@ watch(() => props.hoveredRoomId, id => {
           }"
         />
       </v-layer>
+      <!-- Door apertures: white lines to visually break the wall at each opening -->
+      <v-layer v-if="doorAperturesData.length">
+        <v-line
+          v-for="curve in doorAperturesData"
+          :key="`apt-${curve.key}`"
+          :config="{
+            points: curve.points,
+            closed: false,
+            stroke: '#ffffff',
+            strokeWidth: 5,
+            lineCap: 'butt',
+            listening: false,
+          }"
+        />
+      </v-layer>
       <!-- Doors layer -->
       <v-layer v-if="doorsRenderData.length">
         <v-line
@@ -532,22 +610,66 @@ watch(() => props.hoveredRoomId, id => {
           :config="{
             points: curve.points,
             closed: curve.closed,
-            stroke: '#3a6ea8',
+            stroke: '#0082c2',
             strokeWidth: 1.0,
             listening: false,
           }"
         />
       </v-layer>
-      <!-- Windows layer -->
-      <v-layer v-if="windowsRenderData.length">
+      <!-- Entry door aperture: white line to break the wall at the opening -->
+      <v-layer v-if="entryDoorRenderData.some(c => !c.closed && c.points.length === 4)">
         <v-line
-          v-for="curve in windowsRenderData"
+          v-for="curve in entryDoorRenderData.filter(c => !c.closed && c.points.length === 4)"
+          :key="`entry-apt-${curve.key}`"
+          :config="{
+            points: curve.points,
+            closed: false,
+            stroke: '#ffffff',
+            strokeWidth: 5,
+            lineCap: 'butt',
+            listening: false,
+          }"
+        />
+      </v-layer>
+      <!-- Entry door layer -->
+      <v-layer v-if="entryDoorRenderData.length || entryDoorMarker">
+        <v-line
+          v-for="curve in entryDoorRenderData"
           :key="curve.key"
           :config="{
             points: curve.points,
             closed: curve.closed,
-            stroke: '#5BC8F5',
+            stroke: '#0082c2',
+            strokeWidth: 1.0,
+            listening: false,
+          }"
+        />
+        <v-regular-polygon
+          v-if="entryDoorMarker"
+          :config="{
+            x: entryDoorMarker.x,
+            y: entryDoorMarker.y,
+            sides: 3,
+            radius: 7,
+            fill: '#00E0CD',
+            stroke: '#fff',
             strokeWidth: 1.2,
+            rotation: entryDoorMarker.rotation,
+            listening: false,
+          }"
+        />
+      </v-layer>
+      <!-- Windows layer (glass polygons from JSON) -->
+      <v-layer v-if="glassRenderData.length">
+        <v-line
+          v-for="gl in glassRenderData"
+          :key="`gl-rect-${gl.key}`"
+          :config="{
+            points: gl.points,
+            closed: true,
+            fill: '#ffffff',
+            stroke: '#0082c2',
+            strokeWidth: 1.0,
             listening: false,
           }"
         />
