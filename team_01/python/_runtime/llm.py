@@ -16,7 +16,25 @@ def create_chat_llm(
     llm_model: str,
     timeout_seconds: float,
     model_kwargs: dict[str, Any] | None = None,
-) -> ChatOpenAI:
+    provider: str = "local",
+) -> Any:
+    """Build a LangChain chat model for the configured provider.
+
+    provider="anthropic" -> ChatAnthropic (Claude). The agent invokes the LLM
+    as plain text that it parses into JSON, so no provider-specific structured
+    output binding is needed; we only need a generous max_tokens so the
+    advisory text + tool-call JSON is never truncated.
+    """
+    if provider == "anthropic":
+        from langchain_anthropic import ChatAnthropic
+        return ChatAnthropic(
+            api_key=api_key,
+            model=llm_model,
+            timeout=timeout_seconds,
+            temperature=0,
+            max_tokens=4096,
+        )
+
     return ChatOpenAI(
         api_key=api_key,
         base_url=base_url,
@@ -133,7 +151,43 @@ def _strip_markdown_code_fence(content: str) -> str:
     return "\n".join(lines[1:-1]).strip()
 
 
+def _sanitize_control_chars(content: str) -> str:
+    """Escape literal control characters inside JSON string values.
+
+    LLaMA 3.1-8B frequently outputs bare newlines / tabs inside a
+    "final_response" string, which are illegal unescaped in JSON (RFC 7159).
+    This walks the raw text and replaces them only while inside a string.
+    """
+    result: list[str] = []
+    in_string = False
+    i = 0
+    while i < len(content):
+        c = content[i]
+        if c == "\\" and i + 1 < len(content):
+            result.append(c)
+            result.append(content[i + 1])
+            i += 2
+            continue
+        if c == '"':
+            in_string = not in_string
+            result.append(c)
+        elif in_string and ord(c) < 0x20:
+            if c == "\n":
+                result.append("\\n")
+            elif c == "\r":
+                result.append("\\r")
+            elif c == "\t":
+                result.append("\\t")
+            else:
+                result.append(f"\\u{ord(c):04x}")
+        else:
+            result.append(c)
+        i += 1
+    return "".join(result)
+
+
 def _parse_llm_json(content: str) -> dict[str, Any]:
+    content = _sanitize_control_chars(content)
     content = _strip_markdown_code_fence(content)
     try:
         parsed = json.loads(content)
@@ -141,24 +195,36 @@ def _parse_llm_json(content: str) -> dict[str, Any]:
             raise RuntimeError("LLM JSON response must be an object")
         return parsed
     except json.JSONDecodeError as exc:
-        if "Extra data" not in str(exc):
-            raise
+        # JSONL (one tool_call per line) — handled below for the "Extra data" case.
+        if "Extra data" in str(exc):
+            lines = [line.strip() for line in content.splitlines() if line.strip()]
+            try:
+                tool_calls: list[dict[str, Any]] = []
+                for line in lines:
+                    parsed_line = json.loads(line)
+                    tc = parsed_line.get("tool_call") if isinstance(parsed_line, dict) else None
+                    if isinstance(tc, dict):
+                        tool_calls.append(tc)
+                if tool_calls:
+                    return {"tool_calls": tool_calls}
+            except Exception:
+                pass
 
-    lines = [line.strip() for line in content.splitlines() if line.strip()]
-    if not lines:
-        raise RuntimeError("LLM response was empty")
-
-    tool_calls: list[dict[str, Any]] = []
-    for line in lines:
-        parsed_line = json.loads(line)
-        if not isinstance(parsed_line, dict):
-            raise RuntimeError("Each JSON line must be an object")
-        tool_call = parsed_line.get("tool_call")
-        if not isinstance(tool_call, dict):
-            raise RuntimeError("Each JSON line must contain 'tool_call'")
-        tool_calls.append(tool_call)
-
-    return {"tool_calls": tool_calls}
+    # Lenient recovery for weaker local models: extract the first {...} object and try
+    # strict JSON, then Python-literal (handles single-quoted 'action'/'name' keys) +
+    # trailing prose after the object.
+    import ast as _ast
+    a, b = content.find("{"), content.rfind("}")
+    if a != -1 and b > a:
+        frag = content[a:b + 1]
+        for _loader in (json.loads, _ast.literal_eval):
+            try:
+                p = _loader(frag)
+                if isinstance(p, dict):
+                    return p
+            except Exception:
+                pass
+    raise RuntimeError("Could not parse LLM JSON response")
 
 
 def _normalize_llm_decision(parsed: dict[str, Any]) -> dict[str, Any]:
@@ -219,6 +285,10 @@ def call_llm(
     content = result.content
     if not isinstance(content, str):
         raise RuntimeError("LLM response content must be a string")
+    if not content.strip():
+        raise RuntimeError(
+            "LLM returned an empty response — the model may be unavailable or rate-limited"
+        )
 
     try:
         return _normalize_llm_decision(_parse_llm_json(content))
@@ -233,7 +303,7 @@ def call_llm(
 # ---------------------------------------------------------------------------
 
 def write_tool_result(tool_output: str, path: Path) -> None:
-    """Write the MCP tool output to a file, pretty-printing JSON if possible."""
+    """Write a tool output to a file, pretty-printing JSON if possible."""
     stripped = tool_output.strip()
     try:
         parsed = json.loads(stripped)

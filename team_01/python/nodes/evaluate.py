@@ -1036,8 +1036,12 @@ def evaluate_structure(layout_json_string: str, ll_kNm2: float = LL_KNM2, sdl_kN
             pt_loads = _find_upper_col_point_loads(layout, lk, ll_kNm2, sdl_kNm2)
             if pt_loads:
                 print(f"  [{lk}] {len(pt_loads)} transfer beam(s) carrying upper-level column load")
-            all_beam_results.extend(_check_beams(beams, b_trib, ll_kNm2, sdl_kNm2, point_loads=pt_loads))
-            all_col_results.extend(_check_columns(columns, c_trib, ll_kNm2, sdl_kNm2, load_multiplier=mult))
+            _br = _check_beams(beams, b_trib, ll_kNm2, sdl_kNm2, point_loads=pt_loads)
+            _cr = _check_columns(columns, c_trib, ll_kNm2, sdl_kNm2, load_multiplier=mult)
+            for _r in _br + _cr:   # tag with level — element ids repeat across floors
+                _r["level"] = lk
+            all_beam_results.extend(_br)
+            all_col_results.extend(_cr)
         b_fail = [r for r in all_beam_results if not (r["bend_PASS"] and r["shear_PASS"] and r["defl_TL_PASS"] and r["defl_LL_PASS"])]
         c_fail = [r for r in all_col_results  if not (r["stress_PASS"] and r["buckling_PASS"])]
         return {
