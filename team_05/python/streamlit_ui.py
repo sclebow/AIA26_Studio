@@ -472,10 +472,44 @@ st.markdown("""
 html, body { overflow: hidden !important; height: 100% !important; }
 .stApp { height: 100vh !important; overflow: hidden !important; }
 
-/* Remove top white Streamlit chrome strip and reclaim vertical space */
-[data-testid="stHeader"] { display:none !important; }
+/* Hide Streamlit chrome visually, but keep sidebar open/close controls reachable. */
+[data-testid="stHeader"] {
+  display:block !important;
+  height:2.75rem !important;
+  min-height:2.75rem !important;
+  background:transparent !important;
+  pointer-events:auto !important;
+}
 [data-testid="stToolbar"] { display:none !important; }
 [data-testid="stDecoration"] { display:none !important; }
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="stHeader"] button {
+  display:flex !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  pointer-events:auto !important;
+}
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapsedControl"] {
+  position:fixed !important;
+  top:0.55rem !important;
+  left:0.55rem !important;
+  z-index:1000000 !important;
+  width:2.25rem !important;
+  height:2.25rem !important;
+  align-items:center !important;
+  justify-content:center !important;
+  background:var(--sb-bg) !important;
+  border:1px solid var(--sb-border) !important;
+  border-radius:var(--r-sm) !important;
+  box-shadow:var(--s-sm) !important;
+}
+[data-testid="collapsedControl"] *,
+[data-testid="stSidebarCollapsedControl"] * {
+  color:#ffffff !important;
+  fill:#ffffff !important;
+}
 [data-testid="stAppViewContainer"] { margin-top:0 !important; }
 [data-testid="stAppViewContainer"] > .main { height: 100vh !important; overflow: hidden !important; }
 [data-testid="stAppViewContainer"] section.stMain { overflow-y: auto !important; }
@@ -523,8 +557,27 @@ html, body { overflow: hidden !important; height: 100% !important; }
 section[data-testid="stSidebar"] {
   background: var(--sb-bg) !important;
   border-right: 1px solid var(--sb-border) !important;
+  display:block !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  transform:none !important;
+  margin-left:0 !important;
+  left:0 !important;
+  min-width:21rem !important;
+  width:21rem !important;
+  max-width:21rem !important;
+  flex:0 0 21rem !important;
+  z-index:999999 !important;
 }
 section[data-testid="stSidebar"] > div { padding: 2rem 1.5rem 3rem !important; }
+section[data-testid="stSidebar"] button[kind="header"],
+section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] {
+  display:flex !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  pointer-events:auto !important;
+  color:#ffffff !important;
+}
 section[data-testid="stSidebar"] p,
 section[data-testid="stSidebar"] label,
 section[data-testid="stSidebar"] h1,section[data-testid="stSidebar"] h2,
@@ -667,6 +720,30 @@ hr { border-color:var(--border-lt) !important; margin:0.8rem 0 !important; }
     line-height:1.45 !important; color:var(--text) !important;
     padding:0.58rem 0.75rem !important;
 }
+.st-key-agent_chat_scroll_area {
+  height: 380px !important;
+  max-height: 380px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain !important;
+  padding: 0.35rem 0.35rem 0.45rem !important;
+  border: 1px solid var(--border-lt) !important;
+  border-radius: var(--r) !important;
+  background: #ffffff !important;
+}
+.st-key-agent_chat_scroll_area [data-testid="stVerticalBlock"] {
+  overflow: visible !important;
+}
+.st-key-agent_chat_scroll_area::-webkit-scrollbar {
+  width: 8px;
+}
+.st-key-agent_chat_scroll_area::-webkit-scrollbar-thumb {
+  background: #c9c3ba;
+  border-radius: 999px;
+}
+.st-key-agent_chat_scroll_area::-webkit-scrollbar-track {
+  background: #f5f2ed;
+}
 
 /* ── TABLES ──────────────────────────────────────────────────────────────── */
 [data-testid="stTable"] * {
@@ -763,10 +840,73 @@ hr { border-color:var(--border-lt) !important; margin:0.8rem 0 !important; }
   box-shadow: 0 2px 10px rgba(0,0,0,0.10);
   pointer-events: none;
 }
-/* let the column and vertical blocks show the overlay */
-[data-testid="stVerticalBlock"],[data-testid="stColumn"] { overflow:visible !important; }
 </style>
 """, unsafe_allow_html=True)
+
+# Streamlit can remember a collapsed sidebar in the browser. Reopen it once
+# per tab on load, then leave normal sidebar toggling to the user.
+components.html(
+    """
+    <script>
+    (function () {
+      const flag = "planwise_sidebar_opened_once_v2";
+      const parentWindow = window.parent;
+      const doc = parentWindow && parentWindow.document;
+      if (!doc || parentWindow.sessionStorage.getItem(flag) === "1") return;
+
+      function sidebarIsOpen() {
+        const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
+        if (!sidebar) return false;
+        const rect = sidebar.getBoundingClientRect();
+        return rect.width > 80 && rect.right > 80;
+      }
+
+      function openSidebar(attempt) {
+        if (sidebarIsOpen()) {
+          parentWindow.sessionStorage.setItem(flag, "1");
+          return;
+        }
+
+        const candidates = [
+          '[data-testid="collapsedControl"] button',
+          '[data-testid="stSidebarCollapsedControl"] button',
+          '[data-testid="collapsedControl"]',
+          '[data-testid="stSidebarCollapsedControl"]'
+        ];
+        let button = null;
+        for (const selector of candidates) {
+          button = doc.querySelector(selector);
+          if (button) break;
+        }
+        if (!button) {
+          button = Array.from(doc.querySelectorAll('button')).find((el) => {
+            const label = (el.getAttribute('aria-label') || el.title || '').toLowerCase();
+            return label.includes('sidebar') || label.includes('navigation');
+          });
+        }
+
+        if (button) {
+          button.click();
+          window.setTimeout(() => {
+            if (sidebarIsOpen()) {
+              parentWindow.sessionStorage.setItem(flag, "1");
+            } else if (attempt < 30) {
+              openSidebar(attempt + 1);
+            }
+          }, 150);
+          return;
+        }
+        if (attempt < 30) {
+          window.setTimeout(() => openSidebar(attempt + 1), 150);
+        }
+      }
+
+      openSidebar(0);
+    })();
+    </script>
+    """,
+    height=0,
+)
 
 # ── session state ─────────────────────────────────────────────────────────────
 for _k, _v in {
@@ -2703,12 +2843,12 @@ with st.sidebar:
     st.markdown('<p class="section-lbl">Sensitivity Engine</p>', unsafe_allow_html=True)
     st.slider("Labor Cost Multiplier", 0.8, 1.5, 1.0, 0.05, key="labor")
     st.slider("Material Inflation (%)", 0, 20, 0, 1, key="inflation")
-    st.slider("Carbon Tax ($/tCO2e)", 0, 200, 0, 5, key="carbon_tax")
+    # st.slider("Carbon Tax ($/tCO2e)", 0, 200, 0, 5, key="carbon_tax")
 
     st.session_state.sensitivity = {
         "labor": st.session_state.labor,
         "inflation": 1 + (st.session_state.inflation / 100),
-        "carbon_tax": st.session_state.carbon_tax
+        # "carbon_tax": st.session_state.carbon_tax
     }
 
     # 2. Currency selector
@@ -3383,7 +3523,7 @@ with col_panel:
     if st.session_state.selected_plan_key:
         st.caption(f"Active: {st.session_state.selected_plan_key}")
 
-    chat_area = st.container(height=380)
+    chat_area = st.container(height=380, key="agent_chat_scroll_area")
     with chat_area:
         if st.session_state.messages:
             render_chat()
