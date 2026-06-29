@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="logo" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 202.78 217.85">
+  <!-- Generator: Adobe Illustrator 30.6.0, SVG Export Plug-In . SVG Version: 2.1.4 Build 109)  -->
+  <defs>
+    <style>
+      .st0 {
+        stroke-linecap: round;
+      }
+
+      .st0, .st1 {
+        fill: none;
+        stroke: #0082c2;
+        stroke-miterlimit: 10;
+        stroke-width: 20px;
+      }
+    </style>
+  </defs>
+  <path class="st1" d="M10,217.48v-111.23L102.01,14.22l90.77,92.7v100.94h-92.82v-29.17c0-12.22,6.21-23.6,16.48-30.21l5.68-3.56"/>
+  <path class="st1" d="M162.32,185.24v-6.56c0-12.22-5.98-23.6-15.88-30.21l-5.07-3.25"/>
+  <path class="st0" d="M121.95,144.92c-4.93-3.23-8.19-8.81-8.19-15.14,0-9.99,8.1-18.09,18.09-18.09s18.09,8.1,18.09,18.09c0,6.52-3.44,12.23-8.61,15.41"/>
+</svg>

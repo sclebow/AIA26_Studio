@@ -1,6 +1,9 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onUnmounted } from 'vue'
 import { getDaylightColor, formatDaylight, PROGRAM_COLORS, toNumericValue, getRoomDisplayName } from '../utils/roomAnalysis.js'
+import catIcon from '../assets/icons/cat.svg'
+import dogIcon from '../assets/icons/dog.svg'
+import userIcon from '../assets/icons/user.svg'
 
 const ROUTINE_TIMES = [
   '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
@@ -10,19 +13,42 @@ const ROUTINE_TIMES = [
 import ScoreBar from './ScoreBar.vue'
 
 const props = defineProps({
-  layout:      { type: Object, default: null },
-  viewMode:    { type: String, default: 'layout' },
-  routine:     { type: Array,  default: null },   // parsedInput.routine
+  layout:        { type: Object, default: null },
+  viewMode:      { type: String, default: 'layout' },
+  routine:       { type: Array,  default: null },
+  hoveredRoomId: { type: String, default: null },
 })
 
-const emit = defineEmits(['activeRoomsChange', 'timeStepChange'])
+const emit = defineEmits(['activeRoomsChange', 'timeStepChange', 'roomHover', 'roomLeave'])
 
 const issues = []
 
 const activeStep = ref(0)
+const isPlaying = ref(false)
+let playInterval = null
 
-// Reset slider when routine changes or viewMode switches to routine
-watch(() => [props.routine, props.viewMode], () => { activeStep.value = 0 })
+function togglePlay() {
+  if (isPlaying.value) {
+    clearInterval(playInterval)
+    playInterval = null
+    isPlaying.value = false
+  } else {
+    isPlaying.value = true
+    playInterval = setInterval(() => {
+      activeStep.value = (activeStep.value + 1) % ROUTINE_TIMES.length
+    }, 900)
+  }
+}
+
+onUnmounted(() => clearInterval(playInterval))
+
+// Reset slider and stop playback when routine changes or viewMode switches
+watch(() => [props.routine, props.viewMode], () => {
+  activeStep.value = 0
+  clearInterval(playInterval)
+  playInterval = null
+  isPlaying.value = false
+})
 
 // { roomId: [{ color, name }, ...] } for the current step
 const activeRooms = computed(() => {
@@ -32,7 +58,7 @@ const activeRooms = computed(() => {
     const roomId = stepRoomId(p.steps?.[activeStep.value])
     if (roomId != null) {
       if (!map[roomId]) map[roomId] = []
-      map[roomId].push({ color: p.color, name: p.persona })
+      map[roomId].push({ color: p.color, name: p.persona, kind: p.kind })
     }
   }
   return map
@@ -162,12 +188,22 @@ const personaSteps = computed(() => {
     return {
       name: p.persona,
       color: p.color,
+      kind: p.kind,
       activity,
       roomName: room?.name ?? null,
       away: step == null,
     }
   })
 })
+
+function getPersonaIcon(persona, kind) {
+  if (kind === 'dog') return dogIcon
+  if (kind === 'cat') return catIcon
+  const name = (persona || '').toLowerCase()
+  if (/\b(dog|puppy)\b/.test(name)) return dogIcon
+  if (/\b(cat|kitty)\b/.test(name)) return catIcon
+  return userIcon
+}
 
 function scoreRingStyle(score) {
   const value = Math.max(0, Math.min(100, score ?? 0))
@@ -189,17 +225,25 @@ function scoreRingStyle(score) {
       <template v-if="props.viewMode === 'routine'">
         <template v-if="routine">
           <div class="routine-time-label">{{ ROUTINE_TIMES[activeStep] }}</div>
-          <input
-            class="routine-slider"
-            type="range"
-            min="0"
-            :max="ROUTINE_TIMES.length - 1"
-            step="1"
-            v-model.number="activeStep"
-          />
+          <div class="routine-slider-row">
+            <button class="play-btn" @click="togglePlay" :aria-label="isPlaying ? 'Pause' : 'Play'">
+              <span v-if="isPlaying">⏸</span>
+              <span v-else>▶</span>
+            </button>
+            <input
+              class="routine-slider"
+              type="range"
+              min="0"
+              :max="ROUTINE_TIMES.length - 1"
+              step="1"
+              v-model.number="activeStep"
+            />
+          </div>
           <div class="persona-step-list">
             <div v-for="p in personaSteps" :key="p.name" class="persona-step-row">
-              <span class="persona-step-dot" :style="{ background: p.color }"></span>
+              <span class="persona-step-dot" :style="{ background: p.color }">
+                <img :src="getPersonaIcon(p.name, p.kind)" class="persona-dot-icon" />
+              </span>
               <span class="persona-step-name">{{ p.name }}</span>
               <span class="persona-step-activity" :class="{ away: p.away }">{{ p.activity }}</span>
               <span v-if="!p.away && p.roomName" class="persona-step-room">{{ p.roomName }}</span>
@@ -218,7 +262,11 @@ function scoreRingStyle(score) {
             {{ (props.layout.rooms.reduce((sum, r) => sum + (r.attributes?.daylight ?? 0), 0) / props.layout.rooms.length).toFixed(2) }}<span style="font-size:1.1rem;font-weight:400;"> avg DA</span>
           </div>
           <ul class="layout-summary-list">
-            <li v-for="room in props.layout.rooms" :key="room.id" class="layout-summary-room-row">
+            <li v-for="room in props.layout.rooms" :key="room.id"
+              :class="['layout-summary-room-row', { hovered: room.id === props.hoveredRoomId }]"
+              @mouseenter="emit('roomHover', room.id)"
+              @mouseleave="emit('roomLeave')"
+            >
               <span class="room-swatch" :style="{ background: getDaylightColor(room.attributes?.daylight ?? 0) }"></span>
               {{ getRoomDisplayName(room) }} — {{ formatDaylight(room.attributes?.daylight) }}
             </li>
@@ -263,7 +311,11 @@ function scoreRingStyle(score) {
         </template>
 
         <ul class="layout-summary-list">
-          <li v-for="room in props.layout.rooms" :key="room.id" class="layout-summary-room-row">
+          <li v-for="room in props.layout.rooms" :key="room.id"
+            :class="['layout-summary-room-row', { hovered: room.id === props.hoveredRoomId }]"
+            @mouseenter="emit('roomHover', room.id)"
+            @mouseleave="emit('roomLeave')"
+          >
             <span class="room-swatch" :style="{ background: PROGRAM_COLORS[room.attributes?.program] ?? '#ddd' }"></span>
             {{ getRoomDisplayName(room) }} — {{ (room.attributes?.area ?? 0).toFixed(1) }} m²
           </li>
@@ -359,10 +411,28 @@ function scoreRingStyle(score) {
   color: var(--color-blue);
   margin-bottom: 8px;
 }
+.routine-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.play-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--color-blue);
+  padding: 0 2px;
+  line-height: 1;
+}
+.play-btn:hover { opacity: 0.7; }
 .routine-slider {
+  flex: 1;
   width: 100%;
   accent-color: var(--color-blue);
-  margin-bottom: 4px;
+  margin-bottom: 0;
   cursor: pointer;
 }
 .routine-ticks {
@@ -394,6 +464,14 @@ function scoreRingStyle(score) {
   gap: 8px;
   font-size: var(--font-size-small);
   color: var(--color-text);
+  padding: 3px 6px;
+  border-radius: 6px;
+  cursor: default;
+  transition: background 0.15s, font-weight 0.1s;
+}
+.layout-summary-room-row.hovered {
+  background: var(--color-light-blue);
+  font-weight: 600;
 }
 .room-swatch {
   display: inline-block;
@@ -401,6 +479,10 @@ function scoreRingStyle(score) {
   height: 10px;
   border-radius: 2px;
   flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.layout-summary-room-row.hovered .room-swatch {
+  transform: scale(1.4);
 }
 .persona-step-list {
   display: flex;
@@ -410,7 +492,7 @@ function scoreRingStyle(score) {
 }
 .persona-step-row {
   display: grid;
-  grid-template-columns: 10px 1fr auto auto;
+  grid-template-columns: 20px 1fr auto auto;
   align-items: center;
   gap: 8px;
   padding: 5px 10px;
@@ -419,10 +501,19 @@ function scoreRingStyle(score) {
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.08);
 }
 .persona-step-dot {
-  width: 8px;
-  height: 8px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.persona-dot-icon {
+  width: 12px;
+  height: 12px;
+  filter: brightness(0) invert(1);
+  opacity: 0.9;
 }
 .persona-step-name {
   font-size: var(--font-size-small);

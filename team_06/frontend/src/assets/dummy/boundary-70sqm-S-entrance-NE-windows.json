@@ -1,0 +1,33 @@
+{
+  "layoutId": "boundary-70sqm",
+  "outline": [
+    [0, 0],
+    [14.49, 0],
+    [14.49, 4.83],
+    [0, 4.83],
+    [0, 0]
+  ],
+  "facades": [
+    {
+      "id": "facade-west",
+      "name": "West",
+      "geometry": [[0, 4.83], [0, 0]],
+      "attributes": { "type": "exterior" }
+    },
+    {
+      "id": "facade-east",
+      "name": "East",
+      "geometry": [[14.49, 0], [14.49, 4.83]],
+      "attributes": { "type": "exterior" }
+    }
+  ],
+  "circulation": [
+    {
+      "id": "circulation-south",
+      "name": "South Entrance",
+      "geometry": [[0, 4.83], [14.49, 4.83]],
+      "attributes": { "type": "circulation" }
+    }
+  ],
+  "rooms": []
+}

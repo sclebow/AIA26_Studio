@@ -11,8 +11,8 @@ SYSTEM_PROMPT = (
     "Rules:\n"
     "- Read the current graph and current description as the existing summary, then update that summary using the latest user input.\n"
     "- Return the full updated summary, not just a delta.\n"
-    "- Set latest_prompt_useful to true only if the latest user input adds, corrects, or changes layout information enough to justify a new search.\n"
-    "- Set latest_prompt_useful to false if the latest user input is only a greeting, acknowledgement, repetition, or otherwise does not add useful new layout information.\n"
+    "- Set latest_prompt_useful to true if the latest user input adds, corrects, or changes any information that is useful for finding the right layout. This includes room programs, spatial preferences, household routines, lifestyle descriptions, and daily schedule patterns — anything that helps narrow down the right apartment.\n"
+    "- Set latest_prompt_useful to false only if the latest user input is a greeting, acknowledgement, single word, or pure repetition that adds no new information at all.\n"
     "- graph is the strict structured representation of spatial requirements.\n"
     "- graph.programs is a flat list with duplicates when counts matter, for example [\"bed\", \"bed\", \"bath\"].\n"
     "- The available room categories in the dataset are only: living, bed, bath, circulation, storage, walkincloset, and wc.\n"
@@ -23,6 +23,7 @@ SYSTEM_PROMPT = (
     "- If the user asks for a toilet, WC, or half-bath, translate that to wc. Use bath only for a full bathroom with a shower or tub.\n"
     "- If the user asks for a walk-in closet or dressing room, translate that to walkincloset.\n"
     "- If the user asks for a study, office, or workspace, represent it as an additional bed in graph.programs, because the dataset does not have a separate study category.\n"
+    "- If the user asks for a studio apartment, do not add any bed to graph.programs. A studio is an open-plan space with no separate bedroom; record this in description.\n"
     "- If the user asks for a double bedroom, keep the room category as bed and record in description that this bedroom should be large.\n"
     "- If the user asks for a single bedroom, keep the room category as bed and record in description that this bedroom should be medium or small.\n"
     "- Use description to preserve size intent or functional reinterpretation when the dataset category is approximate.\n"
@@ -40,6 +41,7 @@ SYSTEM_PROMPT = (
     "- graph.compactness is the preferred compactness of the apartment boundary as a number between 0 and 1. A rectangle is 1.0, irregular shapes are lower. Use null if not specified.\n"
     "- household is a flexible structured representation of occupants and person-specific facts.\n"
     "- household is a list of people or household members mentioned by the user. Each item must have exactly this shape: {\"name\":\"\",\"relationship\":\"\",\"info\":\"\"}.\n"
+    "- For relationship: use 'cat' for cats, 'dog' for dogs, 'child' for children, 'partner' for partners/spouses, 'roommate' for roommates. Use the species name directly for pets — never use 'pet', 'animal', or descriptions like 'family cat'.\n"
     "- Use household[].info for all person-level facts: age, role, profession, and schedule or lifestyle details (e.g. 'home from 14:00', 'works from home', 'studies in the afternoon', 'listens to loud music'). Accumulate these details across turns — do not drop facts already in info.\n"
     "- Keep household lightweight. If a field is unknown, return an empty string for that field instead of inventing details.\n"
     "- description is a concise natural-language summary for LAYOUT SEARCH — spatial quality, lifestyle feel, aggregate household context.\n"
@@ -244,10 +246,14 @@ def _greeting(household: list[dict]) -> str:
 
 def _clarification_for_state(graph: dict, description: str, latest_prompt_useful: bool, household: list[dict]) -> str:
     greeting = _greeting(household)
-    if not graph.get("programs") and not description.strip():
+    has_programs = bool(graph.get("programs"))
+    has_description = bool(description.strip())
+    has_other_graph = any(graph.get(k) for k in graph if k != "programs")
+
+    if not has_programs and not has_description and not has_other_graph:
         return f"{greeting}, I am here to help you find the right layout. Could you describe the apartment you are looking for — rooms, connections, or lifestyle preferences?"
-    if not graph.get("programs"):
-        return "I did not get any room requirements. Could you tell me which rooms you need?"
+    if not has_programs:
+        return "Got it. Could you also tell me which rooms you need — for example, bedrooms, bathrooms, or a living area?"
     return "I need a bit more detail. Could you add room connections, household info, or other preferences?"
 
 
@@ -293,6 +299,10 @@ def build_reason_node(llm):
             parsed_payload = _normalize_payload(response_json)
             parsed_payload = _apply_dataset_program_rules(user_prompt, parsed_payload)
             latest_prompt_useful = parsed_payload["latest_prompt_useful"]
+            # If the description grew substantially, treat the input as useful even if
+            # the LLM returned false — lifestyle/routine text is enough to drive search.
+            if not latest_prompt_useful and len(parsed_payload["description"]) > len(existing_description) + 30:
+                latest_prompt_useful = True
             updated_search_payload = {
                 "graph": parsed_payload["graph"],
                 "household": parsed_payload["household"],

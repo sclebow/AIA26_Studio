@@ -17,6 +17,7 @@ const emit = defineEmits(['layoutLoaded', 'selectLayout', 'previewLayout', 'find
 const viewMode = ref('layout')
 const activeRooms = ref({})
 const activeStep = ref(0)
+const hoveredRoomId = ref(null)
 
 const hasDaylight = computed(() =>
   (props.agentState?.rooms ?? []).some(r => r.attributes?.daylight != null)
@@ -77,12 +78,15 @@ function exportLayout() {
               @previewLayout="id => { viewMode = 'layout'; emit('previewLayout', id) }"
               @findInBetween="(a, b) => emit('findInBetween', a, b)"
             />
-            <LayoutCanvas
+<LayoutCanvas
               v-else
               :layout="props.agentState"
               :viewMode="viewMode"
               :activeRooms="activeRooms"
               :activeStep="activeStep"
+              :hoveredRoomId="hoveredRoomId"
+              @roomHover="hoveredRoomId = $event"
+              @roomLeave="hoveredRoomId = null"
             />
           </div>
           <LayoutCard
@@ -90,14 +94,17 @@ function exportLayout() {
             :layout="props.agentState"
             :viewMode="viewMode"
             :routine="props.agentState?.routine?.personas ?? props.agentState?.routine ?? null"
+            :hoveredRoomId="hoveredRoomId"
             @activeRoomsChange="activeRooms = $event"
             @timeStepChange="activeStep = $event"
+            @roomHover="hoveredRoomId = $event"
+            @roomLeave="hoveredRoomId = null"
           />
         </div>
       </template>
       <div v-else class="welcome-screen">
         <h1 class="welcome-title">Welcome to inHabit</h1>
-        <p class="welcome-subtitle">AI-powered floor plan generation based on your lifestyle</p>
+        <p class="welcome-subtitle">Describe your day. Find your layout.</p>
       </div>
   </aside>
 </template>

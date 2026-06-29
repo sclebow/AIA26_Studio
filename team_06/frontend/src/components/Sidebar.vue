@@ -96,5 +96,20 @@ const historyOpen = ref(false)
   min-height: 0;
   overflow-y: auto;
   padding-bottom: 24px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+.history-body::-webkit-scrollbar {
+  width: 4px;
+}
+.history-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.history-body::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+.history-body::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
 }
 </style>

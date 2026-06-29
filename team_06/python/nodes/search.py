@@ -110,6 +110,28 @@ def _description_from_search_payload(payload: dict[str, Any]) -> str:
     return ""
 
 
+_PET_RELATIONSHIPS = {"dog", "cat", "puppy", "kitty", "feline", "pet", "bird", "rabbit", "hamster"}
+
+def _infer_programs_from_household(payload: dict[str, Any]) -> list[str]:
+    """When no explicit programs are given, derive a minimum room list from household size."""
+    household = payload.get("household")
+    if not isinstance(household, list) or not household:
+        return []
+    people = [
+        m for m in household
+        if isinstance(m, dict)
+        and (m.get("relationship") or m.get("name") or "").strip().lower() not in _PET_RELATIONSHIPS
+        and (m.get("relationship") or "").strip().lower() not in _PET_RELATIONSHIPS
+    ]
+    n = len(people)
+    if n == 0:
+        return []
+    # Rough rule: couples share, children/twins may share → about 0.6 beds per person
+    beds = max(1, round(n * 0.6))
+    baths = max(1, n // 3)
+    return ["bed"] * beds + ["living"] + ["bath"] * baths
+
+
 def _load_layout_by_id(layout_id: str, repo_root: Path) -> dict[str, Any] | None:
     pf_path = repo_root / "layout_inputs" / "Planfinder_Dataset" / "pf_jsons" / f"{layout_id}.json"
     if not pf_path.exists():
@@ -137,6 +159,8 @@ def build_search_node() -> Any:
         payload = _parse_search_payload(search_payload_json)
 
         programs          = _programs_from_search_payload(payload)
+        if not programs:
+            programs = _infer_programs_from_household(payload)
         access_pairs      = _pair_list_from_search_payload(payload, "access_pairs")
         adjacency_pairs   = _pair_list_from_search_payload(payload, "adjacency_pairs")
         not_adjacency_pairs = _pair_list_from_search_payload(payload, "not_adjacency_pairs")
@@ -253,11 +277,9 @@ def build_search_node() -> Any:
             }
 
             top_layout_id = candidates[0]["id"]
-            has_input_layout = bool(state.get("input_layout_json_string"))
-            next_result = "adapt" if has_input_layout else "select"
 
-            result_state = {
-                "search_result": next_result,
+            return {
+                "search_result": "select",
                 "search_results_json_string": json.dumps(candidates),
                 "embedding_map_json_string": json.dumps(embedding_map),
                 "layout_id": top_layout_id,
@@ -265,20 +287,6 @@ def build_search_node() -> Any:
                 "routine_json_string": None,
                 "iteration": iteration + 1,
             }
-
-            if has_input_layout:
-                selected_layout = _load_layout_by_id(top_layout_id, repo_root)
-                if not selected_layout:
-                    return {
-                        "search_result": "failed",
-                        "search_results_json_string": json.dumps(candidates),
-                        "embedding_map_json_string": json.dumps(embedding_map),
-                        "clarification": f"Selected layout {top_layout_id} could not be loaded for adaptation.",
-                        "iteration": iteration + 1,
-                    }
-                result_state["layout_json_string"] = json.dumps(selected_layout)
-
-            return result_state
 
         except Exception as e:
             return {

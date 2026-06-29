@@ -1,0 +1,27 @@
+{
+  "layoutId": "boundary-30sqm",
+  "outline": [
+    [0, 0],
+    [6.97, 0],
+    [6.97, 4.31],
+    [0, 4.31],
+    [0, 0]
+  ],
+  "facades": [
+    {
+      "id": "facade-north",
+      "name": "North",
+      "geometry": [[0, 0], [6.97, 0]],
+      "attributes": { "type": "exterior" }
+    }
+  ],
+  "circulation": [
+    {
+      "id": "circulation-south",
+      "name": "South Circulation",
+      "geometry": [[0, 4.31], [6.97, 4.31]],
+      "attributes": { "type": "circulation" }
+    }
+  ],
+  "rooms": []
+}

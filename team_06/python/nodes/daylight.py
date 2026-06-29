@@ -3,8 +3,9 @@ import json
 from pathlib import Path
 from tools.layout_utils import save_layout
 
-def build_daylight_node(mcp_client: Any) -> Any:
+def build_daylight_node(mcp_client: Any, tools: list | None = None) -> Any:
     """Attach daylight analysis to the current layout using MCP tool daylight_06."""
+    _tool_available = any(t.get("name") == "daylight_06" for t in (tools or []))
 
     def _daylight_fallback(layout_json: str | dict, iteration: int, issue: str) -> dict:
         serialized_layout = json.dumps(layout_json) if isinstance(layout_json, dict) else layout_json
@@ -18,6 +19,10 @@ def build_daylight_node(mcp_client: Any) -> Any:
     def evaluate(state: dict) -> dict:
         layout_json = state.get("layout_json_string")
         iteration = state.get("iteration", 0)
+
+        if not _tool_available:
+            serialized = json.dumps(layout_json) if isinstance(layout_json, dict) else layout_json
+            return {"daylight_result": "evaluate", "layout_json_string": serialized, "iteration": iteration + 1}
 
         if not layout_json:
             return {
@@ -38,7 +43,7 @@ def build_daylight_node(mcp_client: Any) -> Any:
             result = mcp_client.call_tool("daylight_06", {
                 "layout_json": layout_data,
                 "window_wall_ratio": 0.5
-            })
+            }, timeout=120)
 
             if isinstance(result, str):
                 try:

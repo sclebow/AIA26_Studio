@@ -8,11 +8,14 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+import time
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from _runtime.bootstrap import bootstrap
+from utils.logger import log_run
 from graph import run_agent
 
 
@@ -521,6 +524,7 @@ def _build_partial_payload(session_id: str, updated_session: dict[str, Any]) -> 
 
 def _run_chat_in_background(session_id: str, message: str) -> None:
     run_state = _chat_run_store()[session_id]
+    t_start = time.time()
 
     def on_status(messages: list[str], partial_session: dict[str, Any] | None = None) -> None:
         run_state["status"] = "running"
@@ -537,7 +541,63 @@ def _run_chat_in_background(session_id: str, message: str) -> None:
         run_state["status_messages"] = updated_session.get("status_messages", [])
         run_state["result"] = _build_chat_payload(session_id, response, updated_session)
         run_state["error"] = None
+
+        # Extract brief fields (left sidebar)
+        brief = _build_brief(updated_session.get("topology_graph_json_string")) or {}
+        specifications = brief.get("specifications", [])
+        rooms = [r["label"] for r in brief.get("rooms", []) if isinstance(r, dict)]
+        household = [m["name"] for m in brief.get("household", []) if isinstance(m, dict) and m.get("name")]
+
+        # Extract routine fields
+        routine_warning = updated_session.get("routine_warning")
+        routine_raw = _parse_routine(updated_session.get("routine_json_string"))
+        routine_personas = [
+            p["persona"] for p in (routine_raw or {}).get("personas", [])
+            if isinstance(p, dict) and p.get("persona")
+        ]
+
+        # Extract evaluation summary
+        evaluation = _parse_evaluation(updated_session.get("evaluation_json_string"))
+        evaluation_summary = evaluation.get("chat_summary") if isinstance(evaluation, dict) else None
+
+        log_run(
+            session_id=session_id,
+            user_prompt=message,
+            llm_provider=app.state.ctx.llm_provider,
+            llm_model=app.state.ctx.llm_model,
+            nodes_executed=updated_session.get("nodes_executed", []),
+            selected_layout_id=updated_session.get("layout_id"),
+            agent_response=response,
+            specifications=specifications,
+            rooms=rooms,
+            household=household,
+            routine_status="warning" if routine_warning else "success",
+            routine_personas=routine_personas,
+            routine_warning=routine_warning,
+            evaluation_summary=evaluation_summary,
+            duration_seconds=time.time() - t_start,
+            status="success",
+        )
     except Exception as exc:
+        log_run(
+            session_id=session_id,
+            user_prompt=message,
+            llm_provider=getattr(app.state.ctx, "llm_provider", "unknown"),
+            llm_model=getattr(app.state.ctx, "llm_model", "unknown"),
+            nodes_executed=[],
+            selected_layout_id=None,
+            agent_response=None,
+            specifications=[],
+            rooms=[],
+            household=[],
+            routine_status="error",
+            routine_personas=[],
+            routine_warning=None,
+            evaluation_summary=None,
+            duration_seconds=time.time() - t_start,
+            status="error",
+            error=str(exc),
+        )
         run_state["status"] = "failed"
         run_state["error"] = str(exc)
 

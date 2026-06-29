@@ -26,7 +26,7 @@ SYSTEM_PROMPT = (
     '- ["<room_id>","<activity>"] = person is at home in that room that hour.\n'
     "- ONLY use room ids from the provided rooms list. NEVER invent a room id.\n"
     "- FORBIDDEN rooms — NEVER place anyone in: circulation, hallway, corridor, storage, walkincloset. Use bed/bath/living instead.\n"
-    "- Activity values: sleeping, showering, working, studying, relaxing, cooking, playing, dressing.\n"
+    "- Activity values: sleeping, showering, working, studying, relaxing, cooking, playing, dressing. Outdoor activities are always null, not an activity value.\n"
     "- Colors are hex strings.\n\n"
 
     "DEFAULT SCHEDULE — apply this for every adult not described otherwise in the brief:\n"
@@ -45,7 +45,7 @@ SYSTEM_PROMPT = (
     "  18:00 → relaxing in living room\n"
     "  19:00 → relaxing in living room\n"
     "  20:00 → relaxing in living room\n"
-    "  21:00 → relaxing in living room\n"
+    "  21:00 → showering in bathroom\n"
     "  22:00 → sleeping in bedroom\n\n"
 
     "EXCEPTIONS — only apply when the brief explicitly states it:\n"
@@ -61,7 +61,19 @@ SYSTEM_PROMPT = (
 
     "CONFLICTS:\n"
     "- Never put two people in the same room at the same time (exception: couple sleeping together).\n"
-    "- Never put two people in the same bathroom at the same time — stagger shower times by 1 hour.\n"
+    "- Never put two people in the same bathroom at the same time — stagger shower times by 1 hour.\n\n"
+
+    "OUTDOORS:\n"
+    "- Any activity that happens outside the home (walk, going out, shopping, errand, outing) must be null — the person is not in any room.\n"
+    "- 'Going for a walk', 'taking the dog out', 'going outside' = null for that hour for EVERY person AND pet involved.\n\n"
+
+    "PETS:\n"
+    "- Include dogs, cats, and other pets mentioned in the brief as their own personas.\n"
+    "- Name pet personas using only their name (e.g. 'Sky', 'Pixel') — do not append the species.\n"
+    "- Pet schedule: sleeping in bedroom 06:00–07:00, playing or relaxing in living room during the day, sleeping in bedroom at 22:00.\n"
+    "- PET WALK SYNC — CRITICAL: when a person takes the dog for a walk, the dog's steps must be null for exactly the same time slots as that person. They leave together and return together.\n"
+    "- When the pet is home alone (owner away for work etc.), the pet relaxes in the living room — not null.\n"
+    "- Never place a pet in a bathroom or wc.\n"
 )
 
 
@@ -143,22 +155,46 @@ def _stable_color_personas(personas: list[dict[str, Any]], topology_json: str | 
         color = PERSONA_COLORS[hi % len(PERSONA_COLORS)]
         member_name = (member.get("name") or "").strip().lower()
         member_rel = (member.get("relationship") or "").strip().lower()
+        kind = "dog" if any(w in member_rel for w in ("dog", "puppy", "hound")) else "cat" if any(w in member_rel for w in ("cat", "kitty", "feline")) else "person"
         idx = name_to_idx.get(member_name) if member_name else None
         if idx is None:
             idx = name_to_idx.get(member_rel)
         if idx is not None and idx not in used:
-            ordered.append({**personas[idx], "color": color})
+            ordered.append({**personas[idx], "color": color, "kind": kind})
             used.add(idx)
         else:
             for j, p in enumerate(personas):
                 if j not in used:
-                    ordered.append({**p, "color": color})
+                    ordered.append({**p, "color": color, "kind": kind})
                     used.add(j)
                     break
 
     for j, p in enumerate(personas):
         if j not in used:
             ordered.append({**p, "color": PERSONA_COLORS[j % len(PERSONA_COLORS)]})
+
+    # Correction pass: cascade mismatches can assign the wrong kind.
+    # Re-apply kind directly from household for any persona whose name matches a pet.
+    pet_kind_by_name: dict[str, str] = {}
+    for m in household:
+        if not isinstance(m, dict):
+            continue
+        mname = (m.get("name") or "").strip().lower()
+        mrel = (m.get("relationship") or "").strip().lower()
+        if not mname:
+            continue
+        if any(w in mrel for w in ("dog", "puppy", "hound")):
+            pet_kind_by_name[mname] = "dog"
+        elif any(w in mrel for w in ("cat", "kitty", "feline")):
+            pet_kind_by_name[mname] = "cat"
+
+    for p in ordered:
+        pname = (p.get("persona") or "").strip().lower()
+        matched = pet_kind_by_name.get(pname) or next(
+            (k for pet_name, k in pet_kind_by_name.items() if pet_name in pname), None
+        )
+        if matched:
+            p["kind"] = matched
 
     return ordered
 
@@ -238,6 +274,8 @@ def _fallback_routine(layout_data: dict[str, Any], topology_json: str | None) ->
                 steps.append({"room": bed_id,               "label": "sleeping"}  if bed_id             else None)
             elif hour == 7:
                 steps.append({"room": bath_id or home,      "label": "showering"} if (bath_id or home)  else None)
+            elif hour == 21:
+                steps.append({"room": bath_id or home,      "label": "showering"} if (bath_id or home)  else None)
             else:
                 steps.append({"room": home,                 "label": "relaxing"}  if home               else None)
         return steps
@@ -250,14 +288,19 @@ def _fallback_routine(layout_data: dict[str, Any], topology_json: str | None) ->
         except Exception:
             pass
 
+    def _member_kind(m: dict) -> str:
+        rel = (m.get("relationship") or "").strip().lower()
+        return "dog" if any(w in rel for w in ("dog", "puppy", "hound")) else "cat" if any(w in rel for w in ("cat", "kitty", "feline")) else "person"
+
     personas = [
         {
             "persona": (m.get("name") or m.get("relationship") or f"Resident {i + 1}"),
             "color": PERSONA_COLORS[i % len(PERSONA_COLORS)],
+            "kind": _member_kind(m),
             "steps": _home_steps(),
         }
         for i, m in enumerate(household)
-    ] or [{"persona": "Resident 1", "color": PERSONA_COLORS[0], "steps": _home_steps()}]
+    ] or [{"persona": "Resident 1", "color": PERSONA_COLORS[0], "kind": "person", "steps": _home_steps()}]
 
     return {"time_slots": list(DEFAULT_TIME_SLOTS), "personas": personas}
 
@@ -306,25 +349,75 @@ def build_routine_node(llm: Any) -> Any:
                 raise ValueError("Routine layout is not valid JSON.")
 
             rooms = _layout_rooms(layout_data)
-            messages = [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": (
-                    f"User brief (full conversation — apply every detail literally):\n{full_brief}\n\n"
-                    f"Available rooms (use only these IDs in steps):\n{json.dumps(rooms, separators=(',', ':'))}\n\n"
-                    f"Time slots: {', '.join(DEFAULT_TIME_SLOTS)}\n\n"
-                    "Generate the daily routine for every person mentioned in the brief. Return only compact JSON."
-                )},
-            ]
-            response = llm.invoke(messages)
-            raw = get_response_text(response)
-            if '"final_response"' in raw:
+
+            # Extract household from topology for explicit persona list
+            household_list: list[dict] = []
+            if topology_json:
                 try:
-                    wrapper = json.loads(raw)
-                    raw = wrapper.get("final_response", raw)
+                    household_list = json.loads(topology_json).get("household", []) or []
                 except Exception:
                     pass
-            parsed = _parse_routine_json(raw)
+            household_summary = ""
+            if household_list:
+                lines = []
+                for m in household_list:
+                    name = m.get("name") or m.get("relationship") or "?"
+                    rel = m.get("relationship") or ""
+                    info = m.get("info") or ""
+                    lines.append(f"- {name} ({rel}){': ' + info if info else ''}")
+                household_summary = "Household members to include (generate one persona per entry):\n" + "\n".join(lines) + "\n\n"
+
+            # Format rooms clearly so the LLM can pick the right IDs
+            room_lines = [f'  id="{r["id"]}" program={r["program"]} name={r["name"] or ""}' for r in rooms]
+            rooms_block = "Available rooms — use ONLY these exact id values in steps:\n" + "\n".join(room_lines)
+
+            def _build_messages(extra: str = "") -> list[dict]:
+                return [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": (
+                        f"User brief (full conversation — apply every detail literally):\n{full_brief}\n\n"
+                        f"{household_summary}"
+                        f"{rooms_block}\n\n"
+                        f"Time slots: {', '.join(DEFAULT_TIME_SLOTS)}\n\n"
+                        + (f"{extra}\n\n" if extra else "")
+                        + "Generate the daily routine. Return only compact JSON."
+                    )},
+                ]
+
+            def _invoke_and_parse(messages: list[dict]) -> dict:
+                response = llm.invoke(messages)
+                raw = get_response_text(response)
+                if '"final_response"' in raw:
+                    try:
+                        wrapper = json.loads(raw)
+                        raw = wrapper.get("final_response", raw)
+                    except Exception:
+                        pass
+                return _parse_routine_json(raw)
+
+            def _coverage(payload: dict) -> float:
+                """Fraction of steps that are non-null across all personas."""
+                personas = payload.get("personas", [])
+                if not personas:
+                    return 0.0
+                total = sum(len(p.get("steps", [])) for p in personas)
+                present = sum(1 for p in personas for s in p.get("steps", []) if s is not None)
+                return present / total if total else 0.0
+
+            parsed = _invoke_and_parse(_build_messages())
             payload = _normalize_routine(parsed, layout_data, topology_json)
+
+            # Retry once if coverage is suspiciously low (likely wrong room IDs used)
+            if _coverage(payload) < 0.25:
+                retry_hint = (
+                    "IMPORTANT: your previous response had too many null steps, likely due to wrong room IDs. "
+                    "Use ONLY the exact id strings listed above. Double-check every step."
+                )
+                parsed2 = _invoke_and_parse(_build_messages(retry_hint))
+                payload2 = _normalize_routine(parsed2, layout_data, topology_json)
+                if _coverage(payload2) > _coverage(payload):
+                    payload = payload2
+
             return {"routine_json_string": json.dumps(payload), "routine_warning": None, "iteration": iteration + 1}
 
         except Exception as e:

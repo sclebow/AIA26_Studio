@@ -6,19 +6,6 @@ Test
 ================================================
 
 Visualisation:
-0. circle of scoring more thin and with gradient
-1. replace orange with another color (marine)
-2. select layout: put a separator message in chat - every message automated generated shall have a different graphics.
-
-1. Furniture
-2. Laoyut Graph
-3. Routine: avatars, animation?
-4. Embedding space: more miniatures when zooming max (or put a max to zoom)
-
-================================================
-
-Features: 
-1. DBSCAN/k-means + cluster labeling + background regions on the SVG. 
-
-==================================================
-
+1. Layout Graph (highlight only access or adjacency edges, if you go over a node you have a "flux" from the adjacent nodes )
+2. Routine: avatars moving through graph edges? highlight frictions
+3. Embedding space: more miniatures when zooming max (or put a max to zoom)

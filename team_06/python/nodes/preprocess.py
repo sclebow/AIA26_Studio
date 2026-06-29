@@ -33,9 +33,15 @@ def build_preprocess_node() -> Any:
         if IN_BETWEEN_PATTERN.search(user_prompt):
             ids = LAYOUT_ID_PATTERN.findall(user_prompt)
             if len(ids) >= 2:
+                # Preserve the existing brief and just add the in_between field
+                try:
+                    existing = json.loads(state.get("topology_graph_json_string") or "{}")
+                except Exception:
+                    existing = {}
+                existing["in_between"] = [ids[0], ids[1]]
                 return {
                     "preprocess_result": "find_between",
-                    "topology_graph_json_string": json.dumps({"in_between": [ids[0], ids[1]]}),
+                    "topology_graph_json_string": json.dumps(existing),
                 }
 
         select_layout_match = SELECT_LAYOUT_PATTERN.search(state.get("user_prompt", ""))

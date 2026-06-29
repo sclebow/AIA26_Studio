@@ -21,19 +21,20 @@
         </button>
         <span class="tooltip">Layout</span>
       </div>
-      <div class="tooltip-wrap">
-        <button class="layout-input-btn view-btn" :class="{ active: hasRoutine && viewMode === 'routine' }" :disabled="!hasRoutine" @click="hasRoutine && emit('viewChange', 'routine')">
-          <img :src="hasRoutine && viewMode === 'routine' ? clockBlueIcon : clockIcon" alt="Routine" width="22" height="22" />
-        </button>
-        <span class="tooltip">Routine</span>
-      </div>
-      <div class="tooltip-wrap">
+            <div class="tooltip-wrap">
         <button class="layout-input-btn view-btn" :class="{ active: hasDaylight && viewMode === 'daylight' }" :disabled="!hasDaylight" @click="hasDaylight && emit('viewChange', 'daylight')">
           <img :src="hasDaylight && viewMode === 'daylight' ? sunBlueIcon : sunIcon" alt="Daylight" width="22" height="22" />
         </button>
         <span class="tooltip">Daylight</span>
       </div>
       <div class="tooltip-wrap">
+        <button class="layout-input-btn view-btn" :class="{ active: hasRoutine && viewMode === 'routine' }" :disabled="!hasRoutine" @click="hasRoutine && emit('viewChange', 'routine')">
+          <img :src="hasRoutine && viewMode === 'routine' ? clockBlueIcon : clockIcon" alt="Routine" width="22" height="22" />
+        </button>
+        <span class="tooltip">Routine</span>
+      </div>
+<div class="toolbar-divider"></div>
+<div class="tooltip-wrap">
         <button class="layout-input-btn view-btn" :class="{ active: hasEmbeddingMap && viewMode === 'explore' }" :disabled="!hasEmbeddingMap" @click="hasEmbeddingMap && emit('viewChange', 'explore')">
           <img :src="hasEmbeddingMap && viewMode === 'explore' ? exploreBlueIcon : exploreIcon" alt="Explore" width="22" height="22" />
         </button>
