@@ -158,7 +158,7 @@ def build_graph(ctx: Any, status_callback: Callable[[list[str], dict[str, Any] |
     find_between = build_find_between_node()
     select = build_select_node()
     adapt = build_adapt_node(ctx.mcp_client)
-    daylight = build_daylight_node(ctx.mcp_client)
+    daylight = build_daylight_node(ctx.mcp_client, ctx.tools)
     evaluate = build_evaluate_node(ctx.llm)
     feedback = build_feedback_node()
     routine = build_routine_node(ctx.llm)

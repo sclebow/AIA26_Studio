@@ -290,7 +290,7 @@ def _fallback_routine(layout_data: dict[str, Any], topology_json: str | None) ->
 
     def _member_kind(m: dict) -> str:
         rel = (m.get("relationship") or "").strip().lower()
-        return "dog" if rel in ("dog", "puppy") else "cat" if rel in ("cat", "kitty", "feline") else "person"
+        return "dog" if any(w in rel for w in ("dog", "puppy", "hound")) else "cat" if any(w in rel for w in ("cat", "kitty", "feline")) else "person"
 
     personas = [
         {
@@ -349,25 +349,75 @@ def build_routine_node(llm: Any) -> Any:
                 raise ValueError("Routine layout is not valid JSON.")
 
             rooms = _layout_rooms(layout_data)
-            messages = [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": (
-                    f"User brief (full conversation — apply every detail literally):\n{full_brief}\n\n"
-                    f"Available rooms (use only these IDs in steps):\n{json.dumps(rooms, separators=(',', ':'))}\n\n"
-                    f"Time slots: {', '.join(DEFAULT_TIME_SLOTS)}\n\n"
-                    "Generate the daily routine for every person and pet mentioned in the brief. Return only compact JSON."
-                )},
-            ]
-            response = llm.invoke(messages)
-            raw = get_response_text(response)
-            if '"final_response"' in raw:
+
+            # Extract household from topology for explicit persona list
+            household_list: list[dict] = []
+            if topology_json:
                 try:
-                    wrapper = json.loads(raw)
-                    raw = wrapper.get("final_response", raw)
+                    household_list = json.loads(topology_json).get("household", []) or []
                 except Exception:
                     pass
-            parsed = _parse_routine_json(raw)
+            household_summary = ""
+            if household_list:
+                lines = []
+                for m in household_list:
+                    name = m.get("name") or m.get("relationship") or "?"
+                    rel = m.get("relationship") or ""
+                    info = m.get("info") or ""
+                    lines.append(f"- {name} ({rel}){': ' + info if info else ''}")
+                household_summary = "Household members to include (generate one persona per entry):\n" + "\n".join(lines) + "\n\n"
+
+            # Format rooms clearly so the LLM can pick the right IDs
+            room_lines = [f'  id="{r["id"]}" program={r["program"]} name={r["name"] or ""}' for r in rooms]
+            rooms_block = "Available rooms — use ONLY these exact id values in steps:\n" + "\n".join(room_lines)
+
+            def _build_messages(extra: str = "") -> list[dict]:
+                return [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": (
+                        f"User brief (full conversation — apply every detail literally):\n{full_brief}\n\n"
+                        f"{household_summary}"
+                        f"{rooms_block}\n\n"
+                        f"Time slots: {', '.join(DEFAULT_TIME_SLOTS)}\n\n"
+                        + (f"{extra}\n\n" if extra else "")
+                        + "Generate the daily routine. Return only compact JSON."
+                    )},
+                ]
+
+            def _invoke_and_parse(messages: list[dict]) -> dict:
+                response = llm.invoke(messages)
+                raw = get_response_text(response)
+                if '"final_response"' in raw:
+                    try:
+                        wrapper = json.loads(raw)
+                        raw = wrapper.get("final_response", raw)
+                    except Exception:
+                        pass
+                return _parse_routine_json(raw)
+
+            def _coverage(payload: dict) -> float:
+                """Fraction of steps that are non-null across all personas."""
+                personas = payload.get("personas", [])
+                if not personas:
+                    return 0.0
+                total = sum(len(p.get("steps", [])) for p in personas)
+                present = sum(1 for p in personas for s in p.get("steps", []) if s is not None)
+                return present / total if total else 0.0
+
+            parsed = _invoke_and_parse(_build_messages())
             payload = _normalize_routine(parsed, layout_data, topology_json)
+
+            # Retry once if coverage is suspiciously low (likely wrong room IDs used)
+            if _coverage(payload) < 0.25:
+                retry_hint = (
+                    "IMPORTANT: your previous response had too many null steps, likely due to wrong room IDs. "
+                    "Use ONLY the exact id strings listed above. Double-check every step."
+                )
+                parsed2 = _invoke_and_parse(_build_messages(retry_hint))
+                payload2 = _normalize_routine(parsed2, layout_data, topology_json)
+                if _coverage(payload2) > _coverage(payload):
+                    payload = payload2
+
             return {"routine_json_string": json.dumps(payload), "routine_warning": None, "iteration": iteration + 1}
 
         except Exception as e:
