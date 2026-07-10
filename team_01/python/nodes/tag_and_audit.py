@@ -297,6 +297,82 @@ def generate_structure(layout: dict, save_outputs: bool = False, output_dir: str
     Returns the layout dict with structure (first option) applied.
     If save_outputs=True, saves all options as PNG+JSON to output_dir.
     """
+    # ── MULTILEVEL HANDLER ────────────────────────────────────────────────────
+    from nodes._layout import is_multilevel, get_level_keys
+    if is_multilevel(layout):
+        level_keys = get_level_keys(layout)
+        l01 = level_keys[0]
+        virtual = {
+            "layoutId": layout.get("layoutId", "layout"),
+            "outline" : layout["levels"][l01].get("outline", []),
+            "rooms"   : layout["levels"][l01].get("rooms", []),
+        }
+        single_opts = generate_structure(virtual, save_outputs=False)
+        if not single_opts:
+            return layout
+        all_ml_outputs = []
+        for opt in single_opts:
+            lv1_struct = opt.get("structure", [])
+            ml_out = {"layoutId": layout.get("layoutId", "layout"), "levels": {}}
+            for lk in level_keys:
+                level_data = {k: v for k, v in layout["levels"][lk].items() if k != "structure"}
+                if lk == l01:
+                    level_data["structure"] = lv1_struct
+                else:
+                    upper_outline = layout["levels"][lk].get("outline", [])
+                    if not upper_outline:
+                        # Derive outline from room geometry at this level
+                        _up_rooms = layout["levels"][lk].get("rooms", [])
+                        _room_pts = [pt for r in _up_rooms for pt in r.get("geometry", [])]
+                        if len(_room_pts) >= 3:
+                            try:
+                                upper_outline = list(ShapelyPolygon(_room_pts).convex_hull.exterior.coords)
+                            except Exception:
+                                pass
+                        if not upper_outline:
+                            # Final fallback: same footprint as level_01
+                            upper_outline = layout["levels"][l01].get("outline", [])
+                    if upper_outline:
+                        upper_poly = ShapelyPolygon(upper_outline)
+                        col_xy_set = set()
+                        filtered_cols = []
+                        for el in lv1_struct:
+                            if len(el.get("geometry", [])) == 1:
+                                x, y = el["geometry"][0]
+                                pt = Point(x, y)
+                                if upper_poly.contains(pt) or upper_poly.boundary.distance(pt) < TOLERANCE:
+                                    on_perim = upper_poly.boundary.distance(pt) < TOLERANCE
+                                    filtered_cols.append({
+                                        "id"        : el["id"],
+                                        "name"      : el["name"],
+                                        "geometry"  : el["geometry"],
+                                        "attributes": {**el.get("attributes", {}), "type": "perimeter" if on_perim else "internal"},
+                                    })
+                                    col_xy_set.add((round(x, 3), round(y, 3)))
+                        filtered_beams = []
+                        for el in lv1_struct:
+                            if len(el.get("geometry", [])) == 2:
+                                u, v_pt = el["geometry"][0], el["geometry"][1]
+                                uk = (round(u[0], 3), round(u[1], 3))
+                                vk = (round(v_pt[0], 3), round(v_pt[1], 3))
+                                if uk in col_xy_set and vk in col_xy_set:
+                                    u_on_p = upper_poly.boundary.distance(Point(u)) < TOLERANCE
+                                    v_on_p = upper_poly.boundary.distance(Point(v_pt)) < TOLERANCE
+                                    filtered_beams.append({
+                                        "id"        : el["id"],
+                                        "name"      : el["name"],
+                                        "geometry"  : el["geometry"],
+                                        "attributes": {**el.get("attributes", {}), "type": "perimeter" if (u_on_p and v_on_p) else "internal"},
+                                    })
+                        level_data["structure"] = filtered_cols + filtered_beams
+                    else:
+                        level_data["structure"] = list(lv1_struct)
+                ml_out["levels"][lk] = level_data
+            all_ml_outputs.append(ml_out)
+        n01 = sum(1 for e in all_ml_outputs[0]["levels"][l01].get("structure", []) if len(e["geometry"]) == 1)
+        print(f"  {len(all_ml_outputs)} structural option(s) ready for {layout.get('layoutId','layout')} (multilevel, {len(level_keys)} levels, {n01} cols on {l01})")
+        return all_ml_outputs
+
     if not layout.get("rooms") or not layout.get("outline"):
         print("[tag_and_audit] Layout missing rooms or outline — returning unchanged")
         return layout

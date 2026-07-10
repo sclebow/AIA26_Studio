@@ -346,7 +346,12 @@ def _detect_changes(before_str: str, after_str: str) -> dict[str, Any]:
     """Compare two layout JSON strings and return categorised element lists."""
     def _struct_map(s: str) -> dict[str, dict]:
         try:
-            return {el["id"]: el for el in json.loads(s).get("structure", [])}
+            data = json.loads(s)
+            if "levels" in data:
+                elements = [el for lv in data["levels"].values() for el in lv.get("structure", [])]
+            else:
+                elements = data.get("structure", [])
+            return {el["id"]: el for el in elements}
         except (json.JSONDecodeError, TypeError):
             return {}
 
@@ -1098,9 +1103,15 @@ def build_cost_flexibility_node():
         )
 
         try:
-            layout_data  = json.loads(layout_str)
-            outline      = layout_data.get("outline", [])
-            all_elements = layout_data.get("structure", [])
+            layout_data = json.loads(layout_str)
+            if "levels" in layout_data:
+                levels = layout_data["levels"]
+                first_level = next(iter(sorted(levels.keys())), None)
+                outline = levels[first_level].get("outline", []) if first_level else []
+                all_elements = [el for lv in levels.values() for el in lv.get("structure", [])]
+            else:
+                outline      = layout_data.get("outline", [])
+                all_elements = layout_data.get("structure", [])
         except (json.JSONDecodeError, TypeError):
             outline      = []
             all_elements = []
@@ -1224,6 +1235,19 @@ def build_cost_flexibility_node():
         print(f"  {summary}")
         if ratchet_triggered_now:
             print("  Heritage ratchet: PERMANENT — all future modifications require heritage review.")
+
+        # Accumulate per-cycle cost into history
+        if state.get("cost_history") is None:
+            state["cost_history"] = []
+        state["cost_history"].append({
+            "cycle":               len(state["cost_history"]) + 1,
+            "changes":             change_desc,
+            "label":               fc["financial_cost_label"],
+            "total_build_cost_eur": tbc,
+            "total_mid_eur":       fc["financial_cost_range"]["mid"],
+            "intervention_mid_eur": fc["intervention_mid_eur"],
+            "overhead_mid_eur":    fc["overhead_mid_eur"],
+        })
 
         state["cost_flexibility"] = {
             # Internal — for comparison node ranking; not surfaced in LLM narrative

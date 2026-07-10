@@ -55,6 +55,7 @@ class AgentState(TypedDict):
     sdl_kNm2: float | None
     find_minimum_done: bool | None
     cost_flexibility: dict | None
+    cost_history: list | None          # one entry per modify→cost_flex cycle
     # ### V4 START — context inputs for three-pillar cost/flexibility model
     # All five keys are loaded from team_01_settings.json at session start.
     # Absent settings keys fall back to the listed defaults.
@@ -150,9 +151,10 @@ def build_generate_grid_node(edited_layout_path):
         if len(options) == 1:
             chosen = options[0]
         else:
+            from nodes._layout import get_structure as _gs_grid
             print(f"\n{len(options)} layout options generated:")
             for i, opt in enumerate(options):
-                struct  = opt.get("structure", [])
+                struct  = _gs_grid(opt)
                 n_cols  = sum(1 for s in struct if len(s["geometry"]) == 1)
                 n_beams = sum(1 for s in struct if len(s["geometry"]) == 2)
                 max_span = max(
@@ -172,7 +174,8 @@ def build_generate_grid_node(edited_layout_path):
                     print(f"[generate_grid] Using option {raw}")
                     break
 
-        n = len(chosen.get("structure", []))
+        from nodes._layout import get_structure as _gs_grid
+        n = len(_gs_grid(chosen))
         print(f"Structural grid ready — {n} elements placed.")
 
         state["layout_json_string"] = json.dumps(chosen)
@@ -234,11 +237,12 @@ def run_agent(prompt: str, ctx: Any, layout_data: dict | None = None) -> tuple[s
             else:
                 data = None
             if data:
+                from nodes._layout import iter_all_structure as _ias
                 is_steel = "STEEL" in material.upper()
                 global_beam_sec = sec.get("beam_section", "") if is_steel else ""
                 global_col_sec  = sec.get("col_section",  "") if is_steel else ""
                 count = 0
-                for el in data.get("structure", []):
+                for _lk, el in _ias(data):
                     attrs = el.setdefault("attributes", {})
                     attrs["material"] = material
                     is_beam = len(el.get("geometry", [])) == 2
@@ -289,9 +293,6 @@ def run_agent(prompt: str, ctx: Any, layout_data: dict | None = None) -> tuple[s
 
 
 
-    print("\nWorkflow graph:")
-    app.get_graph().print_ascii()
-
     llm_response = (
         final_state.get("final_response")
         or final_state.get("comparison_result")
@@ -316,13 +317,22 @@ def run_agent(prompt: str, ctx: Any, layout_data: dict | None = None) -> tuple[s
         comparison=final_state.get("comparison_result"),
         report_path=ctx.edited_layout_path.parent / "team_01_evaluation_report.md",
         cost_flexibility=final_state.get("cost_flexibility"),
+        cost_history=final_state.get("cost_history") or [],
         material=final_state.get("material_override"),
         sdl_kNm2=final_state.get("sdl_kNm2"),
         live_load_kNm2=final_state.get("live_load_kNm2"),
     )
 
     edited_layout_json = final_state.get("layout_json_string") or None
-    return final_response, edited_layout_json
+    # Inject cost/flexibility data into the returned layout JSON
+    if edited_layout_json and final_state.get("cost_flexibility"):
+        try:
+            _layout_data = json.loads(edited_layout_json)
+            _layout_data.setdefault("analysis", {})["structure_cost"] = final_state["cost_flexibility"]
+            edited_layout_json = json.dumps(_layout_data, indent=2, ensure_ascii=False)
+        except Exception:
+            pass
+    return final_response, edited_layout_json, app
 
 
 def _write_evaluation_report(
@@ -331,6 +341,7 @@ def _write_evaluation_report(
     comparison: str | None,
     report_path: Path,
     cost_flexibility: dict | None = None,
+    cost_history: list | None = None,
     material: str | None = None,
     sdl_kNm2: float | None = None,
     live_load_kNm2: float | None = None,
@@ -436,6 +447,35 @@ def _write_evaluation_report(
         if cf.get("summary"):
             lines.append(f"> {cf['summary']}")
             lines.append("")
+    # Cumulative cost across all upgrade cycles
+    if cost_history and len(cost_history) > 1:
+        lines.append("## Cumulative Modification Cost")
+        lines.append("")
+        lines.append("| Cycle | Changes | Intervention Cost | Total Build Cost |")
+        lines.append("|-------|---------|-------------------|-----------------|")
+        total_intervention_eur = 0
+        for entry in cost_history:
+            mid = entry.get("total_mid_eur", 0)
+            total_intervention_eur += mid
+            tbc_eur = entry.get("total_build_cost_eur", {})
+            tbc_mid = tbc_eur.get("total_build_mid_eur", 0) if isinstance(tbc_eur, dict) else 0
+            tbc_str = f"EUR {tbc_mid:,.0f}" if tbc_mid else "—"
+            lines.append(
+                f"| {entry['cycle']} | {entry.get('changes', '—')} "
+                f"| {entry.get('label', '—')} (EUR {mid:,.0f}) | {tbc_str} |"
+            )
+        lines.append(f"| **Total** | | **EUR {total_intervention_eur:,.0f}** | |")
+        # Cost delta: first vs last total build cost
+        first_tbc = cost_history[0].get("total_build_cost_eur", {})
+        last_tbc  = cost_history[-1].get("total_build_cost_eur", {})
+        if isinstance(first_tbc, dict) and isinstance(last_tbc, dict):
+            first_mid = first_tbc.get("total_build_mid_eur", 0)
+            last_mid  = last_tbc.get("total_build_mid_eur", 0)
+            if first_mid and last_mid:
+                delta = last_mid - first_mid
+                sign = "+" if delta >= 0 else ""
+                lines.append(f"| **Cost delta** | first to last | | **{sign}EUR {delta:,.0f}** |")
+        lines.append("")
     report_path.write_text("\n".join(lines), encoding="utf-8")
     print(f"[report] saved {report_path.name}")
 
@@ -511,7 +551,10 @@ def _load_all_layouts() -> list[dict[str, Any]]:
                 content = json.loads(json_file.read_text(encoding="utf-8"))
                 entries = content if isinstance(content, list) else [content]
                 for entry in entries:
-                    if isinstance(entry, dict) and "rooms" in entry and "outline" in entry:
+                    if isinstance(entry, dict) and (
+                        ("rooms" in entry and "outline" in entry)
+                        or "levels" in entry
+                    ):
                         all_layouts.append(entry)
             except Exception:
                 pass
@@ -531,10 +574,11 @@ def _build_initial_state(prompt: str, ctx: Any, layout_data: dict | None = None)
         layouts = _load_all_layouts()
         if len(layouts) > 1:
             print(f"\n{len(layouts)} layouts available:")
+            from nodes._layout import get_structure as _gs_menu, get_all_rooms as _gar_menu
             for i, l in enumerate(layouts):
                 lid     = l.get("layoutId", f"layout-{i+1}")
-                n_rooms = len(l.get("rooms", []))
-                has_structure = len(l.get("structure", [])) > 0
+                n_rooms = len(_gar_menu(l))
+                has_structure = len(_gs_menu(l)) > 0
                 tag = " [has structure]" if has_structure else ""
                 print(f"  {i+1}. {lid}  ({n_rooms} rooms){tag}")
             while True:
@@ -551,9 +595,10 @@ def _build_initial_state(prompt: str, ctx: Any, layout_data: dict | None = None)
     layout_ids = [l.get("layoutId", "?") for l in layouts]
 
     # Send slim summary to LLM to stay within token limit
+    from nodes._layout import get_structure as _gs_slim, get_all_rooms as _gar_slim, get_outline as _go_slim
     slim = []
     for l in layouts:
-        structure = l.get("structure", [])
+        structure = _gs_slim(l)
         conflicts = [
             {"id": s["id"], "conflict": s["attributes"].get("conflict")}
             for s in structure
@@ -576,10 +621,11 @@ def _build_initial_state(prompt: str, ctx: Any, layout_data: dict | None = None)
                 beam_lines.append(f"{s['id']} {mat} {sec} {span}m")
             else:
                 col_lines.append(f"{s['id']} {mat} {sec}")
+        all_rooms = _gar_slim(l)
         slim.append({
             "layoutId": l.get("layoutId"),
-            "outline": l.get("outline"),
-            "rooms": [{"id": r["id"], "name": r["name"]} for r in l.get("rooms", [])],
+            "outline": _go_slim(l),
+            "rooms": [{"id": r["id"], "name": r["name"]} for r in all_rooms],
             "structure_count": len(structure),
             "beams":   beam_lines,
             "columns": col_lines,
@@ -595,7 +641,8 @@ def _build_initial_state(prompt: str, ctx: Any, layout_data: dict | None = None)
     )
 
     # Detect material set by set_material.py — preserve through modify/tag_and_audit
-    structure = layouts[0].get("structure", []) if layouts else []
+    from nodes._layout import get_structure as _gs_mat
+    structure = _gs_mat(layouts[0]) if layouts else []
     mats = {el.get("attributes", {}).get("material", "RCC") for el in structure if el.get("attributes")}
     detected_material = next(iter(mats)) if len(mats) == 1 else None
 
@@ -619,6 +666,7 @@ def _build_initial_state(prompt: str, ctx: Any, layout_data: dict | None = None)
         "sdl_kNm2": _settings_load(SETTINGS_PATH, "sdl_kNm2"),
         "find_minimum_done": False,
         "cost_flexibility": None,
+        "cost_history": [],
         # ### V4 START — initialize context inputs; absent settings keys fall back to defaults
         "building_occupancy_class": _settings_load(SETTINGS_PATH, "building_occupancy_class") or "HIGH",
         "building_context":         _settings_load(SETTINGS_PATH, "building_context") or "EXISTING_KNOWN",
